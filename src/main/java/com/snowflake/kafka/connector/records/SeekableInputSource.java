@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import com.snowflake.kafka.connector.internal.Logging;
 import org.apache.avro.file.SeekableInput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,7 +65,7 @@ public class SeekableInputSource implements SeekableInput
     }
     this.pointer = (int) p;
 
-    LOGGER.debug("pointer moved to {}", p);
+    LOGGER.debug(Logging.logMessage("pointer moved to {}", p));
   }
 
   /**

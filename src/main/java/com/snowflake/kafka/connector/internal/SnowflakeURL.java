@@ -14,15 +14,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.snowflake.kafka.connector;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+package com.snowflake.kafka.connector.internal;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-class SnowflakeURL
+/**
+ * Snowflake URL Object
+ * https://account.region.snowflakecomputing.com:443
+ */
+public class SnowflakeURL extends Logging
 {
 
   private String jdbcUrl;
@@ -35,21 +37,16 @@ class SnowflakeURL
 
   private int port;
 
-  private static final Logger LOGGER =
-    LoggerFactory.getLogger(SnowflakeURL.class.getName());
-
-  SnowflakeURL(String urlStr)
+  public SnowflakeURL(String urlStr)
   {
     Pattern pattern = Pattern.compile("^(https?://)?((([\\w\\d]+)(\\" +
-      ".[\\w\\d-]+){2,})(:(\\d+))?)/?$");
+        ".[\\w\\d-]+){2,})(:(\\d+))?)/?$");
 
     Matcher matcher = pattern.matcher(urlStr.trim().toLowerCase());
 
     if (!matcher.find())
     {
-      LOGGER.error("invalid Snowflake URL {}", urlStr);
-
-      throw new IllegalArgumentException("invalid Snowflake URL " + urlStr);
+      throw SnowflakeErrors.ERROR_0007.getException("input url: " + urlStr);
     }
 
     if ("http://".equals(matcher.group(1)))
@@ -80,26 +77,26 @@ class SnowflakeURL
 
     jdbcUrl = "jdbc:snowflake://" + url + ":" + port;
 
-    LOGGER.debug("parsed Snowflake URL: " + urlStr);
+    logDebug("parsed Snowflake URL: {}", urlStr);
 
   }
 
-  String getJdbcUrl()
+  public String getJdbcUrl()
   {
     return jdbcUrl;
   }
 
-  String getAccount()
+  public String getAccount()
   {
     return account;
   }
 
-  boolean sslEnabled()
+  public boolean sslEnabled()
   {
     return ssl;
   }
 
-  String getScheme()
+  public String getScheme()
   {
     if (ssl)
     {
@@ -111,17 +108,17 @@ class SnowflakeURL
     }
   }
 
-  String getFullUrl()
+  public String getFullUrl()
   {
     return url + ":" + port;
   }
 
-  String getUrlWithoutPort()
+  public String getUrlWithoutPort()
   {
     return url;
   }
 
-  int getPort()
+  public int getPort()
   {
     return port;
   }

@@ -14,8 +14,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.snowflake.kafka.connector;
+package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.TestUtils;
+import com.snowflake.kafka.connector.Utils;
 import org.junit.Test;
 
 import java.util.Map;
@@ -30,7 +32,7 @@ public class JDBCTest
     SnowflakeJDBCWrapper.createProperties(conf);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void missingPrivateKey() throws Exception
   {
     Map<String, String> conf = TestUtils.getConf();
@@ -40,7 +42,7 @@ public class JDBCTest
     SnowflakeJDBCWrapper.createProperties(conf);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void missingSchema() throws Exception
   {
     Map<String, String> conf = TestUtils.getConf();
@@ -50,7 +52,7 @@ public class JDBCTest
     SnowflakeJDBCWrapper.createProperties(conf);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void missingDataBase() throws Exception
   {
     Map<String, String> conf = TestUtils.getConf();
@@ -60,7 +62,7 @@ public class JDBCTest
     SnowflakeJDBCWrapper.createProperties(conf);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void missingUser() throws Exception
   {
     Map<String, String> conf = TestUtils.getConf();
@@ -70,7 +72,7 @@ public class JDBCTest
     SnowflakeJDBCWrapper.createProperties(conf);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void missingURL() throws Exception
   {
     Map<String, String> conf = TestUtils.getConf();

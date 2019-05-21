@@ -14,19 +14,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.snowflake.kafka.connector;
+package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.Utils;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
-  .ObjectMapper;
+    .ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
-  .ArrayNode;
+    .ArrayNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
-  .ObjectNode;
+    .ObjectNode;
 import net.snowflake.client.jdbc.telemetry.Telemetry;
 import net.snowflake.client.jdbc.telemetry.TelemetryData;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -35,16 +34,13 @@ import java.util.List;
 /**
  * Snowflake Telemetry API for Kafka Connector
  */
-class SnowflakeTelemetry
+public class SnowflakeTelemetry extends Logging
 {
   SnowflakeConnectionV1 conn;
 
   Telemetry telemetry;
 
   LinkedList<TelemetryData> logs;
-
-  private static final Logger LOGGER =
-    LoggerFactory.getLogger(SnowflakeTelemetry.class.getName());
 
   private static final ObjectMapper mapper = new ObjectMapper();
 
@@ -113,7 +109,7 @@ class SnowflakeTelemetry
    *
    * @param conn snowflake connection
    */
-  SnowflakeTelemetry(SnowflakeConnectionV1 conn)
+  public SnowflakeTelemetry(SnowflakeConnectionV1 conn)
   {
     this.conn = conn;
 
@@ -127,7 +123,7 @@ class SnowflakeTelemetry
   /**
    * Event of connector start
    */
-  void reportKafkaStart(long startTime, int numTopics, int numMappedTables,
+  public void reportKafkaStart(long startTime, int numTopics, int numMappedTables,
                         int maxTasks, String appName)
   {
     ObjectNode msg = mapper.createObjectNode();
@@ -155,7 +151,7 @@ class SnowflakeTelemetry
    * @param startTime start timestamp
    * @param appName   application name
    */
-  void reportKafkaStop(long startTime, String appName)
+  public void reportKafkaStop(long startTime, String appName)
   {
     ObjectNode msg = mapper.createObjectNode();
 
@@ -177,7 +173,7 @@ class SnowflakeTelemetry
    * @param errorNumber error message
    * @param appName     application name
    */
-  void reportKafkaFatalError(String errorNumber, String appName)
+  public void reportKafkaFatalError(String errorNumber, String appName)
   {
     ObjectNode msg = mapper.createObjectNode();
 
@@ -199,7 +195,7 @@ class SnowflakeTelemetry
    * @param errorNumber error message
    * @param appName     application name
    */
-  void reportKafkaNonFatalError(String errorNumber, String appName)
+  public void reportKafkaNonFatalError(String errorNumber, String appName)
   {
     ObjectNode msg = mapper.createObjectNode();
 
@@ -224,7 +220,7 @@ class SnowflakeTelemetry
    * @param byteNumber   number of bytes sent to SF
    * @param appName      application name
    */
-  void reportKafkaUsage(long startTime, long endTime,
+  public void reportKafkaUsage(long startTime, long endTime,
                         long recordNumber, long byteNumber, String appName)
   {
     ObjectNode msg = mapper.createObjectNode();
@@ -252,7 +248,7 @@ class SnowflakeTelemetry
    * @param tableName table name
    * @param appName   application name
    */
-  void reportKafkaCreateTable(String tableName, String appName)
+  public void reportKafkaCreateTable(String tableName, String appName)
   {
     ObjectNode msg = mapper.createObjectNode();
 
@@ -274,7 +270,7 @@ class SnowflakeTelemetry
    * @param tableName table name
    * @param appName   application name
    */
-  void reportKafkaReuseTable(String tableName, String appName)
+  public void reportKafkaReuseTable(String tableName, String appName)
   {
     ObjectNode msg = mapper.createObjectNode();
 
@@ -296,7 +292,7 @@ class SnowflakeTelemetry
    * @param stageName stage name
    * @param appName   application name
    */
-  void reportKafkaCreateStage(String stageName, String appName)
+  public void reportKafkaCreateStage(String stageName, String appName)
   {
     ObjectNode msg = mapper.createObjectNode();
 
@@ -318,7 +314,7 @@ class SnowflakeTelemetry
    * @param stageName stage name
    * @param appName   application name
    */
-  void reportKafkaReuseStage(String stageName, String appName)
+  public void reportKafkaReuseStage(String stageName, String appName)
   {
     ObjectNode msg = mapper.createObjectNode();
 
@@ -342,8 +338,8 @@ class SnowflakeTelemetry
    * @param tableName table name
    * @param appName   application name
    */
-  void reportKafkaCreatePipe(String pipeName, String stageName, String
-    tableName,
+  public void reportKafkaCreatePipe(String pipeName, String stageName, String
+      tableName,
                              String appName)
   {
     ObjectNode msg = mapper.createObjectNode();
@@ -374,7 +370,7 @@ class SnowflakeTelemetry
    * @param filenames a list of file names
    * @param appName   application name
    */
-  void reportKafkaFileFailed(String tableName, String stageName,
+  public void reportKafkaFileFailed(String tableName, String stageName,
                              List<String> filenames, String appName)
   {
     ObjectNode msg = mapper.createObjectNode();
@@ -425,7 +421,7 @@ class SnowflakeTelemetry
    * @param log       log message
    * @param timestamp timestamp
    */
-  void addLogToCacheList(ObjectNode log, long timestamp)
+  public void addLogToCacheList(ObjectNode log, long timestamp)
   {
     synchronized (this)
     {
@@ -438,7 +434,7 @@ class SnowflakeTelemetry
    *
    * @param data telemetry record object
    */
-  void addLogToCacheList(TelemetryData data)
+  public void addLogToCacheList(TelemetryData data)
   {
     synchronized (this)
     {
@@ -451,7 +447,7 @@ class SnowflakeTelemetry
    *
    * @return true if succeed, false otherwise
    */
-  boolean send()
+  public boolean send()
   {
     LinkedList<TelemetryData> list;
 
@@ -468,13 +464,13 @@ class SnowflakeTelemetry
       {
         telemetry.addLogToBatch(data);
 
-        LOGGER.debug("sending telemetry data: {}", data.toString());
+        logDebug("sending telemetry data: {}", data.toString());
       }
 
       telemetry.sendBatch();
     } catch (IOException e)
     {
-      LOGGER.error("sending telemetry failed: {}", e.getMessage());
+      logError("sending telemetry failed: {}", e.getMessage());
 
       return false;
     }

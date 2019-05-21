@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   ~ /*
-  ~  * Copyright (c) 2012-2018 Snowflake Computing Inc. All rights reserved.
+  ~  * Copyright (c) 2019 Snowflake Computing Inc. All rights reserved.
   ~  */
   -->
 
@@ -12,7 +12,7 @@
 
     <groupId>net.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>0.2</version>
+    <version>0.3</version>
     <!-- Set our Language Level to Java 8 -->
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -106,7 +106,7 @@
                 <executions>
                     <execution>
                         <id>sign-artifacts</id>
-                        <phase>verify</phase>
+                        <phase>deploy</phase>
                         <goals>
                             <goal>sign</goal>
                         </goals>
@@ -141,7 +141,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-ingest-sdk</artifactId>
-            <version>0.9.4</version>
+            <version>0.9.5</version>
         </dependency>
 
         <dependency>
@@ -158,25 +158,11 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- http://mvnrepository.com/artifact/org.apache.hadoop.hive
-        /hive-metastore -->
-        <dependency>
-            <groupId>org.apache.hadoop.hive</groupId>
-            <artifactId>hive-metastore</artifactId>
-            <version>0.7.1-cdh3u6</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>commons-logging</groupId>
-                    <artifactId>commons-logging-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <!--JDBC driver for building connection with Snowflake-->
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-jdbc</artifactId>
-            <version>3.6.26</version>
+            <version>3.8.0</version>
         </dependency>
 
         <!--junit for unit test-->

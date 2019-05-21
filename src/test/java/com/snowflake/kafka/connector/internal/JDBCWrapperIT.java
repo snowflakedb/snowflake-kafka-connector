@@ -14,14 +14,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.snowflake.kafka.connector;
+package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.TestUtils;
+import com.snowflake.kafka.connector.Utils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +53,7 @@ public class JDBCWrapperIT
   }
 
   @After
-  public void afterAll() throws SQLException
+  public void afterAll()
   {
     TestUtils.dropTable(tableName);
 
@@ -72,7 +73,7 @@ public class JDBCWrapperIT
     assert jdbc.tableExist(tableName);
 
     TestUtils.executeQuery(
-      "insert into " + tableName + " values(123, 223)"
+        "insert into " + tableName + " values(123, 223)"
     );
 
     ResultSet resultSet = TestUtils.showTable(tableName);
@@ -98,7 +99,7 @@ public class JDBCWrapperIT
   }
 
   @Test
-  public void testStageFunctions() throws Exception
+  public void testStageFunctions()
   {
     String fileName = "test.csv.gz";
 
@@ -127,7 +128,7 @@ public class JDBCWrapperIT
   }
 
   @Test
-  public void testPipeFunctions() throws Exception
+  public void testPipeFunctions()
   {
     jdbc.createTable(tableName);
 
@@ -152,7 +153,7 @@ public class JDBCWrapperIT
   }
 
   @Test
-  public void testPurge() throws Exception
+  public void testPurge()
   {
     jdbc.createStage(stageName);
 
@@ -166,7 +167,7 @@ public class JDBCWrapperIT
 
     jdbc.put(fileName2, file, stageName);
 
-    List<String> fileNames1 = jdbc.listStage(stageName, "");
+    List<String> fileNames1 =  jdbc.listStage(stageName, "");
 
     assert fileNames1.size() == 2;
 
@@ -188,10 +189,10 @@ public class JDBCWrapperIT
   }
 
   @Test
-  public void moveFileFromStageToTableStage() throws Exception
+  public void moveFileFromStageToTableStage()
   {
     String fileName =
-      Utils.fileName("test_topic", 1, 2, 3);
+        Utils.fileName("test_topic",1,2,3);
 
     String content = "{\"meta\":1,\"content\":2}";
 
@@ -207,24 +208,15 @@ public class JDBCWrapperIT
 
     jdbc.moveToTableStage(stageName, tableName, list);
 
-    // Table stage doesn't support copy transform
-
-//    ResultSet result = TestUtils.executeQuery(
-//        "copy into " + table +
-//        "(RECORD_METADATA, RECORD_CONTENT) from (select $1:meta, $1:content
-// from"
-//            + " @%" + table + " t) file_format = (type = 'json')"
-//    );
-//
-//    result.next();
-//
-//    assert result.getString(1).equals(fileName);
-
     List<String> result = jdbc.listTableStage(tableName);
 
     assert result.size() == 1;
 
     assert result.get(0).equals(fileName);
+
+    result = jdbc.listStage(stageName,"");
+
+    assert result.isEmpty();
 
     jdbc.dropStage(stageName);
 
@@ -232,7 +224,7 @@ public class JDBCWrapperIT
   }
 
   @Test
-  public void tableIsCompatibleTest() throws SQLException
+  public void tableIsCompatibleTest()
   {
     jdbc.createTable(tableName);
 
@@ -241,8 +233,8 @@ public class JDBCWrapperIT
     TestUtils.dropTable(tableName);
 
     TestUtils.executeQuery(
-      "create table " + tableName +
-        "(record_metadata variant, record_content variant)"
+        "create table " + tableName +
+            "(record_metadata variant, record_content variant)"
     );
 
     assert jdbc.tableIsCompatible(tableName);
@@ -251,8 +243,8 @@ public class JDBCWrapperIT
 
     //wrong name
     TestUtils.executeQuery(
-      "create table " + tableName +
-        "(recordmetadata variant, recordcontent variant)"
+        "create table " + tableName +
+            "(recordmetadata variant, recordcontent variant)"
     );
 
     assert !jdbc.tableIsCompatible(tableName);
@@ -261,8 +253,8 @@ public class JDBCWrapperIT
 
     //wrong type
     TestUtils.executeQuery(
-      "create table " + tableName +
-        "(record_metadata string, record_content int)"
+        "create table " + tableName +
+            "(record_metadata string, record_content int)"
     );
 
     assert !jdbc.tableIsCompatible(tableName);
@@ -271,8 +263,8 @@ public class JDBCWrapperIT
 
     //wrong column number
     TestUtils.executeQuery(
-      "create table " + tableName +
-        "(record_metadata variant, record_content variant, something int)"
+        "create table " + tableName +
+            "(record_metadata variant, record_content variant, something int)"
     );
 
     assert !jdbc.tableIsCompatible(tableName);
@@ -281,13 +273,13 @@ public class JDBCWrapperIT
   }
 
   @Test
-  public void stageIsCompatibleTest() throws SQLException
+  public void stageIsCompatibleTest()
   {
     jdbc.createStage(stageName);
 
     assert jdbc.stageIsCompatible(stageName);
 
-    String fileName1 = Utils.fileName("test_topic", 1, 234, 567);
+    String fileName1 = Utils.fileName("test_topic",1,234,567);
 
     String fileContent = "123";
 
@@ -299,13 +291,13 @@ public class JDBCWrapperIT
 
     jdbc.put(fileName2, fileContent, stageName);
 
-    assert !jdbc.stageIsCompatible(stageName);
+    assert ! jdbc.stageIsCompatible(stageName);
 
     jdbc.dropStage(stageName);
   }
 
   @Test
-  public void pipeIsCompatibleTest() throws SQLException
+  public void pipeIsCompatibleTest()
   {
     jdbc.createStage(stageName);
 
@@ -318,8 +310,8 @@ public class JDBCWrapperIT
     jdbc.dropPipe(pipeName);
 
     TestUtils.executeQuery(
-      "create or replace pipe " + pipeName + " as copy into " + tableName +
-        " from @" + stageName
+        "create or replace pipe " + pipeName + " as copy into " + tableName +
+            " from @" + stageName
     );
 
     assert !jdbc.pipeIsCompatible(pipeName, tableName, stageName);
@@ -331,10 +323,11 @@ public class JDBCWrapperIT
     TestUtils.dropTable(tableName);
 
 
+
   }
 
   @Test
-  public void putToTableStageTest() throws SQLException
+  public void putToTableStageTest()
   {
     jdbc.createTable(tableName);
 

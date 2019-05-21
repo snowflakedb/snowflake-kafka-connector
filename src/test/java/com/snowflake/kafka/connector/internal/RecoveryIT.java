@@ -14,14 +14,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.snowflake.kafka.connector;
+package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.TestUtils;
+import com.snowflake.kafka.connector.Utils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.sql.SQLException;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 public class RecoveryIT
@@ -55,7 +57,7 @@ public class RecoveryIT
   }
 
   @After
-  public void afterAll() throws SQLException
+  public void afterAll()
   {
     jdbc.dropPipe(pipe);
 
@@ -72,11 +74,11 @@ public class RecoveryIT
 
     String file2 = "{\"meta\":223, \"content\":567}";
 
-    String file1Name = Utils.fileName("test_topic", 0, 0, 1);
+    String file1Name = Utils.fileName("test_topic",0,0, 1);
 
     Thread.sleep(5);
 
-    String file2Name = Utils.fileName("test_topic", 0, 1, 2);
+    String file2Name = Utils.fileName("test_topic",0,1, 2);
 
     jdbc.ingestFile(pipe, file1Name, file1);
 
@@ -86,9 +88,8 @@ public class RecoveryIT
     //waiting for ingestion
     Thread.sleep(100000);
 
-    Map<String, Utils.IngestedFileStatus> result =
-      jdbc.recoverPipe(pipe, stage,
-        Utils.subdirectoryName("test_topic", 0));
+    Map<String, Utils.IngestedFileStatus> result = jdbc.recoverPipe(pipe, stage,
+            Utils.subdirectoryName("test_topic", 0));
 
     assert result.get(file1Name).equals(Utils.IngestedFileStatus.LOADED);
 

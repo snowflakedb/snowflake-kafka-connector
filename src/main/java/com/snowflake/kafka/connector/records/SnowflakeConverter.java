@@ -16,9 +16,9 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
     .ObjectMapper;
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.storage.Converter;
 import org.slf4j.Logger;
@@ -40,6 +40,7 @@ public abstract class SnowflakeConverter implements Converter
 
   /**
    * unused
+   *
    * @param map
    * @param b
    */
@@ -51,6 +52,7 @@ public abstract class SnowflakeConverter implements Converter
 
   /**
    * doesn't support data source connector
+   *
    * @param s
    * @param schema
    * @param o
@@ -60,8 +62,7 @@ public abstract class SnowflakeConverter implements Converter
   public byte[] fromConnectData(final String s, final Schema schema, final
   Object o)
   {
-    throw new NotImplementedException("Snowflake JSON converter doesn't " +
-        "support data source connector");
+    throw SnowflakeErrors.ERROR_5002.getException();
   }
 
 }

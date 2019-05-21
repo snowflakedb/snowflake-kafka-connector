@@ -14,13 +14,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.snowflake.kafka.connector;
+package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.TestUtils;
+import com.snowflake.kafka.connector.Utils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +74,7 @@ public class IngestServiceIT
   }
 
   @After
-  public void afterAll() throws SQLException
+  public void afterAll()
   {
     jdbc.dropPipe(pipe);
 
@@ -83,7 +84,7 @@ public class IngestServiceIT
   }
 
   @Test
-  public void ingestFileTest() throws Exception
+  public void ingestFileTest()
   {
     String file = "{\"aa\":123}";
 
@@ -103,7 +104,8 @@ public class IngestServiceIT
 
     //load history
     Map<String, Utils.IngestedFileStatus> result =
-      ingestService.checkLoadHistory(names);
+      ingestService.checkOneHourHistory(names, System.currentTimeMillis() -
+        SnowflakeIngestService.ONE_HOUR);
 
     assert result.get(fileName).equals(Utils.IngestedFileStatus.LOADED);
   }

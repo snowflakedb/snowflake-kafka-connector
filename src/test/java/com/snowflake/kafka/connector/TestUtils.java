@@ -17,10 +17,12 @@
 package com.snowflake.kafka.connector;
 
 import com.snowflake.client.jdbc.SnowflakeDriver;
+import com.snowflake.kafka.connector.internal.SnowflakeJDBCWrapper;
+import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
-  .ObjectMapper;
+    .ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
-  .ObjectNode;
+    .ObjectNode;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -30,7 +32,7 @@ import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
-import org.apache.commons.codec.binary.Base64;
+import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -52,7 +54,7 @@ import java.util.Properties;
 import java.util.Random;
 
 
-class TestUtils
+public class TestUtils
 {
   //test profile properties
   static String USER = "user";
@@ -91,7 +93,7 @@ class TestUtils
   {
 
     ObjectNode profile = (ObjectNode) mapper.readTree(
-      new String(Files.readAllBytes(Paths.get(PROFILE_PATH)))
+        new String(Files.readAllBytes(Paths.get(PROFILE_PATH)))
     );
 
     conf = new HashMap<>();
@@ -114,7 +116,7 @@ class TestUtils
    * @return jdbc connection
    * @throws Exception
    */
-  static Connection getConnection() throws Exception
+  public static Connection getConnection() throws Exception
   {
     if (conn != null)
     {
@@ -138,7 +140,7 @@ class TestUtils
    * @return a map of parameters
    * @throws Exception
    */
-  static Map<String, String> getConf() throws Exception
+  public static Map<String, String> getConf() throws Exception
   {
     if (conf == null)
     {
@@ -153,7 +155,7 @@ class TestUtils
    * @param query sql query string
    * @return result set
    */
-  static ResultSet executeQuery(String query)
+  public static ResultSet executeQuery(String query)
   {
     try
     {
@@ -173,7 +175,7 @@ class TestUtils
    *
    * @param tableName table name
    */
-  static void dropTable(String tableName)
+  public static void dropTable(String tableName)
   {
     String query = "drop table if exists " + tableName;
 
@@ -183,7 +185,7 @@ class TestUtils
   /**
    * Select * from table
    */
-  static ResultSet showTable(String tableName)
+  public static ResultSet showTable(String tableName)
   {
     String query = "select * from " + tableName;
 
@@ -208,7 +210,7 @@ class TestUtils
   /**
    * @return a random table name
    */
-  static String randomTableName()
+  public static String randomTableName()
   {
     return randomName("table");
   }
@@ -216,7 +218,7 @@ class TestUtils
   /**
    * @return a random stage name
    */
-  static String randomStageName()
+  public static String randomStageName()
   {
     return randomName("stage");
   }
@@ -224,7 +226,7 @@ class TestUtils
   /**
    * @return a random pipe name
    */
-  static String randomPipeName()
+  public static String randomPipeName()
   {
     return randomName("pipe");
   }
@@ -243,27 +245,27 @@ class TestUtils
     return properties.get(name);
   }
 
-  static String getUser() throws Exception
+  public static String getUser() throws Exception
   {
     return get(Utils.SF_USER);
   }
 
-  static String getDatabase() throws Exception
+  public static String getDatabase() throws Exception
   {
     return get(Utils.SF_DATABASE);
   }
 
-  static String getSchema() throws Exception
+  public static String getSchema() throws Exception
   {
     return get(Utils.SF_SCHEMA);
   }
 
-  static boolean sslEnabled() throws Exception
+  public static boolean sslEnabled() throws Exception
   {
     return get(Utils.SF_SSL).equals("on");
   }
 
-  static SnowflakeURL getUrl() throws Exception
+  public static SnowflakeURL getUrl() throws Exception
   {
     if (url == null)
     {
@@ -272,11 +274,11 @@ class TestUtils
     return url;
   }
 
-  static PrivateKey getPrivateKey() throws Exception
+  public static PrivateKey getPrivateKey() throws Exception
   {
     java.security.Security.addProvider(
-      new net.snowflake.client.jdbc.internal.org.bouncycastle.jce
-        .provider.BouncyCastleProvider()
+        new net.snowflake.client.jdbc.internal.org.bouncycastle.jce
+            .provider.BouncyCastleProvider()
     );
 
     byte[] encoded = Base64.decodeBase64(get(Utils.SF_PRIVATE_KEY));
@@ -288,14 +290,14 @@ class TestUtils
     return kf.generatePrivate(keySpec);
   }
 
-  static String getFullPipeName(String pipeName) throws Exception
+  public static String getFullPipeName(String pipeName) throws Exception
   {
     return TestUtils.getDatabase() + "." + TestUtils.getSchema() + "." +
-      pipeName;
+        pipeName;
   }
 
-  static byte[] jsonToAvro(String json, String schemaStr) throws
-    IOException
+  public static byte[] jsonToAvro(String json, String schemaStr) throws
+      IOException
   {
     InputStream input = null;
     GenericDatumWriter writer = null;
@@ -306,7 +308,7 @@ class TestUtils
     {
       Schema sc = new Schema.Parser().parse(schemaStr);
       DatumReader<GenericRecord> reader = new
-        GenericDatumReader<GenericRecord>(sc);
+          GenericDatumReader<GenericRecord>(sc);
       input = new ByteArrayInputStream(json.getBytes());
       output = new ByteArrayOutputStream();
       writer = new GenericDatumWriter<GenericRecord>(sc);

@@ -16,18 +16,16 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
     .ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
     .ObjectNode;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-
-public class RecordService
+public class RecordService extends Logging
 {
   protected static final ObjectMapper mapper = new ObjectMapper();
 
@@ -36,9 +34,6 @@ public class RecordService
   protected static final String PARTITION = "partition";
   protected static final String CONTENT = "content";
   protected static final String META = "meta";
-
-  protected static final Logger LOGGER =
-      LoggerFactory.getLogger(RecordService.class.getClass());
 
   protected final boolean includeOffset;
   protected final boolean includePartitionNumber;
@@ -73,7 +68,7 @@ public class RecordService
 
     this.includeTopic = includeTopic;
 
-    LOGGER.debug(
+    logDebug(
         "create an instance of JsonRecordService\ninclude offset: {}\ninclude" +
             " partition number: {}\ninclude topic: {}",
         includeOffset,
@@ -97,19 +92,19 @@ public class RecordService
    *
    * @param record SinkRecord
    * @return a record string, already to output
-   * @throws IllegalArgumentException if the given record is broken
    */
-  public String processRecord(SinkRecord record) throws IllegalArgumentException
+  public String processRecord(SinkRecord record)
   {
 
     if(! record.valueSchema().name().equals(SnowflakeJsonSchema.NAME))
     {
-      throw new IllegalArgumentException("Only support Snowflake Converters");
+      throw SnowflakeErrors.ERROR_0009.getException();
     }
 
     if(! (record.value() instanceof JsonNode[]))
     {
-      throw new IllegalArgumentException("invalid input record");
+      throw SnowflakeErrors.ERROR_0010
+          .getException("Input record should be JSON format");
     }
 
     JsonNode[] contents = (JsonNode[]) record.value();
@@ -145,49 +140,5 @@ public class RecordService
     }
 
     return buffer.toString();
-  }
-
-  /**
-   * generate json string for output
-   *
-   * @param jsonString input json string
-   * @param offset     kafka offset
-   * @param topic      kafka topic
-   * @param partition  kafka partition
-   * @return output json string
-   * @throws IOException if input string is invalid
-   */
-  protected String addMetaData(String jsonString, long offset, String topic,
-                               int partition) throws IOException
-  {
-    ObjectNode data = mapper.createObjectNode();
-
-    JsonNode content;
-
-    content = mapper.readTree(jsonString);
-
-    ObjectNode meta = mapper.createObjectNode();
-
-    if (includeOffset)
-    {
-      meta.put(OFFSET, offset);
-    }
-
-    if (includeTopic)
-    {
-      meta.put(TOPIC, topic);
-    }
-
-    if (includePartitionNumber)
-    {
-      meta.put(PARTITION, partition);
-    }
-
-    data.set(CONTENT, content);
-
-    data.set(META, meta);
-
-    return data.toString();
-
   }
 }

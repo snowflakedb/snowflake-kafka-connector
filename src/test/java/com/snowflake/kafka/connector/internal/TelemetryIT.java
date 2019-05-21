@@ -14,8 +14,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.snowflake.kafka.connector;
+package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.TestUtils;
+import com.snowflake.kafka.connector.Utils;
 import org.junit.Ignore;
 
 import java.util.LinkedList;
@@ -40,10 +42,10 @@ public class TelemetryIT
     telemetry.reportKafkaStop(Utils.currentTime(), appName);
 
     telemetry.reportKafkaUsage(Utils.currentTime(), Utils.currentTime(),
-      123, 456, appName);
+        123, 456, appName);
 
     telemetry.reportKafkaCreatePipe("test pipe", "test stage",
-      "test table", appName);
+        "test table", appName);
 
     telemetry.reportKafkaCreateStage("test stage", appName);
 

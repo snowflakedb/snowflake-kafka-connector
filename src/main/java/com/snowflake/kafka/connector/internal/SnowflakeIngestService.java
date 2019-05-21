@@ -14,43 +14,37 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.snowflake.kafka.connector;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.security.NoSuchAlgorithmException;
+package com.snowflake.kafka.connector.internal;
+
 import java.security.PrivateKey;
-import java.security.spec.InvalidKeySpecException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.Utils.IngestedFileStatus;
 import net.snowflake.ingest.SimpleIngestManager;
 import net.snowflake.ingest.connection.HistoryRangeResponse;
 import net.snowflake.ingest.connection.HistoryResponse;
-import net.snowflake.ingest.connection.IngestResponseException;
 import net.snowflake.ingest.utils.StagedFileWrapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * SnowPipe connector, each instance manages one pipe
  */
-public class SnowflakeIngestService
+public class SnowflakeIngestService extends Logging
 {
 
-  private static final long ONE_HOUR = 3600 * 1000;
-
-  private static final Logger LOGGER =
-    LoggerFactory.getLogger(SnowflakeIngestService.class.getName());
+  public static final long ONE_HOUR = 3600 * 1000;
+  public static final long TEN_MINUTES = 10 * 60 * 1000;
 
   private SimpleIngestManager ingestManager;
   private String stage;
@@ -65,8 +59,6 @@ public class SnowflakeIngestService
    * @param pipe       snowflake pipe name
    * @param host       snowflake url
    * @param privateKey private key
-   * @throws InvalidKeySpecException
-   * @throws NoSuchAlgorithmException
    */
   SnowflakeIngestService(
     String account,
@@ -75,27 +67,38 @@ public class SnowflakeIngestService
     String host,
     PrivateKey privateKey,
     String stage
-  ) throws InvalidKeySpecException, NoSuchAlgorithmException
+  )
   {
-    this.ingestManager =
-      new SimpleIngestManager(account, user, pipe, privateKey, "https",
-        host, 443);
+    try
+    {
+      this.ingestManager =
+        new SimpleIngestManager(account, user, pipe, privateKey, "https",
+          host, 443);
+    } catch (Exception e)
+    {
+      throw SnowflakeErrors.ERROR_0002.getException(e);
+    }
     this.stage = stage;
 
-    LOGGER.info("initialized the pipe connector for pipe: " + pipe);
+    logInfo("initialized the pipe connector for pipe {}", pipe);
   }
 
   /**
    * ingest one file
    *
    * @param fileName file name
-   * @throws Exception
    */
-  void ingestFile(String fileName) throws Exception
+  void ingestFile(String fileName)
   {
-    ingestManager.ingestFile(new StagedFileWrapper(fileName), null);
+    try
+    {
+      ingestManager.ingestFile(new StagedFileWrapper(fileName), null);
+    } catch (Exception e)
+    {
+      throw SnowflakeErrors.ERROR_3001.getException(e);
+    }
 
-    LOGGER.debug("ingest file " + fileName);
+    logDebug("ingest file: {}", fileName);
   }
 
 
@@ -123,13 +126,18 @@ public class SnowflakeIngestService
    * @return A Map of file name and status
    */
   Map<String, IngestedFileStatus> checkIngestReport(List<String> files)
-    throws IngestResponseException, IOException, URISyntaxException
   {
 
     Map<String, IngestedFileStatus> fileStatus = initFileStatus(files);
 
-    HistoryResponse response =
-      ingestManager.getHistory(null, null, beginMark);
+    HistoryResponse response;
+    try
+    {
+      response = ingestManager.getHistory(null, null, beginMark);
+    } catch (Exception e)
+    {
+      throw SnowflakeErrors.ERROR_3002.getException(e);
+    }
 
     int numOfRecords = 0;
 
@@ -153,8 +161,8 @@ public class SnowflakeIngestService
       }
     }
 
-    LOGGER.info("searched " + files.size() + " files in ingest report, found "
-      + numOfRecords);
+    logInfo("searched {} files in ingest report, found {}", files.size(),
+      numOfRecords);
 
     return fileStatus;
   }
@@ -165,10 +173,10 @@ public class SnowflakeIngestService
    * @param fileNames a list of file names being ingested
    * @param timeout   time out in milliseconds
    * @return true for all file loaded, otherwise false
-   * @throws Exception when timeout
+   * @throws SnowflakeKafkaConnectorException when timeout
    */
   boolean checkIngestReport(List<String> fileNames, long timeout)
-    throws Exception
+    throws SnowflakeKafkaConnectorException
   {
     ExecutorService executor = Executors.newSingleThreadExecutor();
 
@@ -194,7 +202,7 @@ public class SnowflakeIngestService
           .map(Map.Entry::getKey)
           .collect(Collectors.toList());
 
-        LOGGER.debug("file names in waiting list " + Arrays.toString(names
+        logDebug("file names is waiting list: {}", Arrays.toString(names
           .toArray()));
 
       }
@@ -202,52 +210,42 @@ public class SnowflakeIngestService
       return true;
     });
 
-    LOGGER.info("checking ingest report...");
+    logInfo("checking ingest report...");
 
-    return future.get(timeout, TimeUnit.MILLISECONDS);
+    try
+    {
+      return future.get(timeout, TimeUnit.MILLISECONDS);
+    } catch (Exception e)
+    {
+      throw SnowflakeErrors.ERROR_3003.getException(e);
+    }
 
 
   }
 
+
   /**
-   * check process status of given files in Ingest Report and Load History
-   *
-   * @param files a list of file name
-   * @return A Map of file name and status
+   * check process status of given files in one hour Load History
+   * @param files a list of file names
+   * @param startTime start timestamp
+   * @return
    */
-  Map<String, IngestedFileStatus> checkLoadHistory(List<String> files) throws
-    Exception
+  Map<String, IngestedFileStatus> checkOneHourHistory(List<String> files,
+                                                      long startTime)
   {
-    long time = System.currentTimeMillis();
-
-    long historyExpiredTime = time - Utils.MAX_RECOVERY_TIME;
-
-    HashSet<String> names = new HashSet<>(files);
-
+    long endTime = startTime + ONE_HOUR;
     Map<String, IngestedFileStatus> result = initFileStatus(files);
+    Map<String, IngestedFileStatus> response = checkHistoryByRange(startTime, endTime);
 
-    Map<String, IngestedFileStatus> response;
-
-    while ((!names.isEmpty()) && (time > historyExpiredTime))
-    {
-      response = checkHistoryByRange(time - ONE_HOUR, time);
-
-      response.forEach((name, status) ->
+    files.forEach(
+      name ->
       {
-        if (names.contains(name))
+        if(response.containsKey(name))
         {
-          result.put(name, status);
-
-          names.remove(name);
+          result.put(name, response.get(name));
         }
-      });
-
-      //load result hour by hour, do pagination in checkHistoryByRange method
-      time -= ONE_HOUR;
-    }
-
-    LOGGER.info("searched " + files.size() + " files in load history, found "
-      + (files.size() - names.size()));
+      }
+    );
 
     return result;
   }
@@ -276,11 +274,20 @@ public class SnowflakeIngestService
    * @param start start timestamp inclusive
    * @param end   end timestamp exclusive
    * @return a map contains file status
-   * @throws Exception if can't access the ingest service
    */
-  private Map<String, IngestedFileStatus> checkHistoryByRange(
-    long start, long end) throws Exception
+  private Map<String, IngestedFileStatus> checkHistoryByRange(long start,
+                                                              long end)
   {
+    long currentTime = System.currentTimeMillis();
+    if(start > currentTime)
+    {
+      start = currentTime;
+    }
+
+    if(end > currentTime)
+    {
+      end = currentTime;
+    }
     Map<String, IngestedFileStatus> result = new HashMap<>();
 
     HistoryRangeResponse response;
@@ -298,9 +305,7 @@ public class SnowflakeIngestService
           startTimeInclusive, endTimeExclusive);
       } catch (Exception e)
       {
-        LOGGER.error(e.getMessage());
-
-        throw new Exception("Can't access ingest service: " + e);
+        throw SnowflakeErrors.ERROR_1002.getException(e);
       }
       if (response != null && response.files != null)
       {
@@ -311,18 +316,16 @@ public class SnowflakeIngestService
       }
       else
       {
-        LOGGER.error("The response of load history is null");
-
-        throw new Exception("service response is null");
+        throw SnowflakeErrors.ERROR_4001.getException("the response of load " +
+          "history is null");
       }
 
-      LOGGER.info("read load history between {} and {}. retrieved {} records.",
-        startTimeInclusive, endTimeExclusive, response.files.size());
+      logInfo("read load history between {} and {}. retrieved {} records.",
+        startTimeInclusive, endTimeExclusive,
+        response.files.size());
 
       startTimeInclusive = response.getEndTimeExclusive();
     }
-
-
     return result;
   }
 

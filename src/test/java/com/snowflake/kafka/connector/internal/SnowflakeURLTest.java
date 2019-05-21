@@ -14,7 +14,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.snowflake.kafka.connector;
+package com.snowflake.kafka.connector.internal;
 
 import org.junit.Test;
 
@@ -28,7 +28,7 @@ public class SnowflakeURLTest
 
     SnowflakeURL sfurl = new SnowflakeURL(url);
 
-    assert !sfurl.sslEnabled();
+    assert ! sfurl.sslEnabled();
 
     assert sfurl.getAccount().equals("account");
 
@@ -74,7 +74,7 @@ public class SnowflakeURLTest
 
     sfurl = new SnowflakeURL(url);
 
-    assert !sfurl.sslEnabled();
+    assert ! sfurl.sslEnabled();
 
     assert sfurl.getAccount().equals("account");
 
@@ -92,7 +92,7 @@ public class SnowflakeURLTest
 
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void createFromInvalidURL()
   {
     String url = "htt://account.snowflake.com:80";
