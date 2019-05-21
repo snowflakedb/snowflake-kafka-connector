@@ -35,7 +35,7 @@ public class TelemetryIT
 
     String appName = "Kafka_test_app_name";
 
-    telemetry.reportKafkaStart(Utils.currentTime(), 1, 1, 1, "json", appName);
+    telemetry.reportKafkaStart(Utils.currentTime(), 1, 1, 1, appName);
 
     telemetry.reportKafkaStop(Utils.currentTime(), appName);
 

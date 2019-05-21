@@ -32,11 +32,11 @@ import java.util.regex.Pattern;
 /**
  * Various arbitrary helper functions
  */
-class Utils
+public class Utils
 {
 
   //Connector version, change every release
-  static final String VERSION = "0.1";
+  static final String VERSION = "0.2";
 
   //Connector parameters
   static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; //10 days
@@ -59,10 +59,10 @@ class Utils
   //task id
   static final String TASK_ID = "task_id";
 
-  // applicationName/topicName/partitionNumber/startOffset_endOffset_time
-  // .format.gz
+  // applicationName/topicName/partitionNumber
+  // /startOffset_endOffset_time_format.json.gz
   private static Pattern FILE_NAME_PATTERN =
-    Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(\\d+)_(\\d+)\\.(\\w+)\\.gz$");
+    Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(\\d+)_(\\d+)\\.json\\.gz$");
 
   private static final Logger LOGGER =
     LoggerFactory.getLogger(Utils.class.getName());
@@ -98,22 +98,6 @@ class Utils
   private static String getObjectPrefix()
   {
     return KAFKA_OBJECT_PREFIX + "_" + appName;
-  }
-
-  /**
-   * check requirement
-   *
-   * @param checker a boolean expression
-   * @param message the message of exception
-   */
-  static void require(boolean checker, String message)
-  {
-    if (!checker)
-    {
-      LOGGER.error(message);
-
-      throw new IllegalArgumentException(message);
-    }
   }
 
   /**
@@ -188,38 +172,20 @@ class Utils
    * <p>
    * Note: all file names should using the this format
    *
-   * @param table      table name
-   * @param partition  partition number
-   * @param start      start offset
-   * @param end        end offset
-   * @param fileFormat file format
+   * @param table     table name
+   * @param partition partition number
+   * @param start     start offset
+   * @param end       end offset
    * @return file name
    */
-  static String fileName(String table, int partition, long start, long end,
-                         SupportedFileFormat fileFormat)
+  static String fileName(String table, int partition, long start, long end)
   {
     long time = System.currentTimeMillis();
 
     String fileName = appName + "/" + table + "/" + partition + "/" + start +
-      "_" + end + "_" + time + ".";
+      "_" + end + "_" + time;
 
-    switch (fileFormat)
-    {
-      case CSV:
-        fileName += "csv";
-        break;
-
-      case AVRO:
-        fileName += "avro";
-        break;
-
-      case JSON:
-        fileName += "json";
-        break;
-
-    }
-
-    fileName += ".gz";
+    fileName += ".json.gz";
 
     LOGGER.debug("generated file name: " + fileName);
 
@@ -344,36 +310,6 @@ class Utils
   }
 
   /**
-   * read file format from file name
-   *
-   * @param fileName file name
-   * @return file format
-   */
-  static SupportedFileFormat fileNameToFileFormat(String fileName)
-  {
-    String format = readFromFileName(fileName, 5);
-
-    switch (format)
-    {
-      case "csv":
-        return SupportedFileFormat.CSV;
-
-      case "json":
-        return SupportedFileFormat.JSON;
-
-      case "avro":
-        return SupportedFileFormat.AVRO;
-
-      default:
-        LOGGER.error("Unsupported file format: " + format);
-
-        throw new IllegalArgumentException("Unsupported file format: " +
-          format);
-    }
-
-  }
-
-  /**
    * check whether the given file is expired
    *
    * @param fileName file name
@@ -420,7 +356,11 @@ class Utils
   {
     Matcher matcher = FILE_NAME_PATTERN.matcher(fileName);
 
-    require(matcher.find(), "invalid file name " + fileName);
+    if (!matcher.find())
+    {
+      LOGGER.error("invalid file name {}", fileName);
+      throw new IllegalArgumentException("invalid file name " + fileName);
+    }
 
     return matcher.group(index);
   }
@@ -434,6 +374,25 @@ class Utils
   static boolean verifyFileName(String fileName)
   {
     return FILE_NAME_PATTERN.matcher(fileName).find();
+  }
+
+  /**
+   * Ensure a name wrapped with double quotes, majorly used in table name
+   *
+   * @param name name string with or without double quotes
+   * @return name with double quotes
+   */
+  static String ensureQuoted(String name)
+  {
+    //todo: need trim or not ?
+    if (name.startsWith("\"") && name.endsWith("\""))
+    {
+      return name;
+    }
+    else
+    {
+      return "\"" + name + "\"";
+    }
   }
 
   /**

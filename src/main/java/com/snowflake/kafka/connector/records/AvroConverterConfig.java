@@ -14,24 +14,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.snowflake.kafka.connector;
+package com.snowflake.kafka.connector.records;
 
-import org.apache.kafka.connect.sink.SinkRecord;
+import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
 
-/**
- * Record Service functions
- */
-public interface RecordService
+import java.util.Map;
+
+public class AvroConverterConfig extends AbstractKafkaAvroSerDeConfig
 {
-
-  /**
-   * process given SinkRecord
-   *
-   * @param record SinkRecord
-   * @return a record string, already to output
-   * @throws IllegalArgumentException if the given record is broken
-   */
-  String processRecord(SinkRecord record) throws IllegalArgumentException;
-
-
+  public AvroConverterConfig(final Map<?, ?> props)
+  {
+    super(baseConfigDef(), props);
+  }
 }

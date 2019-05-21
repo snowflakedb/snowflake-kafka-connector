@@ -57,7 +57,7 @@ public class IngestServiceIT
 
     String fullPipeName = TestUtils.getFullPipeName(pipe);
 
-    jdbc.createPipe(pipe, table, stage, SupportedFileFormat.JSON, false);
+    jdbc.createPipe(pipe, table, stage, false);
 
     SnowflakeURL url = TestUtils.getUrl();
 
@@ -88,7 +88,7 @@ public class IngestServiceIT
     String file = "{\"aa\":123}";
 
     String fileName =
-      Utils.fileName("test_topic", 0, 0, 1, SupportedFileFormat.JSON);
+      Utils.fileName("test_topic", 0, 0, 1);
 
     jdbc.put(fileName, file, stage);
 

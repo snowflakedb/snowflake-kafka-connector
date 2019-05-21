@@ -133,13 +133,11 @@ public class JDBCWrapperIT
 
     jdbc.createStage(stageName);
 
-    jdbc.createPipe(pipeName, tableName, stageName, SupportedFileFormat.JSON,
-      true);
+    jdbc.createPipe(pipeName, tableName, stageName, true);
 
     assert jdbc.pipeExist(pipeName);
 
-    jdbc.createPipe(pipeName, tableName, stageName, SupportedFileFormat.JSON,
-      false);
+    jdbc.createPipe(pipeName, tableName, stageName, false);
 
     assert jdbc.pipeExist(pipeName);
 
@@ -193,7 +191,7 @@ public class JDBCWrapperIT
   public void moveFileFromStageToTableStage() throws Exception
   {
     String fileName =
-      Utils.fileName("test_topic", 1, 2, 3, SupportedFileFormat.JSON);
+      Utils.fileName("test_topic", 1, 2, 3);
 
     String content = "{\"meta\":1,\"content\":2}";
 
@@ -289,8 +287,7 @@ public class JDBCWrapperIT
 
     assert jdbc.stageIsCompatible(stageName);
 
-    String fileName1 = Utils.fileName("test_topic", 1, 234, 567,
-      SupportedFileFormat.JSON);
+    String fileName1 = Utils.fileName("test_topic", 1, 234, 567);
 
     String fileContent = "123";
 
@@ -314,11 +311,9 @@ public class JDBCWrapperIT
 
     jdbc.createTable(tableName);
 
-    jdbc.createPipe(pipeName, tableName, stageName, SupportedFileFormat.JSON,
-      false);
+    jdbc.createPipe(pipeName, tableName, stageName, false);
 
-    assert jdbc.pipeIsCompatible(pipeName, tableName, stageName,
-      SupportedFileFormat.JSON);
+    assert jdbc.pipeIsCompatible(pipeName, tableName, stageName);
 
     jdbc.dropPipe(pipeName);
 
@@ -327,8 +322,7 @@ public class JDBCWrapperIT
         " from @" + stageName
     );
 
-    assert !jdbc.pipeIsCompatible(pipeName, tableName, stageName,
-      SupportedFileFormat.JSON);
+    assert !jdbc.pipeIsCompatible(pipeName, tableName, stageName);
 
     jdbc.dropPipe(pipeName);
 
@@ -346,8 +340,7 @@ public class JDBCWrapperIT
 
     String file = "test";
 
-    String fileName = Utils.fileName("test_topic", 0, 0,
-      1, SupportedFileFormat.JSON);
+    String fileName = Utils.fileName("test_topic", 0, 0, 1);
 
     jdbc.putToTableStage(fileName, file, tableName);
 

@@ -21,9 +21,23 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
   .ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
   .ObjectNode;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DatumReader;
+import org.apache.avro.io.Decoder;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.Encoder;
+import org.apache.avro.io.EncoderFactory;
 import org.apache.commons.codec.binary.Base64;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyFactory;
@@ -280,5 +294,49 @@ class TestUtils
       pipeName;
   }
 
+  static byte[] jsonToAvro(String json, String schemaStr) throws
+    IOException
+  {
+    InputStream input = null;
+    GenericDatumWriter writer = null;
+    Encoder encoder = null;
+    ByteArrayOutputStream output = null;
+
+    try
+    {
+      Schema sc = new Schema.Parser().parse(schemaStr);
+      DatumReader<GenericRecord> reader = new
+        GenericDatumReader<GenericRecord>(sc);
+      input = new ByteArrayInputStream(json.getBytes());
+      output = new ByteArrayOutputStream();
+      writer = new GenericDatumWriter<GenericRecord>(sc);
+      DataInputStream din = new DataInputStream(input);
+      Decoder decoder = DecoderFactory.get().jsonDecoder(sc, din);
+      encoder = EncoderFactory.get().binaryEncoder(output, null);
+      GenericRecord datum;
+      while (true)
+      {
+        try
+        {
+          datum = reader.read(null, decoder);
+        } catch (EOFException eof)
+        {
+          break;
+        }
+        writer.write(datum, encoder);
+      }
+      encoder.flush();
+      return output.toByteArray();
+    } finally
+    {
+      try
+      {
+        input.close();
+      } catch (IOException e)
+      {
+        e.printStackTrace();
+      }
+    }
+  }
 }
 

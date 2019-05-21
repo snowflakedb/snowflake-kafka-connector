@@ -49,7 +49,7 @@ public class RecoveryIT
 
     pipe = TestUtils.randomPipeName();
 
-    jdbc.createPipe(pipe, table, stage, SupportedFileFormat.JSON, false);
+    jdbc.createPipe(pipe, table, stage, false);
 
 
   }
@@ -72,13 +72,11 @@ public class RecoveryIT
 
     String file2 = "{\"meta\":223, \"content\":567}";
 
-    String file1Name = Utils.fileName("test_topic", 0, 0,
-      1, SupportedFileFormat.JSON);
+    String file1Name = Utils.fileName("test_topic", 0, 0, 1);
 
     Thread.sleep(5);
 
-    String file2Name = Utils.fileName("test_topic", 0, 1,
-      2, SupportedFileFormat.JSON);
+    String file2Name = Utils.fileName("test_topic", 0, 1, 2);
 
     jdbc.ingestFile(pipe, file1Name, file1);
 
