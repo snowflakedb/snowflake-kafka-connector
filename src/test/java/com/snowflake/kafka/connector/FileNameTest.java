@@ -31,14 +31,11 @@ public class FileNameTest
 
     String topic = "test_topic";
 
-    SupportedFileFormat fileFormat = SupportedFileFormat.JSON;
-
     long time1 = System.currentTimeMillis();
 
     Thread.sleep(5); //error in maven without sleep
 
-    String fileName = Utils.fileName(topic, partition, startOffset,
-      endOffset, fileFormat);
+    String fileName = Utils.fileName(topic, partition, startOffset, endOffset);
 
     Thread.sleep(5);
 
@@ -54,8 +51,6 @@ public class FileNameTest
 
     assert (time3 > time1) && (time3 < time2);
 
-    assert Utils.fileNameToFileFormat(fileName) == fileFormat;
-
   }
 
   @Test
@@ -64,12 +59,10 @@ public class FileNameTest
     long time = Utils.currentTime();
 
     String expiredFile = "test_app/test_topic/1/123_456_" +
-      (time - Utils.MAX_RECOVERY_TIME - 3600 * 1000) +
-      ".csv.gz";
+      (time - Utils.MAX_RECOVERY_TIME - 3600 * 1000) + ".json.gz";
 
     String unexpiredFile = "test_app/test_topic/1/123_456_" +
-      (time - Utils.MAX_RECOVERY_TIME + 3600 * 1000) +
-      ".csv.gz";
+      (time - Utils.MAX_RECOVERY_TIME + 3600 * 1000) + ".json.gz";
 
     assert Utils.isFileExpired(expiredFile);
 
@@ -79,7 +72,7 @@ public class FileNameTest
   @Test
   public void verifyFileNameTest()
   {
-    String name1 = "app/topic/1/234_567_8901234.csv.gz";
+    String name1 = "app/topic/1/234_567_8901234.json.gz";
 
     String name2 = "asdasdasd.json.gz";
 

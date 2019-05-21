@@ -12,7 +12,7 @@
 
     <groupId>net.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>0.1</version>
+    <version>0.2</version>
     <!-- Set our Language Level to Java 8 -->
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>

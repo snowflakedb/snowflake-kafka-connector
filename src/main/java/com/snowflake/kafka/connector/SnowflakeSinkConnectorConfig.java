@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector;
 
+import com.snowflake.kafka.connector.records.SnowflakeAvroConverter;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Type;
@@ -55,9 +56,6 @@ public class SnowflakeSinkConnectorConfig extends AbstractConfig
   public static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
   public static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
 
-  public static final String RECORD_FORMAT = "record.format";
-  public static final String RECORD_FORMAT_DEFAULT = "json";
-
   // snowflake connection and database config
 
   public static final String SNOWFLAKE_URL = Utils.SF_URL;
@@ -78,12 +76,23 @@ public class SnowflakeSinkConnectorConfig extends AbstractConfig
   public static final String SNOWFLAKE_SCHEMA = Utils.SF_SCHEMA;
   public static final String SNOWFLAKE_SCHEMA_DEFAULT = "";
 
-  public static final String TOPICS_TABLES_MAP = "topics.tables.map";
+  public static final String TOPICS_TABLES_MAP = "snowflake.topic2table.map";
   public static final String TOPICS_TABLES_MAP_DEFAULT = "";
+
+  public static final String REGISTRY_URL = "value.converter.schema.registry" +
+    ".url";
+  public static final String REGISTRY_URL_DEFAULT = "";
 
   public static ConfigDef newConfigDef()
   {
     return new ConfigDef()
+      // snowflake avro converter config
+      .define(REGISTRY_URL,
+        Type.STRING,
+        REGISTRY_URL_DEFAULT,
+        Importance.LOW,
+        "Required by SnowflakeAvroConnector if schema registry is used. " +
+          "Leave blank if schema is included in AVRO record")
       // snowflake kafka connector config
       .define(OFFSET_FLUSH_INTERVAL_MS,
         Type.LONG,
@@ -95,26 +104,22 @@ public class SnowflakeSinkConnectorConfig extends AbstractConfig
         OFFSET_FLUSH_TIMEOUT_MS_DEFAULT,
         Importance.LOW,
         "Maximum number of milliseconds to wait for records to flush and" +
-          " partition offset data to be committed to offset storage before " +
-          "cancelling the process and" +
-          " restoring the offset data to be committed in a future attempt")
+          " partition offset data to be committed to offset storage " +
+          "before cancelling the process and" +
+          " restoring the offset data to be committed in a future " +
+          "attempt")
       .define(BUFFER_COUNT_RECORDS,
         Type.LONG,
         BUFFER_COUNT_RECORDS_DEFAULT,
         Importance.LOW,
-        "Number of records buffered in memory per partition before triggering" +
-          " Snowflake ingestion")
+        "Number of records buffered in memory per partition before " +
+          "triggering Snowflake ingestion")
       .define(BUFFER_SIZE_BYTES,
         Type.LONG,
         BUFFER_SIZE_BYTES_DEFAULT,
         Importance.LOW,
-        "Cumulative size of records buffered in memory per partition before " +
-          "triggering Snowflake ingestion")
-      .define(RECORD_FORMAT,
-        Type.STRING,
-        RECORD_FORMAT_DEFAULT,
-        Importance.HIGH,
-        "Format of the records : json")
+        "Cumulative size of records buffered in memory per partition " +
+          "before triggering Snowflake ingestion")
       // snowflake connection and database config
       .define(SNOWFLAKE_URL,
         Type.STRING,
@@ -159,7 +164,6 @@ public class SnowflakeSinkConnectorConfig extends AbstractConfig
   final long offset_flush_timeout_ms;
   final long buffer_count_records;
   final long buffer_size_bytes;
-  final String record_format;
 
   final String snowflake_url;
   final String snowflake_user_name;
@@ -178,7 +182,6 @@ public class SnowflakeSinkConnectorConfig extends AbstractConfig
     this.offset_flush_timeout_ms = getLong(OFFSET_FLUSH_TIMEOUT_MS);
     this.buffer_count_records = getLong(BUFFER_COUNT_RECORDS);
     this.buffer_size_bytes = getLong(BUFFER_SIZE_BYTES);
-    this.record_format = getString(RECORD_FORMAT);
 
     this.snowflake_url = getString(SNOWFLAKE_URL);
     this.snowflake_user_name = getString(SNOWFLAKE_USER);

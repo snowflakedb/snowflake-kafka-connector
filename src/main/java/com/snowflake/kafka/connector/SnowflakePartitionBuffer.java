@@ -27,7 +27,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
  */
 class SnowflakePartitionBuffer
 {
-  private String buffer;                  // all records serialized as
+  private StringBuilder buffer;                  // all records serialized as
     // String, with or without metadata
   private int recordCount;                // number of records current in the
     // buffer
@@ -50,7 +50,7 @@ class SnowflakePartitionBuffer
 
   SnowflakePartitionBuffer()
   {
-    buffer = "";
+    buffer = new StringBuilder();
     recordCount = 0;
     bufferSize = 0;
     firstOffset = -1;
@@ -68,7 +68,7 @@ class SnowflakePartitionBuffer
       firstOffsetTime = System.currentTimeMillis();
     }
 
-    buffer += recordAsString;
+    buffer.append(recordAsString);
     recordCount++;
     bufferSize += recordAsString.length();
     latestOffset = record.kafkaOffset();
@@ -76,7 +76,7 @@ class SnowflakePartitionBuffer
 
   void dropRecords()
   {
-    buffer = "";
+    buffer = new StringBuilder();
     recordCount = 0;
     bufferSize = 0;
     firstOffset = -1;
@@ -88,7 +88,7 @@ class SnowflakePartitionBuffer
 
   String bufferAsString()
   {
-    return buffer;
+    return buffer.toString();
   }
 
   int recordCount()

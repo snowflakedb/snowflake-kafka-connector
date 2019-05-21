@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector;
 
+import com.snowflake.kafka.connector.records.RecordService;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -42,7 +43,6 @@ public class SnowflakeSinkTask extends SinkTask
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
   private String connectorName;       // unique name of this connector instance
-  private SupportedFileFormat recordFormat;       // config json, avro
   private RecordService recordService;            // service to validate
   // record structure and append metadata
 
@@ -113,19 +113,7 @@ public class SnowflakeSinkTask extends SinkTask
       // the node where the SnowflakeSinkConnector was initialized
     }
 
-    String recordFormatConfig = config.get("record.format");
-    if (recordFormatConfig.equalsIgnoreCase("json"))
-    {
-      recordFormat = SupportedFileFormat.JSON;
-      recordService = new JsonRecordService();    // default : include all
-      // metadata (topic, partition, offset)
-    }
-    else if (recordFormatConfig.equalsIgnoreCase("avro"))
-    {
-      recordFormat = SupportedFileFormat.AVRO;
-      recordService = new AvroRecordService();    // default : include all
-      // metadata (topic, partition, offset)
-    }
+    recordService = new RecordService();    // default : include all
 
     this.bufferCountRecords = Long.parseLong(config.get("buffer.count" +
       ".records"));
@@ -253,7 +241,7 @@ public class SnowflakeSinkTask extends SinkTask
         if (snowflakeConnection.pipeExist(pipeName))
         {
           if (!snowflakeConnection.pipeIsCompatible(pipeName, tableName,
-            stageName, recordFormat))
+            stageName))
           {
             // possible name collision with a pipe created outside the connector
             String errorMsg = "Pipe " + pipeName + " exists" +
@@ -297,8 +285,8 @@ public class SnowflakeSinkTask extends SinkTask
           if (!ready)
           {
             String errorMsg = "SnowflakeSinkTask timed out. " +
-              "Tables or stages are not yet available for data ingestion to " +
-              "start. " +
+              "Tables or stages are not yet available for data ingestion to" +
+              " start. " +
               "If this persists, please contact Snowflake support.";
             LOGGER.error(errorMsg);
             telemetry.reportKafkaFatalError(errorMsg, connectorName);
@@ -316,8 +304,7 @@ public class SnowflakeSinkTask extends SinkTask
           // NOTE: snowflake doesn't throttle pipe creation, so party away!
           LOGGER.info("creating pipe {} for table {}, for stage {}",
             pipeName, tableName, stageName);
-          snowflakeConnection.createPipe(pipeName, tableName, stageName,
-            recordFormat, true);
+          snowflakeConnection.createPipe(pipeName, tableName, stageName, true);
           telemetry.reportKafkaCreatePipe(pipeName, stageName, tableName,
             connectorName);
         }
@@ -551,8 +538,7 @@ public class SnowflakeSinkTask extends SinkTask
                   tableName,
                   record.kafkaPartition(),
                   record.kafkaOffset(),
-                  record.kafkaOffset(),
-                  SupportedFileFormat.JSON),
+                  record.kafkaOffset()),
                 record.toString(),
                 tableName);
             } catch (SQLException ex_putToTableStage)
@@ -589,7 +575,8 @@ public class SnowflakeSinkTask extends SinkTask
       {
         // This shouldn't happen. It's a bug.
         String errorMsg = "Partition " + partition +
-          " not found in current task's in-memory buffer " + partitionBuffers +
+          " not found in current task's in-memory buffer " +
+          partitionBuffers +
           ". This should not happen. Please contact Snowflake support.";
         LOGGER.error(errorMsg);
 
@@ -643,8 +630,7 @@ public class SnowflakeSinkTask extends SinkTask
       tableName,
       topicPartition.partition(),
       buffer.firstOffset(),
-      buffer.latestOffset(),
-      this.recordFormat);
+      buffer.latestOffset());
     String pipeName = Utils.pipeName(
       tableName,
       topicPartition.partition());
@@ -945,7 +931,8 @@ public class SnowflakeSinkTask extends SinkTask
             myFilesMap.remove(fileName);
             LOGGER.error("File {}, partition {}: some records failed to load." +
                 " " +
-                "File is being moved to table stage for further investigation.",
+                "File is being moved to table stage for further " +
+                "investigation.",
               fileName, partition);
             break;
 
@@ -953,7 +940,8 @@ public class SnowflakeSinkTask extends SinkTask
             filesFailed.add(fileName);
             myFilesMap.remove(fileName);
             LOGGER.error("File {}, partition {}: file failed to load. " +
-                "File is being moved to table stage for further investigation.",
+                "File is being moved to table stage for further " +
+                "investigation.",
               fileName, partition);
             break;
 
@@ -1082,8 +1070,8 @@ public class SnowflakeSinkTask extends SinkTask
         {
           String errorMsg = "Table " + table +
             " is configured to receive records from topic " + topic +
-            " but it has either been dropped or a schema change has made it " +
-            "incompatible.";
+            " but it has either been dropped or a schema change has made it" +
+            " incompatible.";
           LOGGER.error(errorMsg);
           telemetry.reportKafkaFatalError(errorMsg, connectorName);
 
@@ -1125,7 +1113,7 @@ public class SnowflakeSinkTask extends SinkTask
   private void updateDataTelemetry(long numRecords, long numBytes)
   {
     tNumRecords += numRecords;
-    tNumBytes += tNumBytes;
+    tNumBytes += numBytes;
 
     long currentTime = System.currentTimeMillis();
     if ((currentTime - tStartTime) > tReportingIntervalms)

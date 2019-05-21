@@ -86,7 +86,11 @@ class SnowflakeJDBCWrapper
   SnowflakeJDBCWrapper(Map<String, String> conf)
     throws SQLException
   {
-    Utils.require(conf != null, "conf map must not be null");
+    if (conf == null)
+    {
+      LOGGER.error("input conf is null");
+      throw new IllegalArgumentException("input conf is null");
+    }
 
     //init query mark
     if (conf.containsKey(Utils.TASK_ID))
@@ -193,26 +197,54 @@ class SnowflakeJDBCWrapper
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
 
     //required parameter check
-    Utils.require(properties.containsKey(JDBC_PRIVATE_KEY),
-      "A PEM private key must be provided with "
-        + Utils.SF_PRIVATE_KEY + " parameter");
+    if (!properties.containsKey(JDBC_PRIVATE_KEY))
+    {
+      LOGGER.error("config doesn't contain private key");
+      throw new IllegalArgumentException(
+        "A PEM private key must be provided with " + Utils.SF_PRIVATE_KEY +
+          " parameter");
+    }
 
-    Utils.require(properties.containsKey(JDBC_SCHEMA),
-      "A snowflake schema must be provided with "
-        + Utils.SF_SCHEMA + " parameter");
+    if (!properties.containsKey(JDBC_SCHEMA))
+    {
+      LOGGER.error("config doesn't contain schema name");
+      throw new IllegalArgumentException(
+        "A snowflake schema must be provided with " + Utils.SF_SCHEMA +
+          " parameter");
+    }
 
-    Utils.require(properties.containsKey(JDBC_DATABASE),
-      "A snowflake database must be provided with "
-        + Utils.SF_DATABASE + " parameter");
+    if (!properties.containsKey(JDBC_DATABASE))
+    {
+      LOGGER.error("config doesn't contain database name");
+      throw new IllegalArgumentException(
+        "A snowflake database must be provided with "
+          + Utils.SF_DATABASE + " parameter");
+    }
 
-    Utils.require(properties.containsKey(JDBC_USER),
-      "A snowflake user must be provided with "
-        + Utils.SF_USER + " parameter");
+    if (!properties.containsKey(JDBC_DATABASE))
+    {
+      LOGGER.error("config doesn't contain database name");
+      throw new IllegalArgumentException(
+        "A snowflake database must be provided with "
+          + Utils.SF_DATABASE + " parameter");
+    }
 
-    Utils.require(properties.containsKey(URL),
-      "A snowflake URL must be provided with "
-        + Utils.SF_URL +
-        " parameter, e.g. 'accountname.snoflakecomputing.com:443'");
+
+    if (!properties.containsKey(JDBC_USER))
+    {
+      LOGGER.error("config doesn't contain user name");
+      throw new IllegalArgumentException(
+        "A snowflake user name must be provided with "
+          + Utils.SF_DATABASE + " parameter");
+    }
+
+    if (!properties.containsKey(URL))
+    {
+      LOGGER.error("config doesn't contain database name");
+      throw new IllegalArgumentException(
+        "A snowflake URL must be provided with " + Utils.SF_URL +
+          " parameter, e.g. 'accountname.snoflakecomputing.com'");
+    }
 
     return properties;
   }
@@ -230,8 +262,12 @@ class SnowflakeJDBCWrapper
   {
     checkConnection();
 
-    Utils.require((tableName != null) && (!tableName.isEmpty()),
-      "tableName must not be null or empty");
+    if (tableName == null || tableName.isEmpty())
+    {
+      LOGGER.error("Empty table name");
+      throw new IllegalArgumentException("table name must not be null or " +
+        "empty");
+    }
 
     String query;
 
@@ -254,7 +290,7 @@ class SnowflakeJDBCWrapper
 
     stmt.execute();
 
-    LOGGER.info("create table " + tableName);
+    LOGGER.info("create table {}", tableName);
 
     return tableName;
   }
@@ -277,26 +313,36 @@ class SnowflakeJDBCWrapper
    * @param pipeName  pipe name
    * @param tableName table name
    * @param stageName stage name
-   * @param format    file format
    * @param overwrite if true, execute "create or replace pipe" statement,
    *                  otherwise, run "create pipe if not exists"
    * @return pipe name
    * @throws SQLException
    */
   String createPipe(String pipeName, String tableName, String stageName,
-                    SupportedFileFormat format, boolean overwrite) throws
+                    boolean overwrite) throws
     SQLException
   {
     checkConnection();
 
-    Utils.require((pipeName != null) && (!pipeName.isEmpty()),
-      "pipeName must not be null or empty");
+    if (pipeName == null || pipeName.isEmpty())
+    {
+      LOGGER.error("pipe name is empty");
+      throw new IllegalArgumentException("pipe name must not be null or empty");
+    }
 
-    Utils.require((tableName != null) && (!tableName.isEmpty()),
-      "tableName must not be null or empty");
+    if (tableName == null || tableName.isEmpty())
+    {
+      LOGGER.error("table name is empty");
+      throw new IllegalArgumentException("table name must not be null or " +
+        "empty");
+    }
 
-    Utils.require((stageName != null) && (!stageName.isEmpty()),
-      "stageName must not be null or empty");
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stage name must not be null or " +
+        "empty");
+    }
 
     String query;
 
@@ -309,7 +355,7 @@ class SnowflakeJDBCWrapper
       query = "create pipe if not exists identifier(?) ";
     }
 
-    query += "as " + pipeDefinition(tableName, stageName, format);
+    query += "as " + pipeDefinition(tableName, stageName);
 
     query += queryMark;
 
@@ -352,8 +398,12 @@ class SnowflakeJDBCWrapper
   {
     checkConnection();
 
-    Utils.require((stageName != null) && (!stageName.isEmpty()),
-      "stageName must not be null or empty");
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stage name must not be null or " +
+        "empty");
+    }
 
     String query;
 
@@ -374,7 +424,7 @@ class SnowflakeJDBCWrapper
 
     stmt.execute();
 
-    LOGGER.info("create stage " + stageName);
+    LOGGER.info("create stage {}", stageName);
 
     return stageName;
 
@@ -403,8 +453,12 @@ class SnowflakeJDBCWrapper
   {
     checkConnection();
 
-    Utils.require((tableName != null) && (!tableName.isEmpty()),
-      "tableName must not be null or empty");
+    if (tableName == null || tableName.isEmpty())
+    {
+      LOGGER.error("table name is empty");
+      throw new IllegalArgumentException("table name must not be null or " +
+        "empty");
+    }
 
     String query = "desc table identifier(?)";
 
@@ -440,8 +494,12 @@ class SnowflakeJDBCWrapper
   {
     checkConnection();
 
-    Utils.require((tableName != null) && (!tableName.isEmpty()),
-      "tableName must not be null or empty");
+    if (tableName == null || tableName.isEmpty())
+    {
+      LOGGER.error("table name is empty");
+      throw new IllegalArgumentException("table name must not be null or " +
+        "empty");
+    }
 
     String query = "desc table identifier(?)";
 
@@ -511,8 +569,11 @@ class SnowflakeJDBCWrapper
   {
     checkConnection();
 
-    Utils.require((pipeName != null) && (!pipeName.isEmpty()),
-      "pipeName must not be null or empty");
+    if (pipeName == null || pipeName.isEmpty())
+    {
+      LOGGER.error("pipe name is empty");
+      throw new IllegalArgumentException("pipeName must not be null or empty");
+    }
 
     String query = "desc pipe identifier(?)";
 
@@ -541,18 +602,32 @@ class SnowflakeJDBCWrapper
    * @param pipeName  pipe name
    * @param tableName table name
    * @param stageName stage name
-   * @param format    file format
    * @return true if definition is correct, false if it is incorrect
    * or pipe does not exists
    * @throws SQLException
    */
-  boolean pipeIsCompatible(String pipeName, String tableName, String stageName,
-                           SupportedFileFormat format) throws SQLException
+  boolean pipeIsCompatible(String pipeName, String tableName, String stageName)
+    throws SQLException
   {
     checkConnection();
 
-    Utils.require((pipeName != null) && (!pipeName.isEmpty()),
-      "pipeName must not be null or empty");
+    if (pipeName == null || pipeName.isEmpty())
+    {
+      LOGGER.error("pipe name is empty");
+      throw new IllegalArgumentException("pipeName must not be null or empty");
+    }
+
+    if (tableName == null || tableName.isEmpty())
+    {
+      LOGGER.error("table name is empty");
+      throw new IllegalArgumentException("tableName must not be null or empty");
+    }
+
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stageName must not be null or empty");
+    }
 
     if (!pipeExist(pipeName))
     {
@@ -580,13 +655,11 @@ class SnowflakeJDBCWrapper
 
       LOGGER.debug("pipe {} definition: {}", pipeName, definition);
 
-      return definition
-        .equalsIgnoreCase(pipeDefinition(tableName, stageName, format));
+      return definition.equalsIgnoreCase(pipeDefinition(tableName, stageName));
 
     } catch (SQLException e)
     {
-      LOGGER.debug("pipe {} doesn't exists ",
-        pipeName);
+      LOGGER.debug("pipe {} doesn't exists ", pipeName);
 
       return false;
     }
@@ -603,8 +676,11 @@ class SnowflakeJDBCWrapper
   {
     checkConnection();
 
-    Utils.require((stageName != null) && (!stageName.isEmpty()),
-      "stageName must not be null or empty");
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stageName must not be null or empty");
+    }
 
     String query = "desc stage identifier(?)";
 
@@ -639,8 +715,11 @@ class SnowflakeJDBCWrapper
   {
     checkConnection();
 
-    Utils.require((stageName != null) && (!stageName.isEmpty()),
-      "stageName must not be null or empty");
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stageName must not be null or empty");
+    }
 
     if (!stageExist(stageName))
     {
@@ -674,8 +753,11 @@ class SnowflakeJDBCWrapper
   {
     checkConnection();
 
-    Utils.require((pipeName != null) && (!pipeName.isEmpty()),
-      "pipeName must not be null or empty");
+    if (pipeName == null || pipeName.isEmpty())
+    {
+      LOGGER.error("pipe name is empty");
+      throw new IllegalArgumentException("pipeName must not be null or empty");
+    }
 
     String query = "drop pipe if exists identifier(?)";
 
@@ -695,7 +777,7 @@ class SnowflakeJDBCWrapper
       pipes.remove(pipeName);
     }
 
-    LOGGER.info("pipe " + pipeName + " dropped");
+    LOGGER.info("pipe {} dropped", pipeName);
   }
 
   /**
@@ -708,8 +790,11 @@ class SnowflakeJDBCWrapper
   {
     checkConnection();
 
-    Utils.require((stageName != null) && (!stageName.isEmpty()),
-      "stageName must not be null or empty");
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stageName must not be null or empty");
+    }
 
     if (!stageExist(stageName))
     {
@@ -746,8 +831,11 @@ class SnowflakeJDBCWrapper
   {
     checkConnection();
 
-    Utils.require((stageName != null) && (!stageName.isEmpty()),
-      "stageName must not be null or empty");
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stageName must not be null or empty");
+    }
 
     String query = "drop stage if exists identifier(?)";
 
@@ -759,7 +847,7 @@ class SnowflakeJDBCWrapper
 
     stmt.execute();
 
-    LOGGER.info("stage " + stageName + " dropped");
+    LOGGER.info("stage {} dropped", stageName);
   }
 
   /**
@@ -772,13 +860,23 @@ class SnowflakeJDBCWrapper
    *                             All pipes should be created by this
    *                             JDBCWrapper.
    * @throws Exception           errors in putting file to stage and
-   * ingesting file
+   *                             ingesting file
    */
   void ingestFile(String pipeName, String fileName, String content) throws
     Exception
   {
-    Utils.require(pipes.containsKey(pipeName),
-      "pipe not created: " + pipeName);
+    if (pipeName == null || pipeName.isEmpty())
+    {
+      LOGGER.error("pipe name is empty");
+      throw new IllegalArgumentException("pipeName must not be null or empty");
+    }
+
+    if (!pipes.containsKey(pipeName))
+    {
+      LOGGER.error("pipe {} is not created", pipeName);
+      throw new IllegalArgumentException("pipe " + pipeName + " is not " +
+        "created");
+    }
 
     //put file to stage
     put(fileName, content, pipes.get(pipeName).getStageName());
@@ -797,8 +895,11 @@ class SnowflakeJDBCWrapper
    */
   void ingestFile(String pipeName, String fileName) throws Exception
   {
-    Utils.require(pipes.containsKey(pipeName),
-      "pipe not created: " + pipeName);
+    if (pipeName == null || pipeName.isEmpty())
+    {
+      LOGGER.error("pipe name is empty");
+      throw new IllegalArgumentException("pipeName must not be null or empty");
+    }
 
     SnowflakeIngestService ingestService = pipes.get(pipeName);
 
@@ -815,6 +916,12 @@ class SnowflakeJDBCWrapper
    */
   void purge(String stageName, List<String> files) throws SQLException
   {
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stageName must not be null or empty");
+    }
+
     for (String fileName : files)
     {
       removeFile(stageName, fileName);
@@ -836,8 +943,19 @@ class SnowflakeJDBCWrapper
   Map<String, Utils.IngestedFileStatus> verifyFromIngestReport(
     String pipeName, List<String> files) throws Exception
   {
-    Utils.require(pipes.containsKey(pipeName),
-      "pipe not created: " + pipeName);
+    if (pipeName == null || pipeName.isEmpty())
+    {
+      LOGGER.error("pipe name is empty");
+      throw new IllegalArgumentException("pipeName must not be null or empty");
+    }
+
+    if (!pipes.containsKey(pipeName))
+    {
+      LOGGER.error("pipe {} is not created", pipeName);
+
+      throw new IllegalArgumentException("Pipe " + pipeName + " is not " +
+        "created");
+    }
 
     return pipes.get(pipeName).checkIngestReport(files);
   }
@@ -856,8 +974,19 @@ class SnowflakeJDBCWrapper
   Map<String, Utils.IngestedFileStatus> verifyFromLoadHistory(
     String pipeName, List<String> files) throws Exception
   {
-    Utils.require(pipes.containsKey(pipeName),
-      "pipe not created: " + pipeName);
+    if (pipeName == null || pipeName.isEmpty())
+    {
+      LOGGER.error("pipe name is empty");
+      throw new IllegalArgumentException("pipeName must not be null or empty");
+    }
+
+    if (!pipes.containsKey(pipeName))
+    {
+      LOGGER.error("pipe {} is not created", pipeName);
+
+      throw new IllegalArgumentException("Pipe " + pipeName + " is not " +
+        "created");
+    }
 
     return pipes.get(pipeName).checkLoadHistory(files);
   }
@@ -874,6 +1003,18 @@ class SnowflakeJDBCWrapper
   void moveToTableStage(String stageName, String tableName, List<String>
     files) throws Exception
   {
+
+    if (tableName == null || tableName.isEmpty())
+    {
+      LOGGER.error("table name is empty");
+      throw new IllegalArgumentException("tableName must not be null or empty");
+    }
+
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stageName must not be null or empty");
+    }
 
     SnowflakeConnectionV1 sfconn = (SnowflakeConnectionV1) conn;
 
@@ -905,6 +1046,7 @@ class SnowflakeJDBCWrapper
    * //        and status is set to NOT_FOUND
    *
    * @param pipeName     pipe name
+   * @param stageName    stage name
    * @param subdirectory subdirectory name (partition number)
    * @return a list of file which in the given subdirectory
    * @throws Exception if failed to recover pipe
@@ -914,6 +1056,18 @@ class SnowflakeJDBCWrapper
                                                     String subdirectory)
     throws Exception
   {
+
+    if (pipeName == null || pipeName.isEmpty())
+    {
+      LOGGER.error("pipe name is empty");
+      throw new IllegalArgumentException("pipeName must not be null or empty");
+    }
+
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stageName must not be null or empty");
+    }
 
     //create ingest service
     String pipeFullName = properties.get(JDBC_DATABASE) + "." +
@@ -1069,6 +1223,12 @@ class SnowflakeJDBCWrapper
                                  boolean isTableStage) throws
     SQLException
   {
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stageName must not be null or empty");
+    }
+
     String query;
 
     int stageNameLength;
@@ -1101,8 +1261,8 @@ class SnowflakeJDBCWrapper
         .substring(stageNameLength));
     }
 
-    LOGGER.info("list stage " + stageName + " retrieved " + result.size()
-      + " file names");
+    LOGGER.info("list stage {} retrieved {} file names", stageName, result
+      .size());
 
     return result;
   }
@@ -1152,6 +1312,12 @@ class SnowflakeJDBCWrapper
   void put(String fileName, String content, String stageName)
     throws SQLException
   {
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stageName must not be null or empty");
+    }
+
     SnowflakeConnectionV1 sfconn = (SnowflakeConnectionV1) conn;
 
     InputStream input = new ByteArrayInputStream(content.getBytes());
@@ -1159,7 +1325,7 @@ class SnowflakeJDBCWrapper
     sfconn.compressAndUploadStream(stageName, null, input,
       Utils.removeGZFromFileName(fileName));
 
-    LOGGER.debug("put file " + fileName + " to stage " + stageName);
+    LOGGER.debug("put file {} to stage {}", fileName, stageName);
 
   }
 
@@ -1173,6 +1339,12 @@ class SnowflakeJDBCWrapper
   void putToTableStage(String fileName, String content, String tableName)
     throws SQLException
   {
+    if (tableName == null || tableName.isEmpty())
+    {
+      LOGGER.error("table name is empty");
+      throw new IllegalArgumentException("tableName must not be null or empty");
+    }
+
     put(fileName, content, "%" + tableName);
   }
 
@@ -1189,30 +1361,28 @@ class SnowflakeJDBCWrapper
    *
    * @param tableName table name
    * @param stageName stage name
-   * @param format    file format
    * @return pipe definition string
    */
-  private String pipeDefinition(String tableName, String stageName,
-                                SupportedFileFormat format) throws SQLException
+  private String pipeDefinition(String tableName, String stageName) throws
+    SQLException
   {
-    switch (format)
+    if (tableName == null || tableName.isEmpty())
     {
-      case JSON:
-        return "copy into " + tableName +
-          "(RECORD_METADATA, RECORD_CONTENT) from (select $1:meta, $1:content" +
-          " from"
-          + " @" + stageName + " t) file_format = (type = 'json')";
-
-      case AVRO:
-        return "copy into " + tableName + "(RECORD_CONTENT) from @" +
-          stageName +
-          " file_format = (type = 'avro')";
-      //todo: include file name in record_metadata column
-
-      default:
-        throw new SQLException("unsupported format: " + format);
-        // todo: may not works on CSV, do we support CSV?
+      LOGGER.error("table name is empty");
+      throw new IllegalArgumentException("tableName must not be null or empty");
     }
+
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stageName must not be null or empty");
+    }
+
+    return "copy into " + tableName +
+      "(RECORD_METADATA, RECORD_CONTENT) from (select $1:meta, " +
+      "$1:content from"
+      + " @" + stageName + " t) file_format = (type = 'json')";
+
   }
 
   /**
@@ -1225,6 +1395,12 @@ class SnowflakeJDBCWrapper
   private void removeFile(String stageName, String fileName) throws
     SQLException
   {
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stageName must not be null or empty");
+    }
+
     String query = "rm @" + stageName + "/" + fileName;
 
     query += queryMark;
@@ -1233,7 +1409,7 @@ class SnowflakeJDBCWrapper
 
     stmt.execute();
 
-    LOGGER.debug("deleted " + fileName + " from stage " + stageName);
+    LOGGER.debug("deleted {} from stage {}", fileName, stageName);
   }
 
 
@@ -1253,7 +1429,8 @@ class SnowflakeJDBCWrapper
   /**
    * create an ingest sdk instance of given pipe
    *
-   * @param pipeName pipename format: database.schema.pipename
+   * @param pipeName  pipename format: database.schema.pipename
+   * @param stageName stage name
    * @return an instance of ingest sdk
    * @throws InvalidKeySpecException
    * @throws NoSuchAlgorithmException
@@ -1262,6 +1439,18 @@ class SnowflakeJDBCWrapper
                                                         String stageName)
     throws InvalidKeySpecException, NoSuchAlgorithmException
   {
+    if (pipeName == null || pipeName.isEmpty())
+    {
+      LOGGER.error("pipe name is empty");
+      throw new IllegalArgumentException("pipeName must not be null or empty");
+    }
+
+    if (stageName == null || stageName.isEmpty())
+    {
+      LOGGER.error("stage name is empty");
+      throw new IllegalArgumentException("stageName must not be null or empty");
+    }
+
     String account = properties.get(JDBC_ACCOUNT).toString();
 
     String user = properties.get(JDBC_USER).toString();

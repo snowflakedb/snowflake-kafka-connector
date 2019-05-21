@@ -59,7 +59,6 @@ class SnowflakeTelemetry
   private static final String NUM_TOPICS = "num_topics";
   private static final String NUM_MAPPED_TABLES = "num_mapped_tables";
   private static final String MAX_TASKS = "max_tasks";
-  private static final String RECORD_FORMAT = "record_format";
   private static final String APP_NAME = "app_name";
   private static final String RECORD_NUMBER = "record_number";
   private static final String BYTE_NUMBER = "byte_number";
@@ -128,9 +127,8 @@ class SnowflakeTelemetry
   /**
    * Event of connector start
    */
-  void reportKafkaStart(long startTime,
-                        int numTopics, int numMappedTables, int maxTasks,
-                        String recordFormat, String appName)
+  void reportKafkaStart(long startTime, int numTopics, int numMappedTables,
+                        int maxTasks, String appName)
   {
     ObjectNode msg = mapper.createObjectNode();
 
@@ -141,8 +139,6 @@ class SnowflakeTelemetry
     msg.put(NUM_MAPPED_TABLES, numMappedTables);
 
     msg.put(MAX_TASKS, maxTasks);
-
-    msg.put(RECORD_FORMAT, recordFormat);
 
     msg.put(APP_NAME, appName);
 

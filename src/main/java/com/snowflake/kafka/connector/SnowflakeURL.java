@@ -45,7 +45,12 @@ class SnowflakeURL
 
     Matcher matcher = pattern.matcher(urlStr.trim().toLowerCase());
 
-    Utils.require(matcher.find(), "invalid Snowflake URL " + urlStr);
+    if (!matcher.find())
+    {
+      LOGGER.error("invalid Snowflake URL {}", urlStr);
+
+      throw new IllegalArgumentException("invalid Snowflake URL " + urlStr);
+    }
 
     if ("http://".equals(matcher.group(1)))
     {
