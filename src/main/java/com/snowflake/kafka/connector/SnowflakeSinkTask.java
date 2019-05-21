@@ -16,17 +16,20 @@
  */
 package com.snowflake.kafka.connector;
 
+import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeIngestService;
+import com.snowflake.kafka.connector.internal.SnowflakeJDBCWrapper;
+import com.snowflake.kafka.connector.internal.SnowflakeTelemetry;
 import com.snowflake.kafka.connector.records.RecordService;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.SQLException;
 import java.util.*;
 
 /**
@@ -46,22 +49,13 @@ public class SnowflakeSinkTask extends SinkTask
   private RecordService recordService;            // service to validate
   // record structure and append metadata
 
-  // Collection of current topic / partitions managed by this task instance
-  private Collection<TopicPartition> partitions;
+  private HashMap<TopicPartition, PartitionProperties> partitionProperties;
 
-  // Map of current topic / partitions and the file buffer that holds the
-  // sink records
-  // as they arrive, until they are ready to be written to a file to ingest
-  private Map<TopicPartition, SnowflakePartitionBuffer> partitionBuffers;
   private long bufferCountRecords;    // config buffer.count.records -- how
   // many records to buffer
   private long bufferSizeBytes;       // config buffer.size.bytes --
   // aggregate size in bytes of all records to buffer
 
-  // Map of current topic / partitions and the list of files + file metadata,
-  // capturing the file lifecycle through out the ingestion process.
-  private Map<TopicPartition, HashMap<String, SnowflakeFileMetadata>>
-    partitionFiles;
 
   // SnowflakeJDBCWrapper provides methods to interact with user's snowflake
   // account
@@ -85,9 +79,7 @@ public class SnowflakeSinkTask extends SinkTask
   public SnowflakeSinkTask()
   {
     // instantiate in-memory structures
-    partitions = new HashSet<>();
-    partitionBuffers = new HashMap<>();
-    partitionFiles = new HashMap<>();
+    partitionProperties = new HashMap<>();
   }
 
   /**
@@ -100,7 +92,7 @@ public class SnowflakeSinkTask extends SinkTask
   @Override
   public void start(final Map<String, String> parsedConfig)
   {
-    LOGGER.info("SnowflakeSinkTask:start");
+    LOGGER.info(Logging.logMessage("SnowflakeSinkTask:start"));
 
     this.config = parsedConfig;
 
@@ -115,29 +107,16 @@ public class SnowflakeSinkTask extends SinkTask
 
     recordService = new RecordService();    // default : include all
 
-    this.bufferCountRecords = Long.parseLong(config.get("buffer.count" +
-      ".records"));
-    this.bufferSizeBytes = Long.parseLong(config.get("buffer.size.bytes"));
+    this.bufferCountRecords = Long.parseLong(config.get
+      (SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
+    this.bufferSizeBytes = Long.parseLong(config.get
+      (SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
 
-    try
-    {
-      snowflakeConnection = new SnowflakeJDBCWrapper(config);
-    } catch (SQLException ex)
-    {
-      // NOTE: this error is unlikely to happen since SnowflakeSinkConnector
-      // has already
-      // validated the configuration and established a connection. Anyways...
-      String errorMsg = "Failed to connect to Snowflake with the provided " +
-        "configuration. " +
-        "Please see the documentation. Exception: " + ex.toString();
-      LOGGER.error(errorMsg);
-
-      // stop the connector as we are unlikely to automatically recover from
-      // this error
-      throw new ConnectException(errorMsg);
-    }
+    snowflakeConnection = new SnowflakeJDBCWrapper(config);
 
     telemetry = snowflakeConnection.getTelemetry();
+
+    //todo: add to Config
     tReportingIntervalms = (config.containsKey("reserved.snowflake.telemetry" +
       ".reporting.interval.ms")) ?
       Long.parseLong(config.get("reserved.snowflake.telemetry.reporting" +
@@ -148,51 +127,12 @@ public class SnowflakeSinkTask extends SinkTask
    * stop method is invoked only once outstanding calls to other methods
    * have completed.
    * e.g. after current put, and a final preCommit has completed.
-   * <p>
-   * drop snowpipes
    */
   @Override
   public void stop()
   {
-    LOGGER.info("SnowflakeSinkTask:stop");
+    LOGGER.info(Logging.logMessage("SnowflakeSinkTask:stop"));
 
-    for (TopicPartition partition : partitions)
-    {
-      String tableName = config.get(partition.topic());
-      String pipeName = Utils.pipeName(
-        tableName,
-        partition.partition());
-      try
-      {
-        if (snowflakeConnection.pipeExist(pipeName))
-        {
-          snowflakeConnection.dropPipe(pipeName);
-        }
-        else
-        {
-          // User should not mess with these pipes outside the connector
-          String errorMsg = "Attempting to drop a non-existant pipe " +
-            pipeName + ". " +
-            "This should not happen. " +
-            "This pipe may have been manually dropped, which may affect " +
-            "ingestion guarantees.";
-          LOGGER.warn(errorMsg);
-          telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
-
-          // continue-on-error
-        }
-      } catch (SQLException ex)
-      {
-        String errorMsg = "Failed to drop empty pipe " + pipeName + ". " +
-          "It should be manually removed. Exception: " + ex.toString();
-        LOGGER.error(errorMsg);
-        telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
-
-        // continue-on-error
-      }
-    }
-
-    // NOTE: it is not necessary to clear the in-memory structures in stop
   }
 
   /**
@@ -200,7 +140,6 @@ public class SnowflakeSinkTask extends SinkTask
    * task instance, and rebuilds in memory structures.
    * kafka connect calls this method right after task initialization
    * or for the purpose of partition rebalance
-   * <p>
    * ASSUMPTION : There is no need to manage existing this.partitions set
    * in open method. kafka connect framework sends a complete list of
    * partitions
@@ -212,206 +151,176 @@ public class SnowflakeSinkTask extends SinkTask
   @Override
   public void open(final Collection<TopicPartition> partitions)
   {
-    LOGGER.info("SnowflakeSinkTask:open, TopicPartitions: {}", partitions);
+    LOGGER.info(Logging.logMessage(
+      "SnowflakeSinkTask:open, TopicPartitions: {}", partitions
+    ));
 
-    // clear in-memory data structure from earlier
-    this.partitions.clear();
-    this.partitionBuffers.clear();
-    this.partitionFiles.clear();
+    //reset in-memory cache
+    this.partitionProperties = new HashMap<>();
 
-    this.partitions.addAll(partitions);
-    for (TopicPartition partition : partitions)
-    {
-      // initialize in-memory structures
-      partitionBuffers.put(partition, new SnowflakePartitionBuffer());
-      partitionFiles.put(partition, new HashMap<>());
+    partitions.forEach(
+      partition -> {
+        partitionProperties.put(partition, new PartitionProperties());
 
-      String tableName = config.get(partition.topic());   //
-      // SnowflakeSinkConnector stores it here
-      String stageName = Utils.stageName(tableName);
-      String pipeName = Utils.pipeName(tableName, partition.partition());
+        String tableName = config.get(partition.topic());
+        String stageName = Utils.stageName(tableName);
+        String pipeName = Utils.pipeName(tableName, partition.partition());
 
-      // create or validate pipe
-      // pipe may already exist if the open was called for rebalancing
-      // OR if the connector went through restart / recovery
-      try
-      {
-        LOGGER.info("creating or validating pipe {} for table {}, for stage {}",
-          pipeName, tableName, stageName);
+        //Check Table and Stage existence
+        //Retry 120 times (10 min) to wait SinkConnector creating stage and
+        // table
+        final int max_retry = 120;
+        int retried = 0;
+        while ((!snowflakeConnection.tableExist(tableName) ||
+          !snowflakeConnection.stageExist(stageName))
+          && retried < max_retry)
+        {
+          retried++;
+          try
+          {
+            LOGGER.info(Logging.logMessage(
+              "Sleeping 5 sec to allow setup to complete"
+            ));
+            Thread.sleep(5000);
+          } catch (InterruptedException e)
+          {
+            LOGGER.error(Logging.logMessage(
+              "System error when thread sleep {}", e));// should not happen
+          }
+        }
+
+        if (!snowflakeConnection.tableExist(tableName) ||
+          !snowflakeConnection.stageExist(stageName))
+        {
+          telemetry.reportKafkaFatalError(SnowflakeErrors
+            .ERROR_5008.getDetail(), connectorName);
+          this.stop();
+          throw SnowflakeErrors.ERROR_5008.getException();
+        }
+
+
+        //recover
+        final HashMap<String, SnowflakeFileMetadata> myFilesMap =
+          partitionProperties.get(partition).getFileList();
+        final SnowflakePartitionBuffer myBuffer =
+          partitionProperties.get(partition).getBuffer();
+
+        //check pipe existence
+        //if pipe existence recovered from previous task
+        //otherwise move all file on stage to table stage
         if (snowflakeConnection.pipeExist(pipeName))
         {
           if (!snowflakeConnection.pipeIsCompatible(pipeName, tableName,
             stageName))
           {
-            // possible name collision with a pipe created outside the connector
-            String errorMsg = "Pipe " + pipeName + " exists" +
-              " but is incompatible with Snowflake Kafka Connector" +
-              " and must be dropped before restarting the connector.";
-            LOGGER.error(errorMsg);
-            telemetry.reportKafkaFatalError(errorMsg, connectorName);
-
-            // stop the connector as we are unlikely to automatically recover
-            // from this error
-            throw new ConnectException(errorMsg);
+            telemetry.reportKafkaFatalError("incompatible pipe: " + pipeName,
+              connectorName);
+            throw SnowflakeErrors.ERROR_5005.getException("pipe name: " +
+              pipeName);
           }
+
+
+          //recover
+          Map<String, Utils.IngestedFileStatus> files =
+            snowflakeConnection.recoverPipe(pipeName, stageName,
+              Utils.subdirectoryName(tableName, partition.partition()));
+
+          List<String> loadedFiles = new LinkedList<>();
+          List<String> failedFiles = new LinkedList<>();
+
+          if (!files.isEmpty())
+          {
+            files.forEach(
+              (name, status) -> {
+                SnowflakeFileMetadata meta = new SnowflakeFileMetadata(name);
+                if (myBuffer.latestOffset() < meta.endOffset)
+                {
+                  myBuffer.setLatestOffset(meta.endOffset);
+                }
+                switch (status)
+                {
+                  case LOADED:
+                    loadedFiles.add(name);
+                    break;
+                  case NOT_FOUND:
+                  case LOAD_IN_PROGRESS:
+                    myFilesMap.put(name, meta);
+                    break;
+                  case FAILED:
+                  case PARTIALLY_LOADED:
+                  default:
+                    failedFiles.add(name);
+                }
+
+              }
+            );
+
+          }
+          if (!failedFiles.isEmpty())
+          {
+            snowflakeConnection.moveToTableStage(stageName, tableName,
+              failedFiles);
+          }
+          if (!loadedFiles.isEmpty())
+          {
+            snowflakeConnection.purge(stageName, loadedFiles);
+          }
+
+          LOGGER.info(Logging.logMessage("Connector recovery: latest " +
+            "processed offset {}, for partition {}", myBuffer.latestOffset
+            (), partition));
+
         }
         else
         {
-          // Kafka Connect calls SnowflakeSinkTask:start without waiting for
-          // SnowflakeSinkConnector:start to finish. This causes a race
-          // conditions.
-
-          int counter = 0;
-          boolean ready = false;
-          while (counter < 120)    // poll for 120*5 seconds (10 mins) maximum
+          try
           {
-            if (snowflakeConnection.tableExist(tableName) &&
-              snowflakeConnection.stageExist(stageName))
-            {
-              ready = true;
-              break;
-            }
-            counter++;
-
-            try
-            {
-              LOGGER.info("Sleeping 5000ms to allow setup to complete.");
-              Thread.sleep(5000);
-            } catch (InterruptedException ex)
-            {
-              LOGGER.info("Waiting for setup to complete got interrupted");
-            }
-          }
-          if (!ready)
+            snowflakeConnection.createPipe(pipeName, tableName, stageName,
+              true);
+            telemetry.reportKafkaCreatePipe(pipeName, stageName, tableName,
+              connectorName);
+          } catch (Exception e)
           {
-            String errorMsg = "SnowflakeSinkTask timed out. " +
-              "Tables or stages are not yet available for data ingestion to" +
-              " start. " +
-              "If this persists, please contact Snowflake support.";
-            LOGGER.error(errorMsg);
-            telemetry.reportKafkaFatalError(errorMsg, connectorName);
-
-            // cleanup
-            this.close(this.partitions);
+            telemetry.reportKafkaFatalError("Failed to create pipe: " +
+              pipeName, connectorName);
             this.stop();
-
-            // stop the connector as we are unlikely to automatically recover
-            // from this error
-            throw new ConnectException(errorMsg);
+            throw SnowflakeErrors.ERROR_3005.getException(e);
           }
+          LOGGER.info(Logging.logMessage("pipe {} does't exist, can't recover" +
+            " from previous task, move all file related to this pipe to table" +
+            " ({}) stage"), pipeName, tableName);
 
-
-          // NOTE: snowflake doesn't throttle pipe creation, so party away!
-          LOGGER.info("creating pipe {} for table {}, for stage {}",
-            pipeName, tableName, stageName);
-          snowflakeConnection.createPipe(pipeName, tableName, stageName, true);
-          telemetry.reportKafkaCreatePipe(pipeName, stageName, tableName,
-            connectorName);
+          //update last offset
+          snowflakeConnection.listStage(stageName, Utils
+            .subdirectoryName(tableName, partition.partition())).forEach(
+            name ->
+            {
+              if (Utils.fileNameToEndOffset(name) > myBuffer.latestOffset())
+              {
+                myBuffer.setLatestOffset(Utils.fileNameToEndOffset(name));
+              }
+            }
+          );
+          snowflakeConnection.moveToTableStage(stageName, tableName, Utils
+            .subdirectoryName(tableName, partition.partition()));
         }
 
-      } catch (SQLException ex)
-      {
-        String errorMsg = "Failed to create pipe " + pipeName + ". " +
-          "User may have insufficient privileges. " +
-          "If this persists, please contact Snowflake support. " +
-          "Exception: " + ex.toString();
-        LOGGER.error(errorMsg);
-        telemetry.reportKafkaFatalError(errorMsg, connectorName);
 
-        // cleanup
-        this.close(this.partitions);
-        this.stop();
-
-        // stop the connector as we are unlikely to automatically recover
-        // from this error
-        throw new ConnectException(errorMsg);
       }
-
-      // reconstruct in-memory structures from the files in stage, if any,
-      // in case of rebalance or restart / recovery
-      // store the file metadata for each file in the stage, and
-      // compute the offset of the latest record that was processed in those
-      // files
-
-      HashMap<String, SnowflakeFileMetadata> myFilesMap = partitionFiles.get
-        (partition);
-      SnowflakePartitionBuffer myBuffer = partitionBuffers.get(partition);
-      long latestOffset = myBuffer.latestOffset();
-      String latestFileName = "";
-
-      // list of files currently visible in the stage, and their status as
-      // per LoadHistoryScan
-      // TODO (GA) : we don't need the file status. We can get it in
-      // preCommit method
-      // TODO (GA) : batch the files into smaller sets if there are large
-      // number of files
-
-      Map<String, Utils.IngestedFileStatus> recoveredFiles;
-
-      try
-      {
-        recoveredFiles = snowflakeConnection.recoverPipe(
-          pipeName,
-          stageName,
-          Utils.subdirectoryName(tableName, partition.partition()));
-      } catch (Exception ex)
-      {
-        String errorMsg = "Failed to get list of files from stage. " +
-          "Please contact Snowflake support. Exception: " + ex.toString();
-        LOGGER.error(errorMsg);
-        telemetry.reportKafkaFatalError(errorMsg, connectorName);
-
-        // cleanup
-        this.close((this.partitions));
-        this.stop();
-
-        // stop the connector as we are unlikely to automatically recover
-        // from this error
-        throw new ConnectException(errorMsg);
-      }
-
-      Iterator<Map.Entry<String, Utils.IngestedFileStatus>> fileIterator =
-        recoveredFiles.entrySet().iterator();
-      while (fileIterator.hasNext())
-      {
-        Map.Entry<String, Utils.IngestedFileStatus> myFile = fileIterator
-          .next();
-
-        String fileName = myFile.getKey();
-        myFilesMap.put(fileName, new SnowflakeFileMetadata(fileName));
-
-        long endOffset = Utils.fileNameToEndOffset(fileName);
-        if (latestOffset < endOffset)
-        {
-          latestOffset = endOffset;
-          latestFileName = fileName;
-        }
-      }
-
-      // update latestOffset in partitionBuffers
-      // this will help discard records that kafka connect might resend
-      myBuffer.setLatestOffset(latestOffset);
-      if (!latestFileName.isEmpty())
-      {
-        LOGGER.info("Connector recovery: latest processed offset {}, for " +
-            "partition {}, in file {}.",
-          latestOffset, partition, latestFileName);
-      }
-    }
+    );
 
     resetDataTelemetry();
   }
+
 
   /**
    * close method handles the partitions that are no longer assigned to
    * this sink task.
    * kafka connect calls this method before a rebalance operation starts and
    * after the sink tasks stops fetching data
-   * <p>
    * We don't drop snowpipe's in close method to avoid churn of snowpipes
    * due to rebalancing.
    * snowpipes are dropped in SinkTask:stop and SinkConnector:stop
-   * <p>
    * ASSUMPTION : There is no need to manage this.partitions set in close
    * method.
    * kafka connect framework removes all partitions that this sink task was
@@ -423,47 +332,53 @@ public class SnowflakeSinkTask extends SinkTask
   @Override
   public void close(final Collection<TopicPartition> partitions)
   {
-    LOGGER.info("SnowflakeSinkTask:close: Unassigning TopicPartitions {}",
-      partitions);
+    LOGGER.info(Logging.logMessage("SnowflakeSinkTask:close: Unassigning " +
+      "TopicPartitions {}", partitions));
 
-    // TODO (GA) (SNOW-63003) : create the summary file and drop it to
-    // 'diagnostics and recovery stage'
+    // handle last file on the stage
+    partitions.forEach(partition ->
+    {
+      if (partitionProperties.containsKey(partition))
+      {
+        String tableName = config.get(partition.topic());
+        String pipeName = Utils.pipeName(
+          tableName,
+          partition.partition());
+        String stageName = Utils.stageName(tableName);
 
-/**     commenting out unnecessary code for performance reasons.
- *
- // clear in-memory structures
- for (TopicPartition partition : partitions)
- {
- // if partitionBuffers has any records that are not yet ingested to snowflake
- // kafka connect will resend those records after rebalance recovery
- if (partitionBuffers.containsKey(partition) &&
- partitionBuffers.get(partition).recordCount() != 0)
- {
- LOGGER.debug("Found unprocessed {} records in the in-memory buffer of
- SinkTask, " +
- "for partition {}", partitionBuffers.get(partition).recordCount(), partition
- .toString());
- }
- partitionBuffers.remove(partition);
+        PartitionProperties property = partitionProperties.get(partition);
+        if (property.getLastFileName() != null)
+        {
+          List<String> fileList = new ArrayList<>(1);
+          fileList.add(property.getLastFileName());
+          if (property.isLastFileLoaded()) //loaded
+          {
+            snowflakeConnection.purge(stageName, fileList);
+            LOGGER.debug(Logging.logMessage("purge last file: {}", fileList
+              .get(0)));
+          }
+          else
+          {
+            snowflakeConnection.moveToTableStage(stageName, tableName,
+              fileList);
+            LOGGER.debug(Logging.logMessage("move last file {} to table {} " +
+              "stage", fileList.get(0), tableName));
+          }
+        }
 
- // partitionFiles may have some files that are not yet completely loaded to
- snowflake
- // we will recover the file list and metadata in then next life of the
- connector
- if (partitionFiles.containsKey(partition) &&
- !partitionFiles.get(partition).isEmpty())
- {
- LOGGER.debug("Found unprocessed {} files in the in-memory buffer of
- SinkTask, " +
- "for partition {}", partitionFiles.get(partition).size(), partition.toString
- ());
- }
- partitionFiles.remove(partition);
+        //drop pipe if stage is empty
+        if (snowflakeConnection.listStage(stageName, Utils.subdirectoryName
+          (tableName, partition.partition())).isEmpty())
+        {
+          snowflakeConnection.dropPipe(pipeName);
+        }
+      }
+      else
+      {
+        //todo: report error?
+      }
+    });
 
- // DO NOT drop the snowpipe here
- }
- *
- */
   }
 
   /**
@@ -479,7 +394,8 @@ public class SnowflakeSinkTask extends SinkTask
   @Override
   public void put(final Collection<SinkRecord> records)
   {
-    LOGGER.debug("Number of records to process: {}", records.size());
+    LOGGER.debug(Logging.logMessage("Number of records to process: {}", records
+      .size()));
 
     // process each record by adding to the corresponding partitionBuffers
     for (SinkRecord record : records)
@@ -490,9 +406,10 @@ public class SnowflakeSinkTask extends SinkTask
       // NOTE : kafka connect framework uses inconsistent naming to get
       // partition info
 
-      if (partitionBuffers.containsKey(partition))
+      if (partitionProperties.containsKey(partition))
       {
-        SnowflakePartitionBuffer buffer = partitionBuffers.get(partition);
+        SnowflakePartitionBuffer buffer = partitionProperties.get(partition)
+          .getBuffer();
 
         // check if this record should be discarded
         // i.e. it may have been resent by Connect framework (expects
@@ -502,66 +419,9 @@ public class SnowflakeSinkTask extends SinkTask
 
         if (record.kafkaOffset() > buffer.latestOffset())
         {
-          // validate the record, and add record metadata
-          try
-          {
-            // LOGGER.debug("Received record {}", record);
-            String recordAsString = recordService.processRecord(record);
-            buffer.bufferRecord(record, recordAsString);
-          } catch (IllegalArgumentException ex)
-          {
-            // update the latest offset to avoid repeat processing in
-            // following scenarios :
-            // if all records are bad records
-            // if the last record is a bad record
-            buffer.setLatestOffset(record.kafkaOffset());
-
-            // NOTE : This exception is thrown only by JsonRecordService,
-            // when the record is a malformed json.
-            // Throw an error message to user and drop a file with this
-            // record in table stage
-            try
-            {
-              String errorMsg = "Found a malformed JSON record (" +
-                " topic " + record.topic() +
-                ", partition " + record.kafkaPartition() +
-                ", offset " + record.kafkaOffset() + " )." +
-                " Saving to Snowflake table stage for table " + config.get
-                (record.topic()) +
-                ". Please see the documentation for further investigation.";
-              LOGGER.error(errorMsg);
-              telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
-
-              String tableName = config.get(record.topic());
-              snowflakeConnection.putToTableStage(
-                Utils.fileName(
-                  tableName,
-                  record.kafkaPartition(),
-                  record.kafkaOffset(),
-                  record.kafkaOffset()),
-                record.toString(),
-                tableName);
-            } catch (SQLException ex_putToTableStage)
-            {
-              String errorMsg = "Failed to write the malformed JSON record (" +
-                " topic " + record.topic() +
-                ", partition " + record.kafkaPartition() +
-                ", offset " + record.kafkaOffset() + " )" +
-                " to Snowflake table stage for table " + config.get(record
-                .topic()) +
-                ". Check the privileges of the user running the connector." +
-                " Please see the documentation for further investigation." +
-                " Exception: " + ex_putToTableStage.toString();
-              LOGGER.error(errorMsg);
-              telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
-
-              // TODO: (arun, isaac) should this be considered fatal enough
-              // to stop the connector
-            }
-
-            // continue to the next record
-            continue;
-          }
+          // LOGGER.debug("Received record {}", record);
+          String recordAsString = recordService.processRecord(record);
+          buffer.bufferRecord(record, recordAsString);
 
           // create a file and ingest if we got enough data in the buffer
           if (buffer.recordCount() >= this.bufferCountRecords ||
@@ -570,29 +430,23 @@ public class SnowflakeSinkTask extends SinkTask
             ingestBufferedRecords(partition);
           }
         }
+        else
+        {
+          LOGGER.info(Logging.logMessage("Skip Offset: {}", record
+            .kafkaOffset()));
+        }
       }
       else
       {
         // This shouldn't happen. It's a bug.
-        String errorMsg = "Partition " + partition +
-          " not found in current task's in-memory buffer " +
-          partitionBuffers +
-          ". This should not happen. Please contact Snowflake support.";
-        LOGGER.error(errorMsg);
-
-        // NOTE: do not include customer data in the telemetry reports
-        String telemetryMsg = "Partition " + partition +
-          " not found in current task's in-memory buffer " +
-          ". This should not happen. Please contact Snowflake support.";
-        telemetry.reportKafkaFatalError(telemetryMsg, connectorName);
+        telemetry.reportKafkaFatalError("Partition " + partition + " not " +
+          "found", connectorName);
 
         // cleanup
-        this.close((this.partitions));
         this.stop();
 
-        // stop the connector as we are unlikely to automatically
-        // recover from this error
-        throw new ConnectException(errorMsg);
+        throw SnowflakeErrors.ERROR_5009.getException("Partition name: " +
+          partition);
       }
     }
   }
@@ -601,7 +455,6 @@ public class SnowflakeSinkTask extends SinkTask
    * ingestBufferedRecords is a utility method that creates a file from
    * currently buffered records
    * for a topicPartition and ingests the file to table
-   * <p>
    * Assumptions: the invoking methods are expected to ensure that buffer
    * exists for this topicPartition
    * so, we don't do additional checks in this method
@@ -610,7 +463,8 @@ public class SnowflakeSinkTask extends SinkTask
    */
   private void ingestBufferedRecords(TopicPartition topicPartition)
   {
-    SnowflakePartitionBuffer buffer = partitionBuffers.get(topicPartition);
+    SnowflakePartitionBuffer buffer = partitionProperties.get(topicPartition)
+      .getBuffer();
     if (buffer.recordCount() == 0)
     {
       return;
@@ -635,30 +489,22 @@ public class SnowflakeSinkTask extends SinkTask
       tableName,
       topicPartition.partition());
 
-    LOGGER.debug("Ingesting file: {}, for partition: {}", fileName,
-      topicPartition);
+    LOGGER.debug(Logging.logMessage("Ingesting file: {}, for partition: {}",
+      fileName, topicPartition));
 
     // create file
     try
     {
       snowflakeConnection.put(fileName, buffer.bufferAsString(), stageName);
-    } catch (Exception ex)
+    } catch (Exception e)
     {
-      String errorMsg = "Failed to write file " + fileName +
-        " to Snowflake internal stage " + stageName +
-        ". Check the privileges of the user running the connector. " +
-        "If this persists, please contact Snowflake support. " +
-        "Exception: " + ex.toString();
-      LOGGER.error(errorMsg);
-      telemetry.reportKafkaFatalError(errorMsg, connectorName);
+      telemetry.reportKafkaFatalError("Failed to write file " + fileName +
+        " to stage " + stageName, connectorName);
 
       // cleanup
-      this.close((this.partitions));
       this.stop();
 
-      // stop the connector as we are unlikely to automatically recover from
-      // this error
-      throw new ConnectException(errorMsg);
+      throw SnowflakeErrors.ERROR_2003.getException(e);
     }
 
     // drop buffer
@@ -668,22 +514,15 @@ public class SnowflakeSinkTask extends SinkTask
     try
     {
       snowflakeConnection.ingestFile(pipeName, fileName);
-    } catch (Exception ex)
+    } catch (Exception e)
     {
-      String errorMsg = "Failed to ingest file " + fileName +
-        " to pipe " + pipeName +
-        ". Check if there is a Snowflake availability issue. " +
-        "Exception: " + ex.toString();
-      LOGGER.error(errorMsg);
-      telemetry.reportKafkaFatalError(errorMsg, connectorName);
+      telemetry.reportKafkaFatalError("Failed to ingest file: " + fileName +
+        " through pipe " + pipeName, connectorName);
 
       // cleanup
-      this.close((this.partitions));
       this.stop();
 
-      // stop the connector as we are unlikely to automatically recover from
-      // this error
-      throw new ConnectException(errorMsg);
+      throw SnowflakeErrors.ERROR_3001.getException(e);
 
       // TODO (post GA) : don't throw connect exception but limit the number
       // of files that.
@@ -691,26 +530,12 @@ public class SnowflakeSinkTask extends SinkTask
     }
 
     // update in-memory file structure
-    partitionFiles.get(topicPartition).put(fileName, new
+    partitionProperties.get(topicPartition).getFileList().put(fileName, new
       SnowflakeFileMetadata(fileName));
 
-    LOGGER.debug("Ingested file: {}, for partition: {}", fileName,
-      topicPartition);
+    LOGGER.debug(Logging.logMessage("Ingested file: {}, for partition: {}",
+      fileName, topicPartition));
   }
-
-
-  /**
-   * NOTE : Instead of flush method we use preCommit method which is meant to
-   * be a
-   * replacement for flush.
-   * flush doesn't work for snowflake kafka connector because record
-   * processing is
-   * asynchronous to offset management
-   *
-   * @Override
-   * public void flush (Map<TopicPartition, OffsetAndMetadata>
-   *   currentOffsets) {}
-   */
 
 
   /**
@@ -727,33 +552,10 @@ public class SnowflakeSinkTask extends SinkTask
     Map<TopicPartition, OffsetAndMetadata> offsets)
     throws RetriableException
   {
-    LOGGER.debug("offsets: {}", offsets);
 
-/**     commenting out unnecessary code for performance reasons.
- *
- // ASSUMPTION : all partitions managed by this sink task are included in the
- ' offsets'
- if (partitions.size() != offsets.size() && partitions.containsAll(offsets
- .keySet()))
- {
- // This shouldn't happen. It's a bug in snowflake connector or kafka connect
- f ramework
- String errorMsg = "Non-matching number of partitions " +partitions+
- ", and offsets " +offsets+
- ". This should not happen. Please contact Snowflake support.";
- LOGGER.error(errorMsg);
- telemetry.reportKafkaFatalError(errorMsg, connectorName);
-
- // cleanup
- this.close((this.partitions));
- this.stop();
-
- // stop the connector as we are unlikely to automatically recover from this
- error
- throw new ConnectException(errorMsg);
- }
- *
- */
+    //todo: compare partition in offsets and partitionProperties
+    //todo: report error if not match
+    LOGGER.debug(Logging.logMessage("offsets: {}", offsets));
 
     // NOTE: minor performance improvement can be achieved by validating
     // server objects
@@ -765,288 +567,224 @@ public class SnowflakeSinkTask extends SinkTask
     // purging records from kafka
     Map<TopicPartition, OffsetAndMetadata> committedOffsets = new HashMap<>();
 
-    // iterate over input 'offsets' or in-memory structure 'partitions'.
-    // Doesn't matter which one.
-    Iterator<TopicPartition> partitionIterator = partitions.iterator();
-    while (partitionIterator.hasNext())
-    {
-      TopicPartition partition = partitionIterator.next();
-      String tableName = config.get(partition.topic());   //
-      // SnowflakeSinkConnector stores it here
-      String stageName = Utils.stageName(tableName);
-      String pipeName = Utils.pipeName(
-        tableName,
-        partition.partition());
-
-      // ingest buffered records, if any
-      ingestBufferedRecords(partition);
-
-      // skip processing this partition if there are no files to process
-      // NOTE: Any exception thrown in SnowflakeSinkTask causes race condition
-      // between preCommit and close method. close method cleans up in-memory
-      // structures
-      // causing NPE in preCommit method.
-      if (partitionFiles.containsKey(partition))
+    partitionProperties.forEach((partition, property) ->
       {
-        if ((partitionFiles.get(partition)).isEmpty())
+        String tableName = config.get(partition.topic());
+        // SnowflakeSinkConnector stores it here
+        String stageName = Utils.stageName(tableName);
+        String pipeName = Utils.pipeName(tableName, partition.partition());
+
+        // ingest buffered records, if any
+        ingestBufferedRecords(partition);
+
+        if (property.getFileList().isEmpty())
         {
-          LOGGER.debug("No files pending ingestion status check for " +
-            "partition: {}", partition);
-          continue;
-        }
-      }
-      else
-      {
-        LOGGER.debug("No files ingested for partition: {}", partition);
-        continue;
-      }
-
-      // TODO (GA) : performance improvement.
-      // Use Set instead of List all the way, and reduce conversion overheads
-
-      // sorted list of files to check status on
-      HashMap<String, SnowflakeFileMetadata> myFilesMap = partitionFiles.get
-        (partition);
-      List<String> myFiles = new ArrayList<>(myFilesMap.keySet());
-      myFiles.sort(new SortFileNamesByFirstOffset());
-      LOGGER.debug("Checking status of files: {}, for partition: {}",
-        myFiles, partition);
-
-      // identify if we should use load history scan or insert report
-      // use load history scan iff
-      //      number of file > 10,000
-      //      OR
-      //      oldest file > 10 minutes old
-      // otherwise use the 'cheaper' insert report
-
-      boolean loadHistoryScan = (myFiles.size() > 10000);
-      String oldestFileName = "";
-      long oldestFileTime = System.currentTimeMillis();
-      if (!loadHistoryScan)
-      {
-        Iterator<String> fileIterator = myFiles.iterator();
-        while (fileIterator.hasNext())
-        {
-          String currentFileName = fileIterator.next();
-          long currentFileTime = Utils.fileNameToTimeIngested(currentFileName);
-          if (oldestFileTime > currentFileTime)
-          {
-            oldestFileName = currentFileName;
-            oldestFileTime = currentFileTime;
-          }
-          // TODO (GA) : performance improvement.
-          // break the loop on the first old enough file
-        }
-        loadHistoryScan = ((System.currentTimeMillis() - oldestFileTime) >
-          600000);
-      }
-
-      // status of files from snowpipe load history scan or insert report
-      // TODO (GA) : batch the files into smaller sets if there are large
-      // number of files
-      Map<String, Utils.IngestedFileStatus> myFilesStatus;
-      try
-      {
-        if (loadHistoryScan)
-        {
-          LOGGER.warn("Using Load History Scan, " +
-              "number of files {}, oldest file {}.",
-            myFiles.size(), oldestFileName);
-          myFilesStatus = snowflakeConnection.verifyFromLoadHistory(pipeName,
-            myFiles);
+          LOGGER.debug(Logging.logMessage("No files pending ingestion " +
+            "status check for partition: {}", partition));
         }
         else
         {
-          LOGGER.debug("Using Insert Report, " +
-              "number of files {}, oldest file {}.",
-            myFiles.size(), oldestFileName);
-          myFilesStatus = snowflakeConnection.verifyFromIngestReport
-            (pipeName, myFiles);
-        }
-      } catch (Exception ex)
-      {
-        String errorMsg = "Failed to verify status of files from pipe " +
-          pipeName +
-          ". This action will be retried. Exception: " + ex.toString();
-        LOGGER.warn(errorMsg);
-        telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
 
-        throw new RetriableException(errorMsg);
-      }
+          HashMap<String, SnowflakeFileMetadata> myFilesMap = property
+            .getFileList();
+          List<String> myFiles = new ArrayList<>(myFilesMap.keySet());
 
-      // list of files that are verified as successfully ingested.
-      // They will be purged from stage
-      List<String> filesSucceeded = new LinkedList<>();
+          myFiles.sort(Comparator.comparingLong(Utils::fileNameToStartOffset));
 
-      // list of files that have *any* failures
-      // They will be moved to table stage
-      List<String> filesFailed = new LinkedList<>();
+          LOGGER.debug(Logging.logMessage("Checking status of files: {}, for " +
+            "partition: {}", myFiles, partition));
 
-      boolean continueUpdatingCommittedOffset = true;  // keep progressing
-      // offset while this is true
-      long committedOffsetValue = 0;
+          // # of file larger than 10000, or time of ingestion earlier than
+          // 10min
+          // todo: offset reuse? what if larger than max value of long
+          boolean loadHistoryScan = myFiles.size() > 10000 ||
+            System.currentTimeMillis() - Utils.fileNameToTimeIngested(
+              myFiles.get(0)) > SnowflakeIngestService.TEN_MINUTES;
 
-      // iterate over sorted list of files
-      Iterator<String> fileIterator = myFiles.iterator();
-      while (fileIterator.hasNext())
-      {
-        String fileName = fileIterator.next();
-        Utils.IngestedFileStatus fileStatus = myFilesStatus.get(fileName);
 
-        // latest file needs special handling to avoid getting it purged,
-        // while ensuring that offset information is processed correctly
-        if (!fileIterator.hasNext())
-        {
-          switch (fileStatus)
+          Map<String, Utils.IngestedFileStatus> myFilesStatus;
+          try
           {
-            case LOADED:
-            case PARTIALLY_LOADED:
-            case FAILED:
-            case EXPIRED:
-              // update the status
-              myFilesStatus.replace(fileName, Utils.IngestedFileStatus
-                .LATEST_FILE_STATUS_FINALIZED);
-              break;
-            default:
-              // update the status to not finalized
-              myFilesStatus.replace(fileName, Utils.IngestedFileStatus
-                .LATEST_FILE_STATUS_NOT_FINALIZED);
-              break;
+            if (loadHistoryScan)
+            {
+              LOGGER.warn(Logging.logMessage("Using Load History Scan, number" +
+                " of files {}, oldest file {}.", myFiles.size(), myFiles.get
+                (0)));
+              myFilesStatus = snowflakeConnection
+                .verifyFromLastOnehourLoasHistory(pipeName, myFiles);
+            }
+            else
+            {
+              LOGGER.debug(Logging.logMessage("Using Insert Report, number of" +
+                " files {}, oldest file {}.", myFiles.size(), myFiles.get(0)));
+              myFilesStatus = snowflakeConnection.verifyFromIngestReport
+                (pipeName, myFiles);
+            }
+          } catch (Exception e)
+          {
+            String errorMsg = "Failed to verify status of files from pipe " +
+              pipeName + ". This action will be retried.\nException: " + e
+              .toString();
+            LOGGER.warn(Logging.logMessage(errorMsg));
+            telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
+            throw new RetriableException(errorMsg);
           }
-        }
 
+          // list of files that are verified as successfully ingested.
+          // They will be purged from stage
+          List<String> filesSucceeded = new LinkedList<>();
 
-        switch (fileStatus)
-        {
-          case LOADED:
-            filesSucceeded.add(fileName);
-            myFilesMap.remove(fileName);
-            LOGGER.debug("File {}, partition {}: successfully loaded. " +
-                "File will be purged from internal stage.",
-              fileName, partition);
-            break;
+          // list of files that have *any* failures
+          // They will be moved to table stage
+          List<String> filesFailed = new LinkedList<>();
 
-          case PARTIALLY_LOADED:
-            filesFailed.add(fileName);
-            myFilesMap.remove(fileName);
-            LOGGER.error("File {}, partition {}: some records failed to load." +
-                " " +
-                "File is being moved to table stage for further " +
-                "investigation.",
-              fileName, partition);
-            break;
+          // offset while this is true
+          long committedOffsetValue = offsets.get(partition).offset();
+          String latestFileName = null;
+          boolean isLatestFileSuccessful = false;
 
-          case FAILED:
-            filesFailed.add(fileName);
-            myFilesMap.remove(fileName);
-            LOGGER.error("File {}, partition {}: file failed to load. " +
-                "File is being moved to table stage for further " +
-                "investigation.",
-              fileName, partition);
-            break;
+          for (String fileName : myFiles)
+          {
+            Utils.IngestedFileStatus fileStatus = myFilesStatus.get(fileName);
 
-          case LATEST_FILE_STATUS_FINALIZED:
-            // LATEST_FILE needs special handling and it should not be purged
-            // to ensure correct recovery
-            // But should be removed from in-memory structure, otherwise it
-            // would cause Load History scans
-            myFilesMap.remove(fileName);
-            LOGGER.info("File {} is the latest file and is in a finalized " +
-                "state." +
-                " Leaving it in the stage for future recovery.", fileName,
-              partition);
-            break;
-
-          case EXPIRED:
-            // this is unlikely, unless the connector is unable to keep up
-            filesFailed.add(fileName);
-            myFilesMap.remove(fileName);
-            LOGGER.error("File {}, partition {}: file too old." +
-                " History is not available to check whether it was " +
-                "successfully loaded." +
-                " File is being moved to table stage for further " +
-                "investigation.",
-              fileName, partition);
-            break;
-
-//                    case LOST:
-//                        // This should never happen. It's a bug in snowflake.
-//                        filesFailed.add(fileName);
-//                        LOGGER.error("file {}, partition {}, file is lost
-// from history. " +
-//                                        "This is a bug in Snowflake. Please
-// escalate to Snowflake Support. " +
-//                                        "File is being moved to table stage
-// for further investigation.",
-//                                fileName, partition);
-//                        break;
-
-          case LOAD_IN_PROGRESS:
-          case LATEST_FILE_STATUS_NOT_FINALIZED:
-          case NOT_FOUND:
-          default:
-            // stop updating the committed offset for now until the next call
-            // to preCommit,
-            // but continue the file traversal to purge the files which are
-            // 'DONE'
-            continueUpdatingCommittedOffset = false;
-            break;
-        }
-
-        // move forward offset value if the file had a 'finalized' status
-        committedOffsetValue = (continueUpdatingCommittedOffset) ?
-          Utils.fileNameToEndOffset(fileName) :
-          committedOffsetValue;
-      }
-
-      // purge the successful files
-      try
-      {
-        snowflakeConnection.purge(stageName, filesSucceeded);
-      } catch (Exception ex)
-      {
-        String errorMsg = "Failed to purge files from stage " + stageName +
-          ". This action will be retried. Exception: " + ex.toString();
-        LOGGER.warn(errorMsg);
-        telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
-
-        throw new RetriableException(errorMsg);
-      }
-            /*
-            finally
+            boolean isNotProcessed = false;
+            switch (fileStatus)
             {
-                filesSucceeded.clear();
+              case LOADED:
+                filesSucceeded.add(fileName);
+                LOGGER.debug(Logging.logMessage("File {}, partition {}: " +
+                  "successfully loaded. File will be purged from internal " +
+                  "stage.", fileName, partition));
+                myFilesMap.remove(fileName);
+                latestFileName = fileName;
+                isLatestFileSuccessful = true;
+                break;
+              case PARTIALLY_LOADED:
+                filesFailed.add(fileName);
+                LOGGER.error(Logging.logMessage("File {}, partition {}: some " +
+                  "records failed to load. File is being moved to table stage" +
+                  " for further investigation.", fileName, partition));
+                myFilesMap.remove(fileName);
+                latestFileName = fileName;
+                isLatestFileSuccessful = false;
+                break;
+              case FAILED:
+                filesFailed.add(fileName);
+                LOGGER.error("File {}, partition {}: file failed to load. " +
+                  "File is being moved to table stage for further " +
+                  "investigation.", fileName, partition);
+                myFilesMap.remove(fileName);
+                latestFileName = fileName;
+                isLatestFileSuccessful = false;
+                break;
+              case NOT_FOUND:
+                if (System.currentTimeMillis() - Utils.fileNameToTimeIngested
+                  (fileName) > SnowflakeIngestService.ONE_HOUR)
+                {
+                  filesFailed.add(fileName);
+                  LOGGER.error(Logging.logMessage("File {}, partition {}: " +
+                    "file " +
+                    "too old. History is not available to check whether it " +
+                    "was " +
+                    "successfully loaded. File is being moved to table stage " +
+                    "for further investigation.", fileName, partition));
+                  myFilesMap.remove(fileName);
+                  latestFileName = fileName;
+                  isLatestFileSuccessful = false;
+                  break;
+                }
+              case LOAD_IN_PROGRESS:
+              default:
+                // stop updating the committed offset for now until the next
+                // call to preCommit, but continue the file traversal to
+                // purge the files which are'DONE'
+                isNotProcessed = true;
+
             }
-            */
 
-      // move the failed files
-      try
-      {
-        snowflakeConnection.moveToTableStage(stageName, tableName, filesFailed);
-      } catch (Exception ex)
-      {
-        String errorMsg = "Failed to move files from internal stage " +
-          stageName +
-          " to table stage for table " + tableName +
-          ". This action will be retried. Exception: " + ex.toString();
-        LOGGER.warn(errorMsg);
-        telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
-
-        throw new RetriableException(errorMsg);
-      }
-            /*
-            finally
+            if (isNotProcessed)
             {
-                filesFailed.clear();
+              //if meet any not processed file then break.
+              //check the remaining file in next preCommit function call
+              break;
             }
-            */
+          }
 
-      // update committed offset in the in-memory structure and output
-      partitionBuffers.get(partition).setCommittedOffset
-        (committedOffsetValue);
-      committedOffsets.put(partition, new OffsetAndMetadata
-        (committedOffsetValue));
-    }
+
+          if (latestFileName != null) // if any update
+          {
+            //remove file name from file lists
+            if (isLatestFileSuccessful)
+            {
+              filesSucceeded.remove(filesSucceeded.size() - 1);
+            }
+            else
+            {
+              filesFailed.remove(filesFailed.size() - 1);
+            }
+
+            if (property.getLastFileName() != null)
+            {
+              // add last file to file lists
+              if (property.isLastFileLoaded())
+              {
+                filesSucceeded.add(property.getLastFileName());
+              }
+              else
+              {
+                filesFailed.add(property.getLastFileName());
+              }
+            }
+            //update file list
+            property.setLastFileName(latestFileName, isLatestFileSuccessful);
+
+            //keep last file on stage
+            LOGGER.info(Logging.logMessage("File {} is the latest file and is" +
+              " in a finalized state. Leaving it in the stage for future " +
+              "recovery.", latestFileName, partition));
+
+            //update offset
+            committedOffsetValue = Utils.fileNameToEndOffset(latestFileName);
+          }
+
+          // purge the successful files
+          try
+          {
+            snowflakeConnection.purge(stageName, filesSucceeded);
+          } catch (Exception e)
+          {
+            String errorMsg = "Failed to purge files from stage " + stageName +
+              ". This action will be retried.\nException: " + e.toString();
+            LOGGER.warn(Logging.logMessage(errorMsg));
+            telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
+
+            throw new RetriableException(errorMsg);
+          }
+
+          // move the failed files
+          try
+          {
+            snowflakeConnection.moveToTableStage(stageName, tableName,
+              filesFailed);
+          } catch (Exception e)
+          {
+            String errorMsg = "Failed to move files from internal stage " +
+              stageName + " to table stage for table " + tableName +
+              ". This action will be retried.\nException: " + e.toString();
+            LOGGER.warn(Logging.logMessage(errorMsg));
+            telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
+
+            throw new RetriableException(errorMsg);
+          }
+
+          // update committed offset in the in-memory structure and output
+          partitionProperties.get(partition).getBuffer().setCommittedOffset
+            (committedOffsetValue);
+          committedOffsets.put(partition, new OffsetAndMetadata
+            (committedOffsetValue));
+        }
+      }
+    );
 
     return committedOffsets;
   }
@@ -1063,35 +801,16 @@ public class SnowflakeSinkTask extends SinkTask
     for (String topic : topics)
     {
       String table = config.get(topic);
-      try
+      if (!snowflakeConnection.tableIsCompatible(table))  // checks for
+      // existence and compatibility
       {
-        if (!snowflakeConnection.tableIsCompatible(table))  // checks for
-        // existence and compatibility
-        {
-          String errorMsg = "Table " + table +
-            " is configured to receive records from topic " + topic +
-            " but it has either been dropped or a schema change has made it" +
-            " incompatible.";
-          LOGGER.error(errorMsg);
-          telemetry.reportKafkaFatalError(errorMsg, connectorName);
+        telemetry.reportKafkaFatalError("Table is incompatible: " + table,
+          connectorName);
 
-          // cleanup
-          stop();
+        // cleanup
+        stop();
 
-          // stop the connector as we are unlikely to automatically recover
-          // from this error
-          throw new ConnectException(errorMsg);
-        }
-      } catch (SQLException ex)
-      {
-        String errorMsg = "SQLException while validating server objects. This" +
-          " action will be retried. " +
-          "If this persists, please contact Snowflake support. " +
-          "Exception: " + ex.toString();
-        LOGGER.warn(errorMsg);
-        telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
-
-        // continue on error
+        throw SnowflakeErrors.ERROR_5003.getException("Table name: " + table);
       }
 
     }
@@ -1131,5 +850,187 @@ public class SnowflakeSinkTask extends SinkTask
   public String version()
   {
     return Utils.VERSION;
+  }
+}
+
+/**
+ * SnowflakeFileMetadata keeps track of the life cycle of a file
+ */
+class SnowflakeFileMetadata
+{
+  String fileName;
+  long startOffset;
+  long endOffset;
+  long timeIngested;  // timestamp when file was sent to snowpipe
+
+  SnowflakeFileMetadata(String fileName)
+  {
+    this.fileName = fileName;
+    this.startOffset = Utils.fileNameToStartOffset(fileName);
+    this.endOffset = Utils.fileNameToEndOffset(fileName);
+    this.timeIngested = Utils.fileNameToTimeIngested(fileName);
+  }
+
+}
+
+/**
+ * SnowflakePartitionBuffer caches all the sink records received so far
+ * from kafka connect for a partition, until they are ready to be written to
+ * a file
+ * and ingested through snowpipe.
+ * It also tracks the start offset, end offset, and estimated file size.
+ */
+class SnowflakePartitionBuffer
+{
+  private StringBuilder buffer;                  // all records serialized as
+  // String, with or without metadata
+  private int recordCount;                // number of records current in the
+  // buffer
+  private int bufferSize;                 // cumulative size of records in
+  // the buffer
+  private long firstOffset;               // offset of the first record in
+  // the buffer
+  private long firstOffsetTime;           // buffer start time
+
+  // offset of the latest record that was "processed" on this partition
+  // in previous incarnation or current incarnation of the connector
+  // This is set during connector recovery and updated as we process new records
+  private long latestOffset;
+
+  // offset of the latest record that was "committed" on this partition
+  // in previous incarnation or current incarnation of the connector
+  // This is set by preCommit
+  private long committedOffset;
+
+
+  SnowflakePartitionBuffer()
+  {
+    buffer = new StringBuilder();
+    recordCount = 0;
+    bufferSize = 0;
+    firstOffset = -1;
+    firstOffsetTime = 0;
+    latestOffset = -1;
+    committedOffset = -1;
+  }
+
+  void bufferRecord(SinkRecord record, String recordAsString)
+  {
+    // initialize if this is the first record entering buffer
+    if (bufferSize == 0)
+    {
+      firstOffset = record.kafkaOffset();
+      firstOffsetTime = System.currentTimeMillis();
+    }
+
+    buffer.append(recordAsString);
+    recordCount++;
+    bufferSize += recordAsString.length();
+    latestOffset = record.kafkaOffset();
+  }
+
+  void dropRecords()
+  {
+    buffer = new StringBuilder();
+    recordCount = 0;
+    bufferSize = 0;
+    firstOffset = -1;
+    firstOffsetTime = 0;
+
+    // NOTE: don't touch latestOffset and committedOffset as those have a
+    // forever life cycle
+  }
+
+  String bufferAsString()
+  {
+    return buffer.toString();
+  }
+
+  int recordCount()
+  {
+    return recordCount;
+  }
+
+  long bufferSize()
+  {
+    return bufferSize;
+  }
+
+  long firstOffset()
+  {
+    return firstOffset;
+  }
+
+  long getFirstOffsetTime()
+  {
+    return firstOffsetTime;
+  }
+
+  long latestOffset()
+  {
+    return this.latestOffset;
+  }
+
+  long committedOffset()
+  {
+    return this.committedOffset;
+  }
+
+  // this method is called during connector recovery and
+  // when we see a malformed json record
+  void setLatestOffset(long offset)
+  {
+    this.latestOffset = offset;
+  }
+
+  // this method is only called from preCommit
+  void setCommittedOffset(long offset)
+  {
+    this.committedOffset = offset;
+  }
+}
+
+/**
+ * Partition Properties
+ */
+class PartitionProperties
+{
+  private final SnowflakePartitionBuffer buffer;
+  private String lastFileName;
+  private boolean isLastFileSuccessful;
+  private final HashMap<String, SnowflakeFileMetadata> fileList;
+
+  PartitionProperties()
+  {
+    lastFileName = null;
+    fileList = new HashMap<>();
+    buffer = new SnowflakePartitionBuffer();
+    isLastFileSuccessful = false;
+  }
+
+  void setLastFileName(String name, boolean successful)
+  {
+    lastFileName = name;
+    isLastFileSuccessful = successful;
+  }
+
+  boolean isLastFileLoaded()
+  {
+    return isLastFileSuccessful;
+  }
+
+  String getLastFileName()
+  {
+    return lastFileName;
+  }
+
+  SnowflakePartitionBuffer getBuffer()
+  {
+    return buffer;
+  }
+
+  HashMap<String, SnowflakeFileMetadata> getFileList()
+  {
+    return fileList;
   }
 }

@@ -16,14 +16,16 @@
  */
 package com.snowflake.kafka.connector;
 
+import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeJDBCWrapper;
+import com.snowflake.kafka.connector.internal.SnowflakeTelemetry;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.SQLException;
 import java.util.*;
 
 
@@ -52,7 +54,7 @@ public class SnowflakeSinkConnector extends SinkConnector
   private long connectorStartTime;
 
   private static final Logger LOGGER = LoggerFactory
-    .getLogger(SnowflakeSinkConnector.class);
+      .getLogger(SnowflakeSinkConnector.class);
 
   // Kafka Connect starts sink tasks without waiting for setup in
   // SnowflakeSinkConnector to finish.
@@ -82,67 +84,34 @@ public class SnowflakeSinkConnector extends SinkConnector
   @Override
   public void start(final Map<String, String> parsedConfig)
   {
-    LOGGER.info("SnowflakeSinkConnector:start");
+    LOGGER.info(Logging.logMessage("SnowflakeSinkConnector:start"));
     setupComplete = false;
     connectorStartTime = System.currentTimeMillis();
 
     config = new HashMap<>(parsedConfig);
     if (!validateConfig())
     {
-      String errorMsg = "One or more errors detected in the input " +
-        "configuration. " +
-        "All errors are logged to the connect cluster's log. " +
-        "Please restart the connector after fixing the input configuration.";
-      LOGGER.error(errorMsg);
-      throw new ConnectException(errorMsg);
+      throw SnowflakeErrors.ERROR_0001.getException();
     }
 
     // create a persisted connection, and validate snowflake connection
     // config as a side effect
-    try
-    {
-      snowflakeConnection = new SnowflakeJDBCWrapper(parsedConfig);
-    } catch (SQLException ex)
-    {
-      LOGGER.error("Failed to connect to Snowflake with the provided " +
-        "configuration. " +
-        "Please see the documentation. Exception: {}", ex.toString());
+    snowflakeConnection = new SnowflakeJDBCWrapper(parsedConfig);
 
-      // stop the connector as we are unlikely to automatically recover from
-      // this error
-      throw new ConnectException("Failed to connect to Snowflake with the " +
-        "provided configuration.");
-    }
 
     telemetry = snowflakeConnection.getTelemetry();
 
     // maxTasks value isn't visible if the user leaves it at default. So 0
     // means unknown.
     int maxTasks = (config.containsKey("tasks.max")) ? Integer.parseInt
-      (config.get("tasks.max")) : 0;
+        (config.get("tasks.max")) : 0;
 
     telemetry.reportKafkaStart(
-      connectorStartTime,
-      topics.size(),
-      topicsTablesMap.size(),
-      maxTasks,
-      connectorName);
-
-
-    // TODO (GA) (SNOW-64054): create a connector application name lock file
-    // to avoid conflicts in the following scenario :
-    // Two Kafka clusters with same topic name/s, using their own Connect
-    // clusters
-    // but sending data to one snowflake account.
-    // Destination table name doesn't matter. The conflict comes from stage
-    // name and snowpipe name.
-
-    // Get the list of topics and create corresponding tables and internal
-    // stages.
-    // Both setup and recovery execute on the same code path. We need to handle
-    // recovery of existing internal stages and table when applicable
-
-    // topics and topicsTablesMap are initialized in validateConfig() method
+        connectorStartTime,
+        topics.size(),
+        topicsTablesMap.size(),
+        maxTasks,
+        connectorName);
 
     for (String topic : topics)
     {
@@ -157,26 +126,24 @@ public class SnowflakeSinkConnector extends SinkConnector
           {
             // connector may have been restarted or user has pre-created the
             // correct table
-            LOGGER.info("Using existing table {} for topic {}.", table, topic);
+            LOGGER.info(Logging.logMessage("Using existing table {} for topic" +
+                " " +
+                "{}.", table, topic));
             telemetry.reportKafkaReuseTable(table, connectorName);
           }
           else
           {
-            String errorMsg = "Table " + table +
-              " is configured to receive records from topic " + topic +
-              " but doesn't have a compatible schema. Please see the " +
-              "documentation.";
-            LOGGER.error(errorMsg);
-            telemetry.reportKafkaFatalError(errorMsg, connectorName);
 
-            // stop the connector as we are unlikely to automatically recover
-            // from this error
-            throw new ConnectException(errorMsg);
+            telemetry.reportKafkaFatalError("Incompatible table: " + table,
+                connectorName);
+            throw SnowflakeErrors.ERROR_5003.getException("table name: " +
+                table);
           }
         }
         else
         {
-          LOGGER.info("Creating new table {} for topic {}.", table, topic);
+          LOGGER.info(Logging.logMessage("Creating new table {} for topic {}.",
+              table, topic));
           snowflakeConnection.createTable(table);
           telemetry.reportKafkaCreateTable(table, connectorName);
         }
@@ -184,22 +151,12 @@ public class SnowflakeSinkConnector extends SinkConnector
         // store topic and table name in config for use by SinkTask and
         // SnowflakeJDBCWrapper
         config.put(topic, table);
-      } catch (SQLException ex)
+      } catch (Exception e)
       {
-        String errorMsg = "Exception while creating or validating table " +
-          table + " for topic " + topic + ". " +
-          "User may have insufficient privileges. If this persists, please " +
-          "contact Snowflake support. " +
-          "Exception: " + ex.toString();
-        LOGGER.error(errorMsg);
-        telemetry.reportKafkaFatalError(errorMsg, connectorName);
-
+        telemetry.reportKafkaFatalError(e.getMessage(), connectorName);
         // cleanup
         stop();
-
-        // stop the connector as we are unlikely to automatically recover
-        // from this error
-        throw new ConnectException(errorMsg);
+        throw SnowflakeErrors.ERROR_5006.getException(e);
       }
 
 
@@ -213,49 +170,34 @@ public class SnowflakeSinkConnector extends SinkConnector
           {
             // connector may have been restarted
             // user is NOT expected to pre-create any internal stages!
-            LOGGER.info("Connector recovery: using existing internal stage {}" +
-                " for topic {}.",
-              stageName, topic);
+            LOGGER.info(Logging.logMessage("Connector recovery: using " +
+                "existing " +
+                "internal stage {} for topic {}.", stageName, topic));
             telemetry.reportKafkaReuseStage(stageName, connectorName);
           }
           else
           {
-            String errorMsg = "Stage " + stageName +
-              " contains files that were not created by the Snowflake Kafka" +
-              " Connector. " +
-              " The stage needs a careful cleanup. Please see the " +
-              "documentation.";
-            LOGGER.error(errorMsg);
-            telemetry.reportKafkaFatalError(errorMsg, connectorName);
+            telemetry.reportKafkaFatalError("Invalid stage: " + stageName,
+                connectorName);
 
-            // stop the connector as we are unlikely to automatically recover
-            // from this error
-            throw new ConnectException(errorMsg);
+            throw SnowflakeErrors.ERROR_5004.getException("Stage name: " +
+                stageName);
           }
         }
         else
         {
-          LOGGER.info("Creating new internal stage {} for topic {}.",
-            stageName, topic);
+          LOGGER.info(Logging.logMessage("Creating new internal stage {} for " +
+              "topic {}.", stageName, topic));
           snowflakeConnection.createStage(stageName);
           telemetry.reportKafkaCreateStage(stageName, connectorName);
 
         }
-      } catch (SQLException ex)
+      } catch (Exception e)
       {
-        String errorMsg = "Exception while creating or validating internal " +
-          "stage " + stageName + ". " +
-          "If this persists, please contact Snowflake support. " +
-          "Exception: " + ex.toString();
-        LOGGER.error(errorMsg);
-        telemetry.reportKafkaFatalError(errorMsg, connectorName);
-
+        telemetry.reportKafkaFatalError(e.getMessage(), connectorName);
         // cleanup
         stop();
-
-        // stop the connector as we are unlikely to automatically recover
-        // from this error
-        throw new ConnectException(errorMsg);
+        throw SnowflakeErrors.ERROR_5006.getException(e);
       }
     }
 
@@ -277,78 +219,30 @@ public class SnowflakeSinkConnector extends SinkConnector
     // unique name of this connector instance
     connectorName = config.get("name");
     if (!connectorName.isEmpty() && isValidSnowflakeObjectIdentifier
-      (connectorName))
+        (connectorName))
     {
       Utils.setAppName(connectorName);
     }
     else
     {
-      LOGGER.error("name: {} is empty or invalid. " +
-        "It should match Snowflake object identifier syntax. " +
-        "Please see the documentation.", connectorName);
+      LOGGER.error(Logging.logMessage("name: {} is empty or invalid. It " +
+          "should " +
+          "match Snowflake object identifier syntax. Please see the " +
+          "documentation.", connectorName));
       configIsValid = false;
     }
 
-    // validate offset.flush.interval.ms -- a Connect cluster setting
-    // default : 60000 ms
-    // Interval at which to try committing offsets for tasks
-    if (config.containsKey(SnowflakeSinkConnectorConfig
-      .OFFSET_FLUSH_INTERVAL_MS)) //offset.flush.interval.ms
-    {
-      long ofim = Long.parseLong(config.get(SnowflakeSinkConnectorConfig
-        .OFFSET_FLUSH_INTERVAL_MS)); //offset.flush.interval.ms
-      if (ofim < 60000)   // 60 seconds
-      {
-        LOGGER.error("{} is too low at {}. " +
-            "It must be 60000 ms or larger.",
-          SnowflakeSinkConnectorConfig.OFFSET_FLUSH_INTERVAL_MS, ofim);
-        configIsValid = false;
-      }
-    }
-    else
-    {
-      config.put(SnowflakeSinkConnectorConfig.OFFSET_FLUSH_INTERVAL_MS,
-        "60000");
-      LOGGER.info("{} set to default 60000ms.",
-        SnowflakeSinkConnectorConfig.OFFSET_FLUSH_INTERVAL_MS);
-    }
-
-    // validate offset.flush.timeout.ms -- a Connect cluster setting
-    // default : 60000 ms
-    // Maximum number of milliseconds to wait for records to flush and
-    // partition offset data to be committed to offset storage before
-    // cancelling the process and
-    // restoring the offset data to be committed in a future attempt
-    if (config.containsKey(SnowflakeSinkConnectorConfig
-      .OFFSET_FLUSH_TIMEOUT_MS)) //offset.flush.timeout.ms
-    {
-      long oftm = Long.parseLong(config.get(SnowflakeSinkConnectorConfig
-        .OFFSET_FLUSH_TIMEOUT_MS));
-      if (oftm < 60000)   // 60 seconds
-      {
-        LOGGER.error("{} is too low at {}. " +
-            "It must be 60000 ms or larger.",
-          SnowflakeSinkConnectorConfig.OFFSET_FLUSH_TIMEOUT_MS, oftm);
-        configIsValid = false;
-      }
-    }
-    else
-    {
-      config.put(SnowflakeSinkConnectorConfig.OFFSET_FLUSH_TIMEOUT_MS, "60000");
-      LOGGER.info("{} set to default 60000ms.",
-        SnowflakeSinkConnectorConfig.OFFSET_FLUSH_TIMEOUT_MS);
-    }
 
     // set buffer.count.records -- a Snowflake connector setting
     // default : 10000 records
     // Number of records buffered in memory per partition before ingesting to
     // Snowflake
     if (!config.containsKey(SnowflakeSinkConnectorConfig
-      .BUFFER_COUNT_RECORDS))//buffer.count.records
+        .BUFFER_COUNT_RECORDS))//buffer.count.records
     {
       config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "10000");
-      LOGGER.info("{} set to default 10000 records.",
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
+      LOGGER.info(Logging.logMessage("{} set to default 10000 records.",
+          SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
     }
 
     // set buffer.size.bytes -- a Snowflake connector setting
@@ -359,20 +253,20 @@ public class SnowflakeSinkConnector extends SinkConnector
     //buffer.size.bytes
     {
       long bsb = Long.parseLong(config.get(SnowflakeSinkConnectorConfig
-        .BUFFER_SIZE_BYTES));
+          .BUFFER_SIZE_BYTES));
       if (bsb > 100000000)   // 100mb
       {
-        LOGGER.error("{} is too high at {}. It must be 100000000 (100MB) or " +
-            "smaller.",
-          SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, bsb);
+        LOGGER.error(Logging.logMessage("{} is too high at {}. It must be " +
+            "100000000 (100MB) or smaller.", SnowflakeSinkConnectorConfig
+            .BUFFER_SIZE_BYTES, bsb));
         configIsValid = false;
       }
     }
     else
     {
       config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, "5000000");
-      LOGGER.info("{} set to default 5000000 bytes.",
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
+      LOGGER.info(Logging.logMessage("{} set to default 5000000 bytes.",
+          SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
     }
 
 
@@ -390,17 +284,18 @@ public class SnowflakeSinkConnector extends SinkConnector
 
       // check for duplicates
       HashSet<String> topicsHashSet = new HashSet<>(Arrays.asList(config.get
-        ("topics").split(",")));
+          ("topics").split(",")));
       if (topics.size() != topicsHashSet.size())
       {
-        LOGGER.error("topics: {} contains duplicate entries.", config.get
-          ("topics"));
+        LOGGER.error(Logging.logMessage("topics: {} contains duplicate " +
+            "entries" +
+            ".", config.get("topics")));
         configIsValid = false;
       }
     }
     else
     {
-      LOGGER.error("topics cannot be empty.");
+      LOGGER.error(Logging.logMessage("topics cannot be empty."));
       configIsValid = false;
     }
 
@@ -410,7 +305,7 @@ public class SnowflakeSinkConnector extends SinkConnector
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
     {
       List<String> topicsTables = new ArrayList<>(Arrays.asList(config.get
-        (SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP).split(",")));
+          (SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP).split(",")));
 
       for (String topicTable : topicsTables)
       {
@@ -418,36 +313,39 @@ public class SnowflakeSinkConnector extends SinkConnector
 
         if (tt.length != 2 || tt[0].isEmpty() || tt[1].isEmpty())
         {
-          LOGGER.error("Invalid {} config format: {}",
-            SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, topicsTables);
+          LOGGER.error(Logging.logMessage("Invalid {} config format: {}",
+              SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, topicsTables));
           configIsValid = false;
         }
 
         if (!isValidSnowflakeObjectIdentifier(tt[1]))
         {
           LOGGER.error(
-            "table name {} should have at least 2 characters, start with " +
-              "_a-zA-Z, and only contains _$a-zA-z0-9", tt[1]);
+              Logging.logMessage("table name {} should have at least 2 " +
+                  "characters, start with _a-zA-Z, and only contains " +
+                  "_$a-zA-z0-9", tt[1]));
           configIsValid = false;
         }
 
         if (!topics.contains(tt[0]))
         {
-          LOGGER.error("topic name {} has not been registered in this task",
-            tt[0]);
+          LOGGER.error(Logging.logMessage("topic name {} has not been " +
+              "registered in this task", tt[0]));
           configIsValid = false;
         }
 
         if (topicsTablesMap.containsKey(tt[0]))
         {
-          LOGGER.error("topic name {} is duplicated", tt[0]);
+          LOGGER.error(Logging.logMessage("topic name {} is duplicated",
+              tt[0]));
           configIsValid = false;
         }
 
         if (topicsTablesMap.containsKey(tt[1]))
         {
           //todo: support multiple topics map to one table ?
-          LOGGER.error("table name {} is duplicated", tt[1]);
+          LOGGER.error(Logging.logMessage("table name {} is duplicated",
+              tt[1]));
           configIsValid = false;
         }
 
@@ -468,11 +366,11 @@ public class SnowflakeSinkConnector extends SinkConnector
         }
         else
         {
-          LOGGER.error("topic: {} in topics: {} config should either match " +
-              "Snowflake object identifier syntax, " +
-              "or topics.tables.map: {} config should contain a mapping " +
-              "table name.",
-            topic, config.get("topics"), config.get("topics.tables.map"));
+          LOGGER.error(Logging.logMessage("topic: {} in topics: {} config " +
+              "should either match Snowflake object identifier syntax, or " +
+              "topics.tables.map: {} config should contain a mapping table " +
+              "name.", topic, config.get("topics"), config.get("topics.tables" +
+              ".map")));
           configIsValid = false;
         }
       }
@@ -481,14 +379,17 @@ public class SnowflakeSinkConnector extends SinkConnector
     // sanity check
     if (!config.containsKey("snowflake.database.name"))
     {
-      LOGGER.error("snowflake.database.name cannot be empty.");
+      LOGGER.error(Logging.logMessage("snowflake.database.name cannot be " +
+          "empty" +
+          "."));
       configIsValid = false;
     }
 
     // sanity check
     if (!config.containsKey("snowflake.schema.name"))
     {
-      LOGGER.error("snowflake.schema.name cannot be empty.");
+      LOGGER.error(Logging.logMessage("snowflake.schema.name cannot be empty" +
+          "."));
       configIsValid = false;
     }
 
@@ -518,7 +419,7 @@ public class SnowflakeSinkConnector extends SinkConnector
   public void stop()
   {
     setupComplete = false;
-    LOGGER.info("SnowflakeSinkConnector:stop");
+    LOGGER.info(Logging.logMessage("SnowflakeSinkConnector:stop"));
 
     // Get the list of topics and drop corresponding internal stages.
     // Ensure that each file in the internal stage has been ingested, OR
@@ -530,18 +431,18 @@ public class SnowflakeSinkConnector extends SinkConnector
       {
         if (snowflakeConnection.stageExist(stageName))
         {
-          LOGGER.info("Dropping internal stage: {} (if empty).", stageName);
+          LOGGER.info(Logging.logMessage("Dropping internal stage: {} (if " +
+              "empty).", stageName));
           snowflakeConnection.dropStageIfEmpty(stageName);
         }
         else
         {
           // User should not mess up with these stages outside the connector
           String errorMsg = "Attempting to drop a non-existant internal stage" +
-            " " + stageName + ". " +
-            "This should not happen. " +
-            "This stage may have been manually dropped, which may affect " +
-            "ingestion guarantees.";
-          LOGGER.error(errorMsg);
+              " " + stageName + ". This should not happen. This stage may " +
+              "have been manually dropped, which may affect ingestion " +
+              "guarantees.";
+          LOGGER.error(Logging.logMessage(errorMsg));
           telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
 
           // continue-on-error in the stop method to cleanup other objects
@@ -549,10 +450,8 @@ public class SnowflakeSinkConnector extends SinkConnector
       } catch (Exception ex)
       {
         String errorMsg = "Failed to drop empty internal stage: " + stageName
-          + ". " +
-          "It can safely be removed. " +
-          "Exception: " + ex.toString();
-        LOGGER.error(errorMsg);
+            + ". It can safely be removed. Exception: " + ex.toString();
+        LOGGER.error(Logging.logMessage(errorMsg));
         telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
 
         // continue-on-error in the stop method to cleanup other objects
@@ -610,26 +509,22 @@ public class SnowflakeSinkConnector extends SinkConnector
         counter++;
         try
         {
-          LOGGER.info("Sleeping 5000ms to allow setup to complete.");
+          LOGGER.info(Logging.logMessage("Sleeping 5000ms to allow setup to " +
+              "complete."));
           Thread.sleep(5000);
         } catch (InterruptedException ex)
         {
-          LOGGER.warn("Waiting for setup to complete got interrupted");
+          LOGGER.warn(Logging.logMessage("Waiting for setup to complete got " +
+              "interrupted"));
         }
       }
     }
     if (!setupComplete)
     {
-      String errorMsg = "SnowflakeSinkConnector timed out. " +
-        "Tables or stages are not yet available for data ingestion to start" +
-        ". " +
-        "If this persists, please contact Snowflake support.";
-      LOGGER.error(errorMsg);
-      telemetry.reportKafkaFatalError(errorMsg, connectorName);
+      telemetry.reportKafkaFatalError(SnowflakeErrors.ERROR_5007.getDetail(),
+          connectorName);
 
-      // stop the connector as we are unlikely to automatically recover from
-      // this error
-      throw new ConnectException(errorMsg);
+      throw SnowflakeErrors.ERROR_5007.getException();
     }
 
     List<Map<String, String>> taskConfigs = new ArrayList<>(maxTasks);

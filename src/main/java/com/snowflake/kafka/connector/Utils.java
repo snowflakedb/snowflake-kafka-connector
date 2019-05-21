@@ -16,6 +16,8 @@
  */
 package com.snowflake.kafka.connector;
 
+import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.ingest.connection.IngestStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,36 +38,35 @@ public class Utils
 {
 
   //Connector version, change every release
-  static final String VERSION = "0.2";
+  public static final String VERSION = "0.3";
 
   //Connector parameters
-  static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; //10 days
+  public static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; //10 days
 
   //connector parameter list
-  static final String SF_DATABASE = "snowflake.database.name";
-  static final String SF_SCHEMA = "snowflake.schema.name";
-  static final String SF_USER = "snowflake.user.name";
-  static final String SF_PRIVATE_KEY = "snowflake.private.key";
-  static final String SF_URL = "snowflake.url.name";
-  static final String SF_ROLE = "snowflake.user.role";
-  static final String SF_SSL = "sfssl";                 // for test only
-  static final String SF_WAREHOUSE = "sfwarehouse";     //for test only
+  public static final String SF_DATABASE = "snowflake.database.name";
+  public static final String SF_SCHEMA = "snowflake.schema.name";
+  public static final String SF_USER = "snowflake.user.name";
+  public static final String SF_PRIVATE_KEY = "snowflake.private.key";
+  public static final String SF_URL = "snowflake.url.name";
+  public static final String SF_SSL = "sfssl";                 // for test only
+  public static final String SF_WAREHOUSE = "sfwarehouse";     //for test only
 
   //constants strings
-  static final String KAFKA_OBJECT_PREFIX = "SNOWFLAKE_KAFKA_CONNECTOR";
+  public static final String KAFKA_OBJECT_PREFIX = "SNOWFLAKE_KAFKA_CONNECTOR";
 
-  static final String DEFAULT_APP_NAME = "DEFAULT_APP_NAME";
+  public static final String DEFAULT_APP_NAME = "DEFAULT_APP_NAME";
 
   //task id
-  static final String TASK_ID = "task_id";
+  public static final String TASK_ID = "task_id";
 
-  // applicationName/topicName/partitionNumber
+  // applicationName/tableName/partitionNumber
   // /startOffset_endOffset_time_format.json.gz
   private static Pattern FILE_NAME_PATTERN =
-    Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(\\d+)_(\\d+)\\.json\\.gz$");
+      Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(\\d+)_(\\d+)\\.json\\.gz$");
 
   private static final Logger LOGGER =
-    LoggerFactory.getLogger(Utils.class.getName());
+      LoggerFactory.getLogger(Utils.class.getName());
 
   private static String appName = DEFAULT_APP_NAME;
 
@@ -74,7 +75,7 @@ public class Utils
    *
    * @param name application name
    */
-  static void setAppName(String name)
+  public static void setAppName(String name)
   {
     appName = name;
   }
@@ -82,12 +83,12 @@ public class Utils
   /**
    * @return application name
    */
-  static String getAppName()
+  public static String getAppName()
   {
     return appName;
   }
 
-  static String subdirectoryName(String table, int partition)
+  public static String subdirectoryName(String table, int partition)
   {
     return appName + "/" + table + "/" + partition + "/";
   }
@@ -107,7 +108,7 @@ public class Utils
    * @return size
    * @throws SQLException
    */
-  static int resultSize(ResultSet resultSet) throws SQLException
+  public static int resultSize(ResultSet resultSet) throws SQLException
   {
     int size = 0;
 
@@ -119,31 +120,17 @@ public class Utils
     return size;
   }
 
-//  /**
-//   * generate table name by given topic
-//   * @param topic topic name
-//   * @return table name
-//   */
-//  static String tableName(String topic)
-//  {
-//    String tableName = getObjectPrefix() + "_TABLE_" + topic;
-//
-//    LOGGER.debug("generated table name: " + tableName);
-//
-//    return tableName;
-//  }
-
   /**
    * generate stage name by given table
    *
    * @param table table name
    * @return stage name
    */
-  static String stageName(String table)
+  public static String stageName(String table)
   {
     String stageName = getObjectPrefix() + "_STAGE_" + table;
 
-    LOGGER.debug("generated stage name: " + stageName);
+    LOGGER.debug(Logging.logMessage("generated stage name: {}", stageName));
 
     return stageName;
   }
@@ -155,11 +142,11 @@ public class Utils
    * @param partition partition name
    * @return pipe name
    */
-  static String pipeName(String table, int partition)
+  public static String pipeName(String table, int partition)
   {
     String pipeName = getObjectPrefix() + "_PIPE_" + table + "_" + partition;
 
-    LOGGER.debug("generated pipe name: " + pipeName);
+    LOGGER.debug(Logging.logMessage("generated pipe name: {}", pipeName));
 
     return pipeName;
   }
@@ -178,16 +165,16 @@ public class Utils
    * @param end       end offset
    * @return file name
    */
-  static String fileName(String table, int partition, long start, long end)
+  public static String fileName(String table, int partition, long start, long end)
   {
     long time = System.currentTimeMillis();
 
     String fileName = appName + "/" + table + "/" + partition + "/" + start +
-      "_" + end + "_" + time;
+        "_" + end + "_" + time;
 
     fileName += ".json.gz";
 
-    LOGGER.debug("generated file name: " + fileName);
+    LOGGER.debug(Logging.logMessage("generated file name: {}", fileName));
 
     return fileName;
   }
@@ -199,7 +186,7 @@ public class Utils
    * @param name file name
    * @return file name without .gz
    */
-  static String removeGZFromFileName(String name)
+  public static String removeGZFromFileName(String name)
   {
     if (name.endsWith(".gz"))
     {
@@ -215,7 +202,7 @@ public class Utils
    * @param time a long integer representing timestamp
    * @return date string
    */
-  static String timestampToDate(long time)
+  public static String timestampToDate(long time)
   {
     TimeZone tz = TimeZone.getTimeZone("UTC");
 
@@ -225,7 +212,7 @@ public class Utils
 
     String date = df.format(new Date(time));
 
-    LOGGER.debug("converted date: " + date);
+    LOGGER.debug(Logging.logMessage("converted date: {}", date));
 
     return date;
   }
@@ -236,7 +223,7 @@ public class Utils
    * @param status an ingest status
    * @return an ingest file status
    */
-  static IngestedFileStatus convertIngestStatus(IngestStatus status)
+  public static IngestedFileStatus convertIngestStatus(IngestStatus status)
   {
     switch (status)
     {
@@ -263,7 +250,7 @@ public class Utils
    * @param fileName file name
    * @return start offset
    */
-  static long fileNameToStartOffset(String fileName)
+  public static long fileNameToStartOffset(String fileName)
   {
     return Long.parseLong(readFromFileName(fileName, 2));
   }
@@ -274,7 +261,7 @@ public class Utils
    * @param fileName file name
    * @return end offset
    */
-  static long fileNameToEndOffset(String fileName)
+  public static long fileNameToEndOffset(String fileName)
   {
     return Long.parseLong(readFromFileName(fileName, 3));
   }
@@ -285,7 +272,7 @@ public class Utils
    * @param fileName file name
    * @return ingested time
    */
-  static long fileNameToTimeIngested(String fileName)
+  public static long fileNameToTimeIngested(String fileName)
   {
     return Long.parseLong(readFromFileName(fileName, 4));
   }
@@ -296,7 +283,7 @@ public class Utils
    * @param fileName file name
    * @return partition index
    */
-  static int fileNameToPartition(String fileName)
+  public static int fileNameToPartition(String fileName)
   {
     return Integer.parseInt(readFromFileName(fileName, 1));
   }
@@ -304,7 +291,7 @@ public class Utils
   /**
    * @return current UTC time stamp
    */
-  static long currentTime()
+  public static long currentTime()
   {
     return System.currentTimeMillis();
   }
@@ -315,16 +302,16 @@ public class Utils
    * @param fileName file name
    * @return true if expired, otherwise false
    */
-  static boolean isFileExpired(String fileName)
+  public static boolean isFileExpired(String fileName)
   {
     return currentTime() - fileNameToTimeIngested(fileName)
-      > Utils.MAX_RECOVERY_TIME;
+        > Utils.MAX_RECOVERY_TIME;
   }
 
   /**
    * @return query mark of sink connector
    */
-  static String getConnectorQueryMark()
+  public static String getConnectorQueryMark()
   {
     return " /* kafka, " + appName + ", connector */";
   }
@@ -332,7 +319,7 @@ public class Utils
   /**
    * @return query mark of sink task
    */
-  static String getTaskQueryMark(String id)
+  public static String getTaskQueryMark(String id)
   {
     return " /* kafka, " + appName + ", task " + id + " */";
   }
@@ -340,7 +327,7 @@ public class Utils
   /**
    * @return query mark of IT test
    */
-  static String getTestQueryMark()
+  public static String getTestQueryMark()
   {
     return " /* kafka, test */";
   }
@@ -358,8 +345,7 @@ public class Utils
 
     if (!matcher.find())
     {
-      LOGGER.error("invalid file name {}", fileName);
-      throw new IllegalArgumentException("invalid file name " + fileName);
+      throw SnowflakeErrors.ERROR_0008.getException("input file name: " + fileName);
     }
 
     return matcher.group(index);
@@ -371,7 +357,7 @@ public class Utils
    * @param fileName file name
    * @return true if file name format is correct, false otherwise
    */
-  static boolean verifyFileName(String fileName)
+  public static boolean verifyFileName(String fileName)
   {
     return FILE_NAME_PATTERN.matcher(fileName).find();
   }
@@ -382,7 +368,7 @@ public class Utils
    * @param name name string with or without double quotes
    * @return name with double quotes
    */
-  static String ensureQuoted(String name)
+  public static String ensureQuoted(String name)
   {
     //todo: need trim or not ?
     if (name.startsWith("\"") && name.endsWith("\""))
@@ -406,13 +392,9 @@ public class Utils
     LOADED,
     PARTIALLY_LOADED,
     FAILED,
-    LATEST_FILE_STATUS_FINALIZED,         // finalized ==> one of loaded,
     // partially_loaded, or failed
-    LATEST_FILE_STATUS_NOT_FINALIZED,     // not_finalized ==> !finalized
     LOAD_IN_PROGRESS,
-    EXPIRED,
     NOT_FOUND,
   }
-
 
 }

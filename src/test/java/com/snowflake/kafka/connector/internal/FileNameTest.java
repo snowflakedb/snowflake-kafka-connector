@@ -14,8 +14,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.snowflake.kafka.connector;
+package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.Utils;
 import org.junit.Test;
 
 public class FileNameTest
@@ -59,10 +60,10 @@ public class FileNameTest
     long time = Utils.currentTime();
 
     String expiredFile = "test_app/test_topic/1/123_456_" +
-      (time - Utils.MAX_RECOVERY_TIME - 3600 * 1000) + ".json.gz";
+        (time - Utils.MAX_RECOVERY_TIME - 3600 * 1000) + ".json.gz";
 
     String unexpiredFile = "test_app/test_topic/1/123_456_" +
-      (time - Utils.MAX_RECOVERY_TIME + 3600 * 1000) + ".json.gz";
+        (time - Utils.MAX_RECOVERY_TIME + 3600 * 1000) + ".json.gz";
 
     assert Utils.isFileExpired(expiredFile);
 

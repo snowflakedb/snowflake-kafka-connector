@@ -16,15 +16,14 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.avro.Schema;
-import org.apache.avro.file.DataFileReader;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
@@ -37,7 +36,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Map;
 
 public class SnowflakeAvroConverter extends SnowflakeConverter
@@ -47,22 +45,20 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
   @Override
   public void configure(final Map<String, ?> configs, final boolean isKey)
   {
-    try { //todo: graceful way to check schema registry
+    try
+    { //todo: graceful way to check schema registry
       AvroConverterConfig avroConverterConfig = new AvroConverterConfig
-          (configs);
+        (configs);
       schemaRegistry = new CachedSchemaRegistryClient(
-          avroConverterConfig.getSchemaRegistryUrls(),
-          avroConverterConfig.getMaxSchemasPerSubject(),
-          configs
+        avroConverterConfig.getSchemaRegistryUrls(),
+        avroConverterConfig.getMaxSchemasPerSubject(),
+        configs
       );
-      LOGGER.info("Schema Loaded from Schema Registry");
-    }
-    catch (Exception e)
+    } catch (Exception e)
     {
-      schemaRegistry = null;
-      LOGGER.info("Schema Registry is disabled");
+      throw SnowflakeErrors.ERROR_0012.getException(e);
     }
- }
+  }
 
 
   /**
@@ -75,34 +71,33 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
   @Override
   public SchemaAndValue toConnectData(final String s, final byte[] bytes)
   {
-    if(schemaRegistry == null)
+
+    ByteBuffer buffer = ByteBuffer.wrap(bytes);
+    if (buffer.get() != 0)
     {
-      return parseAvro(bytes);
+      throw SnowflakeErrors.ERROR_0010.getException("unknown bytes");
     }
-    else {
-      ByteBuffer buffer = ByteBuffer.wrap(bytes);
-      if(buffer.get() != 0) throw new IllegalArgumentException("unknown bytes");
-      int id = buffer.getInt();
-      Schema schema;
-      try
-      {
-        schema = schemaRegistry.getById(id);
-      } catch (Exception e)
-      {
-        throw new IllegalArgumentException("can not access schema");
-      }
-
-      int length = buffer.limit() - 1 - 4;
-      byte[] data = new byte[length];
-      buffer.get(data,0,length);
-
-      return parseAvroWithSchema(data, schema);
+    int id = buffer.getInt();
+    Schema schema;
+    try
+    {
+      schema = schemaRegistry.getById(id);
+    } catch (Exception e)
+    {
+      throw SnowflakeErrors.ERROR_0011.getException(e);
     }
+
+    int length = buffer.limit() - 1 - 4;
+    byte[] data = new byte[length];
+    buffer.get(data, 0, length);
+
+    return parseAvroWithSchema(data, schema);
   }
 
   /**
    * Parse Avro record with schema
-   * @param bytes avro data
+   *
+   * @param bytes  avro data
    * @param schema avro schema
    * @return JsonNode  array
    */
@@ -115,10 +110,10 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
     JsonEncoder encoder;
     try
     {
-      encoder = EncoderFactory.get().jsonEncoder(schema,output, false);
+      encoder = EncoderFactory.get().jsonEncoder(schema, output, false);
     } catch (IOException e)
     {
-      throw new IllegalArgumentException("can not create json encoder");
+      throw SnowflakeErrors.ERROR_5001.getException(e);
     }
 
     Decoder decoder = DecoderFactory.get().binaryDecoder(input, null);
@@ -135,56 +130,9 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
       return new SchemaAndValue(new SnowflakeJsonSchema(), result);
     } catch (IOException e)
     {
-      throw new IllegalArgumentException("can not parse avro record");
+      throw SnowflakeErrors.ERROR_0010.getException("Failed to parse AVRO " +
+        "record\n" + e.toString());
     }
   }
 
-
-  /**
-   * Parse Avro record without schema
-   * @param bytes Avro data
-   * @return Json Array
-   */
-  private SchemaAndValue parseAvro(final byte[] bytes)
-  {
-    //avro input parser
-    DatumReader<GenericRecord> datumReader = new GenericDatumReader<>();
-    DataFileReader<GenericRecord> dataFileReader;
-
-    try
-    {
-      dataFileReader = new DataFileReader<>(new SeekableInputSource(bytes),
-          datumReader);
-    } catch (Exception e)
-    {
-      LOGGER.error("can not parse AVRO data\n {}", e.getMessage());
-      throw new IllegalArgumentException("can not parse AVRO data\n" + e
-          .getMessage());
-    }
-
-    ArrayList<JsonNode> buffer = new ArrayList<>();
-    while (dataFileReader.hasNext())
-    {
-      String jsonString = dataFileReader.next().toString();
-      try
-      {
-        buffer.add(MAPPER.readTree(jsonString));
-      } catch (IOException e)
-      {
-        LOGGER.error("error: {} \n when parsing json record: {}", e
-                .getMessage(),
-            jsonString);
-
-        throw new IllegalArgumentException("Input record is not a valid json " +
-            "data\n" + jsonString);
-      }
-    }
-
-    JsonNode[] result = new JsonNode[buffer.size()];
-    for (int i = 0; i < buffer.size(); i++)
-    {
-      result[i] = buffer.get(i);
-    }
-    return new SchemaAndValue(new SnowflakeJsonSchema(), result);
-  }
 }

@@ -16,16 +16,17 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.connect.data.SchemaAndValue;
-
 
 public class SnowflakeJsonConverter extends SnowflakeConverter
 {
 
   /**
    * cast bytes array to Json array
-   * @param s topic name. unused
+   *
+   * @param s     topic name. unused
    * @param bytes input bytes array, only support single json record now
    * @return JSON array
    */
@@ -40,10 +41,8 @@ public class SnowflakeJsonConverter extends SnowflakeConverter
       return new SchemaAndValue(new SnowflakeJsonSchema(), result);
     } catch (Exception ex)
     {
-      LOGGER.error("Can't cast input record to JSON object\n{}", ex
-          .getMessage());
-      throw new IllegalArgumentException("Can't cast input record to JSON " +
-          "object\n" + ex.getMessage());
+      throw SnowflakeErrors.ERROR_0010.getException("Failed to parse JSON " +
+          "record\n" + ex.toString());
     }
   }
 }
