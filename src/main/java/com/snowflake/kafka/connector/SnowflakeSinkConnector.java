@@ -161,7 +161,7 @@ public class SnowflakeSinkConnector extends SinkConnector
 
 
       // create or validate stage
-      String stageName = Utils.stageName(table);
+      String stageName = Utils.stageName(connectorName, table);
       try
       {
         if (snowflakeConnection.stageExist(stageName))
@@ -218,12 +218,7 @@ public class SnowflakeSinkConnector extends SinkConnector
 
     // unique name of this connector instance
     connectorName = config.get("name");
-    if (!connectorName.isEmpty() && isValidSnowflakeObjectIdentifier
-        (connectorName))
-    {
-      Utils.setAppName(connectorName);
-    }
-    else
+    if (connectorName.isEmpty() || !isValidSnowflakeObjectIdentifier(connectorName))
     {
       LOGGER.error(Logging.logMessage("name: {} is empty or invalid. It " +
           "should " +
@@ -281,6 +276,9 @@ public class SnowflakeSinkConnector extends SinkConnector
     if (config.containsKey("topics"))
     {
       topics = new ArrayList<>(Arrays.asList(config.get("topics").split(",")));
+
+      LOGGER.info(Logging.logMessage("Connector {} consuming topics {}",
+        connectorName, topics.toString()));
 
       // check for duplicates
       HashSet<String> topicsHashSet = new HashSet<>(Arrays.asList(config.get
@@ -426,7 +424,7 @@ public class SnowflakeSinkConnector extends SinkConnector
     // copied to 'table stage' and an error message is logged.
     for (String topic : topics)
     {
-      String stageName = Utils.stageName(topicsTablesMap.get(topic));
+      String stageName = Utils.stageName(connectorName, topicsTablesMap.get(topic));
       try
       {
         if (snowflakeConnection.stageExist(stageName))

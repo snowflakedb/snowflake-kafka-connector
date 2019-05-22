@@ -89,7 +89,7 @@ public class IngestServiceIT
     String file = "{\"aa\":123}";
 
     String fileName =
-      Utils.fileName("test_topic", 0, 0, 1);
+      Utils.fileName(TestUtils.TEST_CONNECTOR_NAME, "test_topic", 0, 0, 1);
 
     jdbc.put(fileName, file, stage);
 
