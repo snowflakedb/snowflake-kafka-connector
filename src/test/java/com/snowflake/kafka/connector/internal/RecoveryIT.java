@@ -74,11 +74,13 @@ public class RecoveryIT
 
     String file2 = "{\"meta\":223, \"content\":567}";
 
-    String file1Name = Utils.fileName("test_topic",0,0, 1);
+    String file1Name = Utils.fileName(TestUtils.TEST_CONNECTOR_NAME,
+      "test_topic", 0, 0, 1);
 
     Thread.sleep(5);
 
-    String file2Name = Utils.fileName("test_topic",0,1, 2);
+    String file2Name = Utils.fileName(TestUtils.TEST_CONNECTOR_NAME,
+      "test_topic", 0, 1, 2);
 
     jdbc.ingestFile(pipe, file1Name, file1);
 
@@ -89,7 +91,7 @@ public class RecoveryIT
     Thread.sleep(100000);
 
     Map<String, Utils.IngestedFileStatus> result = jdbc.recoverPipe(pipe, stage,
-            Utils.subdirectoryName("test_topic", 0));
+      Utils.subdirectoryName(TestUtils.TEST_CONNECTOR_NAME, "test_topic", 0));
 
     assert result.get(file1Name).equals(Utils.IngestedFileStatus.LOADED);
 

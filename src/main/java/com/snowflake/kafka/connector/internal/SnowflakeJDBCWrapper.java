@@ -67,9 +67,6 @@ public class SnowflakeJDBCWrapper extends Logging
   private static final String JDBC_WAREHOUSE = "warehouse"; //for test only
   private static final String URL = "url";
 
-
-  private final String queryMark;
-
   /**
    * Create a Snowflake connection
    *
@@ -80,23 +77,6 @@ public class SnowflakeJDBCWrapper extends Logging
     if (conf == null)
     {
       throw SnowflakeErrors.ERROR_0001.getException("input conf is null");
-    }
-
-    //init query mark
-    if (conf.containsKey(Utils.TASK_ID))
-    {
-      if (conf.get(Utils.TASK_ID).isEmpty())
-      {
-        queryMark = Utils.getTestQueryMark();
-      }
-      else
-      {
-        queryMark = Utils.getTaskQueryMark(conf.get(Utils.TASK_ID));
-      }
-    }
-    else
-    {
-      queryMark = Utils.getConnectorQueryMark();
     }
 
     properties = createProperties(conf);
@@ -259,8 +239,6 @@ public class SnowflakeJDBCWrapper extends Logging
         "variant, record_content variant)";
     }
 
-    query += queryMark;
-
     try
     {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -332,8 +310,6 @@ public class SnowflakeJDBCWrapper extends Logging
     {
       query += "as " + pipeDefinition(tableName, stageName);
 
-      query += queryMark;
-
       PreparedStatement stmt = conn.prepareStatement(query);
 
       stmt.setString(1, pipeName);
@@ -383,8 +359,6 @@ public class SnowflakeJDBCWrapper extends Logging
       query = "create stage if not exists identifier(?)";
     }
 
-    query += queryMark;
-
     try
     {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -429,8 +403,6 @@ public class SnowflakeJDBCWrapper extends Logging
 
     String query = "desc table identifier(?)";
 
-    query += queryMark;
-
     PreparedStatement stmt;
     try
     {
@@ -472,8 +444,6 @@ public class SnowflakeJDBCWrapper extends Logging
     }
 
     String query = "desc table identifier(?)";
-
-    query += queryMark;
 
     PreparedStatement stmt;
     try
@@ -550,8 +520,6 @@ public class SnowflakeJDBCWrapper extends Logging
 
     String query = "desc pipe identifier(?)";
 
-    query += queryMark;
-
     PreparedStatement stmt;
     try
     {
@@ -611,8 +579,6 @@ public class SnowflakeJDBCWrapper extends Logging
 
     String query = "desc pipe identifier(?)";
 
-    query += queryMark;
-
     PreparedStatement stmt;
     try
     {
@@ -662,8 +628,6 @@ public class SnowflakeJDBCWrapper extends Logging
     }
 
     String query = "desc stage identifier(?)";
-
-    query += queryMark;
 
     PreparedStatement stmt;
     try
@@ -742,8 +706,6 @@ public class SnowflakeJDBCWrapper extends Logging
 
     String query = "drop pipe if exists identifier(?)";
 
-    query += queryMark;
-
     try
     {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -787,8 +749,6 @@ public class SnowflakeJDBCWrapper extends Logging
 
     String query = "list @" + stageName;
 
-    query += queryMark;
-
     try
     {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -825,8 +785,6 @@ public class SnowflakeJDBCWrapper extends Logging
     }
 
     String query = "drop stage if exists identifier(?)";
-
-    query += queryMark;
 
     try
     {
@@ -1191,8 +1149,6 @@ public class SnowflakeJDBCWrapper extends Logging
       query = "ls @" + stageName + "/" + subdirectory;
     }
 
-    query += queryMark;
-
     List<String> result;
     try
     {
@@ -1345,8 +1301,6 @@ public class SnowflakeJDBCWrapper extends Logging
     }
 
     String query = "rm @" + stageName + "/" + fileName;
-
-    query += queryMark;
 
     try
     {

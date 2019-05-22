@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.TestUtils;
 import com.snowflake.kafka.connector.Utils;
 import org.junit.Test;
 
@@ -36,7 +37,7 @@ public class FileNameTest
 
     Thread.sleep(5); //error in maven without sleep
 
-    String fileName = Utils.fileName(topic, partition, startOffset, endOffset);
+    String fileName = Utils.fileName(TestUtils.TEST_CONNECTOR_NAME, topic, partition, startOffset, endOffset);
 
     Thread.sleep(5);
 

@@ -97,13 +97,6 @@ public class SnowflakeSinkTask extends SinkTask
     this.config = parsedConfig;
 
     connectorName = config.get("name");
-    if (!connectorName.equalsIgnoreCase(Utils.getAppName()))
-    {
-      Utils.setAppName(connectorName);
-      // need to do this again because this SinkTask maybe on a different
-      // worker node than
-      // the node where the SnowflakeSinkConnector was initialized
-    }
 
     recordService = new RecordService();    // default : include all
 
@@ -163,8 +156,9 @@ public class SnowflakeSinkTask extends SinkTask
         partitionProperties.put(partition, new PartitionProperties());
 
         String tableName = config.get(partition.topic());
-        String stageName = Utils.stageName(tableName);
-        String pipeName = Utils.pipeName(tableName, partition.partition());
+        String stageName = Utils.stageName(connectorName, tableName);
+        String pipeName = Utils.pipeName(connectorName, tableName, partition
+          .partition());
 
         //Check Table and Stage existence
         //Retry 120 times (10 min) to wait SinkConnector creating stage and
@@ -223,7 +217,8 @@ public class SnowflakeSinkTask extends SinkTask
           //recover
           Map<String, Utils.IngestedFileStatus> files =
             snowflakeConnection.recoverPipe(pipeName, stageName,
-              Utils.subdirectoryName(tableName, partition.partition()));
+              Utils.subdirectoryName(connectorName, tableName, partition
+                .partition()));
 
           List<String> loadedFiles = new LinkedList<>();
           List<String> failedFiles = new LinkedList<>();
@@ -292,7 +287,8 @@ public class SnowflakeSinkTask extends SinkTask
 
           //update last offset
           snowflakeConnection.listStage(stageName, Utils
-            .subdirectoryName(tableName, partition.partition())).forEach(
+            .subdirectoryName(connectorName, tableName, partition.partition()
+            )).forEach(
             name ->
             {
               if (Utils.fileNameToEndOffset(name) > myBuffer.latestOffset())
@@ -302,7 +298,7 @@ public class SnowflakeSinkTask extends SinkTask
             }
           );
           snowflakeConnection.moveToTableStage(stageName, tableName, Utils
-            .subdirectoryName(tableName, partition.partition()));
+            .subdirectoryName(connectorName, tableName, partition.partition()));
         }
 
 
@@ -342,9 +338,10 @@ public class SnowflakeSinkTask extends SinkTask
       {
         String tableName = config.get(partition.topic());
         String pipeName = Utils.pipeName(
+          connectorName,
           tableName,
           partition.partition());
-        String stageName = Utils.stageName(tableName);
+        String stageName = Utils.stageName(connectorName, tableName);
 
         PartitionProperties property = partitionProperties.get(partition);
         if (property.getLastFileName() != null)
@@ -368,7 +365,7 @@ public class SnowflakeSinkTask extends SinkTask
 
         //drop pipe if stage is empty
         if (snowflakeConnection.listStage(stageName, Utils.subdirectoryName
-          (tableName, partition.partition())).isEmpty())
+          (connectorName, tableName, partition.partition())).isEmpty())
         {
           snowflakeConnection.dropPipe(pipeName);
         }
@@ -479,13 +476,15 @@ public class SnowflakeSinkTask extends SinkTask
     // ingest throws exception due to snowpipe availability issue.
 
     String tableName = config.get(topicPartition.topic());
-    String stageName = Utils.stageName(tableName);
+    String stageName = Utils.stageName(connectorName, tableName);
     String fileName = Utils.fileName(
+      connectorName,
       tableName,
       topicPartition.partition(),
       buffer.firstOffset(),
       buffer.latestOffset());
     String pipeName = Utils.pipeName(
+      connectorName,
       tableName,
       topicPartition.partition());
 
@@ -571,8 +570,9 @@ public class SnowflakeSinkTask extends SinkTask
       {
         String tableName = config.get(partition.topic());
         // SnowflakeSinkConnector stores it here
-        String stageName = Utils.stageName(tableName);
-        String pipeName = Utils.pipeName(tableName, partition.partition());
+        String stageName = Utils.stageName(connectorName, tableName);
+        String pipeName = Utils.pipeName(connectorName, tableName, partition
+          .partition());
 
         // ingest buffered records, if any
         ingestBufferedRecords(partition);
@@ -744,7 +744,8 @@ public class SnowflakeSinkTask extends SinkTask
               "recovery.", latestFileName, partition));
 
             //update offset
-            committedOffsetValue = Utils.fileNameToEndOffset(latestFileName);
+            committedOffsetValue = Utils.fileNameToEndOffset(latestFileName)
+              + 1;
           }
 
           // purge the successful files

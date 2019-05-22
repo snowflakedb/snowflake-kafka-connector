@@ -63,40 +63,30 @@ public class Utils
   // applicationName/tableName/partitionNumber
   // /startOffset_endOffset_time_format.json.gz
   private static Pattern FILE_NAME_PATTERN =
-      Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(\\d+)_(\\d+)\\.json\\.gz$");
+    Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(\\d+)_(\\d+)\\.json\\.gz$");
 
   private static final Logger LOGGER =
-      LoggerFactory.getLogger(Utils.class.getName());
-
-  private static String appName = DEFAULT_APP_NAME;
+    LoggerFactory.getLogger(Utils.class.getName());
 
   /**
-   * set application name
+   * generate subdirectory name
    *
-   * @param name application name
+   * @param appName   connector name
+   * @param table     table name
+   * @param partition partition number
+   * @return
    */
-  public static void setAppName(String name)
-  {
-    appName = name;
-  }
-
-  /**
-   * @return application name
-   */
-  public static String getAppName()
-  {
-    return appName;
-  }
-
-  public static String subdirectoryName(String table, int partition)
+  public static String subdirectoryName(String appName, String table, int
+    partition)
   {
     return appName + "/" + table + "/" + partition + "/";
   }
 
   /**
+   * @param appName connector name
    * @return connector object prefix
    */
-  private static String getObjectPrefix()
+  private static String getObjectPrefix(String appName)
   {
     return KAFKA_OBJECT_PREFIX + "_" + appName;
   }
@@ -104,7 +94,7 @@ public class Utils
   /**
    * count the size of result set
    *
-   * @param resultSet
+   * @param resultSet sql result set
    * @return size
    * @throws SQLException
    */
@@ -123,12 +113,13 @@ public class Utils
   /**
    * generate stage name by given table
    *
-   * @param table table name
+   * @param appName connector name
+   * @param table   table name
    * @return stage name
    */
-  public static String stageName(String table)
+  public static String stageName(String appName, String table)
   {
-    String stageName = getObjectPrefix() + "_STAGE_" + table;
+    String stageName = getObjectPrefix(appName) + "_STAGE_" + table;
 
     LOGGER.debug(Logging.logMessage("generated stage name: {}", stageName));
 
@@ -138,13 +129,15 @@ public class Utils
   /**
    * generate pipe name by given table and partition
    *
+   * @param appName   connector name
    * @param table     table name
    * @param partition partition name
    * @return pipe name
    */
-  public static String pipeName(String table, int partition)
+  public static String pipeName(String appName, String table, int partition)
   {
-    String pipeName = getObjectPrefix() + "_PIPE_" + table + "_" + partition;
+    String pipeName = getObjectPrefix(appName) + "_PIPE_" + table + "_" +
+      partition;
 
     LOGGER.debug(Logging.logMessage("generated pipe name: {}", pipeName));
 
@@ -159,18 +152,20 @@ public class Utils
    * <p>
    * Note: all file names should using the this format
    *
+   * @param appName   connector name
    * @param table     table name
    * @param partition partition number
    * @param start     start offset
    * @param end       end offset
    * @return file name
    */
-  public static String fileName(String table, int partition, long start, long end)
+  public static String fileName(String appName, String table, int partition,
+                                long start, long end)
   {
     long time = System.currentTimeMillis();
 
     String fileName = appName + "/" + table + "/" + partition + "/" + start +
-        "_" + end + "_" + time;
+      "_" + end + "_" + time;
 
     fileName += ".json.gz";
 
@@ -305,31 +300,7 @@ public class Utils
   public static boolean isFileExpired(String fileName)
   {
     return currentTime() - fileNameToTimeIngested(fileName)
-        > Utils.MAX_RECOVERY_TIME;
-  }
-
-  /**
-   * @return query mark of sink connector
-   */
-  public static String getConnectorQueryMark()
-  {
-    return " /* kafka, " + appName + ", connector */";
-  }
-
-  /**
-   * @return query mark of sink task
-   */
-  public static String getTaskQueryMark(String id)
-  {
-    return " /* kafka, " + appName + ", task " + id + " */";
-  }
-
-  /**
-   * @return query mark of IT test
-   */
-  public static String getTestQueryMark()
-  {
-    return " /* kafka, test */";
+      > Utils.MAX_RECOVERY_TIME;
   }
 
   /**
@@ -345,7 +316,8 @@ public class Utils
 
     if (!matcher.find())
     {
-      throw SnowflakeErrors.ERROR_0008.getException("input file name: " + fileName);
+      throw SnowflakeErrors.ERROR_0008.getException("input file name: " +
+        fileName);
     }
 
     return matcher.group(index);
