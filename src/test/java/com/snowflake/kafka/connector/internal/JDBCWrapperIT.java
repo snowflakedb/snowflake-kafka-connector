@@ -73,7 +73,7 @@ public class JDBCWrapperIT
     assert jdbc.tableExist(tableName);
 
     TestUtils.executeQuery(
-        "insert into " + tableName + " values(123, 223)"
+      "insert into " + tableName + " values(123, 223)"
     );
 
     ResultSet resultSet = TestUtils.showTable(tableName);
@@ -167,7 +167,7 @@ public class JDBCWrapperIT
 
     jdbc.put(fileName2, file, stageName);
 
-    List<String> fileNames1 =  jdbc.listStage(stageName, "");
+    List<String> fileNames1 = jdbc.listStage(stageName, "");
 
     assert fileNames1.size() == 2;
 
@@ -192,7 +192,7 @@ public class JDBCWrapperIT
   public void moveFileFromStageToTableStage()
   {
     String fileName =
-        Utils.fileName("test_topic",1,2,3);
+      Utils.fileName(TestUtils.TEST_CONNECTOR_NAME, "test_topic", 1, 2, 3);
 
     String content = "{\"meta\":1,\"content\":2}";
 
@@ -214,7 +214,7 @@ public class JDBCWrapperIT
 
     assert result.get(0).equals(fileName);
 
-    result = jdbc.listStage(stageName,"");
+    result = jdbc.listStage(stageName, "");
 
     assert result.isEmpty();
 
@@ -233,8 +233,8 @@ public class JDBCWrapperIT
     TestUtils.dropTable(tableName);
 
     TestUtils.executeQuery(
-        "create table " + tableName +
-            "(record_metadata variant, record_content variant)"
+      "create table " + tableName +
+        "(record_metadata variant, record_content variant)"
     );
 
     assert jdbc.tableIsCompatible(tableName);
@@ -243,8 +243,8 @@ public class JDBCWrapperIT
 
     //wrong name
     TestUtils.executeQuery(
-        "create table " + tableName +
-            "(recordmetadata variant, recordcontent variant)"
+      "create table " + tableName +
+        "(recordmetadata variant, recordcontent variant)"
     );
 
     assert !jdbc.tableIsCompatible(tableName);
@@ -253,8 +253,8 @@ public class JDBCWrapperIT
 
     //wrong type
     TestUtils.executeQuery(
-        "create table " + tableName +
-            "(record_metadata string, record_content int)"
+      "create table " + tableName +
+        "(record_metadata string, record_content int)"
     );
 
     assert !jdbc.tableIsCompatible(tableName);
@@ -263,8 +263,8 @@ public class JDBCWrapperIT
 
     //wrong column number
     TestUtils.executeQuery(
-        "create table " + tableName +
-            "(record_metadata variant, record_content variant, something int)"
+      "create table " + tableName +
+        "(record_metadata variant, record_content variant, something int)"
     );
 
     assert !jdbc.tableIsCompatible(tableName);
@@ -279,7 +279,8 @@ public class JDBCWrapperIT
 
     assert jdbc.stageIsCompatible(stageName);
 
-    String fileName1 = Utils.fileName("test_topic",1,234,567);
+    String fileName1 = Utils.fileName(TestUtils.TEST_CONNECTOR_NAME,
+      "test_topic", 1, 234, 567);
 
     String fileContent = "123";
 
@@ -291,7 +292,7 @@ public class JDBCWrapperIT
 
     jdbc.put(fileName2, fileContent, stageName);
 
-    assert ! jdbc.stageIsCompatible(stageName);
+    assert !jdbc.stageIsCompatible(stageName);
 
     jdbc.dropStage(stageName);
   }
@@ -310,8 +311,8 @@ public class JDBCWrapperIT
     jdbc.dropPipe(pipeName);
 
     TestUtils.executeQuery(
-        "create or replace pipe " + pipeName + " as copy into " + tableName +
-            " from @" + stageName
+      "create or replace pipe " + pipeName + " as copy into " + tableName +
+        " from @" + stageName
     );
 
     assert !jdbc.pipeIsCompatible(pipeName, tableName, stageName);
@@ -323,7 +324,6 @@ public class JDBCWrapperIT
     TestUtils.dropTable(tableName);
 
 
-
   }
 
   @Test
@@ -333,7 +333,8 @@ public class JDBCWrapperIT
 
     String file = "test";
 
-    String fileName = Utils.fileName("test_topic", 0, 0, 1);
+    String fileName = Utils.fileName(TestUtils.TEST_CONNECTOR_NAME, 
+      "test_topic", 0, 0, 1);
 
     jdbc.putToTableStage(fileName, file, tableName);
 

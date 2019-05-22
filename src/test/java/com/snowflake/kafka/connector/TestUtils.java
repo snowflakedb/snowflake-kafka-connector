@@ -71,6 +71,8 @@ public class TestUtils
 
   static String PRIVATE_KEY = "private_key";
 
+  public final static String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
+
 
   //profile path
   private final static String PROFILE_PATH = "profile.json";
