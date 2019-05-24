@@ -35,6 +35,10 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
  */
 public class SnowflakeSinkConnectorConfig
 {
+
+  static final String NAME = "name";
+  static final String TOPICS = "topics";
+
   // snowflake kafka connector config
   static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
   static final long BUFFER_COUNT_RECORDS_DEFAULT = 10000;
