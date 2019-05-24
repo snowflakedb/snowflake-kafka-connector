@@ -54,7 +54,7 @@ public class SnowflakeSinkConnector extends SinkConnector
   private long connectorStartTime;
 
   private static final Logger LOGGER = LoggerFactory
-      .getLogger(SnowflakeSinkConnector.class);
+    .getLogger(SnowflakeSinkConnector.class);
 
   // Kafka Connect starts sink tasks without waiting for setup in
   // SnowflakeSinkConnector to finish.
@@ -104,14 +104,14 @@ public class SnowflakeSinkConnector extends SinkConnector
     // maxTasks value isn't visible if the user leaves it at default. So 0
     // means unknown.
     int maxTasks = (config.containsKey("tasks.max")) ? Integer.parseInt
-        (config.get("tasks.max")) : 0;
+      (config.get("tasks.max")) : 0;
 
     telemetry.reportKafkaStart(
-        connectorStartTime,
-        topics.size(),
-        topicsTablesMap.size(),
-        maxTasks,
-        connectorName);
+      connectorStartTime,
+      topics.size(),
+      topicsTablesMap.size(),
+      maxTasks,
+      connectorName);
 
     for (String topic : topics)
     {
@@ -127,23 +127,22 @@ public class SnowflakeSinkConnector extends SinkConnector
             // connector may have been restarted or user has pre-created the
             // correct table
             LOGGER.info(Logging.logMessage("Using existing table {} for topic" +
-                " " +
-                "{}.", table, topic));
+              " {}.", table, topic));
             telemetry.reportKafkaReuseTable(table, connectorName);
           }
           else
           {
 
             telemetry.reportKafkaFatalError("Incompatible table: " + table,
-                connectorName);
+              connectorName);
             throw SnowflakeErrors.ERROR_5003.getException("table name: " +
-                table);
+              table);
           }
         }
         else
         {
           LOGGER.info(Logging.logMessage("Creating new table {} for topic {}.",
-              table, topic));
+            table, topic));
           snowflakeConnection.createTable(table);
           telemetry.reportKafkaCreateTable(table, connectorName);
         }
@@ -171,23 +170,22 @@ public class SnowflakeSinkConnector extends SinkConnector
             // connector may have been restarted
             // user is NOT expected to pre-create any internal stages!
             LOGGER.info(Logging.logMessage("Connector recovery: using " +
-                "existing " +
-                "internal stage {} for topic {}.", stageName, topic));
+              "existing internal stage {} for topic {}.", stageName, topic));
             telemetry.reportKafkaReuseStage(stageName, connectorName);
           }
           else
           {
             telemetry.reportKafkaFatalError("Invalid stage: " + stageName,
-                connectorName);
+              connectorName);
 
             throw SnowflakeErrors.ERROR_5004.getException("Stage name: " +
-                stageName);
+              stageName);
           }
         }
         else
         {
           LOGGER.info(Logging.logMessage("Creating new internal stage {} for " +
-              "topic {}.", stageName, topic));
+            "topic {}.", stageName, topic));
           snowflakeConnection.createStage(stageName);
           telemetry.reportKafkaCreateStage(stageName, connectorName);
 
@@ -217,13 +215,13 @@ public class SnowflakeSinkConnector extends SinkConnector
     // instead of using the values directly
 
     // unique name of this connector instance
-    connectorName = config.get("name");
-    if (connectorName.isEmpty() || !isValidSnowflakeObjectIdentifier(connectorName))
+    connectorName = config.get(SnowflakeSinkConnectorConfig.NAME);
+    if (connectorName.isEmpty() || !isValidSnowflakeObjectIdentifier
+      (connectorName))
     {
-      LOGGER.error(Logging.logMessage("name: {} is empty or invalid. It " +
-          "should " +
-          "match Snowflake object identifier syntax. Please see the " +
-          "documentation.", connectorName));
+      LOGGER.error(Logging.logMessage("{}: {} is empty or invalid. It " +
+        "should match Snowflake object identifier syntax. Please see the " +
+        "documentation.", SnowflakeSinkConnectorConfig.TOPICS, connectorName));
       configIsValid = false;
     }
 
@@ -233,11 +231,11 @@ public class SnowflakeSinkConnector extends SinkConnector
     // Number of records buffered in memory per partition before ingesting to
     // Snowflake
     if (!config.containsKey(SnowflakeSinkConnectorConfig
-        .BUFFER_COUNT_RECORDS))//buffer.count.records
+      .BUFFER_COUNT_RECORDS))//buffer.count.records
     {
       config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "10000");
       LOGGER.info(Logging.logMessage("{} set to default 10000 records.",
-          SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
+        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
     }
 
     // set buffer.size.bytes -- a Snowflake connector setting
@@ -248,12 +246,12 @@ public class SnowflakeSinkConnector extends SinkConnector
     //buffer.size.bytes
     {
       long bsb = Long.parseLong(config.get(SnowflakeSinkConnectorConfig
-          .BUFFER_SIZE_BYTES));
+        .BUFFER_SIZE_BYTES));
       if (bsb > 100000000)   // 100mb
       {
         LOGGER.error(Logging.logMessage("{} is too high at {}. It must be " +
-            "100000000 (100MB) or smaller.", SnowflakeSinkConnectorConfig
-            .BUFFER_SIZE_BYTES, bsb));
+          "100000000 (100MB) or smaller.", SnowflakeSinkConnectorConfig
+          .BUFFER_SIZE_BYTES, bsb));
         configIsValid = false;
       }
     }
@@ -261,49 +259,43 @@ public class SnowflakeSinkConnector extends SinkConnector
     {
       config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, "5000000");
       LOGGER.info(Logging.logMessage("{} set to default 5000000 bytes.",
-          SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
+        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
     }
 
-
-    /*** NOTE : we are using offset.flush.interval.ms to act as the buffer
-     * .time.ms
-     // set buffer.time.ms -- a Snowflake connector setting
-     // default : 60000 ms
-     // Maximum time to wait for new records per partition before ingesting
-     to Snowflake
-     ***/
     // validate topics
-    if (config.containsKey("topics"))
+    if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS))
     {
-      topics = new ArrayList<>(Arrays.asList(config.get("topics").split(",")));
+      topics = new ArrayList<>(Arrays.asList(config.get
+        (SnowflakeSinkConnectorConfig.TOPICS).split(",")));
 
       LOGGER.info(Logging.logMessage("Connector {} consuming topics {}",
         connectorName, topics.toString()));
 
       // check for duplicates
       HashSet<String> topicsHashSet = new HashSet<>(Arrays.asList(config.get
-          ("topics").split(",")));
+        (SnowflakeSinkConnectorConfig.TOPICS).split(",")));
       if (topics.size() != topicsHashSet.size())
       {
-        LOGGER.error(Logging.logMessage("topics: {} contains duplicate " +
-            "entries" +
-            ".", config.get("topics")));
+        LOGGER.error(Logging.logMessage("{}: {} contains duplicate " +
+            "entries.", SnowflakeSinkConnectorConfig.TOPICS,
+          config.get(SnowflakeSinkConnectorConfig.TOPICS)));
         configIsValid = false;
       }
     }
     else
     {
-      LOGGER.error(Logging.logMessage("topics cannot be empty."));
+      LOGGER.error(Logging.logMessage("{} cannot be empty.",
+        SnowflakeSinkConnectorConfig.TOPICS));
       configIsValid = false;
     }
 
-    // validate topics.tables.map (optional parameter)
+    // validate snowflake.topic2table.map (optional parameter)
     topicsTablesMap = new HashMap<>();  // initialize even if not present in
     // config, as it is needed
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
     {
       List<String> topicsTables = new ArrayList<>(Arrays.asList(config.get
-          (SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP).split(",")));
+        (SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP).split(",")));
 
       for (String topicTable : topicsTables)
       {
@@ -312,30 +304,30 @@ public class SnowflakeSinkConnector extends SinkConnector
         if (tt.length != 2 || tt[0].isEmpty() || tt[1].isEmpty())
         {
           LOGGER.error(Logging.logMessage("Invalid {} config format: {}",
-              SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, topicsTables));
+            SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, topicsTables));
           configIsValid = false;
         }
 
         if (!isValidSnowflakeObjectIdentifier(tt[1]))
         {
           LOGGER.error(
-              Logging.logMessage("table name {} should have at least 2 " +
-                  "characters, start with _a-zA-Z, and only contains " +
-                  "_$a-zA-z0-9", tt[1]));
+            Logging.logMessage("table name {} should have at least 2 " +
+              "characters, start with _a-zA-Z, and only contains " +
+              "_$a-zA-z0-9", tt[1]));
           configIsValid = false;
         }
 
         if (!topics.contains(tt[0]))
         {
           LOGGER.error(Logging.logMessage("topic name {} has not been " +
-              "registered in this task", tt[0]));
+            "registered in this task", tt[0]));
           configIsValid = false;
         }
 
         if (topicsTablesMap.containsKey(tt[0]))
         {
           LOGGER.error(Logging.logMessage("topic name {} is duplicated",
-              tt[0]));
+            tt[0]));
           configIsValid = false;
         }
 
@@ -343,7 +335,7 @@ public class SnowflakeSinkConnector extends SinkConnector
         {
           //todo: support multiple topics map to one table ?
           LOGGER.error(Logging.logMessage("table name {} is duplicated",
-              tt[1]));
+            tt[1]));
           configIsValid = false;
         }
 
@@ -364,30 +356,31 @@ public class SnowflakeSinkConnector extends SinkConnector
         }
         else
         {
-          LOGGER.error(Logging.logMessage("topic: {} in topics: {} config " +
-              "should either match Snowflake object identifier syntax, or " +
-              "topics.tables.map: {} config should contain a mapping table " +
-              "name.", topic, config.get("topics"), config.get("topics.tables" +
-              ".map")));
+          LOGGER.error(Logging.logMessage("topic: {} in {}: {} config " +
+              "should either match Snowflake object identifier syntax, or {}:" +
+              " {} config should contain a mapping table name.", topic,
+            SnowflakeSinkConnectorConfig.TOPICS,
+            config.get(SnowflakeSinkConnectorConfig.TOPICS),
+            SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
+            config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)));
           configIsValid = false;
         }
       }
     }
 
     // sanity check
-    if (!config.containsKey("snowflake.database.name"))
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE))
     {
-      LOGGER.error(Logging.logMessage("snowflake.database.name cannot be " +
-          "empty" +
-          "."));
+      LOGGER.error(Logging.logMessage("{} cannot be empty.",
+        SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE));
       configIsValid = false;
     }
 
     // sanity check
-    if (!config.containsKey("snowflake.schema.name"))
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA))
     {
-      LOGGER.error(Logging.logMessage("snowflake.schema.name cannot be empty" +
-          "."));
+      LOGGER.error(Logging.logMessage("{} cannot be empty.",
+        SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
       configIsValid = false;
     }
 
@@ -402,7 +395,7 @@ public class SnowflakeSinkConnector extends SinkConnector
    */
   private boolean isValidSnowflakeObjectIdentifier(String objName)
   {
-    return objName.matches("^[_a-zA-Z]{1}[_$a-zA-Z0-9]+");
+    return objName.matches("^[_a-zA-Z]{1}[_$a-zA-Z0-9]+$");
   }
 
   /**
@@ -424,22 +417,23 @@ public class SnowflakeSinkConnector extends SinkConnector
     // copied to 'table stage' and an error message is logged.
     for (String topic : topics)
     {
-      String stageName = Utils.stageName(connectorName, topicsTablesMap.get(topic));
+      String stageName = Utils.stageName(connectorName, topicsTablesMap.get
+        (topic));
       try
       {
         if (snowflakeConnection.stageExist(stageName))
         {
           LOGGER.info(Logging.logMessage("Dropping internal stage: {} (if " +
-              "empty).", stageName));
+            "empty).", stageName));
           snowflakeConnection.dropStageIfEmpty(stageName);
         }
         else
         {
           // User should not mess up with these stages outside the connector
           String errorMsg = "Attempting to drop a non-existant internal stage" +
-              " " + stageName + ". This should not happen. This stage may " +
-              "have been manually dropped, which may affect ingestion " +
-              "guarantees.";
+            " " + stageName + ". This should not happen. This stage may " +
+            "have been manually dropped, which may affect ingestion " +
+            "guarantees.";
           LOGGER.error(Logging.logMessage(errorMsg));
           telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
 
@@ -448,7 +442,7 @@ public class SnowflakeSinkConnector extends SinkConnector
       } catch (Exception ex)
       {
         String errorMsg = "Failed to drop empty internal stage: " + stageName
-            + ". It can safely be removed. Exception: " + ex.toString();
+          + ". It can safely be removed. Exception: " + ex.toString();
         LOGGER.error(Logging.logMessage(errorMsg));
         telemetry.reportKafkaNonFatalError(errorMsg, connectorName);
 
@@ -508,19 +502,19 @@ public class SnowflakeSinkConnector extends SinkConnector
         try
         {
           LOGGER.info(Logging.logMessage("Sleeping 5000ms to allow setup to " +
-              "complete."));
+            "complete."));
           Thread.sleep(5000);
         } catch (InterruptedException ex)
         {
           LOGGER.warn(Logging.logMessage("Waiting for setup to complete got " +
-              "interrupted"));
+            "interrupted"));
         }
       }
     }
     if (!setupComplete)
     {
       telemetry.reportKafkaFatalError(SnowflakeErrors.ERROR_5007.getDetail(),
-          connectorName);
+        connectorName);
 
       throw SnowflakeErrors.ERROR_5007.getException();
     }
