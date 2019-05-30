@@ -74,7 +74,7 @@ public class Utils
    * @param appName   connector name
    * @param table     table name
    * @param partition partition number
-   * @return
+   * @return subdirectory name
    */
   public static String subdirectoryName(String appName, String table, int
     partition)
@@ -96,7 +96,7 @@ public class Utils
    *
    * @param resultSet sql result set
    * @return size
-   * @throws SQLException
+   * @throws SQLException when failed to read result set
    */
   public static int resultSize(ResultSet resultSet) throws SQLException
   {

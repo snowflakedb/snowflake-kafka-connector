@@ -544,7 +544,7 @@ public class SnowflakeSinkTask extends SinkTask
    *
    * @param offsets - the current map of offsets as of the last call to put
    * @return a map of offsets by topic-partition that are safe to commit
-   * @throws RetriableException
+   * @throws RetriableException when meet any issue during processing
    */
   @Override
   public Map<TopicPartition, OffsetAndMetadata> preCommit(

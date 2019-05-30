@@ -40,9 +40,6 @@ public abstract class SnowflakeConverter implements Converter
 
   /**
    * unused
-   *
-   * @param map
-   * @param b
    */
   @Override
   public void configure(final Map<String, ?> map, final boolean b)
@@ -52,11 +49,6 @@ public abstract class SnowflakeConverter implements Converter
 
   /**
    * doesn't support data source connector
-   *
-   * @param s
-   * @param schema
-   * @param o
-   * @return
    */
   @Override
   public byte[] fromConnectData(final String s, final Schema schema, final
