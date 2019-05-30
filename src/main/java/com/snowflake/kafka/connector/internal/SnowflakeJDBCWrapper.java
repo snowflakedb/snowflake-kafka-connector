@@ -937,8 +937,6 @@ public class SnowflakeJDBCWrapper extends Logging
    * @param stageName stage name
    * @param tableName table name
    * @param files     a list of file name
-   * @return a list of file, which moved to the table stage. Empty list for
-   * no error
    */
   public void moveToTableStage(String stageName, String tableName,
                                List<String> files)

@@ -132,10 +132,9 @@ public class SeekableInputSource implements SeekableInput
 
   /**
    * close source object
-   * @throws IOException
    */
   @Override
-  public void close() throws IOException
+  public void close()
   {
     this.source = null;
   }

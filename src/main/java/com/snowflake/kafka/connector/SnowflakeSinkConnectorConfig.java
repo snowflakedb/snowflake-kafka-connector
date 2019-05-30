@@ -28,10 +28,6 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
  * the group information, the order in the group, the width of the
  * configuration value,
  * and the name suitable for display in the UI.
- * This class is required by Kafka Connect framework.
- * AbstractConfig holds both the original configuration (ConfigDef) that was
- * provided
- * as well as the parsed configuration (Map<String, String>)
  */
 public class SnowflakeSinkConnectorConfig
 {
