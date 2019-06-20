@@ -25,6 +25,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
     .ObjectNode;
 import net.snowflake.client.jdbc.telemetry.Telemetry;
+import net.snowflake.client.jdbc.telemetry.TelemetryClient;
 import net.snowflake.client.jdbc.telemetry.TelemetryData;
 
 import java.io.IOException;
@@ -113,7 +114,7 @@ public class SnowflakeTelemetry extends Logging
   {
     this.conn = conn;
 
-    this.telemetry = Telemetry.createTelemetry(conn);
+    this.telemetry = TelemetryClient.createTelemetry(conn);
 
     logs = new LinkedList<>();
   }
@@ -415,7 +416,7 @@ public class SnowflakeTelemetry extends Logging
 
     msg.set(DATA, data);
 
-    addLogToCacheList(msg, Utils.currentTime());
+    addLogToCacheList(msg, System.currentTimeMillis());
   }
 
   //generally interface
