@@ -65,6 +65,14 @@ public class SnowflakeSinkConnectorConfig
   static final String REGISTRY_URL = "value.converter.schema.registry.url";
   static final String REGISTRY_URL_DEFAULT = "";
 
+  //jvm proxy
+  static final String JVM_PROXY_HOST = "jvm.proxy.host";
+  static final String JVM_PROXY_HOST_DEFAULT = "";
+  
+  static final String JVM_PROXY_PORT = "jvm.proxy.port";
+  static final String JVM_PROXY_PORT_DEFAULT = "";
+  
+
   static ConfigDef newConfigDef()
   {
     return new ConfigDef()
@@ -120,7 +128,18 @@ public class SnowflakeSinkConnectorConfig
             Importance.MEDIUM,
             "Map of topics to tables (optional)." +
                 " Format : comma-seperated tuples, e.g. <topic-1>:<table-1>," +
-                "<topic-2>:<table-2>,... ");
+                "<topic-2>:<table-2>,... ")
+        .define(JVM_PROXY_HOST,
+            Type.STRING,
+            JVM_PROXY_HOST_DEFAULT,
+            Importance.LOW,
+            "jvm option: https.proxyHost")
+        .define(JVM_PROXY_PORT,
+            Type.STRING,
+            JVM_PROXY_PORT_DEFAULT,
+            Importance.LOW,
+            "jvm option: https.proxyPort")
+        ;
   }
 
 }

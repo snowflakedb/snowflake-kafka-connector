@@ -27,6 +27,7 @@ import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -59,6 +60,13 @@ public class Utils
 
   //task id
   public static final String TASK_ID = "task_id";
+
+  //jvm proxy
+  public static final String HTTP_USE_PROXY = "http.useProxy";
+  public static final String HTTPS_PROXY_HOST = "https.proxyHost";
+  public static final String HTTPS_PROXY_PORT = "https.proxyPort";
+  public static final String HTTP_PROXY_HOST = "http.proxyHost";
+  public static final String HTTP_PROXY_PORT = "http.proxyPort";
 
   // applicationName/tableName/partitionNumber
   // /startOffset_endOffset_time_format.json.gz
@@ -351,6 +359,42 @@ public class Utils
     {
       return "\"" + name + "\"";
     }
+  }
+
+  /**
+   * Enable JVM proxy
+   * @param config connector configuration
+   * @return false if wrong config
+   */
+  public static boolean enableJVMProxy(Map<String, String> config)
+  {
+    if (config.containsKey(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST)&&
+      !config.get(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST).isEmpty())
+    {
+      if (!config.containsKey(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT)||
+        config.get(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT).isEmpty())
+      {
+        LOGGER.error(Logging.logMessage("{} is empty", 
+          SnowflakeSinkConnectorConfig.JVM_PROXY_PORT));
+        return false;
+      }
+      else
+      {
+        String host = config.get(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST);
+        String port = config.get(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT);
+        LOGGER.info(Logging.logMessage("enable jvm proxy: {}:{}",
+          host, port));
+      
+        //enable https proxy
+        System.setProperty(HTTP_USE_PROXY, "true");
+        System.setProperty(HTTP_PROXY_HOST, host);
+        System.setProperty(HTTP_PROXY_PORT, port);
+        System.setProperty(HTTPS_PROXY_HOST, host);
+        System.setProperty(HTTPS_PROXY_PORT, port);
+      }
+    }
+
+    return true;
   }
 
   /**
