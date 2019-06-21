@@ -384,6 +384,9 @@ public class SnowflakeSinkConnector extends SinkConnector
       configIsValid = false;
     }
 
+    // jvm proxy settings
+    configIsValid = Utils.enableJVMProxy(config);
+
     return configIsValid;
   }
 

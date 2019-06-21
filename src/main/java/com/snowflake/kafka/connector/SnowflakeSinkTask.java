@@ -96,6 +96,9 @@ public class SnowflakeSinkTask extends SinkTask
 
     this.config = parsedConfig;
 
+    //enable jvm proxy
+    Utils.enableJVMProxy(config);
+
     connectorName = config.get("name");
 
     recordService = new RecordService();    // default : include all
