@@ -221,7 +221,7 @@ public class SnowflakeSinkConnector extends SinkConnector
     {
       LOGGER.error(Logging.logMessage("{}: {} is empty or invalid. It " +
         "should match Snowflake object identifier syntax. Please see the " +
-        "documentation.", SnowflakeSinkConnectorConfig.TOPICS, connectorName));
+        "documentation.", SnowflakeSinkConnectorConfig.NAME, connectorName));
       configIsValid = false;
     }
 
