@@ -17,6 +17,8 @@
 
 package com.snowflake.kafka.connector.internal;
 
+import java.util.Objects;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -148,7 +150,7 @@ public class Logging
   {
     for (int i = 0; i < vars.length; i++)
     {
-      format = format.replaceFirst("\\{}", vars[i].toString().replaceAll("\\$","\\\\\\$"));
+      format = format.replaceFirst("\\{}", Objects.toString(vars[i]).replaceAll("\\$","\\\\\\$"));
     }
     return logMessage(format);
   }

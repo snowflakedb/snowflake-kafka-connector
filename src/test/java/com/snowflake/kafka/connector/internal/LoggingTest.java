@@ -56,9 +56,11 @@ public class LoggingTest
     assert Logging.logMessage("{} test message\n{} test message\n{} test " +
         "message\n{} test message", 1, 2, 3, 4).equals(expected);
 
+    // nulls
+    expected = "\n" + Logging.SF_LOG_TAG + " null test message";
+    assert Logging.logMessage("{} test message",  (String) null).equals(expected);
 
+    expected = "\n" + Logging.SF_LOG_TAG + " some string test null message null";
+    assert Logging.logMessage("{} test {} message {}", "some string", null, null).equals(expected);
   }
-
-
 }
-
