@@ -387,14 +387,29 @@ public class SnowflakeSinkConnector extends SinkConnector
     // jvm proxy settings
     configIsValid = Utils.enableJVMProxy(config);
 
+    //schemaRegistry
+
+    String authSource = config.getOrDefault(
+      SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE, "");
+    String userInfo = config.getOrDefault(
+      SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_USER_INFO, "");
+
+    if(authSource.isEmpty() ^ userInfo.isEmpty())
+    {
+      configIsValid = false;
+      LOGGER.error(Logging.logMessage("Parameters {} and {} should be defined at the same time",
+        SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_USER_INFO,
+        SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE));
+    }
+
     return configIsValid;
   }
 
   /**
    * validates that given name is a valid snowflake object identifier
    *
-   * @param objName
-   * @return
+   * @param objName snowflake object name
+   * @return true if given object name is valid
    */
   private boolean isValidSnowflakeObjectIdentifier(String objName)
   {
