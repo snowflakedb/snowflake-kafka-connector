@@ -18,6 +18,7 @@ package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import net.snowflake.ingest.connection.IngestStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +27,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
@@ -395,6 +401,227 @@ public class Utils
     }
 
     return true;
+  }
+
+  /**
+   * validates that given name is a valid snowflake object identifier
+   *
+   * @param objName snowflake object name
+   * @return true if given object name is valid
+   */
+  private static boolean isValidSnowflakeObjectIdentifier(String objName)
+  {
+    return objName.matches("^[_a-zA-Z]{1}[_$a-zA-Z0-9]+$");
+  }
+
+  /**
+   * Validate input configuration
+   * @param config configuration Map
+   * @return false if contains any invalid settings
+   */
+  static ParameterValidationResult validateConfig(Map<String, String> config)
+  {
+    boolean configIsValid = true; // verify all config
+
+    // define the input parameters / keys in one place as static constants,
+    // instead of using them directly
+    // define the thresholds statically in one place as static constants,
+    // instead of using the values directly
+
+    // unique name of this connector instance
+    String connectorName = config.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "");
+    if (connectorName.isEmpty() || !isValidSnowflakeObjectIdentifier(connectorName))
+    {
+      LOGGER.error(Logging.logMessage("{} is empty or invalid. It " +
+        "should match Snowflake object identifier syntax. Please see the " +
+        "documentation.", SnowflakeSinkConnectorConfig.NAME));
+      configIsValid = false;
+    }
+
+    // validate topics
+    List<String> topics = new ArrayList<>();
+    if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS))
+    {
+      topics = new ArrayList<>(Arrays.asList(config.get
+        (SnowflakeSinkConnectorConfig.TOPICS).split(",")));
+
+      LOGGER.info(Logging.logMessage("Connector {} consuming topics {}",
+        connectorName, topics.toString()));
+
+      // check for duplicates
+      HashSet<String> topicsHashSet = new HashSet<>(Arrays.asList(config.get
+        (SnowflakeSinkConnectorConfig.TOPICS).split(",")));
+      if (topics.size() != topicsHashSet.size())
+      {
+        LOGGER.error(Logging.logMessage("{}: {} contains duplicate " +
+            "entries.", SnowflakeSinkConnectorConfig.TOPICS,
+          config.get(SnowflakeSinkConnectorConfig.TOPICS)));
+        configIsValid = false;
+      }
+    }
+    else
+    {
+      LOGGER.error(Logging.logMessage("{} cannot be empty.",
+        SnowflakeSinkConnectorConfig.TOPICS));
+      configIsValid = false;
+    }
+
+    // validate snowflake.topic2table.map (optional parameter)
+    Map<String, String> topicsTablesMap = new HashMap<>();  // initialize even if not present in
+    // config, as it is needed
+    if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
+    {
+      List<String> topicsTables = new ArrayList<>(Arrays.asList(config.get
+        (SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP).split(",")));
+
+      for (String topicTable : topicsTables)
+      {
+        String[] tt = topicTable.split(":");
+
+        if (tt.length != 2 || tt[0].isEmpty() || tt[1].isEmpty())
+        {
+          LOGGER.error(Logging.logMessage("Invalid {} config format: {}",
+            SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, topicsTables));
+          configIsValid = false;
+          break;
+        }
+
+        if (!isValidSnowflakeObjectIdentifier(tt[1]))
+        {
+          LOGGER.error(
+            Logging.logMessage("table name {} should have at least 2 " +
+              "characters, start with _a-zA-Z, and only contains " +
+              "_$a-zA-z0-9", tt[1]));
+          configIsValid = false;
+        }
+
+        if (!topics.contains(tt[0]))
+        {
+          LOGGER.error(Logging.logMessage("topic name {} has not been " +
+            "registered in this task", tt[0]));
+          configIsValid = false;
+        }
+
+        if (topicsTablesMap.containsKey(tt[0]))
+        {
+          LOGGER.error(Logging.logMessage("topic name {} is duplicated",
+            tt[0]));
+          configIsValid = false;
+        }
+
+        if (topicsTablesMap.containsValue(tt[1]))
+        {
+          //todo: support multiple topics map to one table ?
+          LOGGER.error(Logging.logMessage("table name {} is duplicated",
+            tt[1]));
+          configIsValid = false;
+        }
+
+        topicsTablesMap.put(tt[0], tt[1]);
+      }
+    }
+
+    // validate that topics which don't have a table name mapped, have a
+    // Snowflake compatible name
+    for (String topic : topics)
+    {
+      if (!topicsTablesMap.containsKey(topic))
+      {
+        if (isValidSnowflakeObjectIdentifier(topic))
+        {
+          topicsTablesMap.put(topic, topic);  // use topic name as the table
+          // name
+        }
+        else
+        {
+          LOGGER.error(Logging.logMessage("topic: {} in {}: {} config " +
+              "should either match Snowflake object identifier syntax, or {}:" +
+              " {} config should contain a mapping table name.", topic,
+            SnowflakeSinkConnectorConfig.TOPICS,
+            config.get(SnowflakeSinkConnectorConfig.TOPICS),
+            SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
+            config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)));
+          configIsValid = false;
+        }
+      }
+    }
+
+    // sanity check
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE))
+    {
+      LOGGER.error(Logging.logMessage("{} cannot be empty.",
+        SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE));
+      configIsValid = false;
+    }
+
+    // sanity check
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA))
+    {
+      LOGGER.error(Logging.logMessage("{} cannot be empty.",
+        SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
+      configIsValid = false;
+    }
+
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY))
+    {
+      LOGGER.error(Logging.logMessage("{} cannot be empty.",
+        SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY));
+      configIsValid = false;
+    }
+
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER))
+    {
+      LOGGER.error(Logging.logMessage("{} cannot be empty.",
+        SnowflakeSinkConnectorConfig.SNOWFLAKE_USER));
+      configIsValid = false;
+    }
+
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL))
+    {
+      LOGGER.error(Logging.logMessage("{} cannot be empty.",
+        SnowflakeSinkConnectorConfig.SNOWFLAKE_URL));
+      configIsValid = false;
+    }
+    // jvm proxy settings
+   configIsValid = Utils.enableJVMProxy(config) && configIsValid;
+
+    //schemaRegistry
+
+    String authSource = config.getOrDefault(
+      SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE, "");
+    String userInfo = config.getOrDefault(
+      SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_USER_INFO, "");
+
+    if(authSource.isEmpty() ^ userInfo.isEmpty())
+    {
+      configIsValid = false;
+      LOGGER.error(Logging.logMessage("Parameters {} and {} should be defined at the same time",
+        SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_USER_INFO,
+        SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE));
+    }
+
+    if(!configIsValid)
+    {
+      throw SnowflakeErrors.ERROR_0001.getException();
+    }
+
+    return new ParameterValidationResult(connectorName, topics, topicsTablesMap);
+  }
+
+  static class ParameterValidationResult
+  {
+    final String connectorName;
+    final List<String> topics;
+    final Map<String, String> topicsTableMap;
+    ParameterValidationResult(
+      String connectorName,
+      List<String> topics,
+      Map<String, String> topicsTableMap)
+    {
+      this.connectorName = connectorName;
+      this.topics = topics;
+      this.topicsTableMap = topicsTableMap;
+    }
   }
 
   /**
