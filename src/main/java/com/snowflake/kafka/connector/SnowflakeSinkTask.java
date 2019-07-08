@@ -102,11 +102,14 @@ public class SnowflakeSinkTask extends SinkTask
     connectorName = config.get("name");
 
     recordService = new RecordService();    // default : include all
+//  todo: enable these
+//    this.bufferCountRecords = Long.parseLong(config.get
+//      (SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
+//    this.bufferSizeBytes = Long.parseLong(config.get
+//      (SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
 
-    this.bufferCountRecords = Long.parseLong(config.get
-      (SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
-    this.bufferSizeBytes = Long.parseLong(config.get
-      (SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
+    this.bufferCountRecords = 10000;
+    this.bufferSizeBytes = 5000000;
 
     snowflakeConnection = new SnowflakeJDBCWrapper(config);
 
