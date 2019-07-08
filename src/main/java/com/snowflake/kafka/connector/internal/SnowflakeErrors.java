@@ -274,10 +274,3 @@ public enum SnowflakeErrors
   }
 }
 
-class SnowflakeKafkaConnectorException extends RuntimeException
-{
-  SnowflakeKafkaConnectorException(String msg)
-  {
-    super(msg);
-  }
-}

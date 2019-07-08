@@ -36,8 +36,8 @@ class SnowflakeSinkConnectorConfig
 
   // Connector config
   private static final String CONNECTOR_CONFIG = "Connector Config";
-  static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
-  static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
+//  static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
+//  static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
   static final String TOPICS_TABLES_MAP = "snowflake.topic2table.map";
 
 
@@ -68,6 +68,7 @@ class SnowflakeSinkConnectorConfig
       //snowflake login info
       .define(SNOWFLAKE_URL,
         Type.STRING,
+        "",
         Importance.HIGH,
         "Snowflake account url",
         SNOWFLAKE_LOGIN_INFO,
@@ -76,6 +77,7 @@ class SnowflakeSinkConnectorConfig
         SNOWFLAKE_URL)
       .define(SNOWFLAKE_USER,
         Type.STRING,
+        "",
         Importance.HIGH,
         "Snowflake user name",
         SNOWFLAKE_LOGIN_INFO,
@@ -84,6 +86,7 @@ class SnowflakeSinkConnectorConfig
         SNOWFLAKE_USER)
       .define(SNOWFLAKE_PRIVATE_KEY,
         Type.STRING,
+        "",
         Importance.HIGH,
         "Private key for Snowflake user",
         SNOWFLAKE_LOGIN_INFO,
@@ -92,6 +95,7 @@ class SnowflakeSinkConnectorConfig
         SNOWFLAKE_PRIVATE_KEY)
       .define(SNOWFLAKE_DATABASE,
         Type.STRING,
+        "",
         Importance.HIGH,
         "Snowflake database name",
         SNOWFLAKE_LOGIN_INFO,
@@ -100,6 +104,7 @@ class SnowflakeSinkConnectorConfig
         SNOWFLAKE_DATABASE)
       .define(SNOWFLAKE_SCHEMA,
         Type.STRING,
+        "",
         Importance.HIGH,
         "Snowflake database schema name",
         SNOWFLAKE_LOGIN_INFO,
@@ -109,6 +114,7 @@ class SnowflakeSinkConnectorConfig
       //proxy
       .define(JVM_PROXY_HOST,
         Type.STRING,
+        "",
         Importance.LOW,
         "JVM option: https.proxyHost",
         PROXY_INFO,
@@ -118,6 +124,7 @@ class SnowflakeSinkConnectorConfig
         )
       .define(JVM_PROXY_PORT,
         Type.STRING,
+        "",
         Importance.LOW,
         "JVM option: https.proxyPort",
         PROXY_INFO,
@@ -127,6 +134,7 @@ class SnowflakeSinkConnectorConfig
       //schema registry
       .define(REGISTRY_URL,
         Type.STRING,
+        "",
         Importance.LOW,
         "Required by SnowflakeAvroConnector if schema registry is used. Leave blank if schema is included in AVRO record",
         SCHEMA_REGISTRY_INFO,
@@ -135,6 +143,7 @@ class SnowflakeSinkConnectorConfig
         REGISTRY_URL)
       .define(SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE,
         Type.STRING,
+        "",
         Importance.LOW,
         "Required by SnowflakeAvroConnector if schema registry authentication used. e.g USER_INFO",
         SCHEMA_REGISTRY_INFO,
@@ -143,6 +152,7 @@ class SnowflakeSinkConnectorConfig
         SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE)
       .define(SCHEMA_REGISTRY_AUTH_USER_INFO,
         Type.STRING,
+        "",
         Importance.LOW,
         "User info of schema registry authentication, format: <user name>:<password>",
         SCHEMA_REGISTRY_INFO,
@@ -153,28 +163,30 @@ class SnowflakeSinkConnectorConfig
       //Connector Config
       .define(TOPICS_TABLES_MAP,
         Type.STRING,
+        "",
         Importance.LOW,
         "Map of topics to tables (optional). Format : comma-seperated tuples, e.g. <topic-1>:<table-1>,<topic-2>:<table-2>,... ",
         CONNECTOR_CONFIG,
         0,
         ConfigDef.Width.NONE,
         TOPICS_TABLES_MAP)
-      .define(BUFFER_COUNT_RECORDS,
-        Type.LONG,
-        Importance.LOW,
-        "Number of records buffered in memory per partition before triggering Snowflake ingestion",
-        CONNECTOR_CONFIG,
-        1,
-        ConfigDef.Width.NONE,
-        BUFFER_COUNT_RECORDS)
-      .define(BUFFER_SIZE_BYTES,
-        Type.LONG,
-        Importance.LOW,
-        "Cumulative size of records buffered in memory per partition before triggering Snowflake ingestion",
-        CONNECTOR_CONFIG,
-        2,
-        ConfigDef.Width.NONE,
-        BUFFER_SIZE_BYTES)
+      //todo: support these parameters in next major update
+//      .define(BUFFER_COUNT_RECORDS,
+//        Type.LONG,
+//        Importance.LOW,
+//        "Number of records buffered in memory per partition before triggering Snowflake ingestion",
+//        CONNECTOR_CONFIG,
+//        1,
+//        ConfigDef.Width.NONE,
+//        BUFFER_COUNT_RECORDS)
+//      .define(BUFFER_SIZE_BYTES,
+//        Type.LONG,
+//        Importance.LOW,
+//        "Cumulative size of records buffered in memory per partition before triggering Snowflake ingestion",
+//        CONNECTOR_CONFIG,
+//        2,
+//        ConfigDef.Width.NONE,
+//        BUFFER_SIZE_BYTES)
       ;
   }
 }
