@@ -36,8 +36,11 @@ class SnowflakeSinkConnectorConfig
 
   // Connector config
   private static final String CONNECTOR_CONFIG = "Connector Config";
-//  static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
-//  static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
+  static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
+  static final long BUFFER_COUNT_RECORDS_DEFAULT = 10000;
+  static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
+  static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
+  static final long BUFFER_SIZE_BYTES_MAX = 100000000;
   static final String TOPICS_TABLES_MAP = "snowflake.topic2table.map";
 
 
@@ -170,23 +173,24 @@ class SnowflakeSinkConnectorConfig
         0,
         ConfigDef.Width.NONE,
         TOPICS_TABLES_MAP)
-      //todo: support these parameters in next major update
-//      .define(BUFFER_COUNT_RECORDS,
-//        Type.LONG,
-//        Importance.LOW,
-//        "Number of records buffered in memory per partition before triggering Snowflake ingestion",
-//        CONNECTOR_CONFIG,
-//        1,
-//        ConfigDef.Width.NONE,
-//        BUFFER_COUNT_RECORDS)
-//      .define(BUFFER_SIZE_BYTES,
-//        Type.LONG,
-//        Importance.LOW,
-//        "Cumulative size of records buffered in memory per partition before triggering Snowflake ingestion",
-//        CONNECTOR_CONFIG,
-//        2,
-//        ConfigDef.Width.NONE,
-//        BUFFER_SIZE_BYTES)
+      .define(BUFFER_COUNT_RECORDS,
+        Type.LONG,
+        BUFFER_COUNT_RECORDS_DEFAULT,
+        Importance.LOW,
+        "Number of records buffered in memory per partition before triggering Snowflake ingestion",
+        CONNECTOR_CONFIG,
+        1,
+        ConfigDef.Width.NONE,
+        BUFFER_COUNT_RECORDS)
+      .define(BUFFER_SIZE_BYTES,
+        Type.LONG,
+        BUFFER_SIZE_BYTES_DEFAULT,
+        Importance.LOW,
+        "Cumulative size of records buffered in memory per partition before triggering Snowflake ingestion",
+        CONNECTOR_CONFIG,
+        2,
+        ConfigDef.Width.NONE,
+        BUFFER_SIZE_BYTES)
       ;
   }
 }

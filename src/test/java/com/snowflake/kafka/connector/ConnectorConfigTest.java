@@ -13,11 +13,17 @@ public class ConnectorConfigTest
     Map<String, String> config = new HashMap<>();
     config.put(SnowflakeSinkConnectorConfig.NAME, "test");
     config.put(SnowflakeSinkConnectorConfig.TOPICS, "topic1,topic2");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL, "https://testaccount.snowflake.com:443");
+    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
+      "https://testaccount.snowflake.com:443");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER, "userName");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, "fdsfsdfsdfdsfdsrqwrwewrwrew42314424");
+    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
+      "fdsfsdfsdfdsfdsrqwrwewrwrew42314424");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA,"testSchema");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE, "testDatabase");
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+      SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT + "");
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+      SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT + "");
     return config;
   }
 
@@ -28,8 +34,6 @@ public class ConnectorConfigTest
     Map<String, String> config = getConfig();
     Utils.validateConfig(config);
   }
-
-  //Empty parameters
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testEmptyName()
@@ -194,6 +198,45 @@ public class ConnectorConfigTest
     Utils.validateConfig(config);
   }
 
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testBufferSizeRange()
+  {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+      SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX + 1 + "");
+    Utils.validateConfig(config);
+  }
 
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testBufferSizeValue()
+  {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, "afdsa");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testEmptyBufferSize()
+  {
+    Map<String, String> config = getConfig();
+    config.remove(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testEmptyBufferCount()
+  {
+    Map<String, String> config = getConfig();
+    config.remove(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testBufferCountValue()
+  {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "adssadsa");
+    Utils.validateConfig(config);
+  }
 
 }

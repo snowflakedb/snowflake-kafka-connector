@@ -438,6 +438,58 @@ public class Utils
       configIsValid = false;
     }
 
+    //verify buffer.count.records
+    if(!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS))
+    {
+      LOGGER.error(Logging.logMessage("{} is empty",
+        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
+      configIsValid = false;
+    }
+    else
+    {
+      try
+      {
+        Long.parseLong(config.get(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
+      }
+      catch (Exception e)
+      {
+        LOGGER.error(Logging.logMessage("{} should be an integer",
+          SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
+        configIsValid = false;
+      }
+    }
+
+    //verify buffer.size.bytes
+    if (config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES))
+    {
+      try
+      {
+        long bsb = Long.parseLong(config.get(SnowflakeSinkConnectorConfig
+          .BUFFER_SIZE_BYTES));
+        if (bsb > SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX)   // 100mb
+        {
+          LOGGER.error(Logging.logMessage("{} is too high at {}. It must be " +
+              "{} or smaller.",
+            SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, bsb,
+            SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX));
+          configIsValid = false;
+        }
+      }
+      catch (Exception e)
+      {
+        LOGGER.error(Logging.logMessage("{} should be an integer",
+          SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
+        configIsValid = false;
+      }
+    }
+    else
+    {
+      LOGGER.error(Logging.logMessage("{} is empty",
+        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
+      configIsValid = false;
+    }
+
+
     // validate topics
     List<String> topics = new ArrayList<>();
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS))
