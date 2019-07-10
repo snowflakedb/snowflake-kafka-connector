@@ -90,6 +90,31 @@ public class SnowflakeSinkConnector extends SinkConnector
 
     config = new HashMap<>(parsedConfig);
 
+    // set buffer.count.records -- a Snowflake connector setting
+    // default : 10000 records
+    // Number of records buffered in memory per partition before ingesting to
+    // Snowflake
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS))
+    {
+      config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT + "");
+      LOGGER.info(Logging.logMessage("{} set to default {} records.",
+        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT));
+    }
+
+    // set buffer.size.bytes -- a Snowflake connector setting
+    // default : 5000000 bytes
+    // Cumulative size of records buffered in memory per partition before
+    // ingesting to Snowflake
+    if(!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES))
+    {
+      config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT + "");
+      LOGGER.info(Logging.logMessage("{} set to default 5000000 bytes.",
+        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
+    }
+
     Utils.ParameterValidationResult result =  Utils.validateConfig(config);
 
     connectorName = result.connectorName;
