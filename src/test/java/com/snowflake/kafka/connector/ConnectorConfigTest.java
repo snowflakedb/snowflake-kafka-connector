@@ -24,6 +24,8 @@ public class ConnectorConfigTest
       SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT + "");
     config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
       SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT + "");
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+      SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT + "");
     return config;
   }
 
@@ -32,6 +34,13 @@ public class ConnectorConfigTest
   public void testConfig()
   {
     Map<String, String> config = getConfig();
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testEmptyFlushTime(){
+    Map<String, String> config = getConfig();
+    config.remove(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
     Utils.validateConfig(config);
   }
 

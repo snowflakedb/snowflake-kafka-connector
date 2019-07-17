@@ -27,21 +27,20 @@ import org.apache.kafka.connect.sink.SinkRecord;
 
 public class RecordService extends Logging
 {
-  protected static final ObjectMapper mapper = new ObjectMapper();
+  private static final ObjectMapper mapper = new ObjectMapper();
 
-  protected static final String OFFSET = "offset";
-  protected static final String TOPIC = "topic";
-  protected static final String PARTITION = "partition";
-  protected static final String CONTENT = "content";
-  protected static final String META = "meta";
+  private static final String OFFSET = "offset";
+  private static final String TOPIC = "topic";
+  private static final String PARTITION = "partition";
+  private static final String CONTENT = "content";
+  private static final String META = "meta";
 
-  protected final boolean includeOffset;
-  protected final boolean includePartitionNumber;
-  protected final boolean includeTopic;
+  private final boolean includeOffset;
+  private final boolean includePartitionNumber;
+  private final boolean includeTopic;
 
   /**
    * process records
-   * <p>
    * output JSON format:
    * {
    * "meta":
