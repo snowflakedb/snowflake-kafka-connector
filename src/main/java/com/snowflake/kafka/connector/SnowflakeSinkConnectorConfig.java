@@ -28,21 +28,25 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
  * configuration value,
  * and the name suitable for display in the UI.
  */
-class SnowflakeSinkConnectorConfig
+public class SnowflakeSinkConnectorConfig
 {
 
-  static final String NAME = "name";
+  static final String NAME = Utils.NAME;
   static final String TOPICS = "topics";
 
   // Connector config
   private static final String CONNECTOR_CONFIG = "Connector Config";
   static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
-  static final long BUFFER_COUNT_RECORDS_DEFAULT = 10000;
+  public static final long BUFFER_COUNT_RECORDS_DEFAULT = 10000;
   static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
-  static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
-  static final long BUFFER_SIZE_BYTES_MAX = 100000000;
+  public static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
+  public static final long BUFFER_SIZE_BYTES_MAX = 100000000;
   static final String TOPICS_TABLES_MAP = "snowflake.topic2table.map";
 
+  //in second
+  public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
+  public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 30;
+  static final String BUFFER_FLUSH_TIME_SEC = "buffer.flush.time";
 
   // snowflake connection and database config
   private static final String SNOWFLAKE_LOGIN_INFO = "Snowflake Login Info";
@@ -63,7 +67,7 @@ class SnowflakeSinkConnectorConfig
     "value.converter.basic.auth.credentials.source";
   static final String SCHEMA_REGISTRY_AUTH_USER_INFO =
     "value.converter.basic.auth.user.info";
-  static final String REGISTRY_URL = "value.converter.schema.registry.url";
+  private static final String REGISTRY_URL = "value.converter.schema.registry.url";
 
   static ConfigDef newConfigDef()
   {
@@ -191,6 +195,15 @@ class SnowflakeSinkConnectorConfig
         2,
         ConfigDef.Width.NONE,
         BUFFER_SIZE_BYTES)
+      .define(BUFFER_FLUSH_TIME_SEC,
+        Type.LONG,
+        BUFFER_FLUSH_TIME_SEC_DEFAULT,
+        Importance.LOW,
+        "The time in seconds to flush cached data",
+        CONNECTOR_CONFIG,
+        3,
+        ConfigDef.Width.NONE,
+        BUFFER_FLUSH_TIME_SEC)
       ;
   }
 }
