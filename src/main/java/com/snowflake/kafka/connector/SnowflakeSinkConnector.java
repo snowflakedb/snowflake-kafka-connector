@@ -153,8 +153,7 @@ public class SnowflakeSinkConnector extends SinkConnector
       connectorStartTime,
       topics.size(),
       topicsTablesMap.size(),
-      maxTasks,
-      connectorName);
+      maxTasks);
 
     for (String topic : topics)
     {
@@ -171,15 +170,12 @@ public class SnowflakeSinkConnector extends SinkConnector
             // correct table
             LOGGER.info(Logging.logMessage("Using existing table {} for topic" +
               " {}.", table, topic));
-            telemetryClient.reportKafkaReuseTable(table, connectorName);
+            telemetryClient.reportKafkaReuseTable(table);
           }
           else
           {
-
-            telemetryClient.reportKafkaFatalError("Incompatible table: " + table,
-              connectorName);
             throw SnowflakeErrors.ERROR_5003.getException("table name: " +
-              table);
+              table, telemetryClient);
           }
         }
         else
@@ -187,7 +183,6 @@ public class SnowflakeSinkConnector extends SinkConnector
           LOGGER.info(Logging.logMessage("Creating new table {} for topic {}.",
             table, topic));
           conn.createTable(table);
-          telemetryClient.reportKafkaCreateTable(table, connectorName);
         }
 
         // store topic and table name in config for use by SinkTask and
@@ -196,10 +191,9 @@ public class SnowflakeSinkConnector extends SinkConnector
         config.put(topic, table);
       } catch (Exception e)
       {
-        telemetryClient.reportKafkaFatalError(e.getMessage(), connectorName);
         // cleanup
         stop();
-        throw SnowflakeErrors.ERROR_5006.getException(e);
+        throw SnowflakeErrors.ERROR_5006.getException(e, telemetryClient);
       }
 
 
@@ -215,15 +209,12 @@ public class SnowflakeSinkConnector extends SinkConnector
             // user is NOT expected to pre-create any internal stages!
             LOGGER.info(Logging.logMessage("Connector recovery: using " +
               "existing internal stage {} for topic {}.", stageName, topic));
-            telemetryClient.reportKafkaReuseStage(stageName, connectorName);
+            telemetryClient.reportKafkaReuseStage(stageName);
           }
           else
           {
-            telemetryClient.reportKafkaFatalError("Invalid stage: " + stageName,
-              connectorName);
-
             throw SnowflakeErrors.ERROR_5004.getException("Stage name: " +
-              stageName);
+              stageName, telemetryClient);
           }
         }
         else
@@ -231,15 +222,12 @@ public class SnowflakeSinkConnector extends SinkConnector
           LOGGER.info(Logging.logMessage("Creating new internal stage {} for " +
             "topic {}.", stageName, topic));
           conn.createStage(stageName);
-          telemetryClient.reportKafkaCreateStage(stageName, connectorName);
-
         }
       } catch (Exception e)
       {
-        telemetryClient.reportKafkaFatalError(e.getMessage(), connectorName);
         // cleanup
         stop();
-        throw SnowflakeErrors.ERROR_5006.getException(e);
+        throw SnowflakeErrors.ERROR_5006.getException(e, telemetryClient);
       }
     }
 
@@ -284,7 +272,7 @@ public class SnowflakeSinkConnector extends SinkConnector
             "have been manually dropped, which may affect ingestion " +
             "guarantees.";
           LOGGER.error(Logging.logMessage(errorMsg));
-          telemetryClient.reportKafkaNonFatalError(errorMsg, connectorName);
+          telemetryClient.reportKafkaNonFatalError(errorMsg);
 
           // continue-on-error in the stop method to cleanup other objects
         }
@@ -293,7 +281,7 @@ public class SnowflakeSinkConnector extends SinkConnector
         String errorMsg = "Failed to drop empty internal stage: " + stageName
           + ". It can safely be removed. Exception: " + ex.toString();
         LOGGER.error(Logging.logMessage(errorMsg));
-        telemetryClient.reportKafkaNonFatalError(errorMsg, connectorName);
+        telemetryClient.reportKafkaNonFatalError(errorMsg);
 
         // continue-on-error in the stop method to cleanup other objects
       }
@@ -303,6 +291,8 @@ public class SnowflakeSinkConnector extends SinkConnector
       // TODO (GA): discover if there are any leaked pipes and clean them up
       // when possible
       // We are potentially laking pipe objects.
+
+      telemetryClient.reportKafkaStop(System.currentTimeMillis());
     }
   }
 
