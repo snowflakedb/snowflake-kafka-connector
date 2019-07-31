@@ -14,13 +14,28 @@ import java.util.Properties;
 public class InternalUtilsTest
 {
   @Test
-  public void testPrivateKey() throws Exception
+  public void testPrivateKey()
   {
-    InternalUtils.parsePrivateKey(TestUtils.getConf().get(Utils.SF_PRIVATE_KEY));
     assert TestUtils.assertError(SnowflakeErrors.ERROR_0002,
       () -> InternalUtils.parsePrivateKey("adfsfsaff"));
 
-    //todo: support original key format
+    String key = TestUtils.getKeyString();
+    //no exception
+    InternalUtils.parsePrivateKey(key);
+    StringBuilder builder = new StringBuilder();
+    builder.append("-----BEGIN RSA PRIVATE KEY-----\n");
+    for (int i = 0; i < key.length(); i++)
+    {
+      builder.append(key.charAt(i));
+      if ((i + 1) % 64 == 0)
+      {
+        builder.append("\n");
+      }
+    }
+    builder.append("\n-----END RSA PRIVATE KEY-----");
+    String originalKey = builder.toString();
+    //no exception
+    InternalUtils.parsePrivateKey(originalKey);
   }
 
   @Test
@@ -125,4 +140,5 @@ public class InternalUtilsTest
     resultSet = new MockResultSetForSizeTest(100);
     assert InternalUtils.resultSize(resultSet) == 100;
   }
+
 }
