@@ -106,6 +106,7 @@ public class SinkServiceIT
       , "test", new SnowflakeJsonSchema(), values, offset);
 
     service.insert(record1);
+    Thread.sleep(5000); //sleep to wait file writer
     List<String> files = conn.listStage(stage,
       FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table,
         partition));
