@@ -37,13 +37,11 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   private static final String TIME = "time";
   private static final String FILE_LIST = "file_list";
 
-  private final Connection conn;
   private final Telemetry telemetry;
   private String name = null;
 
   SnowflakeTelemetryServiceV1(Connection conn)
   {
-    this.conn = conn;
     this.telemetry = TelemetryClient.createTelemetry(conn);
   }
 
@@ -55,8 +53,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
 
   @Override
   public void reportKafkaStart(final long startTime, final int numTopics,
-                               final int numMappedTables, final int maxTasks,
-                               final String appName)
+                               final int numMappedTables, final int maxTasks)
   {
     ObjectNode msg = MAPPER.createObjectNode();
 
@@ -64,79 +61,51 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
     msg.put(NUM_TOPICS, numTopics);
     msg.put(NUM_MAPPED_TABLES, numMappedTables);
     msg.put(MAX_TASKS, maxTasks);
-    msg.put(APP_NAME, appName);
+    msg.put(APP_NAME, getAppName());
 
     send(TelemetryType.KAFKA_START, msg);
   }
 
   @Override
-  public void reportKafkaStart(final long startTime, final int numTopics,
-                               final int numMappedTables, final int maxTasks)
-  {
-    reportKafkaStart(startTime, numTopics, numMappedTables, maxTasks, getAppName());
-  }
-
-  @Override
-  public void reportKafkaStop(final long startTime, final String appName)
+  public void reportKafkaStop(final long startTime)
   {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(START_TIME, startTime);
     msg.put(END_TIME, System.currentTimeMillis());
-    msg.put(APP_NAME, appName);
+    msg.put(APP_NAME, getAppName());
 
     send(TelemetryType.KAFKA_STOP, msg);
   }
 
   @Override
-  public void reportKafkaStop(final long startTime)
-  {
-    reportKafkaStop(startTime, getAppName());
-  }
-
-  @Override
-  public void reportKafkaFatalError(final String errorDetail,
-                                    final String appName)
+  public void reportKafkaFatalError(final String errorDetail)
   {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(TIME, System.currentTimeMillis());
     msg.put(ERROR_NUMBER, errorDetail);
-    msg.put(APP_NAME, appName);
+    msg.put(APP_NAME, getAppName());
 
     send(TelemetryType.KAFKA_FATAL_ERROR, msg);
   }
 
   @Override
-  public void reportKafkaFatalError(final String errorDetail)
-  {
-    reportKafkaFatalError(errorDetail, getAppName());
-  }
-
-  @Override
-  public void reportKafkaNonFatalError(final String errorDetail,
-                                       final String appName)
+  public void reportKafkaNonFatalError(final String errorDetail)
   {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(TIME, System.currentTimeMillis());
     msg.put(ERROR_NUMBER, errorDetail);
-    msg.put(APP_NAME, appName);
+    msg.put(APP_NAME, getAppName());
 
     send(TelemetryType.KAFKA_NONFATAL_ERROR, msg);
   }
 
   @Override
-  public void reportKafkaNonFatalError(final String errorDetail)
-  {
-    reportKafkaNonFatalError(errorDetail, getAppName());
-  }
-
-  @Override
   public void reportKafkaUsage(final long startTime, final long endTime,
-                               final long recordNumber, final long byteNumber
-    , final String appName)
+                               final long recordNumber, final long byteNumber)
   {
 
     ObjectNode msg = MAPPER.createObjectNode();
-    msg.put(APP_NAME, appName);
+    msg.put(APP_NAME, getAppName());
     msg.put(START_TIME, startTime);
     msg.put(END_TIME, endTime);
     msg.put(RECORD_NUMBER, recordNumber);
@@ -146,18 +115,10 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaUsage(final long startTime, final long endTime,
-                               final long recordNumber, final long byteNumber)
-  {
-    reportKafkaUsage(startTime, endTime, recordNumber, byteNumber, getAppName());
-  }
-
-  @Override
-  public void reportKafkaCreateTable(final String tableName,
-                                     final String appName)
+  public void reportKafkaCreateTable(final String tableName)
   {
     ObjectNode msg = MAPPER.createObjectNode();
-    msg.put(APP_NAME, appName);
+    msg.put(APP_NAME, getAppName());
     msg.put(TABLE_NAME, tableName);
     msg.put(TIME, System.currentTimeMillis());
 
@@ -165,17 +126,10 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaCreateTable(final String tableName)
-  {
-    reportKafkaCreateTable(tableName, getAppName());
-  }
-
-  @Override
-  public void reportKafkaReuseTable(final String tableName,
-                                    final String appName)
+  public void reportKafkaReuseTable(final String tableName)
   {
     ObjectNode msg = MAPPER.createObjectNode();
-    msg.put(APP_NAME, appName);
+    msg.put(APP_NAME, getAppName());
     msg.put(TABLE_NAME, tableName);
     msg.put(TIME, System.currentTimeMillis());
 
@@ -183,17 +137,10 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaReuseTable(final String tableName)
-  {
-    reportKafkaReuseTable(tableName, getAppName());
-  }
-
-  @Override
-  public void reportKafkaCreateStage(final String stageName,
-                                     final String appName)
+  public void reportKafkaCreateStage(final String stageName)
   {
     ObjectNode msg = MAPPER.createObjectNode();
-    msg.put(APP_NAME, appName);
+    msg.put(APP_NAME, getAppName());
     msg.put(STAGE_NAME, stageName);
     msg.put(TIME, System.currentTimeMillis());
 
@@ -201,17 +148,10 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaCreateStage(final String stageName)
-  {
-    reportKafkaCreateStage(stageName, getAppName());
-  }
-
-  @Override
-  public void reportKafkaReuseStage(final String stageName,
-                                    final String appName)
+  public void reportKafkaReuseStage(final String stageName)
   {
     ObjectNode msg = MAPPER.createObjectNode();
-    msg.put(APP_NAME, appName);
+    msg.put(APP_NAME, getAppName());
     msg.put(STAGE_NAME, stageName);
     msg.put(TIME, System.currentTimeMillis());
 
@@ -219,19 +159,12 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaReuseStage(final String stageName)
-  {
-    reportKafkaReuseStage(stageName, getAppName());
-  }
-
-  @Override
   public void reportKafkaCreatePipe(final String tableName,
                                     final String stageName,
-                                    final String pipeName,
-                                    final String appName)
+                                    final String pipeName)
   {
     ObjectNode msg = MAPPER.createObjectNode();
-    msg.put(APP_NAME, appName);
+    msg.put(APP_NAME, getAppName());
     msg.put(PIPE_NAME, pipeName);
     msg.put(TABLE_NAME, tableName);
     msg.put(STAGE_NAME, stageName);
@@ -242,36 +175,19 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaCreatePipe(final String tableName,
-                                    final String stageName,
-                                    final String pipeName)
-  {
-    reportKafkaCreatePipe(tableName, stageName, pipeName, getAppName());
-  }
-
-  @Override
   public void reportKafkaFileFailure(final String tableName,
                                      final String stageName,
-                                     final List<String> filenames,
-                                     final String appName)
+                                     final List<String> filenames)
   {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(TABLE_NAME, tableName);
     msg.put(STAGE_NAME, stageName);
     msg.put(TIME, System.currentTimeMillis());
-    msg.put(APP_NAME, appName);
+    msg.put(APP_NAME, getAppName());
     ArrayNode names = msg.putArray(FILE_LIST);
     filenames.forEach(names::add);
 
     send(TelemetryType.KAFKA_FILE_FAILED, msg);
-  }
-
-  @Override
-  public void reportKafkaFileFailure(final String tableName,
-                                     final String stageName,
-                                     final List<String> filenames)
-  {
-    reportKafkaFileFailure(tableName, stageName, filenames, getAppName());
   }
 
   private void send(TelemetryType type, JsonNode data)
