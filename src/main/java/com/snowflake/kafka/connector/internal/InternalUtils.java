@@ -76,9 +76,9 @@ class InternalUtils
   static PrivateKey parsePrivateKey(String key)
   {
     //remove header, footer, and line breaks
+    key = key.replaceAll("-+[A-Za-z ]+-+", "");
+    key = key.replaceAll("\\s", "");
 
-
-    //todo: support original key format
     java.security.Security.addProvider(new net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider());
     byte[] encoded = Base64.decodeBase64(key);
     try
