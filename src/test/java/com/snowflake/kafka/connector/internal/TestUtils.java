@@ -92,6 +92,15 @@ class TestUtils
 
 
   /**
+   * read private key string from test profile
+   * @return a string value represents private key
+   */
+  static String getKeyString()
+  {
+    return getConf().get(Utils.SF_PRIVATE_KEY);
+  }
+
+  /**
    * Create snowflake jdbc connection
    *
    * @return jdbc connection
