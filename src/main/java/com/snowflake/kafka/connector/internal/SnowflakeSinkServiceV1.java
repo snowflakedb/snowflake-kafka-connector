@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -30,6 +32,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
   private final Map<String, ServiceContext> pipes;
   private final RecordService recordService;
   private boolean stopped;
+  private final SnowflakeTelemetryService telemetryService;
 
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn)
   {
@@ -45,10 +48,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     this.conn = conn;
     this.recordService = new RecordService();
     stopped = false;
+    this.telemetryService = conn.getTelemetryClient();
   }
 
   @Override
-  public void startTask(final String tableName, final String topic, final int partition)
+  public void startTask(final String tableName, final String topic,
+                        final int partition)
   {
     String stageName = Utils.stageName(conn.getConnectorName(), tableName);
     String nameIndex = topic + "_" + partition;
@@ -58,7 +63,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     }
     else
     {
-      String pipeName = Utils.pipeName(conn.getConnectorName(), tableName, partition);
+      String pipeName = Utils.pipeName(conn.getConnectorName(), tableName,
+        partition);
 
       pipes.put(nameIndex, new ServiceContext(tableName, stageName, pipeName,
         conn, partition));
@@ -175,8 +181,14 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     //threads
     private final ExecutorService cleanerExecutor;
     private final ExecutorService flusherExecutor;
+    private final ThreadPoolExecutor fileWriterExecutor;
     private final Lock bufferLock;
     private final Lock fileListLock;
+
+    //telemetry
+    private long startTime;
+    private long totalNumberOfRecord;
+    private long totalSizeOfData;
 
 
     private ServiceContext(String tableName, String stageName,
@@ -202,19 +214,24 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
       cleanerExecutor = Executors.newSingleThreadExecutor();
       flusherExecutor = Executors.newSingleThreadExecutor();
+      fileWriterExecutor = new ThreadPoolExecutor(1, 1, 0L,
+        TimeUnit.MILLISECONDS, new LinkedBlockingDeque<>());
 
       startCleaner();
       startFlusher();
+
+      resetUsageReport();
 
       logInfo("pipe: {} - service started", pipeName);
     }
 
     private void startCleaner()
     {
-      logInfo("pipe {}: cleaner started", pipeName);
+
       cleanerExecutor.submit(
         () ->
         {
+          logInfo("pipe {}: cleaner started", pipeName);
           while (!stopped)
           {
             try
@@ -224,6 +241,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
             } catch (InterruptedException e)
             {
               logError("cleaner error:\n{}", e.getMessage());
+            }
+
+            //report once per hour
+            if (System.currentTimeMillis() - startTime > ONE_HOUR)
+            {
+              reportUsage();
             }
           }
         }
@@ -235,6 +258,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       try
       {
         cleanerExecutor.awaitTermination(1, TimeUnit.MINUTES);
+        cleanerExecutor.shutdown();
         logInfo("pipe {}: cleaner terminated", pipeName);
       } catch (InterruptedException e)
       {
@@ -244,11 +268,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private void startFlusher()
     {
-      logInfo("pipe {}: flusher started", pipeName);
-
       flusherExecutor.submit(
         () ->
         {
+          logInfo("pipe {}: flusher started", pipeName);
           while (!stopped)
           {
             try
@@ -256,13 +279,18 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
               Thread.sleep(getFlushTime() * 1000);
 
               bufferLock.lock();
-
-              PartitionBuffer tmpBuff = buffer;
-              buffer = new PartitionBuffer();
-
-              bufferLock.unlock();
+              PartitionBuffer tmpBuff;
+              try
+              {
+                tmpBuff = buffer;
+                buffer = new PartitionBuffer();
+              } finally
+              {
+                bufferLock.unlock();
+              }
 
               flush(tmpBuff);
+              logDebug("pipe {}: flusher flushed", pipeName);
             } catch (InterruptedException e)
             {
               logError("flusher error:\n{}", e.getMessage());
@@ -277,10 +305,24 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       try
       {
         flusherExecutor.awaitTermination(1, TimeUnit.MINUTES);
+        flusherExecutor.shutdown();
         logInfo("pipe {}: flusher terminated", pipeName);
       } catch (InterruptedException e)
       {
         logError("pipe {} : flusher termination timeout", pipeName);
+      }
+    }
+
+    private void stopFileWriter()
+    {
+      try
+      {
+        fileWriterExecutor.awaitTermination(1, TimeUnit.MINUTES);
+        fileWriterExecutor.shutdown();
+        logInfo("pipe {} : file writer terminated", pipeName);
+      } catch (InterruptedException e)
+      {
+        logError("pipe {}: file writer termination timeout", pipeName);
       }
     }
 
@@ -293,17 +335,20 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         PartitionBuffer tmpBuff = null;
 
         bufferLock.lock();
-
-        processedOffset = record.kafkaOffset();
-        buffer.insert(record);
-        if (buffer.getBufferSize() >= getFileSize() ||
-          (getRecordNumber() != 0 && buffer.getNumOfRecord() >= getRecordNumber()))
+        try
         {
-          tmpBuff = buffer;
-          this.buffer = new PartitionBuffer();
+          processedOffset = record.kafkaOffset();
+          buffer.insert(record);
+          if (buffer.getBufferSize() >= getFileSize() ||
+            (getRecordNumber() != 0 && buffer.getNumOfRecord() >= getRecordNumber()))
+          {
+            tmpBuff = buffer;
+            this.buffer = new PartitionBuffer();
+          }
+        } finally
+        {
+          bufferLock.unlock();
         }
-
-        bufferLock.unlock();
 
         flush(tmpBuff);
       }
@@ -317,39 +362,74 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private void flush(PartitionBuffer buff)
     {
-      if(buff == null || buff.isEmpty()) return;
+      if (buff == null || buff.isEmpty())
+      {
+        return;
+      }
 
+      //only process one file at once
+      //if queue too many files, may be OOM
+      while (!fileWriterExecutor.getQueue().isEmpty())
+      {
+        try
+        {
+          Thread.sleep(1000); // sleep 1 second
+        } catch (InterruptedException e)
+        {
+          e.printStackTrace();
+        }
+      }
 
-      String fileName = FileNameUtils.fileName(prefix, buff.getFirstOffset(),
-        buff.getLastOffset());
-      String content = buff.getData();
-      conn.put(stageName, fileName, content);
-      ingestionService.ingestFile(fileName);
+      fileWriterExecutor.submit(
+        () ->
+        {
+          String fileName = FileNameUtils.fileName(prefix,
+            buff.getFirstOffset(),
+            buff.getLastOffset());
+          String content = buff.getData();
+          conn.put(stageName, fileName, content);
 
-      fileListLock.lock();
+          ingestionService.ingestFile(fileName);
 
-      fileNames.add(fileName);
+          fileListLock.lock();
+          try
+          {
+            fileNames.add(fileName);
+          } finally
+          {
+            fileListLock.unlock();
+          }
 
-      fileListLock.unlock();
+          this.totalNumberOfRecord += buff.numOfRecord;
+          this.totalSizeOfData += buff.bufferSize;
 
-      logInfo("pipe {}, flush pipe: {}", pipeName, fileName);
+          logInfo("pipe {}, flush pipe: {}", pipeName, fileName);
+        }
+      );
     }
 
     private void checkStatus()
     {
+      List<String> tmpFileNames;
+
       fileListLock.lock();
+      try
+      {
+        tmpFileNames = fileNames;
+        fileNames = new LinkedList<>();
+      } finally
+      {
+        fileListLock.unlock();
+      }
 
-      List<String> tmpFileNames = fileNames;
-      fileNames = new LinkedList<>();
-
-      fileListLock.unlock();
 
       long currentTime = System.currentTimeMillis();
       List<String> loadedFiles = new LinkedList<>();
       List<String> failedFiles = new LinkedList<>();
 
       //ingest report
-      filterResult(ingestionService.readIngestReport(tmpFileNames), tmpFileNames,
+      filterResult(ingestionService.readIngestReport(tmpFileNames),
+        tmpFileNames,
         loadedFiles, failedFiles);
 
       //old files
@@ -381,10 +461,13 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       moveToTableStage(failedFiles);
 
       fileListLock.lock();
-
-      fileNames.addAll(tmpFileNames);
-
-      fileListLock.unlock();
+      try
+      {
+        fileNames.addAll(tmpFileNames);
+      } finally
+      {
+        fileListLock.unlock();
+      }
     }
 
     private void updateOffset(List<String> allFiles,
@@ -393,7 +476,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     {
       if (allFiles.isEmpty())
       {
-        if(loadedFiles.isEmpty() && failedFiles.isEmpty()) {
+        if (loadedFiles.isEmpty() && failedFiles.isEmpty())
+        {
           return;
         }
         long result = 0;
@@ -458,12 +542,22 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private void purge(List<String> files)
     {
-      conn.purgeStage(stageName, files);
+      if (files != null && !files.isEmpty())
+      {
+        conn.purgeStage(stageName, files);
+      }
+
     }
 
     private void moveToTableStage(List<String> files)
     {
-      conn.moveToTableStage(tableName, stageName, files);
+      if (files != null && !files.isEmpty())
+      {
+        conn.moveToTableStage(tableName, stageName, files);
+
+        telemetryService.reportKafkaFileFailure(tableName, stageName, files);
+      }
+
     }
 
     private void recover()
@@ -477,12 +571,15 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         }
 
         fileListLock.lock();
-
-        recoverFileStatues().forEach(
-          (name, status) -> fileNames.add(name)
-        );
-
-        fileListLock.unlock();
+        try
+        {
+          recoverFileStatues().forEach(
+            (name, status) -> fileNames.add(name)
+          );
+        } finally
+        {
+          fileListLock.unlock();
+        }
 
         logInfo("pipe {}, recovered from existing pipe", pipeName);
       }
@@ -568,11 +665,14 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     {
       stopCleaner();
       stopFlusher();
+      stopFileWriter();
       ingestionService.close();
-      if (conn.listStage(stageName, prefix).isEmpty()) // keep pipe if stage not empty
+      if (conn.listStage(stageName, prefix).isEmpty()) // keep pipe if stage
+      // not empty
       {
         conn.dropPipe(pipeName);
       }
+      reportUsage();
       logInfo("pipe {}: service closed", pipeName);
     }
 
@@ -605,6 +705,21 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       }
       //track this issue, may need more time to start
       throw SnowflakeErrors.ERROR_5008.getException(conn.getTelemetryClient());
+    }
+
+    private void reportUsage()
+    {
+      telemetryService.reportKafkaUsage(startTime, System.currentTimeMillis()
+        , totalNumberOfRecord, totalSizeOfData);
+
+      resetUsageReport();
+    }
+
+    private void resetUsageReport()
+    {
+      this.startTime = System.currentTimeMillis();
+      this.totalSizeOfData = 0;
+      this.totalNumberOfRecord = 0;
     }
 
     private class PartitionBuffer

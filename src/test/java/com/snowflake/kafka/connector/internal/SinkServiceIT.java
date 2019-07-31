@@ -154,8 +154,8 @@ public class SinkServiceIT
         .addTask(table, topic, partition1)
         .build();
 
-    Future<Integer> result = insert(service, pipe, partition, numOfRecord);
-    Future<Integer> result1 = insert(service, pipe1, partition1, numOfRecord1);
+    Future<Integer> result = insert(service, partition, numOfRecord);
+    Future<Integer> result1 = insert(service, partition1, numOfRecord1);
 
     assert result.get() == numOfRecord / numLimit;
     assert result1.get() == numOfRecord1 / numLimit;
@@ -165,8 +165,7 @@ public class SinkServiceIT
 
   }
 
-  private Future<Integer> insert(SnowflakeSinkService sink, String pipeName,
-                                 int partition, int numOfRecord)
+  private Future<Integer> insert(SnowflakeSinkService sink, int partition, int numOfRecord)
   {
     ExecutorService executorService = Executors.newSingleThreadExecutor();
 
@@ -182,6 +181,7 @@ public class SinkServiceIT
               , "test", new SnowflakeJsonSchema(), values, i));
         }
 
+        Thread.sleep(10 * 1000);// wait for file writer thread to upload file
         return conn.listStage(stage,
           FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table,
             partition)).size();
@@ -205,7 +205,7 @@ public class SinkServiceIT
         .addTask(table, topic, partition)
         .build();
 
-    Future<Integer> result = insert(service, pipe, partition, numOfRecord);
+    Future<Integer> result = insert(service, partition, numOfRecord);
 
     assert result.get() == numOfRecord / (size / 152 + 1);
   }
@@ -225,7 +225,7 @@ public class SinkServiceIT
         .addTask(table, topic, partition)
         .build();
 
-    assert insert(service, pipe, partition, numOfRecord).get() == 0;
+    assert insert(service, partition, numOfRecord).get() == 0;
 
     Thread.sleep(flushTime * 1000 + 5);
 
