@@ -4,6 +4,7 @@ install: true
 matrix:
   include:
   - jdk: oraclejdk8
+dist: trusty
 env:
   - JACOCO_COVERAGE=true
 script:
