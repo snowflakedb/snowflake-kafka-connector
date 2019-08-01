@@ -260,9 +260,11 @@ public class SinkServiceIT
 
     assert conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 2;
 
-    SnowflakeSinkService sink = SnowflakeSinkServiceFactory.builder(conn)
+    SnowflakeSinkServiceFactory.builder(conn)
       .addTask(table, topic, partition)
       .build();
+
+    Thread.sleep(10 * 1000); //wait a few second, s3 consistency issue
 
     assert conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 1;
 

@@ -46,6 +46,7 @@ public class Utils
   public static final String SF_URL = "snowflake.url.name";
   public static final String SF_SSL = "sfssl";                 // for test only
   public static final String SF_WAREHOUSE = "sfwarehouse";     //for test only
+  public static final String PRIVATE_KEY_PASSPHRASE = "snowflake.private.key.passphrase";
 
   //constants strings
   private static final String KAFKA_OBJECT_PREFIX = "SNOWFLAKE_KAFKA_CONNECTOR";

@@ -6,8 +6,15 @@ import net.snowflake.ingest.connection.IngestStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.crypto.Cipher;
+import javax.crypto.EncryptedPrivateKeyInfo;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import java.security.AlgorithmParameters;
+import java.security.Key;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
+import java.security.spec.KeySpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -73,6 +80,35 @@ class InternalUtils
     }
   }
 
+  static PrivateKey parseEncryptedPrivateKey(String key, String passphrase)
+  {
+    //remove header, footer, and line breaks
+    key = key.replaceAll("-+[A-Za-z ]+-+", "");
+    key = key.replaceAll("\\s", "");
+
+    try
+    {
+      byte[] code = Base64.decodeBase64(key);
+      EncryptedPrivateKeyInfo encryptPKInfo =
+        new EncryptedPrivateKeyInfo(code);
+
+      Cipher cipher = Cipher.getInstance(encryptPKInfo.getAlgName());
+      PBEKeySpec pbeKeySpec = new PBEKeySpec(passphrase.toCharArray());
+      SecretKeyFactory secretKeyFactory =
+        SecretKeyFactory.getInstance(encryptPKInfo.getAlgName());
+      Key pbeKey = secretKeyFactory.generateSecret(pbeKeySpec);
+      AlgorithmParameters algorithmParameters = encryptPKInfo.getAlgParameters();
+      cipher.init(Cipher.DECRYPT_MODE, pbeKey, algorithmParameters);
+      KeySpec keySpec = encryptPKInfo.getKeySpec(cipher);
+      KeyFactory kf = KeyFactory.getInstance("RSA");
+      return kf.generatePrivate(keySpec);
+    }
+    catch (Exception e)
+    {
+      throw SnowflakeErrors.ERROR_0018.getException(e);
+    }
+  }
+
   static PrivateKey parsePrivateKey(String key)
   {
     //remove header, footer, and line breaks
@@ -86,8 +122,7 @@ class InternalUtils
       KeyFactory kf = KeyFactory.getInstance("RSA");
       PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
       return kf.generatePrivate(keySpec);
-    }
-    catch (Exception e)
+    } catch (Exception e)
     {
       throw SnowflakeErrors.ERROR_0002.getException(e);
     }
@@ -113,6 +148,7 @@ class InternalUtils
 
     return date;
   }
+
   /**
    * create a properties for snowflake connection
    *
@@ -123,6 +159,10 @@ class InternalUtils
   {
     Properties properties = new Properties();
 
+    //decrypt rsa key
+    String privateKey = "";
+    String privateKeyPassphrase = "";
+
     for (Map.Entry<String, String> entry : conf.entrySet())
     {
       //case insensitive
@@ -132,7 +172,7 @@ class InternalUtils
           properties.put(JDBC_DATABASE, entry.getValue());
           break;
         case Utils.SF_PRIVATE_KEY:
-          properties.put(JDBC_PRIVATE_KEY, parsePrivateKey(entry.getValue()));
+          privateKey = entry.getValue();
           break;
         case Utils.SF_SCHEMA:
           properties.put(JDBC_SCHEMA, entry.getValue());
@@ -143,7 +183,20 @@ class InternalUtils
         case Utils.SF_WAREHOUSE:
           properties.put(JDBC_WAREHOUSE, entry.getValue());
           break;
+        case Utils.PRIVATE_KEY_PASSPHRASE:
+          privateKeyPassphrase = entry.getValue();
+          break;
       }
+    }
+
+    if (!privateKeyPassphrase.isEmpty())
+    {
+      properties.put(JDBC_PRIVATE_KEY, parseEncryptedPrivateKey(privateKey,
+        privateKeyPassphrase));
+    }
+    else if (!privateKey.isEmpty())
+    {
+      properties.put(JDBC_PRIVATE_KEY, parsePrivateKey(privateKey));
     }
 
     //put values for optional parameters
