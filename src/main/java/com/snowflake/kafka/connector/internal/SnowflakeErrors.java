@@ -115,6 +115,11 @@ public enum SnowflakeErrors
     "snowflake URL must be provided with " + Utils.SF_URL +
       " parameter, e.g. 'accountname.snoflakecomputing.com'"
   ),
+  ERROR_0018(
+    "0018",
+    "Invalid encrypted private key or passphrase",
+    "failed to decrypt private key"
+  ),
   // Snowflake connection issues 1---
   ERROR_1001(
     "1001",

@@ -58,7 +58,7 @@ public class IngestionServiceIT
     List<String> names = new ArrayList<>(1);
     names.add(fileName);
     //ingest report
-    assert checkIngestReport(names, 120000);
+    assert checkIngestReport(names, 180000);
     //load history
     Map<String, InternalUtils.IngestedFileStatus> result =
       ingestService.readOneHourHistory(names, System.currentTimeMillis() -

@@ -23,6 +23,16 @@ public class ConnectionServiceIT
   private final String stageName1 = TestUtils.randomStageName();
 
   @Test
+  public void testEncryptedKey()
+  {
+    //no exception
+    SnowflakeConnectionServiceFactory
+      .builder()
+      .setProperties(TestUtils.getConfWithEncryptedKey())
+      .build();
+  }
+
+  @Test
   public void createConnectionService()
   {
     SnowflakeConnectionService service = SnowflakeConnectionServiceFactory
@@ -144,7 +154,7 @@ public class ConnectionServiceIT
     List<String> files = conn.listStage(stageName,
       TestUtils.TEST_CONNECTOR_NAME);
     assert files.size() == 1;
-    files.get(0).equals(fileName);
+    assert files.get(0).equals(fileName);
     //stage is compatible
     assert conn.isStageCompatible(stageName);
     //create stage if not exists
