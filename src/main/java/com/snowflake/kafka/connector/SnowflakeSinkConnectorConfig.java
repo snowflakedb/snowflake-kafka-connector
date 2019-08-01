@@ -55,6 +55,7 @@ public class SnowflakeSinkConnectorConfig
   static final String SNOWFLAKE_PRIVATE_KEY = Utils.SF_PRIVATE_KEY;
   static final String SNOWFLAKE_DATABASE = Utils.SF_DATABASE;
   static final String SNOWFLAKE_SCHEMA = Utils.SF_SCHEMA;
+  private static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
 
   //Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
@@ -100,13 +101,22 @@ public class SnowflakeSinkConnectorConfig
         2,
         ConfigDef.Width.NONE,
         SNOWFLAKE_PRIVATE_KEY)
+      .define(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE,
+        Type.STRING,
+        "",
+        Importance.LOW,
+        "Passphrase of private key if encrypted",
+        SNOWFLAKE_LOGIN_INFO,
+        3,
+        ConfigDef.Width.NONE,
+        SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
       .define(SNOWFLAKE_DATABASE,
         Type.STRING,
         "",
         Importance.HIGH,
         "Snowflake database name",
         SNOWFLAKE_LOGIN_INFO,
-        3,
+        4,
         ConfigDef.Width.NONE,
         SNOWFLAKE_DATABASE)
       .define(SNOWFLAKE_SCHEMA,
@@ -115,7 +125,7 @@ public class SnowflakeSinkConnectorConfig
         Importance.HIGH,
         "Snowflake database schema name",
         SNOWFLAKE_LOGIN_INFO,
-        4,
+        5,
         ConfigDef.Width.NONE,
         SNOWFLAKE_SCHEMA)
       //proxy

@@ -18,10 +18,13 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.Utils;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
     .ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
     .ObjectNode;
+
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -44,6 +47,8 @@ class TestUtils
   private static final String HOST = "host";
   private static final String WAREHOUSE = "warehouse";
   private static final String PRIVATE_KEY = "private_key";
+  private static final String ENCRYPTED_PRIVATE_KEY = "encrypted_private_key";
+  private static final String PRIVATE_KEY_PASSPHRASE = "private_key_passphrase";
   final static String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
 
 
@@ -58,38 +63,52 @@ class TestUtils
 
   private static SnowflakeURL url = null;
 
+  private static JsonNode profile = null;
+
+
+  private static JsonNode getProfile()
+  {
+    if (profile == null)
+    {
+      try
+      {
+        profile = mapper.readTree(new File (PROFILE_PATH));
+      } catch (IOException e)
+      {
+        throw new RuntimeException(e);
+      }
+    }
+    return profile;
+  }
 
   /**
    * load all login info from profile
    */
   private static void init()
   {
-
-    ObjectNode profile;
-    try
-    {
-      profile = (ObjectNode) mapper.readTree(
-          new String(Files.readAllBytes(Paths.get(PROFILE_PATH)))
-      );
-    } catch (IOException e)
-    {
-      throw new RuntimeException(e);
-    }
-
     conf = new HashMap<>();
 
-    conf.put(Utils.SF_USER, profile.get(USER).asText());
-    conf.put(Utils.SF_DATABASE, profile.get(DATABASE).asText());
-    conf.put(Utils.SF_SCHEMA, profile.get(SCHEMA).asText());
-    conf.put(Utils.SF_URL, profile.get(HOST).asText());
-    conf.put(Utils.SF_WAREHOUSE, profile.get(WAREHOUSE).asText());
-    conf.put(Utils.SF_PRIVATE_KEY, profile.get(PRIVATE_KEY).asText());
+    conf.put(Utils.SF_USER, getProfile().get(USER).asText());
+    conf.put(Utils.SF_DATABASE, getProfile().get(DATABASE).asText());
+    conf.put(Utils.SF_SCHEMA, getProfile().get(SCHEMA).asText());
+    conf.put(Utils.SF_URL, getProfile().get(HOST).asText());
+    conf.put(Utils.SF_WAREHOUSE, getProfile().get(WAREHOUSE).asText());
+    conf.put(Utils.SF_PRIVATE_KEY, getProfile().get(PRIVATE_KEY).asText());
     conf.put(Utils.NAME, TEST_CONNECTOR_NAME);
 
     //enable test query mark
     conf.put(Utils.TASK_ID, "");
   }
 
+  static String getEncryptedPrivateKey()
+  {
+    return getProfile().get(ENCRYPTED_PRIVATE_KEY).asText();
+  }
+
+  static String getPrivateKeyPassphrase()
+  {
+    return getProfile().get(PRIVATE_KEY_PASSPHRASE).asText();
+  }
 
   /**
    * read private key string from test profile
@@ -134,6 +153,25 @@ class TestUtils
       init();
     }
     return new HashMap<>(conf);
+  }
+
+  /**
+   *
+   * @return JDBC config with encrypted private key
+   */
+  static Map<String, String> getConfWithEncryptedKey()
+  {
+    if (conf == null)
+    {
+      init();
+    }
+    Map<String, String> config =  new HashMap<>(conf);
+
+    config.remove(Utils.SF_PRIVATE_KEY);
+    config.put(Utils.SF_PRIVATE_KEY, getEncryptedPrivateKey());
+    config.put(Utils.PRIVATE_KEY_PASSPHRASE, getPrivateKeyPassphrase());
+
+    return config;
   }
 
   /**
