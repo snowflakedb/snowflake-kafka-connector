@@ -20,9 +20,10 @@ import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
-    .ObjectMapper;
+  .ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
-    .ObjectNode;
+  .ObjectNode;
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 public class RecordService extends Logging
@@ -32,12 +33,9 @@ public class RecordService extends Logging
   private static final String OFFSET = "offset";
   private static final String TOPIC = "topic";
   private static final String PARTITION = "partition";
+  private static final String KEY = "key";
   private static final String CONTENT = "content";
   private static final String META = "meta";
-
-  private final boolean includeOffset;
-  private final boolean includePartitionNumber;
-  private final boolean includeTopic;
 
   /**
    * process records
@@ -48,40 +46,15 @@ public class RecordService extends Logging
    * "offset": 123,
    * "topic": "topic name",
    * "partition": 123,
+   * "key":"key name"
    * }
    * "content": "record content"
    * }
-   *
-   * @param includeOffset          if true, the output will contain offset
-   * @param includePartitionNumber if true, the output will contain partition
-   *                               number
-   * @param includeTopic           if true, the output will contain topic name
-   */
-  public RecordService(boolean includeOffset, boolean
-      includePartitionNumber, boolean includeTopic)
-  {
-
-    this.includeOffset = includeOffset;
-
-    this.includePartitionNumber = includePartitionNumber;
-
-    this.includeTopic = includeTopic;
-
-    logDebug(
-        "create an instance of JsonRecordService\ninclude offset: {}\ninclude" +
-            " partition number: {}\ninclude topic: {}",
-        includeOffset,
-        includePartitionNumber,
-        includeTopic
-    );
-  }
-
-  /**
+   * <p>
    * create a JsonRecordService instance
    */
   public RecordService()
   {
-    this(true, true, true);
   }
 
 
@@ -94,50 +67,37 @@ public class RecordService extends Logging
    */
   public String processRecord(SinkRecord record)
   {
-
-    if(! record.valueSchema().name().equals(SnowflakeJsonSchema.NAME))
+    if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME))
     {
       throw SnowflakeErrors.ERROR_0009.getException();
     }
-
-    if(! (record.value() instanceof JsonNode[]))
+    if (!(record.value() instanceof JsonNode[]))
     {
       throw SnowflakeErrors.ERROR_0010
-          .getException("Input record should be JSON format");
+        .getException("Input record should be JSON format");
     }
 
     JsonNode[] contents = (JsonNode[]) record.value();
 
     ObjectNode meta = mapper.createObjectNode();
+    meta.put(OFFSET, record.kafkaOffset());
+    meta.put(TOPIC, record.topic());
+    meta.put(PARTITION, record.kafkaPartition());
 
-    if (includeOffset)
+    //include String key
+    if (record.keySchema().equals(Schema.STRING_SCHEMA))
     {
-      meta.put(OFFSET, record.kafkaOffset());
-    }
-
-    if (includeTopic)
-    {
-      meta.put(TOPIC, record.topic());
-    }
-
-    if (includePartitionNumber)
-    {
-      meta.put(PARTITION, record.kafkaPartition());
+      meta.put(KEY, record.key().toString());
     }
 
     StringBuilder buffer = new StringBuilder();
-
-    for (JsonNode node: contents)
+    for (JsonNode node : contents)
     {
       ObjectNode data = mapper.createObjectNode();
-
       data.set(CONTENT, node);
-
       data.set(META, meta);
-
       buffer.append(data.toString());
     }
-
     return buffer.toString();
   }
 }

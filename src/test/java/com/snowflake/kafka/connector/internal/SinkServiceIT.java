@@ -168,6 +168,7 @@ public class SinkServiceIT
     Thread.sleep(90 * 1000);
     assert TestUtils.tableSize(table) == numOfRecord + numOfRecord1;
 
+    service.close();
   }
 
   private Future<Integer> insert(SnowflakeSinkService sink, int partition,
@@ -213,6 +214,8 @@ public class SinkServiceIT
     Future<Integer> result = insert(service, partition, numOfRecord);
 
     assert result.get() == numOfRecord / (size / 152 + 1);
+
+    service.close();
   }
 
   @Test
@@ -238,6 +241,7 @@ public class SinkServiceIT
       FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table,
         partition)).size() == 1;
 
+    service.close();
   }
 
   @Test
@@ -269,7 +273,7 @@ public class SinkServiceIT
     assert conn.listStage(stage,
       FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 2;
 
-    SnowflakeSinkServiceFactory.builder(conn)
+    SnowflakeSinkService service = SnowflakeSinkServiceFactory.builder(conn)
       .addTask(table, topic, partition)
       .build();
 
@@ -282,6 +286,8 @@ public class SinkServiceIT
 
     assert conn.listStage(stage,
       FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 0;
+
+    service.close();
   }
 
   @Test
@@ -312,5 +318,7 @@ public class SinkServiceIT
     assert FileNameUtils.fileNameToPartition(name) == partition;
     assert FileNameUtils.fileNameToStartOffset(name) == offset;
     assert FileNameUtils.fileNameToEndOffset(name) == offset;
+
+    service.close();
   }
 }
