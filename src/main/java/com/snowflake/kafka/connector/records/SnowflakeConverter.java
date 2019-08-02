@@ -36,7 +36,7 @@ public abstract class SnowflakeConverter implements Converter
   protected static Logger LOGGER =
       LoggerFactory.getLogger(SnowflakeConverter.class.getName());
 
-  protected static ObjectMapper MAPPER = new ObjectMapper();
+  static ObjectMapper MAPPER = new ObjectMapper();
 
   /**
    * unused

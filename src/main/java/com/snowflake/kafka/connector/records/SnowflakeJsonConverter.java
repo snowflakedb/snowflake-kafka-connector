@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -35,14 +36,13 @@ public class SnowflakeJsonConverter extends SnowflakeConverter
   {
     try
     {
-      //always return an array of JsonNode.
-      //AVRO record may contains multiple records
+      //always return an array of JsonNode because AVRO record may contains multiple records
       JsonNode[] result = {MAPPER.readTree(bytes)};
       return new SchemaAndValue(new SnowflakeJsonSchema(), result);
     } catch (Exception ex)
     {
-      throw SnowflakeErrors.ERROR_0010.getException("Failed to parse JSON " +
-          "record\n" + ex.toString());
+      LOGGER.error(Logging.logMessage("Failed to parse JSON record\n" + ex.toString()));
+      return new SchemaAndValue(new SnowflakeBrokenRecordSchema(), bytes);
     }
   }
 }

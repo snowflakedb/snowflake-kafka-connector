@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.avro.file.DataFileReader;
@@ -39,50 +40,58 @@ public class SnowflakeAvroConverterWithoutSchemaRegistry extends SnowflakeConver
   @Override
   public SchemaAndValue toConnectData(final String topic, final byte[] value)
   {
-    //avro input parser
-    DatumReader<GenericRecord> datumReader = new GenericDatumReader<>();
-    DataFileReader<GenericRecord> dataFileReader;
-
     try
     {
-      dataFileReader = new DataFileReader<>(new SeekableInputSource(value),
-        datumReader);
-    } catch (Exception e)
-    {
-      throw SnowflakeErrors.ERROR_0010.getException("Failed to parse AVRO " +
-        "record\n" + e.toString());
-    }
+      //avro input parser
+      DatumReader<GenericRecord> datumReader = new GenericDatumReader<>();
+      DataFileReader<GenericRecord> dataFileReader;
 
-    ArrayList<JsonNode> buffer = new ArrayList<>();
-    while (dataFileReader.hasNext())
-    {
-      String jsonString = dataFileReader.next().toString();
       try
       {
-        buffer.add(MAPPER.readTree(jsonString));
+        dataFileReader = new DataFileReader<>(new SeekableInputSource(value),
+          datumReader);
+      } catch (Exception e)
+      {
+        throw SnowflakeErrors.ERROR_0010.getException("Failed to parse AVRO " +
+          "record\n" + e.getMessage());
+      }
+
+      ArrayList<JsonNode> buffer = new ArrayList<>();
+      while (dataFileReader.hasNext())
+      {
+        String jsonString = dataFileReader.next().toString();
+        try
+        {
+          buffer.add(MAPPER.readTree(jsonString));
+        } catch (IOException e)
+        {
+          throw SnowflakeErrors.ERROR_0010.getException("Failed to parse JSON " +
+            "record\nInput String: " + jsonString + "\n" + e.getMessage());
+
+        }
+      }
+
+      JsonNode[] result = new JsonNode[buffer.size()];
+      for (int i = 0; i < buffer.size(); i++)
+      {
+        result[i] = buffer.get(i);
+      }
+
+      try
+      {
+        dataFileReader.close();
       } catch (IOException e)
       {
-        throw SnowflakeErrors.ERROR_0010.getException("Failed to parse JSON " +
-          "record\nInput String: " + jsonString + "\n" + e.toString());
-
+        throw SnowflakeErrors.ERROR_0010.getException("Failed to parse AVRO " +
+          "record\n" + e.getMessage());
       }
-    }
 
-    JsonNode[] result = new JsonNode[buffer.size()];
-    for (int i = 0; i < buffer.size(); i++)
-    {
-      result[i] = buffer.get(i);
+      return new SchemaAndValue(new SnowflakeJsonSchema(), result);
     }
-
-    try
+    catch (Exception e)
     {
-      dataFileReader.close();
-    } catch (IOException e)
-    {
-      throw SnowflakeErrors.ERROR_0010.getException("Failed to parse AVRO " +
-        "record\n" + e.toString());
+      LOGGER.error(Logging.logMessage("Failed to parse AVRO record\n" + e.getMessage()));
+      return new SchemaAndValue(new SnowflakeBrokenRecordSchema(), value);
     }
-
-    return new SchemaAndValue(new SnowflakeJsonSchema(), result);
   }
 }

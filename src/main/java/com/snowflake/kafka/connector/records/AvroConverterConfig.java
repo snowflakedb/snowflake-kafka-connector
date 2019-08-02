@@ -20,9 +20,9 @@ import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
 
 import java.util.Map;
 
-public class AvroConverterConfig extends AbstractKafkaAvroSerDeConfig
+class AvroConverterConfig extends AbstractKafkaAvroSerDeConfig
 {
-  public AvroConverterConfig(final Map<?, ?> props)
+  AvroConverterConfig(final Map<?, ?> props)
   {
     super(baseConfigDef(), props);
   }

@@ -2,11 +2,14 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.records.SnowflakeConverter;
+import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Test;
@@ -26,8 +29,10 @@ public class SinkServiceIT
   private String stage = Utils.stageName(TestUtils.TEST_CONNECTOR_NAME, table);
   private int partition = 0;
   private int partition1 = 1;
-  private String pipe = Utils.pipeName(TestUtils.TEST_CONNECTOR_NAME, table, partition);
-  private String pipe1 = Utils.pipeName(TestUtils.TEST_CONNECTOR_NAME, table, partition1);
+  private String pipe = Utils.pipeName(TestUtils.TEST_CONNECTOR_NAME, table,
+    partition);
+  private String pipe1 = Utils.pipeName(TestUtils.TEST_CONNECTOR_NAME, table,
+    partition1);
   private String topic = "test";
   private static ObjectMapper MAPPER = new ObjectMapper();
 
@@ -165,7 +170,8 @@ public class SinkServiceIT
 
   }
 
-  private Future<Integer> insert(SnowflakeSinkService sink, int partition, int numOfRecord)
+  private Future<Integer> insert(SnowflakeSinkService sink, int partition,
+                                 int numOfRecord)
   {
     ExecutorService executorService = Executors.newSingleThreadExecutor();
 
@@ -240,9 +246,11 @@ public class SinkServiceIT
     String data = "{\"content\":{\"name\":\"test\"},\"meta\":{\"offset\":0," +
       "\"topic\":\"test\",\"partition\":0}}";
 
-    String fileName1 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 0, 0);
+    String fileName1 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME,
+      table, 0, 0, 0);
 
-    String fileName2 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 1, 1);
+    String fileName2 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME,
+      table, 0, 1, 1);
 
     conn.createStage(stage);
     conn.createTable(table);
@@ -258,7 +266,8 @@ public class SinkServiceIT
 
     Thread.sleep(90 * 1000);
 
-    assert conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 2;
+    assert conn.listStage(stage,
+      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 2;
 
     SnowflakeSinkServiceFactory.builder(conn)
       .addTask(table, topic, partition)
@@ -266,10 +275,42 @@ public class SinkServiceIT
 
     Thread.sleep(10 * 1000); //wait a few second, s3 consistency issue
 
-    assert conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 1;
+    assert conn.listStage(stage,
+      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 1;
 
     Thread.sleep(90 * 1000);
 
-    assert conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 0;
+    assert conn.listStage(stage,
+      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 0;
+  }
+
+  @Test
+  public void testBrokenRecord()
+  {
+    conn.createTable(table);
+    conn.createStage(stage);
+    String topic = "test";
+    int partition = 1;
+    long offset = 123;
+    byte[] data = "as12321".getBytes();
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue result = converter.toConnectData(topic, data);
+    SinkRecord record = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
+      , "test", result.schema(), result.value(), offset);
+
+    SnowflakeSinkService service =
+      SnowflakeSinkServiceFactory
+        .builder(conn)
+        .addTask(table, topic, partition)
+        .build();
+
+    service.insert(record);
+
+    List<String> files = conn.listStage(table, "", true);
+    assert files.size() == 1;
+    String name = files.get(0);
+    assert FileNameUtils.fileNameToPartition(name) == partition;
+    assert FileNameUtils.fileNameToStartOffset(name) == offset;
+    assert FileNameUtils.fileNameToEndOffset(name) == offset;
   }
 }

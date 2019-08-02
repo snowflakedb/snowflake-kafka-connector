@@ -439,7 +439,8 @@ public class SnowflakeConnectionServiceV1 extends Logging
       //put
       try
       {
-        sfconn.compressAndUploadStream("%" + tableName, null, file, name);
+        sfconn.compressAndUploadStream("%" + tableName, null, file,
+          FileNameUtils.removeGZFromFileName(name));
       } catch (SQLException e)
       {
         throw SnowflakeErrors.ERROR_2003.getException(e);
@@ -524,6 +525,25 @@ public class SnowflakeConnectionServiceV1 extends Logging
   }
 
   @Override
+  public void putToTableStage(final String tableName, final String fileName,
+                              final byte[] content)
+  {
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    SnowflakeConnectionV1 sfconn = (SnowflakeConnectionV1) conn;
+    InputStream input = new ByteArrayInputStream(content);
+
+    try
+    {
+      sfconn.compressAndUploadStream("%" + tableName, null, input,
+        FileNameUtils.removeGZFromFileName(fileName));
+    } catch (SQLException e)
+    {
+      throw SnowflakeErrors.ERROR_2003.getException(e);
+    }
+    logInfo("put file: {} to table stage: {}", fileName, tableName);
+  }
+
+  @Override
   public SnowflakeTelemetryService getTelemetryClient()
   {
     return this.telemetry;
@@ -568,9 +588,10 @@ public class SnowflakeConnectionServiceV1 extends Logging
     String account = url.getAccount();
     String user = prop.getProperty(InternalUtils.JDBC_USER);
     String host = url.getUrlWithoutPort();
-    String fullPipeName = prop.getProperty(InternalUtils.JDBC_DATABASE) + "."  +
+    String fullPipeName = prop.getProperty(InternalUtils.JDBC_DATABASE) + "." +
       prop.getProperty(InternalUtils.JDBC_SCHEMA) + "." + pipeName;
-    PrivateKey privateKey = (PrivateKey) prop.get(InternalUtils.JDBC_PRIVATE_KEY);
+    PrivateKey privateKey =
+      (PrivateKey) prop.get(InternalUtils.JDBC_PRIVATE_KEY);
     return SnowflakeIngestionServiceFactory
       .builder(account, user, host, stageName, fullPipeName, privateKey)
       .build();
