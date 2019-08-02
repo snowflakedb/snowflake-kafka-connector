@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -72,26 +73,34 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
   public SchemaAndValue toConnectData(final String s, final byte[] bytes)
   {
 
-    ByteBuffer buffer = ByteBuffer.wrap(bytes);
-    if (buffer.get() != 0)
-    {
-      throw SnowflakeErrors.ERROR_0010.getException("unknown bytes");
-    }
-    int id = buffer.getInt();
-    Schema schema;
     try
     {
-      schema = schemaRegistry.getById(id);
-    } catch (Exception e)
-    {
-      throw SnowflakeErrors.ERROR_0011.getException(e);
+      ByteBuffer buffer = ByteBuffer.wrap(bytes);
+      if (buffer.get() != 0)
+      {
+        throw SnowflakeErrors.ERROR_0010.getException("unknown bytes");
+      }
+      int id = buffer.getInt();
+      Schema schema;
+      try
+      {
+        schema = schemaRegistry.getById(id);
+      } catch (Exception e)
+      {
+        throw SnowflakeErrors.ERROR_0011.getException(e);
+      }
+
+      int length = buffer.limit() - 1 - 4;
+      byte[] data = new byte[length];
+      buffer.get(data, 0, length);
+
+      return parseAvroWithSchema(data, schema);
     }
-
-    int length = buffer.limit() - 1 - 4;
-    byte[] data = new byte[length];
-    buffer.get(data, 0, length);
-
-    return parseAvroWithSchema(data, schema);
+    catch (Exception e)
+    {
+      LOGGER.error(Logging.logMessage("failed to parse AVRO record\n" + e.getMessage()));
+      return new SchemaAndValue(new SnowflakeBrokenRecordSchema(), bytes);
+    }
   }
 
   /**

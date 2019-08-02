@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 
 public class ConverterTest
 {
@@ -36,7 +37,7 @@ public class ConverterTest
   private static String TEST_FILE_NAME = "test.avro";
 
   @Test
-  public void JsonConverterTest()
+  public void testJsonConverter()
   {
     SnowflakeConverter converter = new SnowflakeJsonConverter();
 
@@ -59,7 +60,7 @@ public class ConverterTest
   }
 
   @Test
-  public void AvroConverterTest() throws IOException
+  public void testAvroConverter() throws IOException
   {
     //todo: test schema registry
     URL resource = ConverterTest.class.getResource(TEST_FILE_NAME);
@@ -80,5 +81,25 @@ public class ConverterTest
 
     assert jsonNodes[0].toString().equals("{\"name\":\"foo\",\"age\":30}");
     assert jsonNodes[1].toString().equals("{\"name\":\"bar\",\"age\":29}");
+  }
+
+  @Test
+  public void testBrokenRecord()
+  {
+    byte[] data = "fasfas".getBytes();
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue result = converter.toConnectData("test", data);
+    assert result.schema().name().equals(SnowflakeBrokenRecordSchema.NAME);
+    assert Arrays.equals(data, (byte[]) result.value());
+
+    converter = new SnowflakeAvroConverter();
+    result = converter.toConnectData("test", data);
+    assert result.schema().name().equals(SnowflakeBrokenRecordSchema.NAME);
+    assert Arrays.equals(data, (byte[]) result.value());
+
+    converter = new SnowflakeAvroConverterWithoutSchemaRegistry();
+    result = converter.toConnectData("test", data);
+    assert result.schema().name().equals(SnowflakeBrokenRecordSchema.NAME);
+    assert Arrays.equals(data, (byte[]) result.value());
   }
 }
