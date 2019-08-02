@@ -186,6 +186,13 @@ public interface SnowflakeConnectionService
   void put(String stageName, String fileName, String content);
 
   /**
+   * put a file to table stage
+   * @param tableName table name
+   * @param fileName file name
+   * @param content file content
+   */
+  void putToTableStage(String tableName, String fileName, byte[] content);
+  /**
    *
    * @return telemetry client
    */
