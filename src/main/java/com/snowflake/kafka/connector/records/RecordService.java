@@ -23,6 +23,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
   .ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
   .ObjectNode;
+import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
 
@@ -83,6 +84,12 @@ public class RecordService extends Logging
     meta.put(OFFSET, record.kafkaOffset());
     meta.put(TOPIC, record.topic());
     meta.put(PARTITION, record.kafkaPartition());
+
+    //ignore if no timestamp
+    if (record.timestampType() != TimestampType.NO_TIMESTAMP_TYPE)
+    {
+      meta.put(record.timestampType().name, record.timestamp());
+    }
 
     //include String key
     if (record.keySchema().equals(Schema.STRING_SCHEMA))
