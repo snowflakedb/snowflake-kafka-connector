@@ -19,6 +19,7 @@ package com.snowflake.kafka.connector.records;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 public class SeekableInputSourceTest
@@ -28,7 +29,7 @@ public class SeekableInputSourceTest
   {
     String str = "test data";
 
-    SeekableInputSource s = new SeekableInputSource(str.getBytes());
+    SeekableInputSource s = new SeekableInputSource(str.getBytes(StandardCharsets.UTF_8));
 
     assert s.length() == str.length();
 
@@ -45,20 +46,20 @@ public class SeekableInputSourceTest
     int size = s.read(str3, 0, 4);
 
     assert size == 4;
-    assert str2.equals(new String(str3));
+    assert str2.equals(new String(str3, StandardCharsets.UTF_8));
 
     str3 = new byte[6];
     s.seek(p);
     size = s.read(str3, 1, 5);
     assert size == 4;
-    assert str2.equals(new String(Arrays.copyOfRange(str3, 1, 5)));
+    assert str2.equals(new String(Arrays.copyOfRange(str3, 1, 5), StandardCharsets.UTF_8));
   }
 
   @Test(expected = IOException.class)
   public void closeMethodTest1() throws IOException
   {
     String str = "test";
-    SeekableInputSource s = new SeekableInputSource(str.getBytes());
+    SeekableInputSource s = new SeekableInputSource(str.getBytes(StandardCharsets.UTF_8));
     s.close();
     s.length();
   }
@@ -67,7 +68,7 @@ public class SeekableInputSourceTest
   public void closeMethodTest2() throws IOException
   {
     String str = "test";
-    SeekableInputSource s = new SeekableInputSource(str.getBytes());
+    SeekableInputSource s = new SeekableInputSource(str.getBytes(StandardCharsets.UTF_8));
     s.close();
     s.tell();
   }
@@ -76,7 +77,7 @@ public class SeekableInputSourceTest
   public void closeMethodTest3() throws IOException
   {
     String str = "test";
-    SeekableInputSource s = new SeekableInputSource(str.getBytes());
+    SeekableInputSource s = new SeekableInputSource(str.getBytes(StandardCharsets.UTF_8));
     s.close();
     s.seek(12);
   }
@@ -85,7 +86,7 @@ public class SeekableInputSourceTest
   public void closeMethodTest4() throws IOException
   {
     String str = "test";
-    SeekableInputSource s = new SeekableInputSource(str.getBytes());
+    SeekableInputSource s = new SeekableInputSource(str.getBytes(StandardCharsets.UTF_8));
     s.close();
     s.read(new byte[10], 1,3);
   }

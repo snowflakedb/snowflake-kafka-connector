@@ -5,6 +5,7 @@ import net.snowflake.client.jdbc.SnowflakeDriver;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -62,6 +63,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
       stmt.execute();
+      stmt.close();
     } catch (SQLException e)
     {
       throw SnowflakeErrors.ERROR_2001.getException(e);
@@ -101,6 +103,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, pipeName);
       stmt.execute();
+      stmt.close();
     } catch (SQLException e)
     {
       throw SnowflakeErrors.ERROR_2001.getException(e);
@@ -136,6 +139,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, stageName);
       stmt.execute();
+      stmt.close();
     } catch (SQLException e)
     {
       throw SnowflakeErrors.ERROR_2001.getException(e);
@@ -156,24 +160,34 @@ public class SnowflakeConnectionServiceV1 extends Logging
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query = "desc table identifier(?)";
-    PreparedStatement stmt;
+    PreparedStatement stmt = null;
+    boolean exist;
     try
     {
       stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
-    } catch (SQLException e)
-    {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
-    }
-    try
-    {
       stmt.execute();
-      return true;
-    } catch (SQLException e)
+      exist = true;
+    }
+    catch (Exception e)
     {
       logDebug("table {} doesn't exist", tableName);
-      return false;
+      exist = false;
     }
+    finally
+    {
+      if(stmt != null)
+      {
+        try
+        {
+          stmt.close();
+        } catch (SQLException e)
+        {
+          e.printStackTrace();
+        }
+      }
+    }
+    return exist;
   }
 
   @Override
@@ -182,24 +196,33 @@ public class SnowflakeConnectionServiceV1 extends Logging
     checkConnection();
     InternalUtils.assertNotEmpty("stageName", stageName);
     String query = "desc stage identifier(?)";
-    PreparedStatement stmt;
+    PreparedStatement stmt = null;
+    boolean exist;
     try
     {
       stmt = conn.prepareStatement(query);
       stmt.setString(1, stageName);
-    } catch (SQLException e)
-    {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
-    }
-    try
-    {
       stmt.execute();
-      return true;
+      exist = true;
     } catch (SQLException e)
     {
       logDebug("stage {} doesn't exists", stageName);
-      return false;
+      exist = false;
     }
+    finally
+    {
+      if(stmt != null)
+      {
+        try
+        {
+          stmt.close();
+        } catch (SQLException e)
+        {
+          e.printStackTrace();
+        }
+      }
+    }
+    return exist;
   }
 
   @Override
@@ -208,24 +231,33 @@ public class SnowflakeConnectionServiceV1 extends Logging
     checkConnection();
     InternalUtils.assertNotEmpty("pipeName", pipeName);
     String query = "desc pipe identifier(?)";
-    PreparedStatement stmt;
+    PreparedStatement stmt = null;
+    boolean exist;
     try
     {
       stmt = conn.prepareStatement(query);
       stmt.setString(1, pipeName);
-    } catch (SQLException e)
-    {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
-    }
-    try
-    {
       stmt.execute();
-      return true;
+      exist = true;
     } catch (SQLException e)
     {
       logDebug("pipe {} doesn't exist", pipeName);
-      return false;
+      exist = false;
     }
+    finally
+    {
+      if(stmt != null)
+      {
+        try
+        {
+          stmt.close();
+        } catch (SQLException e)
+        {
+          e.printStackTrace();
+        }
+      }
+    }
+    return exist;
   }
 
   @Override
@@ -234,18 +266,13 @@ public class SnowflakeConnectionServiceV1 extends Logging
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query = "desc table identifier(?)";
-    PreparedStatement stmt;
+    PreparedStatement stmt = null;
+    ResultSet result = null;
+    boolean compatible;
     try
     {
       stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
-    } catch (SQLException e)
-    {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
-    }
-    ResultSet result;
-    try
-    {
       result = stmt.executeQuery();
       //first column is RECORD_METADATA
       if ((!result.next()) ||
@@ -254,29 +281,59 @@ public class SnowflakeConnectionServiceV1 extends Logging
       {
         logDebug("the first column of table {} is not RECORD_METADATA : " +
           "VARIANT", tableName);
-        return false;
+        compatible = false;
       }
       //second column is RECORD_CONTENT
-      if ((!result.next()) ||
+      else if ((!result.next()) ||
         (!result.getString(1).equals("RECORD_CONTENT")) ||
         (!result.getString(2).equals("VARIANT")))
       {
         logDebug("the second column of table {} is not RECORD_CONTENT : " +
           "VARIANT", tableName);
-        return false;
+        compatible = false;
       }
       //only two columns
-      if (result.next())
+      else if (result.next())
       {
         logDebug("table {} contains more than two columns", tableName);
-        return false;
+        compatible = false;
+      }
+      else
+      {
+        compatible = true;
       }
     } catch (SQLException e)
     {
       logDebug("table {} doesn't exist", tableName);
-      return false;
+      compatible = false;
     }
-    return true;
+    finally
+    {
+      try
+      {
+        if(result != null)
+        {
+          result.close();
+        }
+      }
+      catch (Exception e)
+      {
+        e.printStackTrace();
+      }
+
+      try
+      {
+        if(stmt != null)
+        {
+          stmt.close();
+        }
+      }
+      catch (Exception e)
+      {
+        e.printStackTrace();
+      }
+    }
+    return compatible;
   }
 
   @Override
@@ -315,30 +372,50 @@ public class SnowflakeConnectionServiceV1 extends Logging
     }
 
     String query = "desc pipe identifier(?)";
-    PreparedStatement stmt;
+    PreparedStatement stmt = null;
+    ResultSet result = null;
+    boolean compatible;
     try
     {
       stmt = conn.prepareStatement(query);
       stmt.setString(1, pipeName);
-    } catch (SQLException e)
-    {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
-    }
-    try
-    {
-      ResultSet result = stmt.executeQuery();
+      result = stmt.executeQuery();
       if (!result.next())
       {
-        return false;
+        compatible = false;
       }
-      String definition = result.getString("definition");
-      logDebug("pipe {} definition: {}", pipeName, definition);
-      return definition.equalsIgnoreCase(pipeDefinition(tableName, stageName));
+      else
+      {
+        String definition = result.getString("definition");
+        logDebug("pipe {} definition: {}", pipeName, definition);
+        compatible =  definition.equalsIgnoreCase(pipeDefinition(tableName, stageName));
+      }
+
     } catch (SQLException e)
     {
       logDebug("pipe {} doesn't exists ", pipeName);
-      return false;
+      compatible = false;
     }
+    finally
+    {
+      try
+      {
+        if(stmt != null)
+        {
+          stmt.close();
+        }
+        if(result != null)
+        {
+          result.close();
+        }
+      }
+      catch (Exception e)
+      {
+        e.printStackTrace();
+      }
+    }
+
+    return compatible;
   }
 
   @Override
@@ -353,6 +430,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, pipeName);
       stmt.execute();
+      stmt.close();
     } catch (SQLException e)
     {
       throw SnowflakeErrors.ERROR_2001.getException(e);
@@ -378,8 +456,12 @@ public class SnowflakeConnectionServiceV1 extends Logging
       if (InternalUtils.resultSize(resultSet) == 0)
       {
         dropStage(stageName);
+        stmt.close();
+        resultSet.close();
         return true;
       }
+      resultSet.close();
+      stmt.close();
     } catch (SQLException e)
     {
       throw SnowflakeErrors.ERROR_2001.getException(e);
@@ -399,6 +481,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, stageName);
       stmt.execute();
+      stmt.close();
     } catch (SQLException e)
     {
       throw SnowflakeErrors.ERROR_2001.getException(e);
@@ -491,6 +574,8 @@ public class SnowflakeConnectionServiceV1 extends Logging
         result.add(resultSet.getString("name")
           .substring(stageNameLength));
       }
+      stmt.close();
+      resultSet.close();
     } catch (SQLException e)
     {
       throw SnowflakeErrors.ERROR_2001.getException(e);
@@ -512,7 +597,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
   {
     InternalUtils.assertNotEmpty("stageName", stageName);
     SnowflakeConnectionV1 sfconn = (SnowflakeConnectionV1) conn;
-    InputStream input = new ByteArrayInputStream(content.getBytes());
+    InputStream input = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
     try
     {
       sfconn.compressAndUploadStream(stageName, null, input,
@@ -644,6 +729,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
     {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.execute();
+      stmt.close();
     } catch (SQLException e)
     {
       throw SnowflakeErrors.ERROR_2001.getException(e);

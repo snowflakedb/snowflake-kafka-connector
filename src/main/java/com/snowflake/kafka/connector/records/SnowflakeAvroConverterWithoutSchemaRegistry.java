@@ -65,7 +65,8 @@ public class SnowflakeAvroConverterWithoutSchemaRegistry extends SnowflakeConver
           buffer.add(MAPPER.readTree(jsonString));
         } catch (IOException e)
         {
-          throw SnowflakeErrors.ERROR_0010.getException("Failed to parse JSON " +
+          throw SnowflakeErrors.ERROR_0010.getException("Failed to parse JSON" +
+            " " +
             "record\nInput String: " + jsonString + "\n" + e.getMessage());
 
         }
@@ -86,12 +87,13 @@ public class SnowflakeAvroConverterWithoutSchemaRegistry extends SnowflakeConver
           "record\n" + e.getMessage());
       }
 
-      return new SchemaAndValue(new SnowflakeJsonSchema(), result);
-    }
-    catch (Exception e)
+      return new SchemaAndValue(new SnowflakeJsonSchema(),
+        new SnowflakeRecordContent(result));
+    } catch (Exception e)
     {
       LOGGER.error(Logging.logMessage("Failed to parse AVRO record\n" + e.getMessage()));
-      return new SchemaAndValue(new SnowflakeBrokenRecordSchema(), value);
+      return new SchemaAndValue(new SnowflakeJsonSchema(),
+        new SnowflakeRecordContent(value));
     }
   }
 }

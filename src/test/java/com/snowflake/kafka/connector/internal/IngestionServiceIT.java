@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal;
 
-import com.snowflake.kafka.connector.Utils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;

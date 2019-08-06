@@ -120,6 +120,11 @@ public enum SnowflakeErrors
     "Invalid encrypted private key or passphrase",
     "failed to decrypt private key"
   ),
+  ERROR_0019(
+    "0019",
+    "Invalid record data",
+    "Unrecognizable record content, please use Snowflake Converters"
+  ),
   // Snowflake connection issues 1---
   ERROR_1001(
     "1001",
@@ -264,7 +269,18 @@ public enum SnowflakeErrors
     "5010",
     "Connection is null or closed",
     "Connection is closed or null when starting sink service"
-  );
+  ),
+  ERROR_5011(
+    "5011",
+    "Data is not broken",
+    "Tried to access broken data but the record is not broken"
+  ),
+  ERROR_5012(
+    "5012",
+    "Data is broken",
+    "Failed to access record data because it is broken"
+  )
+  ;
 
 
   //properties

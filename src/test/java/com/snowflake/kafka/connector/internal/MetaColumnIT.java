@@ -12,6 +12,7 @@ import org.junit.After;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -50,8 +51,7 @@ public class MetaColumnIT
         .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
-    SchemaAndValue result = converter.toConnectData(topic, ("{\"name\":\"test" +
-      "\"}").getBytes());
+    SchemaAndValue result = converter.toConnectData(topic, ("{\"name\":\"test\"}").getBytes(StandardCharsets.UTF_8));
     SinkRecord record =
       new SinkRecord(topic, partition, Schema.STRING_SCHEMA, "key1",
         result.schema(), result.value(), 0);

@@ -21,13 +21,9 @@ import com.snowflake.kafka.connector.Utils;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
     .ObjectMapper;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
-    .ObjectNode;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -38,7 +34,7 @@ import java.util.Properties;
 import java.util.Random;
 
 
-class TestUtils
+public class TestUtils
 {
   //test profile properties
   private static final String USER = "user";
@@ -49,6 +45,7 @@ class TestUtils
   private static final String PRIVATE_KEY = "private_key";
   private static final String ENCRYPTED_PRIVATE_KEY = "encrypted_private_key";
   private static final String PRIVATE_KEY_PASSPHRASE = "private_key_passphrase";
+  private static final Random random = new Random();
   final static String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
 
 
@@ -185,7 +182,6 @@ class TestUtils
     try
     {
       Statement statement = getConnection().createStatement();
-
       return statement.executeQuery(query);
     }
     //if ANY exceptions occur, an illegal state has been reached
@@ -225,7 +221,8 @@ class TestUtils
    */
   private static String randomName(String objectName)
   {
-    long num = Math.abs(new Random().nextLong());
+    long num = random.nextLong();
+    num = num < 0 ? (num + 1) * (-1) : num;
     return "kafka_connector_test_" + objectName + "_" + num;
   }
 
@@ -281,7 +278,7 @@ class TestUtils
    * @param func function throwing exception
    * @return true is error code is correct, otherwise, false
    */
-  static boolean assertError(SnowflakeErrors error, Runnable func)
+  public static boolean assertError(SnowflakeErrors error, Runnable func)
   {
     try
     {
@@ -319,6 +316,7 @@ class TestUtils
     {
       return result.getInt("rows");
     }
+
     return 0;
   }
 }
