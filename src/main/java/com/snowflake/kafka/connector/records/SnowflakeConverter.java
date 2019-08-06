@@ -33,7 +33,7 @@ import java.util.Map;
 public abstract class SnowflakeConverter implements Converter
 {
 
-  protected static Logger LOGGER =
+  protected static final Logger LOGGER =
       LoggerFactory.getLogger(SnowflakeConverter.class.getName());
 
   static ObjectMapper MAPPER = new ObjectMapper();
