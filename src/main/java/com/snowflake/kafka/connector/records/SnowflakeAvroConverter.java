@@ -143,7 +143,7 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
       encoder.flush();
       output.flush();
 
-      return MAPPER.readTree(output.toByteArray());
+      return mapper.readTree(output.toByteArray());
     } catch (IOException e)
     {
       throw SnowflakeErrors.ERROR_0010.getException("Failed to parse AVRO " +
