@@ -39,7 +39,7 @@ public class SnowflakeJsonConverter extends SnowflakeConverter
       //always return an array of JsonNode because AVRO record may contains
       // multiple records
       return new SchemaAndValue(new SnowflakeJsonSchema(),
-        new SnowflakeRecordContent(MAPPER.readTree(bytes)));
+        new SnowflakeRecordContent(mapper.readTree(bytes)));
     } catch (Exception ex)
     {
       LOGGER.error(Logging.logMessage("Failed to parse JSON record\n" + ex.toString()));

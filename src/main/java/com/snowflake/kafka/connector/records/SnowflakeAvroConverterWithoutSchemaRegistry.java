@@ -62,7 +62,7 @@ public class SnowflakeAvroConverterWithoutSchemaRegistry extends SnowflakeConver
         String jsonString = dataFileReader.next().toString();
         try
         {
-          buffer.add(MAPPER.readTree(jsonString));
+          buffer.add(mapper.readTree(jsonString));
         } catch (IOException e)
         {
           throw SnowflakeErrors.ERROR_0010.getException("Failed to parse JSON" +
