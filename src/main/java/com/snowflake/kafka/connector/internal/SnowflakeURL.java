@@ -37,7 +37,7 @@ public class SnowflakeURL extends Logging
 
   private int port;
 
-  public SnowflakeURL(String urlStr)
+  SnowflakeURL(String urlStr)
   {
     Pattern pattern = Pattern.compile("^(https?://)?((([\\w\\d]+)(\\" +
         ".[\\w\\d-]+){2,})(:(\\d+))?)/?$");
@@ -49,14 +49,7 @@ public class SnowflakeURL extends Logging
       throw SnowflakeErrors.ERROR_0007.getException("input url: " + urlStr);
     }
 
-    if ("http://".equals(matcher.group(1)))
-    {
-      ssl = false;
-    }
-    else
-    {
-      ssl = true;
-    }
+    ssl = !"http://".equals(matcher.group(1));
 
     url = matcher.group(3);
 
@@ -81,22 +74,22 @@ public class SnowflakeURL extends Logging
 
   }
 
-  public String getJdbcUrl()
+  String getJdbcUrl()
   {
     return jdbcUrl;
   }
 
-  public String getAccount()
+  String getAccount()
   {
     return account;
   }
 
-  public boolean sslEnabled()
+  boolean sslEnabled()
   {
     return ssl;
   }
 
-  public String getScheme()
+  String getScheme()
   {
     if (ssl)
     {
@@ -108,17 +101,17 @@ public class SnowflakeURL extends Logging
     }
   }
 
-  public String getFullUrl()
+  String getFullUrl()
   {
     return url + ":" + port;
   }
 
-  public String getUrlWithoutPort()
+  String getUrlWithoutPort()
   {
     return url;
   }
 
-  public int getPort()
+  int getPort()
   {
     return port;
   }

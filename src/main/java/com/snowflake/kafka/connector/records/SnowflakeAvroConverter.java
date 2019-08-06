@@ -61,6 +61,15 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
     }
   }
 
+  /**
+   * set a schema registry client for test use only
+   * @param schemaRegistryClient mock schema registry client
+   */
+  void setSchemaRegistry(SchemaRegistryClient schemaRegistryClient)
+  {
+    this.schemaRegistry = schemaRegistryClient;
+  }
+
 
   /**
    * cast bytes array to JsonNode array
@@ -94,12 +103,13 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
       byte[] data = new byte[length];
       buffer.get(data, 0, length);
 
-      return parseAvroWithSchema(data, schema);
-    }
-    catch (Exception e)
+      return new SchemaAndValue(new SnowflakeJsonSchema(),
+        new SnowflakeRecordContent(parseAvroWithSchema(data, schema), id));
+    } catch (Exception e)
     {
       LOGGER.error(Logging.logMessage("failed to parse AVRO record\n" + e.getMessage()));
-      return new SchemaAndValue(new SnowflakeBrokenRecordSchema(), bytes);
+      return new SchemaAndValue(new SnowflakeJsonSchema(),
+        new SnowflakeRecordContent(bytes));
     }
   }
 
@@ -110,7 +120,7 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
    * @param schema avro schema
    * @return JsonNode  array
    */
-  private SchemaAndValue parseAvroWithSchema(final byte[] bytes, Schema schema)
+  private JsonNode parseAvroWithSchema(final byte[] bytes, Schema schema)
   {
     GenericDatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
     InputStream input = new ByteArrayInputStream(bytes);
@@ -133,10 +143,7 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
       encoder.flush();
       output.flush();
 
-      String json = new String(output.toByteArray());
-
-      JsonNode[] result = {MAPPER.readTree(json)};
-      return new SchemaAndValue(new SnowflakeJsonSchema(), result);
+      return MAPPER.readTree(output.toByteArray());
     } catch (IOException e)
     {
       throw SnowflakeErrors.ERROR_0010.getException("Failed to parse AVRO " +

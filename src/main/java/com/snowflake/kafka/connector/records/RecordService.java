@@ -37,6 +37,7 @@ public class RecordService extends Logging
   private static final String KEY = "key";
   private static final String CONTENT = "content";
   private static final String META = "meta";
+  private static final String SCHEMA_ID = "schema_id";
 
   /**
    * process records
@@ -72,13 +73,13 @@ public class RecordService extends Logging
     {
       throw SnowflakeErrors.ERROR_0009.getException();
     }
-    if (!(record.value() instanceof JsonNode[]))
+    if (!(record.value() instanceof SnowflakeRecordContent))
     {
       throw SnowflakeErrors.ERROR_0010
-        .getException("Input record should be JSON format");
+        .getException("Input record should be SnowflakeRecordContent object");
     }
 
-    JsonNode[] contents = (JsonNode[]) record.value();
+    SnowflakeRecordContent content = (SnowflakeRecordContent) record.value();
 
     ObjectNode meta = mapper.createObjectNode();
     meta.put(OFFSET, record.kafkaOffset());
@@ -91,6 +92,12 @@ public class RecordService extends Logging
       meta.put(record.timestampType().name, record.timestamp());
     }
 
+    //include schema id if using avro with schema registry
+    if (content.getSchemaID() != -1)
+    {
+      meta.put(SCHEMA_ID, content.getSchemaID());
+    }
+
     //include String key
     if (record.keySchema().equals(Schema.STRING_SCHEMA))
     {
@@ -98,7 +105,7 @@ public class RecordService extends Logging
     }
 
     StringBuilder buffer = new StringBuilder();
-    for (JsonNode node : contents)
+    for (JsonNode node : content.getData())
     {
       ObjectNode data = mapper.createObjectNode();
       data.set(CONTENT, node);

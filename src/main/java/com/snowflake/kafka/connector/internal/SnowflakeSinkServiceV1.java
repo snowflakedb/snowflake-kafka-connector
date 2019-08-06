@@ -3,7 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.RecordService;
-import com.snowflake.kafka.connector.records.SnowflakeBrokenRecordSchema;
+import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 
@@ -311,8 +311,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       //ignore ingested files
       if (record.kafkaOffset() > processedOffset)
       {
+        if (!(record.value() instanceof SnowflakeRecordContent))
+        {
+          throw SnowflakeErrors.ERROR_0019.getException();
+        }
         //broken record
-        if (record.valueSchema().name().equals(SnowflakeBrokenRecordSchema.NAME))
+        else if (((SnowflakeRecordContent) record.value()).isBroken())
         {
           writeBrokenDataToTableStage(record);
           //don't move committed offset in this case
@@ -350,7 +354,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     {
       String fileName = FileNameUtils.fileName(prefix, record.kafkaOffset(),
         record.kafkaOffset());
-      conn.putToTableStage(tableName, fileName, (byte[]) record.value());
+      conn.putToTableStage(tableName, fileName,
+        ((SnowflakeRecordContent) record.value()).getBrokenData());
     }
 
     private long getOffset()

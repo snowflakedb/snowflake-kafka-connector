@@ -186,6 +186,8 @@ class InternalUtils
         case Utils.PRIVATE_KEY_PASSPHRASE:
           privateKeyPassphrase = entry.getValue();
           break;
+        default:
+          //ignore unrecognized keys
       }
     }
 

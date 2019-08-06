@@ -23,23 +23,4 @@ public class ValueSchemaTest
     assert schema.field("") == null;
     assert schema.schema() == null;
   }
-
-  @Test
-  public void testSnowflakeBrokenRecordSchema()
-  {
-    Schema schema = new SnowflakeBrokenRecordSchema();
-
-    assert schema.type() == Schema.Type.BYTES;
-    assert !schema.isOptional();
-    assert schema.defaultValue() == null;
-    assert schema.name().equals(SnowflakeBrokenRecordSchema.NAME);
-    assert schema.version() == SnowflakeBrokenRecordSchema.VERSION;
-    assert schema.doc() == null;
-    assert schema.parameters() == null;
-    assert schema.keySchema() == null;
-    assert schema.valueSchema() == null;
-    assert schema.fields() == null;
-    assert schema.field("") == null;
-    assert schema.schema() == null;
-  }
 }

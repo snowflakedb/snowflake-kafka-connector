@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.records;
 
+import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.record.TimestampType;
@@ -9,10 +10,15 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class MetaColumnTest
 {
   private static String META = "meta";
+  private static final String TEST_FILE_NAME = "test.avro";
 
   private String topic = "test";
   private int partition = 0;
@@ -24,7 +30,7 @@ public class MetaColumnTest
     SnowflakeConverter converter = new SnowflakeJsonConverter();
     RecordService service = new RecordService();
     SchemaAndValue input = converter.toConnectData(topic, ("{\"name\":\"test" +
-      "\"}").getBytes());
+      "\"}").getBytes(StandardCharsets.UTF_8));
     long timestamp = System.currentTimeMillis();
 
     //no timestamp
@@ -33,7 +39,7 @@ public class MetaColumnTest
         input.schema(), input.value(), 0, timestamp,
         TimestampType.NO_TIMESTAMP_TYPE);
 
-    String output =  service.processRecord(record);
+    String output = service.processRecord(record);
 
     JsonNode result = mapper.readTree(output);
 
@@ -63,5 +69,49 @@ public class MetaColumnTest
 
     assert result.get(META).has(TimestampType.LOG_APPEND_TIME.name);
     assert result.get(META).get(TimestampType.LOG_APPEND_TIME.name).asLong() == timestamp;
+  }
+
+  @Test
+  public void testSchemaID() throws IOException
+  {
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input = converter.toConnectData(topic, ("{\"name\":\"test" +
+      "\"}").getBytes(StandardCharsets.UTF_8));
+
+    //no schema id
+    SinkRecord record = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
+      , "test", input.schema(), input.value(), 0);
+    SnowflakeRecordContent content = (SnowflakeRecordContent) record.value();
+
+    assert content.getSchemaID() == -1;
+
+    //broken data
+    input = converter.toConnectData(topic, ("123adsada").getBytes(StandardCharsets.UTF_8));
+    record = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
+      , "test", input.schema(), input.value(), 0);
+    content = (SnowflakeRecordContent) record.value();
+
+    assert content.getSchemaID() == -1;
+
+    //avro without schema registry
+    converter = new SnowflakeAvroConverterWithoutSchemaRegistry();
+    URL resource = ConverterTest.class.getResource(TEST_FILE_NAME);
+    byte[] testFile = Files.readAllBytes(Paths.get(resource.getFile()));
+    input = converter.toConnectData(topic, testFile);
+    record = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
+      , "test", input.schema(), input.value(), 0);
+    content = (SnowflakeRecordContent) record.value();
+
+    assert content.getSchemaID() == -1;
+
+    //include schema id
+    MockSchemaRegistryClient client = new MockSchemaRegistryClient();
+    converter = new SnowflakeAvroConverter();
+    ((SnowflakeAvroConverter) converter).setSchemaRegistry(client);
+    input = converter.toConnectData(topic, client.getData());
+    record = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
+      , "test", input.schema(), input.value(), 0);
+    content = (SnowflakeRecordContent) record.value();
+    assert content.getSchemaID() == 1;
   }
 }

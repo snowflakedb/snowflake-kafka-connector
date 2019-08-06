@@ -40,7 +40,7 @@ public class SeekableInputSource implements SeekableInput
    * constructor, create a seekable input source from byte array
    * @param bytes byte array
    */
-  public SeekableInputSource(byte[] bytes)
+  SeekableInputSource(final byte[] bytes)
   {
     this.source = bytes;
     this.length = bytes.length;

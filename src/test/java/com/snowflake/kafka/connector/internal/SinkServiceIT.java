@@ -4,8 +4,6 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
-import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -14,7 +12,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Test;
 
-import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -91,7 +89,7 @@ public class SinkServiceIT
   }
 
   @Test
-  public void testIngestion() throws IOException, InterruptedException,
+  public void testIngestion() throws InterruptedException,
     SQLException
   {
     conn.createTable(table);
@@ -103,12 +101,12 @@ public class SinkServiceIT
         .addTask(table, topic, partition)
         .build();
 
-    JsonNode value = MAPPER.readTree("{\"name\":\"test\"}");
-    JsonNode[] values = {value};
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input = converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
     long offset = 0;
 
     SinkRecord record1 = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
-      , "test", new SnowflakeJsonSchema(), values, offset);
+      , "test", input.schema(), input.value(), offset);
 
     service.insert(record1);
     List<String> files = conn.listStage(stage,
@@ -181,11 +179,12 @@ public class SinkServiceIT
       {
         for (int i = 0; i < numOfRecord; i++)
         {
-          JsonNode value = MAPPER.readTree("{\"name\":\"test\"}");
-          JsonNode[] values = {value};
+          SnowflakeConverter converter = new SnowflakeJsonConverter();
+          SchemaAndValue input = converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes());
+
           sink.insert(
             new SinkRecord(topic, partition, Schema.STRING_SCHEMA
-              , "test", new SnowflakeJsonSchema(), values, i));
+              , "test", input.schema(), input.value(), i));
         }
 
         return conn.listStage(stage,
@@ -298,9 +297,8 @@ public class SinkServiceIT
     String topic = "test";
     int partition = 1;
     long offset = 123;
-    byte[] data = "as12321".getBytes();
     SnowflakeConverter converter = new SnowflakeJsonConverter();
-    SchemaAndValue result = converter.toConnectData(topic, data);
+    SchemaAndValue result = converter.toConnectData(topic, "as12321".getBytes(StandardCharsets.UTF_8));
     SinkRecord record = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
       , "test", result.schema(), result.value(), offset);
 

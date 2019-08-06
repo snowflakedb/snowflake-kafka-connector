@@ -36,13 +36,15 @@ public class SnowflakeJsonConverter extends SnowflakeConverter
   {
     try
     {
-      //always return an array of JsonNode because AVRO record may contains multiple records
-      JsonNode[] result = {MAPPER.readTree(bytes)};
-      return new SchemaAndValue(new SnowflakeJsonSchema(), result);
+      //always return an array of JsonNode because AVRO record may contains
+      // multiple records
+      return new SchemaAndValue(new SnowflakeJsonSchema(),
+        new SnowflakeRecordContent(MAPPER.readTree(bytes)));
     } catch (Exception ex)
     {
       LOGGER.error(Logging.logMessage("Failed to parse JSON record\n" + ex.toString()));
-      return new SchemaAndValue(new SnowflakeBrokenRecordSchema(), bytes);
+      return new SchemaAndValue(new SnowflakeJsonSchema(),
+        new SnowflakeRecordContent(bytes));
     }
   }
 }
