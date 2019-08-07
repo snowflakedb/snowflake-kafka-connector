@@ -4,7 +4,6 @@ import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
@@ -108,6 +107,13 @@ public class MockSchemaRegistryClient implements SchemaRegistryClient
   }
 
   @Override
+  public int register(final String s, final Schema schema, final int i,
+                      final int i1) throws IOException, RestClientException
+  {
+    return 0;
+  }
+
+  @Override
   public Schema getByID(final int i) throws IOException, RestClientException
   {
     return this.schema;
@@ -174,6 +180,31 @@ public class MockSchemaRegistryClient implements SchemaRegistryClient
   }
 
   @Override
+  public String setMode(final String s) throws IOException, RestClientException
+  {
+    return null;
+  }
+
+  @Override
+  public String setMode(final String s, final String s1) throws IOException,
+    RestClientException
+  {
+    return null;
+  }
+
+  @Override
+  public String getMode() throws IOException, RestClientException
+  {
+    return null;
+  }
+
+  @Override
+  public String getMode(final String s) throws IOException, RestClientException
+  {
+    return null;
+  }
+
+  @Override
   public Collection<String> getAllSubjects() throws IOException,
     RestClientException
   {
@@ -211,5 +242,11 @@ public class MockSchemaRegistryClient implements SchemaRegistryClient
   public Integer deleteSchemaVersion(final Map<String, String> map, final String s, final String s1) throws IOException, RestClientException
   {
     return null;
+  }
+
+  @Override
+  public void reset()
+  {
+
   }
 }
