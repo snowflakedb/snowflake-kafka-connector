@@ -9,7 +9,7 @@ public class SnowflakeSinkServiceFactory
 {
   /**
    * create service builder
-   *
+   * @param conn snowflake connection service
    * @return a builder instance
    */
   public static SnowflakeSinkServiceBuilder builder(
