@@ -149,9 +149,9 @@ public class Utils
    * @param objName snowflake object name
    * @return true if given object name is valid
    */
-  private static boolean isValidSnowflakeObjectIdentifier(String objName)
+  static boolean isValidSnowflakeObjectIdentifier(String objName)
   {
-    return objName.matches("^[_a-zA-Z]{1}[_$a-zA-Z0-9]+$");
+    return objName.matches("^[_a-zA-Z]{1}[_$a-zA-Z0-9.]+$");
   }
 
   /**
