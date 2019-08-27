@@ -12,4 +12,11 @@ public class UtilsTest
     String name1 = "table!@#$%^;()";
     assert !Utils.isValidSnowflakeObjectIdentifier(name1);
   }
+
+  @Test
+  public void testVersionChecker()
+  {
+    Utils.checkConnectorVersion();
+  }
+
 }

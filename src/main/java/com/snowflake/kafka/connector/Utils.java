@@ -21,12 +21,18 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Various arbitrary helper functions
@@ -46,7 +52,8 @@ public class Utils
   public static final String SF_URL = "snowflake.url.name";
   public static final String SF_SSL = "sfssl";                 // for test only
   public static final String SF_WAREHOUSE = "sfwarehouse";     //for test only
-  public static final String PRIVATE_KEY_PASSPHRASE = "snowflake.private.key.passphrase";
+  public static final String PRIVATE_KEY_PASSPHRASE = "snowflake.private.key" +
+    ".passphrase";
 
   //constants strings
   private static final String KAFKA_OBJECT_PREFIX = "SNOWFLAKE_KAFKA_CONNECTOR";
@@ -61,8 +68,64 @@ public class Utils
   private static final String HTTP_PROXY_HOST = "http.proxyHost";
   private static final String HTTP_PROXY_PORT = "http.proxyPort";
 
+  //mvn repo
+  private static final String MVN_REPO =
+    "http://repo1.maven.org/maven2/com/snowflake/snowflake-kafka-connector/";
+
   private static final Logger LOGGER =
     LoggerFactory.getLogger(Utils.class.getName());
+
+  /**
+   * check the connector version from Maven repo, report if any update
+   * version is available.
+   */
+  static void checkConnectorVersion()
+  {
+    try
+    {
+      String latestVersion = null;
+      int largestNumber = 0;
+      URL url = new URL(MVN_REPO);
+      InputStream input = url.openStream();
+      BufferedReader bufferedReader =
+        new BufferedReader(new InputStreamReader(input));
+      String line;
+      Pattern pattern = Pattern.compile("(\\d+\\.\\d+\\.\\d+?)");
+      while ((line = bufferedReader.readLine()) != null)
+      {
+        Matcher matcher = pattern.matcher(line);
+        if (matcher.find())
+        {
+          String version = matcher.group(1);
+          String[] numbers = version.split("\\.");
+          int num =
+            Integer.parseInt(numbers[0]) * 10000 +
+              Integer.parseInt(numbers[1]) * 100 +
+              Integer.parseInt(numbers[2]);
+          if(num > largestNumber)
+          {
+            largestNumber = num;
+            latestVersion = version;
+          }
+        }
+      }
+
+      if(latestVersion == null)
+      {
+        throw new Exception("can't retrieve version number from Maven repo");
+      }
+      else if(!latestVersion.equals(VERSION))
+      {
+        LOGGER.warn(Logging.logMessage("Connector update is available, please upgrade Snowflake Kafka Connector ({} -> {}) ", VERSION, latestVersion));
+      }
+    } catch (Exception e)
+    {
+      LOGGER.warn(Logging.logMessage("can't verify latest connector version " +
+        "from Maven Repo\n{}", e.getMessage()));
+    }
+
+
+  }
 
   /**
    * @param appName connector name
@@ -109,18 +172,19 @@ public class Utils
 
   /**
    * Enable JVM proxy
+   *
    * @param config connector configuration
    * @return false if wrong config
    */
   static boolean enableJVMProxy(Map<String, String> config)
   {
-    if (config.containsKey(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST)&&
+    if (config.containsKey(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST) &&
       !config.get(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST).isEmpty())
     {
-      if (!config.containsKey(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT)||
+      if (!config.containsKey(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT) ||
         config.get(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT).isEmpty())
       {
-        LOGGER.error(Logging.logMessage("{} is empty", 
+        LOGGER.error(Logging.logMessage("{} is empty",
           SnowflakeSinkConnectorConfig.JVM_PROXY_PORT));
         return false;
       }
@@ -130,7 +194,7 @@ public class Utils
         String port = config.get(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT);
         LOGGER.info(Logging.logMessage("enable jvm proxy: {}:{}",
           host, port));
-      
+
         //enable https proxy
         System.setProperty(HTTP_USE_PROXY, "true");
         System.setProperty(HTTP_PROXY_HOST, host);
@@ -156,6 +220,7 @@ public class Utils
 
   /**
    * Validate input configuration
+   *
    * @param config configuration Map
    * @return false if contains any invalid settings
    */
@@ -169,7 +234,8 @@ public class Utils
     // instead of using the values directly
 
     // unique name of this connector instance
-    String connectorName = config.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "");
+    String connectorName =
+      config.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "");
     if (connectorName.isEmpty() || !isValidSnowflakeObjectIdentifier(connectorName))
     {
       LOGGER.error(Logging.logMessage("{} is empty or invalid. It " +
@@ -179,7 +245,7 @@ public class Utils
     }
 
     //verify buffer.flush.time
-    if(!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC))
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC))
     {
       LOGGER.error(Logging.logMessage("{} is empty",
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
@@ -191,15 +257,15 @@ public class Utils
       {
         long time = Long.parseLong(
           config.get(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
-        if(time < SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN)
+        if (time < SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN)
         {
-          LOGGER.error((Logging.logMessage("{} is {}, it should be greater than {}",
+          LOGGER.error((Logging.logMessage("{} is {}, it should be greater " +
+              "than {}",
             SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, time,
             SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN)));
           configIsValid = false;
         }
-      }
-      catch (Exception e)
+      } catch (Exception e)
       {
         LOGGER.error(Logging.logMessage("{} should be an integer",
           SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
@@ -208,7 +274,7 @@ public class Utils
     }
 
     //verify buffer.count.records
-    if(!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS))
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS))
     {
       LOGGER.error(Logging.logMessage("{} is empty",
         SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
@@ -220,14 +286,13 @@ public class Utils
       {
         long num = Long.parseLong(
           config.get(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
-        if(num < 0)
+        if (num < 0)
         {
           LOGGER.error(Logging.logMessage("{} is {}, it should not be negative",
             SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, num));
           configIsValid = false;
         }
-      }
-      catch (Exception e)
+      } catch (Exception e)
       {
         LOGGER.error(Logging.logMessage("{} should be an integer",
           SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
@@ -250,8 +315,7 @@ public class Utils
             SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX));
           configIsValid = false;
         }
-      }
-      catch (Exception e)
+      } catch (Exception e)
       {
         LOGGER.error(Logging.logMessage("{} should be an integer",
           SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
@@ -295,7 +359,8 @@ public class Utils
     }
 
     // validate snowflake.topic2table.map (optional parameter)
-    Map<String, String> topicsTablesMap = new HashMap<>();  // initialize even if not present in
+    Map<String, String> topicsTablesMap = new HashMap<>();  // initialize
+    // even if not present in
     // config, as it is needed
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
     {
@@ -411,7 +476,7 @@ public class Utils
       configIsValid = false;
     }
     // jvm proxy settings
-   configIsValid = Utils.enableJVMProxy(config) && configIsValid;
+    configIsValid = Utils.enableJVMProxy(config) && configIsValid;
 
     //schemaRegistry
 
@@ -420,20 +485,22 @@ public class Utils
     String userInfo = config.getOrDefault(
       SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_USER_INFO, "");
 
-    if(authSource.isEmpty() ^ userInfo.isEmpty())
+    if (authSource.isEmpty() ^ userInfo.isEmpty())
     {
       configIsValid = false;
-      LOGGER.error(Logging.logMessage("Parameters {} and {} should be defined at the same time",
+      LOGGER.error(Logging.logMessage("Parameters {} and {} should be defined" +
+          " at the same time",
         SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_USER_INFO,
         SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE));
     }
 
-    if(!configIsValid)
+    if (!configIsValid)
     {
       throw SnowflakeErrors.ERROR_0001.getException();
     }
 
-    return new ParameterValidationResult(connectorName, topics, topicsTablesMap);
+    return new ParameterValidationResult(connectorName, topics,
+      topicsTablesMap);
   }
 
   static class ParameterValidationResult
@@ -441,6 +508,7 @@ public class Utils
     final String connectorName;
     final List<String> topics;
     final Map<String, String> topicsTableMap;
+
     ParameterValidationResult(
       String connectorName,
       List<String> topics,
