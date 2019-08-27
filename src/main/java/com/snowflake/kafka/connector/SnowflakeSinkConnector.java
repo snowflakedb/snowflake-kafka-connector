@@ -85,6 +85,7 @@ public class SnowflakeSinkConnector extends SinkConnector
   @Override
   public void start(final Map<String, String> parsedConfig)
   {
+    Utils.checkConnectorVersion();
     LOGGER.info(Logging.logMessage("SnowflakeSinkConnector:start"));
     setupComplete = false;
     connectorStartTime = System.currentTimeMillis();
