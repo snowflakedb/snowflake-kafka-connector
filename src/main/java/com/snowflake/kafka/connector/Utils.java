@@ -81,6 +81,7 @@ public class Utils
    */
   static void checkConnectorVersion()
   {
+    LOGGER.info(Logging.logMessage("Snowflake Kafka Connector Version: {}", VERSION));
     try
     {
       String latestVersion = null;
