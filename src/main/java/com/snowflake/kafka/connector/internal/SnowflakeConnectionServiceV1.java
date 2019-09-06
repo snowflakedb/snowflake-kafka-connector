@@ -292,12 +292,6 @@ public class SnowflakeConnectionServiceV1 extends Logging
           "VARIANT", tableName);
         compatible = false;
       }
-      //only two columns
-      else if (result.next())
-      {
-        logDebug("table {} contains more than two columns", tableName);
-        compatible = false;
-      }
       else
       {
         compatible = true;
