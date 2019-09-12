@@ -76,6 +76,50 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>io.confluent</groupId>
+                <version>0.11.1</version>
+                <artifactId>kafka-connect-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>kafka-connect</goal>
+                        </goals>
+                        <configuration>
+                            <title>Snowflake Kafka Connector</title>
+                            <documentationUrl>https://docs.snowflake.net/manuals/user-guide/kafka-connector.html</documentationUrl>
+                            <description>
+                                Snowflake is the data warehouse built for the cloud. The Snowflake Kafka connector lets you quickly and easily move JSON and AVRO messages from Kafka topics into Snowflake tables.
+                            </description>
+                            <logo>logo/snowflake.png</logo>
+
+                            <supportProviderName>Snowflake, Inc.</supportProviderName>
+                            <supportSummary>This feature is in preview, and provided primarily for evaluation and testing purposes. If you decide to use a preview feature in production, please contact Snowflake Support before doing so.</supportSummary>
+
+                            <ownerUsername>snowflakeinc</ownerUsername>
+                            <ownerType>organization</ownerType>
+                            <ownerName>Snowflake, Inc.</ownerName>
+                            <ownerUrl>https://snowflake.com/</ownerUrl>
+                            <ownerLogo>logo/snowflake.png</ownerLogo>
+
+                            <componentTypes>
+                                <componentType>sink</componentType>
+                            </componentTypes>
+                            <tags>
+                                <tag>Snowflake</tag>
+                                <tag>jdbc</tag>
+                                <tag>database</tag>
+                                <tag>dbms</tag>
+                                <tag>rdbms</tag>
+                                <tag>sql</tag>
+                                <tag>sql server</tag>
+                            </tags>
+                            <confluentControlCenterIntegration>true</confluentControlCenterIntegration>
+                            <supportedEncodings>UTF-8</supportedEncodings>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-site-plugin</artifactId>
                 <version>3.7.1</version>
