@@ -25,11 +25,7 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -81,7 +77,8 @@ public class Utils
    */
   static void checkConnectorVersion()
   {
-    LOGGER.info(Logging.logMessage("Snowflake Kafka Connector Version: {}", VERSION));
+    LOGGER.info(Logging.logMessage("Snowflake Kafka Connector Version: {}",
+      VERSION));
     try
     {
       String latestVersion = null;
@@ -103,7 +100,7 @@ public class Utils
             Integer.parseInt(numbers[0]) * 10000 +
               Integer.parseInt(numbers[1]) * 100 +
               Integer.parseInt(numbers[2]);
-          if(num > largestNumber)
+          if (num > largestNumber)
           {
             largestNumber = num;
             latestVersion = version;
@@ -111,13 +108,15 @@ public class Utils
         }
       }
 
-      if(latestVersion == null)
+      if (latestVersion == null)
       {
         throw new Exception("can't retrieve version number from Maven repo");
       }
-      else if(!latestVersion.equals(VERSION))
+      else if (!latestVersion.equals(VERSION))
       {
-        LOGGER.warn(Logging.logMessage("Connector update is available, please upgrade Snowflake Kafka Connector ({} -> {}) ", VERSION, latestVersion));
+        LOGGER.warn(Logging.logMessage("Connector update is available, please" +
+          " upgrade Snowflake Kafka Connector ({} -> {}) ", VERSION,
+          latestVersion));
       }
     } catch (Exception e)
     {
@@ -216,16 +215,21 @@ public class Utils
    */
   static boolean isValidSnowflakeObjectIdentifier(String objName)
   {
-    return objName.matches("^[_a-zA-Z]{1}[_$a-zA-Z0-9.]+$");
+    return objName.matches("^[_a-zA-Z]{1}[_$a-zA-Z0-9]+$");
+  }
+
+  static boolean isValidSnowflakeTableName(String tableName)
+  {
+    return tableName.matches("^([_a-zA-Z]{1}[_$a-zA-Z0-9]+\\.){0,2}[_a-zA-Z]{1}[_$a-zA-Z0-9]+$");
   }
 
   /**
    * Validate input configuration
    *
    * @param config configuration Map
-   * @return false if contains any invalid settings
+   * @return connector name
    */
-  static ParameterValidationResult validateConfig(Map<String, String> config)
+  static String validateConfig(Map<String, String> config)
   {
     boolean configIsValid = true; // verify all config
 
@@ -330,114 +334,10 @@ public class Utils
       configIsValid = false;
     }
 
-
-    // validate topics
-    List<String> topics = new ArrayList<>();
-    if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS))
+    if(config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP) &&
+    parseTopicToTableMap(config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))==null)
     {
-      topics = new ArrayList<>(Arrays.asList(config.get
-        (SnowflakeSinkConnectorConfig.TOPICS).split(",")));
-
-      LOGGER.info(Logging.logMessage("Connector {} consuming topics {}",
-        connectorName, topics.toString()));
-
-      // check for duplicates
-      HashSet<String> topicsHashSet = new HashSet<>(Arrays.asList(config.get
-        (SnowflakeSinkConnectorConfig.TOPICS).split(",")));
-      if (topics.size() != topicsHashSet.size())
-      {
-        LOGGER.error(Logging.logMessage("{}: {} contains duplicate " +
-            "entries.", SnowflakeSinkConnectorConfig.TOPICS,
-          config.get(SnowflakeSinkConnectorConfig.TOPICS)));
-        configIsValid = false;
-      }
-    }
-    else
-    {
-      LOGGER.error(Logging.logMessage("{} cannot be empty.",
-        SnowflakeSinkConnectorConfig.TOPICS));
       configIsValid = false;
-    }
-
-    // validate snowflake.topic2table.map (optional parameter)
-    Map<String, String> topicsTablesMap = new HashMap<>();  // initialize
-    // even if not present in
-    // config, as it is needed
-    if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
-    {
-      List<String> topicsTables = new ArrayList<>(Arrays.asList(config.get
-        (SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP).split(",")));
-
-      for (String topicTable : topicsTables)
-      {
-        String[] tt = topicTable.split(":");
-
-        if (tt.length != 2 || tt[0].isEmpty() || tt[1].isEmpty())
-        {
-          LOGGER.error(Logging.logMessage("Invalid {} config format: {}",
-            SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, topicsTables));
-          configIsValid = false;
-          break;
-        }
-
-        if (!isValidSnowflakeObjectIdentifier(tt[1]))
-        {
-          LOGGER.error(
-            Logging.logMessage("table name {} should have at least 2 " +
-              "characters, start with _a-zA-Z, and only contains " +
-              "_$a-zA-z0-9", tt[1]));
-          configIsValid = false;
-        }
-
-        if (!topics.contains(tt[0]))
-        {
-          LOGGER.error(Logging.logMessage("topic name {} has not been " +
-            "registered in this task", tt[0]));
-          configIsValid = false;
-        }
-
-        if (topicsTablesMap.containsKey(tt[0]))
-        {
-          LOGGER.error(Logging.logMessage("topic name {} is duplicated",
-            tt[0]));
-          configIsValid = false;
-        }
-
-        if (topicsTablesMap.containsValue(tt[1]))
-        {
-          //todo: support multiple topics map to one table ?
-          LOGGER.error(Logging.logMessage("table name {} is duplicated",
-            tt[1]));
-          configIsValid = false;
-        }
-
-        topicsTablesMap.put(tt[0], tt[1]);
-      }
-    }
-
-    // validate that topics which don't have a table name mapped, have a
-    // Snowflake compatible name
-    for (String topic : topics)
-    {
-      if (!topicsTablesMap.containsKey(topic))
-      {
-        if (isValidSnowflakeObjectIdentifier(topic))
-        {
-          topicsTablesMap.put(topic, topic);  // use topic name as the table
-          // name
-        }
-        else
-        {
-          LOGGER.error(Logging.logMessage("topic: {} in {}: {} config " +
-              "should either match Snowflake object identifier syntax, or {}:" +
-              " {} config should contain a mapping table name.", topic,
-            SnowflakeSinkConnectorConfig.TOPICS,
-            config.get(SnowflakeSinkConnectorConfig.TOPICS),
-            SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
-            config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)));
-          configIsValid = false;
-        }
-      }
     }
 
     // sanity check
@@ -500,25 +400,55 @@ public class Utils
       throw SnowflakeErrors.ERROR_0001.getException();
     }
 
-    return new ParameterValidationResult(connectorName, topics,
-      topicsTablesMap);
+    return connectorName;
   }
 
-  static class ParameterValidationResult
+  static Map<String, String> parseTopicToTableMap(String input)
   {
-    final String connectorName;
-    final List<String> topics;
-    final Map<String, String> topicsTableMap;
-
-    ParameterValidationResult(
-      String connectorName,
-      List<String> topics,
-      Map<String, String> topicsTableMap)
+    Map<String, String> topic2Table = new HashMap<>();
+    boolean isInvalid = false;
+    for (String str : input.split(","))
     {
-      this.connectorName = connectorName;
-      this.topics = topics;
-      this.topicsTableMap = topicsTableMap;
+      String[] tt = str.split(":");
+
+
+      if (tt.length != 2 || tt[0].trim().isEmpty() || tt[1].trim().isEmpty())
+      {
+        LOGGER.error(Logging.logMessage("Invalid {} config format: {}",
+          SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, input));
+        return null;
+      }
+
+      String topic = tt[0].trim();
+      String table = tt[1].trim();
+
+      if (!isValidSnowflakeTableName(table))
+      {
+        LOGGER.error(
+          Logging.logMessage("table name {} should have at least 2 " +
+            "characters, start with _a-zA-Z, and only contains " +
+            "_$a-zA-z0-9", table));
+        isInvalid = true;
+      }
+
+      if (topic2Table.containsKey(topic))
+      {
+        LOGGER.error(Logging.logMessage("topic name {} is duplicated",
+          topic));
+        isInvalid = true;
+      }
+
+      if (topic2Table.containsValue(table))
+      {
+        //todo: support multiple topics map to one table ?
+        LOGGER.error(Logging.logMessage("table name {} is duplicated",
+          table));
+        isInvalid = true;
+      }
+      topic2Table.put(tt[0].trim(), tt[1].trim());
     }
+
+    return isInvalid? null: topic2Table;
   }
 
 }

@@ -42,9 +42,6 @@ public class SnowflakeSinkConnector extends SinkConnector
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
   private String connectorName;       // unique name of this connector instance
-  private List<String> topics;        // list of topics to be processed by
-  // this connector instance
-  private Map<String, String> topicsTablesMap;    // map of topics to tables
 
   // SnowflakeJDBCWrapper provides methods to interact with user's snowflake
   // account and executes queries
@@ -72,6 +69,7 @@ public class SnowflakeSinkConnector extends SinkConnector
   {
     setupComplete = false;
   }
+
 
   /**
    * start method will only be called on a clean connector,
@@ -109,7 +107,7 @@ public class SnowflakeSinkConnector extends SinkConnector
     // default : 5000000 bytes
     // Cumulative size of records buffered in memory per partition before
     // ingesting to Snowflake
-    if(!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES))
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES))
     {
       config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
         SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT + "");
@@ -121,7 +119,7 @@ public class SnowflakeSinkConnector extends SinkConnector
     // set buffer.flush.time -- a Snowflake connector setting
     // default: 30 seconds
     // time to flush cached data
-    if(!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC))
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC))
     {
       config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT + "");
@@ -130,11 +128,7 @@ public class SnowflakeSinkConnector extends SinkConnector
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT));
     }
 
-    Utils.ParameterValidationResult result =  Utils.validateConfig(config);
-
-    connectorName = result.connectorName;
-    topics = result.topics;
-    topicsTablesMap = result.topicsTableMap;
+    connectorName = Utils.validateConfig(config);
 
     // create a persisted connection, and validate snowflake connection
     // config as a side effect
@@ -152,85 +146,7 @@ public class SnowflakeSinkConnector extends SinkConnector
 
     telemetryClient.reportKafkaStart(
       connectorStartTime,
-      topics.size(),
-      topicsTablesMap.size(),
       maxTasks);
-
-    for (String topic : topics)
-    {
-      // create or validate table
-      String table = topicsTablesMap.get(topic);
-
-      try
-      {
-        if (conn.tableExist(table))
-        {
-          if (conn.isTableCompatible(table))
-          {
-            // connector may have been restarted or user has pre-created the
-            // correct table
-            LOGGER.info(Logging.logMessage("Using existing table {} for topic" +
-              " {}.", table, topic));
-            telemetryClient.reportKafkaReuseTable(table);
-          }
-          else
-          {
-            throw SnowflakeErrors.ERROR_5003.getException("table name: " +
-              table, telemetryClient);
-          }
-        }
-        else
-        {
-          LOGGER.info(Logging.logMessage("Creating new table {} for topic {}.",
-            table, topic));
-          conn.createTable(table);
-        }
-
-        // store topic and table name in config for use by SinkTask and
-        // SnowflakeJDBCWrapper
-        //todo: refactor it, it is an issue if topic name conflicts with config name.
-        config.put(topic, table);
-      } catch (Exception e)
-      {
-        // cleanup
-        stop();
-        throw SnowflakeErrors.ERROR_5006.getException(e, telemetryClient);
-      }
-
-
-      // create or validate stage
-      String stageName = Utils.stageName(connectorName, table);
-      try
-      {
-        if (conn.stageExist(stageName))
-        {
-          if (conn.isTableCompatible(stageName))
-          {
-            // connector may have been restarted
-            // user is NOT expected to pre-create any internal stages!
-            LOGGER.info(Logging.logMessage("Connector recovery: using " +
-              "existing internal stage {} for topic {}.", stageName, topic));
-            telemetryClient.reportKafkaReuseStage(stageName);
-          }
-          else
-          {
-            throw SnowflakeErrors.ERROR_5004.getException("Stage name: " +
-              stageName, telemetryClient);
-          }
-        }
-        else
-        {
-          LOGGER.info(Logging.logMessage("Creating new internal stage {} for " +
-            "topic {}.", stageName, topic));
-          conn.createStage(stageName);
-        }
-      } catch (Exception e)
-      {
-        // cleanup
-        stop();
-        throw SnowflakeErrors.ERROR_5006.getException(e, telemetryClient);
-      }
-    }
 
     setupComplete = true;
   }
@@ -249,52 +165,7 @@ public class SnowflakeSinkConnector extends SinkConnector
   {
     setupComplete = false;
     LOGGER.info(Logging.logMessage("SnowflakeSinkConnector:stop"));
-
-    // Get the list of topics and drop corresponding internal stages.
-    // Ensure that each file in the internal stage has been ingested, OR
-    // copied to 'table stage' and an error message is logged.
-    for (String topic : topics)
-    {
-      String stageName = Utils.stageName(connectorName, topicsTablesMap.get
-        (topic));
-      try
-      {
-        if (conn.stageExist(stageName))
-        {
-          LOGGER.info(Logging.logMessage("Dropping internal stage: {} (if " +
-            "empty).", stageName));
-          conn.dropStageIfEmpty(stageName);
-        }
-        else
-        {
-          // User should not mess up with these stages outside the connector
-          String errorMsg = "Attempting to drop a non-existant internal stage" +
-            " " + stageName + ". This should not happen. This stage may " +
-            "have been manually dropped, which may affect ingestion " +
-            "guarantees.";
-          LOGGER.error(Logging.logMessage(errorMsg));
-          telemetryClient.reportKafkaNonFatalError(errorMsg);
-
-          // continue-on-error in the stop method to cleanup other objects
-        }
-      } catch (Exception ex)
-      {
-        String errorMsg = "Failed to drop empty internal stage: " + stageName
-          + ". It can safely be removed. Exception: " + ex.toString();
-        LOGGER.error(Logging.logMessage(errorMsg));
-        telemetryClient.reportKafkaNonFatalError(errorMsg);
-
-        // continue-on-error in the stop method to cleanup other objects
-      }
-
-      telemetryClient.reportKafkaStop(connectorStartTime);
-
-      // TODO (GA): discover if there are any leaked stages and clean them up
-      // when possible
-      // TODO (GA): discover if there are any leaked pipes and clean them up
-      // when possible
-      // We are potentially laking pipe objects.
-    }
+    telemetryClient.reportKafkaStop(connectorStartTime);
   }
 
   // TODO (post GA): override reconfigure(java.util.Map<java.lang.String,java

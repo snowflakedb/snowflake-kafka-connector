@@ -21,11 +21,8 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   private static final String TYPE = "type";
   private static final String KAFKA_CONNECTOR = "kafka_connector";
   private static final String DATA = "data";
-  private static final String IS_RESTART = "is_restart";
   private static final String START_TIME = "start_time";
   private static final String END_TIME = "end_time";
-  private static final String NUM_TOPICS = "num_topics";
-  private static final String NUM_MAPPED_TABLES = "num_mapped_tables";
   private static final String MAX_TASKS = "max_tasks";
   private static final String APP_NAME = "app_name";
   private static final String RECORD_NUMBER = "record_number";
@@ -52,14 +49,11 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaStart(final long startTime, final int numTopics,
-                               final int numMappedTables, final int maxTasks)
+  public void reportKafkaStart(final long startTime, final int maxTasks)
   {
     ObjectNode msg = MAPPER.createObjectNode();
 
     msg.put(START_TIME, startTime);
-    msg.put(NUM_TOPICS, numTopics);
-    msg.put(NUM_MAPPED_TABLES, numMappedTables);
     msg.put(MAX_TASKS, maxTasks);
     msg.put(APP_NAME, getAppName());
 

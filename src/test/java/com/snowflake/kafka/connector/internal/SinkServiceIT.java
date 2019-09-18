@@ -135,7 +135,8 @@ public class SinkServiceIT
 
     service.close();
     Thread.sleep(60 * 1000);
-    assert !conn.pipeExist(pipe);
+    // don't drop pipe in current version
+//    assert !conn.pipeExist(pipe);
   }
 
   @Test
