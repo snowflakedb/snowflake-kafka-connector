@@ -207,7 +207,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       this.bufferLock = new ReentrantLock();
       this.fileListLock = new ReentrantLock();
       //wait sinkConnector start
-      waitTableAndStage();
+      createTableAndStage();
       recover();
 
       cleanerExecutor = Executors.newSingleThreadExecutor();
@@ -643,44 +643,55 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       stopCleaner();
       stopFlusher();
       ingestionService.close();
-      if (conn.listStage(stageName, prefix).isEmpty()) // keep pipe if stage
-      // not empty
-      {
-        conn.dropPipe(pipeName);
-      }
       sendUsageReport();
       logInfo("pipe {}: service closed", pipeName);
     }
 
     /**
      * SinkConnector ans SinkTasks start at the same time, however, SinkTasks
-     * need wait until SinkConnector created tables and stages.
+     * need create table and wait SinkConnector to create stage.
      * This method checks table and stage existence for at most 120 times(10
      * min)
      * And then throws exceptions if table or stage doesn't exit
      */
-    private void waitTableAndStage()
+    private void createTableAndStage()
     {
-      final int maxRetry = 120;
-      final long sleepTime = 5 * 1000; //5 sec
-
-      for (int i = 0; i < maxRetry; i++)
+      //create table if not exists
+      if (conn.tableExist(tableName))
       {
-        if (conn.tableExist(tableName) && conn.stageExist(stageName))
+        if (conn.isTableCompatible(tableName))
         {
-          return;
+          logInfo("Using existing table {}.", tableName);
+          telemetryService.reportKafkaReuseTable(tableName);
         }
-        try
+        else
         {
-          logInfo("sleep 5sec to allow setup to complete");
-          Thread.sleep(sleepTime);
-        } catch (InterruptedException e)
-        {
-          logError("System error when thread sleep\n{}", e);
+          throw SnowflakeErrors.ERROR_5003.getException("table name: " + tableName, telemetryService);
         }
       }
-      //track this issue, may need more time to start
-      throw SnowflakeErrors.ERROR_5008.getException(conn.getTelemetryClient());
+      else
+      {
+        logInfo("Creating new table {}.", tableName);
+        conn.createTable(tableName);
+      }
+
+      if(conn.stageExist(stageName))
+      {
+        if(conn.isStageCompatible(stageName))
+        {
+          logInfo("Using existing stage {}.", stageName);
+          telemetryService.reportKafkaReuseStage(stageName);
+        }
+        else
+        {
+          throw SnowflakeErrors.ERROR_5004.getException("stage name: " + stageName, telemetryService);
+        }
+      }
+      else
+      {
+        logInfo("Creating new stage {}.", stageName);
+        conn.createStage(stageName);
+      }
     }
 
     private void sendUsageReport()

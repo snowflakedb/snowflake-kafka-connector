@@ -53,14 +53,6 @@ public class ConnectorConfigTest
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testEmptyTopics()
-  {
-    Map<String, String> config = getConfig();
-    config.remove(SnowflakeSinkConnectorConfig.TOPICS);
-    Utils.validateConfig(config);
-  }
-
-  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testURL()
   {
     Map<String, String> config = getConfig();
@@ -142,14 +134,6 @@ public class ConnectorConfigTest
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testIllegalTopicName()
-  {
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.TOPICS,"$@#$#@%^$12312");
-    Utils.validateConfig(config);
-  }
-
-  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testIllegalTopicMap()
   {
     Map<String, String> config = getConfig();
@@ -166,14 +150,6 @@ public class ConnectorConfigTest
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testNonexistentTopic()
-  {
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,"topic:table1");
-    Utils.validateConfig(config);
-  }
-
-  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testDuplicatedTopic()
   {
     Map<String, String> config = getConfig();
@@ -186,15 +162,6 @@ public class ConnectorConfigTest
   {
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,"topic1:table1,topic2:table1");
-    Utils.validateConfig(config);
-  }
-
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testNameMapNotCovered()
-  {
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.TOPICS,"!@#,$%^,&*(");
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,"!@#:table1,$%^:table2");
     Utils.validateConfig(config);
   }
 

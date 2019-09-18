@@ -125,6 +125,11 @@ public enum SnowflakeErrors
     "Invalid record data",
     "Unrecognizable record content, please use Snowflake Converters"
   ),
+  ERROR_0020(
+    "0020",
+    "Invalid topic name",
+    "Topic name is empty String or null"
+  ),
   // Snowflake connection issues 1---
   ERROR_1001(
     "1001",

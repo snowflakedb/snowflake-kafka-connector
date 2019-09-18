@@ -21,10 +21,9 @@ public class MetaColumnIT
   private String topic = "test";
   private int partition = 0;
   private String tableName = TestUtils.randomTableName();
-  private String stageName = Utils.stageName(TestUtils.TEST_CONNECTOR_NAME,
-    tableName);
-  private String pipeName = Utils.stageName(TestUtils.TEST_CONNECTOR_NAME,
-    tableName);
+  private String stageName = Utils.stageName(TestUtils.TEST_CONNECTOR_NAME, tableName);
+  private String pipeName = Utils.pipeName(TestUtils.TEST_CONNECTOR_NAME,
+    tableName, partition);
   private SnowflakeConnectionService conn = TestUtils.getConnectionService();
   private ObjectMapper mapper = new ObjectMapper();
 
