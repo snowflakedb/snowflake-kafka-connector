@@ -18,11 +18,37 @@ import java.nio.file.Paths;
 public class MetaColumnTest
 {
   private static String META = "meta";
+  private static String KEY = "key";
   private static final String TEST_FILE_NAME = "test.avro";
 
   private String topic = "test";
   private int partition = 0;
   private ObjectMapper mapper = new ObjectMapper();
+
+  @Test
+  public void testKey() throws IOException
+  {
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    RecordService service = new RecordService();
+    SchemaAndValue input = converter.toConnectData(topic, ("{\"name\":\"test" +
+      "\"}").getBytes(StandardCharsets.UTF_8));
+    long timestamp = System.currentTimeMillis();
+
+    //no timestamp
+    SinkRecord record =
+      new SinkRecord(topic, partition, Schema.STRING_SCHEMA, "test",
+        input.schema(), input.value(), 0, timestamp,
+        TimestampType.NO_TIMESTAMP_TYPE);
+
+    String output = service.processRecord(record);
+
+    JsonNode result = mapper.readTree(output);
+
+    assert result.get(META).has(KEY);
+    assert result.get(META).get(KEY).asText().equals("test");
+
+    System.out.println(result.toString());
+  }
 
   @Test
   public void testTimeStamp() throws IOException
