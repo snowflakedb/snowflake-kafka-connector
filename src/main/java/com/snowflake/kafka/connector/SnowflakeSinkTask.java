@@ -19,6 +19,7 @@ package com.snowflake.kafka.connector;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -28,7 +29,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.*;
 
 /**
@@ -42,6 +42,8 @@ public class SnowflakeSinkTask extends SinkTask
 {
   // connector configuration
   private Map<String, String> config;
+
+  private Map<String, String> topic2table;
   // config buffer.count.records -- how many records to buffer
   private long bufferCountRecords;
   // config buffer.size.bytes -- aggregate size in bytes of all records to buffer
@@ -76,6 +78,12 @@ public class SnowflakeSinkTask extends SinkTask
     LOGGER.info(Logging.logMessage("SnowflakeSinkTask:start"));
 
     this.config = parsedConfig;
+
+    //generate topic to table map
+    this.topic2table =
+      config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)?
+        Utils.parseTopicToTableMap(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)
+        : new HashMap<>();
 
     //enable jvm proxy
     Utils.enableJVMProxy(config);
@@ -126,7 +134,7 @@ public class SnowflakeSinkTask extends SinkTask
 
     partitions.forEach(
       partition -> {
-        String tableName = config.get(partition.topic());
+        String tableName = tableName(partition.topic(), topic2table);
         sinkBuilder.addTask(tableName, partition.topic(), partition.partition());
       }
     );
@@ -202,4 +210,60 @@ public class SnowflakeSinkTask extends SinkTask
   {
     return Utils.VERSION;
   }
+
+  /**
+   * verify topic name, and generate valid table name
+   * @param topic input topic name
+   * @param topic2table topic to table map
+   * @return table name
+   */
+  static String tableName(String topic, Map<String, String> topic2table)
+  {
+    final String PLACE_HOLDER = "_";
+    if(topic == null || topic.isEmpty())
+    {
+      throw SnowflakeErrors.ERROR_0020.getException("topic name: " + topic);
+    }
+    if(topic2table.containsKey(topic))
+    {
+      return topic2table.get(topic);
+    }
+    if(Utils.isValidSnowflakeObjectIdentifier(topic))
+    {
+      return topic;
+    }
+    int hash = Math.abs(topic.hashCode());
+
+    StringBuilder result = new StringBuilder();
+
+    int index = 0;
+    //first char
+    if(topic.substring(index,index + 1).matches("[_a-zA-Z]"))
+    {
+      result.append(topic.charAt(0));
+      index ++;
+    }
+    else
+    {
+      result.append(PLACE_HOLDER);
+    }
+    while(index < topic.length())
+    {
+      if (topic.substring(index, index + 1).matches("[_$a-zA-Z0-9]"))
+      {
+        result.append(topic.charAt(index));
+      }
+      else
+      {
+        result.append(PLACE_HOLDER);
+      }
+      index ++;
+    }
+
+    result.append(PLACE_HOLDER);
+    result.append(hash);
+
+    return result.toString();
+  }
+
 }

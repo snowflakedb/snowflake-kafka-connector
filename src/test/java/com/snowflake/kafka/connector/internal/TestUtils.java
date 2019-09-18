@@ -46,7 +46,7 @@ public class TestUtils
   private static final String ENCRYPTED_PRIVATE_KEY = "encrypted_private_key";
   private static final String PRIVATE_KEY_PASSPHRASE = "private_key_passphrase";
   private static final Random random = new Random();
-  final static String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
+  public final static String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
 
 
   //profile path

@@ -14,12 +14,9 @@ public interface SnowflakeTelemetryService
   /**
    * Event of connector start
    * @param startTime task start time
-   * @param numTopics number of topics
-   * @param numMappedTables number of tables
    * @param maxTasks max number of tasks
    */
-  void reportKafkaStart(long startTime, int numTopics, int numMappedTables,
-                        int maxTasks);
+  void reportKafkaStart(long startTime, int maxTasks);
 
   /**
    * Event of connector stop
