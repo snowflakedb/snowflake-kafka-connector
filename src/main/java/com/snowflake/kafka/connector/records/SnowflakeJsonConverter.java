@@ -34,6 +34,10 @@ public class SnowflakeJsonConverter extends SnowflakeConverter
   @Override
   public SchemaAndValue toConnectData(final String s, final byte[] bytes)
   {
+    if(bytes == null)
+    {
+      return new SchemaAndValue(new SnowflakeJsonSchema(), new SnowflakeRecordContent());
+    }
     try
     {
       //always return an array of JsonNode because AVRO record may contains
