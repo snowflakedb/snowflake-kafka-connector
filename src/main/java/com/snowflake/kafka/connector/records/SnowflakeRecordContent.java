@@ -2,13 +2,26 @@ package com.snowflake.kafka.connector.records;
 
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 
 public class SnowflakeRecordContent
 {
+  private static ObjectMapper MAPPER = new ObjectMapper();
   private final JsonNode[] content;
   private final byte[] brokenData;
   private int schemaID;
   private boolean isBroken;
+
+
+  /**
+   * constructor for null value
+   */
+  SnowflakeRecordContent()
+  {
+    content = new JsonNode[1];
+    content[0] = MAPPER.createObjectNode();
+    brokenData = null;
+  }
 
   /**
    * constructor for json converter
