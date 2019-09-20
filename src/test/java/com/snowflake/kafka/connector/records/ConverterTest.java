@@ -61,6 +61,10 @@ public class ConverterTest
 
     assert jsonNodes.length == 1;
     assert node.toString().equals(jsonNodes[0].toString());
+
+    //null value
+    sv = converter.toConnectData("test",null);
+    assert ((SnowflakeRecordContent) sv.value()).getData()[0].toString().equals("{}");
   }
 
   @Test
@@ -88,6 +92,10 @@ public class ConverterTest
 
     assert jsonNodes[0].toString().equals("{\"name\":\"foo\",\"age\":30}");
     assert jsonNodes[1].toString().equals("{\"name\":\"bar\",\"age\":29}");
+
+    //null value
+    sv = converter.toConnectData("test",null);
+    assert ((SnowflakeRecordContent) sv.value()).getData()[0].toString().equals("{}");
   }
 
   @Test
@@ -101,6 +109,10 @@ public class ConverterTest
     assert content.getData().length == 1;
     assert content.getData()[0].asText().equals(mapper.readTree("{\"int" +
       "\":1234}").asText());
+
+    //null value
+    input = converter.toConnectData("test",null);
+    assert ((SnowflakeRecordContent) input.value()).getData()[0].toString().equals("{}");
 
   }
 

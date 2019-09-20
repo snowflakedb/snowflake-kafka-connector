@@ -57,5 +57,11 @@ public class RecordContentTest
     assert TestUtils.assertError(SnowflakeErrors.ERROR_5012,
       content::getData);
     assert new String(content.getBrokenData(), StandardCharsets.UTF_8).equals("123");
+
+    //null value
+    content = new SnowflakeRecordContent();
+    assert content.getData().length == 1;
+    assert content.getData()[0].size() == 0;
+    assert content.getData()[0].toString().equals("{}");
   }
 }

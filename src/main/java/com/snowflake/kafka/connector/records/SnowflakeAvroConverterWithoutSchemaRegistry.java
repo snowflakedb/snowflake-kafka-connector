@@ -40,6 +40,10 @@ public class SnowflakeAvroConverterWithoutSchemaRegistry extends SnowflakeConver
   @Override
   public SchemaAndValue toConnectData(final String topic, final byte[] value)
   {
+    if(value == null)
+    {
+      return new SchemaAndValue(new SnowflakeJsonSchema(), new SnowflakeRecordContent());
+    }
     try
     {
       //avro input parser
