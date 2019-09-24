@@ -127,26 +127,11 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
   {
     GenericDatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
     InputStream input = new ByteArrayInputStream(bytes);
-    ByteArrayOutputStream output = new ByteArrayOutputStream();
-    DatumWriter<GenericRecord> writer = new GenericDatumWriter<>(schema);
-    JsonEncoder encoder;
-    try
-    {
-      encoder = EncoderFactory.get().jsonEncoder(schema, output, false);
-    } catch (IOException e)
-    {
-      throw SnowflakeErrors.ERROR_5001.getException(e);
-    }
-
     Decoder decoder = DecoderFactory.get().binaryDecoder(input, null);
     try
     {
       GenericRecord datum = reader.read(null, decoder);
-      writer.write(datum, encoder);
-      encoder.flush();
-      output.flush();
-
-      return mapper.readTree(output.toByteArray());
+      return mapper.readTree(datum.toString());
     } catch (IOException e)
     {
       throw SnowflakeErrors.ERROR_0010.getException("Failed to parse AVRO " +
