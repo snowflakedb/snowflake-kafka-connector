@@ -20,6 +20,7 @@ import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.avro.file.DataFileReader;
+import org.apache.avro.file.SeekableByteArrayInput;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
@@ -52,7 +53,7 @@ public class SnowflakeAvroConverterWithoutSchemaRegistry extends SnowflakeConver
 
       try
       {
-        dataFileReader = new DataFileReader<>(new SeekableInputSource(value),
+        dataFileReader = new DataFileReader<>(new SeekableByteArrayInput(value),
           datumReader);
       } catch (Exception e)
       {
