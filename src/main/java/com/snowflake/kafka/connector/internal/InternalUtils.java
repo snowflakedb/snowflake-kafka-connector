@@ -3,18 +3,20 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.Utils;
 import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
 import net.snowflake.ingest.connection.IngestStatus;
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
+import org.bouncycastle.openssl.jcajce.JceOpenSSLPKCS8DecryptorProviderBuilder;
+import org.bouncycastle.operator.InputDecryptorProvider;
+import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.crypto.Cipher;
-import javax.crypto.EncryptedPrivateKeyInfo;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
-import java.security.AlgorithmParameters;
-import java.security.Key;
+import java.io.StringReader;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
-import java.security.spec.KeySpec;
+import java.security.Security;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -86,22 +88,28 @@ class InternalUtils
     key = key.replaceAll("-+[A-Za-z ]+-+", "");
     key = key.replaceAll("\\s", "");
 
+    StringBuilder builder = new StringBuilder();
+    builder.append("-----BEGIN ENCRYPTED PRIVATE KEY-----");
+    for (int i = 0; i < key.length(); i++)
+    {
+      if(i%64==0)
+      {
+        builder.append("\n");
+      }
+      builder.append(key.charAt(i));
+    }
+    builder.append("\n-----END ENCRYPTED PRIVATE KEY-----");
+    key = builder.toString();
+    Security.addProvider(new BouncyCastleProvider());
     try
     {
-      byte[] code = Base64.decodeBase64(key);
-      EncryptedPrivateKeyInfo encryptPKInfo =
-        new EncryptedPrivateKeyInfo(code);
-
-      Cipher cipher = Cipher.getInstance(encryptPKInfo.getAlgName());
-      PBEKeySpec pbeKeySpec = new PBEKeySpec(passphrase.toCharArray());
-      SecretKeyFactory secretKeyFactory =
-        SecretKeyFactory.getInstance(encryptPKInfo.getAlgName());
-      Key pbeKey = secretKeyFactory.generateSecret(pbeKeySpec);
-      AlgorithmParameters algorithmParameters = encryptPKInfo.getAlgParameters();
-      cipher.init(Cipher.DECRYPT_MODE, pbeKey, algorithmParameters);
-      KeySpec keySpec = encryptPKInfo.getKeySpec(cipher);
-      KeyFactory kf = KeyFactory.getInstance("RSA");
-      return kf.generatePrivate(keySpec);
+      PEMParser pemParser = new PEMParser(new StringReader(key));
+      PKCS8EncryptedPrivateKeyInfo encryptedPrivateKeyInfo = (PKCS8EncryptedPrivateKeyInfo) pemParser.readObject();
+      pemParser.close();
+      InputDecryptorProvider pkcs8Prov = new JceOpenSSLPKCS8DecryptorProviderBuilder().build(passphrase.toCharArray());
+      JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME);
+      PrivateKeyInfo decryptedPrivateKeyInfo = encryptedPrivateKeyInfo.decryptPrivateKeyInfo(pkcs8Prov);
+      return converter.getPrivateKey(decryptedPrivateKeyInfo);
     }
     catch (Exception e)
     {
@@ -115,7 +123,7 @@ class InternalUtils
     key = key.replaceAll("-+[A-Za-z ]+-+", "");
     key = key.replaceAll("\\s", "");
 
-    java.security.Security.addProvider(new net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider());
+    java.security.Security.addProvider(new BouncyCastleProvider());
     byte[] encoded = Base64.decodeBase64(key);
     try
     {
