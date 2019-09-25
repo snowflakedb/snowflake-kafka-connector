@@ -10,8 +10,7 @@ env:
 script:
 - "mvn verify -Dgpg.skip=true"
 before_install:
-- openssl aes-256-cbc -K $encrypted_5c2104be40e4_key -iv $encrypted_5c2104be40e4_iv
-  -in profile.json.enc -out profile.json -d
+- openssl aes-256-cbc -K $encrypted_5c2104be40e4_key -iv $encrypted_5c2104be40e4_iv -in profile.json.enc -out profile.json -d
 
 after_success:
 - bash <(curl -s https://codecov.io/bash)
