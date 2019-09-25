@@ -108,7 +108,8 @@ public class RecordService extends Logging
     }
 
     //include String key
-    if (record.keySchema().toString().equals(Schema.STRING_SCHEMA.toString()))
+    if (record.keySchema().toString().equals(Schema.STRING_SCHEMA.toString())
+      && record.key() != null)
     {
       meta.put(KEY, record.key().toString());
     }
