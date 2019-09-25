@@ -37,7 +37,7 @@ public class Utils
 {
 
   //Connector version, change every release
-  static final String VERSION = "0.4.0";
+  static final String VERSION = "0.5.0";
 
   //connector parameter list
   public static final String NAME = "name";
