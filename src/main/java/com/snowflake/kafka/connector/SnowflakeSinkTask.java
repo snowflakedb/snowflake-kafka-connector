@@ -82,7 +82,7 @@ public class SnowflakeSinkTask extends SinkTask
     //generate topic to table map
     this.topic2table =
       config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)?
-        Utils.parseTopicToTableMap(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)
+        Utils.parseTopicToTableMap(config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
         : new HashMap<>();
 
     //enable jvm proxy
