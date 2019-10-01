@@ -274,34 +274,34 @@ public class SnowflakeConnectionServiceV1 extends Logging
       stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
       result = stmt.executeQuery();
-      //first column is RECORD_METADATA
-      if ((!result.next()) ||
-        (!result.getString(1).equals("RECORD_METADATA")) ||
-        (!result.getString(2).equals("VARIANT")))
+      boolean hasMeta = false;
+      boolean hasContent = false;
+      boolean allNullable = true;
+      while (result.next())
       {
-        logDebug("the first column of table {} is not RECORD_METADATA : " +
-          "VARIANT", tableName);
-        compatible = false;
+        switch (result.getString(1))
+        {
+          case "RECORD_METADATA":
+            if(result.getString(2).equals("VARIANT"))
+            {
+              hasMeta = true;
+            }
+            break;
+          case "RECORD_CONTENT":
+            if(result.getString(2).equals("VARIANT"))
+            {
+              hasContent = true;
+            }
+            break;
+          default:
+            if(result.getString(4).equals("N"))
+            {
+              allNullable = false;
+            }
+
+        }
       }
-      //second column is RECORD_CONTENT
-      else if ((!result.next()) ||
-        (!result.getString(1).equals("RECORD_CONTENT")) ||
-        (!result.getString(2).equals("VARIANT")))
-      {
-        logDebug("the second column of table {} is not RECORD_CONTENT : " +
-          "VARIANT", tableName);
-        compatible = false;
-      }
-      //only two columns
-      else if (result.next())
-      {
-        logDebug("table {} contains more than two columns", tableName);
-        compatible = false;
-      }
-      else
-      {
-        compatible = true;
-      }
+      compatible = hasMeta && hasContent && allNullable;
     } catch (SQLException e)
     {
       logDebug("table {} doesn't exist", tableName);
