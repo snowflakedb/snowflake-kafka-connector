@@ -4,10 +4,35 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import org.junit.Test;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class UtilsTest
 {
+  @Test
+  public void testGetTopicToTableMap()
+  {
+    //no map
+    Map<String, String> config = new HashMap<>();
+    Map<String, String> result = SnowflakeSinkTask.getTopicToTableMap(config);
+    assert result.isEmpty();
+
+    //has map
+    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "aaa:bbb,ccc:ddd");
+    result = SnowflakeSinkTask.getTopicToTableMap(config);
+    assert result.size() == 2;
+    assert result.containsKey("aaa");
+    assert result.get("aaa").equals("bbb");
+    assert result.containsKey("ccc");
+    assert result.get("ccc").equals("ddd");
+
+    //has map, but invalid data
+    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "12321");
+    result = SnowflakeSinkTask.getTopicToTableMap(config);
+    assert result.isEmpty();
+  }
+
+
   @Test
   public void testObjectIdentifier()
   {
