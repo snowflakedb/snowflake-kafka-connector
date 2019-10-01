@@ -260,6 +260,32 @@ public class ConnectionServiceIT
   }
 
   @Test
+  public void testTableCompatible()
+  {
+    TestUtils.executeQuery(
+      "create or replace table " + tableName + "(record_content variant, record_metadata variant, other int)"
+    );
+    assert conn.isTableCompatible(tableName);
+
+    TestUtils.executeQuery(
+      "create or replace table " + tableName + "(record_content variant, record_metadata string, other int)"
+    );
+    assert !conn.isTableCompatible(tableName);
+
+    TestUtils.executeQuery(
+      "create or replace table " + tableName + "(record_content variant, abc variant, other int)"
+    );
+    assert !conn.isTableCompatible(tableName);
+
+    TestUtils.executeQuery(
+      "create or replace table " + tableName + "(record_content variant, record_metadata variant, other int not null)"
+    );
+    assert !conn.isTableCompatible(tableName);
+  }
+
+
+
+  @Test
   public void testConnectionFunction()
   {
     SnowflakeConnectionService service = TestUtils.getConnectionService();
