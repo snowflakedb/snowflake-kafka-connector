@@ -80,10 +80,7 @@ public class SnowflakeSinkTask extends SinkTask
     this.config = parsedConfig;
 
     //generate topic to table map
-    this.topic2table =
-      config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)?
-        Utils.parseTopicToTableMap(config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
-        : new HashMap<>();
+    this.topic2table = getTopicToTableMap(config);
 
     //enable jvm proxy
     Utils.enableJVMProxy(config);
@@ -209,6 +206,29 @@ public class SnowflakeSinkTask extends SinkTask
   public String version()
   {
     return Utils.VERSION;
+  }
+
+  /**
+   * parse topic to table map
+   * @param config connector config file
+   * @return result map
+   */
+  static Map<String,String> getTopicToTableMap(Map<String, String> config)
+  {
+    if(config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
+    {
+      Map<String, String> result =
+        Utils.parseTopicToTableMap(config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP));
+      if(result != null)
+      {
+        return result;
+      }
+      LOGGER.error(Logging.logMessage(
+        "Invalid Input, Topic2Table Map disabled"
+      ));
+    }
+    return new HashMap<>();
+
   }
 
   /**
