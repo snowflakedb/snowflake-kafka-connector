@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.Utils;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayNode;
@@ -33,6 +34,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   private static final String PIPE_NAME = "pipe_name";
   private static final String TIME = "time";
   private static final String FILE_LIST = "file_list";
+  private static final String VERSION = "version";
 
   private final Telemetry telemetry;
   private String name = null;
@@ -190,6 +192,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
     msg.put(SOURCE, KAFKA_CONNECTOR);
     msg.put(TYPE, type.toString());
     msg.set(DATA, data);
+    msg.put(VERSION, Utils.VERSION); //version number
     try
     {
       telemetry.addLogToBatch(new TelemetryData(msg, System.currentTimeMillis()));
