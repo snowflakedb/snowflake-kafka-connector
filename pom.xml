@@ -111,7 +111,7 @@
                                 <tag>dbms</tag>
                                 <tag>rdbms</tag>
                                 <tag>sql</tag>
-                                <tag>sql server</tag>
+                                <tag>data warehouse</tag>
                             </tags>
                             <confluentControlCenterIntegration>true</confluentControlCenterIntegration>
                             <supportedEncodings>UTF-8</supportedEncodings>
