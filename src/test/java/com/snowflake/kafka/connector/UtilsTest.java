@@ -6,6 +6,8 @@ import org.junit.Test;
 
 import java.util.Map;
 
+import org.apache.kafka.common.config.ConfigException;
+
 public class UtilsTest
 {
   @Test
@@ -27,10 +29,20 @@ public class UtilsTest
   public void testParseTopicToTable()
   {
     String input = "adsadas";
-    assert Utils.parseTopicToTableMap(input) == null;
+    try
+    {
+      Utils.parseTopicToTableMap(input);
+      assert false;
+    }
+    catch (ConfigException e) { }
 
     input = "abc:@123,bvd:adsa";
-    assert Utils.parseTopicToTableMap(input) == null;
+    try
+    {
+      Utils.parseTopicToTableMap(input);
+      assert false;
+    }
+    catch (ConfigException e) { }
   }
 
   @Test

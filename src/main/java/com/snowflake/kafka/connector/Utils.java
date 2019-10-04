@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.kafka.common.config.ConfigException;
+
 /**
  * Various arbitrary helper functions
  */
@@ -334,10 +336,16 @@ public class Utils
       configIsValid = false;
     }
 
-    if(config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP) &&
-    parseTopicToTableMap(config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))==null)
+    if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
     {
-      configIsValid = false;
+      try
+      {
+        parseTopicToTableMap(config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP));
+      }
+      catch (ConfigException e)
+      {
+        configIsValid = false;
+      }
     }
 
     // sanity check
@@ -406,7 +414,6 @@ public class Utils
   static Map<String, String> parseTopicToTableMap(String input)
   {
     Map<String, String> topic2Table = new HashMap<>();
-    boolean isInvalid = false;
     for (String str : input.split(","))
     {
       String[] tt = str.split(":");
@@ -414,9 +421,7 @@ public class Utils
 
       if (tt.length != 2 || tt[0].trim().isEmpty() || tt[1].trim().isEmpty())
       {
-        LOGGER.error(Logging.logMessage("Invalid {} config format: {}",
-          SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, input));
-        return null;
+        throw new ConfigException(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, input, "invalid config format");
       }
 
       String topic = tt[0].trim();
@@ -424,31 +429,28 @@ public class Utils
 
       if (!isValidSnowflakeTableName(table))
       {
-        LOGGER.error(
-          Logging.logMessage("table name {} should have at least 2 " +
+        final String message = "table name " + table + " should have at least 2 " +
             "characters, start with _a-zA-Z, and only contains " +
-            "_$a-zA-z0-9", table));
-        isInvalid = true;
+            "_$a-zA-z0-9";
+        throw new ConfigException(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, input, message);
       }
 
       if (topic2Table.containsKey(topic))
       {
-        LOGGER.error(Logging.logMessage("topic name {} is duplicated",
-          topic));
-        isInvalid = true;
+        final String message = "topic name " + topic + " is duplicated";
+        throw new ConfigException(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, input, message);
       }
 
       if (topic2Table.containsValue(table))
       {
         //todo: support multiple topics map to one table ?
-        LOGGER.error(Logging.logMessage("table name {} is duplicated",
-          table));
-        isInvalid = true;
+        final String message = "table name " + table + " is duplicated";
+        throw new ConfigException(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, input, message);
       }
       topic2Table.put(tt[0].trim(), tt[1].trim());
     }
 
-    return isInvalid? null: topic2Table;
+    return topic2Table;
   }
 
 }
