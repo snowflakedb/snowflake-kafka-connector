@@ -130,6 +130,11 @@ public enum SnowflakeErrors
     "Invalid topic name",
     "Topic name is empty String or null"
   ),
+  ERROR_0021(
+    "0021",
+    "Invalid topic2table map",
+    "Failed to parse topic2table map"
+  ),
   // Snowflake connection issues 1---
   ERROR_1001(
     "1001",
