@@ -447,8 +447,11 @@ public class Utils
       }
       topic2Table.put(tt[0].trim(), tt[1].trim());
     }
-
-    return isInvalid? null: topic2Table;
+    if(isInvalid)
+    {
+      throw SnowflakeErrors.ERROR_0021.getException();
+    }
+    return topic2Table;
   }
 
 }

@@ -18,7 +18,8 @@ public class UtilsTest
     assert result.isEmpty();
 
     //has map
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "aaa:bbb,ccc:ddd");
+    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "aaa:bbb," +
+      "ccc:ddd");
     result = SnowflakeSinkTask.getTopicToTableMap(config);
     assert result.size() == 2;
     assert result.containsKey("aaa");
@@ -51,11 +52,11 @@ public class UtilsTest
   @Test
   public void testParseTopicToTable()
   {
-    String input = "adsadas";
-    assert Utils.parseTopicToTableMap(input) == null;
+    TestUtils.assertError(SnowflakeErrors.ERROR_0021,
+      () -> Utils.parseTopicToTableMap("adsadas"));
 
-    input = "abc:@123,bvd:adsa";
-    assert Utils.parseTopicToTableMap(input) == null;
+    TestUtils.assertError(SnowflakeErrors.ERROR_0021,
+      () -> Utils.parseTopicToTableMap("abc:@123,bvd:adsa"));
   }
 
   @Test
@@ -67,14 +68,16 @@ public class UtilsTest
     assert SnowflakeSinkTask.tableName("ab@cd", topic2table).equals("abcd");
     assert SnowflakeSinkTask.tableName("1234", topic2table).equals("_1234");
 
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, ()-> SnowflakeSinkTask.tableName("", topic2table));
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, ()-> SnowflakeSinkTask.tableName(null, topic2table));
+    TestUtils.assertError(SnowflakeErrors.ERROR_0020,
+      () -> SnowflakeSinkTask.tableName("", topic2table));
+    TestUtils.assertError(SnowflakeErrors.ERROR_0020,
+      () -> SnowflakeSinkTask.tableName(null, topic2table));
 
     String topic = "bc*def";
-    assert SnowflakeSinkTask.tableName(topic, topic2table).equals("bc_def_"+ Math.abs(topic.hashCode()));
+    assert SnowflakeSinkTask.tableName(topic, topic2table).equals("bc_def_" + Math.abs(topic.hashCode()));
 
     topic = "12345";
-    assert SnowflakeSinkTask.tableName(topic, topic2table).equals("_12345_"+ Math.abs(topic.hashCode()));
+    assert SnowflakeSinkTask.tableName(topic, topic2table).equals("_12345_" + Math.abs(topic.hashCode()));
   }
 
   @Test
