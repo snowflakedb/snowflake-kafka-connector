@@ -29,6 +29,9 @@ public class FileNameUtilsTest
     assert FileNameUtils.removeGZFromFileName("abc.tar.gz").equals("abc.tar");
     assert FileNameUtils.removeGZFromFileName("abc.json").equals("abc.json");
 
+    String brokenFileName = FileNameUtils.brokenRecordFileName(TestUtils.TEST_CONNECTOR_NAME, topic, partition, startOffset);
+
+    assert TestUtils.verifyBrokenRecordName(brokenFileName);
   }
 
   @Test
