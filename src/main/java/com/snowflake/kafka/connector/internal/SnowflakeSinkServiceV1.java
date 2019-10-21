@@ -352,8 +352,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private void writeBrokenDataToTableStage(SinkRecord record)
     {
-      String fileName = FileNameUtils.fileName(prefix, record.kafkaOffset(),
-        record.kafkaOffset());
+      String fileName = FileNameUtils.brokenRecordFileName(prefix, record.kafkaOffset());
       conn.putToTableStage(tableName, fileName,
         ((SnowflakeRecordContent) record.value()).getBrokenData());
     }

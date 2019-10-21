@@ -314,9 +314,8 @@ public class SinkServiceIT
     List<String> files = conn.listStage(table, "", true);
     assert files.size() == 1;
     String name = files.get(0);
-    assert FileNameUtils.fileNameToPartition(name) == partition;
-    assert FileNameUtils.fileNameToStartOffset(name) == offset;
-    assert FileNameUtils.fileNameToEndOffset(name) == offset;
+    assert TestUtils.getPartitionFromBrokenFileName(name) == partition;
+    assert TestUtils.getOffsetFromBrokenFileName(name) == offset;
 
     service.close();
   }

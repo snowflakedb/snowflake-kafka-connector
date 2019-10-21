@@ -47,6 +47,33 @@ class FileNameUtils
   }
 
   /**
+   * generate file name for broken data
+   * @param appName app name
+   * @param table table name
+   * @param partition partition id
+   * @param offset record offset
+   * @return file name
+   */
+  static String brokenRecordFileName(String appName, String table, int partition, long offset)
+  {
+    return brokenRecordFileName(filePrefix(appName, table, partition), offset);
+  }
+
+  /**
+   * generate file name for broken data
+   * @param prefix prefix
+   * @param offset record offset
+   * @return file name
+   */
+  static String brokenRecordFileName(String prefix, long offset)
+  {
+    long time = System.currentTimeMillis();
+    String fileName = prefix + offset + "_" + time + ".gz";
+    LOGGER.debug(Logging.logMessage("generated broken data file name: {}", fileName));
+    return fileName;
+  }
+
+  /**
    * generate file prefix
    * @param appName connector name
    * @param table table name
