@@ -32,6 +32,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 public class TestUtils
@@ -47,6 +49,7 @@ public class TestUtils
   private static final String PRIVATE_KEY_PASSPHRASE = "private_key_passphrase";
   private static final Random random = new Random();
   public final static String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
+  private static final Pattern BROKEN_RECORD_PATTERN = Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(\\d+)\\.gz$");
 
 
   //profile path
@@ -318,6 +321,52 @@ public class TestUtils
     }
 
     return 0;
+  }
+
+  /**
+   * verify broken record file name is valid
+   * @param name file name
+   * @return true is file name is valid, false otherwise
+   */
+  static boolean verifyBrokenRecordName(String name)
+  {
+    return BROKEN_RECORD_PATTERN.matcher(name).find();
+  }
+
+  /**
+   * read partition number from broken record file
+   * @param name file name
+   * @return partition number
+   */
+  static int getPartitionFromBrokenFileName(String name)
+  {
+    return  Integer.parseInt(readFromBrokenFileName(name, 1));
+  }
+
+  /**
+   * read offset from broken record file
+   * @param name file name
+   * @return offset
+   */
+  static long getOffsetFromBrokenFileName(String name)
+  {
+    return  Long.parseLong(readFromBrokenFileName(name, 2));
+  }
+
+  /**
+   * Extract info from broken record file
+   * @param name file name
+   * @param index group index
+   * @return target info
+   */
+  private static String readFromBrokenFileName(String name, int index)
+  {
+    Matcher matcher = BROKEN_RECORD_PATTERN.matcher(name);
+    if(!matcher.find())
+    {
+      throw SnowflakeErrors.ERROR_0008.getException(("Input file name: " + name));
+    }
+    return matcher.group(index);
   }
 }
 
