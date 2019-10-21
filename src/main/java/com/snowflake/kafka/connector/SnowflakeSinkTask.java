@@ -30,6 +30,8 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.*;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 
 /**
  * SnowflakeSinkTask implements SinkTask for Kafka Connect framework.
@@ -40,8 +42,11 @@ import java.util.*;
  */
 public class SnowflakeSinkTask extends SinkTask
 {
+  private static final long WAIT_TIME = 5 * 1000;//5 sec
+  private static final int REPEAT_TIME = 12; //60 sec
+
   // connector configuration
-  private Map<String, String> config;
+  private Map<String, String> config = null;
 
   private Map<String, String> topic2table;
   // config buffer.count.records -- how many records to buffer
@@ -50,11 +55,11 @@ public class SnowflakeSinkTask extends SinkTask
   private long bufferSizeBytes;
   private long bufferFlushTime;
 
-  private SnowflakeSinkService sink;
+  private SnowflakeSinkService sink = null;
 
   // snowflake JDBC connection provides methods to interact with user's snowflake
   // account and execute queries
-  private SnowflakeConnectionService conn;
+  private SnowflakeConnectionService conn = null;
 
   private static final Logger LOGGER = LoggerFactory
     .getLogger(SnowflakeSinkTask.class);
@@ -66,6 +71,31 @@ public class SnowflakeSinkTask extends SinkTask
   {
     //nothing
   }
+
+  private SnowflakeConnectionService getConnection()
+  {
+    try
+    {
+      waitFor(() -> conn != null);
+    } catch (Exception e)
+    {
+      throw SnowflakeErrors.ERROR_5013.getException();
+    }
+    return conn;
+  }
+
+  private SnowflakeSinkService getSink()
+  {
+    try
+    {
+      waitFor(() -> sink != null && !sink.isClosed());
+    } catch (Exception e)
+    {
+      throw SnowflakeErrors.ERROR_5014.getException();
+    }
+    return sink;
+  }
+
 
   /**
    * start method handles configuration parsing and one-time setup of the
@@ -124,7 +154,7 @@ public class SnowflakeSinkTask extends SinkTask
     ));
 
     SnowflakeSinkServiceFactory.SnowflakeSinkServiceBuilder sinkBuilder =
-      SnowflakeSinkServiceFactory.builder(conn)
+      SnowflakeSinkServiceFactory.builder(getConnection())
       .setFileSize(bufferSizeBytes)
       .setRecordNumber(bufferCountRecords)
       .setFlushTime(bufferFlushTime);
@@ -150,7 +180,7 @@ public class SnowflakeSinkTask extends SinkTask
   @Override
   public void close(final Collection<TopicPartition> partitions)
   {
-    sink.close();
+    getSink().close();
   }
 
   /**
@@ -162,7 +192,7 @@ public class SnowflakeSinkTask extends SinkTask
   @Override
   public void put(final Collection<SinkRecord> records)
   {
-    records.forEach(sink::insert);
+    records.forEach(getSink()::insert);
   }
 
   /**
@@ -183,7 +213,7 @@ public class SnowflakeSinkTask extends SinkTask
     offsets.forEach(
       (topicPartition, offsetAndMetadata) ->
       {
-        long offSet = sink.getOffset(topicPartition);
+        long offSet = getSink().getOffset(topicPartition);
         if(offSet == 0)
         {
           committedOffsets.put(topicPartition, offsetAndMetadata);
@@ -191,7 +221,7 @@ public class SnowflakeSinkTask extends SinkTask
         }
         else
         {
-          committedOffsets.put(topicPartition, new OffsetAndMetadata(sink.getOffset(topicPartition)));
+          committedOffsets.put(topicPartition, new OffsetAndMetadata(getSink().getOffset(topicPartition)));
         }
       }
     );
@@ -284,6 +314,24 @@ public class SnowflakeSinkTask extends SinkTask
     result.append(hash);
 
     return result.toString();
+  }
+
+  /**
+   * wait for specific status
+   * @param func status checker
+   */
+  private static void waitFor(Supplier<Boolean> func) throws InterruptedException,
+    TimeoutException
+  {
+    for (int i = 0; i < REPEAT_TIME; i++)
+    {
+      if (func.get())
+      {
+        return;
+      }
+      Thread.sleep(WAIT_TIME);
+    }
+    throw new TimeoutException();
   }
 
 }
