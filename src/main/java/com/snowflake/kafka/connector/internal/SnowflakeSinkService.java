@@ -38,6 +38,12 @@ public interface SnowflakeSinkService
   void close();
 
   /**
+   * retrieve sink service status
+   * @return true is closed
+   */
+  boolean isClosed();
+
+  /**
    * change maximum number of record cached in buffer to control the flush rate,
    * 0 for unlimited
    * @param num a non negative long number represents number of record limitation

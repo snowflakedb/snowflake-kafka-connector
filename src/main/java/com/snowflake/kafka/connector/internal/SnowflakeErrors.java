@@ -289,6 +289,16 @@ public enum SnowflakeErrors
     "5012",
     "Data is broken",
     "Failed to access record data because it is broken"
+  ),
+  ERROR_5013(
+    "5013",
+    "Failed to initialize SinkTask",
+    "SinkTask hasn't been started before calling OPEN function"
+  ),
+  ERROR_5014(
+    "5014",
+    "Failed to put records",
+    "SinkTask hasn't been initialized before calling PUT function"
   )
   ;
 

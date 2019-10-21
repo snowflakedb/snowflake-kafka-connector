@@ -30,7 +30,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
   private final SnowflakeConnectionService conn;
   private final Map<String, ServiceContext> pipes;
   private final RecordService recordService;
-  private boolean stopped;
+  private boolean isStopped;
   private final SnowflakeTelemetryService telemetryService;
 
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn)
@@ -46,7 +46,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     this.pipes = new HashMap<>();
     this.conn = conn;
     this.recordService = new RecordService();
-    stopped = false;
+    isStopped = false;
     this.telemetryService = conn.getTelemetryClient();
   }
 
@@ -87,10 +87,16 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
   @Override
   public void close()
   {
-    this.stopped = true; // release all cleaner and flusher threads
+    this.isStopped = true; // release all cleaner and flusher threads
     pipes.forEach(
       (name, context) -> context.close()
     );
+  }
+
+  @Override
+  public boolean isClosed()
+  {
+    return this.isStopped;
   }
 
   @Override
@@ -226,7 +232,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         () ->
         {
           logInfo("pipe {}: cleaner started", pipeName);
-          while (!stopped)
+          while (!isStopped)
           {
             try
             {
@@ -264,7 +270,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         () ->
         {
           logInfo("pipe {}: flusher started", pipeName);
-          while (!stopped)
+          while (!isStopped)
           {
             try
             {
