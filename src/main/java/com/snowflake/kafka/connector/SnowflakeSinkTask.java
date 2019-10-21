@@ -30,6 +30,7 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.*;
+import java.util.function.Supplier;
 
 /**
  * SnowflakeSinkTask implements SinkTask for Kafka Connect framework.
@@ -58,6 +59,8 @@ public class SnowflakeSinkTask extends SinkTask
 
   private static final Logger LOGGER = LoggerFactory
     .getLogger(SnowflakeSinkTask.class);
+
+  private final ConnectorStatus connectorStatus = new ConnectorStatus();
 
   /**
    * default constructor, invoked by kafka connect framework
@@ -96,6 +99,8 @@ public class SnowflakeSinkTask extends SinkTask
       .builder()
       .setProperties(parsedConfig)
       .build();
+
+    connectorStatus.start();
   }
 
   /**
@@ -107,7 +112,7 @@ public class SnowflakeSinkTask extends SinkTask
   public void stop()
   {
     LOGGER.info(Logging.logMessage("SnowflakeSinkTask:stop"));
-
+    connectorStatus.stop();
   }
 
   /**
@@ -123,6 +128,15 @@ public class SnowflakeSinkTask extends SinkTask
       "SnowflakeSinkTask:open, TopicPartitions: {}", partitions
     ));
 
+    //wait SinkTask Start
+    try
+    {
+      connectorStatus.waitForStart();
+    } catch (InterruptedException e)
+    {
+      throw SnowflakeErrors.ERROR_5013.getException();
+    }
+
     SnowflakeSinkServiceFactory.SnowflakeSinkServiceBuilder sinkBuilder =
       SnowflakeSinkServiceFactory.builder(conn)
       .setFileSize(bufferSizeBytes)
@@ -137,6 +151,20 @@ public class SnowflakeSinkTask extends SinkTask
     );
 
     sink = sinkBuilder.build();
+    connectorStatus.open();
+  }
+
+  private SnowflakeSinkService getSink()
+  {
+    //wait for initialized
+    try
+    {
+      connectorStatus.waitForOpen();
+    } catch (InterruptedException e)
+    {
+      throw SnowflakeErrors.ERROR_5014.getException();
+    }
+    return this.sink;
   }
 
 
@@ -150,7 +178,7 @@ public class SnowflakeSinkTask extends SinkTask
   @Override
   public void close(final Collection<TopicPartition> partitions)
   {
-    sink.close();
+    getSink().close();
   }
 
   /**
@@ -162,7 +190,7 @@ public class SnowflakeSinkTask extends SinkTask
   @Override
   public void put(final Collection<SinkRecord> records)
   {
-    records.forEach(sink::insert);
+    records.forEach(getSink()::insert);
   }
 
   /**
@@ -183,7 +211,7 @@ public class SnowflakeSinkTask extends SinkTask
     offsets.forEach(
       (topicPartition, offsetAndMetadata) ->
       {
-        long offSet = sink.getOffset(topicPartition);
+        long offSet = getSink().getOffset(topicPartition);
         if(offSet == 0)
         {
           committedOffsets.put(topicPartition, offsetAndMetadata);
@@ -191,7 +219,7 @@ public class SnowflakeSinkTask extends SinkTask
         }
         else
         {
-          committedOffsets.put(topicPartition, new OffsetAndMetadata(sink.getOffset(topicPartition)));
+          committedOffsets.put(topicPartition, new OffsetAndMetadata(getSink().getOffset(topicPartition)));
         }
       }
     );
@@ -286,4 +314,79 @@ public class SnowflakeSinkTask extends SinkTask
     return result.toString();
   }
 
+  /**
+   * SinkTask Status
+   */
+  class ConnectorStatus
+  {
+    private final static long WAIT_TIME = 5 * 1000; // 5 sec
+    private final static int REPEAT_TIME = 12; //60 sec
+    private int status; //0: Stop, 1: Start, 2: Open
+
+    ConnectorStatus()
+    {
+      this.status = 0;
+    }
+
+    private boolean isStarted()
+    {
+      return status > 0;
+    }
+
+    void start()
+    {
+      if (status == 0)
+      {
+        status = 1;
+      }
+    }
+
+    private boolean isOpened()
+    {
+      return status > 1;
+    }
+
+    void open()
+    {
+      if (status == 1)
+      {
+        status = 2;
+      }
+    }
+
+    void stop()
+    {
+      status = 0;
+    }
+
+    private void waitFor(Supplier<Boolean> func) throws InterruptedException
+    {
+      for (int i = 0; i < REPEAT_TIME; i++)
+      {
+        if(func.get())
+        {
+          break;
+        }
+        else
+        {
+          LOGGER.debug(
+            Logging.logMessage("Sleep 5 sec to wait SinkTask Started or Initialized")
+          );
+          Thread.sleep(WAIT_TIME);
+        }
+      }
+    }
+
+    void waitForStart() throws InterruptedException
+    {
+      waitFor(this::isStarted);
+    }
+
+    void waitForOpen() throws InterruptedException
+    {
+      waitFor(this::isOpened);
+    }
+  }
 }
+
+
