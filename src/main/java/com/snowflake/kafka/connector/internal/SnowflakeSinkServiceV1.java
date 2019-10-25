@@ -188,6 +188,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     private final ExecutorService flusherExecutor;
     private final Lock bufferLock;
     private final Lock fileListLock;
+    private final Lock usageDataLock;
 
     //telemetry
     private long startTime;
@@ -212,12 +213,17 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       this.committedOffset = 0;
       this.bufferLock = new ReentrantLock();
       this.fileListLock = new ReentrantLock();
+      this.usageDataLock = new ReentrantLock();
       //wait sinkConnector start
       createTableAndStage();
       recover();
 
       cleanerExecutor = Executors.newSingleThreadExecutor();
       flusherExecutor = Executors.newSingleThreadExecutor();
+
+      this.totalNumberOfRecord = 0;
+      this.totalSizeOfData = 0;
+      this.startTime = System.currentTimeMillis();
 
       startCleaner();
       startFlusher();
@@ -242,7 +248,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
             {
               logError("cleaner error:\n{}", e.getMessage());
             }
-            if (System.currentTimeMillis() - startTime > ONE_HOUR)
+            if (System.currentTimeMillis() - startTime > 5*60*1000)//ONE_HOUR)
             {
               sendUsageReport();
             }
@@ -701,16 +707,41 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private void sendUsageReport()
     {
-      telemetryService.reportKafkaUsage(startTime, System.currentTimeMillis()
-        , totalNumberOfRecord, totalSizeOfData);
-      resetTelemetry();
+      usageDataLock.lock();
+      long numOfRecord;
+      long sizeOfData;
+      long start;
+      long end;
+      try
+      {
+        numOfRecord = totalNumberOfRecord;
+        this.totalNumberOfRecord = 0;
+        sizeOfData = totalSizeOfData;
+        this.totalSizeOfData = 0;
+        start = this.startTime;
+        this.startTime = System.currentTimeMillis();
+        end = this.startTime;
+      }
+      finally
+      {
+        usageDataLock.unlock();
+      }
+      telemetryService.reportKafkaUsage(start, end, numOfRecord, sizeOfData);
     }
 
-    private void resetTelemetry()
+    private void updateUsageData(long numOfRecord, long sizeOfData)
     {
-      this.startTime = System.currentTimeMillis();
-      this.totalSizeOfData = 0;
-      this.totalNumberOfRecord = 0;
+      usageDataLock.lock();
+      try
+      {
+        this.totalSizeOfData += sizeOfData;
+        this.totalNumberOfRecord += numOfRecord;
+      }
+      finally
+      {
+        usageDataLock.unlock();
+      }
+
     }
 
     private class PartitionBuffer
@@ -774,6 +805,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         String result = stringBuilder.toString();
         logDebug("flush buffer: {} records, {} bytes, offset {} - {}",
           numOfRecord, bufferSize, firstOffset, lastOffset);
+        updateUsageData(this.numOfRecord, this.bufferSize);
         return result;
       }
 
