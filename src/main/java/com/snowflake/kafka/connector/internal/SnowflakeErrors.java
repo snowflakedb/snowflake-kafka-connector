@@ -118,7 +118,7 @@ public enum SnowflakeErrors
   ERROR_0018(
     "0018",
     "Invalid encrypted private key or passphrase",
-    "failed to decrypt private key. Please verify input private key and passphrase. Currently, Snowflake Kafka Connector only supports 'PBE-MD5-DES' encryption algorithm."
+    "failed to decrypt private key. Please verify input private key and passphrase. Snowflake Kafka Connector only supports encryption algorithms in FIPS 140-2"
   ),
   ERROR_0019(
     "0019",
