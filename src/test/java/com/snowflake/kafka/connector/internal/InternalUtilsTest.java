@@ -42,7 +42,7 @@ public class InternalUtilsTest
   public void testEncryptedPrivateKey()
   {
     assert InternalUtils.parsePrivateKey(TestUtils.getKeyString()).equals(
-      InternalUtils.parseEncryptedPrivateKey(TestUtils.getEncryptedPrivateKey(),
+      EncryptionUtils.parseEncryptedPrivateKey(TestUtils.getEncryptedPrivateKey(),
         TestUtils.getPrivateKeyPassphrase())
     );
   }
