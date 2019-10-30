@@ -165,7 +165,6 @@ public class SnowflakeSinkTask extends SinkTask
         sinkBuilder.addTask(tableName, partition.topic(), partition.partition());
       }
     );
-
     sink = sinkBuilder.build();
   }
 
@@ -180,6 +179,7 @@ public class SnowflakeSinkTask extends SinkTask
   @Override
   public void close(final Collection<TopicPartition> partitions)
   {
+    LOGGER.info(Logging.logMessage("SnowflakeSinkTask:close"));
     getSink().close();
   }
 
