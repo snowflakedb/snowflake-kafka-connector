@@ -277,12 +277,19 @@ public class SinkServiceIT
       .addTask(table, topic, partition)
       .build();
 
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue result = converter.toConnectData(topic, "12321".getBytes(StandardCharsets.UTF_8));
+    SinkRecord record = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
+      , "test", result.schema(), result.value(), 1);
+    //lazy init and recovery function
+    service.insert(record);
+
     Thread.sleep(10 * 1000); //wait a few second, s3 consistency issue
 
     assert conn.listStage(stage,
       FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 1;
 
-    Thread.sleep(90 * 1000);
+    Thread.sleep(120 * 1000);
 
     assert conn.listStage(stage,
       FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 0;
