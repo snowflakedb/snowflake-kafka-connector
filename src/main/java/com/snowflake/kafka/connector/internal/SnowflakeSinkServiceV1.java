@@ -183,8 +183,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     private long processedOffset; // processed offset
 
     //threads
-    private ExecutorService cleanerExecutor;
-    private ExecutorService flusherExecutor;
+    private final ExecutorService cleanerExecutor;
+    private final ExecutorService flusherExecutor;
     private final Lock bufferLock;
     private final Lock fileListLock;
     private final Lock usageDataLock;
@@ -221,6 +221,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       this.totalSizeOfData = 0;
       this.startTime = System.currentTimeMillis();
 
+      this.cleanerExecutor = Executors.newSingleThreadExecutor();
+      this.flusherExecutor = Executors.newSingleThreadExecutor();
+
       logInfo("pipe: {} - service started", pipeName);
     }
 
@@ -230,10 +233,17 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       //wait sinkConnector start
       createTableAndStage();
       recover();
-      cleanerExecutor = Executors.newSingleThreadExecutor();
-      flusherExecutor = Executors.newSingleThreadExecutor();
-      startCleaner();
-      startFlusher();
+
+      try
+      {
+        startCleaner();
+        startFlusher();
+      }
+      catch (Exception e)
+      {
+        logWarn("Cleaner and Flusher threads shut down before initialization");
+      }
+
     }
 
     private void startCleaner()
@@ -646,8 +656,15 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private void close()
     {
-      stopCleaner();
-      stopFlusher();
+      try
+      {
+        stopCleaner();
+        stopFlusher();
+      }
+      catch (Exception e)
+      {
+        logWarn("Failed to terminate Cleaner or Flusher");
+      }
       ingestionService.close();
       sendUsageReport();
       logInfo("pipe {}: service closed", pipeName);
