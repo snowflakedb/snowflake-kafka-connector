@@ -39,15 +39,6 @@ public class InternalUtilsTest
   }
 
   @Test
-  public void testEncryptedPrivateKey()
-  {
-    assert InternalUtils.parsePrivateKey(TestUtils.getKeyString()).equals(
-      EncryptionUtils.parseEncryptedPrivateKey(TestUtils.getEncryptedPrivateKey(),
-        TestUtils.getPrivateKeyPassphrase())
-    );
-  }
-
-  @Test
   public void testIngestStatusConversion()
   {
     assert InternalUtils.convertIngestStatus(IngestStatus.LOADED)
