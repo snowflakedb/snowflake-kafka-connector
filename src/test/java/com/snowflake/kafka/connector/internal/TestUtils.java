@@ -48,6 +48,7 @@ public class TestUtils
   private static final String ENCRYPTED_PRIVATE_KEY = "encrypted_private_key";
   private static final String PRIVATE_KEY_PASSPHRASE = "private_key_passphrase";
   private static final Random random = new Random();
+  private static final String DES_RSA_KEY = "des_rsa_key";
   public final static String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
   private static final Pattern BROKEN_RECORD_PATTERN = Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(\\d+)\\.gz$");
 
@@ -72,7 +73,7 @@ public class TestUtils
     {
       try
       {
-        profile = mapper.readTree(new File (PROFILE_PATH));
+        profile = mapper.readTree(new File(PROFILE_PATH));
       } catch (IOException e)
       {
         throw new RuntimeException(e);
@@ -214,6 +215,11 @@ public class TestUtils
     String query = "select * from " + tableName;
 
     return executeQuery(query);
+  }
+
+  static String getDesRsaKey()
+  {
+    return getProfile().get(DES_RSA_KEY).asText();
   }
 
   /**
