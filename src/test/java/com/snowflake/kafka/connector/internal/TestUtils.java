@@ -24,6 +24,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
 
 import java.io.File;
 import java.io.IOException;
+import java.security.PrivateKey;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -115,9 +116,14 @@ public class TestUtils
    * read private key string from test profile
    * @return a string value represents private key
    */
-  static String getKeyString()
+  public static String getKeyString()
   {
     return getConf().get(Utils.SF_PRIVATE_KEY);
+  }
+
+  public static PrivateKey getPrivateKey()
+  {
+    return InternalUtils.parsePrivateKey(TestUtils.getKeyString());
   }
 
   /**

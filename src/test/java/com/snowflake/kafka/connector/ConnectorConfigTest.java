@@ -8,7 +8,7 @@ import java.util.Map;
 
 public class ConnectorConfigTest
 {
-  private static Map<String, String> getConfig()
+  static Map<String, String> getConfig()
   {
     Map<String, String> config = new HashMap<>();
     config.put(SnowflakeSinkConnectorConfig.NAME, "test");

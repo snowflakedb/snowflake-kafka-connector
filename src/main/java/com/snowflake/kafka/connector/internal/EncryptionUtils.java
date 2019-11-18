@@ -14,7 +14,7 @@ import java.security.Security;
 
 public class EncryptionUtils
 {
-  static PrivateKey parseEncryptedPrivateKey(String key, String passphrase)
+  public static PrivateKey parseEncryptedPrivateKey(String key, String passphrase)
   {
     //remove header, footer, and line breaks
     key = key.replaceAll("-+[A-Za-z ]+-+", "");

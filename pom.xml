@@ -12,7 +12,7 @@
 
     <groupId>com.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>0.5.5</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
     <name>Snowflake Kafka Connector</name>
     <description>Snowflake Kafka Connect Sink Connector</description>
@@ -36,7 +36,9 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:https://github.com/snowflakedb/snowflake-kafka-connector.git</connection>
+        <connection>
+            scm:git:https://github.com/snowflakedb/snowflake-kafka-connector.git
+        </connection>
         <url>https://github.com/snowflakedb/snowflake-kafka-connector</url>
     </scm>
 
@@ -45,7 +47,6 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
-
 
 
     <repositories>
@@ -57,7 +58,9 @@
 
         <repository>
             <id>cloudera-repo</id>
-            <url>https://repository.cloudera.com/content/repositories/releases/</url>
+            <url>
+                https://repository.cloudera.com/content/repositories/releases/
+            </url>
             <releases>
                 <enabled>true</enabled>
             </releases>
@@ -86,14 +89,25 @@
                         </goals>
                         <configuration>
                             <title>Snowflake Kafka Connector</title>
-                            <documentationUrl>https://docs.snowflake.net/manuals/user-guide/kafka-connector.html</documentationUrl>
+                            <documentationUrl>
+                                https://docs.snowflake.net/manuals/user-guide/kafka-connector.html
+                            </documentationUrl>
                             <description>
-                                Snowflake is the data warehouse built for the cloud. The Snowflake Kafka connector lets you quickly and easily move JSON and AVRO messages from Kafka topics into Snowflake tables.
+                                Snowflake is the data warehouse built for the
+                                cloud. The Snowflake Kafka connector lets you
+                                quickly and easily move JSON and AVRO messages
+                                from Kafka topics into Snowflake tables.
                             </description>
                             <logo>logo/snowflake.png</logo>
 
-                            <supportProviderName>Snowflake, Inc.</supportProviderName>
-                            <supportSummary>This feature is in preview, and provided primarily for evaluation and testing purposes. If you decide to use a preview feature in production, please contact Snowflake Support before doing so.</supportSummary>
+                            <supportProviderName>Snowflake, Inc.
+                            </supportProviderName>
+                            <supportSummary>This feature is in preview, and
+                                provided primarily for evaluation and testing
+                                purposes. If you decide to use a preview feature
+                                in production, please contact Snowflake Support
+                                before doing so.
+                            </supportSummary>
 
                             <ownerUsername>snowflakeinc</ownerUsername>
                             <ownerType>organization</ownerType>
@@ -113,7 +127,10 @@
                                 <tag>sql</tag>
                                 <tag>data warehouse</tag>
                             </tags>
-                            <confluentControlCenterIntegration>true</confluentControlCenterIntegration>
+                            <confluentControlCenterIntegration>true
+                            </confluentControlCenterIntegration>
+                            <singleMessageTransforms>false
+                            </singleMessageTransforms>
                             <supportedEncodings>UTF-8</supportedEncodings>
                         </configuration>
                     </execution>
@@ -161,7 +178,7 @@
                             <goal>prepare-agent</goal>
                         </goals>
                         <configuration>
-                             <destFile>target/jacoco-it.exec</destFile>
+                            <destFile>target/jacoco-it.exec</destFile>
                         </configuration>
                     </execution>
                     <execution>
@@ -174,8 +191,8 @@
                             <dataFile>target/jacoco-it.exec</dataFile>
                             <outputDirectory>target/jacoco-it</outputDirectory>
                         </configuration>
-                     </execution>
-                 </executions>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.sonatype.plugins</groupId>
@@ -235,7 +252,8 @@
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
-                    <finalName>${project.artifactId}-${project.version}</finalName>
+                    <finalName>${project.artifactId}-${project.version}
+                    </finalName>
                     <appendAssemblyId>false</appendAssemblyId>
                 </configuration>
             </plugin>
@@ -409,16 +427,33 @@
         </dependency>
 
         <!--Mockito for unit test-->
-	    <dependency>
-	        <groupId>org.mockito</groupId>
-	        <artifactId>mockito-core</artifactId>
-	        <version>2.20.1</version>
-	        <scope>test</scope>
-	    </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>2.20.1</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>2.10.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.25</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>1.7.25</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>1.2.17</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
