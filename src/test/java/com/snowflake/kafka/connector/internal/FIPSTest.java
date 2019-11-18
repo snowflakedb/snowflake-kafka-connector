@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal;
 
-import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.crypto.CryptoServicesRegistrar;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
@@ -40,7 +39,7 @@ public class FIPSTest
       () -> EncryptionUtils.parseEncryptedPrivateKey(DESKey, password));
   }
 
-  private static String generateAESKey(PrivateKey key, char[] passwd) throws IOException, OperatorCreationException
+  public static String generateAESKey(PrivateKey key, char[] passwd) throws IOException, OperatorCreationException
   {
     Security.addProvider(new BouncyCastleFipsProvider());
     StringWriter writer = new StringWriter();

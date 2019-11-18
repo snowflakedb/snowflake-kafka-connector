@@ -55,7 +55,7 @@ public class SnowflakeSinkConnectorConfig
   static final String SNOWFLAKE_PRIVATE_KEY = Utils.SF_PRIVATE_KEY;
   static final String SNOWFLAKE_DATABASE = Utils.SF_DATABASE;
   static final String SNOWFLAKE_SCHEMA = Utils.SF_SCHEMA;
-  private static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
+  static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
 
   //Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
