@@ -70,7 +70,7 @@ public class MetaColumnIT
     service.insert(record);
 
     Thread.sleep(90 * 1000);
-    service.close();
+    service.closeAll();
 
     ResultSet resultSet = TestUtils.executeQuery("select RECORD_METADATA from" +
       " " + tableName);

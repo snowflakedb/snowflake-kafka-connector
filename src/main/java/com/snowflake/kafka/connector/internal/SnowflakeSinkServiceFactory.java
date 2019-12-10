@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import java.security.PrivateKey;
+import java.util.Map;
 
 /**
  * A factory to create {@link SnowflakeSinkService}
@@ -59,6 +60,17 @@ public class SnowflakeSinkServiceFactory
     {
       this.service.setFlushTime(time);
       logInfo("flush time is limited to {}", time);
+      return this;
+    }
+    public SnowflakeSinkServiceBuilder setTopic2TableMap(Map<String, String> topic2TableMap)
+    {
+      this.service.setTopic2TableMap(topic2TableMap);
+      StringBuilder map = new StringBuilder();
+      for (Map.Entry<String, String> entry: topic2TableMap.entrySet())
+      {
+        map.append(entry.getKey()).append(" -> ").append(entry.getValue()).append("\n");
+      }
+      logInfo("set topic 2 table map \n {}", map.toString());
       return this;
     }
 
