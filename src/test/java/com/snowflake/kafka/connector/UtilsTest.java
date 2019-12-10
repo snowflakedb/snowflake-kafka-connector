@@ -65,19 +65,19 @@ public class UtilsTest
     Map<String, String> topic2table =
       Utils.parseTopicToTableMap("ab@cd:abcd, 1234:_1234");
 
-    assert SnowflakeSinkTask.tableName("ab@cd", topic2table).equals("abcd");
-    assert SnowflakeSinkTask.tableName("1234", topic2table).equals("_1234");
+    assert Utils.tableName("ab@cd", topic2table).equals("abcd");
+    assert Utils.tableName("1234", topic2table).equals("_1234");
 
     TestUtils.assertError(SnowflakeErrors.ERROR_0020,
-      () -> SnowflakeSinkTask.tableName("", topic2table));
+      () -> Utils.tableName("", topic2table));
     TestUtils.assertError(SnowflakeErrors.ERROR_0020,
-      () -> SnowflakeSinkTask.tableName(null, topic2table));
+      () -> Utils.tableName(null, topic2table));
 
     String topic = "bc*def";
-    assert SnowflakeSinkTask.tableName(topic, topic2table).equals("bc_def_" + Math.abs(topic.hashCode()));
+    assert Utils.tableName(topic, topic2table).equals("bc_def_" + Math.abs(topic.hashCode()));
 
     topic = "12345";
-    assert SnowflakeSinkTask.tableName(topic, topic2table).equals("_12345_" + Math.abs(topic.hashCode()));
+    assert Utils.tableName(topic, topic2table).equals("_12345_" + Math.abs(topic.hashCode()));
   }
 
   @Test

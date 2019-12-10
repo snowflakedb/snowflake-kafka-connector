@@ -403,6 +403,61 @@ public class Utils
     return connectorName;
   }
 
+  /**
+   * verify topic name, and generate valid table name
+   * @param topic input topic name
+   * @param topic2table topic to table map
+   * @return table name
+   */
+  public static String tableName(String topic, Map<String, String> topic2table)
+  {
+    final String PLACE_HOLDER = "_";
+    if(topic == null || topic.isEmpty())
+    {
+      throw SnowflakeErrors.ERROR_0020.getException("topic name: " + topic);
+    }
+    if(topic2table.containsKey(topic))
+    {
+      return topic2table.get(topic);
+    }
+    if(Utils.isValidSnowflakeObjectIdentifier(topic))
+    {
+      return topic;
+    }
+    int hash = Math.abs(topic.hashCode());
+
+    StringBuilder result = new StringBuilder();
+
+    int index = 0;
+    //first char
+    if(topic.substring(index,index + 1).matches("[_a-zA-Z]"))
+    {
+      result.append(topic.charAt(0));
+      index ++;
+    }
+    else
+    {
+      result.append(PLACE_HOLDER);
+    }
+    while(index < topic.length())
+    {
+      if (topic.substring(index, index + 1).matches("[_$a-zA-Z0-9]"))
+      {
+        result.append(topic.charAt(index));
+      }
+      else
+      {
+        result.append(PLACE_HOLDER);
+      }
+      index ++;
+    }
+
+    result.append(PLACE_HOLDER);
+    result.append(hash);
+
+    return result.toString();
+  }
+
   static Map<String, String> parseTopicToTableMap(String input)
   {
     Map<String, String> topic2Table = new HashMap<>();

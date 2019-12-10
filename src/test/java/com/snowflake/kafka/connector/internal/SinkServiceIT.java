@@ -133,7 +133,7 @@ public class SinkServiceIT
 
     assert service.getOffset(new TopicPartition(topic, partition)) == offset + 1;
 
-    service.close();
+    service.closeAll();
     Thread.sleep(60 * 1000);
     // don't drop pipe in current version
 //    assert !conn.pipeExist(pipe);
@@ -167,7 +167,7 @@ public class SinkServiceIT
     Thread.sleep(90 * 1000);
     assert TestUtils.tableSize(table) == numOfRecord + numOfRecord1;
 
-    service.close();
+    service.closeAll();
   }
 
   private Future<Integer> insert(SnowflakeSinkService sink, int partition,
@@ -215,7 +215,7 @@ public class SinkServiceIT
 
     assert result.get() == numOfRecord / (size / 152 + 1);
 
-    service.close();
+    service.closeAll();
   }
 
   @Test
@@ -241,7 +241,7 @@ public class SinkServiceIT
       FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table,
         partition)).size() == 1;
 
-    service.close();
+    service.closeAll();
   }
 
   @Test
@@ -294,7 +294,7 @@ public class SinkServiceIT
     assert conn.listStage(stage,
       FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 0;
 
-    service.close();
+    service.closeAll();
   }
 
   @Test
@@ -324,6 +324,6 @@ public class SinkServiceIT
     assert TestUtils.getPartitionFromBrokenFileName(name) == partition;
     assert TestUtils.getOffsetFromBrokenFileName(name) == offset;
 
-    service.close();
+    service.closeAll();
   }
 }

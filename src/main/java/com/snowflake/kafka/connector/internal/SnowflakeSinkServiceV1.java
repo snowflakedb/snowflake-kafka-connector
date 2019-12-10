@@ -7,6 +7,7 @@ import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -31,6 +32,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
   private final RecordService recordService;
   private boolean isStopped;
   private final SnowflakeTelemetryService telemetryService;
+  private Map<String, String> topic2TableMap;
 
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn)
   {
@@ -47,6 +49,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     this.recordService = new RecordService();
     isStopped = false;
     this.telemetryService = conn.getTelemetryClient();
+    this.topic2TableMap = new HashMap<>();
   }
 
   @Override
@@ -54,7 +57,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
                         final int partition)
   {
     String stageName = Utils.stageName(conn.getConnectorName(), tableName);
-    String nameIndex = topic + "_" + partition;
+    String nameIndex = getNameIndex(topic, partition);
     if (pipes.containsKey(nameIndex))
     {
       logError("task is already registered, name: {}", nameIndex);
@@ -73,23 +76,69 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
   @Override
   public void insert(final SinkRecord record)
   {
-    String nameIndex = record.topic() + "_" + record.kafkaPartition();
+    String nameIndex = getNameIndex(record.topic(), record.kafkaPartition());
+    //init a new topic partition
+    if (!pipes.containsKey(nameIndex))
+    {
+      logWarn("Topic: {} Partition: {} hasn't been initialized by OPEN " +
+        "function", record.topic(), record.kafkaPartition());
+      startTask(Utils.tableName(record.topic(), this.topic2TableMap),
+        record.topic(), record.kafkaPartition());
+    }
     pipes.get(nameIndex).insert(record);
+
   }
 
   @Override
   public long getOffset(final TopicPartition topicPartition)
   {
-    return pipes.get(topicPartition.topic() + "_" + topicPartition.partition()).getOffset();
+    String name = getNameIndex(topicPartition.topic(),
+      topicPartition.partition());
+    if (pipes.containsKey(name))
+    {
+      return pipes.get(name).getOffset();
+    }
+    else
+    {
+      logError("Failed to find offset of Topic: {}, Partition: {}, sink " +
+        "service hasn't been initialized");
+      return 0;
+    }
   }
 
   @Override
-  public void close()
+  public void close(Collection<TopicPartition> partitions)
+  {
+    partitions.forEach(tp -> {
+      String name = getNameIndex(tp.topic(), tp.partition());
+      ServiceContext sc = pipes.remove(name);
+      if (sc != null)
+      {
+        try
+        {
+          sc.close();
+        } catch (Exception e)
+        {
+          logError("Failed to close sink service for Topic: {}, Partition: " +
+            "{}\nMessage:{}", tp.topic(), tp.partition(), e.getMessage());
+        }
+      }
+      else
+      {
+        logError("Failed to close sink service for Topic: {}, Partition: {}, " +
+          "sink service hasn't been initialized");
+      }
+    });
+  }
+
+  @Override
+  public void closeAll()
   {
     this.isStopped = true; // release all cleaner and flusher threads
     pipes.forEach(
       (name, context) -> context.close()
     );
+    pipes.clear();
   }
 
   @Override
@@ -152,6 +201,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
   }
 
   @Override
+  public void setTopic2TableMap(Map<String, String> topic2TableMap)
+  {
+    this.topic2TableMap = topic2TableMap;
+  }
+
+  @Override
   public long getRecordNumber()
   {
     return this.recordNum;
@@ -167,6 +222,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
   public long getFileSize()
   {
     return this.fileSize;
+  }
+
+  private static String getNameIndex(String topic, int partition)
+  {
+    return topic + "_" + partition;
   }
 
   private class ServiceContext
@@ -238,8 +298,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       {
         startCleaner();
         startFlusher();
-      }
-      catch (Exception e)
+      } catch (Exception e)
       {
         logWarn("Cleaner and Flusher threads shut down before initialization");
       }
@@ -660,8 +719,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       {
         stopCleaner();
         stopFlusher();
-      }
-      catch (Exception e)
+      } catch (Exception e)
       {
         logWarn("Failed to terminate Cleaner or Flusher");
       }
