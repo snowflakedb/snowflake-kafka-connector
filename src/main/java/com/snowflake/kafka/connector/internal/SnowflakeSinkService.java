@@ -4,6 +4,9 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 
+import java.util.Collection;
+import java.util.Map;
+
 /**
  * Background service of data sink, responsible to create/drop pipe and ingest/purge files
  */
@@ -35,7 +38,13 @@ public interface SnowflakeSinkService
   /**
    * terminate all tasks and close this service instance
    */
-  void close();
+  void closeAll();
+
+  /**
+   * terminate given topic partitions
+   * @param partitions a list of topic partition
+   */
+  void close(Collection<TopicPartition> partitions);
 
   /**
    * retrieve sink service status
@@ -57,6 +66,12 @@ public interface SnowflakeSinkService
    * @param size a non negative long number represents data size limitation
    */
   void setFileSize(long size);
+
+  /**
+   * pass topic to table map to sink service
+   * @param topic2TableMap a String to String Map represents topic to table map
+   */
+  void setTopic2TableMap(Map<String, String> topic2TableMap);
 
   /**
    * change flush rate of sink service
