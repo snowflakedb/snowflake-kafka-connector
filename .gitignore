@@ -4,3 +4,4 @@ target/
 *.json
 .project
 .classpath
+*.log
