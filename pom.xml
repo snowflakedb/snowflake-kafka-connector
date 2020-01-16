@@ -415,7 +415,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-jdbc</artifactId>
-            <version>3.9.1</version>
+            <version>3.11.1</version>
         </dependency>
 
         <!--junit for unit test-->
