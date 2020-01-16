@@ -235,7 +235,7 @@ public class SinkServiceIT
 
     assert insert(service, partition, numOfRecord).get() == 0;
 
-    Thread.sleep(flushTime * 1000 + 5);
+    Thread.sleep((flushTime + 5) * 1000);
 
     assert conn.listStage(stage,
       FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table,
