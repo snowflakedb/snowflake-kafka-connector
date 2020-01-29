@@ -46,7 +46,7 @@ public class UtilsTest
   @Test
   public void testVersionChecker()
   {
-    Utils.checkConnectorVersion();
+    assert Utils.checkConnectorVersion();
   }
 
   @Test

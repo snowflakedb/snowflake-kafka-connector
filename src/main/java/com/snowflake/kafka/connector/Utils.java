@@ -66,7 +66,7 @@ public class Utils
 
   //mvn repo
   private static final String MVN_REPO =
-    "http://repo1.maven.org/maven2/com/snowflake/snowflake-kafka-connector/";
+    "https://repo1.maven.org/maven2/com/snowflake/snowflake-kafka-connector/";
 
   private static final Logger LOGGER =
     LoggerFactory.getLogger(Utils.class.getName());
@@ -75,7 +75,7 @@ public class Utils
    * check the connector version from Maven repo, report if any update
    * version is available.
    */
-  static void checkConnectorVersion()
+  static boolean checkConnectorVersion()
   {
     LOGGER.info(Logging.logMessage("Snowflake Kafka Connector Version: {}",
       VERSION));
@@ -122,9 +122,10 @@ public class Utils
     {
       LOGGER.warn(Logging.logMessage("can't verify latest connector version " +
         "from Maven Repo\n{}", e.getMessage()));
+      return false;
     }
 
-
+    return true;
   }
 
   /**
