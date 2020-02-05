@@ -522,8 +522,9 @@ public class SnowflakeConnectionServiceV1 extends Logging
       //put
       try
       {
-        sfconn.compressAndUploadStream("%" + tableName, null, file,
-          FileNameUtils.removeGZFromFileName(name));
+        sfconn.uploadStream("%" + tableName,
+          FileNameUtils.getPrefixFromFileName(name), file,
+          FileNameUtils.removePrefixAndGZFromFileName(name), true);
       } catch (SQLException e)
       {
         throw SnowflakeErrors.ERROR_2003.getException(e);
@@ -600,8 +601,9 @@ public class SnowflakeConnectionServiceV1 extends Logging
     InputStream input = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
     try
     {
-      sfconn.compressAndUploadStream(stageName, null, input,
-        FileNameUtils.removeGZFromFileName(fileName));
+      sfconn.uploadStream(stageName,
+        FileNameUtils.getPrefixFromFileName(fileName), input,
+        FileNameUtils.removePrefixAndGZFromFileName(fileName), true);
     } catch (SQLException e)
     {
       throw SnowflakeErrors.ERROR_2003.getException(e);
@@ -619,8 +621,9 @@ public class SnowflakeConnectionServiceV1 extends Logging
 
     try
     {
-      sfconn.compressAndUploadStream("%" + tableName, null, input,
-        FileNameUtils.removeGZFromFileName(fileName));
+      sfconn.uploadStream("%" + tableName,
+        FileNameUtils.getPrefixFromFileName(fileName), input,
+        FileNameUtils.removePrefixAndGZFromFileName(fileName), true);
     } catch (SQLException e)
     {
       throw SnowflakeErrors.ERROR_2003.getException(e);

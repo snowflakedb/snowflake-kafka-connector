@@ -157,20 +157,57 @@ class FileNameUtils
   }
 
   /**
-   * remove .gz from file name.
+   * remove prefix and .gz from file name.
    * note: for JDBC put use only
    *
    * @param name file name
    * @return file name without .gz
    */
-  static String removeGZFromFileName(String name)
+  static String removePrefixAndGZFromFileName(String name)
   {
+    if (name == null || name.isEmpty() || name.endsWith("/"))
+    {
+      throw SnowflakeErrors.ERROR_0008.getException("input file name: " +
+              name);
+    }
+
     if (name.endsWith(".gz"))
     {
-      return name.substring(0, name.length() - 3);
+      name = name.substring(0, name.length() - 3);
     }
+
+    int prefixEndIndex = name.lastIndexOf('/');
+    if (prefixEndIndex > -1)
+    {
+      return name.substring(prefixEndIndex + 1, name.length());
+    }
+
     return name;
   }
+
+  /**
+   * Get the prefix from the file name
+   * note: for JDBC put use only
+   *
+   * @param name file name
+   * @return prefix from the
+   */
+  static String getPrefixFromFileName(String name)
+  {
+    if (name == null || name.isEmpty() || name.endsWith("/"))
+    {
+      throw SnowflakeErrors.ERROR_0008.getException("input file name: " +
+              name);
+    }
+
+    int prefixEndIndex = name.lastIndexOf('/');
+    if (prefixEndIndex > -1)
+    {
+      return name.substring(0, prefixEndIndex);
+    }
+    return null;
+  }
+
 
   /**
    * read a value from file name
