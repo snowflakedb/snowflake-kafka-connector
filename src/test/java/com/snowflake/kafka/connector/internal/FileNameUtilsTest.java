@@ -26,8 +26,22 @@ public class FileNameUtilsTest
     long createTime = FileNameUtils.fileNameToTimeIngested(fileName);
     assert (createTime > time1) && (createTime < time2);
 
-    assert FileNameUtils.removeGZFromFileName("abc.tar.gz").equals("abc.tar");
-    assert FileNameUtils.removeGZFromFileName("abc.json").equals("abc.json");
+    assert FileNameUtils.removePrefixAndGZFromFileName("A/B/C/abc.tar.gz").equals("abc.tar");
+    assert FileNameUtils.removePrefixAndGZFromFileName("A/B/C/abc.json").equals("abc.json");
+    assert FileNameUtils.getPrefixFromFileName("A/B/C/abc.tar.gz").equals("A/B/C");
+    assert FileNameUtils.getPrefixFromFileName("A/B/C/abc.json").equals("A/B/C");
+    assert FileNameUtils.getPrefixFromFileName("abc.json") == null;
+    assert FileNameUtils.getPrefixFromFileName("abc.json.gz") == null;
+    try {
+      FileNameUtils.getPrefixFromFileName("A/B/C/");
+      assert false;
+    } catch (Exception e) {
+    }
+    try {
+      FileNameUtils.getPrefixFromFileName("");
+      assert false;
+    } catch (Exception e) {
+    }
 
     String brokenFileName = FileNameUtils.brokenRecordFileName(TestUtils.TEST_CONNECTOR_NAME, topic, partition, startOffset);
 
