@@ -22,6 +22,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
+import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.RetriableException;
@@ -108,6 +109,9 @@ public class SnowflakeSinkTask extends SinkTask
     //generate topic to table map
     this.topic2table = getTopicToTableMap(parsedConfig);
 
+    // generate metadataConfig table
+    SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig(parsedConfig);
+
     //enable jvm proxy
     Utils.enableJVMProxy(parsedConfig);
 
@@ -135,6 +139,7 @@ public class SnowflakeSinkTask extends SinkTask
       .setRecordNumber(bufferCountRecords)
       .setFlushTime(bufferFlushTime)
       .setTopic2TableMap(topic2table)
+      .setMetadataConfig(metadataConfig)
       .build();
   }
 

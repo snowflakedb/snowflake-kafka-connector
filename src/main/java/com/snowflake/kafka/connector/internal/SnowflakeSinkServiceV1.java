@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.RecordService;
+import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -204,6 +205,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
   public void setTopic2TableMap(Map<String, String> topic2TableMap)
   {
     this.topic2TableMap = topic2TableMap;
+  }
+
+  @Override
+  public void setMetadataConfig(SnowflakeMetadataConfig configMap)
+  {
+    this.recordService.setMetadataConfig(configMap);
   }
 
   @Override

@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+
 import java.security.PrivateKey;
 import java.util.Map;
 
@@ -62,6 +64,7 @@ public class SnowflakeSinkServiceFactory
       logInfo("flush time is limited to {}", time);
       return this;
     }
+
     public SnowflakeSinkServiceBuilder setTopic2TableMap(Map<String, String> topic2TableMap)
     {
       this.service.setTopic2TableMap(topic2TableMap);
@@ -71,6 +74,13 @@ public class SnowflakeSinkServiceFactory
         map.append(entry.getKey()).append(" -> ").append(entry.getValue()).append("\n");
       }
       logInfo("set topic 2 table map \n {}", map.toString());
+      return this;
+    }
+
+    public SnowflakeSinkServiceBuilder setMetadataConfig(SnowflakeMetadataConfig configMap)
+    {
+      this.service.setMetadataConfig(configMap);
+      logInfo("metadata config map is {}", configMap.toString());
       return this;
     }
 

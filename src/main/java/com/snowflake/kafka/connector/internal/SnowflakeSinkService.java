@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -80,6 +81,12 @@ public interface SnowflakeSinkService
    * @param time a non negative long number represents service flush time in seconds
    */
   void setFlushTime(long time);
+
+  /**
+   * set the metadata config to let user control what metadata to be collected into SF db
+   * @param configMap a String to String Map
+   */
+  void setMetadataConfig(SnowflakeMetadataConfig configMap);
 
   /**
    * @return current number of record limitation
