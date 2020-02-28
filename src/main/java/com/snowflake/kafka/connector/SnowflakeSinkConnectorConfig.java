@@ -43,12 +43,12 @@ public class SnowflakeSinkConnectorConfig
   public static final long BUFFER_SIZE_BYTES_MAX = 100000000;
   static final String TOPICS_TABLES_MAP = "snowflake.topic2table.map";
 
-  //in second
+  // Time in seconds
   public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
   public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 30;
   static final String BUFFER_FLUSH_TIME_SEC = "buffer.flush.time";
 
-  // snowflake connection and database config
+  // Snowflake connection and database config
   private static final String SNOWFLAKE_LOGIN_INFO = "Snowflake Login Info";
   static final String SNOWFLAKE_URL = Utils.SF_URL;
   static final String SNOWFLAKE_USER = Utils.SF_USER;
@@ -57,18 +57,28 @@ public class SnowflakeSinkConnectorConfig
   static final String SNOWFLAKE_SCHEMA = Utils.SF_SCHEMA;
   static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
 
-  //Proxy Info
+  // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
   static final String JVM_PROXY_HOST = "jvm.proxy.host";
   static final String JVM_PROXY_PORT = "jvm.proxy.port";
 
-  //Schema Registry Info
+  // Schema Registry Info
   private static final String SCHEMA_REGISTRY_INFO = "Schema Registry Info";
   static final String SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE =
     "value.converter.basic.auth.credentials.source";
   static final String SCHEMA_REGISTRY_AUTH_USER_INFO =
     "value.converter.basic.auth.user.info";
   private static final String REGISTRY_URL = "value.converter.schema.registry.url";
+
+  // Snowflake Metadata Flags
+  private static final String SNOWFLAKE_METADATA_FLAGS = "Snowflake Metadata Flags";
+  public static final String SNOWFLAKE_METADATA_CREATETIME = "snowflake.metadata.createtime";
+  public static final String SNOWFLAKE_METADATA_TOPIC = "snowflake.metadata.topic";
+  public static final String SNOWFLAKE_METADATA_OFFSET_AND_PARTITION =
+    "snowflake.metadata.offset.and.partition";
+  public static final String SNOWFLAKE_METADATA_ALL = "snowflake.metadata.all";
+  public static final String SNOWFLAKE_METADATA_DEFAULT = "true";
+
 
   static ConfigDef newConfigDef()
   {
@@ -214,6 +224,42 @@ public class SnowflakeSinkConnectorConfig
         3,
         ConfigDef.Width.NONE,
         BUFFER_FLUSH_TIME_SEC)
+      .define(SNOWFLAKE_METADATA_ALL,
+        Type.STRING,
+        SNOWFLAKE_METADATA_DEFAULT,
+        Importance.LOW,
+        "Flag to control whether there is metadata collected. If set to false, all metadata will be dropped",
+        SNOWFLAKE_METADATA_FLAGS,
+        0,
+        ConfigDef.Width.NONE,
+        SNOWFLAKE_METADATA_ALL)
+      .define(SNOWFLAKE_METADATA_CREATETIME,
+        Type.STRING,
+        SNOWFLAKE_METADATA_DEFAULT,
+        Importance.LOW,
+        "Flag to control whether createtime is collected in snowflake metadata",
+        SNOWFLAKE_METADATA_FLAGS,
+        1,
+        ConfigDef.Width.NONE,
+        SNOWFLAKE_METADATA_CREATETIME)
+      .define(SNOWFLAKE_METADATA_TOPIC,
+        Type.STRING,
+        SNOWFLAKE_METADATA_DEFAULT,
+        Importance.LOW,
+        "Flag to control whether kafka topic name is collected in snowflake metadata",
+        SNOWFLAKE_METADATA_FLAGS,
+        2,
+        ConfigDef.Width.NONE,
+        SNOWFLAKE_METADATA_TOPIC)
+      .define(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION,
+        Type.STRING,
+        SNOWFLAKE_METADATA_DEFAULT,
+        Importance.LOW,
+        "Flag to control whether kafka partition and offset are collected in snowflake metadata",
+        SNOWFLAKE_METADATA_FLAGS,
+        3,
+        ConfigDef.Width.NONE,
+        SNOWFLAKE_METADATA_OFFSET_AND_PARTITION)
       ;
   }
 }
