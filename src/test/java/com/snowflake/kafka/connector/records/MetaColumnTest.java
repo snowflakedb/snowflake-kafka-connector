@@ -14,12 +14,13 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 
 public class MetaColumnTest
 {
   private static String META = "meta";
   private static String KEY = "key";
-  private static final String TEST_FILE_NAME = "test.avro";
+  private static final String TEST_VALUE_FILE_NAME = "test.avro";
 
   private String topic = "test";
   private int partition = 0;
@@ -109,7 +110,7 @@ public class MetaColumnTest
       , "test", input.schema(), input.value(), 0);
     SnowflakeRecordContent content = (SnowflakeRecordContent) record.value();
 
-    assert content.getSchemaID() == -1;
+    assert content.getSchemaID() == SnowflakeRecordContent.NON_AVRO_SCHEMA;
 
     //broken data
     input = converter.toConnectData(topic, ("123adsada").getBytes(StandardCharsets.UTF_8));
@@ -117,18 +118,18 @@ public class MetaColumnTest
       , "test", input.schema(), input.value(), 0);
     content = (SnowflakeRecordContent) record.value();
 
-    assert content.getSchemaID() == -1;
+    assert content.getSchemaID() == SnowflakeRecordContent.NON_AVRO_SCHEMA;
 
     //avro without schema registry
     converter = new SnowflakeAvroConverterWithoutSchemaRegistry();
-    URL resource = ConverterTest.class.getResource(TEST_FILE_NAME);
+    URL resource = ConverterTest.class.getResource(TEST_VALUE_FILE_NAME);
     byte[] testFile = Files.readAllBytes(Paths.get(resource.getFile()));
     input = converter.toConnectData(topic, testFile);
     record = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
       , "test", input.schema(), input.value(), 0);
     content = (SnowflakeRecordContent) record.value();
 
-    assert content.getSchemaID() == -1;
+    assert content.getSchemaID() == SnowflakeRecordContent.NON_AVRO_SCHEMA;
 
     //include schema id
     MockSchemaRegistryClient client = new MockSchemaRegistryClient();
