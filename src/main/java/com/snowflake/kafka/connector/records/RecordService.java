@@ -40,15 +40,19 @@ public class RecordService extends Logging
 {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  private static final String OFFSET = "offset";
-  private static final String TOPIC = "topic";
-  private static final String PARTITION = "partition";
-  private static final String KEY = "key";
-  private static final String CONTENT = "content";
-  private static final String META = "meta";
-  private static final String SCHEMA_ID = "schema_id";
+  // deleted private to use these values in test
+  static final String OFFSET = "offset";
+  static final String TOPIC = "topic";
+  static final String PARTITION = "partition";
+  static final String KEY = "key";
+  static final String CONTENT = "content";
+  static final String META = "meta";
+  static final String SCHEMA_ID = "schema_id";
   private static final String KEY_SCHEMA_ID = "key_schema_id";
-  private static final String HEADERS = "headers";
+  static final String HEADERS = "headers";
+
+  // This class is designed to work with empty metadata config map
+  private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
 
   /**
    * process records
@@ -70,6 +74,9 @@ public class RecordService extends Logging
   {
   }
 
+  public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
+    metadataConfig = metadataConfigIn;
+  }
 
   /**
    * process given SinkRecord,
@@ -93,12 +100,19 @@ public class RecordService extends Logging
     SnowflakeRecordContent valueContent = (SnowflakeRecordContent) record.value();
 
     ObjectNode meta = MAPPER.createObjectNode();
-    meta.put(OFFSET, record.kafkaOffset());
-    meta.put(TOPIC, record.topic());
-    meta.put(PARTITION, record.kafkaPartition());
+    if (metadataConfig.topicFlag)
+    {
+      meta.put(TOPIC, record.topic());
+    }
+    if (metadataConfig.offsetAndPartitionFlag)
+    {
+      meta.put(OFFSET, record.kafkaOffset());
+      meta.put(PARTITION, record.kafkaPartition());
+    }
 
     //ignore if no timestamp
-    if (record.timestampType() != TimestampType.NO_TIMESTAMP_TYPE)
+    if (record.timestampType() != TimestampType.NO_TIMESTAMP_TYPE &&
+      metadataConfig.createtimeFlag)
     {
       meta.put(record.timestampType().name, record.timestamp());
     }
@@ -122,7 +136,10 @@ public class RecordService extends Logging
     {
       ObjectNode data = MAPPER.createObjectNode();
       data.set(CONTENT, node);
-      data.set(META, meta);
+      if (metadataConfig.allFlag)
+      {
+        data.set(META, meta);
+      }
       buffer.append(data.toString());
     }
     return buffer.toString();
