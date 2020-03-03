@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector.records;
 
 import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -26,6 +28,7 @@ public class ProcessRecordTest
   private static final String TEST_VALUE_FILE_NAME = "test.avro";
   private static final String TEST_KEY_FILE_NAME = "test_key.avro";
 
+  private static ObjectMapper mapper = new ObjectMapper();
 
   private Case testCase;
 
@@ -35,7 +38,7 @@ public class ProcessRecordTest
   }
 
   @Test
-  public void test()
+  public void test() throws IOException
   {
     RecordService service = new RecordService();
 
@@ -48,7 +51,7 @@ public class ProcessRecordTest
 
     String got = service.processRecord(record);
 
-    assertEquals(testCase.expected, got);
+    assertEquals(testCase.expected, mapper.readTree(got));
 
   }
 
@@ -59,67 +62,67 @@ public class ProcessRecordTest
         new Case("string key, avro value",
             getString(),
             getAvro(),
-            "{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":\"string value\"}}"
+            mapper.readTree("{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":\"string value\"}}")
         ),
         new Case("string key, avro without registry value",
             getString(),
             getAvroWithoutRegistryValue(),
-            "{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":\"string value\"}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":\"string value\"}}"
+            mapper.readTree("{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":\"string value\"}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":\"string value\"}}")
         ),
         new Case("string key, json value",
             getString(),
             getJson(),
-            "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":\"string value\"}}"
+            mapper.readTree("{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":\"string value\"}}")
         ),
         new Case("avro key, avro value",
             getAvro(),
             getAvro(),
-            "{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":[{\"int\":222}],\"key_schema_id\":1}}"
+            mapper.readTree("{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":[{\"int\":222}],\"key_schema_id\":1}}")
         ),
         new Case("avro key, avro without registry value",
             getAvro(),
             getAvroWithoutRegistryValue(),
-            "{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"int\":222}],\"key_schema_id\":1}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"int\":222}],\"key_schema_id\":1}}"
+            mapper.readTree("{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"int\":222}],\"key_schema_id\":1}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"int\":222}],\"key_schema_id\":1}}")
         ),
         new Case("avro key, json value",
             getAvro(),
             getJson(),
-            "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"int\":222}],\"key_schema_id\":1}}"
+            mapper.readTree("{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"int\":222}],\"key_schema_id\":1}}")
         ),
         new Case("avro without registry key, avro value",
             getAvroWithoutRegistryKey(),
             getAvro(),
-            "{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":[{\"id\":\"aabbccdd\"}]}}"
+            mapper.readTree("{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":[{\"id\":\"aabbccdd\"}]}}")
         ),
         new Case("avro without registry key, avro without registry value",
             getAvroWithoutRegistryKey(),
             getAvroWithoutRegistryValue(),
-            "{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"id\":\"aabbccdd\"}]}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"id\":\"aabbccdd\"}]}}"
+            mapper.readTree("{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"id\":\"aabbccdd\"}]}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"id\":\"aabbccdd\"}]}}")
         ),
         new Case("avro without registry key, json value",
             getAvroWithoutRegistryKey(),
             getJson(),
-            "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"id\":\"aabbccdd\"}]}}"
+            mapper.readTree("{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"id\":\"aabbccdd\"}]}}")
         ),
         new Case("json key, avro value",
             getJson(),
             getAvro(),
-            "{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":[{\"some_field\":\"some_value\"}]}}"
+            mapper.readTree("{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":[{\"some_field\":\"some_value\"}]}}")
         ),
         new Case("json key, avro without registry value",
             getJson(),
             getAvroWithoutRegistryValue(),
-            "{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"some_field\":\"some_value\"}]}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"some_field\":\"some_value\"}]}}"
+            mapper.readTree("{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"some_field\":\"some_value\"}]}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"some_field\":\"some_value\"}]}}")
         ),
         new Case("json key, json value",
             getJson(),
             getJson(),
-            "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"some_field\":\"some_value\"}]}}"
+            mapper.readTree("{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"some_field\":\"some_value\"}]}}")
         ),
         new Case("null key, json value",
             getNull(),
             getJson(),
-            "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0}}"
+            mapper.readTree("{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0}}")
         )
     );
   }
@@ -182,9 +185,9 @@ public class ProcessRecordTest
     String name;
     SchemaAndValue key;
     SchemaAndValue value;
-    String expected;
+    JsonNode expected;
 
-    public Case(String name, SchemaAndValue key, SchemaAndValue value, String expected)
+    public Case(String name, SchemaAndValue key, SchemaAndValue value, JsonNode expected)
     {
       this.name = name;
       this.key = key;
