@@ -221,6 +221,13 @@ public class SnowflakeSinkTask extends SinkTask
     throws RetriableException
   {
 
+    if (sink == null)
+    {
+      LOGGER.error(Logging.logMessage("SnowflakeSinkTask[ID:{}]: sink " +
+        "not initialized before preCommit", this.id));
+      return offsets;
+    }
+
     Map<TopicPartition, OffsetAndMetadata> committedOffsets = new HashMap<>();
 
     offsets.forEach(
