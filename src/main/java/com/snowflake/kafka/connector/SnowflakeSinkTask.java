@@ -221,31 +221,36 @@ public class SnowflakeSinkTask extends SinkTask
     throws RetriableException
   {
 
-    if (sink == null)
+    if (sink == null || sink.isClosed())
     {
       LOGGER.error(Logging.logMessage("SnowflakeSinkTask[ID:{}]: sink " +
-        "not initialized before preCommit", this.id));
+        "not initialized or closed before preCommit", this.id));
       return offsets;
     }
 
     Map<TopicPartition, OffsetAndMetadata> committedOffsets = new HashMap<>();
-
-    offsets.forEach(
-      (topicPartition, offsetAndMetadata) ->
-      {
-        long offSet = getSink().getOffset(topicPartition);
-        if (offSet == 0)
+    // it's ok to just log the error since commit can retry
+    try
+    {
+      offsets.forEach(
+        (topicPartition, offsetAndMetadata) ->
         {
-          committedOffsets.put(topicPartition, offsetAndMetadata);
-          //todo: update offset?
+          long offSet = sink.getOffset(topicPartition);
+          if (offSet == 0) {
+            committedOffsets.put(topicPartition, offsetAndMetadata);
+            //todo: update offset?
+          } else {
+            committedOffsets.put(topicPartition,
+              new OffsetAndMetadata(sink.getOffset(topicPartition)));
+          }
         }
-        else
-        {
-          committedOffsets.put(topicPartition,
-            new OffsetAndMetadata(getSink().getOffset(topicPartition)));
-        }
-      }
-    );
+      );
+    } catch (Exception e)
+    {
+      LOGGER.error(Logging.logMessage("SnowflakeSinkTask[ID:{}]: Error " +
+        "while preCommit: {} ", this.id, e.getMessage()));
+      return offsets;
+    }
 
     return committedOffsets;
   }
