@@ -1,0 +1,32 @@
+cp-kafka-connect:
+    # this is running the kafka connect on cluster mode with three kafka connect nodes
+    replicaCount: 3
+    image: snowflakedb/kc-dev-build
+    imageTag: dev
+    imagePullPolicy: Never # pull from local docker build 
+    # this component does not have nodeport service, so open proxy
+
+cp-kafka:
+    persistence:
+        enabled: false
+        # this is only for test, we want volumn to be destroyed 
+        # if pod is destroyed
+    nodeport:
+        enabled: true
+        servicePort: 19092 # this is the default value
+        firstListenerPort: 31090 # this is the default value
+        # access kafka directly from outside cluster without proxy
+
+cp-zookeeper:
+    persistence:
+        enabled: false
+
+
+cp-kafka-rest:
+    enabled: false
+
+cp-ksql-server:
+    enabled: false
+
+cp-control-center:
+    enabled: false
