@@ -58,7 +58,7 @@ public class MetaColumnIT
     service.insert(record);
 
     record =
-      new SinkRecord(topic, partition, Schema.BYTES_SCHEMA, "key2",
+      new SinkRecord(topic, partition, Schema.STRING_SCHEMA, "key2",
         result.schema(), result.value(), 1);
 
     service.insert(record);
