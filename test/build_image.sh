@@ -3,9 +3,15 @@
 # exit on error
 set -e
 
+# error printing function
+function error_exit() {
+    echo >&2 $1
+    exit 1
+}
+
 # check argument number is 1 or 0
 if [ $# -gt 1 ]; then
-    echo >&2 "Usage: ./build_image.sh <path to snowflake helm value>  or  ./build_image.sh .  Aborting."; exit 1;
+    error_exit "Usage: ./build_image.sh <path to snowflake helm value>  or  ./build_image.sh .  Aborting."
 fi
 
 SNOWFLAKE_CONNECTOR_PATH=$1
@@ -22,23 +28,23 @@ if [[ -z "${SNOWFLAKE_CONNECTOR_PATH}" ]]; then
 fi
 
 # check if the provided snowflake connector folder exist
-if [ ! -d $SNOWFLAKE_CONNECTOR_PATH ] ; then
-    echo -e "Provided path to snowflake connector repo $SNOWFLAKE_CONNECTOR_PATH does not exist.  Aborting."; exit 1;
+if [ ! -d $SNOWFLAKE_CONNECTOR_PATH ]; then
+    error_exit "Provided path to snowflake connector repo $SNOWFLAKE_CONNECTOR_PATH does not exist.  Aborting."
 fi
 
 # require the environment variable for credentials
 if [[ -z "${SNOWFLAKE_CREDENTIAL_FILE}" ]]; then
-    echo >&2 "Require environment variable SNOWFLAKE_CREDENTIAL_FILE but it's not set.  Aborting."; exit 1;
+    error_exit "Require environment variable SNOWFLAKE_CREDENTIAL_FILE but it's not set.  Aborting."
 fi
 
 if [ ! -f "$SNOWFLAKE_CREDENTIAL_FILE" ]; then
-    echo >&2 "Provided SNOWFLAKE_CREDENTIAL_FILE $SNOWFLAKE_CREDENTIAL_FILE does not exist.  Aborting."; exit 1;
+    error_exit "Provided SNOWFLAKE_CREDENTIAL_FILE $SNOWFLAKE_CREDENTIAL_FILE does not exist.  Aborting."
 fi
 
 # check required commands
-command -v docker >/dev/null 2>&1 || { echo >&2 "Require docker but it's not installed.  Aborting."; exit 1; }
-command -v minikube >/dev/null 2>&1 || { echo >&2 "Require minikube but it's not installed.  Aborting."; exit 1; }
-command -v mvn >/dev/null 2>&1 || { echo >&2 "Require mvn but it's not installed.  Aborting."; exit 1; }
+command -v docker >/dev/null 2>&1 || error_exit "Require docker but it's not installed.  Aborting."
+command -v minikube >/dev/null 2>&1 || error_exit "Require minikube but it's not installed.  Aborting."
+command -v mvn >/dev/null 2>&1 || error_exit "Require mvn but it's not installed.  Aborting."
 
 # match all versions of built SF connector
 SNOWFLAKE_PLUGIN_NAME_REGEX="snowflake-kafka-connector-[0-9]*\.[0-9]*\.[0-9]*\.jar$"
@@ -62,18 +68,17 @@ if ! minikube status; then
 fi
 eval $(minikube docker-env)
 
-
 # copy credential to SNOWFLAKE_CONNECTOR_PATH
 cp -rf $SNOWFLAKE_CREDENTIAL_FILE $SNOWFLAKE_CONNECTOR_PATH || true
 
 # build and test the local repo
 pushd $SNOWFLAKE_CONNECTOR_PATH
-mvn package -Dgpg.skip=true
+mvn verify -Dgpg.skip=true
 popd
 
 # get built image name
 # only match the first line
-SNOWFLAKE_PLUGIN_NAME=$(ls $SNOWFLAKE_PLUGIN_PATH | grep "$SNOWFLAKE_PLUGIN_NAME_REGEX" | head -n 1 )
+SNOWFLAKE_PLUGIN_NAME=$(ls $SNOWFLAKE_PLUGIN_PATH | grep "$SNOWFLAKE_PLUGIN_NAME_REGEX" | head -n 1)
 echo -e "\n=== built connector name: $SNOWFLAKE_PLUGIN_NAME ==="
 
 # download Kafka connect docker image
