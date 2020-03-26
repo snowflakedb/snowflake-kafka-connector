@@ -22,7 +22,7 @@ public class RecordContentTest
     SnowflakeRecordContent content =
       new SnowflakeRecordContent(data);
     assert !content.isBroken();
-    assert content.getSchemaID() == -1;
+    assert content.getSchemaID() == SnowflakeRecordContent.NON_AVRO_SCHEMA;
     assert content.getData().length == 1;
     assert content.getData()[0].asText().equals(data.asText());
     assert TestUtils.assertError(SnowflakeErrors.ERROR_5011,
@@ -43,7 +43,7 @@ public class RecordContentTest
     data1[0] = data;
     content = new SnowflakeRecordContent(data1);
     assert !content.isBroken();
-    assert content.getSchemaID() == -1;
+    assert content.getSchemaID() == SnowflakeRecordContent.NON_AVRO_SCHEMA;
     assert content.getData().length == 1;
     assert content.getData()[0].asText().equals(data.asText());
     assert TestUtils.assertError(SnowflakeErrors.ERROR_5011,
@@ -53,7 +53,7 @@ public class RecordContentTest
     byte[] brokenData = "123".getBytes(StandardCharsets.UTF_8);
     content = new SnowflakeRecordContent(brokenData);
     assert content.isBroken();
-    assert content.getSchemaID() == -1;
+    assert content.getSchemaID() == SnowflakeRecordContent.NON_AVRO_SCHEMA;
     assert TestUtils.assertError(SnowflakeErrors.ERROR_5012,
       content::getData);
     assert new String(content.getBrokenData(), StandardCharsets.UTF_8).equals("123");

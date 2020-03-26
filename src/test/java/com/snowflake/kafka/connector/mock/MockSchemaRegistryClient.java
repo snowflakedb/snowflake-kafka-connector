@@ -36,19 +36,26 @@ public class MockSchemaRegistryClient implements SchemaRegistryClient
     Schema.Parser parser = new Schema.Parser();
     this.schema = parser.parse(schemaJson);
 
-    byte[] avroData = jsonToAvro("{\"int\":1234}", schema);
-    this.data = new byte[5 + avroData.length];
-
-    this.data[0] = 0;
-    this.data[4] = 1;
-
-    System.arraycopy(avroData, 0, this.data, 5, avroData.length);
-
+    this.data = this.serializeJson("{\"int\":1234}");
   }
 
   public byte[] getData()
   {
     return data.clone();
+  }
+
+  public byte[] serializeJson(String json) throws IOException {
+    byte [] avroData = jsonToAvro(json, this.schema);
+
+    // https://docs.confluent.io/current/schema-registry/serializer-formatter.html#wire-format
+    byte[] dat = new byte[5 + avroData.length];
+    dat[0] = 0; // Magic byte
+    dat[4] = 1; // Schema ID
+
+    System.arraycopy(avroData, 0, dat, 5, avroData.length);
+
+
+    return dat;
   }
 
   private static byte[] jsonToAvro(String json, Schema schema) throws
