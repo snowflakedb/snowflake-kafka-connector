@@ -156,7 +156,7 @@ public class RecordService extends Logging
     {
       meta.put(KEY, record.key().toString());
     }
-    else if (record.keySchema().name().equals(SnowflakeJsonSchema.NAME))
+    else if (SnowflakeJsonSchema.NAME.equals(record.keySchema().name()))
     {
       if (!(record.key() instanceof SnowflakeRecordContent))
       {
@@ -175,6 +175,10 @@ public class RecordService extends Logging
       {
         meta.put(KEY_SCHEMA_ID, keyContent.getSchemaID());
       }
+    }
+    else {
+      throw SnowflakeErrors.ERROR_0010
+        .getException("Unsupported Key format, please implement either String Key Converter or Snowflake Converters");
     }
   }
 
