@@ -16,7 +16,6 @@
  */
 package com.snowflake.kafka.connector.records;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
@@ -33,7 +32,7 @@ import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
 
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -49,6 +48,7 @@ public class RecordService extends Logging
   static final String CONTENT = "content";
   static final String META = "meta";
   static final String SCHEMA_ID = "schema_id";
+  private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
 
   // This class is designed to work with empty metadata config map
@@ -97,7 +97,7 @@ public class RecordService extends Logging
         .getException("Input record should be SnowflakeRecordContent object");
     }
 
-    SnowflakeRecordContent content = (SnowflakeRecordContent) record.value();
+    SnowflakeRecordContent valueContent = (SnowflakeRecordContent) record.value();
 
     ObjectNode meta = MAPPER.createObjectNode();
     if (metadataConfig.topicFlag)
@@ -118,17 +118,12 @@ public class RecordService extends Logging
     }
 
     //include schema id if using avro with schema registry
-    if (content.getSchemaID() != -1)
+    if (valueContent.getSchemaID() != SnowflakeRecordContent.NON_AVRO_SCHEMA)
     {
-      meta.put(SCHEMA_ID, content.getSchemaID());
+      meta.put(SCHEMA_ID, valueContent.getSchemaID());
     }
 
-    //include String key
-    if (record.keySchema().toString().equals(Schema.STRING_SCHEMA.toString())
-      && record.key() != null)
-    {
-      meta.put(KEY, record.key().toString());
-    }
+    putKey(record, meta);
 
     if (!record.headers().isEmpty())
     {
@@ -137,7 +132,7 @@ public class RecordService extends Logging
 
 
     StringBuilder buffer = new StringBuilder();
-    for (JsonNode node : content.getData())
+    for (JsonNode node : valueContent.getData())
     {
       ObjectNode data = MAPPER.createObjectNode();
       data.set(CONTENT, node);
@@ -150,6 +145,40 @@ public class RecordService extends Logging
     return buffer.toString();
   }
 
+  private void putKey(SinkRecord record, ObjectNode meta)
+  {
+    if (record.key() == null)
+    {
+      return;
+    }
+
+    if (record.keySchema().toString().equals(Schema.STRING_SCHEMA.toString()))
+    {
+      meta.put(KEY, record.key().toString());
+    }
+    else if (record.keySchema().name().equals(SnowflakeJsonSchema.NAME))
+    {
+      if (!(record.key() instanceof SnowflakeRecordContent))
+      {
+        throw SnowflakeErrors.ERROR_0010
+            .getException("Input record key should be SnowflakeRecordContent object if key schema is SNOWFLAKE_JSON_SCHEMA");
+      }
+
+      SnowflakeRecordContent keyContent = (SnowflakeRecordContent) record.key();
+
+      ArrayNode keyNode = MAPPER.createArrayNode();
+      keyNode.addAll(Arrays.asList(keyContent.getData()));
+
+      meta.set(KEY, keyNode);
+
+      if (keyContent.getSchemaID() != SnowflakeRecordContent.NON_AVRO_SCHEMA)
+      {
+        meta.put(KEY_SCHEMA_ID, keyContent.getSchemaID());
+      }
+    }
+  }
+
+
   static JsonNode parseHeaders(Headers headers)
   {
     ObjectNode result = MAPPER.createObjectNode();
@@ -159,6 +188,7 @@ public class RecordService extends Logging
     }
     return result;
   }
+
   private static void convertData(String key, Object value, Schema schema, JsonNode node)
   {
     switch (schema.type())
