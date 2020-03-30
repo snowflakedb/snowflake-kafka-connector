@@ -3,6 +3,12 @@
 # exit on error
 set -e
 
+# error printing function
+function error_exit() {
+    echo >&2 $1
+    exit 1
+}
+
 # assume that we are on EC2 Ubuntu 18.04
 echo -e "=== This script is only tested on Ubuntu 18.04 and Mac OSX 10.15.3 ==="
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
@@ -28,8 +34,8 @@ if [[ "$OSTYPE" == "linux-gnu" ]]; then
     sudo apt -y install kubectl
 
     # install minikube
-    curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_1.8.1-0_amd64.deb \
-        && sudo dpkg -i minikube_1.8.1-0_amd64.deb
+    curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_1.8.1-0_amd64.deb &&
+        sudo dpkg -i minikube_1.8.1-0_amd64.deb
     rm minikube_1.8.1-0_amd64.deb
 
     # install helm
@@ -45,10 +51,10 @@ if [[ "$OSTYPE" == "linux-gnu" ]]; then
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     # Mac OSX
     echo -e "=== Running on Mac OSX ==="
-    command -v docker >/dev/null 2>&1 || { echo >&2 "Please install docker by yourself."; exit 1; }
+    command -v docker >/dev/null 2>&1 || error_exit "Please install docker by yourself."
 
     # install homebrew
-    command -v brew >/dev/null 2>&1 || \
+    command -v brew >/dev/null 2>&1 ||
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
     brew update
 
@@ -57,19 +63,19 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 
     brew install kubectl minikube helm jq maven
 
-  
 else
+
     # Unknown.
     echo -e "=== Running on unknown OS, try at your own risk ==="
 fi
 
-command -v minikube >/dev/null 2>&1 || { echo >&2 "Require minikube but it's not installed.  Aborting."; exit 1; }
-command -v docker >/dev/null 2>&1 || { echo >&2 "Require docker but it's not installed.  Aborting."; exit 1; }
-command -v helm >/dev/null 2>&1 || { echo >&2 "Require helm but it's not installed.  Aborting."; exit 1; }
-command -v kubectl >/dev/null 2>&1 || { echo >&2 "Require kubectl but it's not installed.  Aborting."; exit 1; }
-command -v jq >/dev/null 2>&1 || { echo >&2 "Require jq but it's not installed.  Aborting."; exit 1; }
-command -v mvn >/dev/null 2>&1 || { echo >&2 "Require mvn but it's not installed.  Aborting."; exit 1; }
-command -v python3 >/dev/null 2>&1 || { echo >&2 "Require python3 but it's not installed.  Aborting."; exit 1; }
+command -v minikube >/dev/null 2>&1 || error_exit "Require minikube but it's not installed.  Aborting."
+command -v docker >/dev/null 2>&1 || error_exit "Require docker but it's not installed.  Aborting."
+command -v helm >/dev/null 2>&1 || error_exit "Require helm but it's not installed.  Aborting."
+command -v kubectl >/dev/null 2>&1 || error_exit "Require kubectl but it's not installed.  Aborting."
+command -v jq >/dev/null 2>&1 || error_exit "Require jq but it's not installed.  Aborting."
+command -v mvn >/dev/null 2>&1 || error_exit "Require mvn but it's not installed.  Aborting."
+command -v python3 >/dev/null 2>&1 || error_exit "Require python3 but it's not installed.  Aborting."
 
 # assuming on dev mac, might need to change the values if on AWS
 minikube config set memory 8192
