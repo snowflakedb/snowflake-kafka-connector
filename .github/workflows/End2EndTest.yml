@@ -1,0 +1,76 @@
+name: Kafka Connector End2End Test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+    - name: "Install Java 8"
+      uses: actions/setup-java@v1
+      with:
+        java-version: 1.8
+    - name: Install Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: '3.6'
+        architecture: 'x64'
+    - name: Decrypt profile.json
+      run: ./.github/scripts/decrypt_secret.sh
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+    - name: Restore Maven Cache
+      uses: actions/cache@v1
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+    - name: Install Dependency
+      run: |
+        pip3 install --upgrade setuptools
+        pip3 install "confluent-kafka[avro]"
+        pip3 install avro-python3
+        pip3 install --upgrade snowflake-connector-python
+        curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+        sudo apt-get -y install jq
+    - name: Start Kubernetes Cluster
+      env:
+        CHANGE_MINIKUBE_NONE_USER: true
+      run: |
+        curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+        echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
+        sudo apt-get update
+        sudo apt-get -y install kubectl
+        curl -Lo minikube https://storage.googleapis.com/minikube/releases/v1.8.2/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+        sudo minikube start --vm-driver=none
+        sudo chown -R $USER /home/runner/.kube /home/runner/.minikube || true
+        minikube update-context
+    
+    - name: Build with Unit and Integration Test
+      env:
+        JACOCO_COVERAGE: true
+        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+        SHELL: "/bin/bash"
+      run: |
+        cd test
+        ./build_image.sh ../../snowflake-kafka-connector
+
+    - name: End to End Test
+      env:
+        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+      run: |
+        cd test
+        ./run_test.sh ./helm_values/snow_values_5.4.yaml
+
+    - name: Code Coverage
+      uses: codecov/codecov-action@v1
+
+
+
