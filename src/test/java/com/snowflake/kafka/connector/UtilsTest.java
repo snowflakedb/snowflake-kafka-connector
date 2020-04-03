@@ -89,8 +89,34 @@ public class UtilsTest
     assert !Utils.isValidSnowflakeTableName("_13)42dfsaf$");
     assert !Utils.isValidSnowflakeTableName("_13.42dfsaf$");
     assert !Utils.isValidSnowflakeTableName("_1342.df.sa.f$");
+  }
 
+  @Test
+  public void testConvertAppName()
+  {
+    HashMap<String, String> config = new HashMap<String, String>();
 
+    config.put(SnowflakeSinkConnectorConfig.NAME, "_aA1");
+    Utils.convertAppName(config);
+    assert config.get(SnowflakeSinkConnectorConfig.NAME).equals("_aA1");
+
+    config.put(SnowflakeSinkConnectorConfig.NAME, "-_aA1");
+    Utils.convertAppName(config);
+    assert config.get(SnowflakeSinkConnectorConfig.NAME).equals("___aA1_44483871");
+
+    config.put(SnowflakeSinkConnectorConfig.NAME, "_aA1-");
+    Utils.convertAppName(config);
+    assert config.get(SnowflakeSinkConnectorConfig.NAME).equals("_aA1__90688251");
+  }
+
+  @Test
+  public void testIsValidSnowflakeApplicationName()
+  {
+    assert Utils.isValidSnowflakeApplicationName("-_aA1");
+    assert Utils.isValidSnowflakeApplicationName("aA_1-");
+    assert !Utils.isValidSnowflakeApplicationName("1aA_-");
+    assert !Utils.isValidSnowflakeApplicationName("_1.a$");
+    assert !Utils.isValidSnowflakeApplicationName("(1.f$-_");
   }
 
 }
