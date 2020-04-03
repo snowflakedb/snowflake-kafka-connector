@@ -38,7 +38,7 @@ public class Utils
 {
 
   //Connector version, change every release
-  public static final String VERSION = "1.2.2";
+  public static final String VERSION = "1.2.3";
 
   //connector parameter list
   public static final String NAME = "name";
@@ -419,7 +419,6 @@ public class Utils
   /**
    * modify invalid application name in config and return the generated application name
    * @param config input config object
-   * @return valid application name
    */
   public static void convertAppName(Map<String, String> config)
   {
