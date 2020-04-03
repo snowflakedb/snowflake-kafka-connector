@@ -73,7 +73,7 @@ cp -rf $SNOWFLAKE_CREDENTIAL_FILE $SNOWFLAKE_CONNECTOR_PATH || true
 
 # build and test the local repo
 pushd $SNOWFLAKE_CONNECTOR_PATH
-mvn package -Dgpg.skip=true
+mvn verify -Dgpg.skip=true
 popd
 
 # get built image name
