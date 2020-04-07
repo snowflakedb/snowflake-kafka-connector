@@ -60,7 +60,7 @@ jobs:
         SHELL: "/bin/bash"
       run: |
         cd test
-        ./build_image.sh ../../snowflake-kafka-connector
+        ./build_image.sh 5.3.0 ../../snowflake-kafka-connector
 
     - name: End to End Test
       env:

@@ -3,6 +3,9 @@ package com.snowflake.kafka.connector.records;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.annotation.PropertyAccessor;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.annotation.JsonInclude;
 
 public class SnowflakeRecordContent
 {
@@ -23,6 +26,21 @@ public class SnowflakeRecordContent
     content = new JsonNode[1];
     content[0] = MAPPER.createObjectNode();
     brokenData = null;
+  }
+
+  /**
+   * constructor for native json converter
+   * @param data json map
+   */
+  public SnowflakeRecordContent(Object data)
+  {
+    this.content = new JsonNode[1];
+    MAPPER.setVisibility(PropertyAccessor.FIELD, Visibility.ANY);
+    MAPPER.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    this.content[0] = MAPPER.valueToTree(data);;
+    this.isBroken = false;
+    this.schemaID = NON_AVRO_SCHEMA;
+    this.brokenData = null;
   }
 
   /**
