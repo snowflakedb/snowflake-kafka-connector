@@ -18,6 +18,7 @@ package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import net.snowflake.client.jdbc.internal.google.cloud.storage.StorageOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +38,7 @@ public class Utils
 {
 
   //Connector version, change every release
-  public static final String VERSION = "1.2.2";
+  public static final String VERSION = "1.2.3";
 
   //connector parameter list
   public static final String NAME = "name";
@@ -219,6 +220,17 @@ public class Utils
     return objName.matches("^[_a-zA-Z]{1}[_$a-zA-Z0-9]+$");
   }
 
+  /**
+   * validates that given name is a valid snowflake application name, support '-'
+   *
+   * @param appName snowflake application name
+   * @return true if given application name is valid
+   */
+  static boolean isValidSnowflakeApplicationName(String appName)
+  {
+    return appName.matches("^[-_a-zA-Z]{1}[-_$a-zA-Z0-9]+$");
+  }
+
   static boolean isValidSnowflakeTableName(String tableName)
   {
     return tableName.matches("^([_a-zA-Z]{1}[_$a-zA-Z0-9]+\\.){0,2}[_a-zA-Z]{1}[_$a-zA-Z0-9]+$");
@@ -242,7 +254,7 @@ public class Utils
     // unique name of this connector instance
     String connectorName =
       config.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "");
-    if (connectorName.isEmpty() || !isValidSnowflakeObjectIdentifier(connectorName))
+    if (connectorName.isEmpty() || !isValidSnowflakeApplicationName(connectorName))
     {
       LOGGER.error(Logging.logMessage("{} is empty or invalid. It " +
         "should match Snowflake object identifier syntax. Please see the " +
@@ -405,12 +417,37 @@ public class Utils
   }
 
   /**
+   * modify invalid application name in config and return the generated application name
+   * @param config input config object
+   */
+  public static void convertAppName(Map<String, String> config)
+  {
+    String appName =
+      config.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "");
+    // If appName is empty the following call will throw error
+    String validAppName = generateValidName(appName, new HashMap<String, String>());
+
+    config.put(SnowflakeSinkConnectorConfig.NAME, validAppName);
+  }
+
+  /**
    * verify topic name, and generate valid table name
    * @param topic input topic name
    * @param topic2table topic to table map
-   * @return table name
+   * @return valid table name
    */
   public static String tableName(String topic, Map<String, String> topic2table)
+  {
+    return generateValidName(topic, topic2table);
+  }
+
+  /**
+   * verify topic name, and generate valid table/application name
+   * @param topic input topic name
+   * @param topic2table topic to table map
+   * @return valid table/application name
+   */
+  public static String generateValidName(String topic, Map<String, String> topic2table)
   {
     final String PLACE_HOLDER = "_";
     if(topic == null || topic.isEmpty())

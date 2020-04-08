@@ -128,13 +128,16 @@ public class SnowflakeSinkConnector extends SinkConnector
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT));
     }
 
-    connectorName = Utils.validateConfig(config);
+    Utils.validateConfig(config);
+
+    // modify invalid connector name
+    Utils.convertAppName(config);
 
     // create a persisted connection, and validate snowflake connection
     // config as a side effect
     conn = SnowflakeConnectionServiceFactory
       .builder()
-      .setProperties(parsedConfig)
+      .setProperties(config)
       .build();
 
     telemetryClient = conn.getTelemetryClient();
