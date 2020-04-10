@@ -1,0 +1,15 @@
+{
+  "name": "one_g_table",
+  "type": "record",
+  "fields":[
+    {"name":"C_CUSTKEY", "type":"long"},
+    {"name":"C_NAME", "type":"string"},
+    {"name":"C_ADDRESS", "type":"string"},
+    {"name":"C_NATIONKEY", "type":"long"},
+    {"name":"C_PHONE", "type":"string"},
+    {"name":"C_ACCTBAL", "type":"double"},
+    {"name":"C_MKTSEGMENT", "type":"string"},
+    {"name":"C_COMMENT", "type":"string"}
+  ]
+}
+
