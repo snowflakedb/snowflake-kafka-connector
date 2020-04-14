@@ -509,7 +509,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
       //old files
       List<String> oldFiles = new LinkedList<>();
-      tmpFileNames.forEach(
+
+      // iterate over a copy since failed files get removed from it
+      new LinkedList<>(tmpFileNames).forEach(
         name ->
         {
           long time = FileNameUtils.fileNameToTimeIngested(name);
