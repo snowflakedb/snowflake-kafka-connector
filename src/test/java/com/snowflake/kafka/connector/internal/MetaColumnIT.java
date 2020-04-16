@@ -36,7 +36,7 @@ public class MetaColumnIT
   }
 
   @Test
-  public void testKey() throws InterruptedException, SQLException, IOException
+  public void testKey() throws Exception
   {
     conn.createTable(tableName);
     conn.createStage(stageName);
@@ -69,33 +69,40 @@ public class MetaColumnIT
 
     service.insert(record);
 
-    Thread.sleep(90 * 1000);
-    service.closeAll();
+    TestUtils.assertWithRetry(() -> {
+      ResultSet resultSet = TestUtils.executeQuery("select RECORD_METADATA from" +
+        " " + tableName);
 
-    ResultSet resultSet = TestUtils.executeQuery("select RECORD_METADATA from" +
-      " " + tableName);
+      boolean hasKey1 = false;
+      boolean hasKey3 = false;
 
-    boolean hasKey1 = false;
-    boolean hasKey3 = false;
-
-    for (int i = 0; i < 3; i++)
-    {
-      assert resultSet.next();
-      JsonNode node = mapper.readTree(resultSet.getString(1));
-      if (node.has("key"))
+      for (int i = 0; i < 3; i++)
       {
-        if (node.get("key").asText().equals("key1"))
+        if (!resultSet.next())
         {
-          hasKey1 = true;
+          return false;
         }
-        else if (node.get("key").asText().equals("key3"))
+        JsonNode node = mapper.readTree(resultSet.getString(1));
+        if (node.has("key"))
         {
-          hasKey3 = true;
+          if (node.get("key").asText().equals("key1"))
+          {
+            hasKey1 = true;
+          }
+          else if (node.get("key").asText().equals("key3"))
+          {
+            hasKey3 = true;
+          }
         }
       }
-    }
-    assert !resultSet.next();
-    assert hasKey1 && hasKey3;
+      if (resultSet.next() || !hasKey1 || !hasKey3)
+      {
+        return false;
+      }
+      return true;
+    }, 30, 4);
+
+    service.closeAll();
   }
 
 }

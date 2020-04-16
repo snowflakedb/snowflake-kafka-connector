@@ -62,6 +62,7 @@ public class IngestionServiceIT
     Map<String, InternalUtils.IngestedFileStatus> result =
       ingestService.readOneHourHistory(names, System.currentTimeMillis() -
         3600 * 1000);
+    System.out.println(result.get(fileName));
     assert result.get(fileName).equals(InternalUtils.IngestedFileStatus.LOADED);
     assert ingestService.getStageName().equals(stage);
 

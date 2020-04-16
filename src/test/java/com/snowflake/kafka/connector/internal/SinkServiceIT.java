@@ -89,8 +89,7 @@ public class SinkServiceIT
   }
 
   @Test
-  public void testIngestion() throws InterruptedException,
-    SQLException
+  public void testIngestion() throws Exception
   {
     conn.createTable(table);
     conn.createStage(stage);
@@ -122,26 +121,20 @@ public class SinkServiceIT
     assert FileNameUtils.fileNameToEndOffset(fileName) == offset;
 
     //wait for ingest
-    Thread.sleep(90 * 1000);
-    assert TestUtils.tableSize(table) == 1;
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 30, 6);
 
     //change cleaner
-    Thread.sleep(60 * 1000);
-    assert conn.listStage(stage,
-      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table,
-        partition)).isEmpty();
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 0,30, 6);
 
     assert service.getOffset(new TopicPartition(topic, partition)) == offset + 1;
 
     service.closeAll();
-    Thread.sleep(60 * 1000);
     // don't drop pipe in current version
 //    assert !conn.pipeExist(pipe);
   }
 
   @Test
-  public void testRecordNumber() throws InterruptedException,
-    SQLException, ExecutionException
+  public void testRecordNumber() throws Exception
   {
     conn.createTable(table);
     conn.createStage(stage);
@@ -164,8 +157,8 @@ public class SinkServiceIT
     assert result.get() == numOfRecord / numLimit;
     assert result1.get() == numOfRecord1 / numLimit;
 
-    Thread.sleep(90 * 1000);
-    assert TestUtils.tableSize(table) == numOfRecord + numOfRecord1;
+    TestUtils.assertWithRetry(() ->
+      TestUtils.tableSize(table) == numOfRecord + numOfRecord1, 30, 6);
 
     service.closeAll();
   }
@@ -188,9 +181,7 @@ public class SinkServiceIT
               , "test", input.schema(), input.value(), i));
         }
 
-        return conn.listStage(stage,
-          FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table,
-            partition)).size();
+        return getStageSize(stage, table, partition);
       }
     );
   }
@@ -219,7 +210,7 @@ public class SinkServiceIT
   }
 
   @Test
-  public void testFlushTime() throws InterruptedException, ExecutionException
+  public void testFlushTime() throws Exception
   {
     conn.createTable(table);
     conn.createStage(stage);
@@ -235,17 +226,13 @@ public class SinkServiceIT
 
     assert insert(service, partition, numOfRecord).get() == 0;
 
-    Thread.sleep((flushTime + 5) * 1000);
-
-    assert conn.listStage(stage,
-      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table,
-        partition)).size() == 1;
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 1, 15, 4);
 
     service.closeAll();
   }
 
   @Test
-  public void testRecover() throws InterruptedException
+  public void testRecover() throws Exception
   {
     String data = "{\"content\":{\"name\":\"test\"},\"meta\":{\"offset\":0," +
       "\"topic\":\"test\",\"partition\":0}}";
@@ -268,10 +255,7 @@ public class SinkServiceIT
 
     ingestionService.ingestFile(fileName1);
 
-    Thread.sleep(90 * 1000);
-
-    assert conn.listStage(stage,
-      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 2;
+    assert getStageSize(stage, table, 0) == 2;
 
     SnowflakeSinkService service = SnowflakeSinkServiceFactory.builder(conn)
       .addTask(table, topic, partition)
@@ -284,15 +268,7 @@ public class SinkServiceIT
     //lazy init and recovery function
     service.insert(record);
 
-    Thread.sleep(10 * 1000); //wait a few second, s3 consistency issue
-
-    assert conn.listStage(stage,
-      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 1;
-
-    Thread.sleep(120 * 1000);
-
-    assert conn.listStage(stage,
-      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, 0)).size() == 0;
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, 0) == 0, 30, 6);
 
     service.closeAll();
   }
@@ -325,5 +301,10 @@ public class SinkServiceIT
     assert TestUtils.getOffsetFromBrokenFileName(name) == offset;
 
     service.closeAll();
+  }
+
+  int getStageSize(String stage, String table, int partition)
+  {
+    return conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition)).size();
   }
 }
