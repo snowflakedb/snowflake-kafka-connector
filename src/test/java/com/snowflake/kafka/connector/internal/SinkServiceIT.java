@@ -137,8 +137,7 @@ public class SinkServiceIT
   }
 
   @Test
-  public void testNativeInputIngestion() throws InterruptedException,
-    SQLException, IOException
+  public void testNativeInputIngestion() throws Exception
   {
     conn.createTable(table);
     conn.createStage(stage);
@@ -210,18 +209,14 @@ public class SinkServiceIT
     assert FileNameUtils.fileNameToEndOffset(fileName) == endOffset;
 
     //wait for ingest
-    Thread.sleep(90 * 1000);
-    assert TestUtils.tableSize(table) == recordCount;
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == recordCount, 30, 6);
 
     //change cleaner
-    Thread.sleep(60 * 1000);
-    assert conn.listStage(stage,
-      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition)).isEmpty();
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 0,30, 6);
 
     assert service.getOffset(new TopicPartition(topic, partition)) == recordCount;
 
     service.closeAll();
-    Thread.sleep(60 * 1000);
     // don't drop pipe in current version
     // assert !conn.pipeExist(pipe);
   }
