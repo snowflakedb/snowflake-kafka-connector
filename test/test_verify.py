@@ -129,6 +129,9 @@ def runTestSet(driver, testSet, nameSalt):
     from test_suit.test_string_avrosr import TestStringAvrosr
     from test_suit.test_avrosr_avrosr import TestAvrosrAvrosr
 
+    from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
+    from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
+
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
     testStringAvro = TestStringAvro(driver, nameSalt)
@@ -136,13 +139,17 @@ def runTestSet(driver, testSet, nameSalt):
     testStringAvrosr = TestStringAvrosr(driver, nameSalt)
     testAvrosrAvrosr = TestAvrosrAvrosr(driver, nameSalt)
 
-    testSuitList = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr, testAvrosrAvrosr]
+    testNativeStringAvrosr = TestNativeStringAvrosr(driver, nameSalt)
+    testNativeStringJsonWithoutSchema = TestNativeStringJsonWithoutSchema(driver, nameSalt)
+
+    testSuitList = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr, 
+                    testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema]
     if testSet == "confluent":
-        testSuitEnableList = [True, True, True, True, True, True]
+        testSuitEnableList = [True, True, True, True, True, True, True, True]
     elif testSet == "apache":
-        testSuitEnableList = [True, True, True, True, False, False]
+        testSuitEnableList = [True, True, True, True, False, False, False, True]
     elif testSet == "clean":
-        testSuitEnableList = [False, False, False, False, False, False]
+        testSuitEnableList = [False, False, False, False, False, False, False, False]
     else:
         errorExit(
             "Unknown testSet option {}, please input confluent, apache or clean".format(testSet))

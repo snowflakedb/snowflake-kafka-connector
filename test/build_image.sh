@@ -9,12 +9,13 @@ function error_exit() {
     exit 1
 }
 
-# check argument number is 1 or 0
-if [ $# -gt 1 ]; then
-    error_exit "Usage: ./build_image.sh <path to snowflake helm value>  or  ./build_image.sh .  Aborting."
+# check argument number is 1 or 2
+if [ $# -gt 2 ] || [ $# -lt 1 ]; then
+    error_exit "Usage: ./build_image.sh <version> <path to snowflake helm value>  or  ./build_image.sh <version>.  Aborting."
 fi
 
-SNOWFLAKE_CONNECTOR_PATH=$1
+KAFKA_CONNECT_TAG=$1
+SNOWFLAKE_CONNECTOR_PATH=$2
 
 # check if connector path is set or checkout from github master
 if [[ -z "${SNOWFLAKE_CONNECTOR_PATH}" ]]; then
@@ -53,7 +54,6 @@ SNOWFLAKE_PLUGIN_PATH="$SNOWFLAKE_CONNECTOR_PATH/target"
 SNOWFLAKE_DOCKER_IMAGE="snowflakedb/kc-dev-build"
 SNOWFLAKE_TAG="dev"
 KAFKA_CONNECT_DOCKER_IMAGE="confluentinc/cp-kafka-connect"
-KAFKA_CONNECT_TAG="5.4.0"
 KAFKA_CONNECT_PLUGIN_PATH="/usr/share/confluent-hub-components"
 
 DEV_CONTAINER_NAME="snow-dev-build"

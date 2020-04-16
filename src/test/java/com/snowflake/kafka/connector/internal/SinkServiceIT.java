@@ -8,12 +8,15 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMappe
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -131,6 +134,96 @@ public class SinkServiceIT
     service.closeAll();
     // don't drop pipe in current version
 //    assert !conn.pipeExist(pipe);
+  }
+
+  @Test
+  public void testNativeInputIngestion() throws InterruptedException,
+    SQLException, IOException
+  {
+    conn.createTable(table);
+    conn.createStage(stage);
+    String jsonWithSchema = "" +
+      "{\n" +
+      "  \"schema\": {\n" +
+      "    \"type\": \"struct\",\n" +
+      "    \"fields\": [\n" +
+      "      {\n" +
+      "        \"type\": \"string\",\n" +
+      "        \"optional\": false,\n" +
+      "        \"field\": \"regionid\"\n" +
+      "      },\n" +
+      "      {\n" +
+      "        \"type\": \"string\",\n" +
+      "        \"optional\": false,\n" +
+      "        \"field\": \"gender\"\n" +
+      "      }\n" +
+      "    ],\n" +
+      "    \"optional\": false,\n" +
+      "    \"name\": \"ksql.users\"\n" +
+      "  },\n" +
+      "  \"payload\": {\n" +
+      "    \"regionid\": \"Region_5\",\n" +
+      "    \"gender\": \"MALE\"\n" +
+      "  }\n" +
+      "}";
+    String jsonWithoutSchema = "{\"userid\": \"User_1\"}";
+
+    JsonConverter converter = new JsonConverter();
+    HashMap<String, String> converterConfig = new HashMap<String, String>();
+    converterConfig.put("schemas.enable", "false");
+    converter.configure(converterConfig, false);
+    SchemaAndValue noSchemaInput = converter.toConnectData(topic, jsonWithoutSchema.getBytes(StandardCharsets.UTF_8));
+
+    converter = new JsonConverter();
+    converterConfig = new HashMap<String, String>();
+    converterConfig.put("schemas.enable", "true");
+    converter.configure(converterConfig, false);
+    SchemaAndValue schemaInput = converter.toConnectData(topic, jsonWithSchema.getBytes(StandardCharsets.UTF_8));
+
+    long startOffset = 0;
+    long endOffset = 1;
+    long recordCount = endOffset + 1;
+
+    SinkRecord noSchemaRecord = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
+      , "test", noSchemaInput.schema(), noSchemaInput.value(), startOffset);
+    SinkRecord schemaRecord = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
+      , "test", schemaInput.schema(), schemaInput.value(), startOffset + 1);
+
+    SnowflakeSinkService service =
+      SnowflakeSinkServiceFactory
+        .builder(conn)
+        .setRecordNumber(recordCount)
+        .addTask(table, topic, partition)
+        .build();
+
+    service.insert(noSchemaRecord);
+    service.insert(schemaRecord);
+
+    List<String> files = conn.listStage(stage,
+      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition));
+    assert files.size() == 1;
+    String fileName = files.get(0);
+
+    assert FileNameUtils.fileNameToTimeIngested(fileName) < System.currentTimeMillis();
+    assert FileNameUtils.fileNameToPartition(fileName) == partition;
+    assert FileNameUtils.fileNameToStartOffset(fileName) == startOffset;
+    assert FileNameUtils.fileNameToEndOffset(fileName) == endOffset;
+
+    //wait for ingest
+    Thread.sleep(90 * 1000);
+    assert TestUtils.tableSize(table) == recordCount;
+
+    //change cleaner
+    Thread.sleep(60 * 1000);
+    assert conn.listStage(stage,
+      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition)).isEmpty();
+
+    assert service.getOffset(new TopicPartition(topic, partition)) == recordCount;
+
+    service.closeAll();
+    Thread.sleep(60 * 1000);
+    // don't drop pipe in current version
+    // assert !conn.pipeExist(pipe);
   }
 
   @Test
