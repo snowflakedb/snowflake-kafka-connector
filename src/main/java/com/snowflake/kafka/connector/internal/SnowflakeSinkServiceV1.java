@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.RecordService;
+import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import org.apache.kafka.common.TopicPartition;
@@ -396,14 +397,24 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       //ignore ingested files
       if (record.kafkaOffset() > processedOffset)
       {
+        SinkRecord snowflakeRecord;
         if (!(record.value() instanceof SnowflakeRecordContent))
         {
-          throw SnowflakeErrors.ERROR_0019.getException();
+          // throw SnowflakeErrors.ERROR_0019.getException();
+          SnowflakeRecordContent newSFContent = new SnowflakeRecordContent(record.value());
+          // create new sinkRecord
+          snowflakeRecord = new SinkRecord(record.topic(), record.kafkaPartition(), record.keySchema(), record.key(), new SnowflakeJsonSchema(),
+            newSFContent, record.kafkaOffset(), record.timestamp(), record.timestampType(), record.headers());
         }
-        //broken record
-        else if (((SnowflakeRecordContent) record.value()).isBroken())
+        else
         {
-          writeBrokenDataToTableStage(record);
+          snowflakeRecord = record;
+        }
+
+        //broken record
+        if (((SnowflakeRecordContent) snowflakeRecord.value()).isBroken())
+        {
+          writeBrokenDataToTableStage(snowflakeRecord);
           //don't move committed offset in this case
           //only move it in the normal cases
         }
@@ -413,8 +424,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
           bufferLock.lock();
           try
           {
-            processedOffset = record.kafkaOffset();
-            buffer.insert(record);
+            processedOffset = snowflakeRecord.kafkaOffset();
+            buffer.insert(snowflakeRecord);
             if (buffer.getBufferSize() >= getFileSize() ||
               (getRecordNumber() != 0 && buffer.getNumOfRecord() >= getRecordNumber()))
             {
