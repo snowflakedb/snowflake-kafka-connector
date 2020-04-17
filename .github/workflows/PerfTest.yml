@@ -2,7 +2,7 @@ name: Kafka Connector Performance Test
 
 on:
   schedule:
-    - cron:  '* 23 * * *'
+    - cron:  '0 6 * * *'
 
 jobs:
   build:
