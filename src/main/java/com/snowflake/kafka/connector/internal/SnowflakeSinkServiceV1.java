@@ -400,8 +400,15 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         SinkRecord snowflakeRecord;
         if (!(record.value() instanceof SnowflakeRecordContent))
         {
-          // throw SnowflakeErrors.ERROR_0019.getException();
-          SnowflakeRecordContent newSFContent = new SnowflakeRecordContent(record.value());
+          SnowflakeRecordContent newSFContent;
+          try
+          {
+            newSFContent = new SnowflakeRecordContent(record.valueSchema(), record.value());
+          } catch (Exception e)
+          {
+            newSFContent = new SnowflakeRecordContent();
+            logError("native content parser error:\n{}", e.getMessage());
+          }
           // create new sinkRecord
           snowflakeRecord = new SinkRecord(record.topic(), record.kafkaPartition(), record.keySchema(), record.key(), new SnowflakeJsonSchema(),
             newSFContent, record.kafkaOffset(), record.timestamp(), record.timestampType(), record.headers());
