@@ -103,7 +103,7 @@ public class SnowflakeSinkConnectorConfig
         ConfigDef.Width.NONE,
         SNOWFLAKE_USER)
       .define(SNOWFLAKE_PRIVATE_KEY,
-        Type.STRING,
+        Type.PASSWORD,
         "",
         Importance.HIGH,
         "Private key for Snowflake user",
@@ -112,7 +112,7 @@ public class SnowflakeSinkConnectorConfig
         ConfigDef.Width.NONE,
         SNOWFLAKE_PRIVATE_KEY)
       .define(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE,
-        Type.STRING,
+        Type.PASSWORD,
         "",
         Importance.LOW,
         "Passphrase of private key if encrypted",
@@ -178,7 +178,7 @@ public class SnowflakeSinkConnectorConfig
         ConfigDef.Width.NONE,
         SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE)
       .define(SCHEMA_REGISTRY_AUTH_USER_INFO,
-        Type.STRING,
+        Type.PASSWORD,
         "",
         Importance.LOW,
         "User info of schema registry authentication, format: <user name>:<password>",
