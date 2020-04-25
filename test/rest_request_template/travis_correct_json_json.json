@@ -9,6 +9,8 @@
     "snowflake.database.name":"SNOWFLAKE_DATABASE",
     "snowflake.schema.name":"SNOWFLAKE_SCHEMA",
     "key.converter":"com.snowflake.kafka.connector.records.SnowflakeJsonConverter",
-    "value.converter":"com.snowflake.kafka.connector.records.SnowflakeJsonConverter"
+    "value.converter":"com.snowflake.kafka.connector.records.SnowflakeJsonConverter",
+    "snowflake.metadata.createtime":"false",
+    "snowflake.metadata.topic":false
   }
 }
