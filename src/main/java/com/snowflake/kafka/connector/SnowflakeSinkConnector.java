@@ -21,6 +21,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeTelemetryService;
+import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
@@ -90,43 +91,7 @@ public class SnowflakeSinkConnector extends SinkConnector
 
     config = new HashMap<>(parsedConfig);
 
-    // set buffer.count.records -- a Snowflake connector setting
-    // default : 10000 records
-    // Number of records buffered in memory per partition before ingesting to
-    // Snowflake
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS))
-    {
-      config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT + "");
-      LOGGER.info(Logging.logMessage("{} set to default {} records.",
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT));
-    }
-
-    // set buffer.size.bytes -- a Snowflake connector setting
-    // default : 5000000 bytes
-    // Cumulative size of records buffered in memory per partition before
-    // ingesting to Snowflake
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES))
-    {
-      config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT + "");
-      LOGGER.info(Logging.logMessage("{} set to default {} bytes.",
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT));
-    }
-
-    // set buffer.flush.time -- a Snowflake connector setting
-    // default: 30 seconds
-    // time to flush cached data
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC))
-    {
-      config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT + "");
-      LOGGER.info(Logging.logMessage("{} set to default {} seconds",
-        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT));
-    }
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     Utils.validateConfig(config);
 
@@ -247,6 +212,12 @@ public class SnowflakeSinkConnector extends SinkConnector
   public ConfigDef config()
   {
     return SnowflakeSinkConnectorConfig.newConfigDef();
+  }
+
+  @Override
+  public Config validate(Map<String, String> connectorConfigs) {
+    // TODO cross-fields validation here
+    return super.validate(connectorConfigs);
   }
 
   /**
