@@ -299,6 +299,11 @@ public enum SnowflakeErrors
     "5014",
     "Failed to put records",
     "SinkTask hasn't been initialized before calling PUT function"
+  ),
+  ERROR_5015(
+    "5015",
+    "Invalid SinkRecord received",
+    "Error parsing SinkRecord of native converter or SinkRecord header"
   )
   ;
 
