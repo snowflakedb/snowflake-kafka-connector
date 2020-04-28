@@ -12,16 +12,19 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 public class HeaderTest
 {
   private final static ObjectMapper MAPPER = new ObjectMapper();
+
+  public static final SimpleDateFormat ISO_DATE_FORMAT= new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+  public static final SimpleDateFormat TIME_FORMAT= new SimpleDateFormat("HH:mm:ss.SSSZ");
+  static{
+    ISO_DATE_FORMAT.setTimeZone(TimeZone.getTimeZone("UTC"));
+  }
 
   @Test
   public void testTypes() throws IOException
@@ -53,6 +56,15 @@ public class HeaderTest
     String stringData = "test test";
     String bytesName = "bytes";
     byte[] bytesData = {1, 2, 3, 4, 5, 6, 7, 8};
+    String bigDecimalName = "bigDecimal";
+    BigDecimal bigDecimalData = new BigDecimal("1234.1234");
+
+    String dateName = "date";
+    Date dateData = new Date(1577836800000L);
+    String timeName = "time";
+    Date timeData = new Date(54321L);
+    String timestampName = "timestamp";
+    Date timestampData = new Date(1577836854321L);
 
     headers.addByte(byteName, byteData);
     headers.addShort(shortName, shortData);
@@ -63,6 +75,10 @@ public class HeaderTest
     headers.addBoolean(booleanName, booleanData);
     headers.addString(stringName, stringData);
     headers.addBytes(bytesName, bytesData);
+    headers.addDecimal(bigDecimalName, bigDecimalData);
+    headers.addDate(dateName, dateData);
+    headers.addTime(timeName, timeData);
+    headers.addTimestamp(timestampName, timestampData);
 
     record = createTestRecord(headers);
     node = MAPPER.readTree(service.processRecord(record));
@@ -88,6 +104,14 @@ public class HeaderTest
     assert headerNode.get(stringName).asText().equals(stringData);
     assert headerNode.has(bytesName);
     assert Arrays.equals(headerNode.get(bytesName).binaryValue(), bytesData);
+    assert headerNode.has(bigDecimalName);
+    assert headerNode.get(bigDecimalName).decimalValue().equals(bigDecimalData);
+    assert headerNode.has(dateName);
+    assert headerNode.get(dateName).asText().equals(ISO_DATE_FORMAT.format(dateData));
+    assert headerNode.has(timeName);
+    assert headerNode.get(timeName).asText().equals(TIME_FORMAT.format(timeData));
+    assert headerNode.has(timestampName);
+    assert headerNode.get(timestampName).asLong() == timestampData.getTime();
 
     //array
     headers = new ConnectHeaders();
