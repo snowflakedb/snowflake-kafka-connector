@@ -209,10 +209,10 @@ public class SinkServiceIT
     assert FileNameUtils.fileNameToEndOffset(fileName) == endOffset;
 
     //wait for ingest
-    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == recordCount, 30, 6);
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == recordCount, 30, 8);
 
     //change cleaner
-    TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 0,30, 6);
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 0,30, 8);
 
     assert service.getOffset(new TopicPartition(topic, partition)) == recordCount;
 

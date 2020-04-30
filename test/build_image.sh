@@ -11,7 +11,7 @@ function error_exit() {
 
 # check argument number is 1 or 2
 if [ $# -gt 2 ] || [ $# -lt 1 ]; then
-    error_exit "Usage: ./build_image.sh <version> <path to snowflake helm value>  or  ./build_image.sh <version>.  Aborting."
+    error_exit "Usage: ./build_image.sh <version> <path to snowflake repo>  or  ./build_image.sh <version>.  Aborting."
 fi
 
 KAFKA_CONNECT_TAG=$1
@@ -55,6 +55,7 @@ SNOWFLAKE_DOCKER_IMAGE="snowflakedb/kc-dev-build"
 SNOWFLAKE_TAG="dev"
 KAFKA_CONNECT_DOCKER_IMAGE="confluentinc/cp-kafka-connect"
 KAFKA_CONNECT_PLUGIN_PATH="/usr/share/confluent-hub-components"
+KAFKA_CONNECT_PLUGIN_PATH_5_0_0="/usr/share/java"
 
 DEV_CONTAINER_NAME="snow-dev-build"
 
@@ -94,7 +95,8 @@ echo -e "\n=== create docker container ==="
 docker create --name $DEV_CONTAINER_NAME $KAFKA_CONNECT_DOCKER_IMAGE:$KAFKA_CONNECT_TAG
 
 echo -e "\n=== copy built snowflake plugin into container ==="
-docker cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $DEV_CONTAINER_NAME:$KAFKA_CONNECT_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME
+docker cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $DEV_CONTAINER_NAME:$KAFKA_CONNECT_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME || \
+docker cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $DEV_CONTAINER_NAME:$KAFKA_CONNECT_PLUGIN_PATH_5_0_0/$SNOWFLAKE_PLUGIN_NAME
 
 echo -e "\n=== commit the mocified container to snowflake image ==="
 docker commit $DEV_CONTAINER_NAME $SNOWFLAKE_DOCKER_IMAGE:$SNOWFLAKE_TAG
@@ -107,3 +109,10 @@ docker commit $DEV_CONTAINER_NAME $SNOWFLAKE_DOCKER_IMAGE:$SNOWFLAKE_TAG
 # clean up
 echo -e "\n=== delete container $DEV_CONTAINER_NAME ==="
 docker rm $DEV_CONTAINER_NAME
+
+# copy the jar to plugin path for apache kafka
+APACHE_KAFKA_CONNECT_PLUGIN_PATH="/usr/local/share/kafka/plugins"
+mkdir -m 777 -p $APACHE_KAFKA_CONNECT_PLUGIN_PATH || \
+sudo mkdir -m 777 -p $APACHE_KAFKA_CONNECT_PLUGIN_PATH 
+cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $APACHE_KAFKA_CONNECT_PLUGIN_PATH || true
+echo -e "\n=== copied connector to $APACHE_KAFKA_CONNECT_PLUGIN_PATH ==="
