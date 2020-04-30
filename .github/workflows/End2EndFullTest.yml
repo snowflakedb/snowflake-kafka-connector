@@ -1,13 +1,14 @@
 name: Kafka Connector End2End Test
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: '**'
+  schedule:
+    - cron:  '0 8 * * *'
 
 jobs:
   build:
+    strategy:
+      matrix:
+        versions: [0, 2, 4, 5]
     runs-on: ubuntu-18.04
     steps:
     - name: Checkout Code
@@ -57,24 +58,21 @@ jobs:
         SHELL: "/bin/bash"
       run: |
         cd test
-        ./build_image.sh 5.5.0 ../../snowflake-kafka-connector
+        ./build_image.sh 5.${{ matrix.versions }}.0 ../../snowflake-kafka-connector
 
     - name: End to End Test of Confluent Platform
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
       run: |
         cd test
-        ./run_test.sh ./helm_values/snow_values_5.4.yaml
+        ./run_test.sh ./helm_values/snow_values_5.${{ matrix.versions }}.yaml
 
     - name: End to End Test of Apache Plarform
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
       run: |
         cd test
-        ./run_test_apache.sh 2.5.0 ./apache_properties
-      
+        ./run_test_apache.sh 2.${{ matrix.versions }}.0 ./apache_properties
+
     - name: Code Coverage
       uses: codecov/codecov-action@v1
-
-
-
