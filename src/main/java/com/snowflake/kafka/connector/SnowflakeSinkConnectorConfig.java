@@ -20,9 +20,11 @@ import com.snowflake.kafka.connector.internal.Logging;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigDef.Importance;
+import org.apache.kafka.common.config.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Map;
 
 /**
@@ -80,6 +82,11 @@ public class SnowflakeSinkConnectorConfig
   private static final Logger LOGGER =
     LoggerFactory.getLogger(SnowflakeSinkConnectorConfig.class.getName());
 
+  private static final ConfigDef.Validator nonEmptyStringValidator =
+    new ConfigDef.NonEmptyString();
+  private static final ConfigDef.Validator topicToTableValidator =
+    new TopicToTableValidator();
+
   static void setDefaultValues(Map<String, String> config)
   {
     setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);
@@ -104,7 +111,8 @@ public class SnowflakeSinkConnectorConfig
       //snowflake login info
       .define(SNOWFLAKE_URL,
         Type.STRING,
-        "",
+        null,
+        nonEmptyStringValidator,
         Importance.HIGH,
         "Snowflake account url",
         SNOWFLAKE_LOGIN_INFO,
@@ -113,7 +121,8 @@ public class SnowflakeSinkConnectorConfig
         SNOWFLAKE_URL)
       .define(SNOWFLAKE_USER,
         Type.STRING,
-        "",
+        null,
+        nonEmptyStringValidator,
         Importance.HIGH,
         "Snowflake user name",
         SNOWFLAKE_LOGIN_INFO,
@@ -140,7 +149,8 @@ public class SnowflakeSinkConnectorConfig
         SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
       .define(SNOWFLAKE_DATABASE,
         Type.STRING,
-        "",
+        null,
+        nonEmptyStringValidator,
         Importance.HIGH,
         "Snowflake database name",
         SNOWFLAKE_LOGIN_INFO,
@@ -149,7 +159,8 @@ public class SnowflakeSinkConnectorConfig
         SNOWFLAKE_DATABASE)
       .define(SNOWFLAKE_SCHEMA,
         Type.STRING,
-        "",
+        null,
+        nonEmptyStringValidator,
         Importance.HIGH,
         "Snowflake database schema name",
         SNOWFLAKE_LOGIN_INFO,
@@ -180,6 +191,7 @@ public class SnowflakeSinkConnectorConfig
       .define(TOPICS_TABLES_MAP,
         Type.STRING,
         "",
+        topicToTableValidator,
         Importance.LOW,
         "Map of topics to tables (optional). Format : comma-seperated tuples, e.g. <topic-1>:<table-1>,<topic-2>:<table-2>,... ",
         CONNECTOR_CONFIG,
@@ -189,7 +201,7 @@ public class SnowflakeSinkConnectorConfig
       .define(BUFFER_COUNT_RECORDS,
         Type.LONG,
         BUFFER_COUNT_RECORDS_DEFAULT,
-        ConfigDef.Range.atLeast(0),
+        ConfigDef.Range.atLeast(1),
         Importance.LOW,
         "Number of records buffered in memory per partition before triggering Snowflake ingestion",
         CONNECTOR_CONFIG,
@@ -199,7 +211,7 @@ public class SnowflakeSinkConnectorConfig
       .define(BUFFER_SIZE_BYTES,
         Type.LONG,
         BUFFER_SIZE_BYTES_DEFAULT,
-        ConfigDef.Range.between(0, BUFFER_SIZE_BYTES_MAX),
+        ConfigDef.Range.between(1, BUFFER_SIZE_BYTES_MAX),
         Importance.LOW,
         "Cumulative size of records buffered in memory per partition before triggering Snowflake ingestion",
         CONNECTOR_CONFIG,
@@ -254,4 +266,27 @@ public class SnowflakeSinkConnectorConfig
         SNOWFLAKE_METADATA_OFFSET_AND_PARTITION)
       ;
   }
+
+  public static class TopicToTableValidator implements ConfigDef.Validator
+  {
+    public TopicToTableValidator() {}
+
+    public void ensureValid(String name, Object value)
+    {
+      String s = (String)value;
+      if (s != null && !s.isEmpty()) // this value is optional and can be empty
+      {
+        if (Utils.parseTopicToTableMap(s) == null)
+        {
+          throw new ConfigException(name, value, "Format: <topic-1>:<table-1>,<topic-2>:<table-2>,...");
+        }
+      }
+    }
+
+    public String toString()
+    {
+      return "Topic to table map format : comma-seperated tuples, e.g. <topic-1>:<table-1>,<topic-2>:<table-2>,... ";
+    }
+  }
+
 }

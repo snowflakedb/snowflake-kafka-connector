@@ -419,6 +419,47 @@ public class SnowflakeConnectionServiceV1 extends Logging
   }
 
   @Override
+  public void useDatabase(String databaseName)
+  {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", databaseName);
+    String query;
+    query = "USE identifier(?)";
+    try
+    {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, databaseName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e)
+    {
+      throw SnowflakeErrors.ERROR_2001.getException(e);
+    }
+
+    logInfo("use database {}", databaseName);
+  }
+
+  @Override
+  public void useSchema(String databaseName, String schemaName)
+  {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", schemaName);
+    String query;
+    query = "USE " + databaseName + "." + schemaName;
+    try
+    {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e)
+    {
+      throw SnowflakeErrors.ERROR_2001.getException(e);
+    }
+
+    logInfo("use schema {}", schemaName);
+  }
+
+  @Override
   public void dropPipe(final String pipeName)
   {
     checkConnection();
