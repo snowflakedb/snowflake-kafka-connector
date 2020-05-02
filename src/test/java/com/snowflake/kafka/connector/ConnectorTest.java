@@ -12,7 +12,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class ConnectorTestIT {
+public class ConnectorTest
+{
   final static String allPropertiesList[] =
     {
       SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
