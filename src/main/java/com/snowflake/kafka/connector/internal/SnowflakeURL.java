@@ -37,7 +37,7 @@ public class SnowflakeURL extends Logging
 
   private int port;
 
-  SnowflakeURL(String urlStr)
+  public SnowflakeURL(String urlStr)
   {
     Pattern pattern = Pattern.compile("^(https?://)?((([\\w\\d]+)(\\" +
         ".[\\w\\d-]+){2,})(:(\\d+))?)/?$");

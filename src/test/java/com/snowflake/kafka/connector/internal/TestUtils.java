@@ -153,7 +153,7 @@ public class TestUtils
    *
    * @return a map of parameters
    */
-  static Map<String, String> getConf()
+  public static Map<String, String> getConf()
   {
     if (conf == null)
     {
