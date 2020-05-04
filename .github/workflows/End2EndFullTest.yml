@@ -1,4 +1,4 @@
-name: Kafka Connector End2End Test
+name: Kafka Connector End2End Full Version Test
 
 on:
   schedule:
@@ -8,7 +8,7 @@ jobs:
   build:
     strategy:
       matrix:
-        versions: [0, 2, 4, 5]
+        versions: [2, 5]
     runs-on: ubuntu-18.04
     steps:
     - name: Checkout Code
