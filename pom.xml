@@ -371,6 +371,24 @@
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
             <version>1.9.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-databind</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-compress</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -384,13 +402,29 @@
         </dependency>
         <dependency>
             <groupId>io.confluent</groupId>
-            <artifactId>kafka-schema-registry</artifactId>
+            <artifactId>kafka-schema-registry-client</artifactId>
             <version>5.3.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.confluent</groupId>
+                    <artifactId>common-utils</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.confluent</groupId>
+                    <artifactId>common-config</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
             <version>5.3.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.confluent</groupId>
+                    <artifactId>common-utils</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
 
