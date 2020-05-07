@@ -9,13 +9,19 @@ function error_exit() {
     exit 1
 }
 
-# check argument number is 1 or 2
-if [ $# -gt 2 ] || [ $# -lt 1 ]; then
-    error_exit "Usage: ./build_image.sh <version> <path to snowflake repo>  or  ./build_image.sh <version>.  Aborting."
+# check argument number is 1 or 2 or 3
+if [ $# -gt 3 ] || [ $# -lt 1 ]; then
+    error_exit "Usage: ./build_image.sh <version> [<path to snowflake repo>] [verify/package/none] .  Aborting."
 fi
 
 KAFKA_CONNECT_TAG=$1
 SNOWFLAKE_CONNECTOR_PATH=$2
+BUILD_METHOD=$3
+
+if [[ -z "${BUILD_METHOD}" ]]; then
+    # Default build method verify
+    BUILD_METHOD="verify"
+fi
 
 # check if connector path is set or checkout from github master
 if [[ -z "${SNOWFLAKE_CONNECTOR_PATH}" ]]; then
@@ -74,7 +80,21 @@ cp -rf $SNOWFLAKE_CREDENTIAL_FILE $SNOWFLAKE_CONNECTOR_PATH || true
 
 # build and test the local repo
 pushd $SNOWFLAKE_CONNECTOR_PATH
-mvn verify -Dgpg.skip=true
+case $BUILD_METHOD in
+	verify)
+	  mvn clean
+    mvn verify -Dgpg.skip=true
+		;;
+	package)
+	  mvn clean
+    mvn package -Dgpg.skip=true
+		;;
+	none)
+		echo -e "\n=== skip building, please make sure built connector exist ==="
+		;;
+  *)
+    error_exit "Usage: ./build_image.sh <version> [<path to snowflake repo>] [verify/package/none] . Unknown build method $BUILD_METHOD.  Aborting."
+  esac
 popd
 
 # get built image name
