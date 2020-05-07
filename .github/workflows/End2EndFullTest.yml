@@ -6,9 +6,6 @@ on:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        versions: [2, 5]
     runs-on: ubuntu-18.04
     steps:
     - name: Checkout Code
@@ -51,28 +48,51 @@ jobs:
         sudo chown -R $USER $HOME/.kube $HOME/.minikube || true
         minikube update-context
     
-    - name: Build with Unit and Integration Test
+    - name: Build with Unit and Integration Test on 5.2.0
       env:
         JACOCO_COVERAGE: true
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SHELL: "/bin/bash"
       run: |
         cd test
-        ./build_image.sh 5.${{ matrix.versions }}.0 ../../snowflake-kafka-connector
+        ./build_image.sh 5.2.0 ../../snowflake-kafka-connector
 
-    - name: End to End Test of Confluent Platform
+    - name: End to End Test of Confluent Platform 5.2.0
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
       run: |
         cd test
-        ./run_test.sh ./helm_values/snow_values_5.${{ matrix.versions }}.yaml
+        ./run_test.sh ./helm_values/snow_values_5.2.yaml
 
-    - name: End to End Test of Apache Plarform
+    - name: End to End Test of Apache Plarform 2.2.0
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
       run: |
         cd test
-        ./run_test_apache.sh 2.${{ matrix.versions }}.0 ./apache_properties
+        ./run_test_apache.sh 2.2.0 ./apache_properties
+
+    - name: Build without test on 5.5.0
+      env:
+        JACOCO_COVERAGE: true
+        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+        SHELL: "/bin/bash"
+      run: |
+        cd test
+        ./build_image.sh 5.5.0 ../../snowflake-kafka-connector none
+
+    - name: End to End Test of Confluent Platform 5.5.0
+      env:
+        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+      run: |
+        cd test
+        ./run_test.sh ./helm_values/snow_values_5.5.yaml
+
+    - name: End to End Test of Apache Plarform 2.5.0
+      env:
+        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+      run: |
+        cd test
+        ./run_test_apache.sh 2.5.0 ./apache_properties
 
     - name: Code Coverage
       uses: codecov/codecov-action@v1
