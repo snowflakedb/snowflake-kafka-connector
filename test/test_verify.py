@@ -1,10 +1,8 @@
-from avro.schema import Parse
 from confluent_kafka import Producer
 from confluent_kafka.avro import AvroProducer
 from time import sleep
 from test_suit.test_utils import parsePrivateKey
 import json
-import io
 import os
 import re
 import sys
@@ -23,7 +21,7 @@ class KafkaTest:
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
-        self.MAX_RETRY = 10        # max wait time 10 mins
+        self.MAX_RETRY = 10  # max wait time 10 mins
 
         self.producer = Producer({'bootstrap.servers': kafkaAddress})
         self.avroProducer = AvroProducer({'bootstrap.servers': kafkaAddress,
@@ -65,8 +63,8 @@ class KafkaTest:
                 retryNum += 1
                 print("=== Failed, retryable ===", flush=True)
                 self.verifyWaitTime()
-            except test_suit.test_utils.NonRetryableError:
-                print("\n=== Non retryable error raised ===")
+            except test_suit.test_utils.NonRetryableError as e:
+                print("\n=== Non retryable error raised ===\n{}".format(e.msg), flush=True)
                 raise test_suit.test_utils.NonRetryableError()
             except snowflake.connector.errors.ProgrammingError as e:
                 if e.errno == 2003:
@@ -76,7 +74,7 @@ class KafkaTest:
                 else:
                     raise
         if retryNum == self.MAX_RETRY:
-            print("\n=== Max retry exceeded ===")
+            print("\n=== Max retry exceeded ===", flush=True)
             raise test_suit.test_utils.NonRetryableError()
 
     def sendBytesData(self, topic, value, key=[]):
@@ -118,7 +116,22 @@ class KafkaTest:
         print("=== Drop pipe {} ===".format(pipeName))
         self.snowflake_conn.cursor().execute("DROP pipe IF EXISTS {}".format(pipeName))
 
-        print("=== Done ===")
+        print("=== Done ===", flush=True)
+
+    # validate content match gold regex
+    def regexMatchOneLine(self, res, goldMetaRegex, goldContentRegex):
+        meta = res[0].replace(" ", "").replace("\n", "")
+        content = res[1].replace(" ", "").replace("\n", "")
+        goldMetaRegex = "^" + goldMetaRegex.replace("\"", "\\\"").replace("{", "\\{").replace("}", "\\}") \
+            .replace("[", "\\[").replace("]", "\\]") + "$"
+        goldContentRegex = "^" + goldContentRegex.replace("\"", "\\\"").replace("{", "\\{").replace("}", "\\}") \
+            .replace("[", "\\[").replace("]", "\\]") + "$"
+        if re.search(goldMetaRegex, meta) is None:
+            raise test_suit.test_utils.NonRetryableError("Record meta data:\n{}\ndoes not match gold regex "
+                                                         "label:\n{}".format(meta, goldMetaRegex))
+        if re.search(goldContentRegex, content) is None:
+            raise test_suit.test_utils.NonRetryableError("Record content:\n{}\ndoes not match gold regex "
+                                                         "label:\n{}".format(content, goldContentRegex))
 
 
 def runTestSet(driver, testSet, nameSalt):
@@ -142,7 +155,7 @@ def runTestSet(driver, testSet, nameSalt):
     testNativeStringAvrosr = TestNativeStringAvrosr(driver, nameSalt)
     testNativeStringJsonWithoutSchema = TestNativeStringJsonWithoutSchema(driver, nameSalt)
 
-    testSuitList = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr, 
+    testSuitList = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
                     testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema]
     if testSet == "confluent":
         testSuitEnableList = [True, True, True, True, True, True, True, True]
@@ -158,14 +171,18 @@ def runTestSet(driver, testSet, nameSalt):
     try:
         for i, test in enumerate(testSuitList):
             if testSuitEnableList[i]:
+                print("\n=== Sending " + test.__class__.__name__ + " data ===")
                 test.send()
-            
+                print("=== Done ===", flush=True)
+
         if testSet != "clean":
             driver.verifyWaitTime()
 
         for i, test in enumerate(testSuitList):
             if testSuitEnableList[i]:
-                test.verify()
+                print("\n=== Verify " + test.__class__.__name__ + " ===")
+                driver.verifyWithRetry(test.verify)
+                print("=== Passed ===", flush=True)
     except Exception as e:
         print(e)
         print("Error: ", sys.exc_info()[0])
