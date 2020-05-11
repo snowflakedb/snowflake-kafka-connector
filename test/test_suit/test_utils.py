@@ -1,4 +1,3 @@
-
 import re
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -11,12 +10,16 @@ class Error(Exception):
 
 class RetryableError(Error):
     """Raised when we can retry"""
-    pass
+
+    def __init__(self, msg=""):
+        self.msg = msg
 
 
 class NonRetryableError(Error):
     """Raised when we cannot retry"""
-    pass
+
+    def __init__(self, msg=""):
+        self.msg = msg
 
 
 def parsePrivateKey(pk, pk_passphrase):
