@@ -120,12 +120,11 @@ public interface SnowflakeConnectionService
   void useDatabase(String databaseName);
 
   /**
-   * use schema with name schemaName
+   * check if a given schema exists
    *
-   * @param databaseName database name
    * @param schemaName schema name
    */
-  void useSchema(String databaseName, String schemaName);
+  boolean schemaExists(String schemaName);
 
   /**
    * drop snowpipe
