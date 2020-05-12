@@ -230,6 +230,36 @@ public class ConnectionServiceIT
   }
 
   @Test
+  public void testStagePurgeFunctions()
+  {
+    //stage doesn't exist
+    assert !conn.stageExist(stageName);
+    //create stage
+    conn.createStage(stageName);
+    //stage exists
+    assert conn.stageExist(stageName);
+    //put two files to stage
+    String fileName1 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 1, 3);
+    conn.put(stageName, fileName1, "test");
+    String fileName2 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 4, 6);
+    conn.put(stageName, fileName2, "test2");
+    //list stage with prefix
+    List<String> files = conn.listStage(stageName, TestUtils.TEST_CONNECTOR_NAME);
+    assert files.size() == 2;
+    assert files.get(0).equals(fileName1);
+    assert files.get(1).equals(fileName2);
+
+    List<String> filesList = new ArrayList<>();
+    filesList.add(fileName1);
+    filesList.add(fileName2);
+    conn.purgeStage(stageName, filesList);
+
+    files = conn.listStage(stageName, TestUtils.TEST_CONNECTOR_NAME);
+    assert files.size() == 0;
+
+  }
+
+  @Test
   public void testPipeFunctions()
   {
     conn.createStage(stageName);
