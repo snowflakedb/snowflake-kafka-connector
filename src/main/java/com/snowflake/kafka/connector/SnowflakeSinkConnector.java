@@ -288,7 +288,11 @@ public class SnowflakeSinkConnector extends SinkConnector
 
     try
     {
-      testConnection.useSchema(connectorConfigs.get(Utils.SF_DATABASE), connectorConfigs.get(Utils.SF_SCHEMA));
+      if (!testConnection.schemaExists(connectorConfigs.get(Utils.SF_SCHEMA)))
+      {
+        Utils.updateConfigErrorMessage(result, Utils.SF_SCHEMA, " schema does not exist");
+        return result;
+      }
     } catch (SnowflakeKafkaConnectorException e)
     {
       if (e.getCode().equals("2001"))

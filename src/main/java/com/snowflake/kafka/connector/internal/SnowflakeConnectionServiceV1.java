@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
+import net.snowflake.client.jdbc.SnowflakeStatement;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -11,6 +12,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
@@ -440,23 +442,33 @@ public class SnowflakeConnectionServiceV1 extends Logging
   }
 
   @Override
-  public void useSchema(String databaseName, String schemaName)
+  public boolean schemaExists(String schemaName)
   {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", schemaName);
     String query;
-    query = "USE " + databaseName + "." + schemaName;
+    query = "select schema_name from information_schema.schemata order by schema_name;";
+    boolean foundSchema = false;
     try
     {
       PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.execute();
+      ResultSet resultSet = stmt.executeQuery();
+
+      while (resultSet.next())
+      {
+        String existSchema = resultSet.getString(1);
+        if (existSchema.toLowerCase().equals(schemaName.toLowerCase()))
+        {
+          foundSchema = true;
+        }
+      }
+      resultSet.close();
       stmt.close();
     } catch (SQLException e)
     {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
-
-    logInfo("use schema {}", schemaName);
+    return foundSchema;
   }
 
   @Override
@@ -534,10 +546,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
   public void purgeStage(final String stageName, final List<String> files)
   {
     InternalUtils.assertNotEmpty("stageName", stageName);
-    for (String fileName : files)
-    {
-      removeFile(stageName, fileName);
-    }
+    removeFile(stageName, files);
     logInfo("purge {} files from stage: {}", files.size(), stageName);
   }
 
@@ -570,11 +579,11 @@ public class SnowflakeConnectionServiceV1 extends Logging
       {
         throw SnowflakeErrors.ERROR_2003.getException(e);
       }
-      //remove
-      removeFile(stageName, name);
       logInfo("moved file: {} from stage: {} to table stage: {}", name,
         stageName, tableName);
     }
+    //remove
+    removeFile(stageName, files);
   }
 
   @Override
@@ -762,21 +771,26 @@ public class SnowflakeConnectionServiceV1 extends Logging
    * Remove one file from given stage
    *
    * @param stageName stage name
-   * @param fileName  file name
+   * @param fileList  file names list
    */
-  private void removeFile(String stageName, String fileName)
+  private void removeFile(String stageName, List<String> fileList)
   {
     InternalUtils.assertNotEmpty("stageName", stageName);
-    String query = "rm @" + stageName + "/" + fileName;
     try
     {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.execute();
+      String query = "";
+      for (String fileName : fileList)
+      {
+        query = query + "rm @" + stageName + "/" + fileName + "; ";
+      }
+      Statement stmt = conn.createStatement();
+      stmt.unwrap(SnowflakeStatement.class).setParameter("MULTI_STATEMENT_COUNT", fileList.size());
+      stmt.execute(query);
       stmt.close();
     } catch (SQLException e)
     {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
-    logDebug("deleted {} from stage {}", fileName, stageName);
+    logDebug("deleted {} files from stage {}", fileList.size(), stageName);
   }
 }
