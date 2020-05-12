@@ -326,13 +326,14 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
             {
               Thread.sleep(CLEAN_TIME);
               checkStatus();
+              if (System.currentTimeMillis() - startTime > ONE_HOUR)
+              {
+                sendUsageReport();
+              }
             } catch (InterruptedException e)
             {
-              logError("cleaner error:\n{}", e.getMessage());
-            }
-            if (System.currentTimeMillis() - startTime > ONE_HOUR)
-            {
-              sendUsageReport();
+              logInfo("Flusher terminated by an interrupt:\n{}", e.getMessage());
+              break;
             }
           }
         }
@@ -341,7 +342,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private void stopCleaner()
     {
-      cleanerExecutor.shutdown();
+      cleanerExecutor.shutdownNow();
       logInfo("pipe {}: cleaner terminated", pipeName);
     }
 
@@ -372,7 +373,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
               logDebug("pipe {}: flusher flushed", pipeName);
             } catch (InterruptedException e)
             {
-              logError("flusher error:\n{}", e.getMessage());
+              logInfo("Flusher terminated by an interrupt:\n{}", e.getMessage());
+              break;
             }
           }
         }
@@ -381,7 +383,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private void stopFlusher()
     {
-      flusherExecutor.shutdown();
+      flusherExecutor.shutdownNow();
       logInfo("pipe {}: flusher terminated", pipeName);
     }
 
