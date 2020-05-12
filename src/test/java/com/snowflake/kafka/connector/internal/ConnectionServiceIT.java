@@ -242,21 +242,30 @@ public class ConnectionServiceIT
     String fileName1 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 1, 3);
     conn.put(stageName, fileName1, "test");
     String fileName2 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 4, 6);
-    conn.put(stageName, fileName2, "test2");
+    conn.put(stageName, fileName2, "test");
+    String fileName3 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 14, 16);
+    conn.put(stageName, fileName3, "test");
+    String fileName4 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 24, 26);
+    conn.put(stageName, fileName4, "test");
+    String fileName5 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 34, 36);
+    conn.put(stageName, fileName5, "test");
+    String fileName6 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 44, 46);
+    conn.put(stageName, fileName6, "test");
     //list stage with prefix
     List<String> files = conn.listStage(stageName, TestUtils.TEST_CONNECTOR_NAME);
-    assert files.size() == 2;
-    assert files.get(0).equals(fileName1);
-    assert files.get(1).equals(fileName2);
+    assert files.size() == 6;
 
     List<String> filesList = new ArrayList<>();
     filesList.add(fileName1);
     filesList.add(fileName2);
+    filesList.add(fileName3);
+    filesList.add(fileName4);
+    filesList.add(fileName5);
+    filesList.add(fileName6);
     conn.purgeStage(stageName, filesList);
 
     files = conn.listStage(stageName, TestUtils.TEST_CONNECTOR_NAME);
     assert files.size() == 0;
-
   }
 
   @Test
