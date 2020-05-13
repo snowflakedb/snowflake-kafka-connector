@@ -90,7 +90,7 @@ helm install $SNOWFLAKE_K8S_NAME confluentinc/cp-helm-charts -f $SNOWFLAKE_HELM_
 
 MAX_RETRY=20 # wait for 10 mins
 retry=0
-MAX_STABLE=3 # if we find all pod are running twice, we can continue
+MAX_STABLE=4 # if we find all pod are running twice, we can continue
 stable=0
 
 while (($retry < $MAX_RETRY)); do
@@ -103,6 +103,8 @@ while (($retry < $MAX_RETRY)); do
         if (($stable > $MAX_STABLE)); then
             break
         fi
+    else
+      stable=0
     fi
     echo -e "\n=== sleep for 30 secs to wait for containers ==="
     sleep 30
