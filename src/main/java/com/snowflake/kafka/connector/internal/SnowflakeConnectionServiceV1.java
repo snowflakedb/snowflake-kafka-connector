@@ -66,7 +66,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
       stmt.close();
     } catch (SQLException e)
     {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
+      throw SnowflakeErrors.ERROR_2007.getException(e);
     }
 
     logInfo("create table {}", tableName);
@@ -106,7 +106,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
       stmt.close();
     } catch (SQLException e)
     {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
+      throw SnowflakeErrors.ERROR_2009.getException(e);
     }
     logInfo("create pipe: {}", pipeName);
     getTelemetryClient().reportKafkaCreatePipe(tableName, stageName, pipeName);
@@ -142,7 +142,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
       stmt.close();
     } catch (SQLException e)
     {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
+      throw SnowflakeErrors.ERROR_2008.getException(e);
     }
     logInfo("create stage {}", stageName);
     getTelemetryClient().reportKafkaCreateStage(stageName);
