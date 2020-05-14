@@ -178,6 +178,9 @@ python3 test_verify.py $K_IP:$SNOWFLAKE_KAFKA_PORT http://$K_IP:$SC_PORT $TEST_S
 testError=$?
 
 if [ $testError -ne 0 ]; then
+    RED='\033[0;31m'
+    NC='\033[0m' # No Color
+    echo -e "${RED} There is error above this line ${NC}"
     for pod_name in $(kubectl get pod | awk '{print $1}' | grep "connect"); do
         echo -e "\n===================================================="
         echo -e "=== Log of $pod_name ==="

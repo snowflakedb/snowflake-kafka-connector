@@ -11,12 +11,11 @@ function error_exit() {
 
 # check argument number is 1 or 2 or 3
 if [ $# -gt 3 ] || [ $# -lt 1 ]; then
-    error_exit "Usage: ./build_image.sh <version> [<path to snowflake repo>] [verify/package/none] .  Aborting."
+    error_exit "Usage: ./build_image.sh [<path to snowflake repo>] [verify/package/none] .  Aborting."
 fi
 
-KAFKA_CONNECT_TAG=$1
-SNOWFLAKE_CONNECTOR_PATH=$2
-BUILD_METHOD=$3
+SNOWFLAKE_CONNECTOR_PATH=$1
+BUILD_METHOD=$2
 
 if [[ -z "${BUILD_METHOD}" ]]; then
     # Default build method verify
@@ -75,7 +74,7 @@ case $BUILD_METHOD in
 		echo -e "\n=== skip building, please make sure built connector exist ==="
 		;;
   *)
-    error_exit "Usage: ./build_image.sh <version> [<path to snowflake repo>] [verify/package/none] . Unknown build method $BUILD_METHOD.  Aborting."
+    error_exit "Usage: ./build_image.sh [<path to snowflake repo>] [verify/package/none] . Unknown build method $BUILD_METHOD.  Aborting."
   esac
 popd
 
@@ -85,6 +84,7 @@ SNOWFLAKE_PLUGIN_NAME=$(ls $SNOWFLAKE_PLUGIN_PATH | grep "$SNOWFLAKE_PLUGIN_NAME
 echo -e "\n=== built connector name: $SNOWFLAKE_PLUGIN_NAME ==="
 
 # copy built connector to plugin path
-mkdir -p $KAFKA_CONNECT_PLUGIN_PATH
+mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH || \
+sudo mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH 
 cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $KAFKA_CONNECT_PLUGIN_PATH || true
 echo -e "\n=== copied connector to $KAFKA_CONNECT_PLUGIN_PATH ==="
