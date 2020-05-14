@@ -19,11 +19,12 @@ if [ ! "$#" -eq 2 ]; then
     error_exit "Usage: ./run_test.sh <version> <path to apache config folder>.  Aborting."
 fi
 
-APACHE_VERSION=$1
+CONFLUENT_VERSION=$1
 SNOWFLAKE_APACHE_CONFIG_PATH=$2
 SNOWFLAKE_ZOOKEEPER_CONFIG="zookeeper.properties"
 SNOWFLAKE_KAFKA_CONFIG="server.properties"
 SNOWFLAKE_KAFKA_CONNECT_CONFIG="connect-distributed.properties"
+SNOWFLAKE_SCHEMA_REGISTRY_CONFIG="schema-registry.properties"
 
 if [ ! -d "$SNOWFLAKE_APACHE_CONFIG_PATH" ]; then
     error_exit "Provided snowflake apache config folder $SNOWFLAKE_APACHE_CONFIG_PATH does not exist.  Aborting."
@@ -50,7 +51,7 @@ if [ ! -f "$SNOWFLAKE_CREDENTIAL_FILE" ]; then
     error_exit "Provided SNOWFLAKE_CREDENTIAL_FILE $SNOWFLAKE_CREDENTIAL_FILE does not exist.  Aborting."
 fi
 
-TEST_SET="apache"
+TEST_SET="confluent"
 
 # check if all required commands are installed
 # assume that helm and kubectl are configured
@@ -74,8 +75,22 @@ SNOWFLAKE_DATABASE=$(jq -r ".database" $SNOWFLAKE_CREDENTIAL_FILE)
 SNOWFLAKE_WAREHOUSE=$(jq -r ".warehouse" $SNOWFLAKE_CREDENTIAL_FILE)
 
 # start apache kafka cluster
-DOWNLOAD_URL="https://archive.apache.org/dist/kafka/$APACHE_VERSION/kafka_2.12-$APACHE_VERSION.tgz"
-APACHE_FOLDER_NAME="./kafka_2.12-$APACHE_VERSION"
+case $CONFLUENT_VERSION in
+	5.0.0)
+    DOWNLOAD_URL="https://packages.confluent.io/archive/5.0/confluent-oss-5.0.0-2.11.tar.gz"
+		;;
+	5.1.0)
+    DOWNLOAD_URL="https://packages.confluent.io/archive/5.1/confluent-community-5.1.0-2.11.tar.gz"
+    ;;
+	5.*.0)
+    c_version=${CONFLUENT_VERSION%.0}
+    DOWNLOAD_URL="https://packages.confluent.io/archive/$c_version/confluent-community-$c_version.0-2.11.tar.gz"
+    ;;
+  *)
+    error_exit "Usage: ./run_test.sh <version> <path to apache config folder>. Unknown version $CONFLUENT_VERSION Aborting."
+esac
+
+CONFLUENT_FOLDER_NAME="./confluent-$CONFLUENT_VERSION"
 
 curl $DOWNLOAD_URL --output apache.tgz
 tar xzvf apache.tgz > /dev/null 2>&1
@@ -85,14 +100,17 @@ rm $APACHE_LOG_PATH/zookeeper.log $APACHE_LOG_PATH/kafka.log $APACHE_LOG_PATH/kc
 rm -rf /tmp/kafka-logs /tmp/zookeeper || true
 
 echo -e "\n=== Start Zookeeper ==="
-$APACHE_FOLDER_NAME/bin/zookeeper-server-start.sh $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_ZOOKEEPER_CONFIG > $APACHE_LOG_PATH/zookeeper.log 2>&1 &
+$CONFLUENT_FOLDER_NAME/bin/zookeeper-server-start $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_ZOOKEEPER_CONFIG > $APACHE_LOG_PATH/zookeeper.log 2>&1 &
 sleep 10
 echo -e "\n=== Start Kafka ==="
-$APACHE_FOLDER_NAME/bin/kafka-server-start.sh $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_KAFKA_CONFIG > $APACHE_LOG_PATH/kafka.log 2>&1 &
+$CONFLUENT_FOLDER_NAME/bin/kafka-server-start $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_KAFKA_CONFIG > $APACHE_LOG_PATH/kafka.log 2>&1 &
 sleep 10
 echo -e "\n=== Start Kafka Connect ==="
-$APACHE_FOLDER_NAME/bin/connect-distributed.sh $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_KAFKA_CONNECT_CONFIG > $APACHE_LOG_PATH/kc.log 2>&1 &
+$CONFLUENT_FOLDER_NAME/bin/connect-distributed $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_KAFKA_CONNECT_CONFIG > $APACHE_LOG_PATH/kc.log 2>&1 &
 sleep 10
+echo -e "\n=== Start Schema Registry ==="
+$CONFLUENT_FOLDER_NAME/bin/schema-registry-start $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_SCHEMA_REGISTRY_CONFIG > $APACHE_LOG_PATH/sc.log 2>&1 &
+sleep 30
 
 trap "pkill -9 -P $$" SIGINT SIGTERM EXIT
 
@@ -157,5 +175,6 @@ if [ $testError -ne 0 ]; then
     tail --lines=200 $APACHE_LOG_PATH/zookeeper.log 
     tail --lines=200 $APACHE_LOG_PATH/kafka.log 
     tail --lines=200 $APACHE_LOG_PATH/kc.log
+    tail --lines=200 $APACHE_LOG_PATH/sc.log
     error_exit "=== test_verify.py failed ==="
 fi
