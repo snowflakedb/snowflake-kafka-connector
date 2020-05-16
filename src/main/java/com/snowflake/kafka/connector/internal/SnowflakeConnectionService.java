@@ -113,18 +113,18 @@ public interface SnowflakeConnectionService
   boolean isPipeCompatible(String tableName, String stageName, String pipeName);
 
   /**
-   * use database with name databaseName
+   * check if a given database exists
    *
    * @param databaseName database name
    */
-  void useDatabase(String databaseName);
+  void databaseExists(String databaseName);
 
   /**
    * check if a given schema exists
    *
    * @param schemaName schema name
    */
-  boolean schemaExists(String schemaName);
+  void schemaExists(String schemaName);
 
   /**
    * drop snowpipe

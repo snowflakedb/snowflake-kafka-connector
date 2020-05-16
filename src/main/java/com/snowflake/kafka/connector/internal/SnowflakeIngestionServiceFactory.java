@@ -36,6 +36,12 @@ public class SnowflakeIngestionServiceFactory
         host, stageName, pipeName, privateKey);
     }
 
+    SnowflakeIngestionServiceBuilder setTelemetry(SnowflakeTelemetryService telemetry)
+    {
+      service.setTelemetry(telemetry);
+      return this;
+    }
+
     SnowflakeIngestionService build()
     {
       return service;

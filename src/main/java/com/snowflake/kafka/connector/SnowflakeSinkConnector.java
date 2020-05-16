@@ -273,7 +273,7 @@ public class SnowflakeSinkConnector extends SinkConnector
 
     try
     {
-      testConnection.useDatabase(connectorConfigs.get(Utils.SF_DATABASE));
+      testConnection.databaseExists(connectorConfigs.get(Utils.SF_DATABASE));
     } catch (SnowflakeKafkaConnectorException e)
     {
       if (e.getCode().equals("2001"))
@@ -288,11 +288,7 @@ public class SnowflakeSinkConnector extends SinkConnector
 
     try
     {
-      if (!testConnection.schemaExists(connectorConfigs.get(Utils.SF_SCHEMA)))
-      {
-        Utils.updateConfigErrorMessage(result, Utils.SF_SCHEMA, " schema does not exist");
-        return result;
-      }
+      testConnection.schemaExists(connectorConfigs.get(Utils.SF_SCHEMA));
     } catch (SnowflakeKafkaConnectorException e)
     {
       if (e.getCode().equals("2001"))

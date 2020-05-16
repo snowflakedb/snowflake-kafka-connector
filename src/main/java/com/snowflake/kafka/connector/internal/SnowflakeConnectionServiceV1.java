@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 import net.snowflake.client.jdbc.SnowflakeStatement;
+import net.snowflake.ingest.connection.HistoryResponse;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -421,12 +422,10 @@ public class SnowflakeConnectionServiceV1 extends Logging
   }
 
   @Override
-  public void useDatabase(String databaseName)
+  public void databaseExists(String databaseName)
   {
     checkConnection();
-    InternalUtils.assertNotEmpty("tableName", databaseName);
-    String query;
-    query = "USE identifier(?)";
+    String query = "desc database identifier(?)";
     try
     {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -438,37 +437,27 @@ public class SnowflakeConnectionServiceV1 extends Logging
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
 
-    logInfo("use database {}", databaseName);
+    logInfo("database {} exists", databaseName);
   }
 
   @Override
-  public boolean schemaExists(String schemaName)
+  public void schemaExists(String schemaName)
   {
     checkConnection();
-    InternalUtils.assertNotEmpty("tableName", schemaName);
-    String query;
-    query = "select schema_name from information_schema.schemata order by schema_name;";
+    String query = "desc schema identifier(?)";
     boolean foundSchema = false;
     try
     {
       PreparedStatement stmt = conn.prepareStatement(query);
-      ResultSet resultSet = stmt.executeQuery();
-
-      while (resultSet.next())
-      {
-        String existSchema = resultSet.getString(1);
-        if (existSchema.toLowerCase().equals(schemaName.toLowerCase()))
-        {
-          foundSchema = true;
-        }
-      }
-      resultSet.close();
+      stmt.setString(1, schemaName);
+      stmt.execute();
       stmt.close();
     } catch (SQLException e)
     {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
-    return foundSchema;
+
+    logInfo("schema {} exists", schemaName);
   }
 
   @Override
@@ -671,10 +660,16 @@ public class SnowflakeConnectionServiceV1 extends Logging
 
     try
     {
-      sfconn.uploadStream("%" + tableName,
-        FileNameUtils.getPrefixFromFileName(fileName), input,
-        FileNameUtils.removePrefixAndGZFromFileName(fileName), true);
-    } catch (SQLException e)
+      InternalUtils.backoffAndRetry(telemetry,
+          () ->
+          {
+            sfconn.uploadStream("%" + tableName,
+                                FileNameUtils.getPrefixFromFileName(fileName), input,
+                                FileNameUtils.removePrefixAndGZFromFileName(fileName), true);
+            return true;
+          }
+      );
+    } catch (Exception e)
     {
       throw SnowflakeErrors.ERROR_2003.getException(e);
     }
@@ -731,8 +726,9 @@ public class SnowflakeConnectionServiceV1 extends Logging
     PrivateKey privateKey =
       (PrivateKey) prop.get(InternalUtils.JDBC_PRIVATE_KEY);
     return SnowflakeIngestionServiceFactory
-      .builder(account, user, host, stageName, fullPipeName, privateKey)
-      .build();
+        .builder(account, user, host, stageName, fullPipeName, privateKey)
+        .setTelemetry(this.telemetry)
+        .build();
   }
 
   /**
@@ -778,16 +774,22 @@ public class SnowflakeConnectionServiceV1 extends Logging
     InternalUtils.assertNotEmpty("stageName", stageName);
     try
     {
-      String query = "";
-      for (String fileName : fileList)
-      {
-        query = query + "rm @" + stageName + "/" + fileName + "; ";
-      }
-      Statement stmt = conn.createStatement();
-      stmt.unwrap(SnowflakeStatement.class).setParameter("MULTI_STATEMENT_COUNT", fileList.size());
-      stmt.execute(query);
-      stmt.close();
-    } catch (SQLException e)
+      InternalUtils.backoffAndRetry(telemetry,
+          () ->
+          {
+            String query = "";
+            for (String fileName : fileList)
+            {
+              query = query + "rm @" + stageName + "/" + fileName + "; ";
+            }
+            Statement stmt = conn.createStatement();
+            stmt.unwrap(SnowflakeStatement.class).setParameter("MULTI_STATEMENT_COUNT", fileList.size());
+            stmt.execute(query);
+            stmt.close();
+            return true;
+          }
+      );
+    } catch (Exception e)
     {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }

@@ -95,4 +95,11 @@ public interface SnowflakeTelemetryService
    */
   void reportKafkaFileFailure(String tableName, String stageName, List<String> filenames);
 
+  /**
+   * report Snowflake throttle
+   *
+   * @param errorDetail error message
+   * @param iteration slept time before execution
+   */
+  void reportKafkaSnowflakeThrottle(final String errorDetail, int iteration);
 }
