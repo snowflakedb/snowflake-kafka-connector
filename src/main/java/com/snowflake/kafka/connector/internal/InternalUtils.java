@@ -14,10 +14,14 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.function.Function;
+
+import static com.sun.corba.se.impl.activation.ServerMain.logError;
 
 class InternalUtils
 {
@@ -36,6 +40,9 @@ class InternalUtils
 
   private static final Logger LOGGER =
     LoggerFactory.getLogger(InternalUtils.class.getName());
+
+  // backoff with 1, 2, 4, 8 seconds
+  public static final int backoffSec[] = {0, 1, 2, 4, 8};
 
   /**
    * count the size of result set
@@ -236,5 +243,41 @@ class InternalUtils
     // partially_loaded, or failed
     LOAD_IN_PROGRESS,
     NOT_FOUND,
+  }
+
+  /**
+   * Interfaces to define the lambda function to be used by backoffAndRetry
+   */
+  interface backoffFunction
+  {
+    Object apply() throws Exception;
+  }
+
+  /**
+   * Backoff logic
+   * @param telemetry telemetry service
+   * @param runnable the lambda function itself
+   * @return the object that the function returns
+   * @throws Exception
+   */
+  public static Object backoffAndRetry(final SnowflakeTelemetryService telemetry, final backoffFunction runnable) throws Exception
+  {
+    for (final int iteration : backoffSec)
+    {
+      if (iteration != 0)
+      {
+        Thread.sleep(iteration * 1000);
+      }
+      try
+      {
+        return runnable.apply();
+      }
+      catch (Exception e)
+      {
+        logError(e.getMessage());
+        telemetry.reportKafkaSnowflakeThrottle(e.getMessage(), iteration);
+      }
+    }
+    throw SnowflakeErrors.ERROR_2010.getException();
   }
 }
