@@ -200,6 +200,11 @@ public enum SnowflakeErrors
       "Failed to create pipe",
       "Failed to create pipe on Snowflake, please check that you have permission to do so."
   ),
+  ERROR_2010(
+      "2010",
+      "Connection throttled",
+      "Connection is throttled either on GS or on Snowpipe"
+  ),
   // Snowpipe related issues 3---
   ERROR_3001(
     "3001",

@@ -9,12 +9,15 @@ import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
@@ -129,7 +132,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       else
       {
         logError("Failed to close sink service for Topic: {}, Partition: {}, " +
-          "sink service hasn't been initialized");
+          "sink service hasn't been initialized", tp.topic(), tp.partition());
       }
     });
   }
@@ -696,6 +699,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       committedOffset = Long.MAX_VALUE;
       processedOffset = -1;
 
+      Set<String> filesForIngestion = new HashSet<>();
+
       ingestionService.readOneHourHistory(files, startTime).forEach(
         (name, status) ->
         {
@@ -709,7 +714,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
           {
             case NOT_FOUND:
               //re ingest
-              ingestionService.ingestFile(name);
+              filesForIngestion.add(name);
               result.put(name, status);
               if (committedOffset > startOffset)
               {
@@ -731,6 +736,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
           }
         }
       );
+      // batch call Snowpipe to ingest file
+      ingestionService.ingestFiles(filesForIngestion);
+      
       if (!loadedFiles.isEmpty())
       {
         purge(loadedFiles);

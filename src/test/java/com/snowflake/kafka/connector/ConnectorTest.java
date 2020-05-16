@@ -243,7 +243,4 @@ public class ConnectorTest
       SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA
     });
   }
-
-
-
 }
