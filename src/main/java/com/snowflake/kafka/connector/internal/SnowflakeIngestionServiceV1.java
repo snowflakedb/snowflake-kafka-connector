@@ -21,7 +21,6 @@ public class SnowflakeIngestionServiceV1 extends Logging
   private static final long ONE_HOUR = 60 * 60 * 1000;
 
   private static final String SCHEME = "https";
-  private static final int PORT = 443;
 
   private final String stageName;
   private final SimpleIngestManager ingestManager;
@@ -33,6 +32,7 @@ public class SnowflakeIngestionServiceV1 extends Logging
     String accountName,
     String userName,
     String host,
+    int port,
     String stageName,
     String pipeName,
     PrivateKey privateKey
@@ -42,7 +42,7 @@ public class SnowflakeIngestionServiceV1 extends Logging
     try
     {
       this.ingestManager = new SimpleIngestManager(accountName, userName,
-        pipeName, privateKey, SCHEME, host, PORT);
+        pipeName, privateKey, SCHEME, host, port);
     } catch (Exception e)
     {
       throw SnowflakeErrors.ERROR_0002.getException(e);
