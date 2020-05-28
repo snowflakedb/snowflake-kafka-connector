@@ -131,7 +131,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       }
       else
       {
-        logError("Failed to close sink service for Topic: {}, Partition: {}, " +
+        logWarn("Failed to close sink service for Topic: {}, Partition: {}, " +
           "sink service hasn't been initialized", tp.topic(), tp.partition());
       }
     });
