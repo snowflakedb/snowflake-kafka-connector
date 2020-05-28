@@ -11,11 +11,12 @@ public class SnowflakeIngestionServiceFactory
   public static SnowflakeIngestionServiceBuilder builder(String accountName,
                                                          String userName,
                                                          String host,
+                                                         int port,
                                                          String stageName,
                                                          String pipeName,
                                                          PrivateKey privateKey)
   {
-    return new SnowflakeIngestionServiceBuilder(accountName, userName, host,
+    return new SnowflakeIngestionServiceBuilder(accountName, userName, host, port,
       stageName, pipeName, privateKey);
   }
 
@@ -28,12 +29,13 @@ public class SnowflakeIngestionServiceFactory
 
     private SnowflakeIngestionServiceBuilder(String accountName,
                                              String userName, String host,
+                                             int port,
                                              String stageName,
                                              String pipeName,
                                              PrivateKey privateKey)
     {
       this.service = new SnowflakeIngestionServiceV1(accountName, userName,
-        host, stageName, pipeName, privateKey);
+        host, port, stageName, pipeName, privateKey);
     }
 
     SnowflakeIngestionServiceBuilder setTelemetry(SnowflakeTelemetryService telemetry)
