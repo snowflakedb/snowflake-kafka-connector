@@ -6,7 +6,7 @@
 SCAN_DIRECTORIES=$PWD
 
 # PRODUCT_NAME is your team's name or overarching project name
-PRODUCT_NAME="Snowflake_Drivers_Connectors"
+PRODUCT_NAME="snowflake-kafka-connector"
 
 # PROJECT_NAME is your project's name or repo name if your project spans multiple repositories
 PROJECT_NAME="snowflake-kafka-connector"
