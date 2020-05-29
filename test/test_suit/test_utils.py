@@ -8,6 +8,13 @@ class Error(Exception):
     pass
 
 
+class ResetAndRetry(Error):
+    """Raised when we want to reset the retry count"""
+
+    def __init__(self, msg=""):
+        self.msg = msg
+
+
 class RetryableError(Error):
     """Raised when we can retry"""
 
