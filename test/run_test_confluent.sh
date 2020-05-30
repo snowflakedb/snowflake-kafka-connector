@@ -92,6 +92,9 @@ esac
 
 CONFLUENT_FOLDER_NAME="./confluent-$CONFLUENT_VERSION"
 
+rm -rf $CONFLUENT_FOLDER_NAME || true
+rm apache.tgz || true
+
 curl $DOWNLOAD_URL --output apache.tgz
 tar xzvf apache.tgz > /dev/null 2>&1
 
@@ -172,9 +175,9 @@ if [ $testError -ne 0 ]; then
     RED='\033[0;31m'
     NC='\033[0m' # No Color
     echo -e "${RED} There is error above this line ${NC}"
-    tail --lines=200 $APACHE_LOG_PATH/zookeeper.log 
-    tail --lines=200 $APACHE_LOG_PATH/kafka.log 
-    tail --lines=200 $APACHE_LOG_PATH/kc.log
-    tail --lines=200 $APACHE_LOG_PATH/sc.log
+    tail -200 $APACHE_LOG_PATH/zookeeper.log
+    tail -200 $APACHE_LOG_PATH/kafka.log
+    tail -200 $APACHE_LOG_PATH/kc.log
+    tail -200 $APACHE_LOG_PATH/sc.log
     error_exit "=== test_verify.py failed ==="
 fi
