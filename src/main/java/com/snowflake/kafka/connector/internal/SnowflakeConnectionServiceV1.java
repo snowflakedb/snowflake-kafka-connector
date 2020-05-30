@@ -722,12 +722,13 @@ public class SnowflakeConnectionServiceV1 extends Logging
     String user = prop.getProperty(InternalUtils.JDBC_USER);
     String host = url.getUrlWithoutPort();
     int port = url.getPort();
+    String connectionScheme = url.getScheme();
     String fullPipeName = prop.getProperty(InternalUtils.JDBC_DATABASE) + "." +
       prop.getProperty(InternalUtils.JDBC_SCHEMA) + "." + pipeName;
     PrivateKey privateKey =
       (PrivateKey) prop.get(InternalUtils.JDBC_PRIVATE_KEY);
     return SnowflakeIngestionServiceFactory
-        .builder(account, user, host, port, stageName, fullPipeName, privateKey)
+        .builder(account, user, host, port, connectionScheme, stageName, fullPipeName, privateKey)
         .setTelemetry(this.telemetry)
         .build();
   }

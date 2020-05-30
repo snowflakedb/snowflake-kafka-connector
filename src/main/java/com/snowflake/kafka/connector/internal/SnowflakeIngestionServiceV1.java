@@ -20,8 +20,6 @@ public class SnowflakeIngestionServiceV1 extends Logging
 {
   private static final long ONE_HOUR = 60 * 60 * 1000;
 
-  private static final String SCHEME = "https";
-
   private final String stageName;
   private final SimpleIngestManager ingestManager;
   private SnowflakeTelemetryService telemetry = null;
@@ -33,6 +31,7 @@ public class SnowflakeIngestionServiceV1 extends Logging
     String userName,
     String host,
     int port,
+    String connectionScheme,
     String stageName,
     String pipeName,
     PrivateKey privateKey
@@ -42,7 +41,7 @@ public class SnowflakeIngestionServiceV1 extends Logging
     try
     {
       this.ingestManager = new SimpleIngestManager(accountName, userName,
-        pipeName, privateKey, SCHEME, host, port);
+        pipeName, privateKey, connectionScheme, host, port);
     } catch (Exception e)
     {
       throw SnowflakeErrors.ERROR_0002.getException(e);
