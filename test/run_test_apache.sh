@@ -77,6 +77,9 @@ SNOWFLAKE_WAREHOUSE=$(jq -r ".warehouse" $SNOWFLAKE_CREDENTIAL_FILE)
 DOWNLOAD_URL="https://archive.apache.org/dist/kafka/$APACHE_VERSION/kafka_2.12-$APACHE_VERSION.tgz"
 APACHE_FOLDER_NAME="./kafka_2.12-$APACHE_VERSION"
 
+rm -rf $APACHE_FOLDER_NAME || true
+rm apache.tgz || true
+
 curl $DOWNLOAD_URL --output apache.tgz
 tar xzvf apache.tgz > /dev/null 2>&1
 
@@ -154,8 +157,8 @@ if [ $testError -ne 0 ]; then
     RED='\033[0;31m'
     NC='\033[0m' # No Color
     echo -e "${RED} There is error above this line ${NC}"
-    tail --lines=200 $APACHE_LOG_PATH/zookeeper.log 
-    tail --lines=200 $APACHE_LOG_PATH/kafka.log 
-    tail --lines=200 $APACHE_LOG_PATH/kc.log
+    tail -200 $APACHE_LOG_PATH/zookeeper.log
+    tail -200 $APACHE_LOG_PATH/kafka.log
+    tail -200 $APACHE_LOG_PATH/kc.log
     error_exit "=== test_verify.py failed ==="
 fi
