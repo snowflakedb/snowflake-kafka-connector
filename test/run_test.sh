@@ -14,6 +14,8 @@ function random-string() {
     cat /dev/urandom | env LC_CTYPE=C tr -cd 'a-z0-9' | head -c 4 
 }
 
+source ./utils.sh
+
 # check argument number
 if [ ! "$#" -eq 1 ]; then
     error_exit "Usage: ./run_test.sh <path to snowflake helm value>.  Aborting."
@@ -54,20 +56,9 @@ SNOWFLAKE_K8S_NAME="snow"
 K8S_ERROR_NEVER_PULL="ErrImageNeverPull"
 K8S_ERROR_TYPES="CrashLoopBackOff|Error|Terminating|Pending|Completed|ContainerCreating|ImagePullBackOff|ErrImagePull"
 
-REST_TEMPLATE_PATH="./rest_request_template"
-REST_GENERATE_PATH="./rest_request_generated"
-
 NAME_SALT=$(random-string)
 NAME_SALT="_$NAME_SALT"
 echo -e "=== Name Salt: $NAME_SALT ==="
-
-# read private_key values from profile.json
-SNOWFLAKE_PRIVATE_KEY=$(jq -r ".private_key" $SNOWFLAKE_CREDENTIAL_FILE)
-SNOWFLAKE_USER=$(jq -r ".user" $SNOWFLAKE_CREDENTIAL_FILE)
-SNOWFLAKE_HOST=$(jq -r ".host" $SNOWFLAKE_CREDENTIAL_FILE)
-SNOWFLAKE_SCHEMA=$(jq -r ".schema" $SNOWFLAKE_CREDENTIAL_FILE)
-SNOWFLAKE_DATABASE=$(jq -r ".database" $SNOWFLAKE_CREDENTIAL_FILE)
-SNOWFLAKE_WAREHOUSE=$(jq -r ".warehouse" $SNOWFLAKE_CREDENTIAL_FILE)
 
 SNOWFLAKE_KAFKA_PORT="31090"
 
@@ -132,42 +123,7 @@ echo -e "\n=== K8S ip: $K_IP, Kafka Connect Port: $KC_PORT, Schema Registry Port
 echo -e "\n=== Clean table stage and pipe ==="
 python3 test_verify.py $K_IP:$SNOWFLAKE_KAFKA_PORT http://$K_IP:$SC_PORT clean $NAME_SALT
 
-echo -e "\n=== generate sink connector rest reqeuest from $REST_TEMPLATE_PATH ==="
-mkdir -p $REST_GENERATE_PATH
-
-for connector_json_file in $REST_TEMPLATE_PATH/*.json; do
-    SNOWFLAKE_CONNECTOR_FILENAME=$(echo $connector_json_file | cut -d'/' -f3)
-    SNOWFLAKE_CONNECTOR_NAME=$(echo $SNOWFLAKE_CONNECTOR_FILENAME | cut -d'.' -f1)
-    SNOWFLAKE_CONNECTOR_NAME="$SNOWFLAKE_CONNECTOR_NAME$NAME_SALT"
-    echo -e "\n=== Connector Config JSON: $SNOWFLAKE_CONNECTOR_FILENAME, Connector Name: $SNOWFLAKE_CONNECTOR_NAME ==="
-
-    sed "s|SNOWFLAKE_PRIVATE_KEY|$SNOWFLAKE_PRIVATE_KEY|g" $REST_TEMPLATE_PATH/$SNOWFLAKE_CONNECTOR_FILENAME |
-        sed "s|SNOWFLAKE_HOST|$SNOWFLAKE_HOST|g" |
-        sed "s|SNOWFLAKE_USER|$SNOWFLAKE_USER|g" |
-        sed "s|SNOWFLAKE_DATABASE|$SNOWFLAKE_DATABASE|g" |
-        sed "s|SNOWFLAKE_SCHEMA|$SNOWFLAKE_SCHEMA|g" |
-        sed "s|CONFLUENT_SCHEMA_REGISTRY|http://$CONFLUENT_SCHEMA_REGISTRY:8081|g" |
-        sed "s|SNOWFLAKE_TEST_TOPIC|$SNOWFLAKE_CONNECTOR_NAME|g" |
-        sed "s|SNOWFLAKE_CONNECTOR_NAME|$SNOWFLAKE_CONNECTOR_NAME|g" >$REST_GENERATE_PATH/$SNOWFLAKE_CONNECTOR_FILENAME
-
-    # Retry logic to delete the connector
-    MAX_RETRY=20 # wait for 10 mins
-    retry=0
-    while (($retry < $MAX_RETRY)); do
-        if curl -X DELETE http://$K_IP:$KC_PORT/connectors/$SNOWFLAKE_CONNECTOR_NAME; then
-            break
-        fi
-        echo -e "\n=== sleep for 30 secs to wait for kafka connect to accept connection ==="
-        sleep 30
-        retry=$((retry + 1))
-    done
-    if [ "$retry" = "$MAX_RETRY" ]; then
-        error_exit "\n=== max retry exceeded, kafka connect not ready in 10 mins ==="
-    fi
-
-    # Create connector
-    curl -X POST -H "Content-Type: application/json" --data @$REST_GENERATE_PATH/$SNOWFLAKE_CONNECTOR_FILENAME http://$K_IP:$KC_PORT/connectors | jq 'del(.config)'
-done
+create_connectors_with_salt $SNOWFLAKE_CREDENTIAL_FILE $NAME_SALT $K_IP $KC_PORT
 
 echo -e "\n=== sleep for 10 secs to wait for connectors to load ==="
 sleep 10
