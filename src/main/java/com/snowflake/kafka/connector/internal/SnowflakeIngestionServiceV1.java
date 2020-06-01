@@ -98,6 +98,11 @@ public class SnowflakeIngestionServiceV1 extends Logging
     Map<String, InternalUtils.IngestedFileStatus> fileStatus =
       initFileStatus(files);
 
+    if (fileStatus.size() == 0)
+    {
+      return fileStatus;
+    }
+
     HistoryResponse response;
     try
     {
