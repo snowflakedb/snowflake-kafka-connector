@@ -125,9 +125,10 @@ class InternalUtils
    * create a properties for snowflake connection
    *
    * @param conf a map contains all parameters
+   * @param sslEnabled if ssl is enabled
    * @return a Properties instance
    */
-  static Properties createProperties(Map<String, String> conf)
+  static Properties createProperties(Map<String, String> conf, boolean sslEnabled)
   {
     Properties properties = new Properties();
 
@@ -174,8 +175,16 @@ class InternalUtils
       properties.put(JDBC_PRIVATE_KEY, parsePrivateKey(privateKey));
     }
 
+    // set ssl
+    if (sslEnabled)
+    {
+      properties.put(JDBC_SSL, "on");
+    }
+    else
+    {
+      properties.put(JDBC_SSL, "off");
+    }
     //put values for optional parameters
-    properties.put(JDBC_SSL, "on");
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
 
     //required parameter check
