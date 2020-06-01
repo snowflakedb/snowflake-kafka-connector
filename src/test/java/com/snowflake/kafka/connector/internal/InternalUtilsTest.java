@@ -86,7 +86,8 @@ public class InternalUtilsTest
   public void testCreateProperties()
   {
     Map<String, String> config = TestUtils.getConf();
-    Properties prop = InternalUtils.createProperties(config);
+    SnowflakeURL url = TestUtils.getUrl();
+    Properties prop = InternalUtils.createProperties(config, url.sslEnabled());
     assert prop.containsKey(InternalUtils.JDBC_DATABASE);
     assert prop.containsKey(InternalUtils.JDBC_PRIVATE_KEY);
     assert prop.containsKey(InternalUtils.JDBC_SCHEMA);
@@ -97,14 +98,21 @@ public class InternalUtilsTest
 
     assert prop.getProperty(InternalUtils.JDBC_SESSION_KEEP_ALIVE).equals(
       "true");
-    assert prop.getProperty(InternalUtils.JDBC_SSL).equals("on");
+    if (url.sslEnabled())
+    {
+      assert prop.getProperty(InternalUtils.JDBC_SSL).equals("on");
+    }
+    else
+    {
+      assert prop.getProperty(InternalUtils.JDBC_SSL).equals("off");
+    }
 
     assert TestUtils.assertError(SnowflakeErrors.ERROR_0013,
       () ->
       {
         Map<String, String> t = new HashMap<>(config);
         t.remove(Utils.SF_PRIVATE_KEY);
-        InternalUtils.createProperties(t);
+        InternalUtils.createProperties(t, url.sslEnabled());
       });
 
     assert TestUtils.assertError(SnowflakeErrors.ERROR_0014,
@@ -112,7 +120,7 @@ public class InternalUtilsTest
       {
         Map<String, String> t = new HashMap<>(config);
         t.remove(Utils.SF_SCHEMA);
-        InternalUtils.createProperties(t);
+        InternalUtils.createProperties(t, url.sslEnabled());
       });
 
     assert TestUtils.assertError(SnowflakeErrors.ERROR_0015,
@@ -120,7 +128,7 @@ public class InternalUtilsTest
       {
         Map<String, String> t = new HashMap<>(config);
         t.remove(Utils.SF_DATABASE);
-        InternalUtils.createProperties(t);
+        InternalUtils.createProperties(t, url.sslEnabled());
       });
 
     assert TestUtils.assertError(SnowflakeErrors.ERROR_0016,
@@ -128,7 +136,7 @@ public class InternalUtilsTest
       {
         Map<String, String> t = new HashMap<>(config);
         t.remove(Utils.SF_USER);
-        InternalUtils.createProperties(t);
+        InternalUtils.createProperties(t, url.sslEnabled());
       });
   }
 

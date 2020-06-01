@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
+import net.snowflake.client.jdbc.internal.apache.arrow.flatbuf.Int;
 import org.junit.After;
 import org.junit.Test;
 
@@ -33,6 +34,21 @@ public class ConnectionServiceIT
   }
 
   @Test
+  public void testSetSSLProperties()
+  {
+    Map<String, String> testConfig = TestUtils.getConf();
+    testConfig.put(Utils.SF_URL, "https://sfctest0.snowflakecomputing.com");
+    assert SnowflakeConnectionServiceFactory.builder().setProperties(testConfig)
+        .getProperties().getProperty(InternalUtils.JDBC_SSL).equals("on");
+    testConfig.put(Utils.SF_URL, "sfctest0.snowflakecomputing.com");
+    assert SnowflakeConnectionServiceFactory.builder().setProperties(testConfig)
+        .getProperties().getProperty(InternalUtils.JDBC_SSL).equals("on");
+    testConfig.put(Utils.SF_URL, "http://sfctest0.snowflakecomputing.com:400");
+    assert SnowflakeConnectionServiceFactory.builder().setProperties(testConfig)
+        .getProperties().getProperty(InternalUtils.JDBC_SSL).equals("off");
+  }
+
+  @Test
   public void createConnectionService()
   {
     SnowflakeConnectionService service = SnowflakeConnectionServiceFactory
@@ -53,8 +69,8 @@ public class ConnectionServiceIT
           .build();
       });
 
-    Properties prop = InternalUtils.createProperties(TestUtils.getConf());
     SnowflakeURL url = TestUtils.getUrl();
+    Properties prop = InternalUtils.createProperties(TestUtils.getConf(), url.sslEnabled());
     String appName = TestUtils.TEST_CONNECTOR_NAME;
 
     SnowflakeConnectionServiceFactory
