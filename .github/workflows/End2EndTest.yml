@@ -64,7 +64,7 @@ jobs:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
       run: |
         cd test
-        ./run_test_confluent.sh 5.5.0 ./apache_properties
+        ./run_test_confluent.sh 5.5.0 ./apache_properties true
 
     - name: End to End Test of Apache Plarform 2.5
       env:

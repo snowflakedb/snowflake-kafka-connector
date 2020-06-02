@@ -150,7 +150,7 @@ class KafkaTest:
                                                          "label:\n{}".format(content, goldContentRegex))
 
 
-def runTestSet(driver, testSet, nameSalt):
+def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_string_json import TestStringJson
     from test_suit.test_json_json import TestJsonJson
     from test_suit.test_string_avro import TestStringAvro
@@ -176,9 +176,9 @@ def runTestSet(driver, testSet, nameSalt):
     testSuitList = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
                     testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema, testPressure]
     if testSet == "confluent":
-        testSuitEnableList = [True, True, True, True, True, True, True, True, True]
+        testSuitEnableList = [True, True, True, True, True, True, True, True, pressure]
     elif testSet == "apache":
-        testSuitEnableList = [True, True, True, True, False, False, False, True, True]
+        testSuitEnableList = [True, True, True, True, False, False, False, True, pressure]
     elif testSet == "clean":
         testSuitEnableList = [False, False, False, False, False, False, False, False, False]
     else:
@@ -219,14 +219,16 @@ def runTestSet(driver, testSet, nameSalt):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 5:
+    if len(sys.argv) != 6:
         errorExit(
-            """\n=== Usage: ./ingest.py <kafka address> <schema registry address> <test set> <name salt> ===""")
+            """\n=== Usage: ./ingest.py <kafka address> <schema registry address> <test set> <name salt> 
+            <pressure>===""")
 
     kafkaAddress = sys.argv[1]
     schemaRegistryAddress = sys.argv[2]
     testSet = sys.argv[3]
     nameSalt = sys.argv[4]
+    pressure = (sys.argv[5] == 'true')
 
     if "SNOWFLAKE_CREDENTIAL_FILE" not in os.environ:
         errorExit(
@@ -252,4 +254,4 @@ if __name__ == "__main__":
     kafkaTest = KafkaTest(kafkaAddress, schemaRegistryAddress,
                           testHost, testUser, testDatabase, testSchema, testWarehouse, pk, pk_passphrase)
 
-    runTestSet(kafkaTest, testSet, nameSalt)
+    runTestSet(kafkaTest, testSet, nameSalt, pressure)
