@@ -57,7 +57,7 @@ public class IngestionServiceIT
     List<String> names = new ArrayList<>(1);
     names.add(fileName);
     //ingest report
-    assert checkIngestReport(names, 180000);
+    assert checkIngestReport(names, 310000);
     //load history
     TestUtils.assertWithRetry(() ->
     {
@@ -80,7 +80,7 @@ public class IngestionServiceIT
       List<String> names = files;
       while (!names.isEmpty())
       {
-        Thread.sleep(10000);
+        Thread.sleep(30000);
         result = ingestService.readIngestReport(names);
         if (result.containsValue(InternalUtils.IngestedFileStatus.FAILED))
         {

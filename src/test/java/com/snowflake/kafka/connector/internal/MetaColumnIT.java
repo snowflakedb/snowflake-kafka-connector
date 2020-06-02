@@ -100,7 +100,7 @@ public class MetaColumnIT
         return false;
       }
       return true;
-    }, 30, 4);
+    }, 30, 8);
 
     service.closeAll();
   }
