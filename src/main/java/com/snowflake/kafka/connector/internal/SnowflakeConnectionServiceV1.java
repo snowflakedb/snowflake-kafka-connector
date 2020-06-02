@@ -425,7 +425,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
   public void databaseExists(String databaseName)
   {
     checkConnection();
-    String query = "desc database identifier(?)";
+    String query = "use database identifier(?)";
     try
     {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -444,7 +444,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
   public void schemaExists(String schemaName)
   {
     checkConnection();
-    String query = "desc schema identifier(?)";
+    String query = "use schema identifier(?)";
     boolean foundSchema = false;
     try
     {
