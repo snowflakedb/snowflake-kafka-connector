@@ -16,12 +16,13 @@ function random-string() {
 source ./utils.sh
 
 # check argument number
-if [ ! "$#" -eq 2 ]; then
-    error_exit "Usage: ./run_test.sh <version> <path to apache config folder>.  Aborting."
+if [ "$#" -lt 2 ] || [ "$#" -gt 3 ] ; then
+    error_exit "Usage: ./run_test.sh <version> <path to apache config folder> <pressure>.  Aborting."
 fi
 
 CONFLUENT_VERSION=$1
 SNOWFLAKE_APACHE_CONFIG_PATH=$2
+PRESSURE=$3
 SNOWFLAKE_ZOOKEEPER_CONFIG="zookeeper.properties"
 SNOWFLAKE_KAFKA_CONFIG="server.properties"
 SNOWFLAKE_KAFKA_CONNECT_CONFIG="connect-distributed.properties"
@@ -116,12 +117,12 @@ KC_PORT=8083
 
 set +e
 echo -e "\n=== Clean table stage and pipe ==="
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT clean $NAME_SALT
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT clean $NAME_SALT $PRESSURE
 
 record_thread_count 2>&1 &
 create_connectors_with_salt $SNOWFLAKE_CREDENTIAL_FILE $NAME_SALT $LOCAL_IP $KC_PORT
 # Send test data and verify DB result from Python
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $TEST_SET $NAME_SALT
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $TEST_SET $NAME_SALT $PRESSURE
 testError=$?
 
 ##### Following commented code is used to track thread leak
