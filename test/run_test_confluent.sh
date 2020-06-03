@@ -137,7 +137,7 @@ testError=$?
 #NAME_SALT="_$NAME_SALT"
 #echo -e "=== Name Salt: $NAME_SALT ==="
 #create_connectors_with_salt $SNOWFLAKE_CREDENTIAL_FILE $NAME_SALT $LOCAL_IP $KC_PORT
-#python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $TEST_SET $NAME_SALT
+#python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $TEST_SET $NAME_SALT $PRESSURE
 #
 #sleep 100
 #
@@ -146,7 +146,7 @@ testError=$?
 #NAME_SALT="_$NAME_SALT"
 #echo -e "=== Name Salt: $NAME_SALT ==="
 #create_connectors_with_salt $SNOWFLAKE_CREDENTIAL_FILE $NAME_SALT $LOCAL_IP $KC_PORT
-#python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $TEST_SET $NAME_SALT
+#python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $TEST_SET $NAME_SALT $PRESSURE
 
 if [ $testError -ne 0 ]; then
     RED='\033[0;31m'
