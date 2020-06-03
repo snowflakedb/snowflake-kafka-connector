@@ -185,6 +185,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         errorExit(
             "Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
+    testCleanEnableList = [True, True, True, True, True, True, True, True, pressure]
+
     failedFlag = False
     try:
         for i, test in enumerate(testSuitList):
@@ -207,7 +209,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         failedFlag = True
     finally:
         for i, test in enumerate(testSuitList):
-            test.clean()
+            if testCleanEnableList[i]:
+                test.clean()
 
     if failedFlag:
         exit(1)

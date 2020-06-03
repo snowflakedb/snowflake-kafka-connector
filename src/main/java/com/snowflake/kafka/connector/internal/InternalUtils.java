@@ -14,14 +14,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
-import java.util.function.Function;
-
-import static com.sun.corba.se.impl.activation.ServerMain.logError;
 
 class InternalUtils
 {
@@ -283,7 +279,7 @@ class InternalUtils
       }
       catch (Exception e)
       {
-        logError(e.getMessage());
+        LOGGER.error(e.getMessage());
         telemetry.reportKafkaSnowflakeThrottle(e.getMessage(), iteration);
       }
     }
