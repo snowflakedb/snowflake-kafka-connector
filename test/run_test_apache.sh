@@ -22,7 +22,11 @@ fi
 
 APACHE_VERSION=$1
 SNOWFLAKE_APACHE_CONFIG_PATH=$2
-PRESSURE=$3
+if [ "$#" -eq 3 ] ; then
+  PRESSURE=$3
+else
+  PRESSURE="false"
+fi
 SNOWFLAKE_ZOOKEEPER_CONFIG="zookeeper.properties"
 SNOWFLAKE_KAFKA_CONFIG="server.properties"
 SNOWFLAKE_KAFKA_CONNECT_CONFIG="connect-distributed.properties"
