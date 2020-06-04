@@ -223,7 +223,7 @@ public class SnowflakeSinkTask extends SinkTask
 
     if (sink == null || sink.isClosed())
     {
-      LOGGER.error(Logging.logMessage("SnowflakeSinkTask[ID:{}]: sink " +
+      LOGGER.warn(Logging.logMessage("SnowflakeSinkTask[ID:{}]: sink " +
         "not initialized or closed before preCommit", this.id));
       return offsets;
     }

@@ -14,14 +14,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
-import java.util.function.Function;
-
-import static com.sun.corba.se.impl.activation.ServerMain.logError;
 
 class InternalUtils
 {
@@ -125,9 +121,10 @@ class InternalUtils
    * create a properties for snowflake connection
    *
    * @param conf a map contains all parameters
+   * @param sslEnabled if ssl is enabled
    * @return a Properties instance
    */
-  static Properties createProperties(Map<String, String> conf)
+  static Properties createProperties(Map<String, String> conf, boolean sslEnabled)
   {
     Properties properties = new Properties();
 
@@ -174,8 +171,16 @@ class InternalUtils
       properties.put(JDBC_PRIVATE_KEY, parsePrivateKey(privateKey));
     }
 
+    // set ssl
+    if (sslEnabled)
+    {
+      properties.put(JDBC_SSL, "on");
+    }
+    else
+    {
+      properties.put(JDBC_SSL, "off");
+    }
     //put values for optional parameters
-    properties.put(JDBC_SSL, "on");
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
 
     //required parameter check
@@ -274,7 +279,7 @@ class InternalUtils
       }
       catch (Exception e)
       {
-        logError(e.getMessage());
+        LOGGER.error(e.getMessage());
         telemetry.reportKafkaSnowflakeThrottle(e.getMessage(), iteration);
       }
     }

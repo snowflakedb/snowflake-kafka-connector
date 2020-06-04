@@ -17,10 +17,17 @@ public class SnowflakeConnectionServiceFactory
     private SnowflakeURL url;
     private String connectorName;
 
+    // For testing only
     public SnowflakeConnectionServiceBuilder setProperties(Properties prop)
     {
       this.prop = prop;
       return this;
+    }
+
+    // For testing only
+    public Properties getProperties()
+    {
+      return this.prop;
     }
 
     public SnowflakeConnectionServiceBuilder setURL(SnowflakeURL url)
@@ -37,12 +44,12 @@ public class SnowflakeConnectionServiceFactory
 
     public SnowflakeConnectionServiceBuilder setProperties(Map<String, String> conf)
     {
-      this.prop = InternalUtils.createProperties(conf);
       if(!conf.containsKey(Utils.SF_URL))
       {
         throw SnowflakeErrors.ERROR_0017.getException();
       }
       this.url = new SnowflakeURL(conf.get(Utils.SF_URL));
+      this.prop = InternalUtils.createProperties(conf, this.url.sslEnabled());
       this.connectorName = conf.get(Utils.NAME);
       return this;
     }

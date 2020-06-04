@@ -20,9 +20,6 @@ public class SnowflakeIngestionServiceV1 extends Logging
 {
   private static final long ONE_HOUR = 60 * 60 * 1000;
 
-  private static final String SCHEME = "https";
-  private static final int PORT = 443;
-
   private final String stageName;
   private final SimpleIngestManager ingestManager;
   private SnowflakeTelemetryService telemetry = null;
@@ -33,6 +30,8 @@ public class SnowflakeIngestionServiceV1 extends Logging
     String accountName,
     String userName,
     String host,
+    int port,
+    String connectionScheme,
     String stageName,
     String pipeName,
     PrivateKey privateKey
@@ -42,7 +41,7 @@ public class SnowflakeIngestionServiceV1 extends Logging
     try
     {
       this.ingestManager = new SimpleIngestManager(accountName, userName,
-        pipeName, privateKey, SCHEME, host, PORT);
+        pipeName, privateKey, connectionScheme, host, port);
     } catch (Exception e)
     {
       throw SnowflakeErrors.ERROR_0002.getException(e);
@@ -97,6 +96,11 @@ public class SnowflakeIngestionServiceV1 extends Logging
   {
     Map<String, InternalUtils.IngestedFileStatus> fileStatus =
       initFileStatus(files);
+
+    if (fileStatus.size() == 0)
+    {
+      return fileStatus;
+    }
 
     HistoryResponse response;
     try
@@ -226,7 +230,14 @@ public class SnowflakeIngestionServiceV1 extends Logging
   @Override
   public void close()
   {
-    //do nothing now
+    try
+    {
+      ingestManager.close();
+    }
+    catch (Exception e)
+    {
+      logError("Failed to close ingestManager: " + e.getMessage());
+    }
     logInfo("IngestService Closed");
   }
 

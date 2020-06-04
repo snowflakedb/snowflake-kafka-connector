@@ -425,7 +425,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
   public void databaseExists(String databaseName)
   {
     checkConnection();
-    String query = "desc database identifier(?)";
+    String query = "use database identifier(?)";
     try
     {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -444,7 +444,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
   public void schemaExists(String schemaName)
   {
     checkConnection();
-    String query = "desc schema identifier(?)";
+    String query = "use schema identifier(?)";
     boolean foundSchema = false;
     try
     {
@@ -721,12 +721,14 @@ public class SnowflakeConnectionServiceV1 extends Logging
     String account = url.getAccount();
     String user = prop.getProperty(InternalUtils.JDBC_USER);
     String host = url.getUrlWithoutPort();
+    int port = url.getPort();
+    String connectionScheme = url.getScheme();
     String fullPipeName = prop.getProperty(InternalUtils.JDBC_DATABASE) + "." +
       prop.getProperty(InternalUtils.JDBC_SCHEMA) + "." + pipeName;
     PrivateKey privateKey =
       (PrivateKey) prop.get(InternalUtils.JDBC_PRIVATE_KEY);
     return SnowflakeIngestionServiceFactory
-        .builder(account, user, host, stageName, fullPipeName, privateKey)
+        .builder(account, user, host, port, connectionScheme, stageName, fullPipeName, privateKey)
         .setTelemetry(this.telemetry)
         .build();
   }
