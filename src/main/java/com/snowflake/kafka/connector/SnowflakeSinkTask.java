@@ -205,7 +205,7 @@ public class SnowflakeSinkTask extends SinkTask
     LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records",
       this.id, records.size()));
     //log more info may impact performance
-    records.forEach(getSink()::insert);
+    getSink().insert(records);
   }
 
   /**

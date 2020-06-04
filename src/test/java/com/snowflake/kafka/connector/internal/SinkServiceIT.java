@@ -16,6 +16,7 @@ import org.junit.Test;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -111,11 +112,11 @@ public class SinkServiceIT
       , "test", input.schema(), input.value(), offset);
 
     service.insert(record1);
-    List<String> files = conn.listStage(stage,
-      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table,
-        partition));
-
-    assert files.size() == 1;
+    TestUtils.assertWithRetry(() -> conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
+                                                                                 table, partition)).size() == 1,
+                              5, 4);
+    List<String> files = conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
+                                                                        table, partition));
     String fileName = files.get(0);
 
     assert FileNameUtils.fileNameToTimeIngested(fileName) < System.currentTimeMillis();
@@ -198,9 +199,12 @@ public class SinkServiceIT
     service.insert(noSchemaRecord);
     service.insert(schemaRecord);
 
-    List<String> files = conn.listStage(stage,
-      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition));
-    assert files.size() == 1;
+    TestUtils.assertWithRetry(() ->
+            conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
+                                                           table, partition)).size() == 1,
+        5, 4);
+    List<String> files = conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
+                                                                        table, partition));
     String fileName = files.get(0);
 
     assert FileNameUtils.fileNameToTimeIngested(fileName) < System.currentTimeMillis();
@@ -239,24 +243,28 @@ public class SinkServiceIT
         .addTask(table, topic, partition1)
         .build();
 
-    Future<Integer> result = insert(service, partition, numOfRecord);
-    Future<Integer> result1 = insert(service, partition1, numOfRecord1);
+    insert(service, partition, numOfRecord);
+    insert(service, partition1, numOfRecord1);
 
-    assert result.get() == numOfRecord / numLimit;
-    assert result1.get() == numOfRecord1 / numLimit;
+    TestUtils.assertWithRetry(
+        () -> getStageSize(stage, table, partition) == numOfRecord / numLimit, 5, 4);
+    TestUtils.assertWithRetry(
+        () -> getStageSize(stage, table, partition1) == numOfRecord1 / numLimit, 5, 4);
 
-    TestUtils.assertWithRetry(() ->
-      TestUtils.tableSize(table) == numOfRecord + numOfRecord1, 30, 6);
+    TestUtils.assertWithRetry(() -> {
+        service.insert(new ArrayList<>()); // trigger time based flush
+        return TestUtils.tableSize(table) == numOfRecord + numOfRecord1;
+      }, 30, 8);
 
     service.closeAll();
   }
 
-  private Future<Integer> insert(SnowflakeSinkService sink, int partition,
+  private void insert(SnowflakeSinkService sink, int partition,
                                  int numOfRecord)
   {
     ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-    return executorService.submit(
+    executorService.submit(
       () ->
       {
         for (int i = 0; i < numOfRecord; i++)
@@ -268,14 +276,12 @@ public class SinkServiceIT
             new SinkRecord(topic, partition, Schema.STRING_SCHEMA
               , "test", input.schema(), input.value(), i));
         }
-
-        return getStageSize(stage, table, partition);
       }
     );
   }
 
   @Test
-  public void testFileSize() throws ExecutionException, InterruptedException
+  public void testFileSize() throws Exception
   {
     conn.createTable(table);
     conn.createStage(stage);
@@ -290,9 +296,10 @@ public class SinkServiceIT
         .addTask(table, topic, partition)
         .build();
 
-    Future<Integer> result = insert(service, partition, numOfRecord);
+    insert(service, partition, numOfRecord);
 
-    assert result.get() == numOfRecord / (size / 152 + 1);
+    TestUtils.assertWithRetry(
+        () -> getStageSize(stage, table, partition) == numOfRecord / (size / 152 + 1), 5, 4);
 
     service.closeAll();
   }
@@ -312,9 +319,15 @@ public class SinkServiceIT
         .addTask(table, topic, partition)
         .build();
 
-    assert insert(service, partition, numOfRecord).get() == 0;
+    insert(service, partition, numOfRecord);
 
-    TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 1, 15, 4);
+    TestUtils.assertWithRetry(
+        () -> getStageSize(stage, table, partition) == 0, 5, 4);
+
+    TestUtils.assertWithRetry(() -> {
+        service.insert(new ArrayList<>()); // trigger time based flush
+        return getStageSize(stage, table, partition) == 1;
+      }, 15, 4);
 
     service.closeAll();
   }

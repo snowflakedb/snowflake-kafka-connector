@@ -70,8 +70,7 @@ public class MetaColumnIT
     service.insert(record);
 
     TestUtils.assertWithRetry(() -> {
-      ResultSet resultSet = TestUtils.executeQuery("select RECORD_METADATA from" +
-        " " + tableName);
+      ResultSet resultSet = TestUtils.executeQuery("select RECORD_METADATA from " + tableName);
 
       boolean hasKey1 = false;
       boolean hasKey3 = false;

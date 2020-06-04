@@ -79,19 +79,35 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
   }
 
   @Override
-  public void insert(final SinkRecord record)
+  public void insert(final Collection<SinkRecord> records)
+  {
+    // note that records can be empty
+    for (SinkRecord record : records)
+    {
+      insert(record);
+    }
+    // check all sink context to see if they need to be flushed
+    for (ServiceContext pipe : pipes.values()) {
+      if (pipe.shouldFlush())
+      {
+        pipe.flushBuffer();
+      }
+    }
+  }
+
+  @Override
+  public void insert(SinkRecord record)
   {
     String nameIndex = getNameIndex(record.topic(), record.kafkaPartition());
     //init a new topic partition
     if (!pipes.containsKey(nameIndex))
     {
       logWarn("Topic: {} Partition: {} hasn't been initialized by OPEN " +
-        "function", record.topic(), record.kafkaPartition());
+              "function", record.topic(), record.kafkaPartition());
       startTask(Utils.tableName(record.topic(), this.topic2TableMap),
-        record.topic(), record.kafkaPartition());
+                record.topic(), record.kafkaPartition());
     }
     pipes.get(nameIndex).insert(record);
-
   }
 
   @Override
@@ -253,6 +269,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     private final String prefix;
     private long committedOffset; // loaded offset + 1
     private long processedOffset; // processed offset
+    private long previousFlushTimeStamp;
 
     //threads
     private final ExecutorService cleanerExecutor;
@@ -285,6 +302,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         tableName, partition);
       this.processedOffset = -1;
       this.committedOffset = 0;
+      this.previousFlushTimeStamp = System.currentTimeMillis();
+
       this.bufferLock = new ReentrantLock();
       this.fileListLock = new ReentrantLock();
       this.usageDataLock = new ReentrantLock();
@@ -309,7 +328,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       try
       {
         startCleaner();
-        startFlusher();
       } catch (Exception e)
       {
         logWarn("Cleaner and Flusher threads shut down before initialization");
@@ -347,47 +365,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     {
       cleanerExecutor.shutdownNow();
       logInfo("pipe {}: cleaner terminated", pipeName);
-    }
-
-    private void startFlusher()
-    {
-      flusherExecutor.submit(
-        () ->
-        {
-          logInfo("pipe {}: flusher started", pipeName);
-          while (!isStopped)
-          {
-            try
-            {
-              Thread.sleep(getFlushTime() * 1000);
-              PartitionBuffer tmpBuff;
-
-              bufferLock.lock();
-              try
-              {
-                tmpBuff = buffer;
-                buffer = new PartitionBuffer();
-              } finally
-              {
-                bufferLock.unlock();
-              }
-
-              flush(tmpBuff);
-              logDebug("pipe {}: flusher flushed", pipeName);
-            } catch (InterruptedException e)
-            {
-              logInfo("Flusher terminated by an interrupt:\n{}", e.getMessage());
-              break;
-            }
-          }
-        }
-      );
-    }
-
-    private void stopFlusher()
-    {
-      flusherExecutor.shutdownNow();
-      logInfo("pipe {}: flusher terminated", pipeName);
     }
 
     private void insert(final SinkRecord record)
@@ -439,7 +416,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
             processedOffset = snowflakeRecord.kafkaOffset();
             buffer.insert(snowflakeRecord);
             if (buffer.getBufferSize() >= getFileSize() ||
-              (getRecordNumber() != 0 && buffer.getNumOfRecord() >= getRecordNumber()))
+                (getRecordNumber() != 0 && buffer.getNumOfRecord() >= getRecordNumber()))
             {
               tmpBuff = buffer;
               this.buffer = new PartitionBuffer();
@@ -458,6 +435,26 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     }
 
+    private boolean shouldFlush()
+    {
+      return (System.currentTimeMillis() - this.previousFlushTimeStamp) >= (getFlushTime() * 1000);
+    }
+
+    private void flushBuffer()
+    {
+      PartitionBuffer tmpBuff;
+      bufferLock.lock();
+      try
+      {
+        tmpBuff = buffer;
+        this.buffer = new PartitionBuffer();
+      } finally
+      {
+        bufferLock.unlock();
+      }
+      flush(tmpBuff);
+    }
+
     private void writeBrokenDataToTableStage(SinkRecord record)
     {
       String fileName = FileNameUtils.brokenRecordFileName(prefix,
@@ -473,27 +470,33 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private void flush(PartitionBuffer buff)
     {
-      if (buff == null || buff.isEmpty())
-      {
-        return;
-      }
+      flusherExecutor.submit(
+          () ->
+          {
+            if (buff == null || buff.isEmpty())
+            {
+              return;
+            }
 
-      String fileName = FileNameUtils.fileName(prefix, buff.getFirstOffset(),
-        buff.getLastOffset());
-      String content = buff.getData();
-      conn.put(stageName, fileName, content);
-      ingestionService.ingestFile(fileName);
+            this.previousFlushTimeStamp = System.currentTimeMillis();
+            String fileName = FileNameUtils.fileName(prefix, buff.getFirstOffset(),
+                                                     buff.getLastOffset());
+            String content = buff.getData();
+            conn.put(stageName, fileName, content);
+            ingestionService.ingestFile(fileName);
 
-      fileListLock.lock();
-      try
-      {
-        fileNames.add(fileName);
-      } finally
-      {
-        fileListLock.unlock();
-      }
+            fileListLock.lock();
+            try
+            {
+              fileNames.add(fileName);
+            } finally
+            {
+              fileListLock.unlock();
+            }
 
-      logInfo("pipe {}, flush pipe: {}", pipeName, fileName);
+            logInfo("pipe {}, flush pipe: {}", pipeName, fileName);
+          }
+      );
     }
 
     private void checkStatus()
@@ -756,7 +759,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       try
       {
         stopCleaner();
-        stopFlusher();
       } catch (Exception e)
       {
         logWarn("Failed to terminate Cleaner or Flusher");
