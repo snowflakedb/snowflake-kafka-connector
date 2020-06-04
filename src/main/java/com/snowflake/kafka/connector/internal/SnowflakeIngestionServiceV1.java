@@ -230,7 +230,14 @@ public class SnowflakeIngestionServiceV1 extends Logging
   @Override
   public void close()
   {
-    //do nothing now
+    try
+    {
+      ingestManager.close();
+    }
+    catch (Exception e)
+    {
+      logError("Failed to close ingestManager: " + e.getMessage());
+    }
     logInfo("IngestService Closed");
   }
 
