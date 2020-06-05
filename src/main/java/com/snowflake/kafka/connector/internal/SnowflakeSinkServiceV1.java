@@ -736,9 +736,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
           }
         }
       );
-      // batch call Snowpipe to ingest file
-      ingestionService.ingestFiles(filesForIngestion);
-      
+
+      if (!filesForIngestion.isEmpty())
+      {
+        // batch call Snowpipe to ingest file
+        ingestionService.ingestFiles(filesForIngestion);
+      }
       if (!loadedFiles.isEmpty())
       {
         purge(loadedFiles);
