@@ -115,6 +115,7 @@ public class SinkServiceIT
     TestUtils.assertWithRetry(() -> conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
                                                                                  table, partition)).size() == 1,
                               5, 4);
+    service.callAllGetOffset();
     List<String> files = conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
                                                                         table, partition));
     String fileName = files.get(0);
@@ -125,10 +126,10 @@ public class SinkServiceIT
     assert FileNameUtils.fileNameToEndOffset(fileName) == offset;
 
     //wait for ingest
-    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 30, 6);
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 30, 10);
 
     //change cleaner
-    TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 0,30, 6);
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 0,30, 10);
 
     assert service.getOffset(new TopicPartition(topic, partition)) == offset + 1;
 
@@ -203,6 +204,7 @@ public class SinkServiceIT
             conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
                                                            table, partition)).size() == 1,
         5, 4);
+    service.callAllGetOffset();
     List<String> files = conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
                                                                         table, partition));
     String fileName = files.get(0);
@@ -213,10 +215,10 @@ public class SinkServiceIT
     assert FileNameUtils.fileNameToEndOffset(fileName) == endOffset;
 
     //wait for ingest
-    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == recordCount, 30, 8);
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == recordCount, 30, 10);
 
     //change cleaner
-    TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 0,30, 8);
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 0,30, 10);
 
     assert service.getOffset(new TopicPartition(topic, partition)) == recordCount;
 
@@ -253,8 +255,9 @@ public class SinkServiceIT
 
     TestUtils.assertWithRetry(() -> {
         service.insert(new ArrayList<>()); // trigger time based flush
+        service.callAllGetOffset();
         return TestUtils.tableSize(table) == numOfRecord + numOfRecord1;
-      }, 30, 8);
+      }, 30, 10);
 
     service.closeAll();
   }
@@ -326,6 +329,7 @@ public class SinkServiceIT
 
     TestUtils.assertWithRetry(() -> {
         service.insert(new ArrayList<>()); // trigger time based flush
+        service.callAllGetOffset();
         return getStageSize(stage, table, partition) == 1;
       }, 15, 4);
 
@@ -338,11 +342,14 @@ public class SinkServiceIT
     String data = "{\"content\":{\"name\":\"test\"},\"meta\":{\"offset\":0," +
       "\"topic\":\"test\",\"partition\":0}}";
 
+    // Two hours ago
+    long time = System.currentTimeMillis() - 120 * 60 * 1000L;
+
     String fileName1 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME,
-      table, 0, 0, 0);
+      table, 0, 0, 0, time);
 
     String fileName2 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME,
-      table, 0, 1, 1);
+      table, 0, 1, 1, time);
 
     conn.createStage(stage);
     conn.createTable(table);
@@ -360,16 +367,21 @@ public class SinkServiceIT
 
     SnowflakeSinkService service = SnowflakeSinkServiceFactory.builder(conn)
       .addTask(table, topic, partition)
+      .setRecordNumber(1) // immediate flush
       .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
     SchemaAndValue result = converter.toConnectData(topic, "12321".getBytes(StandardCharsets.UTF_8));
     SinkRecord record = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
       , "test", result.schema(), result.value(), 1);
-    //lazy init and recovery function
+    // lazy init and recovery function
     service.insert(record);
-
-    TestUtils.assertWithRetry(() -> getStageSize(stage, table, 0) == 0, 30, 6);
+    // wait for async put
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, 0) == 3, 5, 10);
+    // call snow pipe
+    service.callAllGetOffset();
+    // cleaner will remove previous files and ingested new file
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, 0) == 0, 30, 10);
 
     service.closeAll();
   }

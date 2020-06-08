@@ -70,6 +70,7 @@ public class MetaColumnIT
     service.insert(record);
 
     TestUtils.assertWithRetry(() -> {
+      service.callAllGetOffset();
       ResultSet resultSet = TestUtils.executeQuery("select RECORD_METADATA from " + tableName);
 
       boolean hasKey1 = false;
@@ -99,7 +100,7 @@ public class MetaColumnIT
         return false;
       }
       return true;
-    }, 30, 8);
+    }, 30, 10);
 
     service.closeAll();
   }

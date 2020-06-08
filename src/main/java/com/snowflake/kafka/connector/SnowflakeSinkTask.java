@@ -220,6 +220,7 @@ public class SnowflakeSinkTask extends SinkTask
     Map<TopicPartition, OffsetAndMetadata> offsets)
     throws RetriableException
   {
+    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit", this.id));
 
     if (sink == null || sink.isClosed())
     {

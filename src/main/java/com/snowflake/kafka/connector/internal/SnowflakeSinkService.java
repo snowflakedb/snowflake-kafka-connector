@@ -45,6 +45,11 @@ public interface SnowflakeSinkService
   long getOffset(TopicPartition topicPartition);
 
   /**
+   * used for testing only
+   */
+  void callAllGetOffset();
+
+  /**
    * terminate all tasks and close this service instance
    */
   void closeAll();
