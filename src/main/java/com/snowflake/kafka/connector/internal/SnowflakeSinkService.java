@@ -24,10 +24,18 @@ public interface SnowflakeSinkService
   void startTask(String tableName, String topic, int partition);
 
   /**
+   * call pipe to insert a collections of JSON records
+   * will trigger time based flush
+   * @param records record content
+   */
+  void insert(final Collection<SinkRecord> records);
+
+  /**
    * call pipe to insert a JSON record
+   * will not trigger time based flush
    * @param record record content
    */
-  void insert(SinkRecord record);
+  void insert(final SinkRecord record);
 
   /**
    * retrieve offset of last loaded record for given pipe name
@@ -35,6 +43,11 @@ public interface SnowflakeSinkService
    * @return offset, or -1 for empty
    */
   long getOffset(TopicPartition topicPartition);
+
+  /**
+   * used for testing only
+   */
+  void callAllGetOffset();
 
   /**
    * terminate all tasks and close this service instance

@@ -73,6 +73,10 @@ public class SnowflakeIngestionServiceV1 extends Logging
   @Override
   public void ingestFiles(final Set<String> fileNames)
   {
+    if (fileNames.isEmpty())
+    {
+      return;
+    }
     try
     {
       InternalUtils.backoffAndRetry(telemetry,
