@@ -113,6 +113,8 @@ set +e
 # Send test data and verify DB result from Python
 python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $TEST_SET $NAME_SALT $PRESSURE
 testError=$?
+delete_connectors_with_salt $NAME_SALT $LOCAL_IP $KC_PORT
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT clean $NAME_SALT $PRESSURE
 
 if [ $testError -ne 0 ]; then
     RED='\033[0;31m'
