@@ -37,6 +37,9 @@ class InternalUtils
   private static final Logger LOGGER =
     LoggerFactory.getLogger(InternalUtils.class.getName());
 
+  // backoff with 1, 2, 4, 8 seconds
+  public static final int backoffSec[] = {0, 1, 2, 4, 8};
+
   /**
    * count the size of result set
    *
@@ -118,9 +121,10 @@ class InternalUtils
    * create a properties for snowflake connection
    *
    * @param conf a map contains all parameters
+   * @param sslEnabled if ssl is enabled
    * @return a Properties instance
    */
-  static Properties createProperties(Map<String, String> conf)
+  static Properties createProperties(Map<String, String> conf, boolean sslEnabled)
   {
     Properties properties = new Properties();
 
@@ -167,8 +171,16 @@ class InternalUtils
       properties.put(JDBC_PRIVATE_KEY, parsePrivateKey(privateKey));
     }
 
+    // set ssl
+    if (sslEnabled)
+    {
+      properties.put(JDBC_SSL, "on");
+    }
+    else
+    {
+      properties.put(JDBC_SSL, "off");
+    }
     //put values for optional parameters
-    properties.put(JDBC_SSL, "on");
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
 
     //required parameter check
@@ -236,5 +248,41 @@ class InternalUtils
     // partially_loaded, or failed
     LOAD_IN_PROGRESS,
     NOT_FOUND,
+  }
+
+  /**
+   * Interfaces to define the lambda function to be used by backoffAndRetry
+   */
+  interface backoffFunction
+  {
+    Object apply() throws Exception;
+  }
+
+  /**
+   * Backoff logic
+   * @param telemetry telemetry service
+   * @param runnable the lambda function itself
+   * @return the object that the function returns
+   * @throws Exception
+   */
+  public static Object backoffAndRetry(final SnowflakeTelemetryService telemetry, final backoffFunction runnable) throws Exception
+  {
+    for (final int iteration : backoffSec)
+    {
+      if (iteration != 0)
+      {
+        Thread.sleep(iteration * 1000);
+      }
+      try
+      {
+        return runnable.apply();
+      }
+      catch (Exception e)
+      {
+        LOGGER.error(e.getMessage());
+        telemetry.reportKafkaSnowflakeThrottle(e.getMessage(), iteration);
+      }
+    }
+    throw SnowflakeErrors.ERROR_2010.getException();
   }
 }

@@ -2,6 +2,8 @@ package com.snowflake.kafka.connector.internal;
 
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
+import net.snowflake.client.jdbc.SnowflakeStatement;
+import net.snowflake.ingest.connection.HistoryResponse;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -11,6 +13,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
@@ -66,7 +69,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
       stmt.close();
     } catch (SQLException e)
     {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
+      throw SnowflakeErrors.ERROR_2007.getException(e);
     }
 
     logInfo("create table {}", tableName);
@@ -106,7 +109,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
       stmt.close();
     } catch (SQLException e)
     {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
+      throw SnowflakeErrors.ERROR_2009.getException(e);
     }
     logInfo("create pipe: {}", pipeName);
     getTelemetryClient().reportKafkaCreatePipe(tableName, stageName, pipeName);
@@ -142,7 +145,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
       stmt.close();
     } catch (SQLException e)
     {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
+      throw SnowflakeErrors.ERROR_2008.getException(e);
     }
     logInfo("create stage {}", stageName);
     getTelemetryClient().reportKafkaCreateStage(stageName);
@@ -419,6 +422,45 @@ public class SnowflakeConnectionServiceV1 extends Logging
   }
 
   @Override
+  public void databaseExists(String databaseName)
+  {
+    checkConnection();
+    String query = "use database identifier(?)";
+    try
+    {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, databaseName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e)
+    {
+      throw SnowflakeErrors.ERROR_2001.getException(e);
+    }
+
+    logInfo("database {} exists", databaseName);
+  }
+
+  @Override
+  public void schemaExists(String schemaName)
+  {
+    checkConnection();
+    String query = "use schema identifier(?)";
+    boolean foundSchema = false;
+    try
+    {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, schemaName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e)
+    {
+      throw SnowflakeErrors.ERROR_2001.getException(e);
+    }
+
+    logInfo("schema {} exists", schemaName);
+  }
+
+  @Override
   public void dropPipe(final String pipeName)
   {
     checkConnection();
@@ -493,10 +535,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
   public void purgeStage(final String stageName, final List<String> files)
   {
     InternalUtils.assertNotEmpty("stageName", stageName);
-    for (String fileName : files)
-    {
-      removeFile(stageName, fileName);
-    }
+    removeFile(stageName, files);
     logInfo("purge {} files from stage: {}", files.size(), stageName);
   }
 
@@ -529,11 +568,11 @@ public class SnowflakeConnectionServiceV1 extends Logging
       {
         throw SnowflakeErrors.ERROR_2003.getException(e);
       }
-      //remove
-      removeFile(stageName, name);
       logInfo("moved file: {} from stage: {} to table stage: {}", name,
         stageName, tableName);
     }
+    //remove
+    removeFile(stageName, files);
   }
 
   @Override
@@ -601,10 +640,15 @@ public class SnowflakeConnectionServiceV1 extends Logging
     InputStream input = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
     try
     {
-      sfconn.uploadStream(stageName,
-        FileNameUtils.getPrefixFromFileName(fileName), input,
-        FileNameUtils.removePrefixAndGZFromFileName(fileName), true);
-    } catch (SQLException e)
+      InternalUtils.backoffAndRetry(telemetry,
+          () ->
+          {
+            sfconn.uploadStream(stageName,
+                                FileNameUtils.getPrefixFromFileName(fileName), input,
+                                FileNameUtils.removePrefixAndGZFromFileName(fileName), true);
+            return true;
+          });
+    } catch (Exception e)
     {
       throw SnowflakeErrors.ERROR_2003.getException(e);
     }
@@ -621,10 +665,16 @@ public class SnowflakeConnectionServiceV1 extends Logging
 
     try
     {
-      sfconn.uploadStream("%" + tableName,
-        FileNameUtils.getPrefixFromFileName(fileName), input,
-        FileNameUtils.removePrefixAndGZFromFileName(fileName), true);
-    } catch (SQLException e)
+      InternalUtils.backoffAndRetry(telemetry,
+          () ->
+          {
+            sfconn.uploadStream("%" + tableName,
+                                FileNameUtils.getPrefixFromFileName(fileName), input,
+                                FileNameUtils.removePrefixAndGZFromFileName(fileName), true);
+            return true;
+          }
+      );
+    } catch (Exception e)
     {
       throw SnowflakeErrors.ERROR_2003.getException(e);
     }
@@ -676,13 +726,16 @@ public class SnowflakeConnectionServiceV1 extends Logging
     String account = url.getAccount();
     String user = prop.getProperty(InternalUtils.JDBC_USER);
     String host = url.getUrlWithoutPort();
+    int port = url.getPort();
+    String connectionScheme = url.getScheme();
     String fullPipeName = prop.getProperty(InternalUtils.JDBC_DATABASE) + "." +
       prop.getProperty(InternalUtils.JDBC_SCHEMA) + "." + pipeName;
     PrivateKey privateKey =
       (PrivateKey) prop.get(InternalUtils.JDBC_PRIVATE_KEY);
     return SnowflakeIngestionServiceFactory
-      .builder(account, user, host, stageName, fullPipeName, privateKey)
-      .build();
+        .builder(account, user, host, port, connectionScheme, stageName, fullPipeName, privateKey)
+        .setTelemetry(this.telemetry)
+        .build();
   }
 
   /**
@@ -721,21 +774,32 @@ public class SnowflakeConnectionServiceV1 extends Logging
    * Remove one file from given stage
    *
    * @param stageName stage name
-   * @param fileName  file name
+   * @param fileList  file names list
    */
-  private void removeFile(String stageName, String fileName)
+  private void removeFile(String stageName, List<String> fileList)
   {
     InternalUtils.assertNotEmpty("stageName", stageName);
-    String query = "rm @" + stageName + "/" + fileName;
     try
     {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e)
+      InternalUtils.backoffAndRetry(telemetry,
+          () ->
+          {
+            String query = "";
+            for (String fileName : fileList)
+            {
+              query = query + "rm @" + stageName + "/" + fileName + "; ";
+            }
+            Statement stmt = conn.createStatement();
+            stmt.unwrap(SnowflakeStatement.class).setParameter("MULTI_STATEMENT_COUNT", fileList.size());
+            stmt.execute(query);
+            stmt.close();
+            return true;
+          }
+      );
+    } catch (Exception e)
     {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
-    logDebug("deleted {} from stage {}", fileName, stageName);
+    logDebug("deleted {} files from stage {}", fileList.size(), stageName);
   }
 }

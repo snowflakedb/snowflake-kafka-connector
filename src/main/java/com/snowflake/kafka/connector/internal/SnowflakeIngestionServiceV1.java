@@ -6,9 +6,11 @@ import net.snowflake.ingest.connection.HistoryResponse;
 import net.snowflake.ingest.utils.StagedFileWrapper;
 
 import java.security.PrivateKey;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.snowflake.kafka.connector.internal.InternalUtils.convertIngestStatus;
 import static com.snowflake.kafka.connector.internal.InternalUtils.timestampToDate;
@@ -18,11 +20,9 @@ public class SnowflakeIngestionServiceV1 extends Logging
 {
   private static final long ONE_HOUR = 60 * 60 * 1000;
 
-  private static final String SCHEME = "https";
-  private static final int PORT = 443;
-
   private final String stageName;
   private final SimpleIngestManager ingestManager;
+  private SnowflakeTelemetryService telemetry = null;
 
   private String beginMark = null;
 
@@ -30,6 +30,8 @@ public class SnowflakeIngestionServiceV1 extends Logging
     String accountName,
     String userName,
     String host,
+    int port,
+    String connectionScheme,
     String stageName,
     String pipeName,
     PrivateKey privateKey
@@ -39,7 +41,7 @@ public class SnowflakeIngestionServiceV1 extends Logging
     try
     {
       this.ingestManager = new SimpleIngestManager(accountName, userName,
-        pipeName, privateKey, SCHEME, host, PORT);
+        pipeName, privateKey, connectionScheme, host, port);
     } catch (Exception e)
     {
       throw SnowflakeErrors.ERROR_0002.getException(e);
@@ -48,16 +50,43 @@ public class SnowflakeIngestionServiceV1 extends Logging
   }
 
   @Override
+  public void setTelemetry(SnowflakeTelemetryService telemetry)
+  {
+    this.telemetry = telemetry;
+  }
+
+  @Override
   public void ingestFile(final String fileName)
   {
     try
     {
-      ingestManager.ingestFile(new StagedFileWrapper(fileName), null);
+      InternalUtils.backoffAndRetry(telemetry,
+          () -> ingestManager.ingestFile(new StagedFileWrapper(fileName), null)
+      );
     } catch (Exception e)
     {
       throw SnowflakeErrors.ERROR_3001.getException(e);
     }
     logDebug("ingest file: {}", fileName);
+  }
+
+  @Override
+  public void ingestFiles(final Set<String> fileNames)
+  {
+    if (fileNames.isEmpty())
+    {
+      return;
+    }
+    try
+    {
+      InternalUtils.backoffAndRetry(telemetry,
+          () -> ingestManager.ingestFiles(SimpleIngestManager.wrapFilepaths(fileNames), null)
+      );
+    } catch (Exception e)
+    {
+      throw SnowflakeErrors.ERROR_3001.getException(e);
+    }
+    logDebug("ingest files: {}", fileNames);
   }
 
   @Override
@@ -72,10 +101,17 @@ public class SnowflakeIngestionServiceV1 extends Logging
     Map<String, InternalUtils.IngestedFileStatus> fileStatus =
       initFileStatus(files);
 
+    if (fileStatus.size() == 0)
+    {
+      return fileStatus;
+    }
+
     HistoryResponse response;
     try
     {
-      response = ingestManager.getHistory(null, null, beginMark);
+      response = (HistoryResponse) InternalUtils.backoffAndRetry(telemetry,
+          () -> ingestManager.getHistory(null, null, beginMark)
+      );
     } catch (Exception e)
     {
       throw SnowflakeErrors.ERROR_3002.getException(e);
@@ -160,13 +196,15 @@ public class SnowflakeIngestionServiceV1 extends Logging
 
     String endTimeExclusive = timestampToDate(end);
 
-
     while (!startTimeInclusive.equals(endTimeExclusive))
     {
       try
       {
-        response = ingestManager.getHistoryRange(null,
-          startTimeInclusive, endTimeExclusive);
+        final String startTimeInclusiveFinal = startTimeInclusive;
+        response = (HistoryRangeResponse) InternalUtils.backoffAndRetry(telemetry,
+            () ->
+                ingestManager.getHistoryRange(null, (String) startTimeInclusiveFinal, endTimeExclusive)
+        );
       } catch (Exception e)
       {
         throw SnowflakeErrors.ERROR_1002.getException(e);
@@ -196,7 +234,14 @@ public class SnowflakeIngestionServiceV1 extends Logging
   @Override
   public void close()
   {
-    //do nothing now
+    try
+    {
+      ingestManager.close();
+    }
+    catch (Exception e)
+    {
+      logError("Failed to close ingestManager: " + e.getMessage());
+    }
     logInfo("IngestService Closed");
   }
 

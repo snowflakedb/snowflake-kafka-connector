@@ -90,6 +90,11 @@ public class SnowflakeURLTest
 
     new SnowflakeURL(url);
 
+    url = "https://account.region.aws.privatelink.snowflake.com:443";
+
+    sfurl = new SnowflakeURL(url);
+
+    assert sfurl.getUrlWithoutPort().equals("account.region.aws.privatelink.snowflake.com");
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)

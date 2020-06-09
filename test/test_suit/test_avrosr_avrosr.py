@@ -32,28 +32,30 @@ class TestAvrosrAvrosr:
         self.valueSchema = avro.loads(ValueSchemaStr)
 
     def send(self):
-        print("\n=== Sending TestAvrosrAvrosr data ===")
         value = []
         key = []
         for e in range(100):
             # avro data must follow the schema defined in ValueSchemaStr
-            key.append({"id": 0})
-            value.append({"id": 0, "firstName": "abc0", "time": 1835})
+            key.append({"id": e})
+            value.append({"id": e, "firstName": "abc0", "time": 1835})
         self.driver.sendAvroSRData(
             self.topic, value, self.valueSchema, key, self.keySchema)
-        print("=== Done ===")
 
     def verify(self):
-        self.driver.verifyWithRetry(self.verifyRetry)
-        print("=== TestAvrosrAvrosr passed ===")
-
-    def clean(self):
-        self.driver.cleanTableStagePipe(self.topic)
-        
-    def verifyRetry(self):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:
             raise RetryableError()
         elif res != 100:
-            raise NonRetryableError()
+            raise NonRetryableError("Number of record in table is different from number of record sent")
+
+        # validate content of line 1
+        res = self.driver.snowflake_conn.cursor().execute(
+            "Select * from {} limit 1".format(self.topic)).fetchone()
+        goldMeta = r'{"CreateTime":\d*,"key":[{"id":0}],"key_schema_id":\d*,"offset":0,"partition":0,"schema_id":\d*,' \
+                   r'"topic":"travis_correct_avrosr_avrosr....."}'
+        goldContent = r'{"firstName":"abc0","id":0,"time":1835}'
+        self.driver.regexMatchOneLine(res, goldMeta, goldContent)
+
+    def clean(self):
+        self.driver.cleanTableStagePipe(self.topic)

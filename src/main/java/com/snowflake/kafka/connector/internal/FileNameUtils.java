@@ -30,6 +30,12 @@ class FileNameUtils
     return fileName(filePrefix(appName, table, partition), start, end);
   }
 
+  // Used for testing only
+  static String fileName(String appName, String table, int partition,
+                         long start, long end, long time)
+  {
+    return filePrefix(appName, table, partition) + start + "_" + end + "_" + time + ".json.gz";
+  }
 
   /**
    * generate file name

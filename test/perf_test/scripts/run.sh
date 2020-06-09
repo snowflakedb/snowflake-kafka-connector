@@ -20,9 +20,10 @@ echo $plugin_path >> confluent/etc/schema-registry/connect-avro-standalone.prope
 
 #install kafka connector
 pushd ../..
-CONNECTOR_VERSION=$(sed -n 's/^    <version>\(.*\)<\/version>.*/\1/p' ./pom.xml)
 mvn clean package -DskipTests
-cp target/snowflake-kafka-connector-${CONNECTOR_VERSION}.jar test/perf_test/confluent/share/confluent-hub-components/
+SNOWFLAKE_PLUGIN_NAME_REGEX="snowflake-kafka-connector-[0-9]*\.[0-9]*\.[0-9]*\.jar$"
+SNOWFLAKE_PLUGIN_NAME=$(ls target | grep "$SNOWFLAKE_PLUGIN_NAME_REGEX" | head -n 1)
+cp target/$SNOWFLAKE_PLUGIN_NAME test/perf_test/confluent/share/confluent-hub-components/
 popd
 
 #download data

@@ -109,31 +109,6 @@ public class ConnectorConfigTest
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testEmptyAuthSource()
-  {
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_USER_INFO, "test:test");
-    Utils.validateConfig(config);
-  }
-
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testEmptyUserInfo()
-  {
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE, "USER_INFO");
-    Utils.validateConfig(config);
-  }
-
-  @Test
-  public void testAuthentication()
-  {
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE, "USER_INFO");
-    config.put(SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_USER_INFO, "test:test");
-    Utils.validateConfig(config);
-  }
-
-  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testIllegalTopicMap()
   {
     Map<String, String> config = getConfig();

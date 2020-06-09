@@ -54,3 +54,12 @@ cat > $OSSRH_DEPLOY_SETTINGS_XML << SETTINGS.XML
 SETTINGS.XML
 
 mvn --settings $OSSRH_DEPLOY_SETTINGS_XML -DskipTests clean deploy
+#white source
+whitesource/run_whitesource.sh
+
+#confluent release
+mvn -f pom_confluent.xml --settings $OSSRH_DEPLOY_SETTINGS_XML -DskipTests clean package
+#white source
+whitesource/run_whitesource.sh
+
+aws s3 cp target/components/packages/*.zip s3://sfc-jenkins/repository/kafka/

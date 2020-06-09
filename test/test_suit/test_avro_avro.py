@@ -7,7 +7,6 @@ class TestAvroAvro:
         self.topic = "travis_correct_avro_avro" + nameSalt
 
     def send(self):
-        print("\n=== Sending TestAvroAvro data ===")
         avroBytes = open("./test_avro_data/twitter.avro", "rb").read()
         key = []
         value = []
@@ -16,19 +15,23 @@ class TestAvroAvro:
             key.append(avroBytes)
             value.append(avroBytes)
         self.driver.sendBytesData(self.topic, value, key)
-        print("=== Done ===")
 
     def verify(self):
-        self.driver.verifyWithRetry(self.verifyRetry)
-        print("=== TestAvroAvro passed ===")
-
-    def clean(self):
-        self.driver.cleanTableStagePipe(self.topic)
-
-    def verifyRetry(self):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:
             raise RetryableError()
         elif res != 100:
-            raise NonRetryableError()
+            raise NonRetryableError("Number of record in table is different from number of record sent")
+
+        # validate content of line 1
+        res = self.driver.snowflake_conn.cursor().execute(
+            "Select * from {} limit 1".format(self.topic)).fetchone()
+        goldMeta = r'{"CreateTime":\d*,"key":[{"timestamp":\d*,"tweet":"Rock:Nerfpaper,scissorsisfine.",' \
+                   r'"username":"miguno"},{"timestamp":\d*,"tweet":"Worksasintended.TerranisIMBA.",' \
+                   r'"username":"BlizzardCS"}],"offset":0,"partition":0,"topic":"travis_correct_avro_avro....."}'
+        goldContent = r'{"timestamp":\d*,"tweet":"Rock:Nerfpaper,scissorsisfine.","username":"miguno"}'
+        self.driver.regexMatchOneLine(res, goldMeta, goldContent)
+
+    def clean(self):
+        self.driver.cleanTableStagePipe(self.topic)

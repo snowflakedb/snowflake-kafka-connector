@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ /*
+  ~  * Copyright (c) 2019 - 2020 Snowflake Computing Inc. All rights reserved.
+  ~  */
+  -->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                      https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.snowflake</groupId>
+        <artifactId>base</artifactId>
+        <version>1.3.1</version>
+        <relativePath>pom_base.xml</relativePath>
+    </parent>
+
+    <artifactId>snowflake-kafka-connector</artifactId>
+    <packaging>jar</packaging>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.confluent</groupId>
+                <version>0.11.1</version>
+                <artifactId>kafka-connect-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>kafka-connect</goal>
+                        </goals>
+                        <configuration>
+                            <title>Snowflake Kafka Connector</title>
+                            <documentationUrl>
+                                https://docs.snowflake.net/manuals/user-guide/kafka-connector.html
+                            </documentationUrl>
+                            <description>
+                                Snowflake is the data warehouse built for the
+                                cloud. The Snowflake Kafka connector lets you
+                                quickly and easily move JSON and AVRO messages
+                                from Kafka topics into Snowflake tables.
+                            </description>
+                            <logo>logo/snowflake.png</logo>
+
+                            <supportProviderName>Snowflake, Inc.
+                            </supportProviderName>
+                            <supportSummary>This feature is in preview, and
+                                provided primarily for evaluation and testing
+                                purposes. If you decide to use a preview feature
+                                in production, please contact Snowflake Support
+                                before doing so.
+                            </supportSummary>
+
+                            <ownerUsername>snowflakeinc</ownerUsername>
+                            <ownerType>organization</ownerType>
+                            <ownerName>Snowflake, Inc.</ownerName>
+                            <ownerUrl>https://snowflake.com/</ownerUrl>
+                            <ownerLogo>logo/snowflake.png</ownerLogo>
+
+                            <componentTypes>
+                                <componentType>sink</componentType>
+                            </componentTypes>
+                            <tags>
+                                <tag>Snowflake</tag>
+                                <tag>jdbc</tag>
+                                <tag>database</tag>
+                                <tag>dbms</tag>
+                                <tag>rdbms</tag>
+                                <tag>sql</tag>
+                                <tag>data warehouse</tag>
+                            </tags>
+                            <confluentControlCenterIntegration>true
+                            </confluentControlCenterIntegration>
+                            <singleMessageTransforms>false
+                            </singleMessageTransforms>
+                            <supportedEncodings>UTF-8</supportedEncodings>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+    <dependencies>
+        <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-fips -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-fips</artifactId>
+            <version>1.0.3</version>
+        </dependency>
+    </dependencies>
+</project>

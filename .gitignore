@@ -13,6 +13,8 @@ test/perf_test/confluent
 test/perf_test/data
 test/perf_test/confluent.tar.gz
 *.iml
+.vscode/
 
 cc-docker-connect-snowflake/confluent-cloud-plugins/
 cc-docker-connect-snowflake/kafka-connect-snowflake/
+

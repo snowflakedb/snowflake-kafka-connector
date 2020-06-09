@@ -16,9 +16,17 @@
  */
 package com.snowflake.kafka.connector;
 
+import com.snowflake.kafka.connector.internal.Logging;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigDef.Importance;
+import org.apache.kafka.common.config.ConfigException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Map;
+
 /**
  * SnowflakeSinkConnectorConfig class is used for specifying the set of
  * expected configurations.
@@ -62,14 +70,6 @@ public class SnowflakeSinkConnectorConfig
   static final String JVM_PROXY_HOST = "jvm.proxy.host";
   static final String JVM_PROXY_PORT = "jvm.proxy.port";
 
-  // Schema Registry Info
-  private static final String SCHEMA_REGISTRY_INFO = "Schema Registry Info";
-  static final String SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE =
-    "value.converter.basic.auth.credentials.source";
-  static final String SCHEMA_REGISTRY_AUTH_USER_INFO =
-    "value.converter.basic.auth.user.info";
-  private static final String REGISTRY_URL = "value.converter.schema.registry.url";
-
   // Snowflake Metadata Flags
   private static final String SNOWFLAKE_METADATA_FLAGS = "Snowflake Metadata Flags";
   public static final String SNOWFLAKE_METADATA_CREATETIME = "snowflake.metadata.createtime";
@@ -79,6 +79,31 @@ public class SnowflakeSinkConnectorConfig
   public static final String SNOWFLAKE_METADATA_ALL = "snowflake.metadata.all";
   public static final String SNOWFLAKE_METADATA_DEFAULT = "true";
 
+  private static final Logger LOGGER =
+    LoggerFactory.getLogger(SnowflakeSinkConnectorConfig.class.getName());
+
+  private static final ConfigDef.Validator nonEmptyStringValidator =
+    new ConfigDef.NonEmptyString();
+  private static final ConfigDef.Validator topicToTableValidator =
+    new TopicToTableValidator();
+
+  static void setDefaultValues(Map<String, String> config)
+  {
+    setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);
+
+    setFieldToDefaultValues(config, BUFFER_SIZE_BYTES, BUFFER_SIZE_BYTES_DEFAULT);
+
+    setFieldToDefaultValues(config, BUFFER_FLUSH_TIME_SEC, BUFFER_FLUSH_TIME_SEC_DEFAULT);
+  }
+
+  static void setFieldToDefaultValues(Map<String, String> config, String field, Long value)
+  {
+    if (!config.containsKey(field))
+    {
+      config.put(field, value + "");
+      LOGGER.info(Logging.logMessage("{} set to default {} seconds", field, value));
+    }
+  }
 
   static ConfigDef newConfigDef()
   {
@@ -86,7 +111,8 @@ public class SnowflakeSinkConnectorConfig
       //snowflake login info
       .define(SNOWFLAKE_URL,
         Type.STRING,
-        "",
+        null,
+        nonEmptyStringValidator,
         Importance.HIGH,
         "Snowflake account url",
         SNOWFLAKE_LOGIN_INFO,
@@ -95,7 +121,8 @@ public class SnowflakeSinkConnectorConfig
         SNOWFLAKE_URL)
       .define(SNOWFLAKE_USER,
         Type.STRING,
-        "",
+        null,
+        nonEmptyStringValidator,
         Importance.HIGH,
         "Snowflake user name",
         SNOWFLAKE_LOGIN_INFO,
@@ -122,7 +149,8 @@ public class SnowflakeSinkConnectorConfig
         SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
       .define(SNOWFLAKE_DATABASE,
         Type.STRING,
-        "",
+        null,
+        nonEmptyStringValidator,
         Importance.HIGH,
         "Snowflake database name",
         SNOWFLAKE_LOGIN_INFO,
@@ -131,7 +159,8 @@ public class SnowflakeSinkConnectorConfig
         SNOWFLAKE_DATABASE)
       .define(SNOWFLAKE_SCHEMA,
         Type.STRING,
-        "",
+        null,
+        nonEmptyStringValidator,
         Importance.HIGH,
         "Snowflake database schema name",
         SNOWFLAKE_LOGIN_INFO,
@@ -158,39 +187,11 @@ public class SnowflakeSinkConnectorConfig
         1,
         ConfigDef.Width.NONE,
         JVM_PROXY_PORT)
-      //schema registry
-      .define(REGISTRY_URL,
-        Type.STRING,
-        "",
-        Importance.LOW,
-        "Required by SnowflakeAvroConnector if schema registry is used. Leave blank if schema is included in AVRO record",
-        SCHEMA_REGISTRY_INFO,
-        0,
-        ConfigDef.Width.NONE,
-        REGISTRY_URL)
-      .define(SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE,
-        Type.STRING,
-        "",
-        Importance.LOW,
-        "Required by SnowflakeAvroConnector if schema registry authentication used. e.g USER_INFO",
-        SCHEMA_REGISTRY_INFO,
-        1,
-        ConfigDef.Width.NONE,
-        SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE)
-      .define(SCHEMA_REGISTRY_AUTH_USER_INFO,
-        Type.PASSWORD,
-        "",
-        Importance.LOW,
-        "User info of schema registry authentication, format: <user name>:<password>",
-        SCHEMA_REGISTRY_INFO,
-        2,
-        ConfigDef.Width.NONE,
-        SCHEMA_REGISTRY_AUTH_USER_INFO
-        )
       //Connector Config
       .define(TOPICS_TABLES_MAP,
         Type.STRING,
         "",
+        topicToTableValidator,
         Importance.LOW,
         "Map of topics to tables (optional). Format : comma-seperated tuples, e.g. <topic-1>:<table-1>,<topic-2>:<table-2>,... ",
         CONNECTOR_CONFIG,
@@ -200,6 +201,7 @@ public class SnowflakeSinkConnectorConfig
       .define(BUFFER_COUNT_RECORDS,
         Type.LONG,
         BUFFER_COUNT_RECORDS_DEFAULT,
+        ConfigDef.Range.atLeast(1),
         Importance.LOW,
         "Number of records buffered in memory per partition before triggering Snowflake ingestion",
         CONNECTOR_CONFIG,
@@ -209,6 +211,7 @@ public class SnowflakeSinkConnectorConfig
       .define(BUFFER_SIZE_BYTES,
         Type.LONG,
         BUFFER_SIZE_BYTES_DEFAULT,
+        ConfigDef.Range.between(1, BUFFER_SIZE_BYTES_MAX),
         Importance.LOW,
         "Cumulative size of records buffered in memory per partition before triggering Snowflake ingestion",
         CONNECTOR_CONFIG,
@@ -218,6 +221,7 @@ public class SnowflakeSinkConnectorConfig
       .define(BUFFER_FLUSH_TIME_SEC,
         Type.LONG,
         BUFFER_FLUSH_TIME_SEC_DEFAULT,
+        ConfigDef.Range.atLeast(BUFFER_FLUSH_TIME_SEC_MIN),
         Importance.LOW,
         "The time in seconds to flush cached data",
         CONNECTOR_CONFIG,
@@ -225,7 +229,7 @@ public class SnowflakeSinkConnectorConfig
         ConfigDef.Width.NONE,
         BUFFER_FLUSH_TIME_SEC)
       .define(SNOWFLAKE_METADATA_ALL,
-        Type.STRING,
+        Type.BOOLEAN,
         SNOWFLAKE_METADATA_DEFAULT,
         Importance.LOW,
         "Flag to control whether there is metadata collected. If set to false, all metadata will be dropped",
@@ -234,7 +238,7 @@ public class SnowflakeSinkConnectorConfig
         ConfigDef.Width.NONE,
         SNOWFLAKE_METADATA_ALL)
       .define(SNOWFLAKE_METADATA_CREATETIME,
-        Type.STRING,
+        Type.BOOLEAN,
         SNOWFLAKE_METADATA_DEFAULT,
         Importance.LOW,
         "Flag to control whether createtime is collected in snowflake metadata",
@@ -243,7 +247,7 @@ public class SnowflakeSinkConnectorConfig
         ConfigDef.Width.NONE,
         SNOWFLAKE_METADATA_CREATETIME)
       .define(SNOWFLAKE_METADATA_TOPIC,
-        Type.STRING,
+        Type.BOOLEAN,
         SNOWFLAKE_METADATA_DEFAULT,
         Importance.LOW,
         "Flag to control whether kafka topic name is collected in snowflake metadata",
@@ -252,7 +256,7 @@ public class SnowflakeSinkConnectorConfig
         ConfigDef.Width.NONE,
         SNOWFLAKE_METADATA_TOPIC)
       .define(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION,
-        Type.STRING,
+        Type.BOOLEAN,
         SNOWFLAKE_METADATA_DEFAULT,
         Importance.LOW,
         "Flag to control whether kafka partition and offset are collected in snowflake metadata",
@@ -262,4 +266,27 @@ public class SnowflakeSinkConnectorConfig
         SNOWFLAKE_METADATA_OFFSET_AND_PARTITION)
       ;
   }
+
+  public static class TopicToTableValidator implements ConfigDef.Validator
+  {
+    public TopicToTableValidator() {}
+
+    public void ensureValid(String name, Object value)
+    {
+      String s = (String)value;
+      if (s != null && !s.isEmpty()) // this value is optional and can be empty
+      {
+        if (Utils.parseTopicToTableMap(s) == null)
+        {
+          throw new ConfigException(name, value, "Format: <topic-1>:<table-1>,<topic-2>:<table-2>,...");
+        }
+      }
+    }
+
+    public String toString()
+    {
+      return "Topic to table map format : comma-seperated tuples, e.g. <topic-1>:<table-1>,<topic-2>:<table-2>,... ";
+    }
+  }
+
 }
