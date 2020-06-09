@@ -35,6 +35,8 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   private static final String TIME = "time";
   private static final String FILE_LIST = "file_list";
   private static final String VERSION = "version";
+  private static final String BACKOFF_TIME_BEFORE_EXECUTE = "backoff_time_before_execute";
+
 
   private final Telemetry telemetry;
   private String name = null;
@@ -186,6 +188,18 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
     send(TelemetryType.KAFKA_FILE_FAILED, msg);
   }
 
+  @Override
+  public void reportKafkaSnowflakeThrottle(final String errorDetail, int iteration)
+  {
+    ObjectNode msg = MAPPER.createObjectNode();
+    msg.put(ERROR_NUMBER, errorDetail);
+    msg.put(TIME, System.currentTimeMillis());
+    msg.put(APP_NAME, getAppName());
+    msg.put(BACKOFF_TIME_BEFORE_EXECUTE, iteration);
+
+    send(TelemetryType.KAFKA_SNOWFLAKE_THROTTLE, msg);
+  }
+
   private void send(TelemetryType type, JsonNode data)
   {
     ObjectNode msg = MAPPER.createObjectNode();
@@ -226,7 +240,8 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
     KAFKA_CREATE_STAGE("kafka_create_stage"),
     KAFKA_REUSE_STAGE("kafka_reuse_stage"),
     KAFKA_CREATE_PIPE("kafka_create_pipe"),
-    KAFKA_FILE_FAILED("kafka_file_failed");
+    KAFKA_FILE_FAILED("kafka_file_failed"),
+    KAFKA_SNOWFLAKE_THROTTLE("kafka_snowflake_throttle");
 
     private final String name;
 

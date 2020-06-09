@@ -4,6 +4,7 @@ import com.snowflake.kafka.connector.internal.InternalUtils.IngestedFileStatus;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Ingestion service manages snow pipe
@@ -11,11 +12,24 @@ import java.util.Map;
 public interface SnowflakeIngestionService
 {
   /**
+   * Set telemetry client
+   *
+   * @param telemetry telemetry client
+   */
+  void setTelemetry(SnowflakeTelemetryService telemetry);
+  /**
    * Ingest single file
    *
    * @param fileName file name
    */
   void ingestFile(String fileName);
+
+  /**
+   * Ingest a list of files
+   *
+   * @param fileNames file name set
+   */
+  void ingestFiles(Set<String> fileNames);
 
   /**
    * @return corresponding stage name

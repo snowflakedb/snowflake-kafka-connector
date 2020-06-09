@@ -14,7 +14,7 @@ cp-kafka-connect:
             cpu: 1000m
 
 cp-kafka:
-    imageTag: 5.2.0
+    imageTag: 5.0.0
     persistence:
         enabled: false
         # this is only for test, we want volumn to be destroyed
@@ -33,12 +33,12 @@ cp-kafka:
             cpu: 1000m
 
 cp-zookeeper:
-    imageTag: 5.2.0
+    imageTag: 5.0.0
     persistence:
         enabled: false
 
 cp-schema-registry:
-    imageTag: 5.2.0
+    imageTag: 5.0.0
 
 cp-kafka-rest:
     enabled: false

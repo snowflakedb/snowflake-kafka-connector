@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
+import net.snowflake.client.jdbc.internal.apache.arrow.flatbuf.Int;
 import org.junit.After;
 import org.junit.Test;
 
@@ -33,6 +34,21 @@ public class ConnectionServiceIT
   }
 
   @Test
+  public void testSetSSLProperties()
+  {
+    Map<String, String> testConfig = TestUtils.getConf();
+    testConfig.put(Utils.SF_URL, "https://sfctest0.snowflakecomputing.com");
+    assert SnowflakeConnectionServiceFactory.builder().setProperties(testConfig)
+        .getProperties().getProperty(InternalUtils.JDBC_SSL).equals("on");
+    testConfig.put(Utils.SF_URL, "sfctest0.snowflakecomputing.com");
+    assert SnowflakeConnectionServiceFactory.builder().setProperties(testConfig)
+        .getProperties().getProperty(InternalUtils.JDBC_SSL).equals("on");
+    testConfig.put(Utils.SF_URL, "http://sfctest0.snowflakecomputing.com:400");
+    assert SnowflakeConnectionServiceFactory.builder().setProperties(testConfig)
+        .getProperties().getProperty(InternalUtils.JDBC_SSL).equals("off");
+  }
+
+  @Test
   public void createConnectionService()
   {
     SnowflakeConnectionService service = SnowflakeConnectionServiceFactory
@@ -53,8 +69,8 @@ public class ConnectionServiceIT
           .build();
       });
 
-    Properties prop = InternalUtils.createProperties(TestUtils.getConf());
     SnowflakeURL url = TestUtils.getUrl();
+    Properties prop = InternalUtils.createProperties(TestUtils.getConf(), url.sslEnabled());
     String appName = TestUtils.TEST_CONNECTOR_NAME;
 
     SnowflakeConnectionServiceFactory
@@ -227,6 +243,45 @@ public class ConnectionServiceIT
     assert conn.dropStageIfEmpty(stageName);
     assert !conn.stageExist(stageName);
     TestUtils.dropTable(tableName);
+  }
+
+  @Test
+  public void testStagePurgeFunctions()
+  {
+    //stage doesn't exist
+    assert !conn.stageExist(stageName);
+    //create stage
+    conn.createStage(stageName);
+    //stage exists
+    assert conn.stageExist(stageName);
+    //put two files to stage
+    String fileName1 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 1, 3);
+    conn.put(stageName, fileName1, "test");
+    String fileName2 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 4, 6);
+    conn.put(stageName, fileName2, "test");
+    String fileName3 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 14, 16);
+    conn.put(stageName, fileName3, "test");
+    String fileName4 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 24, 26);
+    conn.put(stageName, fileName4, "test");
+    String fileName5 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 34, 36);
+    conn.put(stageName, fileName5, "test");
+    String fileName6 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 44, 46);
+    conn.put(stageName, fileName6, "test");
+    //list stage with prefix
+    List<String> files = conn.listStage(stageName, TestUtils.TEST_CONNECTOR_NAME);
+    assert files.size() == 6;
+
+    List<String> filesList = new ArrayList<>();
+    filesList.add(fileName1);
+    filesList.add(fileName2);
+    filesList.add(fileName3);
+    filesList.add(fileName4);
+    filesList.add(fileName5);
+    filesList.add(fileName6);
+    conn.purgeStage(stageName, filesList);
+
+    files = conn.listStage(stageName, TestUtils.TEST_CONNECTOR_NAME);
+    assert files.size() == 0;
   }
 
   @Test

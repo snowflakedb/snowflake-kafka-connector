@@ -205,7 +205,7 @@ public class SnowflakeSinkTask extends SinkTask
     LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records",
       this.id, records.size()));
     //log more info may impact performance
-    records.forEach(getSink()::insert);
+    getSink().insert(records);
   }
 
   /**
@@ -220,10 +220,11 @@ public class SnowflakeSinkTask extends SinkTask
     Map<TopicPartition, OffsetAndMetadata> offsets)
     throws RetriableException
   {
+    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit", this.id));
 
     if (sink == null || sink.isClosed())
     {
-      LOGGER.error(Logging.logMessage("SnowflakeSinkTask[ID:{}]: sink " +
+      LOGGER.warn(Logging.logMessage("SnowflakeSinkTask[ID:{}]: sink " +
         "not initialized or closed before preCommit", this.id));
       return offsets;
     }

@@ -139,9 +139,9 @@ public class TestUtils
       return conn;
     }
 
-    Properties properties = InternalUtils.createProperties(getConf());
-
     SnowflakeURL url = new SnowflakeURL(getConf().get(Utils.SF_URL));
+
+    Properties properties = InternalUtils.createProperties(getConf(), url.sslEnabled());
 
     conn = new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
 
@@ -153,7 +153,7 @@ public class TestUtils
    *
    * @return a map of parameters
    */
-  static Map<String, String> getConf()
+  public static Map<String, String> getConf()
   {
     if (conf == null)
     {

@@ -20,8 +20,12 @@ import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.SnowflakeTelemetryService;
+import com.snowflake.kafka.connector.internal.SnowflakeURL;
+import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.common.config.ConfigValue;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
 import org.slf4j.Logger;
@@ -90,43 +94,7 @@ public class SnowflakeSinkConnector extends SinkConnector
 
     config = new HashMap<>(parsedConfig);
 
-    // set buffer.count.records -- a Snowflake connector setting
-    // default : 10000 records
-    // Number of records buffered in memory per partition before ingesting to
-    // Snowflake
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS))
-    {
-      config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT + "");
-      LOGGER.info(Logging.logMessage("{} set to default {} records.",
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT));
-    }
-
-    // set buffer.size.bytes -- a Snowflake connector setting
-    // default : 5000000 bytes
-    // Cumulative size of records buffered in memory per partition before
-    // ingesting to Snowflake
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES))
-    {
-      config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT + "");
-      LOGGER.info(Logging.logMessage("{} set to default {} bytes.",
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT));
-    }
-
-    // set buffer.flush.time -- a Snowflake connector setting
-    // default: 30 seconds
-    // time to flush cached data
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC))
-    {
-      config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT + "");
-      LOGGER.info(Logging.logMessage("{} set to default {} seconds",
-        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT));
-    }
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     Utils.validateConfig(config);
 
@@ -248,6 +216,97 @@ public class SnowflakeSinkConnector extends SinkConnector
   {
     return SnowflakeSinkConnectorConfig.newConfigDef();
   }
+
+  @Override
+  public Config validate(Map<String, String> connectorConfigs)
+  {
+    // cross-fields validation here
+    Config result = super.validate(connectorConfigs);
+
+    // Validate ensure that url, user, db, schema, private key exist in config and is not empty
+    // and there is no single field validation error
+    if (!Utils.isSingleFieldValid(result))
+    {
+      return result;
+    }
+
+    // We don't validate name, since it is not included in the return value
+    // so just put a test connector here
+    connectorConfigs.put(Utils.NAME, "TEST_CONNECTOR");
+    SnowflakeConnectionService testConnection;
+    try
+    {
+      testConnection = SnowflakeConnectionServiceFactory
+        .builder()
+        .setProperties(connectorConfigs)
+        .build();
+    } catch (SnowflakeKafkaConnectorException e)
+    {
+      // Since url, user, db, schema, exist in config and is not empty,
+      // the exceptions here would be invalid URL, and cannot connect, and no private key
+      switch (e.getCode())
+      {
+        case "1001":
+          // Could be caused by invalid url, invalid user name, invalid password.
+          Utils.updateConfigErrorMessage(result, Utils.SF_URL, ": Cannot connect to Snowflake");
+          Utils.updateConfigErrorMessage(result, Utils.SF_PRIVATE_KEY, ": Cannot connect to Snowflake");
+          Utils.updateConfigErrorMessage(result, Utils.SF_USER, ": Cannot connect to Snowflake");
+          break;
+        case "0007":
+          Utils.updateConfigErrorMessage(result, Utils.SF_URL, " is not a valid snowflake url");
+          break;
+        case "0018":
+          Utils.updateConfigErrorMessage(result, Utils.PRIVATE_KEY_PASSPHRASE, " is not valid");
+          Utils.updateConfigErrorMessage(result, Utils.SF_PRIVATE_KEY, " is not valid");
+          break;
+        case "0013":
+          Utils.updateConfigErrorMessage(result, Utils.SF_PRIVATE_KEY, " must be non-empty");
+          break;
+        case "0002":
+          Utils.updateConfigErrorMessage(result, Utils.SF_PRIVATE_KEY, " must be a valid PEM RSA private key");
+          break;
+        default:
+          throw e; // Shouldn't reach here, so crash.
+      }
+      return result;
+    }
+
+    try
+    {
+      testConnection.databaseExists(connectorConfigs.get(Utils.SF_DATABASE));
+    } catch (SnowflakeKafkaConnectorException e)
+    {
+      if (e.getCode().equals("2001"))
+      {
+          Utils.updateConfigErrorMessage(result, Utils.SF_DATABASE, " database does not exist");
+      } else
+      {
+        throw e;
+      }
+      return result;
+    }
+
+    try
+    {
+      testConnection.schemaExists(connectorConfigs.get(Utils.SF_SCHEMA));
+    } catch (SnowflakeKafkaConnectorException e)
+    {
+      if (e.getCode().equals("2001"))
+      {
+          Utils.updateConfigErrorMessage(result, Utils.SF_SCHEMA, " schema does not exist");
+      } else
+      {
+        throw e;
+      }
+      return result;
+    }
+
+
+    LOGGER.info("Validated config with no error");
+    return result;
+  }
+
+
 
   /**
    * @return connector version

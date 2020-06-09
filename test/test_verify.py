@@ -1,10 +1,9 @@
-from avro.schema import Parse
 from confluent_kafka import Producer
 from confluent_kafka.avro import AvroProducer
+from confluent_kafka.admin import AdminClient, NewTopic
 from time import sleep
 from test_suit.test_utils import parsePrivateKey
 import json
-import io
 import os
 import re
 import sys
@@ -23,8 +22,9 @@ class KafkaTest:
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
-        self.MAX_RETRY = 10        # max wait time 10 mins
+        self.MAX_RETRY = 20  # max wait time 20 mins
 
+        self.adminClient = AdminClient({"bootstrap.servers": kafkaAddress})
         self.producer = Producer({'bootstrap.servers': kafkaAddress})
         self.avroProducer = AvroProducer({'bootstrap.servers': kafkaAddress,
                                           'schema.registry.url': schemaRegistryAddress})
@@ -61,12 +61,15 @@ class KafkaTest:
             try:
                 func()
                 break
+            except test_suit.test_utils.ResetAndRetry:
+                retryNum = 0
+                print("=== Reset retry count and retry ===", flush=True)
             except test_suit.test_utils.RetryableError:
                 retryNum += 1
                 print("=== Failed, retryable ===", flush=True)
                 self.verifyWaitTime()
-            except test_suit.test_utils.NonRetryableError:
-                print("\n=== Non retryable error raised ===")
+            except test_suit.test_utils.NonRetryableError as e:
+                print("\n=== Non retryable error raised ===\n{}".format(e.msg), flush=True)
                 raise test_suit.test_utils.NonRetryableError()
             except snowflake.connector.errors.ProgrammingError as e:
                 if e.errno == 2003:
@@ -76,38 +79,47 @@ class KafkaTest:
                 else:
                     raise
         if retryNum == self.MAX_RETRY:
-            print("\n=== Max retry exceeded ===")
+            print("\n=== Max retry exceeded ===", flush=True)
             raise test_suit.test_utils.NonRetryableError()
 
-    def sendBytesData(self, topic, value, key=[]):
+    def createTopics(self, topicName, partitionNum=1, replicationNum=1):
+        self.adminClient.create_topics([NewTopic(topicName, partitionNum, replicationNum)])
+
+    def sendBytesData(self, topic, value, key=[], partition=0):
         if len(key) == 0:
             for v in value:
-                self.producer.produce(topic, value=v)
-                self.msgSendInterval()
+                self.producer.produce(topic, value=v, partition=partition)
+                # self.msgSendInterval()
         else:
             for k, v in zip(key, value):
-                self.producer.produce(topic, value=v, key=k)
-                self.msgSendInterval()
+                self.producer.produce(topic, value=v, key=k, partition=partition)
+                # self.msgSendInterval()
         self.producer.flush()
 
-    def sendAvroSRData(self, topic, value, value_schema, key=[], key_schema=""):
+    def sendAvroSRData(self, topic, value, value_schema, key=[], key_schema="", partition=0):
         if len(key) == 0:
             for v in value:
                 self.avroProducer.produce(
-                    topic=topic, value=v, value_schema=value_schema)
-                self.msgSendInterval()
+                    topic=topic, value=v, value_schema=value_schema, partition=partition)
+                # self.msgSendInterval()
         else:
             for k, v in zip(key, value):
                 self.avroProducer.produce(
-                    topic=topic, value=v, value_schema=value_schema, key=k, key_schema=key_schema)
-                self.msgSendInterval()
+                    topic=topic, value=v, value_schema=value_schema, key=k, key_schema=key_schema, partition=partition)
+                # self.msgSendInterval()
         self.avroProducer.flush()
 
-    def cleanTableStagePipe(self, topicName):
+    def cleanTableStagePipe(self, topicName, partitionNumber=1, stripConnectorName=False):
         topicName = topicName.upper()
+        if stripConnectorName:
+            topicNameList = topicName.split("_")
+            topicNameList[-2] = ''.join(i for i in topicNameList[-2] if not i.isdigit())
+            stripedTopicName = '_'.join(topicNameList)
+            connectorName = stripedTopicName
+        else:
+            connectorName = topicName
         tableName = topicName
-        stageName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_STAGE_{}".format(topicName, topicName)
-        pipeName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_PIPE_{}_0".format(topicName, topicName)
+        stageName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_STAGE_{}".format(connectorName, topicName)
 
         print("\n=== Drop table {} ===".format(tableName))
         self.snowflake_conn.cursor().execute("DROP table IF EXISTS {}".format(tableName))
@@ -115,13 +127,30 @@ class KafkaTest:
         print("=== Drop stage {} ===".format(stageName))
         self.snowflake_conn.cursor().execute("DROP stage IF EXISTS {}".format(stageName))
 
-        print("=== Drop pipe {} ===".format(pipeName))
-        self.snowflake_conn.cursor().execute("DROP pipe IF EXISTS {}".format(pipeName))
+        for p in range(partitionNumber):
+            pipeName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_PIPE_{}_{}".format(connectorName, topicName, p)
+            print("=== Drop pipe {} ===".format(pipeName))
+            self.snowflake_conn.cursor().execute("DROP pipe IF EXISTS {}".format(pipeName))
 
-        print("=== Done ===")
+        print("=== Done ===", flush=True)
+
+    # validate content match gold regex
+    def regexMatchOneLine(self, res, goldMetaRegex, goldContentRegex):
+        meta = res[0].replace(" ", "").replace("\n", "")
+        content = res[1].replace(" ", "").replace("\n", "")
+        goldMetaRegex = "^" + goldMetaRegex.replace("\"", "\\\"").replace("{", "\\{").replace("}", "\\}") \
+            .replace("[", "\\[").replace("]", "\\]") + "$"
+        goldContentRegex = "^" + goldContentRegex.replace("\"", "\\\"").replace("{", "\\{").replace("}", "\\}") \
+            .replace("[", "\\[").replace("]", "\\]") + "$"
+        if re.search(goldMetaRegex, meta) is None:
+            raise test_suit.test_utils.NonRetryableError("Record meta data:\n{}\ndoes not match gold regex "
+                                                         "label:\n{}".format(meta, goldMetaRegex))
+        if re.search(goldContentRegex, content) is None:
+            raise test_suit.test_utils.NonRetryableError("Record content:\n{}\ndoes not match gold regex "
+                                                         "label:\n{}".format(content, goldContentRegex))
 
 
-def runTestSet(driver, testSet, nameSalt):
+def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_string_json import TestStringJson
     from test_suit.test_json_json import TestJsonJson
     from test_suit.test_string_avro import TestStringAvro
@@ -131,6 +160,7 @@ def runTestSet(driver, testSet, nameSalt):
 
     from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
     from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
+    from test_suit.test_pressure import TestPressure
 
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
@@ -141,57 +171,58 @@ def runTestSet(driver, testSet, nameSalt):
 
     testNativeStringAvrosr = TestNativeStringAvrosr(driver, nameSalt)
     testNativeStringJsonWithoutSchema = TestNativeStringJsonWithoutSchema(driver, nameSalt)
+    testPressure = TestPressure(driver, nameSalt)
 
-    testSuitList = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr, 
-                    testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema]
+    testSuitList = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
+                    testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema, testPressure]
     if testSet == "confluent":
-        testSuitEnableList = [True, True, True, True, True, True, True, True]
+        testSuitEnableList = [True, True, True, True, True, True, True, True, pressure]
     elif testSet == "apache":
-        testSuitEnableList = [True, True, True, True, False, False, False, True]
-    elif testSet == "clean":
-        testSuitEnableList = [False, False, False, False, False, False, False, False]
-    else:
-        errorExit(
-            "Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+        testSuitEnableList = [True, True, True, True, False, False, False, True, pressure]
+    elif testSet != "clean":
+        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    failedFlag = False
-    try:
-        for i, test in enumerate(testSuitList):
-            if testSuitEnableList[i]:
-                test.send()
-            
-        if testSet != "clean":
-            driver.verifyWaitTime()
-
-        for i, test in enumerate(testSuitList):
-            if testSuitEnableList[i]:
-                test.verify()
-    except Exception as e:
-        print(e)
-        print("Error: ", sys.exc_info()[0])
-        failedFlag = True
-    finally:
-        for i, test in enumerate(testSuitList):
-            test.clean()
-
-    if failedFlag:
-        exit(1)
+    testCleanEnableList = [True, True, True, True, True, True, True, True, pressure]
 
     if testSet == "clean":
+        for i, test in enumerate(testSuitList):
+            if testCleanEnableList[i]:
+                test.clean()
         print("\n=== All clean done ===")
     else:
-        print("\n=== All test passed ===")
+        try:
+            for i, test in enumerate(testSuitList):
+                if testSuitEnableList[i]:
+                    print("\n=== Sending " + test.__class__.__name__ + " data ===")
+                    test.send()
+                    print("=== Done ===", flush=True)
+
+            driver.verifyWaitTime()
+
+            for i, test in enumerate(testSuitList):
+                if testSuitEnableList[i]:
+                    print("\n=== Verify " + test.__class__.__name__ + " ===")
+                    driver.verifyWithRetry(test.verify)
+                    print("=== Passed ===", flush=True)
+
+            print("\n=== All test passed ===")
+        except Exception as e:
+            print(e)
+            print("Error: ", sys.exc_info()[0])
+            exit(1)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 5:
+    if len(sys.argv) != 6:
         errorExit(
-            """\n=== Usage: ./ingest.py <kafka address> <schema registry address> <test set> <name salt> ===""")
+            """\n=== Usage: ./ingest.py <kafka address> <schema registry address> <test set> <name salt> 
+            <pressure>===""")
 
     kafkaAddress = sys.argv[1]
     schemaRegistryAddress = sys.argv[2]
     testSet = sys.argv[3]
     nameSalt = sys.argv[4]
+    pressure = (sys.argv[5] == 'true')
 
     if "SNOWFLAKE_CREDENTIAL_FILE" not in os.environ:
         errorExit(
@@ -217,4 +248,4 @@ if __name__ == "__main__":
     kafkaTest = KafkaTest(kafkaAddress, schemaRegistryAddress,
                           testHost, testUser, testDatabase, testSchema, testWarehouse, pk, pk_passphrase)
 
-    runTestSet(kafkaTest, testSet, nameSalt)
+    runTestSet(kafkaTest, testSet, nameSalt, pressure)

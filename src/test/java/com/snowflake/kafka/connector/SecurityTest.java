@@ -35,21 +35,6 @@ public class SecurityTest
     assert ! searchInLogFile(testPasswd);
   }
 
-  @Test
-  public void testRSPasswordOutput() throws IOException
-  {
-    String testPasswd = "TestPassword1234!";
-    String testUserName = "TestName";
-    Map<String, String> testConf = ConnectorConfigTest.getConfig();
-    testConf.put(SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE, "USER_INFO");
-    testConf.put(SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_USER_INFO,
-      testUserName + ":" + testPasswd);
-    Utils.validateConfig(testConf);
-    TestUtils.assertError(SnowflakeErrors.ERROR_0012,
-      () -> new SnowflakeAvroConverter().configure(testConf, false));
-    assert ! searchInLogFile(testPasswd);
-  }
-
   static boolean searchInLogFile(String str) throws IOException
   {
     String fileName = "sf.log";

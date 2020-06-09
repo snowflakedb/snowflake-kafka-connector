@@ -21,24 +21,26 @@ class TestStringAvrosr:
         self.valueSchema = avro.loads(ValueSchemaStr)
 
     def send(self):
-        print("\n=== Sending TestStringAvrosr data ===")
         value = []
         for e in range(100):
-            value.append({"id": 0, "firstName": "abc0", "time": 1835})
+            value.append({"id": e, "firstName": "abc0", "time": 1835})
         self.driver.sendAvroSRData(self.topic, value, self.valueSchema)
-        print("=== Done ===")
 
     def verify(self):
-        self.driver.verifyWithRetry(self.verifyRetry)
-        print("=== TestStringAvrosr passed ===")
-
-    def clean(self):
-        self.driver.cleanTableStagePipe(self.topic)
-        
-    def verifyRetry(self):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:
             raise RetryableError()
         elif res != 100:
-            raise NonRetryableError()
+            raise NonRetryableError("Number of record in table is different from number of record sent")
+
+        # validate content of line 1
+        res = self.driver.snowflake_conn.cursor().execute(
+            "Select * from {} limit 1".format(self.topic)).fetchone()
+        goldMeta = r'{"CreateTime":\d*,"offset":0,"partition":0,"schema_id":\d*,' \
+                   r'"topic":"travis_correct_string_avrosr....."}'
+        goldContent = r'{"firstName":"abc0","id":0,"time":1835}'
+        self.driver.regexMatchOneLine(res, goldMeta, goldContent)
+
+    def clean(self):
+        self.driver.cleanTableStagePipe(self.topic)

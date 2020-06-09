@@ -19,6 +19,8 @@ package com.snowflake.kafka.connector;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.client.jdbc.internal.google.cloud.storage.StorageOptions;
+import org.apache.kafka.common.config.Config;
+import org.apache.kafka.common.config.ConfigValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +30,7 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -38,7 +41,7 @@ public class Utils
 {
 
   //Connector version, change every release
-  public static final String VERSION = "1.2.3";
+  public static final String VERSION = "1.3.1";
 
   //connector parameter list
   public static final String NAME = "name";
@@ -64,6 +67,8 @@ public class Utils
   private static final String HTTPS_PROXY_PORT = "https.proxyPort";
   private static final String HTTP_PROXY_HOST = "http.proxyHost";
   private static final String HTTP_PROXY_PORT = "http.proxyPort";
+
+  private static final Random random = new Random();
 
   //mvn repo
   private static final String MVN_REPO =
@@ -392,22 +397,6 @@ public class Utils
     // jvm proxy settings
     configIsValid = Utils.enableJVMProxy(config) && configIsValid;
 
-    //schemaRegistry
-
-    String authSource = config.getOrDefault(
-      SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE, "");
-    String userInfo = config.getOrDefault(
-      SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_USER_INFO, "");
-
-    if (authSource.isEmpty() ^ userInfo.isEmpty())
-    {
-      configIsValid = false;
-      LOGGER.error(Logging.logMessage("Parameters {} and {} should be defined" +
-          " at the same time",
-        SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_USER_INFO,
-        SnowflakeSinkConnectorConfig.SCHEMA_REGISTRY_AUTH_CREDENTIALS_SOURCE));
-    }
-
     if (!configIsValid)
     {
       throw SnowflakeErrors.ERROR_0001.getException();
@@ -496,7 +485,7 @@ public class Utils
     return result.toString();
   }
 
-  static Map<String, String> parseTopicToTableMap(String input)
+  public static Map<String, String> parseTopicToTableMap(String input)
   {
     Map<String, String> topic2Table = new HashMap<>();
     boolean isInvalid = false;
@@ -545,6 +534,64 @@ public class Utils
       throw SnowflakeErrors.ERROR_0021.getException();
     }
     return topic2Table;
+  }
+
+
+  static final String loginPropList[] =
+    {
+      SF_URL,
+      SF_USER,
+      SF_SCHEMA,
+      SF_DATABASE
+    };
+
+  public static boolean isSingleFieldValid(Config result)
+  {
+    // if any single field validation failed
+    for (ConfigValue v : result.configValues())
+    {
+      if (!v.errorMessages().isEmpty())
+      {
+        return false;
+      }
+    }
+    // if any of url, user, schema, database or password is empty
+    // update error message and return false
+    boolean isValidate = true;
+    final String errorMsg = " must be provided";
+    Map<String, ConfigValue> validateMap = validateConfigToMap(result);
+    //
+    for (String prop : loginPropList)
+    {
+      if (validateMap.get(prop).value() == null)
+      {
+        updateConfigErrorMessage(result, prop, errorMsg);
+        isValidate = false;
+      }
+    }
+
+    return isValidate;
+  }
+
+  public static Map<String, ConfigValue> validateConfigToMap(final Config result)
+  {
+    Map<String, ConfigValue> validateMap = new HashMap<>();
+    for (ConfigValue v : result.configValues())
+    {
+      validateMap.put(v.name(), v);
+    }
+    return validateMap;
+  }
+
+  public static void updateConfigErrorMessage(Config result, String key, String msg)
+  {
+    for (ConfigValue v : result.configValues())
+    {
+      if (v.name().equals(key))
+      {
+        v.addErrorMessage(key + msg);
+      }
+    }
   }
 
 }
