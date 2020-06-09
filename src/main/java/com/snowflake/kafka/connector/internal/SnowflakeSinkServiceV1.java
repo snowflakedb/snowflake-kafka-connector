@@ -267,11 +267,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     private final SnowflakeConnectionService conn;
     private final SnowflakeIngestionService ingestionService;
     private List<String> fileNames;
+    private List<String> cleanerFileNames;
     private PartitionBuffer buffer;
     private final String prefix;
-    private AtomicLong committedOffset; // loaded offset + 1
-    private AtomicLong flushedOffset;   // flushed offset (file on stage)
-    private AtomicLong processedOffset; // processed offset
+    private final AtomicLong committedOffset; // loaded offset + 1
+    private final AtomicLong flushedOffset;   // flushed offset (file on stage)
+    private final AtomicLong processedOffset; // processed offset
     private long previousFlushTimeStamp;
 
     //threads
@@ -298,6 +299,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       this.stageName = stageName;
       this.conn = conn;
       this.fileNames = new LinkedList<>();
+      this.cleanerFileNames = new LinkedList<>();
       this.buffer = new PartitionBuffer();
       this.ingestionService = conn.buildIngestService(stageName, pipeName);
       this.prefix = FileNameUtils.filePrefix(conn.getConnectorName(), tableName, partition);
@@ -339,6 +341,17 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private void startCleaner()
     {
+      // when cleaner start, scan stage for all files of this pipe
+      List<String> tmpFileNames = conn.listStage(stageName, prefix);
+      fileListLock.lock();
+      try
+      {
+        cleanerFileNames.addAll(tmpFileNames);
+      } finally
+      {
+        fileListLock.unlock();
+      }
+
       cleanerExecutor.submit(
         () ->
         {
@@ -355,7 +368,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
               }
             } catch (InterruptedException e)
             {
-              logInfo("Flusher terminated by an interrupt:\n{}", e.getMessage());
+              logInfo("Cleaner terminated by an interrupt:\n{}", e.getMessage());
               break;
             }
           }
@@ -503,7 +516,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
       // If we failed to submit/put, throw an runtime exception that kills the connector.
       // SnowflakeThreadPoolUtils.flusherThreadPool.submit(
-      
       String fileName = FileNameUtils.fileName(prefix, buff.getFirstOffset(),
                                                buff.getLastOffset());
       String content = buff.getData();
@@ -514,6 +526,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       try
       {
         fileNames.add(fileName);
+        cleanerFileNames.add(fileName);
       } finally
       {
         fileListLock.unlock();
@@ -524,7 +537,17 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private void checkStatus()
     {
-      List<String> tmpFileNames = conn.listStage(stageName, prefix);
+      List<String> tmpFileNames;
+
+      fileListLock.lock();
+      try
+      {
+        tmpFileNames = cleanerFileNames;
+        cleanerFileNames = new LinkedList<>();
+      } finally
+      {
+        fileListLock.unlock();
+      }
 
       long currentTime = System.currentTimeMillis();
       List<String> loadedFiles = new LinkedList<>();
@@ -564,6 +587,14 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       purge(loadedFiles);
       moveToTableStage(failedFiles);
 
+      fileListLock.lock();
+      try
+      {
+        cleanerFileNames.addAll(tmpFileNames);
+      } finally
+      {
+        fileListLock.unlock();
+      }
     }
 
     private void filterResult(Map<String, InternalUtils.IngestedFileStatus> fileStatus,
@@ -726,7 +757,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private class PartitionBuffer
     {
-      private StringBuilder stringBuilder;
+      private final StringBuilder stringBuilder;
       private int numOfRecord;
       private int bufferSize;
       private long firstOffset;

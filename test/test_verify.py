@@ -179,46 +179,37 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         testSuitEnableList = [True, True, True, True, True, True, True, True, pressure]
     elif testSet == "apache":
         testSuitEnableList = [True, True, True, True, False, False, False, True, pressure]
-    elif testSet == "clean":
-        testSuitEnableList = [False, False, False, False, False, False, False, False, False]
-    else:
-        errorExit(
-            "Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+    elif testSet != "clean":
+        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
     testCleanEnableList = [True, True, True, True, True, True, True, True, pressure]
 
-    failedFlag = False
-    try:
-        for i, test in enumerate(testSuitList):
-            if testSuitEnableList[i]:
-                print("\n=== Sending " + test.__class__.__name__ + " data ===")
-                test.send()
-                print("=== Done ===", flush=True)
-
-        if testSet != "clean":
-            driver.verifyWaitTime()
-
-        for i, test in enumerate(testSuitList):
-            if testSuitEnableList[i]:
-                print("\n=== Verify " + test.__class__.__name__ + " ===")
-                driver.verifyWithRetry(test.verify)
-                print("=== Passed ===", flush=True)
-    except Exception as e:
-        print(e)
-        print("Error: ", sys.exc_info()[0])
-        failedFlag = True
-    finally:
+    if testSet == "clean":
         for i, test in enumerate(testSuitList):
             if testCleanEnableList[i]:
                 test.clean()
-
-    if failedFlag:
-        exit(1)
-
-    if testSet == "clean":
         print("\n=== All clean done ===")
     else:
-        print("\n=== All test passed ===")
+        try:
+            for i, test in enumerate(testSuitList):
+                if testSuitEnableList[i]:
+                    print("\n=== Sending " + test.__class__.__name__ + " data ===")
+                    test.send()
+                    print("=== Done ===", flush=True)
+
+            driver.verifyWaitTime()
+
+            for i, test in enumerate(testSuitList):
+                if testSuitEnableList[i]:
+                    print("\n=== Verify " + test.__class__.__name__ + " ===")
+                    driver.verifyWithRetry(test.verify)
+                    print("=== Passed ===", flush=True)
+
+            print("\n=== All test passed ===")
+        except Exception as e:
+            print(e)
+            print("Error: ", sys.exc_info()[0])
+            exit(1)
 
 
 if __name__ == "__main__":
