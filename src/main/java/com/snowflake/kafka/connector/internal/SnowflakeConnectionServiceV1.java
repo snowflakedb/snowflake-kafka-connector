@@ -778,6 +778,10 @@ public class SnowflakeConnectionServiceV1 extends Logging
    */
   private void removeFile(String stageName, List<String> fileList)
   {
+    if (fileList.size() == 0)
+    {
+      return;
+    }
     InternalUtils.assertNotEmpty("stageName", stageName);
     try
     {
