@@ -69,7 +69,7 @@ public class SnowflakeRecordContent
    * constructor for broken record
    * @param data broken record
    */
-  SnowflakeRecordContent(byte[] data)
+  public SnowflakeRecordContent(byte[] data)
   {
     this.brokenData = data;
     this.isBroken = true;
