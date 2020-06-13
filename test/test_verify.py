@@ -109,15 +109,9 @@ class KafkaTest:
                 # self.msgSendInterval()
         self.avroProducer.flush()
 
-    def cleanTableStagePipe(self, topicName, partitionNumber=1, stripConnectorName=False):
-        topicName = topicName.upper()
-        if stripConnectorName:
-            topicNameList = topicName.split("_")
-            topicNameList[-2] = ''.join(i for i in topicNameList[-2] if not i.isdigit())
-            stripedTopicName = '_'.join(topicNameList)
-            connectorName = stripedTopicName
-        else:
-            connectorName = topicName
+    def cleanTableStagePipe(self, connectorName, topicName="", partitionNumber=1):
+        if topicName == "":
+             topicName = connectorName
         tableName = topicName
         stageName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_STAGE_{}".format(connectorName, topicName)
 
@@ -160,6 +154,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
     from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
+    from test_suit.test_native_complex_smt import TestNativeComplexSmt
     from test_suit.test_pressure import TestPressure
 
     testStringJson = TestStringJson(driver, nameSalt)
@@ -171,18 +166,20 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     testNativeStringAvrosr = TestNativeStringAvrosr(driver, nameSalt)
     testNativeStringJsonWithoutSchema = TestNativeStringJsonWithoutSchema(driver, nameSalt)
+    testNativeComplexSmt = TestNativeComplexSmt(driver, nameSalt)
     testPressure = TestPressure(driver, nameSalt)
 
     testSuitList = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
-                    testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema, testPressure]
+                    testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
+                    testNativeComplexSmt, testPressure]
     if testSet == "confluent":
-        testSuitEnableList = [True, True, True, True, True, True, True, True, pressure]
+        testSuitEnableList = [True, True, True, True, True, True, True, True, True, pressure]
     elif testSet == "apache":
-        testSuitEnableList = [True, True, True, True, False, False, False, True, pressure]
+        testSuitEnableList = [True, True, True, True, False, False, False, True, True, pressure]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    testCleanEnableList = [True, True, True, True, True, True, True, True, pressure]
+    testCleanEnableList = [True, True, True, True, True, True, True, True, True, pressure]
 
     if testSet == "clean":
         for i, test in enumerate(testSuitList):

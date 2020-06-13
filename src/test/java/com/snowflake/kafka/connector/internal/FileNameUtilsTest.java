@@ -43,8 +43,10 @@ public class FileNameUtilsTest
     } catch (Exception e) {
     }
 
-    String brokenFileName = FileNameUtils.brokenRecordFileName(TestUtils.TEST_CONNECTOR_NAME, topic, partition, startOffset);
+    String brokenFileName = FileNameUtils.brokenRecordFileName(TestUtils.TEST_CONNECTOR_NAME, topic, partition, startOffset, true);
+    assert TestUtils.verifyBrokenRecordName(brokenFileName);
 
+    brokenFileName = FileNameUtils.brokenRecordFileName(TestUtils.TEST_CONNECTOR_NAME, topic, partition, startOffset, false);
     assert TestUtils.verifyBrokenRecordName(brokenFileName);
   }
 

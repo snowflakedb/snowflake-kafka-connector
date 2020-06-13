@@ -12,6 +12,7 @@ class TestPressure:
         self.round = 10
         self.sleepTime = 10
         self.curTest = 0
+        self.connectorName = "travis_pressure_string_json" + nameSalt
         for i in range(self.topicNum):
             self.topics.append("travis_pressure_string_json" + str(i) + nameSalt)
 
@@ -43,4 +44,4 @@ class TestPressure:
 
     def clean(self):
         for t in range(self.topicNum):
-            self.driver.cleanTableStagePipe(self.topics[t], self.partitionNum, True)
+            self.driver.cleanTableStagePipe(self.connectorName, self.topics[t], self.partitionNum)
