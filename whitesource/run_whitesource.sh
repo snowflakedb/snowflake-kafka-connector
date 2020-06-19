@@ -17,8 +17,10 @@ PROD_BRANCH="master"
 # PRODUCT_NAME is your team's name or overarching project name
 PRODUCT_NAME="snowflake-kafka-connector"
 
+BRANCH_NAME=$(echo ${GIT_BRANCH} | cut -d'/' -f 2)
+
 # PROJECT_NAME is your project's name or repo name if your project spans multiple repositories
-PROJECT_NAME=${GIT_BRANCH}
+PROJECT_NAME=${BRANCH_NAME}
 
 
 if [[ -z "${JOB_BASE_NAME}" ]]; then
