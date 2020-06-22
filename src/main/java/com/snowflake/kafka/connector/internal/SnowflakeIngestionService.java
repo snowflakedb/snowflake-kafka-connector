@@ -27,9 +27,9 @@ public interface SnowflakeIngestionService
   /**
    * Ingest a list of files
    *
-   * @param fileNames file name set
+   * @param fileNames file name List
    */
-  void ingestFiles(Set<String> fileNames);
+  void ingestFiles(List<String> fileNames);
 
   /**
    * @return corresponding stage name
