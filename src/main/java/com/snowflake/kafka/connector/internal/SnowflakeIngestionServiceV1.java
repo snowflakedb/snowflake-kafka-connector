@@ -6,11 +6,7 @@ import net.snowflake.ingest.connection.HistoryResponse;
 import net.snowflake.ingest.utils.StagedFileWrapper;
 
 import java.security.PrivateKey;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static com.snowflake.kafka.connector.internal.InternalUtils.convertIngestStatus;
 import static com.snowflake.kafka.connector.internal.InternalUtils.timestampToDate;
@@ -71,7 +67,7 @@ public class SnowflakeIngestionServiceV1 extends Logging
   }
 
   @Override
-  public void ingestFiles(final Set<String> fileNames)
+  public void ingestFiles(final List<String> fileNames)
   {
     if (fileNames.isEmpty())
     {
@@ -80,7 +76,20 @@ public class SnowflakeIngestionServiceV1 extends Logging
     try
     {
       InternalUtils.backoffAndRetry(telemetry,
-          () -> ingestManager.ingestFiles(SimpleIngestManager.wrapFilepaths(fileNames), null)
+          () ->
+          {
+            while (fileNames.size() > 0)
+            {
+              // Can not send more than 5000 files in one request,
+              // so batch 4000 as one request
+              int toIndex = Math.min(4000, fileNames.size());
+              List<String> fileNamesBatch = fileNames.subList(0, toIndex);
+              Set<String> fileNamesSet = new HashSet<>(fileNamesBatch);
+              ingestManager.ingestFiles(SimpleIngestManager.wrapFilepaths(fileNamesSet), null);
+              fileNamesBatch.clear();
+            }
+            return true;
+          }
       );
     } catch (Exception e)
     {
