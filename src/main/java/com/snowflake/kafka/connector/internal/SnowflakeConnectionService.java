@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 
+import java.sql.Connection;
 import java.util.List;
 
 public interface SnowflakeConnectionService
@@ -226,6 +227,11 @@ public interface SnowflakeConnectionService
    * @return name of Kafka Connector instance
    */
   String getConnectorName();
+
+  /**
+   * @return the raw jdbc connection
+   */
+  Connection getConnection();
 
   /**
    * build ingest service instance for given stage and pipe

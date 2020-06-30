@@ -723,6 +723,12 @@ public class SnowflakeConnectionServiceV1 extends Logging
   }
 
   @Override
+  public Connection getConnection()
+  {
+    return this.conn;
+  }
+
+  @Override
   public SnowflakeIngestionService buildIngestService(final String stageName,
                                                       final String pipeName)
   {
