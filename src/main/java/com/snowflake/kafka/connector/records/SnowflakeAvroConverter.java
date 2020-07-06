@@ -85,23 +85,33 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
     {
       return new SchemaAndValue(new SnowflakeJsonSchema(), new SnowflakeRecordContent());
     }
+    ByteBuffer buffer;
+    int id;
     try
     {
-      ByteBuffer buffer = ByteBuffer.wrap(bytes);
+      buffer = ByteBuffer.wrap(bytes);
       if (buffer.get() != 0)
       {
         throw SnowflakeErrors.ERROR_0010.getException("unknown bytes");
       }
-      int id = buffer.getInt();
-      Schema schema;
-      try
-      {
-        schema = schemaRegistry.getById(id);
-      } catch (Exception e)
-      {
-        throw SnowflakeErrors.ERROR_0011.getException(e);
-      }
+      id = buffer.getInt();
+    } catch (Exception e)
+    {
+      return logErrorAndReturnBrokenRecord(e, bytes);
+    }
 
+    // If there is any error while getting schema from schema registry,
+    // throw error and break the connector
+    Schema schema;
+    try
+    {
+      schema = schemaRegistry.getById(id);
+    } catch (Exception e)
+    {
+      throw SnowflakeErrors.ERROR_0011.getException(e);
+    }
+
+    try {
       int length = buffer.limit() - 1 - 4;
       byte[] data = new byte[length];
       buffer.get(data, 0, length);
@@ -110,10 +120,16 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
         new SnowflakeRecordContent(parseAvroWithSchema(data, schema), id));
     } catch (Exception e)
     {
-      LOGGER.error(Logging.logMessage("failed to parse AVRO record\n" + e.getMessage()));
-      return new SchemaAndValue(new SnowflakeJsonSchema(),
-        new SnowflakeRecordContent(bytes));
+      return logErrorAndReturnBrokenRecord(e, bytes);
     }
+  }
+
+  private SchemaAndValue logErrorAndReturnBrokenRecord(final Exception e, final byte[] bytes)
+  {
+
+    LOGGER.error(Logging.logMessage("failed to parse AVRO record\n" + e.getMessage()));
+    return new SchemaAndValue(new SnowflakeJsonSchema(),
+      new SnowflakeRecordContent(bytes));
   }
 
   /**
