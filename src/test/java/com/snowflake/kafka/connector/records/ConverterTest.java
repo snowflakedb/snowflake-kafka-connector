@@ -160,4 +160,25 @@ public class ConverterTest
     expected.put("test", Integer.MAX_VALUE);
     assert expected.toString().equals(result.toString());
   }
+
+  @Test
+  public void testAvroConverterConfig() {
+    SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
+
+    Map<String, ?> config = Collections.singletonMap("schema.registry.url", "mock://my-scope-name");
+    converter.readBreakOnSchemaRegistryError(config);
+    assert !converter.getBreakOnSchemaRegistryError();
+
+    config = Collections.singletonMap(SnowflakeAvroConverter.BREAK_ON_SCHEMA_REGISTRY_ERROR, "true");
+    converter.readBreakOnSchemaRegistryError(config);
+    assert converter.getBreakOnSchemaRegistryError();
+
+    config = Collections.singletonMap(SnowflakeAvroConverter.BREAK_ON_SCHEMA_REGISTRY_ERROR, "trueeee");
+    converter.readBreakOnSchemaRegistryError(config);
+    assert !converter.getBreakOnSchemaRegistryError();
+
+    config = Collections.singletonMap(SnowflakeAvroConverter.BREAK_ON_SCHEMA_REGISTRY_ERROR, "True");
+    converter.readBreakOnSchemaRegistryError(config);
+    assert converter.getBreakOnSchemaRegistryError();
+  }
 }
