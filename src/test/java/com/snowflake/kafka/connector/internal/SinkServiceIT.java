@@ -288,7 +288,10 @@ public class SinkServiceIT
   {
     conn.createTable(table);
     conn.createStage(stage);
-    int numOfRecord = 111; //152 bytes each
+    int numOfRecord = 200;
+    int recordSize =
+        "{\"content\":{\"name\":\"test\"},\"meta\":{\"topic\":\"test\",\"offset\":0,\"partition\":0,\"key\":\"test\"}}"
+          .getBytes(StandardCharsets.UTF_8).length;
     long size = 10000;
 
     SnowflakeSinkService service =
@@ -302,7 +305,7 @@ public class SinkServiceIT
     insert(service, partition, numOfRecord);
 
     TestUtils.assertWithRetry(
-        () -> getStageSize(stage, table, partition) == numOfRecord / (size / 152 + 1), 5, 4);
+        () -> getStageSize(stage, table, partition) == numOfRecord / (size / recordSize + 1), 5, 4);
 
     service.closeAll();
   }
@@ -312,7 +315,7 @@ public class SinkServiceIT
   {
     conn.createTable(table);
     conn.createStage(stage);
-    int numOfRecord = 111; //152 bytes each
+    int numOfRecord = 111; //89 bytes each
     long flushTime = 20;
 
     SnowflakeSinkService service =

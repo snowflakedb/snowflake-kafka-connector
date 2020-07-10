@@ -9,6 +9,7 @@ import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -802,7 +803,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
         stringBuilder.append(data);
         numOfRecord++;
-        bufferSize += data.length() * 2; //1 char = 2 bytes
+        bufferSize += data.getBytes(StandardCharsets.UTF_8).length; // get buffer size
         lastOffset = record.kafkaOffset();
       }
 
