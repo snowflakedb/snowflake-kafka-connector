@@ -43,9 +43,14 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
 {
   private SchemaRegistryClient schemaRegistry = null;
 
+  public static final String BREAK_ON_SCHEMA_REGISTRY_ERROR = "break.on.schema.registry.error";
+  // By default, we don't break when schema registry is not found
+  private boolean breakOnSchemaRegistryError = false;
+
   @Override
   public void configure(final Map<String, ?> configs, final boolean isKey)
   {
+    readBreakOnSchemaRegistryError(configs);
     try
     { //todo: graceful way to check schema registry
       AvroConverterConfig avroConverterConfig = new AvroConverterConfig
@@ -59,6 +64,27 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
     {
       throw SnowflakeErrors.ERROR_0012.getException(e);
     }
+  }
+
+  void readBreakOnSchemaRegistryError(final Map<String, ?> configs)
+  {
+    try
+    {
+      Object shouldBreak = configs.get(BREAK_ON_SCHEMA_REGISTRY_ERROR);
+      if (shouldBreak instanceof String)
+      {
+        breakOnSchemaRegistryError = ((String) shouldBreak).toLowerCase().equals("true");
+      }
+    } catch (Exception e)
+    {
+      // do nothing
+    }
+  }
+
+  // for testing only
+  boolean getBreakOnSchemaRegistryError()
+  {
+    return breakOnSchemaRegistryError;
   }
 
   /**
@@ -85,23 +111,40 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
     {
       return new SchemaAndValue(new SnowflakeJsonSchema(), new SnowflakeRecordContent());
     }
+    ByteBuffer buffer;
+    int id;
     try
     {
-      ByteBuffer buffer = ByteBuffer.wrap(bytes);
+      buffer = ByteBuffer.wrap(bytes);
       if (buffer.get() != 0)
       {
         throw SnowflakeErrors.ERROR_0010.getException("unknown bytes");
       }
-      int id = buffer.getInt();
-      Schema schema;
-      try
-      {
-        schema = schemaRegistry.getById(id);
-      } catch (Exception e)
+      id = buffer.getInt();
+    } catch (Exception e)
+    {
+      return logErrorAndReturnBrokenRecord(e, bytes);
+    }
+
+    // If there is any error while getting schema from schema registry,
+    // throw error and break the connector
+    Schema schema;
+    try
+    {
+      schema = schemaRegistry.getById(id);
+    } catch (Exception e)
+    {
+      if (breakOnSchemaRegistryError)
       {
         throw SnowflakeErrors.ERROR_0011.getException(e);
       }
+      else
+      {
+        return logErrorAndReturnBrokenRecord(e, bytes);
+      }
+    }
 
+    try {
       int length = buffer.limit() - 1 - 4;
       byte[] data = new byte[length];
       buffer.get(data, 0, length);
@@ -110,10 +153,16 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
         new SnowflakeRecordContent(parseAvroWithSchema(data, schema), id));
     } catch (Exception e)
     {
-      LOGGER.error(Logging.logMessage("failed to parse AVRO record\n" + e.getMessage()));
-      return new SchemaAndValue(new SnowflakeJsonSchema(),
-        new SnowflakeRecordContent(bytes));
+      return logErrorAndReturnBrokenRecord(e, bytes);
     }
+  }
+
+  private SchemaAndValue logErrorAndReturnBrokenRecord(final Exception e, final byte[] bytes)
+  {
+
+    LOGGER.error(Logging.logMessage("failed to parse AVRO record\n" + e.getMessage()));
+    return new SchemaAndValue(new SnowflakeJsonSchema(),
+      new SnowflakeRecordContent(bytes));
   }
 
   /**

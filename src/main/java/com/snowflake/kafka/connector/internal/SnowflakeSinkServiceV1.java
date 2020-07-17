@@ -550,7 +550,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         return committedOffset.get();
       }
 
-      Set<String> fileNamesCopy = new HashSet<>();
+      List<String> fileNamesCopy = new ArrayList<>();
       fileListLock.lock();
       try
       {

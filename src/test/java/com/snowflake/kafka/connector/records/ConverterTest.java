@@ -17,12 +17,17 @@
 package com.snowflake.kafka.connector.records;
 
 import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
   .ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
   .ObjectNode;
 import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -137,5 +142,43 @@ public class ConverterTest
     assert ((SnowflakeRecordContent) result.value()).isBroken();
     assert Arrays.equals(data,
       ((SnowflakeRecordContent) result.value()).getBrokenData());
+  }
+
+  @Test
+  public void testConnectJsonConverter_MapInt64() throws JsonProcessingException {
+    JsonConverter jsonConverter = new JsonConverter();
+    Map<String, ?> config = Collections.singletonMap("schemas.enable", false);
+    jsonConverter.configure(config, false);
+    Map<String, Object> jsonMap = new HashMap<>();
+    // Value will map to int64.
+    jsonMap.put("test", Integer.MAX_VALUE);
+    SchemaAndValue schemaAndValue =
+        jsonConverter.toConnectData("test", mapper.writeValueAsBytes(jsonMap));
+    JsonNode result = RecordService.convertToJson(schemaAndValue.schema(), schemaAndValue.value());
+
+    ObjectNode expected = mapper.createObjectNode();
+    expected.put("test", Integer.MAX_VALUE);
+    assert expected.toString().equals(result.toString());
+  }
+
+  @Test
+  public void testAvroConverterConfig() {
+    SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
+
+    Map<String, ?> config = Collections.singletonMap("schema.registry.url", "mock://my-scope-name");
+    converter.readBreakOnSchemaRegistryError(config);
+    assert !converter.getBreakOnSchemaRegistryError();
+
+    config = Collections.singletonMap(SnowflakeAvroConverter.BREAK_ON_SCHEMA_REGISTRY_ERROR, "true");
+    converter.readBreakOnSchemaRegistryError(config);
+    assert converter.getBreakOnSchemaRegistryError();
+
+    config = Collections.singletonMap(SnowflakeAvroConverter.BREAK_ON_SCHEMA_REGISTRY_ERROR, "trueeee");
+    converter.readBreakOnSchemaRegistryError(config);
+    assert !converter.getBreakOnSchemaRegistryError();
+
+    config = Collections.singletonMap(SnowflakeAvroConverter.BREAK_ON_SCHEMA_REGISTRY_ERROR, "True");
+    converter.readBreakOnSchemaRegistryError(config);
+    assert converter.getBreakOnSchemaRegistryError();
   }
 }
