@@ -257,9 +257,9 @@ public class RecordService extends Logging
           }
           return JsonNodeFactory.instance.numberNode((Integer) value);
         case INT64:
-          String schemaName = schema.name();
-          if(Timestamp.LOGICAL_NAME.equals(schemaName)){
-            return JsonNodeFactory.instance.numberNode(Timestamp.fromLogical(schema, (java.util.Date) value));
+          if (schema != null && Timestamp.LOGICAL_NAME.equals(schema.name())) {
+            return JsonNodeFactory.instance.numberNode(
+                Timestamp.fromLogical(schema, (java.util.Date) value));
           }
           return JsonNodeFactory.instance.numberNode((Long) value);
         case FLOAT32:
@@ -272,7 +272,7 @@ public class RecordService extends Logging
           CharSequence charSeq = (CharSequence) value;
           return JsonNodeFactory.instance.textNode(charSeq.toString());
         case BYTES:
-          if (Decimal.LOGICAL_NAME.equals(schema.name())) {
+          if (schema != null && Decimal.LOGICAL_NAME.equals(schema.name())) {
             return JsonNodeFactory.instance.numberNode((BigDecimal) value);
           }
 
