@@ -35,9 +35,11 @@ jobs:
         pip3 install --upgrade setuptools
         pip3 install "confluent-kafka[avro]"
         pip3 install avro-python3
+        pip3 install protobuf
         pip3 install --upgrade snowflake-connector-python
         curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
         sudo apt-get -y install jq
+        sudo apt-get -y install protobuf-compiler
     
     - name: Build with Unit and Integration Test
       env:

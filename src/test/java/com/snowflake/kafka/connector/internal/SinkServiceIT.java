@@ -256,9 +256,6 @@ public class SinkServiceIT
   @Test
   public void testNativeAvroInputIngestion() throws Exception
   {
-    conn.createTable(table);
-    conn.createStage(stage);
-
     // avro
     SchemaBuilder schemaBuilder = SchemaBuilder.struct()
       .field("int8", SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
@@ -267,6 +264,21 @@ public class SinkServiceIT
       .field("int64", Schema.INT64_SCHEMA)
       .field("float32", Schema.FLOAT32_SCHEMA)
       .field("float64", Schema.FLOAT64_SCHEMA)
+      .field("int8Min", SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
+      .field("int16Min", Schema.INT16_SCHEMA)
+      .field("int32Min", Schema.INT32_SCHEMA)
+      .field("int64Min", Schema.INT64_SCHEMA)
+      .field("float32Min", Schema.FLOAT32_SCHEMA)
+      .field("float64Min", Schema.FLOAT64_SCHEMA)
+      .field("int8Max", SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
+      .field("int16Max", Schema.INT16_SCHEMA)
+      .field("int32Max", Schema.INT32_SCHEMA)
+      .field("int64Max", Schema.INT64_SCHEMA)
+      .field("float32Max", Schema.FLOAT32_SCHEMA)
+      .field("float64Max", Schema.FLOAT64_SCHEMA)
+      .field("float64HighPrecision", Schema.FLOAT64_SCHEMA)
+      .field("float64TenDigits", Schema.FLOAT64_SCHEMA)
+      .field("float64BigDigits", Schema.FLOAT64_SCHEMA)
       .field("boolean", Schema.BOOLEAN_SCHEMA)
       .field("string", Schema.STRING_SCHEMA)
       .field("bytes", Schema.BYTES_SCHEMA)
@@ -291,6 +303,21 @@ public class SinkServiceIT
       .put("int64", 12L)
       .put("float32", 12.2f)
       .put("float64", 12.2)
+      .put("int8Min", Byte.MIN_VALUE)
+      .put("int16Min", Short.MIN_VALUE)
+      .put("int32Min", Integer.MIN_VALUE)
+      .put("int64Min", Long.MIN_VALUE)
+      .put("float32Min", Float.MIN_VALUE)
+      .put("float64Min", Double.MIN_VALUE)
+      .put("int8Max", Byte.MAX_VALUE)
+      .put("int16Max", Short.MAX_VALUE)
+      .put("int32Max", Integer.MAX_VALUE)
+      .put("int64Max", Long.MAX_VALUE)
+      .put("float32Max", Float.MAX_VALUE)
+      .put("float64Max", Double.MAX_VALUE)
+      .put("float64HighPrecision", 2312.4200000000001d)
+      .put("float64TenDigits", 1.0d / 3.0d)
+      .put("float64BigDigits", 2312.42321432655123456d)
       .put("boolean", true)
       .put("string", "foo")
       .put("bytes", ByteBuffer.wrap("foo".getBytes()))
@@ -324,6 +351,9 @@ public class SinkServiceIT
 
     SinkRecord avroRecordKeyValue = new SinkRecord(topic, partition, avroInputKey.schema(), avroInputKey.value(),
       avroInputKey.schema(), avroInputKey.value(), startOffset + 2);
+
+    conn.createTable(table);
+    conn.createStage(stage);
 
     SnowflakeSinkService service =
       SnowflakeSinkServiceFactory
