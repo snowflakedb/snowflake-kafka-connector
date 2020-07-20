@@ -89,14 +89,29 @@ esac
 CONFLUENT_FOLDER_NAME="./confluent-$CONFLUENT_VERSION"
 
 rm -rf $CONFLUENT_FOLDER_NAME || true
-rm apache.tgz || true
+#rm apache.tgz || true
 
-curl $DOWNLOAD_URL --output apache.tgz
+#curl $DOWNLOAD_URL --output apache.tgz
 tar xzvf apache.tgz > /dev/null 2>&1
 
 mkdir -p $APACHE_LOG_PATH
 rm $APACHE_LOG_PATH/zookeeper.log $APACHE_LOG_PATH/kafka.log $APACHE_LOG_PATH/kc.log || true
 rm -rf /tmp/kafka-logs /tmp/zookeeper || true
+
+# Copy protobuf data to Kafka Connect
+PROTOBUF_FOLDER="./test_data/protobuf"
+PROTOBUF_TARGET="target"
+PROTOBUF_JAR_NAME="kafka-test-protobuf-1.0-SNAPSHOT.jar"
+PROTOBUF_INSTALL_FOLDER="$CONFLUENT_FOLDER_NAME/share/java/kafka-serde-tools"
+pushd $PROTOBUF_FOLDER
+mvn clean package
+cp $PROTOBUF_TARGET/$PROTOBUF_JAR_NAME ../../$PROTOBUF_INSTALL_FOLDER || true
+echo -e "\n=== copied protobuf data to $PROTOBUF_INSTALL_FOLDER ==="
+popd
+
+PROTOBUF_CONVERTER="./test_jar/kafka-connect-protobuf-converter-3.1.1-SNAPSHOT-jar-with-dependencies.jar"
+cp $PROTOBUF_CONVERTER $PROTOBUF_INSTALL_FOLDER || true
+echo -e "\n=== copied protobuf converter to $PROTOBUF_INSTALL_FOLDER ==="
 
 trap "pkill -9 -P $$" SIGINT SIGTERM EXIT
 

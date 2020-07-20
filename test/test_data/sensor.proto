@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package com.snowflake.kafka.test.protobuf;
+option java_outer_classname = "SensorReadingImpl";
+
+message SensorReading {
+   message Device {
+      string deviceID = 1;
+      bool enabled = 2;
+   }
+
+   Device device = 1;
+   int64 dateTime = 2;
+   double reading = 3;
+}

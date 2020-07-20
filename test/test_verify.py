@@ -19,6 +19,7 @@ def errorExit(message):
 class KafkaTest:
     def __init__(self, kafkaAddress, schemaRegistryAddress,
                  testHost, testUser, testDatabase, testSchema, testWarehouse, pk, pk_passphrase):
+        self.TEST_DATA_FOLDER = "./test_data/"
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
@@ -157,6 +158,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_native_complex_smt import TestNativeComplexSmt
     from test_suit.test_pressure import TestPressure
 
+    from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
+
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
     testStringAvro = TestStringAvro(driver, nameSalt)
@@ -169,17 +172,19 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testNativeComplexSmt = TestNativeComplexSmt(driver, nameSalt)
     testPressure = TestPressure(driver, nameSalt)
 
+    testNativeStringProtobuf = TestNativeStringProtobuf(driver, nameSalt)
+
     testSuitList = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
                     testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
-                    testNativeComplexSmt, testPressure]
+                    testNativeComplexSmt, testPressure, testNativeStringProtobuf]
     if testSet == "confluent":
-        testSuitEnableList = [True, True, True, True, True, True, True, True, True, pressure]
+        testSuitEnableList = [True, True, True, True, True, True, True, True, True, pressure, True]
     elif testSet == "apache":
-        testSuitEnableList = [True, True, True, True, False, False, False, True, True, pressure]
+        testSuitEnableList = [True, True, True, True, False, False, False, True, True, pressure, True]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    testCleanEnableList = [True, True, True, True, True, True, True, True, True, pressure]
+    testCleanEnableList = [True, True, True, True, True, True, True, True, True, pressure, True]
 
     if testSet == "clean":
         for i, test in enumerate(testSuitList):

@@ -43,9 +43,14 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
 {
   private SchemaRegistryClient schemaRegistry = null;
 
+  public static final String BREAK_ON_SCHEMA_REGISTRY_ERROR = "break.on.schema.registry.error";
+  // By default, we don't break when schema registry is not found
+  private boolean breakOnSchemaRegistryError = false;
+
   @Override
   public void configure(final Map<String, ?> configs, final boolean isKey)
   {
+    readBreakOnSchemaRegistryError(configs);
     try
     { //todo: graceful way to check schema registry
       AvroConverterConfig avroConverterConfig = new AvroConverterConfig
@@ -59,6 +64,27 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
     {
       throw SnowflakeErrors.ERROR_0012.getException(e);
     }
+  }
+
+  void readBreakOnSchemaRegistryError(final Map<String, ?> configs)
+  {
+    try
+    {
+      Object shouldBreak = configs.get(BREAK_ON_SCHEMA_REGISTRY_ERROR);
+      if (shouldBreak instanceof String)
+      {
+        breakOnSchemaRegistryError = ((String) shouldBreak).toLowerCase().equals("true");
+      }
+    } catch (Exception e)
+    {
+      // do nothing
+    }
+  }
+
+  // for testing only
+  boolean getBreakOnSchemaRegistryError()
+  {
+    return breakOnSchemaRegistryError;
   }
 
   /**
@@ -108,7 +134,14 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
       schema = schemaRegistry.getById(id);
     } catch (Exception e)
     {
-      throw SnowflakeErrors.ERROR_0011.getException(e);
+      if (breakOnSchemaRegistryError)
+      {
+        throw SnowflakeErrors.ERROR_0011.getException(e);
+      }
+      else
+      {
+        return logErrorAndReturnBrokenRecord(e, bytes);
+      }
     }
 
     try {

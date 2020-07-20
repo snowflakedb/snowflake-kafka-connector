@@ -7,7 +7,7 @@ class TestStringAvro:
         self.topic = "travis_correct_string_avro" + nameSalt
 
     def send(self):
-        avroBytes = open("./test_avro_data/twitter.avro", "rb").read()
+        avroBytes = open(self.driver.TEST_DATA_FOLDER + "twitter.avro", "rb").read()
         value = []
         # only append 50 times because the file have two records
         for e in range(50):
