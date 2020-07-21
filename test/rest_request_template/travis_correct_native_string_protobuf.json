@@ -1,0 +1,15 @@
+{
+"name":"SNOWFLAKE_CONNECTOR_NAME",
+  "config":{
+    "connector.class":"com.snowflake.kafka.connector.SnowflakeSinkConnector",
+    "topics":"SNOWFLAKE_TEST_TOPIC",
+    "snowflake.url.name":"SNOWFLAKE_HOST",
+    "snowflake.user.name":"SNOWFLAKE_USER",
+    "snowflake.private.key":"SNOWFLAKE_PRIVATE_KEY",
+    "snowflake.database.name":"SNOWFLAKE_DATABASE",
+    "snowflake.schema.name":"SNOWFLAKE_SCHEMA",
+    "key.converter":"org.apache.kafka.connect.storage.StringConverter",
+    "value.converter":"com.blueapron.connect.protobuf.ProtobufConverter",
+    "value.converter.protoClassName":"com.snowflake.kafka.test.protobuf.SensorReadingImpl$SensorReading"
+  }
+}

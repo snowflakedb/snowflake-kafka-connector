@@ -98,6 +98,8 @@ mkdir -p $APACHE_LOG_PATH
 rm $APACHE_LOG_PATH/zookeeper.log $APACHE_LOG_PATH/kafka.log $APACHE_LOG_PATH/kc.log || true
 rm -rf /tmp/kafka-logs /tmp/zookeeper || true
 
+compile_protobuf_converter_and_data $CONFLUENT_FOLDER_NAME
+
 trap "pkill -9 -P $$" SIGINT SIGTERM EXIT
 
 echo -e "\n=== Start Zookeeper ==="

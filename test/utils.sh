@@ -100,3 +100,39 @@ record_thread_count()
     iteration=$((iteration + 1))
   done
 }
+
+compile_protobuf_converter_and_data()
+{
+
+  pushd test_data
+  PRPTOBUF_GENERATED_CODE="protobuf/src/main/java"
+  mkdir -p $PRPTOBUF_GENERATED_CODE
+  protoc --java_out=$PRPTOBUF_GENERATED_CODE sensor.proto
+  protoc --python_out=. sensor.proto
+  echo -e "\n=== compiled protobuf ==="
+  popd
+
+  # Copy protobuf data to Kafka Connect
+  PROTOBUF_FOLDER="./test_data/protobuf"
+  PROTOBUF_TARGET="target"
+  PROTOBUF_JAR_NAME="kafka-test-protobuf-1.0-SNAPSHOT.jar"
+  PROTOBUF_INSTALL_FOLDER="$1/share/java/kafka-serde-tools"
+  pushd $PROTOBUF_FOLDER
+  mvn clean package -q
+  cp $PROTOBUF_TARGET/$PROTOBUF_JAR_NAME ../../$PROTOBUF_INSTALL_FOLDER || true
+  echo -e "\n=== copied protobuf data to $PROTOBUF_INSTALL_FOLDER ==="
+  popd
+
+  # compile protobuf converter
+  CONVERTER_URL="https://github.com/blueapron/kafka-connect-protobuf-converter"
+  CONVERTER_FOLDER="kafka-connect-protobuf-converter"
+  rm -rf $CONVERTER_FOLDER
+  git clone $CONVERTER_URL
+  pushd $CONVERTER_FOLDER
+  git checkout tags/v3.1.0
+  mvn clean package -q
+  PROTOBUF_CONVERTER="$PROTOBUF_TARGET/kafka-connect-protobuf-converter-3.1.0-jar-with-dependencies.jar"
+  cp $PROTOBUF_CONVERTER ../$PROTOBUF_INSTALL_FOLDER || true
+  echo -e "\n=== copied protobuf converter to $PROTOBUF_INSTALL_FOLDER ==="
+  popd
+}

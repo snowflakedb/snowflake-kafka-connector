@@ -1,0 +1,22 @@
+{
+"name":"SNOWFLAKE_CONNECTOR_NAME",
+  "config":{
+    "connector.class":"com.snowflake.kafka.connector.SnowflakeSinkConnector",
+    "topics":"SNOWFLAKE_TEST_TOPIC",
+    "snowflake.url.name":"SNOWFLAKE_HOST",
+    "snowflake.user.name":"SNOWFLAKE_USER",
+    "snowflake.private.key":"SNOWFLAKE_PRIVATE_KEY",
+    "snowflake.database.name":"SNOWFLAKE_DATABASE",
+    "snowflake.schema.name":"SNOWFLAKE_SCHEMA",
+    "key.converter":"org.apache.kafka.connect.storage.StringConverter",
+    "value.converter":"org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable":"false",
+    "transforms":"createKey,extractInt,dropFieldC2",
+    "transforms.createKey.type":"org.apache.kafka.connect.transforms.ValueToKey",
+    "transforms.createKey.fields":"c1",
+    "transforms.extractInt.type":"org.apache.kafka.connect.transforms.ExtractField$Key",
+    "transforms.extractInt.field":"c1",
+    "transforms.dropFieldC2.type":"org.apache.kafka.connect.transforms.ReplaceField$Value",
+    "transforms.dropFieldC2.blacklist":"c2"
+  }
+}

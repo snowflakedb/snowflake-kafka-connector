@@ -26,7 +26,7 @@ class TestJsonJson:
         # validate content of line 1
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
-        goldMeta = r'{"key":[{"number":"0"}],"offset":0,"partition":0}'
+        goldMeta = r'{"key":{"number":"0"},"offset":0,"partition":0}'
         goldContent = r'{"number":"0"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 

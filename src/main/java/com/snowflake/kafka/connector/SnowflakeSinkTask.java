@@ -241,7 +241,7 @@ public class SnowflakeSinkTask extends SinkTask
     throws RetriableException
   {
     long startTime = System.currentTimeMillis();
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit", this.id));
+    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit {}", this.id, offsets.size()));
 
     if (sink == null || sink.isClosed())
     {
@@ -273,8 +273,8 @@ public class SnowflakeSinkTask extends SinkTask
         "while preCommit: {} ", this.id, e.getMessage()));
       return offsets;
     }
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit. Time: {} seconds", this.id,
-      (System.currentTimeMillis() - startTime) / 1000));
+    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit {}. Time: {} seconds", this.id,
+      offsets.size(), (System.currentTimeMillis() - startTime) / 1000));
     return committedOffsets;
   }
 

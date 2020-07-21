@@ -219,6 +219,13 @@ public class MockSchemaRegistryClient implements SchemaRegistryClient
   }
 
   @Override
+  public Collection<String> getAllSubjectsById(int id) throws IOException,
+    RestClientException
+  {
+    return null;
+  }
+
+  @Override
   public int getId(final String s, final Schema schema) throws IOException,
     RestClientException
   {
