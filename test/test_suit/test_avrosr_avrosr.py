@@ -52,7 +52,7 @@ class TestAvrosrAvrosr:
         # validate content of line 1
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
-        goldMeta = r'{"CreateTime":\d*,"key":[{"id":0}],"key_schema_id":\d*,"offset":0,"partition":0,"schema_id":\d*,' \
+        goldMeta = r'{"CreateTime":\d*,"key":{"id":0},"key_schema_id":\d*,"offset":0,"partition":0,"schema_id":\d*,' \
                    r'"topic":"travis_correct_avrosr_avrosr....."}'
         goldContent = r'{"firstName":"abc0","id":0,"time":1835}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)

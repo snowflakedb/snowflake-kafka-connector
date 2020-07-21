@@ -19,6 +19,7 @@ def errorExit(message):
 class KafkaTest:
     def __init__(self, kafkaAddress, schemaRegistryAddress,
                  testHost, testUser, testDatabase, testSchema, testWarehouse, pk, pk_passphrase):
+        self.TEST_DATA_FOLDER = "./test_data/"
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
@@ -109,15 +110,9 @@ class KafkaTest:
                 # self.msgSendInterval()
         self.avroProducer.flush()
 
-    def cleanTableStagePipe(self, topicName, partitionNumber=1, stripConnectorName=False):
-        topicName = topicName.upper()
-        if stripConnectorName:
-            topicNameList = topicName.split("_")
-            topicNameList[-2] = ''.join(i for i in topicNameList[-2] if not i.isdigit())
-            stripedTopicName = '_'.join(topicNameList)
-            connectorName = stripedTopicName
-        else:
-            connectorName = topicName
+    def cleanTableStagePipe(self, connectorName, topicName="", partitionNumber=1):
+        if topicName == "":
+             topicName = connectorName
         tableName = topicName
         stageName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_STAGE_{}".format(connectorName, topicName)
 
@@ -139,9 +134,9 @@ class KafkaTest:
         meta = res[0].replace(" ", "").replace("\n", "")
         content = res[1].replace(" ", "").replace("\n", "")
         goldMetaRegex = "^" + goldMetaRegex.replace("\"", "\\\"").replace("{", "\\{").replace("}", "\\}") \
-            .replace("[", "\\[").replace("]", "\\]") + "$"
+            .replace("[", "\\[").replace("]", "\\]").replace("+", "\\+") + "$"
         goldContentRegex = "^" + goldContentRegex.replace("\"", "\\\"").replace("{", "\\{").replace("}", "\\}") \
-            .replace("[", "\\[").replace("]", "\\]") + "$"
+            .replace("[", "\\[").replace("]", "\\]").replace("+", "\\+") + "$"
         if re.search(goldMetaRegex, meta) is None:
             raise test_suit.test_utils.NonRetryableError("Record meta data:\n{}\ndoes not match gold regex "
                                                          "label:\n{}".format(meta, goldMetaRegex))
@@ -160,7 +155,10 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
     from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
+    from test_suit.test_native_complex_smt import TestNativeComplexSmt
     from test_suit.test_pressure import TestPressure
+
+    from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
 
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
@@ -171,18 +169,22 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     testNativeStringAvrosr = TestNativeStringAvrosr(driver, nameSalt)
     testNativeStringJsonWithoutSchema = TestNativeStringJsonWithoutSchema(driver, nameSalt)
+    testNativeComplexSmt = TestNativeComplexSmt(driver, nameSalt)
     testPressure = TestPressure(driver, nameSalt)
 
+    testNativeStringProtobuf = TestNativeStringProtobuf(driver, nameSalt)
+
     testSuitList = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
-                    testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema, testPressure]
+                    testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
+                    testNativeComplexSmt, testPressure, testNativeStringProtobuf]
     if testSet == "confluent":
-        testSuitEnableList = [True, True, True, True, True, True, True, True, pressure]
+        testSuitEnableList = [True, True, True, True, True, True, True, True, True, pressure, True]
     elif testSet == "apache":
-        testSuitEnableList = [True, True, True, True, False, False, False, True, pressure]
+        testSuitEnableList = [True, True, True, True, False, False, False, True, True, pressure, False]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    testCleanEnableList = [True, True, True, True, True, True, True, True, pressure]
+    testCleanEnableList = [True, True, True, True, True, True, True, True, True, pressure, True]
 
     if testSet == "clean":
         for i, test in enumerate(testSuitList):

@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import org.apache.kafka.common.protocol.types.Field;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,23 +59,26 @@ class FileNameUtils
    * @param table table name
    * @param partition partition id
    * @param offset record offset
+   * @param isKey is the broken record a key or a value
    * @return file name
    */
-  static String brokenRecordFileName(String appName, String table, int partition, long offset)
+  static String brokenRecordFileName(String appName, String table, int partition, long offset, boolean isKey)
   {
-    return brokenRecordFileName(filePrefix(appName, table, partition), offset);
+    return brokenRecordFileName(filePrefix(appName, table, partition), offset, isKey);
   }
 
   /**
    * generate file name for broken data
    * @param prefix prefix
    * @param offset record offset
+   * @param isKey is the broken record a key or a value
    * @return file name
    */
-  static String brokenRecordFileName(String prefix, long offset)
+  static String brokenRecordFileName(String prefix, long offset, boolean isKey)
   {
     long time = System.currentTimeMillis();
-    String fileName = prefix + offset + "_" + time + ".gz";
+    String isKeyString = isKey ? "key" : "value";
+    String fileName = prefix + offset + "_" + isKeyString + "_" + time + ".gz";
     LOGGER.debug(Logging.logMessage("generated broken data file name: {}", fileName));
     return fileName;
   }
