@@ -101,10 +101,14 @@ record_thread_count()
   done
 }
 
+# Compiles protobuf data and converter, takes no argument
 compile_protobuf_converter_and_data()
 {
+  TEST_SET=$1
+  KAFKA_FOLDER_NAME=$2
 
-  pushd test_data
+  # Compile protobuf to java and python class
+  pushd "./test_data"
   PRPTOBUF_GENERATED_CODE="protobuf/src/main/java"
   mkdir -p $PRPTOBUF_GENERATED_CODE
   protoc --java_out=$PRPTOBUF_GENERATED_CODE sensor.proto
@@ -112,27 +116,37 @@ compile_protobuf_converter_and_data()
   echo -e "\n=== compiled protobuf ==="
   popd
 
-  # Copy protobuf data to Kafka Connect
-  PROTOBUF_FOLDER="./test_data/protobuf"
-  PROTOBUF_TARGET="target"
-  PROTOBUF_JAR_NAME="kafka-test-protobuf-1.0-SNAPSHOT.jar"
-  PROTOBUF_INSTALL_FOLDER="$1/share/java/kafka-serde-tools"
-  pushd $PROTOBUF_FOLDER
+  # Compile protobuf data to jar
+  pushd "./test_data/protobuf"
   mvn clean package -q
-  cp $PROTOBUF_TARGET/$PROTOBUF_JAR_NAME ../../$PROTOBUF_INSTALL_FOLDER || true
-  echo -e "\n=== copied protobuf data to $PROTOBUF_INSTALL_FOLDER ==="
   popd
 
-  # compile protobuf converter
-  CONVERTER_URL="https://github.com/blueapron/kafka-connect-protobuf-converter"
+  # Compile protobuf converter to jar
   CONVERTER_FOLDER="kafka-connect-protobuf-converter"
   rm -rf $CONVERTER_FOLDER
-  git clone $CONVERTER_URL
+  git clone "https://github.com/blueapron/kafka-connect-protobuf-converter"
   pushd $CONVERTER_FOLDER
   git checkout tags/v3.1.0
   mvn clean package -q
-  PROTOBUF_CONVERTER="$PROTOBUF_TARGET/kafka-connect-protobuf-converter-3.1.0-jar-with-dependencies.jar"
-  cp $PROTOBUF_CONVERTER ../$PROTOBUF_INSTALL_FOLDER || true
-  echo -e "\n=== copied protobuf converter to $PROTOBUF_INSTALL_FOLDER ==="
   popd
+
+
+  PROTOBUF_DATA_JAR="./test_data/protobuf/target/kafka-test-protobuf-1.0.0-jar-with-dependencies.jar"
+  PROTOBUF_CONVERTER_JAR="./kafka-connect-protobuf-converter/target/kafka-connect-protobuf-converter-3.1.0-jar-with-dependencies.jar"
+  if [ "$TEST_SET" == "confluent" ]; then
+    TARGET_FOLDER="$KAFKA_FOLDER_NAME/share/java/kafka-serde-tools"
+
+    cp $PROTOBUF_DATA_JAR $TARGET_FOLDER || true
+    echo -e "\n=== copied protobuf data to $TARGET_FOLDER ==="
+
+    cp $PROTOBUF_CONVERTER_JAR $TARGET_FOLDER || true
+    echo -e "\n=== copied protobuf converter to $TARGET_FOLDER ==="
+  else
+    TARGET_FOLDER="$KAFKA_FOLDER_NAME/libs"
+
+    export CLASSPATH=$CLASSPATH:$(pwd)/$PROTOBUF_DATA_JAR
+
+    cp $PROTOBUF_CONVERTER_JAR $TARGET_FOLDER || true
+    echo -e "\n=== copied protobuf converter to $TARGET_FOLDER ==="
+  fi
 }
