@@ -53,7 +53,7 @@ public class SnowflakeSinkConnectorConfig
 
   // Time in seconds
   public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
-  public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 30;
+  public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 120;
   static final String BUFFER_FLUSH_TIME_SEC = "buffer.flush.time";
 
   // Snowflake connection and database config
