@@ -364,10 +364,18 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
             try
             {
               Thread.sleep(CLEAN_TIME);
-              checkStatus();
+              try {
+                checkStatus();
+              } catch (Throwable t) {
+                  logError("Caught throwable from checkStatus:\n{}", t.getMessage());
+              }
               if (System.currentTimeMillis() - startTime > ONE_HOUR)
               {
-                sendUsageReport();
+                try {
+                  sendUsageReport();
+                } catch (Throwable t) {
+                  logError("Caught throwable from sendUsageReport:\n{}", t.getMessage());
+                }
               }
             } catch (InterruptedException e)
             {
@@ -613,7 +621,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       List<String> loadedFiles = new LinkedList<>();
       List<String> failedFiles = new LinkedList<>();
 
-      //ingest report
+      // ingest report
+      // possible SnowflakeKafkaConnectorException throw point
       filterResult(ingestionService.readIngestReport(tmpFileNames),
         tmpFileNames,
         loadedFiles, failedFiles);
@@ -640,11 +649,14 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       //load history
       if (!oldFiles.isEmpty())
       {
+        // possible SnowflakeKafkaConnectorException throw point
         filterResult(ingestionService.readOneHourHistory(tmpFileNames,
           currentTime - ONE_HOUR), tmpFileNames, loadedFiles, failedFiles);
       }
 
+      // possible SnowflakeKafkaConnectorException throw point
       purge(loadedFiles);
+      // possible SnowflakeKafkaConnectorException throw point
       moveToTableStage(failedFiles);
 
       fileListLock.lock();
