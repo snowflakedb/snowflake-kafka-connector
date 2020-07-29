@@ -9,6 +9,7 @@ import re
 import sys
 import snowflake.connector
 import test_suit
+import requests
 
 
 def errorExit(message):
@@ -17,13 +18,27 @@ def errorExit(message):
 
 
 class KafkaTest:
-    def __init__(self, kafkaAddress, schemaRegistryAddress,
-                 testHost, testUser, testDatabase, testSchema, testWarehouse, pk, pk_passphrase):
+    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath):
+        self.credentialPath = credentialPath
+        with open(self.credentialPath) as f:
+            credentialJson = json.load(f)
+            testHost = credentialJson["host"]
+            testUser = credentialJson["user"]
+            testDatabase = credentialJson["database"]
+            testSchema = credentialJson["schema"]
+            testWarehouse = credentialJson["warehouse"]
+            pk = credentialJson["encrypted_private_key"]
+            pk_passphrase = credentialJson["private_key_passphrase"]
+
         self.TEST_DATA_FOLDER = "./test_data/"
+        self.httpHeader = {'Content-type': 'application/json', 'Accept': 'application/json'}
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
         self.MAX_RETRY = 20  # max wait time 20 mins
+
+        self.kafkaConnectAddress = kafkaConnectAddress
+        self.schemaRegistryAddress = schemaRegistryAddress
 
         self.adminClient = AdminClient({"bootstrap.servers": kafkaAddress})
         self.producer = Producer({'bootstrap.servers': kafkaAddress})
@@ -49,6 +64,9 @@ class KafkaTest:
     def msgSendInterval(self):
         # sleep self.SEND_INTERVAL before send the second message
         sleep(self.SEND_INTERVAL)
+
+    def startConnectorWaitTime(self):
+        sleep(10)
 
     def verifyWaitTime(self):
         # sleep two minutes before verify result in SF DB
@@ -112,7 +130,7 @@ class KafkaTest:
 
     def cleanTableStagePipe(self, connectorName, topicName="", partitionNumber=1):
         if topicName == "":
-             topicName = connectorName
+            topicName = connectorName
         tableName = topicName
         stageName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_STAGE_{}".format(connectorName, topicName)
 
@@ -144,6 +162,67 @@ class KafkaTest:
             raise test_suit.test_utils.NonRetryableError("Record content:\n{}\ndoes not match gold regex "
                                                          "label:\n{}".format(content, goldContentRegex))
 
+    def updateConnectorConfig(self, fileName, connectorName, configMap):
+        with open('./rest_request_generated/' + fileName + '.json') as f:
+            c = json.load(f)
+            config = c['config']
+            for k in configMap:
+                config[k] = configMap[k]
+        requestURL = "http://{}/connectors/{}/config".format(self.kafkaConnectAddress, connectorName)
+        r = requests.put(requestURL, json=config, headers=self.httpHeader)
+        print(r, " updated connector config")
+
+    def createConnector(self, fileName, nameSalt):
+        rest_template_path = "./rest_request_template"
+        rest_generate_path = "./rest_request_generated"
+
+        with open(self.credentialPath) as f:
+            credentialJson = json.load(f)
+            testHost = credentialJson["host"]
+            testUser = credentialJson["user"]
+            testDatabase = credentialJson["database"]
+            testSchema = credentialJson["schema"]
+            pk = credentialJson["private_key"]
+
+        print("\n=== generate sink connector rest reqeuest from {} ===".format(rest_template_path))
+        if not os.path.exists(rest_generate_path):
+            os.makedirs(rest_generate_path)
+        snowflake_connector_name = fileName.split(".")[0] + nameSalt
+
+        print("\n=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
+        with open("{}/{}".format(rest_template_path, fileName), 'r') as f:
+            config = f.read() \
+                .replace("SNOWFLAKE_PRIVATE_KEY", pk) \
+                .replace("SNOWFLAKE_HOST", testHost) \
+                .replace("SNOWFLAKE_USER", testUser) \
+                .replace("SNOWFLAKE_DATABASE", testDatabase) \
+                .replace("SNOWFLAKE_SCHEMA", testSchema) \
+                .replace("CONFLUENT_SCHEMA_REGISTRY", self.schemaRegistryAddress) \
+                .replace("SNOWFLAKE_TEST_TOPIC", snowflake_connector_name) \
+                .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name)
+            with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
+                fw.write(config)
+
+        MAX_RETRY = 20
+        retry = 0
+        delete_url = "http://{}/connectors/{}".format(self.kafkaConnectAddress, snowflake_connector_name)
+        post_url = "http://{}/connectors".format(self.kafkaConnectAddress)
+        while retry < MAX_RETRY:
+            try:
+                code = requests.delete(delete_url, timeout=10).status_code
+                if code == 404 or code == 200:
+                    break
+            except:
+                pass
+            print("\n=== sleep for 30 secs to wait for kafka connect to accept connection ===")
+            sleep(30)
+            retry += 1
+        if retry == MAX_RETRY:
+            errorExit("\n=== max retry exceeded, kafka connect not ready in 10 mins ===")
+
+        r = requests.post(post_url, json=json.loads(config), headers=self.httpHeader).content.decode("utf-8")
+        print(json.loads(r)["name"])
+
 
 def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_string_json import TestStringJson
@@ -157,6 +236,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
     from test_suit.test_native_complex_smt import TestNativeComplexSmt
     from test_suit.test_pressure import TestPressure
+    from test_suit.test_pressure_restart import TestPressureRestart
 
     from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
 
@@ -171,21 +251,46 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testNativeStringJsonWithoutSchema = TestNativeStringJsonWithoutSchema(driver, nameSalt)
     testNativeComplexSmt = TestNativeComplexSmt(driver, nameSalt)
     testPressure = TestPressure(driver, nameSalt)
+    testPressureRestart = TestPressureRestart(driver, nameSalt)
 
     testNativeStringProtobuf = TestNativeStringProtobuf(driver, nameSalt)
 
-    testSuitList = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
-                    testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
-                    testNativeComplexSmt, testPressure, testNativeStringProtobuf]
+    ############################ round 1 ############################
+    print("\n=== Round 1 ===")
+    testSuitList1 = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
+                     testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
+                     testNativeComplexSmt, testNativeStringProtobuf, testPressure]
+
+    testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, pressure]
+    testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList = [True, True, True, True, True, True, True, True, True, pressure, True]
+        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, pressure]
     elif testSet == "apache":
-        testSuitEnableList = [True, True, True, True, False, False, False, True, True, pressure, False]
+        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, pressure]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    testCleanEnableList = [True, True, True, True, True, True, True, True, True, pressure, True]
+    execution(testSet, testSuitList1, testCleanEnableList1, testSuitEnableList1, driver, nameSalt)
+    ############################ round 1 ############################
 
+    ############################ round 2 ############################
+    print("\n=== Round 2 ===")
+    testSuitList2 = [testPressureRestart]
+
+    testCleanEnableList2 = [True]
+    testSuitEnableList2 = []
+    if testSet == "confluent":
+        testSuitEnableList2 = [True]
+    elif testSet == "apache":
+        testSuitEnableList2 = [True]
+    elif testSet != "clean":
+        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+
+    execution(testSet, testSuitList2, testCleanEnableList2, testSuitEnableList2, driver, nameSalt)
+    ############################ round 2 ############################
+
+
+def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt):
     if testSet == "clean":
         for i, test in enumerate(testSuitList):
             if testCleanEnableList[i]:
@@ -195,9 +300,15 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         try:
             for i, test in enumerate(testSuitList):
                 if testSuitEnableList[i]:
+                    driver.createConnector(test.getConfigFileName(), nameSalt)
+
+            driver.startConnectorWaitTime()
+
+            for i, test in enumerate(testSuitList):
+                if testSuitEnableList[i]:
                     print("\n=== Sending " + test.__class__.__name__ + " data ===")
                     test.send()
-                    print("=== Done ===", flush=True)
+                    print("=== Done " + test.__class__.__name__ + " ===", flush=True)
 
             driver.verifyWaitTime()
 
@@ -205,7 +316,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
                 if testSuitEnableList[i]:
                     print("\n=== Verify " + test.__class__.__name__ + " ===")
                     driver.verifyWithRetry(test.verify)
-                    print("=== Passed ===", flush=True)
+                    print("=== Passed " + test.__class__.__name__ + " ===", flush=True)
 
             print("\n=== All test passed ===")
         except Exception as e:
@@ -215,16 +326,17 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 6:
+    if len(sys.argv) != 7:
         errorExit(
-            """\n=== Usage: ./ingest.py <kafka address> <schema registry address> <test set> <name salt> 
-            <pressure>===""")
+            """\n=== Usage: ./ingest.py <kafka address> <schema registry address> <kafka connect address>
+             <test set> <name salt> <pressure>===""")
 
     kafkaAddress = sys.argv[1]
     schemaRegistryAddress = sys.argv[2]
-    testSet = sys.argv[3]
-    nameSalt = sys.argv[4]
-    pressure = (sys.argv[5] == 'true')
+    kafkaConnectAddress = sys.argv[3]
+    testSet = sys.argv[4]
+    nameSalt = sys.argv[5]
+    pressure = (sys.argv[6] == 'true')
 
     if "SNOWFLAKE_CREDENTIAL_FILE" not in os.environ:
         errorExit(
@@ -236,18 +348,6 @@ if __name__ == "__main__":
         errorExit("\n=== Provided SNOWFLAKE_CREDENTIAL_FILE {} does not exist.  Aborting. ===".format(
             credentialPath))
 
-    with open(credentialPath) as f:
-        credentialJson = json.load(f)
-
-        testHost = credentialJson["host"]
-        testUser = credentialJson["user"]
-        testDatabase = credentialJson["database"]
-        testSchema = credentialJson["schema"]
-        testWarehouse = credentialJson["warehouse"]
-        pk = credentialJson["encrypted_private_key"]
-        pk_passphrase = credentialJson["private_key_passphrase"]
-
-    kafkaTest = KafkaTest(kafkaAddress, schemaRegistryAddress,
-                          testHost, testUser, testDatabase, testSchema, testWarehouse, pk, pk_passphrase)
+    kafkaTest = KafkaTest(kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath)
 
     runTestSet(kafkaTest, testSet, nameSalt, pressure)

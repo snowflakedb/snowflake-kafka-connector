@@ -5,7 +5,11 @@ import json
 class TestJsonJson:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.topic = "travis_correct_json_json" + nameSalt
+        self.fileName = "travis_correct_json_json"
+        self.topic = self.fileName + nameSalt
+
+    def getConfigFileName(self):
+        return self.fileName + ".json"
 
     def send(self):
         key = []
