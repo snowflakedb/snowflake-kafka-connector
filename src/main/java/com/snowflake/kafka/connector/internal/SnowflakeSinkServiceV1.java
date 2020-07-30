@@ -118,11 +118,16 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     }
     else
     {
-      logError("Failed to find offset of Topic: {}, Partition: {}, sink " +
-        "service hasn't been initialized", topicPartition.topic(),
-        topicPartition.partition());
+      logWarn("Topic: {} Partition: {} hasn't been initialized to get offset",
+        topicPartition.topic(), topicPartition.partition());
       return 0;
     }
+  }
+
+  @Override
+  public int getPartitionCount()
+  {
+    return pipes.size();
   }
 
   // used for testing only
