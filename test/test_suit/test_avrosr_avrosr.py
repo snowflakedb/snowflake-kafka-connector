@@ -5,7 +5,8 @@ from confluent_kafka import avro
 class TestAvrosrAvrosr:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.topic = "travis_correct_avrosr_avrosr" + nameSalt
+        self.fileName = "travis_correct_avrosr_avrosr"
+        self.topic = self.fileName + nameSalt
 
         KeySchemaStr = """
         {
@@ -30,6 +31,9 @@ class TestAvrosrAvrosr:
         """
         self.keySchema = avro.loads(KeySchemaStr)
         self.valueSchema = avro.loads(ValueSchemaStr)
+
+    def getConfigFileName(self):
+        return self.fileName + ".json"
 
     def send(self):
         value = []
