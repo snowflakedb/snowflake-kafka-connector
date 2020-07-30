@@ -379,6 +379,22 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
             {
               logInfo("Cleaner terminated by an interrupt:\n{}", e.getMessage());
               break;
+            } catch (Exception e)
+            {
+              logWarn("Cleaner encountered an exception {}:\n{}\n{}",
+                e.getClass(), e.getMessage(), e.getStackTrace());
+              // list stage again and try to clean the files leaked on stage
+              List<String> tmpCleanerFileNames = conn.listStage(stageName, prefix);
+              fileListLock.lock();
+              try
+              {
+                cleanerFileNames.addAll(tmpCleanerFileNames);
+                cleanerFileNames = cleanerFileNames.stream().distinct().collect(Collectors.toList());
+              } finally
+              {
+                fileListLock.unlock();
+              }
+
             }
           }
         }
