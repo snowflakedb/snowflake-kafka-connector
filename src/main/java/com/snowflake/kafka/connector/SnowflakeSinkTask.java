@@ -155,13 +155,8 @@ public class SnowflakeSinkTask extends SinkTask
   @Override
   public void stop()
   {
-    // long startTime = System.currentTimeMillis();
     LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:stop", this.id));
-
     // do nothing
-
-    // LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:stop. Time: {} seconds", this.id,
-    //   (System.currentTimeMillis() - startTime) / 1000));
   }
 
   /**
