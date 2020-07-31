@@ -5,8 +5,12 @@ import json
 class TestNativeComplexSmt:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.topic = "travis_correct_native_complex_smt" + nameSalt
+        self.fileName = "travis_correct_native_complex_smt"
+        self.topic = self.fileName + nameSalt
         self.table = self.topic
+
+    def getConfigFileName(self):
+        return self.fileName + ".json"
 
     def send(self):
         value = []

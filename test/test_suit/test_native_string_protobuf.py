@@ -4,7 +4,8 @@ import test_data.sensor_pb2 as sensor_pb2
 class TestNativeStringProtobuf:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.topic = "travis_correct_native_string_protobuf" + nameSalt
+        self.fileName = "travis_correct_native_string_protobuf"
+        self.topic = self.fileName + nameSalt
 
         self.sensor = sensor_pb2.SensorReading()
         self.sensor.dateTime = 1234
@@ -21,6 +22,9 @@ class TestNativeStringProtobuf:
         self.sensor.bytes_val = b'\xDE\xAD'
         self.sensor.double_array_val.extend([1/3, 32.21, 434324321])
         self.sensor.uint64_val = (1 << 64) - 1
+
+    def getConfigFileName(self):
+        return self.fileName + ".json"
 
     def send(self):
         value = []

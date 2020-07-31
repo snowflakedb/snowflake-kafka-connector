@@ -45,6 +45,12 @@ public interface SnowflakeSinkService
   long getOffset(TopicPartition topicPartition);
 
   /**
+   * get the number of partitions assigned to this sink service
+   * @return number of partitions
+   */
+  int getPartitionCount();
+
+  /**
    * used for testing only
    */
   void callAllGetOffset();
