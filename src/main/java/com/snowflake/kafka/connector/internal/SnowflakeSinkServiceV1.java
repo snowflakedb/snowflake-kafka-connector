@@ -297,6 +297,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     //make the initialization lazy
     private boolean hasInitialized = false;
+    private boolean forceCleanerFileReset = false;
 
 
     private ServiceContext(String tableName, String stageName,
@@ -348,6 +349,29 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     }
 
+    private boolean resetCleanerFiles() {
+      try {
+        logWarn("Resetting cleaner files", pipeName);
+        // list stage again and try to clean the files leaked on stage
+        // this can throw unchecked, it needs to be wrapped in a try/catch
+        // if it fails again do not reset forceCleanerFileReset
+        List<String> tmpCleanerFileNames = conn.listStage(stageName, prefix);
+        fileListLock.lock();
+        try {
+          cleanerFileNames.addAll(tmpCleanerFileNames);
+          cleanerFileNames = cleanerFileNames.stream().distinct().collect(Collectors.toList());
+        } finally {
+          fileListLock.unlock();
+        }
+        forceCleanerFileReset = false;
+      } catch (Throwable t) {
+        logWarn("Cleaner file reset encountered an error{}:\n", t.getMessage());
+      }
+
+      return forceCleanerFileReset;
+    }
+
+
     private void startCleaner()
     {
       // when cleaner start, scan stage for all files of this pipe
@@ -370,6 +394,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
             try
             {
               Thread.sleep(CLEAN_TIME);
+
+              if (forceCleanerFileReset && resetCleanerFiles()) {
+                continue;
+              }
+
               checkStatus();
               if (System.currentTimeMillis() - startTime > ONE_HOUR)
               {
@@ -383,17 +412,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
             {
               logWarn("Cleaner encountered an exception {}:\n{}\n{}",
                 e.getClass(), e.getMessage(), e.getStackTrace());
-              // list stage again and try to clean the files leaked on stage
-              List<String> tmpCleanerFileNames = conn.listStage(stageName, prefix);
-              fileListLock.lock();
-              try
-              {
-                cleanerFileNames.addAll(tmpCleanerFileNames);
-                cleanerFileNames = cleanerFileNames.stream().distinct().collect(Collectors.toList());
-              } finally
-              {
-                fileListLock.unlock();
-              }
+
+              forceCleanerFileReset = true;
 
             }
           }
