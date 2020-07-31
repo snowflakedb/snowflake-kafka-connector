@@ -69,6 +69,14 @@ public class SnowflakeURL extends Logging
     }
 
     jdbcUrl = "jdbc:snowflake://" + url + ":" + port;
+    if (System.getenv("JDBC_TRACE") != null)
+    {
+      if (System.getenv("JDBC_TRACE").toLowerCase().contains("true"))
+      {
+        logInfo("enabling JDBC tracing");
+        jdbcUrl = jdbcUrl + "/?tracing=ALL";
+      }
+    }
 
     logDebug("parsed Snowflake URL: {}", urlStr);
 
