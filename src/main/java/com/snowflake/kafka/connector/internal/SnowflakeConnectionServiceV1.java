@@ -7,6 +7,7 @@ import net.snowflake.ingest.connection.HistoryResponse;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.sql.Connection;
@@ -35,6 +36,20 @@ public class SnowflakeConnectionServiceV1 extends Logging
     this.prop = prop;
     try
     {
+      String jdbcTmpDir = "/tmp";
+      File jdbcTmpDirObj = new File(jdbcTmpDir);
+      if (System.getenv("JDBC_LOG_DIR") != null)
+      {
+        jdbcTmpDir = System.getenv("JDBC_LOG_DIR");
+        jdbcTmpDirObj = new File(jdbcTmpDir);
+        if (jdbcTmpDirObj.isDirectory())
+        {
+          logInfo("jdbc tracing directory = " + jdbcTmpDir);
+          System.setProperty("java.io.tmpdir", jdbcTmpDir);
+        } else {
+          logWarn("invalid JDBC_LOG_DIR " + jdbcTmpDir + "defaulting to " + System.getProperty("java.io.tmpdir"));
+        }
+      }
       this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), prop);
     } catch (SQLException e)
     {
