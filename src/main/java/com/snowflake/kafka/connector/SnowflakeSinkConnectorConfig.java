@@ -70,6 +70,12 @@ public class SnowflakeSinkConnectorConfig
   static final String JVM_PROXY_HOST = "jvm.proxy.host";
   static final String JVM_PROXY_PORT = "jvm.proxy.port";
 
+  // JDBC logging directory Info (environment variable)
+  static final String SNOWFLAKE_JDBC_LOG_DIR = "JDBC_LOG_DIR";
+
+  // JDBC trace Info (environment variable)
+  public static final String SNOWFLAKE_JDBC_TRACE = "JDBC_TRACE";
+
   // Snowflake Metadata Flags
   private static final String SNOWFLAKE_METADATA_FLAGS = "Snowflake Metadata Flags";
   public static final String SNOWFLAKE_METADATA_CREATETIME = "snowflake.metadata.createtime";
