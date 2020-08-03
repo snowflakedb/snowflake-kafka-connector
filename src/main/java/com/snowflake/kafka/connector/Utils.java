@@ -70,7 +70,7 @@ public class Utils
   private static final String HTTP_PROXY_PORT = "http.proxyPort";
 
   //jdbc log dir
-  private static final String JAVA_IO_TMPDIR = "java.io.tmpdir";
+  public static final String JAVA_IO_TMPDIR = "java.io.tmpdir";
 
   private static final Random random = new Random();
 
