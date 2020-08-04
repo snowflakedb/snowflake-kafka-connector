@@ -16,10 +16,18 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.contrib.java.lang.system.EnvironmentVariables;
+
+import java.io.IOException;
 
 public class SnowflakeURLTest
 {
+  @Rule
+  public final EnvironmentVariables environmentVariables
+    = new EnvironmentVariables();
 
   @Test
   public void createFromValidURL()
@@ -95,6 +103,19 @@ public class SnowflakeURLTest
     sfurl = new SnowflakeURL(url);
 
     assert sfurl.getUrlWithoutPort().equals("account.region.aws.privatelink.snowflake.com");
+  }
+
+  @Test
+  public void testJDBCTracing()
+  {
+    environmentVariables.set(SnowflakeSinkConnectorConfig.SNOWFLAKE_JDBC_TRACE, "true");
+
+    String url = "https://account.region.aws.privatelink.snowflake.com:443";
+
+    SnowflakeURL sfurl = new SnowflakeURL(url);
+
+    assert sfurl.getJdbcUrl().equals("jdbc:snowflake://account.region.aws.privatelink.snowflake.com:443/?tracing=ALL");
+
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
