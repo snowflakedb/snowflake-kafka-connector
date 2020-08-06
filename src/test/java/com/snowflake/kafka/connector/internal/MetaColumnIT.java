@@ -51,20 +51,17 @@ public class MetaColumnIT
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
     SchemaAndValue result = converter.toConnectData(topic, ("{\"name\":\"test\"}").getBytes(StandardCharsets.UTF_8));
-    SinkRecord record =
-      new SinkRecord(topic, partition, Schema.STRING_SCHEMA, "key1",
+    SinkRecord record = new SinkRecord(topic, partition, Schema.STRING_SCHEMA, "key1",
         result.schema(), result.value(), 0);
 
     service.insert(record);
 
-    record =
-      new SinkRecord(topic, partition, Schema.STRING_SCHEMA, "key2",
+    record = new SinkRecord(topic, partition, Schema.STRING_SCHEMA, "key2",
         result.schema(), result.value(), 1);
 
     service.insert(record);
 
-    record =
-      new SinkRecord(topic, partition, Schema.STRING_SCHEMA, "key3",
+    record = new SinkRecord(topic, partition, Schema.STRING_SCHEMA, "key3",
         result.schema(), result.value(), 2);
 
     service.insert(record);

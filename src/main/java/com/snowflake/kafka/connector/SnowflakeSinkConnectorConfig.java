@@ -53,7 +53,7 @@ public class SnowflakeSinkConnectorConfig
 
   // Time in seconds
   public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
-  public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 30;
+  public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 120;
   static final String BUFFER_FLUSH_TIME_SEC = "buffer.flush.time";
 
   // Snowflake connection and database config
@@ -69,6 +69,12 @@ public class SnowflakeSinkConnectorConfig
   private static final String PROXY_INFO = "Proxy Info";
   static final String JVM_PROXY_HOST = "jvm.proxy.host";
   static final String JVM_PROXY_PORT = "jvm.proxy.port";
+
+  // JDBC logging directory Info (environment variable)
+  static final String SNOWFLAKE_JDBC_LOG_DIR = "JDBC_LOG_DIR";
+
+  // JDBC trace Info (environment variable)
+  public static final String SNOWFLAKE_JDBC_TRACE = "JDBC_TRACE";
 
   // Snowflake Metadata Flags
   private static final String SNOWFLAKE_METADATA_FLAGS = "Snowflake Metadata Flags";

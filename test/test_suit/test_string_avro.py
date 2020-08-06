@@ -4,10 +4,14 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 class TestStringAvro:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.topic = "travis_correct_string_avro" + nameSalt
+        self.fileName = "travis_correct_string_avro"
+        self.topic = self.fileName + nameSalt
+
+    def getConfigFileName(self):
+        return self.fileName + ".json"
 
     def send(self):
-        avroBytes = open("./test_avro_data/twitter.avro", "rb").read()
+        avroBytes = open(self.driver.TEST_DATA_FOLDER + "twitter.avro", "rb").read()
         value = []
         # only append 50 times because the file have two records
         for e in range(50):

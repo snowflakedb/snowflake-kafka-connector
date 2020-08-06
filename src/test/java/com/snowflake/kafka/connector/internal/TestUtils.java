@@ -51,7 +51,7 @@ public class TestUtils
   private static final Random random = new Random();
   private static final String DES_RSA_KEY = "des_rsa_key";
   public final static String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
-  private static final Pattern BROKEN_RECORD_PATTERN = Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(\\d+)\\.gz$");
+  private static final Pattern BROKEN_RECORD_PATTERN = Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(key|value)_(\\d+)\\.gz$");
 
 
   //profile path

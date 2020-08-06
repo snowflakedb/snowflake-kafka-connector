@@ -2,13 +2,19 @@ package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.contrib.java.lang.system.EnvironmentVariables;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class UtilsTest
 {
+  @Rule
+  public final EnvironmentVariables environmentVariables
+    = new EnvironmentVariables();
+
   @Test
   public void testGetTopicToTableMap()
   {
@@ -117,6 +123,27 @@ public class UtilsTest
     assert !Utils.isValidSnowflakeApplicationName("1aA_-");
     assert !Utils.isValidSnowflakeApplicationName("_1.a$");
     assert !Utils.isValidSnowflakeApplicationName("(1.f$-_");
+  }
+
+  @Test
+  public void testSetJDBCLoggingDir()
+  {
+    String defaultTmpDir = System.getProperty(Utils.JAVA_IO_TMPDIR);
+
+    Utils.setJDBCLoggingDirectory();
+    assert !System.getProperty(Utils.JAVA_IO_TMPDIR).isEmpty();
+
+    environmentVariables.set(SnowflakeSinkConnectorConfig.SNOWFLAKE_JDBC_LOG_DIR, "/dummy_dir_not_exist");
+    Utils.setJDBCLoggingDirectory();
+    assert !System.getProperty(Utils.JAVA_IO_TMPDIR).equals("/dummy_dir_not_exist");
+
+    environmentVariables.set(SnowflakeSinkConnectorConfig.SNOWFLAKE_JDBC_LOG_DIR, "/usr");
+    Utils.setJDBCLoggingDirectory();
+    assert System.getProperty(Utils.JAVA_IO_TMPDIR).equals("/usr");
+
+    environmentVariables.set(SnowflakeSinkConnectorConfig.SNOWFLAKE_JDBC_LOG_DIR, defaultTmpDir);
+    Utils.setJDBCLoggingDirectory();
+    assert System.getProperty(Utils.JAVA_IO_TMPDIR).equals(defaultTmpDir);
   }
 
 }

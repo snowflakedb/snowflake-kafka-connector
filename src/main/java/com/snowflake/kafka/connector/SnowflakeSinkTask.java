@@ -155,15 +155,8 @@ public class SnowflakeSinkTask extends SinkTask
   @Override
   public void stop()
   {
-    long startTime = System.currentTimeMillis();
     LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:stop", this.id));
-    if (sink != null)
-    {
-      this.sink.closeAll();
-    }
-
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:stop. Time: {} seconds", this.id,
-      (System.currentTimeMillis() - startTime) / 1000));
+    // do nothing
   }
 
   /**
@@ -232,7 +225,10 @@ public class SnowflakeSinkTask extends SinkTask
    * Sync committed offsets
    *
    * @param offsets - the current map of offsets as of the last call to put
-   * @return a map of offsets by topic-partition that are safe to commit
+   * @return an empty map if Connect-managed offset commit is not desired,
+   *         otherwise a map of offsets by topic-partition that are safe to commit.
+   *         If we return the same offsets that was passed in, Kafka Connect assumes that
+   *         all offsets that are already passed to put() are safe to commit.
    * @throws RetriableException when meet any issue during processing
    */
   @Override
@@ -241,13 +237,19 @@ public class SnowflakeSinkTask extends SinkTask
     throws RetriableException
   {
     long startTime = System.currentTimeMillis();
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit", this.id));
+    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit {}", this.id, offsets.size()));
 
+    // return an empty map means that offset commitment is not desired
     if (sink == null || sink.isClosed())
     {
       LOGGER.warn(Logging.logMessage("SnowflakeSinkTask[ID:{}]: sink " +
         "not initialized or closed before preCommit", this.id));
-      return offsets;
+      return new HashMap<>();
+    }
+    else if (sink.getPartitionCount() == 0)
+    {
+      LOGGER.warn(Logging.logMessage("SnowflakeSinkTask[ID:{}]: no partition is assigned", this.id));
+      return new HashMap<>();
     }
 
     Map<TopicPartition, OffsetAndMetadata> committedOffsets = new HashMap<>();
@@ -258,12 +260,8 @@ public class SnowflakeSinkTask extends SinkTask
         (topicPartition, offsetAndMetadata) ->
         {
           long offSet = sink.getOffset(topicPartition);
-          if (offSet == 0) {
-            committedOffsets.put(topicPartition, offsetAndMetadata);
-            //todo: update offset?
-          } else {
-            committedOffsets.put(topicPartition,
-              new OffsetAndMetadata(sink.getOffset(topicPartition)));
+          if (offSet != 0) {
+            committedOffsets.put(topicPartition, new OffsetAndMetadata(offSet));
           }
         }
       );
@@ -271,10 +269,10 @@ public class SnowflakeSinkTask extends SinkTask
     {
       LOGGER.error(Logging.logMessage("SnowflakeSinkTask[ID:{}]: Error " +
         "while preCommit: {} ", this.id, e.getMessage()));
-      return offsets;
+      return new HashMap<>();
     }
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit. Time: {} seconds", this.id,
-      (System.currentTimeMillis() - startTime) / 1000));
+    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit {}. Time: {} seconds", this.id,
+      offsets.size(), (System.currentTimeMillis() - startTime) / 1000));
     return committedOffsets;
   }
 

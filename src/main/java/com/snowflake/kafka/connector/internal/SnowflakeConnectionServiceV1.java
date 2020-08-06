@@ -7,6 +7,7 @@ import net.snowflake.ingest.connection.HistoryResponse;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.sql.Connection;

@@ -5,7 +5,8 @@ from confluent_kafka import avro
 class TestAvrosrAvrosr:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.topic = "travis_correct_avrosr_avrosr" + nameSalt
+        self.fileName = "travis_correct_avrosr_avrosr"
+        self.topic = self.fileName + nameSalt
 
         KeySchemaStr = """
         {
@@ -31,6 +32,9 @@ class TestAvrosrAvrosr:
         self.keySchema = avro.loads(KeySchemaStr)
         self.valueSchema = avro.loads(ValueSchemaStr)
 
+    def getConfigFileName(self):
+        return self.fileName + ".json"
+
     def send(self):
         value = []
         key = []
@@ -52,7 +56,7 @@ class TestAvrosrAvrosr:
         # validate content of line 1
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
-        goldMeta = r'{"CreateTime":\d*,"key":[{"id":0}],"key_schema_id":\d*,"offset":0,"partition":0,"schema_id":\d*,' \
+        goldMeta = r'{"CreateTime":\d*,"key":{"id":0},"key_schema_id":\d*,"offset":0,"partition":0,"schema_id":\d*,' \
                    r'"topic":"travis_correct_avrosr_avrosr....."}'
         goldContent = r'{"firstName":"abc0","id":0,"time":1835}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)

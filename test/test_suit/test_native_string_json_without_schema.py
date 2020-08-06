@@ -5,7 +5,11 @@ import json
 class TestNativeStringJsonWithoutSchema:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.topic = "travis_correct_native_string_json_without_schema" + nameSalt
+        self.fileName = "travis_correct_native_string_json_without_schema"
+        self.topic = self.fileName + nameSalt
+
+    def getConfigFileName(self):
+        return self.fileName + ".json"
 
     def send(self):
         value = []

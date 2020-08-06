@@ -324,6 +324,11 @@ public enum SnowflakeErrors
     "5015",
     "Invalid SinkRecord received",
     "Error parsing SinkRecord of native converter or SinkRecord header"
+  ),
+  ERROR_5016(
+    "5016",
+    "Invalid SinkRecord received",
+    "SinkRecord.value and SinkRecord.valueSchema cannot be null"
   )
   ;
 

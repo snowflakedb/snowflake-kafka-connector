@@ -83,6 +83,8 @@ mkdir -p $APACHE_LOG_PATH
 rm $APACHE_LOG_PATH/zookeeper.log $APACHE_LOG_PATH/kafka.log $APACHE_LOG_PATH/kc.log || true
 rm -rf /tmp/kafka-logs /tmp/zookeeper || true
 
+compile_protobuf_converter_and_data $TEST_SET $APACHE_FOLDER_NAME
+
 trap "pkill -9 -P $$" SIGINT SIGTERM EXIT
 
 echo -e "\n=== Start Zookeeper ==="
@@ -102,26 +104,23 @@ SC_PORT=8081
 KC_PORT=8083
 
 echo -e "\n=== Clean table stage and pipe ==="
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT clean $NAME_SALT $PRESSURE
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $NAME_SALT $PRESSURE
 
-create_connectors_with_salt $SNOWFLAKE_CREDENTIAL_FILE $NAME_SALT $LOCAL_IP $KC_PORT
-
-echo -e "\n=== sleep for 10 secs to wait for connectors to load ==="
-sleep 10
+#create_connectors_with_salt $SNOWFLAKE_CREDENTIAL_FILE $NAME_SALT $LOCAL_IP $KC_PORT
 
 set +e
 # Send test data and verify DB result from Python
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $TEST_SET $NAME_SALT $PRESSURE
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT $TEST_SET $NAME_SALT $PRESSURE
 testError=$?
-delete_connectors_with_salt $NAME_SALT $LOCAL_IP $KC_PORT
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT clean $NAME_SALT $PRESSURE
+# delete_connectors_with_salt $NAME_SALT $LOCAL_IP $KC_PORT
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $NAME_SALT $PRESSURE
 
 if [ $testError -ne 0 ]; then
     RED='\033[0;31m'
     NC='\033[0m' # No Color
     echo -e "${RED} There is error above this line ${NC}"
-    tail -200 $APACHE_LOG_PATH/zookeeper.log
-    tail -200 $APACHE_LOG_PATH/kafka.log
+#    tail -200 $APACHE_LOG_PATH/zookeeper.log
+#    tail -200 $APACHE_LOG_PATH/kafka.log
     tail -200 $APACHE_LOG_PATH/kc.log
     error_exit "=== test_verify.py failed ==="
 fi

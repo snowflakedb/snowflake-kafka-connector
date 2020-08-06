@@ -95,6 +95,10 @@ public class RecordService extends Logging
    */
   public String processRecord(SinkRecord record)
   {
+    if (record.value() == null || record.valueSchema() == null)
+    {
+      throw SnowflakeErrors.ERROR_5016.getException();
+    }
     if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME))
     {
       throw SnowflakeErrors.ERROR_0009.getException();
@@ -174,10 +178,17 @@ public class RecordService extends Logging
 
       SnowflakeRecordContent keyContent = (SnowflakeRecordContent) record.key();
 
-      ArrayNode keyNode = MAPPER.createArrayNode();
-      keyNode.addAll(Arrays.asList(keyContent.getData()));
-
-      meta.set(KEY, keyNode);
+      JsonNode[] keyData = keyContent.getData();
+      if (keyData.length == 1)
+      {
+        meta.set(KEY, keyData[0]);
+      }
+      else
+      {
+        ArrayNode keyNode = MAPPER.createArrayNode();
+        keyNode.addAll(Arrays.asList(keyData));
+        meta.set(KEY, keyNode);
+      }
 
       if (keyContent.getSchemaID() != SnowflakeRecordContent.NON_AVRO_SCHEMA)
       {

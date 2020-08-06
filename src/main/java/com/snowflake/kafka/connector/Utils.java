@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -41,7 +42,7 @@ public class Utils
 {
 
   //Connector version, change every release
-  public static final String VERSION = "1.4.1";
+  public static final String VERSION = "1.4.3";
 
   //connector parameter list
   public static final String NAME = "name";
@@ -67,6 +68,9 @@ public class Utils
   private static final String HTTPS_PROXY_PORT = "https.proxyPort";
   private static final String HTTP_PROXY_HOST = "http.proxyHost";
   private static final String HTTP_PROXY_PORT = "http.proxyPort";
+
+  //jdbc log dir
+  public static final String JAVA_IO_TMPDIR = "java.io.tmpdir";
 
   private static final Random random = new Random();
 
@@ -175,6 +179,26 @@ public class Utils
     LOGGER.debug(Logging.logMessage("generated pipe name: {}", pipeName));
 
     return pipeName;
+  }
+
+  /**
+   * Read JDBC logging directory from environment variable JDBC_LOG_DIR and set that in System property
+   */
+  public static void setJDBCLoggingDirectory()
+  {
+    String jdbcTmpDir = System.getenv(SnowflakeSinkConnectorConfig.SNOWFLAKE_JDBC_LOG_DIR);
+    if (jdbcTmpDir != null)
+    {
+      File jdbcTmpDirObj = new File(jdbcTmpDir);
+      if (jdbcTmpDirObj.isDirectory())
+      {
+        LOGGER.info(Logging.logMessage("jdbc tracing directory = {}", jdbcTmpDir));
+        System.setProperty(JAVA_IO_TMPDIR, jdbcTmpDir);
+      } else {
+        LOGGER.info(Logging.logMessage("invalid JDBC_LOG_DIR {} defaulting to {}", jdbcTmpDir,
+          System.getProperty(JAVA_IO_TMPDIR)));
+      }
+    }
   }
 
   /**
@@ -396,6 +420,9 @@ public class Utils
     }
     // jvm proxy settings
     configIsValid = Utils.enableJVMProxy(config) && configIsValid;
+
+    // set jdbc logging directory
+    Utils.setJDBCLoggingDirectory();
 
     if (!configIsValid)
     {
