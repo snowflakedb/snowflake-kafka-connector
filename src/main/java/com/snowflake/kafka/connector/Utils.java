@@ -65,17 +65,17 @@ public class Utils
   public static final String TASK_ID = "task_id";
 
   //jvm proxy
-  private static final String HTTP_USE_PROXY = "http.useProxy";
-  private static final String HTTPS_PROXY_HOST = "https.proxyHost";
-  private static final String HTTPS_PROXY_PORT = "https.proxyPort";
-  private static final String HTTP_PROXY_HOST = "http.proxyHost";
-  private static final String HTTP_PROXY_PORT = "http.proxyPort";
+  public static final String HTTP_USE_PROXY = "http.useProxy";
+  public static final String HTTPS_PROXY_HOST = "https.proxyHost";
+  public static final String HTTPS_PROXY_PORT = "https.proxyPort";
+  public static final String HTTP_PROXY_HOST = "http.proxyHost";
+  public static final String HTTP_PROXY_PORT = "http.proxyPort";
 
-  private static final String JDK_HTTP_AUTH_TUNNELING = "jdk.http.auth.tunneling.disabledSchemes";
-  private static final String HTTPS_PROXY_USER = "https.proxyUser";
-  private static final String HTTPS_PROXY_PASSWORD = "https.proxyPassword";
-  private static final String HTTP_PROXY_USER = "http.proxyUser";
-  private static final String HTTP_PROXY_PASSWORD = "http.proxyPassword";
+  public static final String JDK_HTTP_AUTH_TUNNELING = "jdk.http.auth.tunneling.disabledSchemes";
+  public static final String HTTPS_PROXY_USER = "https.proxyUser";
+  public static final String HTTPS_PROXY_PASSWORD = "https.proxyPassword";
+  public static final String HTTP_PROXY_USER = "http.proxyUser";
+  public static final String HTTP_PROXY_PASSWORD = "http.proxyPassword";
 
 
   //jdbc log dir
