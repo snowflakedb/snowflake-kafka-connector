@@ -93,9 +93,10 @@ public class ConnectorConfigTest
   }
 
   @Test
-  public void testEmptyProxyHost()
+  public void testCorrectProxyHost()
   {
     Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "127.0.0.1");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
     Utils.validateConfig(config);
   }
@@ -105,6 +106,14 @@ public class ConnectorConfigTest
   {
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "127.0.0.1");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testEmptyHost()
+  {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
     Utils.validateConfig(config);
   }
 

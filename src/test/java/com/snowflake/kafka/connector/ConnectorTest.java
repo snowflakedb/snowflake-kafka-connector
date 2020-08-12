@@ -243,4 +243,80 @@ public class ConnectorTest
       SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA
     });
   }
+
+  @Test
+  public void testErrorProxyHostConfig()
+  {
+    Map<String, String> config = getCorrectConfig();
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
+    Map<String, ConfigValue> validateMap = toValidateMap(config);
+    assertPropHasError(validateMap, new String[]{
+      SnowflakeSinkConnectorConfig.JVM_PROXY_HOST,
+      SnowflakeSinkConnectorConfig.JVM_PROXY_PORT
+    });
+  }
+
+  @Test
+  public void testErrorProxyPortConfig()
+  {
+    Map<String, String> config = getCorrectConfig();
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
+    Map<String, ConfigValue> validateMap = toValidateMap(config);
+    assertPropHasError(validateMap, new String[]{
+      SnowflakeSinkConnectorConfig.JVM_PROXY_HOST,
+      SnowflakeSinkConnectorConfig.JVM_PROXY_PORT
+    });
+  }
+
+  @Test
+  public void testProxyHostPortConfig()
+  {
+    Map<String, String> config = getCorrectConfig();
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
+    Map<String, ConfigValue> validateMap = toValidateMap(config);
+    assertPropHasError(validateMap, new String[]{
+    });
+  }
+
+  @Test
+  public void testErrorProxyUsernameConfig()
+  {
+    Map<String, String> config = getCorrectConfig();
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "user");
+    Map<String, ConfigValue> validateMap = toValidateMap(config);
+    assertPropHasError(validateMap, new String[]{
+      SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME,
+      SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD
+    });
+  }
+
+  @Test
+  public void testErrorProxyPasswordConfig()
+  {
+    Map<String, String> config = getCorrectConfig();
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "pass");
+    Map<String, ConfigValue> validateMap = toValidateMap(config);
+    assertPropHasError(validateMap, new String[]{
+      SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME,
+      SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD
+    });
+  }
+
+  @Test
+  public void testProxyUsernamePasswordConfig()
+  {
+    Map<String, String> config = getCorrectConfig();
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "user");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "pass");
+    Map<String, ConfigValue> validateMap = toValidateMap(config);
+    assertPropHasError(validateMap, new String[]{
+    });
+  }
 }
