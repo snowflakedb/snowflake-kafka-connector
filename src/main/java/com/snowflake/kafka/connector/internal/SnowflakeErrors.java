@@ -135,6 +135,16 @@ public enum SnowflakeErrors
     "Invalid topic2table map",
     "Failed to parse topic2table map"
   ),
+  ERROR_0022(
+    "0022",
+    "Invalid proxy host or port",
+    "Both host and port need to be provided if one of them is provided"
+  ),
+  ERROR_0023(
+    "0023",
+    "Invalid proxy username or password",
+    "Both username and password need to be provided if one of them is provided"
+  ),
   // Snowflake connection issues 1---
   ERROR_1001(
     "1001",

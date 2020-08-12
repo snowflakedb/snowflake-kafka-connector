@@ -18,7 +18,7 @@ package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import net.snowflake.client.jdbc.internal.google.cloud.storage.StorageOptions;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigValue;
 import org.slf4j.Logger;
@@ -28,6 +28,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.Authenticator;
+import java.net.PasswordAuthentication;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
@@ -63,11 +65,18 @@ public class Utils
   public static final String TASK_ID = "task_id";
 
   //jvm proxy
-  private static final String HTTP_USE_PROXY = "http.useProxy";
-  private static final String HTTPS_PROXY_HOST = "https.proxyHost";
-  private static final String HTTPS_PROXY_PORT = "https.proxyPort";
-  private static final String HTTP_PROXY_HOST = "http.proxyHost";
-  private static final String HTTP_PROXY_PORT = "http.proxyPort";
+  public static final String HTTP_USE_PROXY = "http.useProxy";
+  public static final String HTTPS_PROXY_HOST = "https.proxyHost";
+  public static final String HTTPS_PROXY_PORT = "https.proxyPort";
+  public static final String HTTP_PROXY_HOST = "http.proxyHost";
+  public static final String HTTP_PROXY_PORT = "http.proxyPort";
+
+  public static final String JDK_HTTP_AUTH_TUNNELING = "jdk.http.auth.tunneling.disabledSchemes";
+  public static final String HTTPS_PROXY_USER = "https.proxyUser";
+  public static final String HTTPS_PROXY_PASSWORD = "https.proxyPassword";
+  public static final String HTTP_PROXY_USER = "http.proxyUser";
+  public static final String HTTP_PROXY_PASSWORD = "http.proxyPassword";
+
 
   //jdbc log dir
   public static final String JAVA_IO_TMPDIR = "java.io.tmpdir";
@@ -202,6 +211,33 @@ public class Utils
   }
 
   /**
+   * validate whether proxy settings in the config is valid
+   * @param config connector configuration
+   */
+  static void validateProxySetting(Map<String, String> config)
+  {
+    String host = SnowflakeSinkConnectorConfig.getProperty(config, SnowflakeSinkConnectorConfig.JVM_PROXY_HOST);
+    String port = SnowflakeSinkConnectorConfig.getProperty(config, SnowflakeSinkConnectorConfig.JVM_PROXY_PORT);
+    // either both host and port are provided or none of them are provided
+    if (host != null ^ port != null)
+    {
+      throw SnowflakeErrors.ERROR_0022.getException(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST +
+        " and " + SnowflakeSinkConnectorConfig.JVM_PROXY_PORT + " must be provided together");
+    }
+    else if (host != null)
+    {
+      String username = SnowflakeSinkConnectorConfig.getProperty(config, SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME);
+      String password = SnowflakeSinkConnectorConfig.getProperty(config, SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD);
+      // either both username and password are provided or none of them are provided
+      if (username != null ^ password != null)
+      {
+        throw SnowflakeErrors.ERROR_0023.getException(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME +
+          " and " + SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD + " must be provided together");
+      }
+    }
+  }
+
+  /**
    * Enable JVM proxy
    *
    * @param config connector configuration
@@ -209,29 +245,36 @@ public class Utils
    */
   static boolean enableJVMProxy(Map<String, String> config)
   {
-    if (config.containsKey(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST) &&
-      !config.get(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST).isEmpty())
+    String host = SnowflakeSinkConnectorConfig.getProperty(config, SnowflakeSinkConnectorConfig.JVM_PROXY_HOST);
+    String port = SnowflakeSinkConnectorConfig.getProperty(config, SnowflakeSinkConnectorConfig.JVM_PROXY_PORT);
+    if (host != null && port != null)
     {
-      if (!config.containsKey(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT) ||
-        config.get(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT).isEmpty())
-      {
-        LOGGER.error(Logging.logMessage("{} is empty",
-          SnowflakeSinkConnectorConfig.JVM_PROXY_PORT));
-        return false;
-      }
-      else
-      {
-        String host = config.get(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST);
-        String port = config.get(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT);
-        LOGGER.info(Logging.logMessage("enable jvm proxy: {}:{}",
-          host, port));
+      LOGGER.info(Logging.logMessage("enable jvm proxy: {}:{}", host, port));
 
-        //enable https proxy
-        System.setProperty(HTTP_USE_PROXY, "true");
-        System.setProperty(HTTP_PROXY_HOST, host);
-        System.setProperty(HTTP_PROXY_PORT, port);
-        System.setProperty(HTTPS_PROXY_HOST, host);
-        System.setProperty(HTTPS_PROXY_PORT, port);
+      // enable https proxy
+      System.setProperty(HTTP_USE_PROXY, "true");
+      System.setProperty(HTTP_PROXY_HOST, host);
+      System.setProperty(HTTP_PROXY_PORT, port);
+      System.setProperty(HTTPS_PROXY_HOST, host);
+      System.setProperty(HTTPS_PROXY_PORT, port);
+
+      // set username and password
+      String username = SnowflakeSinkConnectorConfig.getProperty(config, SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME);
+      String password = SnowflakeSinkConnectorConfig.getProperty(config, SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD);
+      if (username != null && password != null) {
+        Authenticator.setDefault(
+          new Authenticator() {
+            @Override
+            public PasswordAuthentication getPasswordAuthentication() {
+              return new PasswordAuthentication(username, password.toCharArray());
+            }
+          }
+        );
+        System.setProperty(JDK_HTTP_AUTH_TUNNELING, "");
+        System.setProperty(HTTP_PROXY_USER, username);
+        System.setProperty(HTTP_PROXY_PASSWORD, password);
+        System.setProperty(HTTPS_PROXY_USER, username);
+        System.setProperty(HTTPS_PROXY_PASSWORD, password);
       }
     }
 
@@ -419,7 +462,14 @@ public class Utils
       configIsValid = false;
     }
     // jvm proxy settings
-    configIsValid = Utils.enableJVMProxy(config) && configIsValid;
+    try
+    {
+      validateProxySetting(config);
+    } catch (SnowflakeKafkaConnectorException e)
+    {
+      LOGGER.error(Logging.logMessage("Proxy settings error: ", e.getMessage()));
+      configIsValid = false;
+    }
 
     // set jdbc logging directory
     Utils.setJDBCLoggingDirectory();
