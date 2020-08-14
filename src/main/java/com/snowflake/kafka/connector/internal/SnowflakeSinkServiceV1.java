@@ -175,6 +175,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
   }
 
   @Override
+  public void setIsStoppedToTrue()
+  {
+    this.isStopped = true; // release all cleaner and flusher threads
+  }
+
+  @Override
   public boolean isClosed()
   {
     return this.isStopped;
