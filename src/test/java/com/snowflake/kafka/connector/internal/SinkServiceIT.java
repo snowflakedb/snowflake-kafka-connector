@@ -13,6 +13,7 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import io.confluent.connect.avro.AvroConverter;
@@ -24,6 +25,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
 public class SinkServiceIT
 {
@@ -704,5 +709,94 @@ public class SinkServiceIT
   int getStageSize(String stage, String table, int partition)
   {
     return conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition)).size();
+  }
+
+  @Test
+  public void testCleanerRecover() throws Exception
+  {
+    conn.createTable(table);
+    conn.createStage(stage);
+    SnowflakeConnectionService spyConn = spy(conn);
+
+    SnowflakeSinkService service =
+      SnowflakeSinkServiceFactory
+        .builder(spyConn)
+        .setRecordNumber(1)
+        .addTask(table, topic, partition)
+        .build();
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input = converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+    long offset = 0;
+
+    SinkRecord record1 = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
+      , "test", input.schema(), input.value(), offset);
+
+    service.insert(record1);
+    TestUtils.assertWithRetry(() -> spyConn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
+      table, partition)).size() == 1,
+      5, 4);
+
+    // ingest files
+    service.callAllGetOffset();
+
+    System.out.println("break connection");
+    doThrow(SnowflakeErrors.ERROR_2001.getException()).when(spyConn).purgeStage(anyString(), anyList());
+    Thread.sleep(SnowflakeSinkServiceV1.CLEAN_TIME * 2);
+
+    System.out.println("recover connection");
+    doCallRealMethod().when(spyConn).purgeStage(anyString(), anyList());
+
+    // read ingestHistory
+    Thread.sleep(420000);
+
+    TestUtils.assertWithRetry(() -> spyConn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
+      table, partition)).size() == 0,
+      30, 8);
+  }
+
+  /**
+   * This test is ignored because it is tested manually.
+   */
+  @Ignore
+  public void testCleanerRecoverListCount() throws Exception
+  {
+    conn.createTable(table);
+    conn.createStage(stage);
+    SnowflakeConnectionService spyConn = spy(conn);
+
+    SnowflakeSinkService service =
+      SnowflakeSinkServiceFactory
+        .builder(spyConn)
+        .setRecordNumber(1)
+        .addTask(table, topic, partition)
+        .build();
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input = converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+    long offset = 0;
+
+    SinkRecord record1 = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
+      , "test", input.schema(), input.value(), offset);
+
+    service.insert(record1);
+    TestUtils.assertWithRetry(() -> spyConn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
+      table, partition)).size() == 1,
+      5, 4);
+
+    System.out.println("break connection");
+    service.callAllGetOffset();
+    doThrow(SnowflakeErrors.ERROR_2001.getException()).when(spyConn).purgeStage(anyString(), anyList());
+    Thread.sleep(120000);
+
+    System.out.println("recover connection");
+    doCallRealMethod().when(spyConn).purgeStage(anyString(), anyList());
+
+    // count how many list statement are here
+    Thread.sleep(1200000);
+
+    TestUtils.assertWithRetry(() -> spyConn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
+      table, partition)).size() == 0,
+      60, 8);
   }
 }
