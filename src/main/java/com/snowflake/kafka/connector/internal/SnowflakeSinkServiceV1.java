@@ -24,7 +24,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 {
   private static final long ONE_HOUR = 60 * 60 * 1000L;
   private static final long TEN_MINUTES = 10 * 60 * 1000L;
-  private static final long CLEAN_TIME = 60 * 1000L; //one minutes
+  protected static final long CLEAN_TIME = 60 * 1000L; //one minutes
 
   private long flushTime; // in seconds
   private long fileSize;
@@ -351,7 +351,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private boolean resetCleanerFiles() {
       try {
-        logWarn("Resetting cleaner files", pipeName);
+        logWarn("Resetting cleaner files {}", pipeName);
         // list stage again and try to clean the files leaked on stage
         // this can throw unchecked, it needs to be wrapped in a try/catch
         // if it fails again do not reset forceCleanerFileReset
@@ -364,8 +364,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
           fileListLock.unlock();
         }
         forceCleanerFileReset = false;
+        logWarn("Resetting cleaner files {} done", pipeName);
       } catch (Throwable t) {
-        logWarn("Cleaner file reset encountered an error{}:\n", t.getMessage());
+        logWarn("Cleaner file reset encountered an error:\n{}", t.getMessage());
       }
 
       return forceCleanerFileReset;
