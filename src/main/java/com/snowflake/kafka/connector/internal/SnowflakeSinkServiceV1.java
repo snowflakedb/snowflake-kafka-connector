@@ -622,7 +622,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       String fileName = FileNameUtils.fileName(prefix, buff.getFirstOffset(),
                                                buff.getLastOffset());
       String content = buff.getData();
-      conn.put(stageName, fileName, content);
+      conn.putWithCache(stageName, fileName, content);
 
       flushedOffset.set(Math.max(buff.getLastOffset() + 1, flushedOffset.get()));
       fileListLock.lock();

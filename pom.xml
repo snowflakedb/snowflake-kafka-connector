@@ -387,10 +387,18 @@
         </dependency>
 
         <!--JDBC driver for building connection with Snowflake-->
+<!--        <dependency>-->
+<!--            <groupId>net.snowflake</groupId>-->
+<!--            <artifactId>snowflake-jdbc</artifactId>-->
+<!--            <version>3.11.1</version>-->
+<!--        </dependency>-->
+
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-jdbc</artifactId>
-            <version>3.11.1</version>
+            <version>3.12.10</version>
+            <scope>system</scope>
+            <systemPath>/Users/zli/soft/snowflake-kafka-connector/snowflake-jdbc.jar</systemPath>
         </dependency>
 
         <!--junit for unit test-->
