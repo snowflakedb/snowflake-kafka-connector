@@ -156,7 +156,10 @@ public class SnowflakeSinkTask extends SinkTask
   public void stop()
   {
     LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:stop", this.id));
-    // do nothing
+    if (this.sink != null)
+    {
+      this.sink.setIsStoppedToTrue(); // close cleaner thread
+    }
   }
 
   /**
