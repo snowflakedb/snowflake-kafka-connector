@@ -26,7 +26,7 @@
     <dependency>
       <groupId>net.snowflake</groupId>
       <artifactId>snowflake-jdbc</artifactId>
-      <version>3.12.3</version>
+      <version>3.12.10</version>
     </dependency>
     <dependency>
       <groupId>org.apache.kafka</groupId>
