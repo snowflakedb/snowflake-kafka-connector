@@ -397,12 +397,12 @@ public class Utils
       {
         long bsb = Long.parseLong(config.get(SnowflakeSinkConnectorConfig
           .BUFFER_SIZE_BYTES));
-        if (bsb > SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX)   // 100mb
+        if (bsb <= SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN)   // 100mb
         {
-          LOGGER.error(Logging.logMessage("{} is too high at {}. It must be " +
-              "{} or smaller.",
+          LOGGER.error(Logging.logMessage("{} is too low at {}. It must be " +
+              "{} or greater.",
             SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, bsb,
-            SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX));
+            SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN));
           configIsValid = false;
         }
       } catch (Exception e)
