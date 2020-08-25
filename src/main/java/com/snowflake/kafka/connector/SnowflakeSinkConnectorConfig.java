@@ -48,7 +48,7 @@ public class SnowflakeSinkConnectorConfig
   public static final long BUFFER_COUNT_RECORDS_DEFAULT = 10000;
   static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
   public static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
-  public static final long BUFFER_SIZE_BYTES_MAX = 100000000;
+  public static final long BUFFER_SIZE_BYTES_MIN = 1;
   static final String TOPICS_TABLES_MAP = "snowflake.topic2table.map";
 
   // Time in seconds
@@ -256,7 +256,7 @@ public class SnowflakeSinkConnectorConfig
       .define(BUFFER_SIZE_BYTES,
         Type.LONG,
         BUFFER_SIZE_BYTES_DEFAULT,
-        ConfigDef.Range.between(1, BUFFER_SIZE_BYTES_MAX),
+        ConfigDef.Range.atLeast(1),
         Importance.LOW,
         "Cumulative size of records buffered in memory per partition before triggering Snowflake ingestion",
         CONNECTOR_CONFIG,
