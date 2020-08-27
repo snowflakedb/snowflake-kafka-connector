@@ -60,6 +60,9 @@ public class HeaderTest
     String bigDecimalName = "bigDecimal";
     BigDecimal bigDecimalData = new BigDecimal("1234.1234");
 
+    String bigDecimalExceedsMaxPrecisionName = "bigDecimalExceedsMaxPrecision";
+    BigDecimal bigDecimalExceedsMaxPrecisionData = new BigDecimal("999999999999999999999999999999999999999");
+
     String dateName = "date";
     Date dateData = new Date(1577836800000L);
     String timeName = "time";
@@ -77,6 +80,7 @@ public class HeaderTest
     headers.addString(stringName, stringData);
     headers.addBytes(bytesName, bytesData);
     headers.addDecimal(bigDecimalName, bigDecimalData);
+    headers.addDecimal(bigDecimalExceedsMaxPrecisionName, bigDecimalExceedsMaxPrecisionData);
     headers.addDate(dateName, dateData);
     headers.addTime(timeName, timeData);
     headers.addTimestamp(timestampName, timestampData);
@@ -113,6 +117,7 @@ public class HeaderTest
     assert headerNode.get(timeName).asText().equals(TIME_FORMAT.format(timeData));
     assert headerNode.has(timestampName);
     assert headerNode.get(timestampName).asLong() == timestampData.getTime();
+    assert headerNode.get(bigDecimalExceedsMaxPrecisionName).asText().equals(bigDecimalExceedsMaxPrecisionData.toString());
 
     //array
     headers = new ConnectHeaders();
