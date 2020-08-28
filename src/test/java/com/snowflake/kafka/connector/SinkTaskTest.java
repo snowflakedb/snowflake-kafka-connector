@@ -28,8 +28,8 @@ public class SinkTaskTest {
     Map<String, String> config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "127.0.0.1");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "wronghost");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "wrongport");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "user");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "password");
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
@@ -39,10 +39,10 @@ public class SinkTaskTest {
     } catch (SnowflakeKafkaConnectorException e)
     {
       assert System.getProperty(Utils.HTTP_USE_PROXY).equals("true");
-      assert System.getProperty(Utils.HTTP_PROXY_HOST).equals("127.0.0.1");
-      assert System.getProperty(Utils.HTTP_PROXY_PORT).equals("3128");
-      assert System.getProperty(Utils.HTTPS_PROXY_HOST).equals("127.0.0.1");
-      assert System.getProperty(Utils.HTTPS_PROXY_PORT).equals("3128");
+      assert System.getProperty(Utils.HTTP_PROXY_HOST).equals("wronghost");
+      assert System.getProperty(Utils.HTTP_PROXY_PORT).equals("wrongport");
+      assert System.getProperty(Utils.HTTPS_PROXY_HOST).equals("wronghost");
+      assert System.getProperty(Utils.HTTPS_PROXY_PORT).equals("wrongport");
       assert System.getProperty(Utils.JDK_HTTP_AUTH_TUNNELING).isEmpty();
       assert System.getProperty(Utils.HTTP_PROXY_USER).equals("user");
       assert System.getProperty(Utils.HTTP_PROXY_PASSWORD).equals("password");
