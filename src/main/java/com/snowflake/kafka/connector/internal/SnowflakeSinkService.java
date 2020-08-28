@@ -85,9 +85,9 @@ public interface SnowflakeSinkService
   void setRecordNumber(long num);
 
   /**
-   * change maximum data size of buffer to control the flush rate,
-   * the maximum file size is controlled by
-   * {@link com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES_MAX}
+   * change data size of buffer to control the flush rate,
+   * the minimum file size is controlled by
+   * {@link com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES_MIN}
    * @param size a non negative long number represents data size limitation
    */
   void setFileSize(long size);
