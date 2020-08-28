@@ -397,7 +397,7 @@ public class Utils
       {
         long bsb = Long.parseLong(config.get(SnowflakeSinkConnectorConfig
           .BUFFER_SIZE_BYTES));
-        if (bsb <= SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN)   // 1 byte
+        if (bsb < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN)   // 1 byte
         {
           LOGGER.error(Logging.logMessage("{} is too low at {}. It must be " +
               "{} or greater.",
