@@ -96,11 +96,6 @@ public class TestUtils
     conf.put(Utils.SF_URL, getProfile().get(HOST).asText());
     conf.put(Utils.SF_WAREHOUSE, getProfile().get(WAREHOUSE).asText());
     conf.put(Utils.SF_PRIVATE_KEY, getProfile().get(PRIVATE_KEY).asText());
-
-    JsonNode passphrase = getProfile().get(PRIVATE_KEY_PASSPHRASE);
-    if (passphrase!= null){
-    conf.put(Utils.PRIVATE_KEY_PASSPHRASE, passphrase.asText());
-  }
     conf.put(Utils.NAME, TEST_CONNECTOR_NAME);
 
     //enable test query mark
