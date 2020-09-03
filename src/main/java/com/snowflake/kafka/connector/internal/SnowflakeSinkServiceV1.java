@@ -205,13 +205,13 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
   @Override
   public void setFileSize(final long size)
   {
-    if (size > SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX)
+    if (size < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN)
     {
-      logError("file size is {} bytes, it is larger than the maximum file " +
-          "size {} bytes, reset to the maximum file size",
-        size, SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX
+      logError("file size is {} bytes, it is smaller than the minimum file " +
+          "size {} bytes, reset to the default file size",
+        size, SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT
       );
-      this.fileSize = SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX;
+      this.fileSize = SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
     }
     else
     {
