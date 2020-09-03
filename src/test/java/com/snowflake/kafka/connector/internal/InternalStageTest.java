@@ -1,9 +1,21 @@
 package com.snowflake.kafka.connector.internal;
 
+import net.snowflake.client.core.OCSPMode;
+import net.snowflake.client.core.SFStatement;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
+import net.snowflake.client.jdbc.SnowflakeFileTransferAgent;
+import net.snowflake.client.jdbc.SnowflakeFileTransferConfig;
+import net.snowflake.client.jdbc.SnowflakeFileTransferMetadataV1;
+import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 import org.junit.After;
+import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 
 public class InternalStageTest {
@@ -13,9 +25,10 @@ public class InternalStageTest {
   private final String stageName1 = TestUtils.randomStageName();
   private final String stageName2 = TestUtils.randomStageName();
   private final String stageName3 = TestUtils.randomStageName();
+  private final String stageNameExpire= "kafka_connector_test_stage_credential_cache_expire";
 
   @After
-  public void afterEach()
+  public void afterAll()
   {
     service.dropStage(stageName1);
     service.dropStage(stageName2);
@@ -64,6 +77,53 @@ public class InternalStageTest {
     System.out.println(Logging.logMessage("Time: {} ms",
       (System.currentTimeMillis() - startTime)));
 
+  }
+
+  @Ignore
+  @Test
+  /**
+   * This test is manually tested as it takes around 2 hours
+   */
+  public void testCredentialExpire() throws Exception
+  {
+    service.createStage(stageNameExpire);
+    List<String> filesToDelete = service.listStage(stageNameExpire, "testExpire");
+    service.purgeStage(stageNameExpire, filesToDelete);
+    SnowflakeConnectionV1 conn = (SnowflakeConnectionV1) service.getConnection();
+
+    String fullFilePath = "testExpire1";
+    String data = "Any cache";
+
+    String command = SnowflakeInternalStage.dummyPutCommandTemplate + stageNameExpire;
+
+    SnowflakeFileTransferAgent agent = new SnowflakeFileTransferAgent(
+      command,
+      conn.getSfSession(),
+      new SFStatement(conn.getSfSession())
+    );
+
+    SnowflakeFileTransferMetadataV1 fileTransferMetadata =
+      (SnowflakeFileTransferMetadataV1) agent.getFileTransferMetadatas().get(0);
+
+    // Set filename to be uploaded
+    fileTransferMetadata.setPresignedUrlFileName(fullFilePath);
+
+    byte[] dataBytes = data.getBytes(StandardCharsets.UTF_8);
+    InputStream inStream = new ByteArrayInputStream(dataBytes);
+
+    // Sleep until it expire
+    Thread.sleep(2 * 60 * 60 * 1000);
+
+    SnowflakeFileTransferAgent.uploadWithoutConnection(
+      SnowflakeFileTransferConfig.Builder.newInstance()
+        .setSnowflakeFileTransferMetadata(fileTransferMetadata)
+        .setUploadStream(inStream)
+        .setRequireCompress(true)
+        .setOcspMode(OCSPMode.FAIL_OPEN)
+        .build());
+
+    List<String> filesExpire = service.listStage(stageNameExpire, "testExpire");
+    assert filesExpire.size() == 1;
   }
 
 }

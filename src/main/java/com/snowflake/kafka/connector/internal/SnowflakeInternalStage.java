@@ -15,7 +15,7 @@ public class SnowflakeInternalStage {
 
   private Map<String, SnowflakeFileTransferMetadataV1> storageInfoCache = new HashMap<>();
 
-  private String dummyPutCommandTemplate = "PUT file:///tmp/dummy_location_kakfa_connector_tmp/ @";
+  public static String dummyPutCommandTemplate = "PUT file:///tmp/dummy_location_kakfa_connector_tmp/ @";
 
   private SnowflakeConnectionV1 conn;
 
@@ -81,8 +81,6 @@ public class SnowflakeInternalStage {
           .setUploadStream(inStream)
           .setRequireCompress(true)
           .setOcspMode(OCSPMode.FAIL_OPEN)
-          .setSFSession(conn.getSfSession())
-          .setCommand(command)
           .build());
 
     } catch (Exception e)
