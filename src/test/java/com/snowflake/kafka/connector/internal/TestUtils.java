@@ -96,6 +96,7 @@ public class TestUtils
     conf.put(Utils.SF_URL, getProfile().get(HOST).asText());
     conf.put(Utils.SF_WAREHOUSE, getProfile().get(WAREHOUSE).asText());
     conf.put(Utils.SF_PRIVATE_KEY, getProfile().get(PRIVATE_KEY).asText());
+
     conf.put(Utils.NAME, TEST_CONNECTOR_NAME);
 
     //enable test query mark

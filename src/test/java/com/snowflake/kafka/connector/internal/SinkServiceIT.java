@@ -94,23 +94,23 @@ public class SinkServiceIT
 
     //set some value
     service = SnowflakeSinkServiceFactory.builder(conn)
-      .setFileSize(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX - 10)
+      .setFileSize(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT * 4)
       .setFlushTime(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN + 10)
       .setRecordNumber(10)
       .build();
 
     assert service.getRecordNumber() == 10;
     assert service.getFlushTime() == SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN + 10;
-    assert service.getFileSize() == SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX - 10;
+    assert service.getFileSize() == SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT * 4;
 
     //set some invalid value
     service = SnowflakeSinkServiceFactory.builder(conn)
       .setRecordNumber(-100)
       .setFlushTime(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN - 10)
-      .setFileSize(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX + 10)
+      .setFileSize(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN - 1)
       .build();
 
-    assert service.getFileSize() == SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX;
+    assert service.getFileSize() == SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
     assert service.getFlushTime() == SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN;
     assert service.getRecordNumber() == 0;
 
