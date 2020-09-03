@@ -163,7 +163,7 @@ public class ConnectorConfigTest
   {
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-      SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX + 1 + "");
+      SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN - 1 + "");
     Utils.validateConfig(config);
   }
 
