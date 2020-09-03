@@ -28,7 +28,6 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.*;
 import org.apache.kafka.connect.data.Date;
-import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;

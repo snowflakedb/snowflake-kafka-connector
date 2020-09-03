@@ -44,14 +44,15 @@ public class HeaderTest
     String shortName = "short";
     short shortData = 128;
     String intName = "int";
-    int intData = 32767;
+    int intData = Integer.MAX_VALUE;
     String longName = "long";
-    long longData = 1234567890123L;
+    long longData = Long.MAX_VALUE;
     String floatName = "float";
-    float floatData = 1.234f;
+    float floatData = 1/3f;
     String doubleName = "double";
-    double doubleData = 123.23432532345;
+    double doubleData = 1/3d;
     String booleanName = "boolean";
+
     boolean booleanData = true;
     String stringName = "string";
     String stringData = "test test";
