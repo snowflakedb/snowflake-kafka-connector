@@ -215,12 +215,12 @@ public class SnowflakeSinkTask extends SinkTask
   public void put(final Collection<SinkRecord> records)
   {
     long startTime = System.currentTimeMillis();
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records",
+    LOGGER.debug(Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records",
       this.id, records.size()));
     //log more info may impact performance
     getSink().insert(records);
 
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records. Time: {} seconds",
+    LOGGER.debug(Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records. Time: {} seconds",
       this.id, records.size(), (System.currentTimeMillis() - startTime) / 1000));
   }
 
