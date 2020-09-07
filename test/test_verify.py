@@ -1,8 +1,7 @@
 from confluent_kafka import Producer
 from confluent_kafka.avro import AvroProducer
-from confluent_kafka.admin import AdminClient
+from confluent_kafka.admin import AdminClient, NewTopic
 from time import sleep
-from kafka.admin import NewTopic
 from test_suit.test_utils import parsePrivateKey
 
 import json
