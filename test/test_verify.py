@@ -3,6 +3,7 @@ from confluent_kafka.avro import AvroProducer
 from confluent_kafka.admin import AdminClient, NewTopic
 from time import sleep
 from test_suit.test_utils import parsePrivateKey
+
 import json
 import os
 import re
@@ -10,6 +11,7 @@ import sys
 import snowflake.connector
 import test_suit
 import requests
+import traceback
 
 
 def errorExit(message):
@@ -39,6 +41,7 @@ class KafkaTest:
 
         self.kafkaConnectAddress = kafkaConnectAddress
         self.schemaRegistryAddress = schemaRegistryAddress
+        self.kafkaAddress = kafkaAddress
 
         self.adminClient = AdminClient({"bootstrap.servers": kafkaAddress})
         self.producer = Producer({'bootstrap.servers': kafkaAddress})
@@ -220,8 +223,8 @@ class KafkaTest:
         if retry == MAX_RETRY:
             errorExit("\n=== max retry exceeded, kafka connect not ready in 10 mins ===")
 
-        r = requests.post(post_url, json=json.loads(config), headers=self.httpHeader).content.decode("utf-8")
-        print(json.loads(r)["name"])
+        r = requests.post(post_url, json=json.loads(config), headers=self.httpHeader)
+        print(json.loads(r.content.decode("utf-8"))["name"], r.status_code)
 
 
 def runTestSet(driver, testSet, nameSalt, pressure):
@@ -239,6 +242,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_pressure_restart import TestPressureRestart
 
     from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
+    from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
 
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
@@ -254,19 +258,20 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testPressureRestart = TestPressureRestart(driver, nameSalt)
 
     testNativeStringProtobuf = TestNativeStringProtobuf(driver, nameSalt)
+    testConfluentProtobufProtobuf = TestConfluentProtobufProtobuf(driver, nameSalt)
 
     ############################ round 1 ############################
     print("\n=== Round 1 ===")
     testSuitList1 = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
                      testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
-                     testNativeComplexSmt, testNativeStringProtobuf, testPressure]
+                     testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf, testPressure]
 
-    testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, pressure]
+    testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True, pressure]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, pressure]
+        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, True, pressure]
     elif testSet == "apache":
-        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, pressure]
+        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False, pressure]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
@@ -321,6 +326,7 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
             print("\n=== All test passed ===")
         except Exception as e:
             print(e)
+            traceback.print_tb(e.__traceback__)
             print("Error: ", sys.exc_info()[0])
             exit(1)
 
