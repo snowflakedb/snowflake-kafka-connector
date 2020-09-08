@@ -1,0 +1,16 @@
+{
+"name":"SNOWFLAKE_CONNECTOR_NAME",
+  "config":{
+    "connector.class":"com.snowflake.kafka.connector.SnowflakeSinkConnector",
+    "topics":"SNOWFLAKE_TEST_TOPIC",
+    "snowflake.url.name":"SNOWFLAKE_HOST",
+    "snowflake.user.name":"SNOWFLAKE_USER",
+    "snowflake.private.key":"SNOWFLAKE_PRIVATE_KEY",
+    "snowflake.database.name":"SNOWFLAKE_DATABASE",
+    "snowflake.schema.name":"SNOWFLAKE_SCHEMA",
+    "key.converter":"io.confluent.connect.protobuf.ProtobufConverter",
+    "key.converter.schema.registry.url":"CONFLUENT_SCHEMA_REGISTRY",
+    "value.converter":"io.confluent.connect.protobuf.ProtobufConverter",
+    "value.converter.schema.registry.url":"CONFLUENT_SCHEMA_REGISTRY"
+  }
+}
