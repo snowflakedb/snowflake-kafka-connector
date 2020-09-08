@@ -215,13 +215,12 @@ public class SnowflakeSinkTask extends SinkTask
   public void put(final Collection<SinkRecord> records)
   {
     long startTime = System.currentTimeMillis();
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records",
+    LOGGER.debug(Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records",
       this.id, records.size()));
-    //log more info may impact performance
+
     getSink().insert(records);
 
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records. Time: {} seconds",
-      this.id, records.size(), (System.currentTimeMillis() - startTime) / 1000));
+    logWarningForPutAndPrecommit(startTime, records.size(), "put");
   }
 
   /**
@@ -240,7 +239,7 @@ public class SnowflakeSinkTask extends SinkTask
     throws RetriableException
   {
     long startTime = System.currentTimeMillis();
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit {}", this.id, offsets.size()));
+    LOGGER.debug(Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit {}", this.id, offsets.size()));
 
     // return an empty map means that offset commitment is not desired
     if (sink == null || sink.isClosed())
@@ -274,8 +273,8 @@ public class SnowflakeSinkTask extends SinkTask
         "while preCommit: {} ", this.id, e.getMessage()));
       return new HashMap<>();
     }
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit {}. Time: {} seconds", this.id,
-      offsets.size(), (System.currentTimeMillis() - startTime) / 1000));
+
+    logWarningForPutAndPrecommit(startTime, offsets.size(), "preCommit");
     return committedOffsets;
   }
 
@@ -330,6 +329,21 @@ public class SnowflakeSinkTask extends SinkTask
       Thread.sleep(WAIT_TIME);
     }
     throw new TimeoutException();
+  }
+
+  private void logWarningForPutAndPrecommit(long startTime, int size, String apiName)
+  {
+    long executionTime = (System.currentTimeMillis() - startTime) / 1000;
+    if (executionTime > 300)
+    {
+      // This won't be frequently printed. It is vary rare to have execution greater than 300 seconds.
+      // But having this warning helps customer to debug their Kafka Connect config.
+      LOGGER.warn(Logging.logMessage("SnowflakeSinkTask[ID:{}]:{} {}. " +
+          "Time: {} seconds > 300 seconds. If there is CommitFailedException in the log or there is " +
+          "duplicated records, refer to this link for solution: " +
+          "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
+        this.id, apiName, size, executionTime));
+    }
   }
 
 }
