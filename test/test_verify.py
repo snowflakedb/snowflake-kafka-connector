@@ -269,7 +269,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True, pressure]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, True, pressure]
+        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False, pressure]
     elif testSet == "apache":
         testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False, pressure]
     elif testSet != "clean":
