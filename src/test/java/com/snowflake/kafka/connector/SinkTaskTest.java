@@ -48,6 +48,17 @@ public class SinkTaskTest {
       assert System.getProperty(Utils.HTTP_PROXY_PASSWORD).equals("password");
       assert System.getProperty(Utils.HTTPS_PROXY_USER).equals("user");
       assert System.getProperty(Utils.HTTPS_PROXY_PASSWORD).equals("password");
+
+      System.setProperty(Utils.HTTP_USE_PROXY, "");
+      System.setProperty(Utils.HTTP_PROXY_HOST, "");
+      System.setProperty(Utils.HTTP_PROXY_PORT, "");
+      System.setProperty(Utils.HTTPS_PROXY_HOST, "");
+      System.setProperty(Utils.HTTPS_PROXY_PORT, "");
+      System.setProperty(Utils.JDK_HTTP_AUTH_TUNNELING, "");
+      System.setProperty(Utils.HTTP_PROXY_USER, "");
+      System.setProperty(Utils.HTTP_PROXY_PASSWORD, "");
+      System.setProperty(Utils.HTTPS_PROXY_USER, "");
+      System.setProperty(Utils.HTTPS_PROXY_PASSWORD, "");
       throw e;
     }
   }
