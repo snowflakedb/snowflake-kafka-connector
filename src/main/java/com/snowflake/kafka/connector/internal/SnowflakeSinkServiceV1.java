@@ -292,6 +292,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     //threads
     private final ExecutorService cleanerExecutor;
+    private final ExecutorService reprocessCleanerExecutor;
     private final Lock bufferLock;
     private final Lock fileListLock;
     private final Lock usageDataLock;
@@ -333,11 +334,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       this.startTime = System.currentTimeMillis();
 
       this.cleanerExecutor = Executors.newSingleThreadExecutor();
+      this.reprocessCleanerExecutor = Executors.newSingleThreadExecutor();
 
       logInfo("pipe: {} - service started", pipeName);
     }
 
-    private void init()
+    private void init(long recordOffset)
     {
       logInfo("init pipe: {}", pipeName);
       // wait for sinkConnector to start
@@ -347,7 +349,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
       try
       {
-        startCleaner();
+        startCleaner(recordOffset);
       } catch (Exception e)
       {
         logWarn("Cleaner and Flusher threads shut down before initialization");
@@ -379,10 +381,14 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     }
 
 
-    private void startCleaner()
+    private void startCleaner(long recordOffset)
     {
-      // when cleaner start, scan stage for all files of this pipe
+      // When cleaner start, scan stage for all files of this pipe.
+      // If we know that we are going to reprocess the file, then safely delete the file.
       List<String> tmpFileNames = conn.listStage(stageName, prefix);
+      List<String> reprocessFiles = new ArrayList<>();
+      fileterFileReprocess(tmpFileNames, reprocessFiles, recordOffset);
+
       fileListLock.lock();
       try
       {
@@ -426,11 +432,48 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
           }
         }
       );
+
+      if (reprocessFiles.size() > 0)
+      {
+        // After we start the cleaner thread, delay a while and start deleting files.
+        reprocessCleanerExecutor.submit(() ->
+        {
+          try
+          {
+            Thread.sleep(CLEAN_TIME);
+            purge(reprocessFiles);
+          } catch (Exception e)
+          {
+            logError("Reprocess cleaner encountered an exception {}:\n{}\n{}",
+              e.getClass(), e.getMessage(), e.getStackTrace());
+          }
+        });
+      }
+
+    }
+
+    private void fileterFileReprocess(List<String> tmpFileNames, List<String> reprocessFiles, long recordOffset)
+    {
+      // iterate over a copy since reprocess files get removed from it
+      new LinkedList<>(tmpFileNames).forEach(
+        name ->
+        {
+          long fileStartOffset = FileNameUtils.fileNameToStartOffset(name);
+          // If start offset of this file is greater than the offset of the record that is sent to the connector,
+          // all content of this file will be reprocessed. Thus this file can be deleted.
+          if (recordOffset <= fileStartOffset)
+          {
+            reprocessFiles.add(name);
+            tmpFileNames.remove(name);
+          }
+        }
+      );
     }
 
     private void stopCleaner()
     {
       cleanerExecutor.shutdownNow();
+      reprocessCleanerExecutor.shutdownNow();
       logInfo("pipe {}: cleaner terminated", pipeName);
     }
 
@@ -439,7 +482,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       //init pipe
       if (!hasInitialized)
       {
-        init();
+        init(record.kafkaOffset());
         this.hasInitialized = true;
       }
 

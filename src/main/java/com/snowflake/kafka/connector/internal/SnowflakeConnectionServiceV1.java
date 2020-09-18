@@ -577,10 +577,10 @@ public class SnowflakeConnectionServiceV1 extends Logging
       {
         throw SnowflakeErrors.ERROR_2003.getException(e);
       }
-      //remove
-      removeFile(stageName, name);
       logInfo("moved file: {} from stage: {} to table stage: {}", name,
         stageName, tableName);
+      //remove
+      removeFile(stageName, name);
     }
   }
 

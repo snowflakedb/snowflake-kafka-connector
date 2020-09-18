@@ -287,6 +287,7 @@ public class SinkServiceIT
       .field("boolean", Schema.BOOLEAN_SCHEMA)
       .field("string", Schema.STRING_SCHEMA)
       .field("bytes", Schema.BYTES_SCHEMA)
+      .field("bytesReadOnly", Schema.BYTES_SCHEMA)
       .field("int16Optional", Schema.OPTIONAL_INT16_SCHEMA)
       .field("int32Optional", Schema.OPTIONAL_INT32_SCHEMA)
       .field("int64Optional", Schema.OPTIONAL_INT64_SCHEMA)
@@ -326,6 +327,7 @@ public class SinkServiceIT
       .put("boolean", true)
       .put("string", "foo")
       .put("bytes", ByteBuffer.wrap("foo".getBytes()))
+      .put("bytesReadOnly", ByteBuffer.wrap("foo".getBytes()).asReadOnlyBuffer())
       .put("array", Arrays.asList("a", "b", "c"))
       .put("map", Collections.singletonMap("field", 1))
       .put("mapNonStringKeys", Collections.singletonMap(1, 1))
@@ -627,19 +629,22 @@ public class SinkServiceIT
   }
 
   @Test
-  public void testRecover() throws Exception
+  public void testRecoverReprocessFiles() throws Exception
   {
     String data = "{\"content\":{\"name\":\"test\"},\"meta\":{\"offset\":0," +
       "\"topic\":\"test\",\"partition\":0}}";
 
-    // Two hours ago
-    long time = System.currentTimeMillis() - 120 * 60 * 1000L;
+    // Two hours ago                         h   m    s    milli
+    long time = System.currentTimeMillis() - 2 * 60 * 60 * 1000L;
 
     String fileName1 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME,
       table, 0, 0, 0, time);
-
     String fileName2 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME,
       table, 0, 1, 1, time);
+    String fileName3 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME,
+      table, 0, 2, 3, time);
+    String fileName4 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME,
+      table, 0, 4, 5, time);
 
     conn.createStage(stage);
     conn.createTable(table);
@@ -648,12 +653,18 @@ public class SinkServiceIT
     SnowflakeIngestionService ingestionService =
       conn.buildIngestService(stage, pipe);
 
+    // File 1 is successfully ingested (ingest history can find this file, so removed)
+    // File 2 is not ingested, so moved to table stage
+    // File 3 is not ingested, so moved to table stage
+    // File 4 is removed by reprocess cleaner
     conn.put(stage, fileName1, data);
     conn.put(stage, fileName2, data);
+    conn.put(stage, fileName3, data);
+    conn.put(stage, fileName4, data);
 
     ingestionService.ingestFile(fileName1);
 
-    assert getStageSize(stage, table, 0) == 2;
+    assert getStageSize(stage, table, 0) == 4;
 
     SnowflakeSinkService service = SnowflakeSinkServiceFactory.builder(conn)
       .addTask(table, topic, partition)
@@ -662,16 +673,21 @@ public class SinkServiceIT
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
     SchemaAndValue result = converter.toConnectData(topic, "12321".getBytes(StandardCharsets.UTF_8));
+    // This record is ingested as well.
     SinkRecord record = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
-      , "test", result.schema(), result.value(), 1);
+      , "test", result.schema(), result.value(), 3);
     // lazy init and recovery function
     service.insert(record);
     // wait for async put
-    TestUtils.assertWithRetry(() -> getStageSize(stage, table, 0) == 3, 5, 10);
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, 0) == 5, 5, 10);
     // call snow pipe
     service.callAllGetOffset();
     // cleaner will remove previous files and ingested new file
     TestUtils.assertWithRetry(() -> getStageSize(stage, table, 0) == 0, 30, 10);
+
+    // verify that filename2 appears in table stage
+    List<String> files = conn.listStage(table, "", true);
+    assert files.size() == 2;
 
     service.closeAll();
   }
@@ -708,9 +724,14 @@ public class SinkServiceIT
 
   int getStageSize(String stage, String table, int partition)
   {
-    return conn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition)).size();
+    return conn.listStage(stage,
+      FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition)).size();
   }
 
+  /**
+   * Test whether cleaner can recover from network exceptions.
+   * @throws Exception
+   */
   @Test
   public void testCleanerRecover() throws Exception
   {
@@ -742,6 +763,7 @@ public class SinkServiceIT
 
     System.out.println("break connection");
     doThrow(SnowflakeErrors.ERROR_2001.getException()).when(spyConn).purgeStage(anyString(), anyList());
+    // Sleep two minutes so that cleaner encounters two exceptions.
     Thread.sleep(SnowflakeSinkServiceV1.CLEAN_TIME * 2);
 
     System.out.println("recover connection");
@@ -757,8 +779,11 @@ public class SinkServiceIT
 
   /**
    * This test is ignored because it is tested manually.
+   * Need to check snowflake query history to verify that there are only
+   * list stage commands every minutes for each pipe.
    */
   @Ignore
+  @Test
   public void testCleanerRecoverListCount() throws Exception
   {
     conn.createTable(table);
