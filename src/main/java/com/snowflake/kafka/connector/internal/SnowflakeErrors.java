@@ -212,8 +212,13 @@ public enum SnowflakeErrors
   ),
   ERROR_2010(
       "2010",
-      "Connection throttled",
-      "Connection is throttled either on GS or on Snowpipe"
+      "Max retry exceeded",
+      "Api retry exceeded the max retry limit"
+  ),
+  ERROR_2011(
+    "2011",
+    "Failed to upload file with cache",
+    "Failed to upload file to Snowflake Stage though credential caching"
   ),
   // Snowpipe related issues 3---
   ERROR_3001(

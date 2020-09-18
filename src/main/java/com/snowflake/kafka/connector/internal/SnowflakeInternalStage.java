@@ -10,20 +10,43 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class SnowflakeInternalStage {
 
-  private Map<String, SnowflakeFileTransferMetadataV1> storageInfoCache = new HashMap<>();
+  private class SnowflakeMetadataWithExpiration {
+    SnowflakeFileTransferMetadataV1 fileTransferMetadata;
+    long timestamp;
+
+    SnowflakeMetadataWithExpiration(SnowflakeFileTransferMetadataV1 fileTransferMetadata, long timestamp)
+    {
+      this.fileTransferMetadata = fileTransferMetadata;
+      this.timestamp = timestamp;
+    }
+  }
 
   public static String dummyPutCommandTemplate = "PUT file:///tmp/dummy_location_kakfa_connector_tmp/ @";
 
-  private SnowflakeConnectionV1 conn;
+  // Lock to gard the credential map
+  private final Lock credentialLock;
+  private Map<String, SnowflakeMetadataWithExpiration> storageInfoCache = new HashMap<>();
 
-  public SnowflakeInternalStage(SnowflakeConnectionV1 conn)
+  private SnowflakeConnectionV1 conn;
+  private long expirationTime;
+
+  public SnowflakeInternalStage(SnowflakeConnectionV1 conn, long expirationTime)
   {
     this.conn = conn;
+    this.credentialLock = new ReentrantLock();
+    this.expirationTime = expirationTime;
   }
 
+  /**
+   * Get the backend stage type, S3, Azure or GCS. Involves one GS call.
+   * @param stage name of the stage
+   * @return stage type
+   */
   public StageInfo.StageType getStageType(String stage)
   {
     try {
@@ -40,13 +63,19 @@ public class SnowflakeInternalStage {
     }
   }
 
+  /**
+   * Upload file to internal stage with previously cached credentials. Refresh credential every 30 minutes
+   * @param stage        Stage name
+   * @param fullFilePath Full file name to be uploaded
+   * @param data         Data string to be uploaded
+   */
   public void putWithCache(String stage, String fullFilePath, String data)
   {
     String command = dummyPutCommandTemplate + stage;
 
     try
     {
-      if (!storageInfoCache.containsKey(stage))
+      if (!isCredentialValid(stage))
       {
         SnowflakeFileTransferAgent agent = new SnowflakeFileTransferAgent(
           command,
@@ -59,7 +88,8 @@ public class SnowflakeInternalStage {
           (SnowflakeFileTransferMetadataV1) agent.getFileTransferMetadatas().get(0);
         if (fileTransferMetadata.getStageInfo().getStageType() != StageInfo.StageType.GCS)
         {
-          storageInfoCache.put(stage, fileTransferMetadata);
+          storageInfoCache.put(stage,
+            new SnowflakeMetadataWithExpiration(fileTransferMetadata, System.currentTimeMillis()));
         }
         else
         {
@@ -68,13 +98,14 @@ public class SnowflakeInternalStage {
       }
 
       // Get credential from cache
-      SnowflakeFileTransferMetadataV1 fileTransferMetadata = storageInfoCache.get(stage);
+      SnowflakeFileTransferMetadataV1 fileTransferMetadata = storageInfoCache.get(stage).fileTransferMetadata;
       // Set filename to be uploaded
       fileTransferMetadata.setPresignedUrlFileName(fullFilePath);
 
       byte[] dataBytes = data.getBytes(StandardCharsets.UTF_8);
       InputStream inStream = new ByteArrayInputStream(dataBytes);
 
+      // This uploadWithoutConnection is more like a hack.
       SnowflakeFileTransferAgent.uploadWithoutConnection(
         SnowflakeFileTransferConfig.Builder.newInstance()
           .setSnowflakeFileTransferMetadata(fileTransferMetadata)
@@ -87,5 +118,12 @@ public class SnowflakeInternalStage {
     {
       throw SnowflakeErrors.ERROR_5018.getException(e);
     }
+  }
+
+  private boolean isCredentialValid(String stage)
+  {
+    // Kay is cached and not expired
+    return storageInfoCache.containsKey(stage) &&
+          System.currentTimeMillis() - storageInfoCache.get(stage).timestamp < expirationTime;
   }
 }

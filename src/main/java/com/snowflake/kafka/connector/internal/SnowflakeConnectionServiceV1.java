@@ -45,7 +45,8 @@ public class SnowflakeConnectionServiceV1 extends Logging
     {
       throw SnowflakeErrors.ERROR_1001.getException(e);
     }
-    this.internalStage = new SnowflakeInternalStage((SnowflakeConnectionV1) this.conn);
+    long credentialExpireTime = 30 * 60 * 1000L;
+    this.internalStage = new SnowflakeInternalStage((SnowflakeConnectionV1) this.conn, credentialExpireTime);
     this.telemetry =
       SnowflakeTelemetryServiceFactory.builder(conn).setAppName(this.connectorName).build();
     logInfo("initialized the snowflake connection");
@@ -680,7 +681,18 @@ public class SnowflakeConnectionServiceV1 extends Logging
     }
     else if (stageType == StageInfo.StageType.AZURE || stageType == StageInfo.StageType.S3)
     {
-      internalStage.putWithCache(stageName, fileName, content);
+      try
+      {
+        InternalUtils.backoffAndRetry(telemetry,
+          () ->
+          {
+            internalStage.putWithCache(stageName, fileName, content);
+            return true;
+          });
+      } catch (Exception e)
+      {
+        throw SnowflakeErrors.ERROR_2011.getException(e);
+      }
     }
   }
 

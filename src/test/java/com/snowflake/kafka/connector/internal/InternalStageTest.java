@@ -43,7 +43,8 @@ public class InternalStageTest {
     service.createStage(stageName2);
     service.createStage(stageName3);
 
-    SnowflakeInternalStage agent = new SnowflakeInternalStage((SnowflakeConnectionV1) service.getConnection());
+    SnowflakeInternalStage agent = new SnowflakeInternalStage((SnowflakeConnectionV1) service.getConnection(),
+      30 * 60 * 1000L);
 
     // PUT two files to stageName1
     long startTime = System.currentTimeMillis();
