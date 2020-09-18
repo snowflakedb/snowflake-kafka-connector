@@ -10,12 +10,14 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class SnowflakeInternalStage {
 
-  private class SnowflakeMetadataWithExpiration {
+  private static class SnowflakeMetadataWithExpiration {
     SnowflakeFileTransferMetadataV1 fileTransferMetadata;
     long timestamp;
 
@@ -26,19 +28,16 @@ public class SnowflakeInternalStage {
     }
   }
 
+  // Any operation on the map should be atomic
+  private final ConcurrentMap<String, SnowflakeMetadataWithExpiration> storageInfoCache = new ConcurrentHashMap<>();
+
   public static String dummyPutCommandTemplate = "PUT file:///tmp/dummy_location_kakfa_connector_tmp/ @";
-
-  // Lock to gard the credential map
-  private final Lock credentialLock;
-  private Map<String, SnowflakeMetadataWithExpiration> storageInfoCache = new HashMap<>();
-
-  private SnowflakeConnectionV1 conn;
-  private long expirationTime;
+  private final SnowflakeConnectionV1 conn;
+  private final long expirationTime;
 
   public SnowflakeInternalStage(SnowflakeConnectionV1 conn, long expirationTime)
   {
     this.conn = conn;
-    this.credentialLock = new ReentrantLock();
     this.expirationTime = expirationTime;
   }
 
@@ -75,7 +74,8 @@ public class SnowflakeInternalStage {
 
     try
     {
-      if (!isCredentialValid(stage))
+      SnowflakeMetadataWithExpiration credential = storageInfoCache.getOrDefault(stage, null);
+      if (!isCredentialValid(credential))
       {
         SnowflakeFileTransferAgent agent = new SnowflakeFileTransferAgent(
           command,
@@ -88,8 +88,9 @@ public class SnowflakeInternalStage {
           (SnowflakeFileTransferMetadataV1) agent.getFileTransferMetadatas().get(0);
         if (fileTransferMetadata.getStageInfo().getStageType() != StageInfo.StageType.GCS)
         {
-          storageInfoCache.put(stage,
-            new SnowflakeMetadataWithExpiration(fileTransferMetadata, System.currentTimeMillis()));
+          // Overwrite the credential to be used
+          credential = new SnowflakeMetadataWithExpiration(fileTransferMetadata, System.currentTimeMillis());
+          storageInfoCache.put(stage, credential);
         }
         else
         {
@@ -97,22 +98,30 @@ public class SnowflakeInternalStage {
         }
       }
 
-      // Get credential from cache
-      SnowflakeFileTransferMetadataV1 fileTransferMetadata = storageInfoCache.get(stage).fileTransferMetadata;
+      SnowflakeFileTransferMetadataV1 fileTransferMetadata = credential.fileTransferMetadata;
       // Set filename to be uploaded
       fileTransferMetadata.setPresignedUrlFileName(fullFilePath);
 
       byte[] dataBytes = data.getBytes(StandardCharsets.UTF_8);
       InputStream inStream = new ByteArrayInputStream(dataBytes);
 
-      // This uploadWithoutConnection is more like a hack.
-      SnowflakeFileTransferAgent.uploadWithoutConnection(
-        SnowflakeFileTransferConfig.Builder.newInstance()
-          .setSnowflakeFileTransferMetadata(fileTransferMetadata)
-          .setUploadStream(inStream)
-          .setRequireCompress(true)
-          .setOcspMode(OCSPMode.FAIL_OPEN)
-          .build());
+      // This uploadWithoutConnection api cannot handle expired credentials very well.
+      // Need to prevent passing expired credential to it.
+      try {
+        SnowflakeFileTransferAgent.uploadWithoutConnection(
+          SnowflakeFileTransferConfig.Builder.newInstance()
+            .setSnowflakeFileTransferMetadata(fileTransferMetadata)
+            .setUploadStream(inStream)
+            .setRequireCompress(true)
+            .setOcspMode(OCSPMode.FAIL_OPEN)
+            .build());
+      } catch (Throwable t)
+      {
+        // If this api encounters error, invalid the cached credentials
+        // Caller will retry this function
+        storageInfoCache.remove(stage);
+        throw t;
+      }
 
     } catch (Exception e)
     {
@@ -120,10 +129,10 @@ public class SnowflakeInternalStage {
     }
   }
 
-  private boolean isCredentialValid(String stage)
+  private boolean isCredentialValid(SnowflakeMetadataWithExpiration credential)
   {
     // Kay is cached and not expired
-    return storageInfoCache.containsKey(stage) &&
-          System.currentTimeMillis() - storageInfoCache.get(stage).timestamp < expirationTime;
+    return credential != null &&
+          System.currentTimeMillis() - credential.timestamp < expirationTime;
   }
 }
