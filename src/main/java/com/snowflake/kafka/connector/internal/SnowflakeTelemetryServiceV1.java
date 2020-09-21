@@ -8,6 +8,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
 import net.snowflake.client.jdbc.telemetry.Telemetry;
 import net.snowflake.client.jdbc.telemetry.TelemetryClient;
 import net.snowflake.client.jdbc.telemetry.TelemetryData;
+import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -209,7 +210,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
     msg.put(VERSION, Utils.VERSION); //version number
     try
     {
-      telemetry.addLogToBatch(new TelemetryData(msg, System.currentTimeMillis()));
+      telemetry.addLogToBatch(TelemetryUtil.buildJobData(msg));
       logDebug("sending telemetry data: {}", data.toString());
       telemetry.sendBatchAsync();
     } catch (Exception e)
