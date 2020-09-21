@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
-
+import java.sql.Connection;
 import java.util.List;
 
 public interface SnowflakeConnectionService
@@ -200,6 +200,15 @@ public interface SnowflakeConnectionService
   void put(String stageName, String fileName, String content);
 
   /**
+   * put a file to stage. Cache credential for AWS and Azure storage. Don't cache for GCS.
+   *
+   * @param fileName  file name
+   * @param content   file content
+   * @param stageName stage name
+   */
+  void putWithCache(final String stageName, final String fileName, final String content);
+
+  /**
    * put a file to table stage
    * @param tableName table name
    * @param fileName file name
@@ -235,4 +244,8 @@ public interface SnowflakeConnectionService
    */
   SnowflakeIngestionService buildIngestService(String stageName, String pipeName);
 
+  /**
+   * @return the raw jdbc connection
+   */
+  Connection getConnection();
 }
