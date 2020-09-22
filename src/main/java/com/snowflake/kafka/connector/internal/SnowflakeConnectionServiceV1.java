@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 import net.snowflake.client.jdbc.SnowflakeStatement;
+import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 import net.snowflake.ingest.connection.HistoryResponse;
 
 import java.io.ByteArrayInputStream;
@@ -27,6 +28,8 @@ public class SnowflakeConnectionServiceV1 extends Logging
   private final String connectorName;
   private final Properties prop;
   private final SnowflakeURL url;
+  private final SnowflakeInternalStage internalStage;
+  private StageInfo.StageType stageType;
 
   SnowflakeConnectionServiceV1(Properties prop, SnowflakeURL url,
                                String connectorName)
@@ -34,6 +37,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
     this.connectorName = connectorName;
     this.url = url;
     this.prop = prop;
+    this.stageType = null;
     try
     {
       this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), prop);
@@ -41,6 +45,8 @@ public class SnowflakeConnectionServiceV1 extends Logging
     {
       throw SnowflakeErrors.ERROR_1001.getException(e);
     }
+    long credentialExpireTime = 30 * 60 * 1000L;
+    this.internalStage = new SnowflakeInternalStage((SnowflakeConnectionV1) this.conn, credentialExpireTime);
     this.telemetry =
       SnowflakeTelemetryServiceFactory.builder(conn).setAppName(this.connectorName).build();
     logInfo("initialized the snowflake connection");
@@ -660,6 +666,37 @@ public class SnowflakeConnectionServiceV1 extends Logging
   }
 
   @Override
+  public void putWithCache(final String stageName, final String fileName,
+                           final String content)
+  {
+    // If we don't know the stage type yet, query that first.
+    if (stageType == null)
+    {
+      stageType = internalStage.getStageType(stageName);
+    }
+    // Normal upload for GCS, cached upload for Azure and S3.
+    if (stageType == StageInfo.StageType.GCS)
+    {
+      put(stageName, fileName, content);
+    }
+    else if (stageType == StageInfo.StageType.AZURE || stageType == StageInfo.StageType.S3)
+    {
+      try
+      {
+        InternalUtils.backoffAndRetry(telemetry,
+          () ->
+          {
+            internalStage.putWithCache(stageName, fileName, content);
+            return true;
+          });
+      } catch (Exception e)
+      {
+        throw SnowflakeErrors.ERROR_2011.getException(e);
+      }
+    }
+  }
+
+  @Override
   public void putToTableStage(final String tableName, final String fileName,
                               final byte[] content)
   {
@@ -800,5 +837,11 @@ public class SnowflakeConnectionServiceV1 extends Logging
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
     logDebug("deleted {} from stage {}", fileName, stageName);
+  }
+
+  @Override
+  public Connection getConnection()
+  {
+    return this.conn;
   }
 }
