@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        snowflake: ['aws', 'azure']
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2
@@ -22,7 +25,7 @@ jobs:
         python-version: '3.6'
         architecture: 'x64'
     - name: Decrypt profile.json
-      run: ./.github/scripts/decrypt_secret.sh
+      run: ./.github/scripts/decrypt_secret.sh ${{ matrix.snowflake }}
       env:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
     - name: Restore Maven Cache

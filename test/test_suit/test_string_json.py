@@ -32,5 +32,7 @@ class TestStringJson:
         goldContent = r'{"number":"0"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 
+        self.driver.verifyStageIsCleaned(self.topic)
+
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

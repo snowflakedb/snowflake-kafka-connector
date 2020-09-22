@@ -71,5 +71,7 @@ class TestConfluentProtobufProtobuf:
                       r'"reading":321.321,"sint32_val":2147483647,"sint64_val":9223372036854775807,"uint32_val":4294967295,"uint64_val":-1}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 
+        self.driver.verifyStageIsCleaned(self.topic)
+
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

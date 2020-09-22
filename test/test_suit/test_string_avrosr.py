@@ -46,5 +46,7 @@ class TestStringAvrosr:
         goldContent = r'{"firstName":"abc0","id":0,"time":1835}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 
+        self.driver.verifyStageIsCleaned(self.topic)
+
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

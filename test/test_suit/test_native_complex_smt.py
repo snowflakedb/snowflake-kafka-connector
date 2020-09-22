@@ -34,5 +34,7 @@ class TestNativeComplexSmt:
         goldContent = r'{"c1":{"int":"\d"}}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 
+        self.driver.verifyStageIsCleaned(self.topic)
+
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic, self.table)

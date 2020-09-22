@@ -37,5 +37,7 @@ class TestAvroAvro:
         goldContent = r'{"timestamp":\d*,"tweet":"Rock:Nerfpaper,scissorsisfine.","username":"miguno"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 
+        self.driver.verifyStageIsCleaned(self.topic)
+
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)
