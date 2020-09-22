@@ -10,5 +10,5 @@ if [ $snowflake_deployment = 'aws' ]; then
   --output profile.json .github/scripts/profile.json.gpg
 else
   gpg --quiet --batch --yes --decrypt --passphrase="$SNOWFLAKE_TEST_PROFILE_SECRET" \
-  --output profile_azure.json .github/scripts/profile.json.gpg
+  --output profile.json .github/scripts/profile_azure.json.gpg
 fi

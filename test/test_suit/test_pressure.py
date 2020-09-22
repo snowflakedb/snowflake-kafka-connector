@@ -26,6 +26,7 @@ class TestPressure:
         threadPool = ThreadPool(self.threadCount)
         for t in range(self.topicNum):
             self.driver.createTopics(self.topics[t], self.partitionNum, 1)
+        sleep(5)
 
         for r in range(self.round):
             args = []
@@ -46,7 +47,7 @@ class TestPressure:
         self.driver.sendBytesData(self.topics[t], value, [], p)
         # self.threadPool.starmap(self.driver.sendBytesData, [(self.topics[t], value, [], p)])
 
-    def verify(self):
+    def verify(self, round):
         for t in range(self.curTest, self.topicNum):
             res = self.driver.snowflake_conn.cursor().execute(
                 "SELECT count(*) FROM {}".format(self.topics[t])).fetchone()[0]
@@ -57,8 +58,8 @@ class TestPressure:
                 self.curTest = t + 1
                 raise ResetAndRetry()
 
-        for t in range(self.topicNum):
-            self.driver.verifyStageIsCleaned(self.connectorName, self.topics[t])
+        # for t in range(self.topicNum):
+        #     self.driver.verifyStageIsCleaned(self.connectorName, self.topics[t])
 
     def clean(self):
         threadPool = ThreadPool(self.threadCount)

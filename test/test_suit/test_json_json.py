@@ -19,7 +19,7 @@ class TestJsonJson:
             value.append(json.dumps({'number': str(e)}).encode('utf-8'))
         self.driver.sendBytesData(self.topic, value, key)
 
-    def verify(self):
+    def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:

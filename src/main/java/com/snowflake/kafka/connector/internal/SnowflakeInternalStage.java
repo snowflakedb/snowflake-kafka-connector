@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class SnowflakeInternalStage {
+public class SnowflakeInternalStage extends Logging {
 
   private static class SnowflakeMetadataWithExpiration {
     SnowflakeFileTransferMetadataV1 fileTransferMetadata;
@@ -77,6 +77,7 @@ public class SnowflakeInternalStage {
       SnowflakeMetadataWithExpiration credential = storageInfoCache.getOrDefault(stage, null);
       if (!isCredentialValid(credential))
       {
+        logDebug("Query credential for stage " + stage);
         SnowflakeFileTransferAgent agent = new SnowflakeFileTransferAgent(
           command,
           conn.getSfSession(),
@@ -119,6 +120,7 @@ public class SnowflakeInternalStage {
       {
         // If this api encounters error, invalid the cached credentials
         // Caller will retry this function
+        logWarn("uploadWithoutConnection encountered an error");
         storageInfoCache.remove(stage);
         throw t;
       }

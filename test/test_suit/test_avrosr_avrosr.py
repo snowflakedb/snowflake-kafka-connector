@@ -45,7 +45,7 @@ class TestAvrosrAvrosr:
         self.driver.sendAvroSRData(
             self.topic, value, self.valueSchema, key, self.keySchema)
 
-    def verify(self):
+    def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:

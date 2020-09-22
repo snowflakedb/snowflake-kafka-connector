@@ -32,7 +32,7 @@ class TestNativeStringProtobuf:
             value.append(self.sensor.SerializeToString())
         self.driver.sendBytesData(self.topic, value)
 
-    def verify(self):
+    def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:

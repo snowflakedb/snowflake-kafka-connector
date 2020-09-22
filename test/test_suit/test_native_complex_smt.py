@@ -19,7 +19,7 @@ class TestNativeComplexSmt:
                                      'c2': "Suppose to be dropped."}).encode('utf-8'))
         self.driver.sendBytesData(self.topic, value)
 
-    def verify(self):
+    def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.table)).fetchone()[0]
         if res == 0:
