@@ -107,14 +107,14 @@ class KafkaTest:
     def createTopics(self, topicName, partitionNum=1, replicationNum=1):
         self.adminClient.create_topics([NewTopic(topicName, partitionNum, replicationNum)])
 
-    def sendBytesData(self, topic, value, key=[], partition=0):
+    def sendBytesData(self, topic, value, key=[], partition=0, headers=[]):
         if len(key) == 0:
             for v in value:
-                self.producer.produce(topic, value=v, partition=partition)
+                self.producer.produce(topic, value=v, partition=partition, headers=headers)
                 # self.msgSendInterval()
         else:
             for k, v in zip(key, value):
-                self.producer.produce(topic, value=v, key=k, partition=partition)
+                self.producer.produce(topic, value=v, key=k, partition=partition, headers=headers)
                 # self.msgSendInterval()
         self.producer.flush()
 
