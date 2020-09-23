@@ -212,8 +212,13 @@ public enum SnowflakeErrors
   ),
   ERROR_2010(
       "2010",
-      "Connection throttled",
-      "Connection is throttled either on GS or on Snowpipe"
+      "Max retry exceeded",
+      "Api retry exceeded the max retry limit"
+  ),
+  ERROR_2011(
+    "2011",
+    "Failed to upload file with cache",
+    "Failed to upload file to Snowflake Stage though credential caching"
   ),
   // Snowpipe related issues 3---
   ERROR_3001(
@@ -339,6 +344,21 @@ public enum SnowflakeErrors
     "5016",
     "Invalid SinkRecord received",
     "SinkRecord.value and SinkRecord.valueSchema cannot be null"
+  ),
+  ERROR_5017(
+    "5017",
+    "Invalid api call to cached put",
+    "Cached put only support AWS and Azure. However GCP was found as storage"
+  ),
+  ERROR_5018(
+    "5018",
+    "Failed to execute cached put",
+    "Error in cached put command"
+  ),
+  ERROR_5019(
+    "5019",
+    "Failed to get stage storage type",
+    "Error in get storage type"
   )
   ;
 
