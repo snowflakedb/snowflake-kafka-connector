@@ -29,7 +29,7 @@ class TestStringJson:
         # validate content of line 1
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
-        goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":[]},,"offset":0,"partition":0,"topic":"travis_correct_string_json....."}'
+        goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":[]},"offset":0,"partition":0,"topic":"travis_correct_string_json....."}'
         goldContent = r'{"number":"0"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 
