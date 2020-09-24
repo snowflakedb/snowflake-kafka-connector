@@ -18,7 +18,7 @@ class TestNativeStringJsonWithoutSchema:
                                      'c2': "Suppose to be dropped."}).encode('utf-8'))
         self.driver.sendBytesData(self.topic, value)
 
-    def verify(self):
+    def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:
@@ -33,6 +33,8 @@ class TestNativeStringJsonWithoutSchema:
                    r'"topic":"travis_correct_native_string_json_without_schema....."}'
         goldContent = r'{"number":"0"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
+
+        self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

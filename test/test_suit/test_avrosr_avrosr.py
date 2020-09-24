@@ -45,7 +45,7 @@ class TestAvrosrAvrosr:
         self.driver.sendAvroSRData(
             self.topic, value, self.valueSchema, key, self.keySchema)
 
-    def verify(self):
+    def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:
@@ -60,6 +60,8 @@ class TestAvrosrAvrosr:
                    r'"topic":"travis_correct_avrosr_avrosr....."}'
         goldContent = r'{"firstName":"abc0","id":0,"time":1835}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
+
+        self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)
