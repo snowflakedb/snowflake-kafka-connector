@@ -18,7 +18,7 @@ class TestStringAvro:
             value.append(avroBytes)
         self.driver.sendBytesData(self.topic, value)
 
-    def verify(self):
+    def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:
@@ -33,6 +33,8 @@ class TestStringAvro:
                    r'"topic":"travis_correct_string_avro....."}'
         goldContent = r'{"timestamp":\d*,"tweet":"Rock:Nerfpaper,scissorsisfine.","username":"miguno"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
+
+        self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)
