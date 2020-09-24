@@ -328,7 +328,7 @@ public class RecordService extends Logging
               }
             }
           } else {
-            objectMode = schema.keySchema().type() == Schema.Type.STRING;
+            objectMode = (schema.keySchema() != null && schema.keySchema().type() == Schema.Type.STRING);
           }
           ObjectNode obj = null;
           ArrayNode list = null;
