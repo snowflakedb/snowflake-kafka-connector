@@ -2,7 +2,9 @@ from confluent_kafka import Producer
 from confluent_kafka.avro import AvroProducer
 from confluent_kafka.admin import AdminClient, NewTopic
 from time import sleep
-from test_suit.test_utils import parsePrivateKey
+from datetime import datetime
+from test_suit.test_utils import parsePrivateKey, RetryableError
+from multiprocessing.dummy import Pool as ThreadPool
 
 import json
 import os
@@ -15,7 +17,7 @@ import traceback
 
 
 def errorExit(message):
-    print(message)
+    print(datetime.now().strftime("%H:%M:%S "), message)
     exit(1)
 
 
@@ -37,7 +39,8 @@ class KafkaTest:
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
-        self.MAX_RETRY = 20  # max wait time 20 mins
+        self.MAX_RETRY = 120  # max wait time 120 mins
+        self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 10000 data was in the queue
 
         self.kafkaConnectAddress = kafkaConnectAddress
         self.schemaRegistryAddress = schemaRegistryAddress
@@ -51,7 +54,7 @@ class KafkaTest:
         reg = "[^\/]*snowflakecomputing"  # find the account name
         account = re.findall(reg, testHost)
         if len(account) != 1 or len(account[0]) < 20:
-            print(
+            print(datetime.now().strftime("%H:%M:%S "),
                 "Format error in 'host' field at profile.json, expecting account.snowflakecomputing.com:443")
 
         pkb = parsePrivateKey(pk, pk_passphrase)
@@ -73,35 +76,35 @@ class KafkaTest:
 
     def verifyWaitTime(self):
         # sleep two minutes before verify result in SF DB
-        print("\n=== Sleep {} secs before verify result in Snowflake DB ===".format(
+        print(datetime.now().strftime("\n%H:%M:%S "), "=== Sleep {} secs before verify result in Snowflake DB ===".format(
             self.VERIFY_INTERVAL), flush=True)
         sleep(self.VERIFY_INTERVAL)
 
-    def verifyWithRetry(self, func):
+    def verifyWithRetry(self, func, round):
         retryNum = 0
         while retryNum < self.MAX_RETRY:
             try:
-                func()
+                func(round)
                 break
             except test_suit.test_utils.ResetAndRetry:
                 retryNum = 0
-                print("=== Reset retry count and retry ===", flush=True)
-            except test_suit.test_utils.RetryableError:
+                print(datetime.now().strftime("%H:%M:%S "), "=== Reset retry count and retry ===", flush=True)
+            except test_suit.test_utils.RetryableError as e:
                 retryNum += 1
-                print("=== Failed, retryable ===", flush=True)
+                print(datetime.now().strftime("%H:%M:%S "), "=== Failed, retryable. {}===".format(e.msg), flush=True)
                 self.verifyWaitTime()
             except test_suit.test_utils.NonRetryableError as e:
-                print("\n=== Non retryable error raised ===\n{}".format(e.msg), flush=True)
+                print(datetime.now().strftime("\n%H:%M:%S "), "=== Non retryable error raised ===\n{}".format(e.msg), flush=True)
                 raise test_suit.test_utils.NonRetryableError()
             except snowflake.connector.errors.ProgrammingError as e:
                 if e.errno == 2003:
                     retryNum += 1
-                    print("=== Failed, table not created ===", flush=True)
+                    print(datetime.now().strftime("%H:%M:%S "), "=== Failed, table not created ===", flush=True)
                     self.verifyWaitTime()
                 else:
                     raise
         if retryNum == self.MAX_RETRY:
-            print("\n=== Max retry exceeded ===", flush=True)
+            print(datetime.now().strftime("\n%H:%M:%S "), "=== Max retry exceeded ===", flush=True)
             raise test_suit.test_utils.NonRetryableError()
 
     def createTopics(self, topicName, partitionNum=1, replicationNum=1):
@@ -109,26 +112,30 @@ class KafkaTest:
 
     def sendBytesData(self, topic, value, key=[], partition=0, headers=[]):
         if len(key) == 0:
-            for v in value:
+            for i, v in enumerate(value):
                 self.producer.produce(topic, value=v, partition=partition, headers=headers)
-                # self.msgSendInterval()
+                if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
+                    self.producer.flush()
         else:
-            for k, v in zip(key, value):
+            for i, (k, v) in enumerate(zip(key, value)):
                 self.producer.produce(topic, value=v, key=k, partition=partition, headers=headers)
-                # self.msgSendInterval()
+                if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
+                    self.producer.flush()
         self.producer.flush()
 
     def sendAvroSRData(self, topic, value, value_schema, key=[], key_schema="", partition=0):
         if len(key) == 0:
-            for v in value:
+            for i, v in enumerate(value):
                 self.avroProducer.produce(
                     topic=topic, value=v, value_schema=value_schema, partition=partition)
-                # self.msgSendInterval()
+                if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
+                    self.producer.flush()
         else:
-            for k, v in zip(key, value):
+            for i, (k, v) in enumerate(zip(key, value)):
                 self.avroProducer.produce(
                     topic=topic, value=v, value_schema=value_schema, key=k, key_schema=key_schema, partition=partition)
-                # self.msgSendInterval()
+                if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
+                    self.producer.flush()
         self.avroProducer.flush()
 
     def cleanTableStagePipe(self, connectorName, topicName="", partitionNumber=1):
@@ -137,18 +144,27 @@ class KafkaTest:
         tableName = topicName
         stageName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_STAGE_{}".format(connectorName, topicName)
 
-        print("\n=== Drop table {} ===".format(tableName))
+        print(datetime.now().strftime("\n%H:%M:%S "), "=== Drop table {} ===".format(tableName))
         self.snowflake_conn.cursor().execute("DROP table IF EXISTS {}".format(tableName))
 
-        print("=== Drop stage {} ===".format(stageName))
+        print(datetime.now().strftime("%H:%M:%S "), "=== Drop stage {} ===".format(stageName))
         self.snowflake_conn.cursor().execute("DROP stage IF EXISTS {}".format(stageName))
 
         for p in range(partitionNumber):
             pipeName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_PIPE_{}_{}".format(connectorName, topicName, p)
-            print("=== Drop pipe {} ===".format(pipeName))
+            print(datetime.now().strftime("%H:%M:%S "), "=== Drop pipe {} ===".format(pipeName))
             self.snowflake_conn.cursor().execute("DROP pipe IF EXISTS {}".format(pipeName))
 
-        print("=== Done ===", flush=True)
+        print(datetime.now().strftime("%H:%M:%S "), "=== Done ===", flush=True)
+
+    def verifyStageIsCleaned(self, connectorName, topicName=""):
+        if topicName == "":
+            topicName = connectorName
+        stageName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_STAGE_{}".format(connectorName, topicName)
+
+        res = self.snowflake_conn.cursor().execute("list @{}".format(stageName)).fetchone()
+        if res is not None:
+            raise RetryableError("stage not cleaned up ")
 
     # validate content match gold regex
     def regexMatchOneLine(self, res, goldMetaRegex, goldContentRegex):
@@ -173,7 +189,14 @@ class KafkaTest:
                 config[k] = configMap[k]
         requestURL = "http://{}/connectors/{}/config".format(self.kafkaConnectAddress, connectorName)
         r = requests.put(requestURL, json=config, headers=self.httpHeader)
-        print(r, " updated connector config")
+        print(datetime.now().strftime("%H:%M:%S "), r, " updated connector config")
+
+    def closeConnector(self, fileName, nameSalt):
+        snowflake_connector_name = fileName.split(".")[0] + nameSalt
+        delete_url = "http://{}/connectors/{}".format(self.kafkaConnectAddress, snowflake_connector_name)
+        print(datetime.now().strftime("\n%H:%M:%S "), "=== Delete connector {} ===".format(snowflake_connector_name))
+        code = requests.delete(delete_url, timeout=10).status_code
+        print(datetime.now().strftime("%H:%M:%S "), code)
 
     def createConnector(self, fileName, nameSalt):
         rest_template_path = "./rest_request_template"
@@ -187,12 +210,12 @@ class KafkaTest:
             testSchema = credentialJson["schema"]
             pk = credentialJson["private_key"]
 
-        print("\n=== generate sink connector rest reqeuest from {} ===".format(rest_template_path))
+        print(datetime.now().strftime("\n%H:%M:%S "), "=== generate sink connector rest reqeuest from {} ===".format(rest_template_path))
         if not os.path.exists(rest_generate_path):
             os.makedirs(rest_generate_path)
         snowflake_connector_name = fileName.split(".")[0] + nameSalt
 
-        print("\n=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
+        print(datetime.now().strftime("\n%H:%M:%S "), "=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
         with open("{}/{}".format(rest_template_path, fileName), 'r') as f:
             config = f.read() \
                 .replace("SNOWFLAKE_PRIVATE_KEY", pk) \
@@ -213,18 +236,18 @@ class KafkaTest:
         while retry < MAX_RETRY:
             try:
                 code = requests.delete(delete_url, timeout=10).status_code
-                if code == 404 or code == 200:
+                if code == 404 or code == 200 or code == 201:
                     break
             except:
                 pass
-            print("\n=== sleep for 30 secs to wait for kafka connect to accept connection ===")
+            print(datetime.now().strftime("\n%H:%M:%S "), "=== sleep for 30 secs to wait for kafka connect to accept connection ===")
             sleep(30)
             retry += 1
         if retry == MAX_RETRY:
             errorExit("\n=== max retry exceeded, kafka connect not ready in 10 mins ===")
 
         r = requests.post(post_url, json=json.loads(config), headers=self.httpHeader)
-        print(json.loads(r.content.decode("utf-8"))["name"], r.status_code)
+        print(datetime.now().strftime("%H:%M:%S "), json.loads(r.content.decode("utf-8"))["name"], r.status_code)
 
 
 def runTestSet(driver, testSet, nameSalt, pressure):
@@ -261,17 +284,17 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testConfluentProtobufProtobuf = TestConfluentProtobufProtobuf(driver, nameSalt)
 
     ############################ round 1 ############################
-    print("\n=== Round 1 ===")
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
     testSuitList1 = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
                      testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
-                     testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf, testPressure]
+                     testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf]
 
-    testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True, pressure]
+    testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False, pressure]
+        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False]
     elif testSet == "apache":
-        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False, pressure]
+        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
@@ -279,7 +302,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     ############################ round 1 ############################
 
     ############################ round 2 ############################
-    print("\n=== Round 2 ===")
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 2 ===")
     testSuitList2 = [testPressureRestart]
 
     testCleanEnableList2 = [True]
@@ -291,16 +314,32 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    execution(testSet, testSuitList2, testCleanEnableList2, testSuitEnableList2, driver, nameSalt)
+    execution(testSet, testSuitList2, testCleanEnableList2, testSuitEnableList2, driver, nameSalt, 2)
     ############################ round 2 ############################
 
+    ############################ round 3 ############################
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 3 ===")
+    testSuitList3 = [testPressure]
 
-def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt):
+    testCleanEnableList3 = [pressure]
+    testSuitEnableList3 = []
+    if testSet == "confluent":
+        testSuitEnableList3 = [pressure]
+    elif testSet == "apache":
+        testSuitEnableList3 = [pressure]
+    elif testSet != "clean":
+        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+
+    execution(testSet, testSuitList3, testCleanEnableList3, testSuitEnableList3, driver, nameSalt)
+    ############################ round 3 ############################
+
+
+def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round = 1):
     if testSet == "clean":
         for i, test in enumerate(testSuitList):
             if testCleanEnableList[i]:
                 test.clean()
-        print("\n=== All clean done ===")
+        print(datetime.now().strftime("\n%H:%M:%S "), "=== All clean done ===")
     else:
         try:
             for i, test in enumerate(testSuitList):
@@ -309,25 +348,27 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
 
             driver.startConnectorWaitTime()
 
-            for i, test in enumerate(testSuitList):
-                if testSuitEnableList[i]:
-                    print("\n=== Sending " + test.__class__.__name__ + " data ===")
-                    test.send()
-                    print("=== Done " + test.__class__.__name__ + " ===", flush=True)
+            for r in range(round):
+                print(datetime.now().strftime("\n%H:%M:%S "), "=== round {} ===".format(r))
+                for i, test in enumerate(testSuitList):
+                    if testSuitEnableList[i]:
+                        print(datetime.now().strftime("\n%H:%M:%S "), "=== Sending " + test.__class__.__name__ + " data ===")
+                        test.send()
+                        print(datetime.now().strftime("%H:%M:%S "), "=== Done " + test.__class__.__name__ + " ===", flush=True)
 
-            driver.verifyWaitTime()
+                driver.verifyWaitTime()
 
-            for i, test in enumerate(testSuitList):
-                if testSuitEnableList[i]:
-                    print("\n=== Verify " + test.__class__.__name__ + " ===")
-                    driver.verifyWithRetry(test.verify)
-                    print("=== Passed " + test.__class__.__name__ + " ===", flush=True)
+                for i, test in enumerate(testSuitList):
+                    if testSuitEnableList[i]:
+                        print(datetime.now().strftime("\n%H:%M:%S "), "=== Verify " + test.__class__.__name__ + " ===")
+                        driver.verifyWithRetry(test.verify, r)
+                        print(datetime.now().strftime("%H:%M:%S "), "=== Passed " + test.__class__.__name__ + " ===", flush=True)
 
-            print("\n=== All test passed ===")
+            print(datetime.now().strftime("\n%H:%M:%S "), "=== All test passed ===")
         except Exception as e:
-            print(e)
+            print(datetime.now().strftime("%H:%M:%S "), e)
             traceback.print_tb(e.__traceback__)
-            print("Error: ", sys.exc_info()[0])
+            print(datetime.now().strftime("%H:%M:%S "), "Error: ", sys.exc_info()[0])
             exit(1)
 
 

@@ -25,6 +25,7 @@ public class InternalStageTest {
   private final String stageName1 = TestUtils.randomStageName();
   private final String stageName2 = TestUtils.randomStageName();
   private final String stageName3 = TestUtils.randomStageName();
+  private final String stageName4 = TestUtils.randomStageName();
   private final String stageNameExpire= "kafka_connector_test_stage_credential_cache_expire";
 
   @After
@@ -33,12 +34,13 @@ public class InternalStageTest {
     service.dropStage(stageName1);
     service.dropStage(stageName2);
     service.dropStage(stageName3);
+    service.dropStage(stageName4);
   }
 
   @Test
   public void testInternalStage() throws Exception
   {
-    //create stage
+    // create stage
     service.createStage(stageName1);
     service.createStage(stageName2);
     service.createStage(stageName3);
@@ -77,6 +79,33 @@ public class InternalStageTest {
     assert files3.size() == fileNumber;
     System.out.println(Logging.logMessage("Time: {} ms",
       (System.currentTimeMillis() - startTime)));
+
+  }
+
+  @Test
+  public void testCredentialRefresh() throws Exception
+  {
+
+    // create stage
+    service.createStage(stageName4);
+
+    // credential expires in 30 seconds
+    SnowflakeInternalStage agent = new SnowflakeInternalStage((SnowflakeConnectionV1) service.getConnection(),
+      30 * 1000L);
+
+    // PUT two files to stageName1
+    agent.putWithCache(stageName4, "testCacheFileName1", "Any cache");
+    agent.putWithCache(stageName4, "testCacheFileName2", "Any cache");
+    List<String> files1 = service.listStage(stageName4, "testCache");
+    assert files1.size() == 2;
+
+    // wait until the credential expires
+    Thread.sleep(60 * 1000);
+
+    agent.putWithCache(stageName4, "testCacheFileName3", "Any cache");
+    agent.putWithCache(stageName4, "testCacheFileName4", "Any cache");
+    List<String> files2 = service.listStage(stageName4, "testCache");
+    assert files2.size() == 4;
 
   }
 

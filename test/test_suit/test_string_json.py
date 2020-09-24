@@ -18,7 +18,7 @@ class TestStringJson:
         header = [('header1', 'value1'), ('header2', '{}')]
         self.driver.sendBytesData(self.topic, value, [], 0, header)
 
-    def verify(self):
+    def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:
@@ -32,6 +32,8 @@ class TestStringJson:
         goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":[]},"offset":0,"partition":0,"topic":"travis_correct_string_json....."}'
         goldContent = r'{"number":"0"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
+
+        self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

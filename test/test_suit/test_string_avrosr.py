@@ -30,7 +30,7 @@ class TestStringAvrosr:
             value.append({"id": e, "firstName": "abc0", "time": 1835})
         self.driver.sendAvroSRData(self.topic, value, self.valueSchema)
 
-    def verify(self):
+    def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:
@@ -45,6 +45,8 @@ class TestStringAvrosr:
                    r'"topic":"travis_correct_string_avrosr....."}'
         goldContent = r'{"firstName":"abc0","id":0,"time":1835}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
+
+        self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)
