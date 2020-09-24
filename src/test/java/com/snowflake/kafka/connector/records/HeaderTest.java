@@ -43,14 +43,15 @@ public class HeaderTest
     String shortName = "short";
     short shortData = 128;
     String intName = "int";
-    int intData = 32767;
+    int intData = Integer.MAX_VALUE;
     String longName = "long";
-    long longData = 1234567890123L;
+    long longData = Long.MAX_VALUE;
     String floatName = "float";
-    float floatData = 1.234f;
+    float floatData = 1/3f;
     String doubleName = "double";
-    double doubleData = 123.23432532345;
+    double doubleData = 1/3d;
     String booleanName = "boolean";
+
     boolean booleanData = true;
     String stringName = "string";
     String stringData = "test test";
@@ -58,6 +59,9 @@ public class HeaderTest
     byte[] bytesData = {1, 2, 3, 4, 5, 6, 7, 8};
     String bigDecimalName = "bigDecimal";
     BigDecimal bigDecimalData = new BigDecimal("1234.1234");
+
+    String bigDecimalExceedsMaxPrecisionName = "bigDecimalExceedsMaxPrecision";
+    BigDecimal bigDecimalExceedsMaxPrecisionData = new BigDecimal("999999999999999999999999999999999999999");
 
     String dateName = "date";
     Date dateData = new Date(1577836800000L);
@@ -76,6 +80,7 @@ public class HeaderTest
     headers.addString(stringName, stringData);
     headers.addBytes(bytesName, bytesData);
     headers.addDecimal(bigDecimalName, bigDecimalData);
+    headers.addDecimal(bigDecimalExceedsMaxPrecisionName, bigDecimalExceedsMaxPrecisionData);
     headers.addDate(dateName, dateData);
     headers.addTime(timeName, timeData);
     headers.addTimestamp(timestampName, timestampData);
@@ -112,6 +117,7 @@ public class HeaderTest
     assert headerNode.get(timeName).asText().equals(TIME_FORMAT.format(timeData));
     assert headerNode.has(timestampName);
     assert headerNode.get(timestampName).asLong() == timestampData.getTime();
+    assert headerNode.get(bigDecimalExceedsMaxPrecisionName).asText().equals(bigDecimalExceedsMaxPrecisionData.toString());
 
     //array
     headers = new ConnectHeaders();

@@ -17,6 +17,9 @@
 package com.snowflake.kafka.connector.records;
 
 import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,6 +29,8 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
   .ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
   .ObjectNode;
+import org.apache.kafka.connect.data.Decimal;
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.junit.Test;
@@ -159,6 +164,23 @@ public class ConverterTest
     ObjectNode expected = mapper.createObjectNode();
     expected.put("test", Integer.MAX_VALUE);
     assert expected.toString().equals(result.toString());
+  }
+
+  @Test
+  public void testConnectJsonConverter_MapBigDecimalExceedsMaxPrecision() throws JsonProcessingException {
+    JsonConverter jsonConverter = new JsonConverter();
+    Map<String, ?> config = Collections.singletonMap("schemas.enable", false);
+    jsonConverter.configure(config, false);
+    Map<String, Object> jsonMap = new HashMap<>();
+    jsonMap.put("test", new BigDecimal("999999999999999999999999999999999999999"));
+    SchemaAndValue schemaAndValue =
+        jsonConverter.toConnectData("test", mapper.writeValueAsBytes(jsonMap));
+    JsonNode result = RecordService.convertToJson(schemaAndValue.schema(), schemaAndValue.value());
+
+    ObjectNode expected = mapper.createObjectNode();
+    expected.put("test", new BigDecimal("999999999999999999999999999999999999999"));
+    //TODO: uncomment it once KAFKA-10457 is merged
+    //assert expected.toString().equals(result.toString());
   }
 
   @Test

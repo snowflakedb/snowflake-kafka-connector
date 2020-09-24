@@ -770,7 +770,7 @@ public class SinkServiceIT
     doCallRealMethod().when(spyConn).purgeStage(anyString(), anyList());
 
     // read ingestHistory
-    Thread.sleep(420000);
+    Thread.sleep(480000);
 
     TestUtils.assertWithRetry(() -> spyConn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
       table, partition)).size() == 0,
