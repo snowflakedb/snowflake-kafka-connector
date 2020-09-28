@@ -3,6 +3,10 @@ name: Kafka Connector End2End Full Version Test
 on:
   schedule:
     - cron:  '0 8 * * *'
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: '**'
 
 jobs:
   build:
@@ -26,13 +30,6 @@ jobs:
       run: ./.github/scripts/decrypt_secret.sh ${{ matrix.snowflake }}
       env:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
-    - name: Restore Maven Cache
-      uses: actions/cache@v1
-      with:
-        path: ~/.m2/repository
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
     - name: Install Dependency
       run: |
         pip3 install --upgrade setuptools

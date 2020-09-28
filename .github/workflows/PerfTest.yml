@@ -1,6 +1,10 @@
 name: Kafka Connector Performance Test
 
 on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: '**'
   schedule:
     - cron:  '0 6 * * *'
 
@@ -23,13 +27,6 @@ jobs:
       run: ./.github/scripts/perf_test_decrypt_secret.sh
       env:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
-    - name: Restore Maven Cache
-      uses: actions/cache@v1
-      with:
-        path: ~/.m2/repository
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
     - name: Install Dependency
       run: |
         pip3 install --upgrade setuptools
