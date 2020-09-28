@@ -3,7 +3,7 @@ name: Kafka Connector End2End Full Version Test
 on:
   schedule:
     - cron:  '0 8 * * *'
-
+ 
 jobs:
   build:
     runs-on: ubuntu-18.04
