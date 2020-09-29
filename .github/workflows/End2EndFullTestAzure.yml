@@ -1,4 +1,4 @@
-name: Kafka Connector End2End Full Version Test
+name: Kafka Connector End2End Full Version Test Azure
 
 on:
   schedule:

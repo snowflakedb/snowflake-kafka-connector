@@ -1,4 +1,4 @@
-name: Kafka Connector End2End Test
+name: Kafka Connector End2End Test AWS
 
 on:
   push:
