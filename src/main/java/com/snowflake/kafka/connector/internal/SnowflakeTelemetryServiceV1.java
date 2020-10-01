@@ -12,7 +12,14 @@ import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
 
 import java.io.IOException;
 import java.sql.Connection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTelemetryService
 {
@@ -42,9 +49,32 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   private final Telemetry telemetry;
   private String name = null;
 
+  class SnowflakeStatus
+  {
+
+    long committedOffset;         // loaded offset + 1
+    long flushedOffset;           // flushed offset (file on stage)
+    long processedOffset;         // processed offset
+
+    int fileCountRestart;         // files on stage when cleaner starts
+    int fileCountReprocessPurge;  // files on stage that are purged due to reprocessing when cleaner starts
+    int fileCountOnStage;         // files that are currently on stage
+    int fileCountOnIngestion;     // files that are being ingested
+    int fileCountPurged;          // files that are purged
+    int fileCountOnTableStage;    // files that are moved to table stage
+
+  }
+
+  // Map from topic_partition to corresponding partition status
+  private Map<String, SnowflakeStatus> statusMap;
+  // Lock for multi-threading
+  private final Lock statusMapLock;
+
   SnowflakeTelemetryServiceV1(Connection conn)
   {
     this.telemetry = TelemetryClient.createTelemetry(conn);
+    this.statusMap = new HashMap<>();
+    this.statusMapLock = new ReentrantLock();
   }
 
   @Override
