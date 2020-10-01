@@ -12,7 +12,15 @@ import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
 
 import java.io.IOException;
 import java.sql.Connection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTelemetryService
 {
@@ -42,9 +50,36 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   private final Telemetry telemetry;
   private String name = null;
 
+  class SnowflakeStatus
+  {
+    // Offset info
+    AtomicLong purgedOffset;            // purged offset (files purged or moved to table stage)
+    AtomicLong committedOffset;         // loaded offset (files being ingested)
+    AtomicLong flushedOffset;           // flushed offset (files on stage)
+    AtomicLong processedOffset;         // processed offset (offset that is most recent in buffer)
+
+    // File count info
+    AtomicInteger fileCountRestart;         // files on stage when cleaner starts
+    AtomicInteger fileCountReprocessPurge;  // files on stage that are purged due to reprocessing when cleaner starts
+    AtomicInteger fileCountOnStage;         // files that are currently on stage
+    AtomicInteger fileCountOnIngestion;     // files that are being ingested
+    AtomicInteger fileCountPurged;          // files that are purged
+    AtomicInteger fileCountTableStage;      // files that are moved to table stage
+
+    // Cleaner restart count
+    AtomicInteger cleanerRestartCount;      // how many times the cleaner restarted
+  }
+
+  // Map from topic_partition to corresponding partition status
+  private ConcurrentMap<String, SnowflakeStatus> statusMap;
+  // Lock to protect access of statusMap
+  private final Lock statusMapLock;
+
   SnowflakeTelemetryServiceV1(Connection conn)
   {
     this.telemetry = TelemetryClient.createTelemetry(conn);
+    this.statusMap = new ConcurrentHashMap<>();
+    this.statusMapLock = new ReentrantLock();
   }
 
   @Override
