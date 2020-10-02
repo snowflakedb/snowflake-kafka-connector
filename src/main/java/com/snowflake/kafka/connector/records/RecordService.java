@@ -285,8 +285,20 @@ public class RecordService extends Logging
           byte[] valueArr = null;
           if (value instanceof byte[])
             valueArr = (byte[]) value;
-          else if (value instanceof ByteBuffer)
-            valueArr = ((ByteBuffer) value).array();
+          else if (value instanceof ByteBuffer) {
+            ByteBuffer byteBufferValue = (ByteBuffer) value;
+            if (byteBufferValue.hasArray())
+              valueArr = ((ByteBuffer) value).array();
+            else {
+              // If the byte buffer is read only, make a copy of the buffer then access the byte array.
+              ByteBuffer clone = ByteBuffer.allocate(byteBufferValue.capacity());
+              byteBufferValue.rewind();
+              clone.put(byteBufferValue);
+              byteBufferValue.rewind();
+              clone.flip();
+              valueArr = clone.array();
+            }
+          }
 
           if (valueArr == null)
             throw SnowflakeErrors.ERROR_5015.getException("Invalid type for bytes type: " + value.getClass());
@@ -316,7 +328,7 @@ public class RecordService extends Logging
               }
             }
           } else {
-            objectMode = schema.keySchema() == null || schema.keySchema().type() == Schema.Type.STRING;
+            objectMode = (schema.keySchema() != null && schema.keySchema().type() == Schema.Type.STRING);
           }
           ObjectNode obj = null;
           ArrayNode list = null;

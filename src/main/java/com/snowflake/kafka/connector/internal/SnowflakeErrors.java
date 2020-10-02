@@ -135,6 +135,16 @@ public enum SnowflakeErrors
     "Invalid topic2table map",
     "Failed to parse topic2table map"
   ),
+  ERROR_0022(
+    "0022",
+    "Invalid proxy host or port",
+    "Both host and port need to be provided if one of them is provided"
+  ),
+  ERROR_0023(
+    "0023",
+    "Invalid proxy username or password",
+    "Both username and password need to be provided if one of them is provided"
+  ),
   // Snowflake connection issues 1---
   ERROR_1001(
     "1001",
@@ -202,8 +212,13 @@ public enum SnowflakeErrors
   ),
   ERROR_2010(
       "2010",
-      "Connection throttled",
-      "Connection is throttled either on GS or on Snowpipe"
+      "Max retry exceeded",
+      "Api retry exceeded the max retry limit"
+  ),
+  ERROR_2011(
+    "2011",
+    "Failed to upload file with cache",
+    "Failed to upload file to Snowflake Stage though credential caching"
   ),
   // Snowpipe related issues 3---
   ERROR_3001(
@@ -329,6 +344,21 @@ public enum SnowflakeErrors
     "5016",
     "Invalid SinkRecord received",
     "SinkRecord.value and SinkRecord.valueSchema cannot be null"
+  ),
+  ERROR_5017(
+    "5017",
+    "Invalid api call to cached put",
+    "Cached put only support AWS and Azure. However GCP was found as storage"
+  ),
+  ERROR_5018(
+    "5018",
+    "Failed to execute cached put",
+    "Error in cached put command"
+  ),
+  ERROR_5019(
+    "5019",
+    "Failed to get stage storage type",
+    "Error in get storage type"
   )
   ;
 

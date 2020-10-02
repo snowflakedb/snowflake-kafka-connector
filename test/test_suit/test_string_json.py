@@ -15,9 +15,10 @@ class TestStringJson:
         value = []
         for e in range(100):
             value.append(json.dumps({'number': str(e)}).encode('utf-8'))
-        self.driver.sendBytesData(self.topic, value)
+        header = [('header1', 'value1'), ('header2', '{}')]
+        self.driver.sendBytesData(self.topic, value, [], 0, header)
 
-    def verify(self):
+    def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:
@@ -28,9 +29,11 @@ class TestStringJson:
         # validate content of line 1
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
-        goldMeta = r'{"CreateTime":\d*,"offset":0,"partition":0,"topic":"travis_correct_string_json....."}'
+        goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":[]},"offset":0,"partition":0,"topic":"travis_correct_string_json....."}'
         goldContent = r'{"number":"0"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
+
+        self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

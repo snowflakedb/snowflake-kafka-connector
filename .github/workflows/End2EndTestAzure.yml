@@ -1,4 +1,4 @@
-name: Kafka Connector End2End Test AWS
+name: Kafka Connector End2End Test Azure
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
         python-version: '3.6'
         architecture: 'x64'
     - name: Decrypt profile.json
-      run: ./.github/scripts/decrypt_secret.sh 'aws'
+      run: ./.github/scripts/decrypt_secret.sh 'azure'
       env:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
     - name: Restore Maven Cache

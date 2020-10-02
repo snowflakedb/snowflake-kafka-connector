@@ -24,7 +24,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 {
   private static final long ONE_HOUR = 60 * 60 * 1000L;
   private static final long TEN_MINUTES = 10 * 60 * 1000L;
-  private static final long CLEAN_TIME = 60 * 1000L; //one minutes
+  protected static final long CLEAN_TIME = 60 * 1000L; //one minutes
 
   private long flushTime; // in seconds
   private long fileSize;
@@ -175,6 +175,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
   }
 
   @Override
+  public void setIsStoppedToTrue()
+  {
+    this.isStopped = true; // release all cleaner and flusher threads
+  }
+
+  @Override
   public boolean isClosed()
   {
     return this.isStopped;
@@ -199,13 +205,13 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
   @Override
   public void setFileSize(final long size)
   {
-    if (size > SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX)
+    if (size < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN)
     {
-      logError("file size is {} bytes, it is larger than the maximum file " +
-          "size {} bytes, reset to the maximum file size",
-        size, SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX
+      logError("file size is {} bytes, it is smaller than the minimum file " +
+          "size {} bytes, reset to the default file size",
+        size, SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT
       );
-      this.fileSize = SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MAX;
+      this.fileSize = SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
     }
     else
     {
@@ -286,6 +292,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     //threads
     private final ExecutorService cleanerExecutor;
+    private final ExecutorService reprocessCleanerExecutor;
     private final Lock bufferLock;
     private final Lock fileListLock;
     private final Lock usageDataLock;
@@ -327,11 +334,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       this.startTime = System.currentTimeMillis();
 
       this.cleanerExecutor = Executors.newSingleThreadExecutor();
+      this.reprocessCleanerExecutor = Executors.newSingleThreadExecutor();
 
       logInfo("pipe: {} - service started", pipeName);
     }
 
-    private void init()
+    private void init(long recordOffset)
     {
       logInfo("init pipe: {}", pipeName);
       // wait for sinkConnector to start
@@ -341,7 +349,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
       try
       {
-        startCleaner();
+        startCleaner(recordOffset);
       } catch (Exception e)
       {
         logWarn("Cleaner and Flusher threads shut down before initialization");
@@ -351,7 +359,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
     private boolean resetCleanerFiles() {
       try {
-        logWarn("Resetting cleaner files", pipeName);
+        logWarn("Resetting cleaner files {}", pipeName);
         // list stage again and try to clean the files leaked on stage
         // this can throw unchecked, it needs to be wrapped in a try/catch
         // if it fails again do not reset forceCleanerFileReset
@@ -364,18 +372,23 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
           fileListLock.unlock();
         }
         forceCleanerFileReset = false;
+        logWarn("Resetting cleaner files {} done", pipeName);
       } catch (Throwable t) {
-        logWarn("Cleaner file reset encountered an error{}:\n", t.getMessage());
+        logWarn("Cleaner file reset encountered an error:\n{}", t.getMessage());
       }
 
       return forceCleanerFileReset;
     }
 
 
-    private void startCleaner()
+    private void startCleaner(long recordOffset)
     {
-      // when cleaner start, scan stage for all files of this pipe
+      // When cleaner start, scan stage for all files of this pipe.
+      // If we know that we are going to reprocess the file, then safely delete the file.
       List<String> tmpFileNames = conn.listStage(stageName, prefix);
+      List<String> reprocessFiles = new ArrayList<>();
+      fileterFileReprocess(tmpFileNames, reprocessFiles, recordOffset);
+
       fileListLock.lock();
       try
       {
@@ -419,11 +432,48 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
           }
         }
       );
+
+      if (reprocessFiles.size() > 0)
+      {
+        // After we start the cleaner thread, delay a while and start deleting files.
+        reprocessCleanerExecutor.submit(() ->
+        {
+          try
+          {
+            Thread.sleep(CLEAN_TIME);
+            purge(reprocessFiles);
+          } catch (Exception e)
+          {
+            logError("Reprocess cleaner encountered an exception {}:\n{}\n{}",
+              e.getClass(), e.getMessage(), e.getStackTrace());
+          }
+        });
+      }
+
+    }
+
+    private void fileterFileReprocess(List<String> tmpFileNames, List<String> reprocessFiles, long recordOffset)
+    {
+      // iterate over a copy since reprocess files get removed from it
+      new LinkedList<>(tmpFileNames).forEach(
+        name ->
+        {
+          long fileStartOffset = FileNameUtils.fileNameToStartOffset(name);
+          // If start offset of this file is greater than the offset of the record that is sent to the connector,
+          // all content of this file will be reprocessed. Thus this file can be deleted.
+          if (recordOffset <= fileStartOffset)
+          {
+            reprocessFiles.add(name);
+            tmpFileNames.remove(name);
+          }
+        }
+      );
     }
 
     private void stopCleaner()
     {
       cleanerExecutor.shutdownNow();
+      reprocessCleanerExecutor.shutdownNow();
       logInfo("pipe {}: cleaner terminated", pipeName);
     }
 
@@ -432,7 +482,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       //init pipe
       if (!hasInitialized)
       {
-        init();
+        init(record.kafkaOffset());
         this.hasInitialized = true;
       }
 
@@ -621,7 +671,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       String fileName = FileNameUtils.fileName(prefix, buff.getFirstOffset(),
                                                buff.getLastOffset());
       String content = buff.getData();
-      conn.put(stageName, fileName, content);
+      conn.putWithCache(stageName, fileName, content);
 
       flushedOffset.set(Math.max(buff.getLastOffset() + 1, flushedOffset.get()));
       fileListLock.lock();
