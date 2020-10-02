@@ -9,6 +9,7 @@ import net.snowflake.client.jdbc.telemetry.Telemetry;
 import net.snowflake.client.jdbc.telemetry.TelemetryClient;
 import net.snowflake.client.jdbc.telemetry.TelemetryData;
 import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
+import org.apache.kafka.common.utils.AppInfoParser;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -44,13 +45,14 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   private static final String TIME = "time";
   private static final String FILE_LIST = "file_list";
   private static final String VERSION = "version";
+  private static final String KAFKA_VERSION = "kafka_version";
   private static final String BACKOFF_TIME_BEFORE_EXECUTE = "backoff_time_before_execute";
 
 
   private final Telemetry telemetry;
   private String name = null;
 
-  class SnowflakeStatus
+  class SnowflakePipeStatus
   {
     // Offset info
     AtomicLong purgedOffset;            // purged offset (files purged or moved to table stage)
@@ -68,18 +70,20 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
 
     // Cleaner restart count
     AtomicInteger cleanerRestartCount;      // how many times the cleaner restarted
-  }
 
-  // Map from topic_partition to corresponding partition status
-  private ConcurrentMap<String, SnowflakeStatus> statusMap;
-  // Lock to protect access of statusMap
-  private final Lock statusMapLock;
+    // Average lag of Kafka
+    AtomicLong averageKafkaLag;
+    AtomicInteger averageKafkaLagRecordCount;
+
+    // Average lag of ingestion
+    AtomicLong averageIngestionLag;
+    AtomicInteger averageIngestionLagRecordCount;
+
+  }
 
   SnowflakeTelemetryServiceV1(Connection conn)
   {
     this.telemetry = TelemetryClient.createTelemetry(conn);
-    this.statusMap = new ConcurrentHashMap<>();
-    this.statusMapLock = new ReentrantLock();
   }
 
   @Override
@@ -96,6 +100,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
     msg.put(START_TIME, startTime);
     msg.put(MAX_TASKS, maxTasks);
     msg.put(APP_NAME, getAppName());
+    msg.put(KAFKA_VERSION, AppInfoParser.getVersion());
 
     send(TelemetryType.KAFKA_START, msg);
   }

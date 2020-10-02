@@ -10,7 +10,7 @@ import org.junit.Test;
 
 import java.util.*;
 
-public class SinkTaskTest {
+public class SinkTaskIT {
 
   @Test
   public void testPreCommit()

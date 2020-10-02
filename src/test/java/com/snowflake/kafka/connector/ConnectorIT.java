@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class ConnectorTest
+public class ConnectorIT
 {
   final static String allPropertiesList[] =
     {

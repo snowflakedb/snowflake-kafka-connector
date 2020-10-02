@@ -89,9 +89,9 @@ esac
 CONFLUENT_FOLDER_NAME="./confluent-$CONFLUENT_VERSION"
 
 rm -rf $CONFLUENT_FOLDER_NAME || true
-rm apache.tgz || true
-
-curl $DOWNLOAD_URL --output apache.tgz
+#rm apache.tgz || true
+#
+#curl $DOWNLOAD_URL --output apache.tgz
 tar xzvf apache.tgz > /dev/null 2>&1
 
 mkdir -p $APACHE_LOG_PATH
