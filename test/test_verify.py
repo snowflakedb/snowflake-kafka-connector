@@ -22,7 +22,8 @@ def errorExit(message):
 
 
 class KafkaTest:
-    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath):
+    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, testVersion):
+        self.testVersion = testVersion
         self.credentialPath = credentialPath
         with open(self.credentialPath) as f:
             credentialJson = json.load(f)
@@ -373,17 +374,18 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 7:
+    if len(sys.argv) != 8:
         errorExit(
             """\n=== Usage: ./ingest.py <kafka address> <schema registry address> <kafka connect address>
-             <test set> <name salt> <pressure>===""")
+             <test set> <test version> <name salt> <pressure>===""")
 
     kafkaAddress = sys.argv[1]
     schemaRegistryAddress = sys.argv[2]
     kafkaConnectAddress = sys.argv[3]
     testSet = sys.argv[4]
-    nameSalt = sys.argv[5]
-    pressure = (sys.argv[6] == 'true')
+    testVersion = sys.argv[5]
+    nameSalt = sys.argv[6]
+    pressure = (sys.argv[7] == 'true')
 
     if "SNOWFLAKE_CREDENTIAL_FILE" not in os.environ:
         errorExit(
@@ -395,6 +397,6 @@ if __name__ == "__main__":
         errorExit("\n=== Provided SNOWFLAKE_CREDENTIAL_FILE {} does not exist.  Aborting. ===".format(
             credentialPath))
 
-    kafkaTest = KafkaTest(kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath)
+    kafkaTest = KafkaTest(kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, testVersion)
 
     runTestSet(kafkaTest, testSet, nameSalt, pressure)

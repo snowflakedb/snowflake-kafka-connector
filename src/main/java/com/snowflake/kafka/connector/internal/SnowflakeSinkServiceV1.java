@@ -655,6 +655,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       // This api should throw exception if backoff failed
       ingestionService.ingestFiles(fileNamesCopy);
       committedOffset.set(flushedOffset.get());
+
+      logInfo("pipe {}, ingest files: {}", pipeName, fileNamesCopy);
       return committedOffset.get();
     }
 
