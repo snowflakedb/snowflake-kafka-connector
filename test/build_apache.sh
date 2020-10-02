@@ -64,11 +64,11 @@ pushd $SNOWFLAKE_CONNECTOR_PATH
 case $BUILD_METHOD in
 	verify)
 	  mvn clean
-    mvn verify -Dgpg.skip=true
+    mvn verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 		;;
 	package)
 	  mvn clean
-    mvn package -Dgpg.skip=true
+    mvn package -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 		;;
 	none)
 		echo -e "\n=== skip building, please make sure built connector exist ==="
