@@ -97,7 +97,7 @@ public class MetaColumnIT
         return false;
       }
       return true;
-    }, 30, 10);
+    }, 30, 15);
 
     service.closeAll();
   }
