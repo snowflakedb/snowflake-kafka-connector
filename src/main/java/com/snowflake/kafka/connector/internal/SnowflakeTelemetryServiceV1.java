@@ -36,6 +36,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   private static final String END_TIME = "end_time";
   private static final String MAX_TASKS = "max_tasks";
   private static final String APP_NAME = "app_name";
+  private static final String TASK_ID = "task_id";
   private static final String RECORD_NUMBER = "record_number";
   private static final String BYTE_NUMBER = "byte_number";
   private static final String ERROR_NUMBER = "error_number";
@@ -51,6 +52,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
 
   private final Telemetry telemetry;
   private String name = null;
+  private String taskID = null;
 
   class SnowflakePipeStatus
   {
@@ -93,13 +95,26 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaStart(final long startTime, final int maxTasks)
+  public void setTaskID(final String taskID)
+  {
+    this.taskID = taskID;
+  }
+
+  private ObjectNode getObjectNode()
   {
     ObjectNode msg = MAPPER.createObjectNode();
+    msg.put(APP_NAME, getAppName());
+    msg.put(TASK_ID, getTaskID());
+    return msg;
+  }
+
+  @Override
+  public void reportKafkaStart(final long startTime, final int maxTasks)
+  {
+    ObjectNode msg = getObjectNode();
 
     msg.put(START_TIME, startTime);
     msg.put(MAX_TASKS, maxTasks);
-    msg.put(APP_NAME, getAppName());
     msg.put(KAFKA_VERSION, AppInfoParser.getVersion());
 
     send(TelemetryType.KAFKA_START, msg);
@@ -108,10 +123,10 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   @Override
   public void reportKafkaStop(final long startTime)
   {
-    ObjectNode msg = MAPPER.createObjectNode();
+    ObjectNode msg = getObjectNode();
+
     msg.put(START_TIME, startTime);
     msg.put(END_TIME, System.currentTimeMillis());
-    msg.put(APP_NAME, getAppName());
 
     send(TelemetryType.KAFKA_STOP, msg);
   }
@@ -119,10 +134,10 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   @Override
   public void reportKafkaFatalError(final String errorDetail)
   {
-    ObjectNode msg = MAPPER.createObjectNode();
+    ObjectNode msg = getObjectNode();
+
     msg.put(TIME, System.currentTimeMillis());
     msg.put(ERROR_NUMBER, errorDetail);
-    msg.put(APP_NAME, getAppName());
 
     send(TelemetryType.KAFKA_FATAL_ERROR, msg);
   }
@@ -130,10 +145,10 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   @Override
   public void reportKafkaNonFatalError(final String errorDetail)
   {
-    ObjectNode msg = MAPPER.createObjectNode();
+    ObjectNode msg = getObjectNode();
+
     msg.put(TIME, System.currentTimeMillis());
     msg.put(ERROR_NUMBER, errorDetail);
-    msg.put(APP_NAME, getAppName());
 
     send(TelemetryType.KAFKA_NONFATAL_ERROR, msg);
   }
@@ -143,8 +158,8 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
                                final long recordNumber, final long byteNumber)
   {
 
-    ObjectNode msg = MAPPER.createObjectNode();
-    msg.put(APP_NAME, getAppName());
+    ObjectNode msg = getObjectNode();
+
     msg.put(START_TIME, startTime);
     msg.put(END_TIME, endTime);
     msg.put(RECORD_NUMBER, recordNumber);
@@ -156,8 +171,8 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   @Override
   public void reportKafkaCreateTable(final String tableName)
   {
-    ObjectNode msg = MAPPER.createObjectNode();
-    msg.put(APP_NAME, getAppName());
+    ObjectNode msg = getObjectNode();
+
     msg.put(TABLE_NAME, tableName);
     msg.put(TIME, System.currentTimeMillis());
 
@@ -167,8 +182,8 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   @Override
   public void reportKafkaReuseTable(final String tableName)
   {
-    ObjectNode msg = MAPPER.createObjectNode();
-    msg.put(APP_NAME, getAppName());
+    ObjectNode msg = getObjectNode();
+
     msg.put(TABLE_NAME, tableName);
     msg.put(TIME, System.currentTimeMillis());
 
@@ -178,8 +193,8 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   @Override
   public void reportKafkaCreateStage(final String stageName)
   {
-    ObjectNode msg = MAPPER.createObjectNode();
-    msg.put(APP_NAME, getAppName());
+    ObjectNode msg = getObjectNode();
+
     msg.put(STAGE_NAME, stageName);
     msg.put(TIME, System.currentTimeMillis());
 
@@ -189,8 +204,8 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   @Override
   public void reportKafkaReuseStage(final String stageName)
   {
-    ObjectNode msg = MAPPER.createObjectNode();
-    msg.put(APP_NAME, getAppName());
+    ObjectNode msg = getObjectNode();
+
     msg.put(STAGE_NAME, stageName);
     msg.put(TIME, System.currentTimeMillis());
 
@@ -202,8 +217,8 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
                                     final String stageName,
                                     final String pipeName)
   {
-    ObjectNode msg = MAPPER.createObjectNode();
-    msg.put(APP_NAME, getAppName());
+    ObjectNode msg = getObjectNode();
+
     msg.put(PIPE_NAME, pipeName);
     msg.put(TABLE_NAME, tableName);
     msg.put(STAGE_NAME, stageName);
@@ -218,11 +233,11 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
                                      final String stageName,
                                      final List<String> filenames)
   {
-    ObjectNode msg = MAPPER.createObjectNode();
+    ObjectNode msg = getObjectNode();
+
     msg.put(TABLE_NAME, tableName);
     msg.put(STAGE_NAME, stageName);
     msg.put(TIME, System.currentTimeMillis());
-    msg.put(APP_NAME, getAppName());
     ArrayNode names = msg.putArray(FILE_LIST);
     filenames.forEach(names::add);
 
@@ -232,10 +247,10 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   @Override
   public void reportKafkaSnowflakeThrottle(final String errorDetail, int iteration)
   {
-    ObjectNode msg = MAPPER.createObjectNode();
+    ObjectNode msg = getObjectNode();
+
     msg.put(ERROR_NUMBER, errorDetail);
     msg.put(TIME, System.currentTimeMillis());
-    msg.put(APP_NAME, getAppName());
     msg.put(BACKOFF_TIME_BEFORE_EXECUTE, iteration);
 
     send(TelemetryType.KAFKA_SNOWFLAKE_THROTTLE, msg);
@@ -267,6 +282,16 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
       return "empty_appName";
     }
     return name;
+  }
+
+  private String getTaskID()
+  {
+    if (taskID == null || taskID.isEmpty())
+    {
+      logWarn("taskID in telemetry service is empty");
+      return "empty_taskID";
+    }
+    return taskID;
   }
 
   private enum TelemetryType

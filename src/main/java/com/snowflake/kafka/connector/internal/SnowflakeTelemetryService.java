@@ -12,6 +12,12 @@ public interface SnowflakeTelemetryService
   void setAppName(String name);
 
   /**
+   * set task id
+   * @param taskID task id
+   */
+  void setTaskID(String taskID);
+
+  /**
    * Event of connector start
    * @param startTime task start time
    * @param maxTasks max number of tasks
