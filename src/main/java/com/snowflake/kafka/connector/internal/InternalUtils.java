@@ -263,10 +263,11 @@ class InternalUtils
    * @param telemetry telemetry service
    * @param runnable the lambda function itself
    * @return the object that the function returns
-   * @throws Exception
+   * @throws Exception if the runnable function throws exception
    */
   public static Object backoffAndRetry(final SnowflakeTelemetryService telemetry, final backoffFunction runnable) throws Exception
   {
+    Exception finalException = null;
     for (final int iteration : backoffSec)
     {
       if (iteration != 0)
@@ -279,10 +280,11 @@ class InternalUtils
       }
       catch (Exception e)
       {
+        finalException = e;
         LOGGER.error(e.getMessage());
         telemetry.reportKafkaSnowflakeThrottle(e.getMessage(), iteration);
       }
     }
-    throw SnowflakeErrors.ERROR_2010.getException();
+    throw SnowflakeErrors.ERROR_2010.getException(finalException);
   }
 }

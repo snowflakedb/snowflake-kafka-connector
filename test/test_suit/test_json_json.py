@@ -19,7 +19,7 @@ class TestJsonJson:
             value.append(json.dumps({'number': str(e)}).encode('utf-8'))
         self.driver.sendBytesData(self.topic, value, key)
 
-    def verify(self):
+    def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:
@@ -33,6 +33,8 @@ class TestJsonJson:
         goldMeta = r'{"key":{"number":"0"},"offset":0,"partition":0}'
         goldContent = r'{"number":"0"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
+
+        self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

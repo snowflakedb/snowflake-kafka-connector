@@ -101,6 +101,9 @@ public class SnowflakeSinkConnector extends SinkConnector
     // modify invalid connector name
     Utils.convertAppName(config);
 
+    // enable proxy
+    Utils.enableJVMProxy(config);
+
     // create a persisted connection, and validate snowflake connection
     // config as a side effect
     conn = SnowflakeConnectionServiceFactory
@@ -228,6 +231,26 @@ public class SnowflakeSinkConnector extends SinkConnector
     if (!Utils.isSingleFieldValid(result))
     {
       return result;
+    }
+
+    // Verify proxy config is valid
+    try {
+      Utils.validateProxySetting(connectorConfigs);
+    } catch (SnowflakeKafkaConnectorException e)
+    {
+      switch (e.getCode())
+      {
+        case "0022":
+          Utils.updateConfigErrorMessage(result, SnowflakeSinkConnectorConfig.JVM_PROXY_HOST,
+            ": proxy host and port must be provided together");
+          Utils.updateConfigErrorMessage(result, SnowflakeSinkConnectorConfig.JVM_PROXY_PORT,
+            ": proxy host and port must be provided together");
+        case "0023":
+          Utils.updateConfigErrorMessage(result, SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME,
+            ": proxy username and password must be provided together");
+          Utils.updateConfigErrorMessage(result, SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD,
+            ": proxy username and password must be provided together");
+      }
     }
 
     // We don't validate name, since it is not included in the return value

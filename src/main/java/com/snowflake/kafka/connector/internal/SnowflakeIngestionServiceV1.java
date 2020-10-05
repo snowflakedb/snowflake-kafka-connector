@@ -73,6 +73,7 @@ public class SnowflakeIngestionServiceV1 extends Logging
     {
       return;
     }
+    logDebug("ingest files: {}", fileNames);
     try
     {
       InternalUtils.backoffAndRetry(telemetry,
@@ -95,7 +96,6 @@ public class SnowflakeIngestionServiceV1 extends Logging
     {
       throw SnowflakeErrors.ERROR_3001.getException(e);
     }
-    logDebug("ingest files: {}", fileNames);
   }
 
   @Override

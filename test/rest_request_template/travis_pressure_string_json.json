@@ -8,7 +8,7 @@
     "snowflake.private.key":"SNOWFLAKE_PRIVATE_KEY",
     "snowflake.database.name":"SNOWFLAKE_DATABASE",
     "snowflake.schema.name":"SNOWFLAKE_SCHEMA",
-    "tasks.max": "4",
+    "tasks.max": "10",
     "key.converter":"org.apache.kafka.connect.storage.StringConverter",
     "value.converter":"com.snowflake.kafka.connector.records.SnowflakeJsonConverter"
   }

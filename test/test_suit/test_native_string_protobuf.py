@@ -32,7 +32,7 @@ class TestNativeStringProtobuf:
             value.append(self.sensor.SerializeToString())
         self.driver.sendBytesData(self.topic, value)
 
-    def verify(self):
+    def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:
@@ -52,6 +52,8 @@ class TestNativeStringProtobuf:
                       r'"float_val":4321.432,"int32_val":2147483647,"reading":321.321,"sint32_val":2147483647,' \
                       r'"sint64_val":9223372036854775807,"uint32_val":4294967295,"uint64_val":18446744073709551615}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
+
+        self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

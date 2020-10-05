@@ -31,7 +31,7 @@ class TestPressureRestart:
                     ).encode('utf-8'))
                 self.driver.sendBytesData(self.topics[t], value, partition=p)
 
-    def verify(self):
+    def verify(self, round):
         # restart connector with different config
         self.configIncreamental = self.configIncreamental + 1
         if self.configIncreamental > 0:
@@ -42,12 +42,15 @@ class TestPressureRestart:
             res = self.driver.snowflake_conn.cursor().execute(
                 "SELECT count(*) FROM {}".format(self.topics[t])).fetchone()[0]
 
-            if res != self.partitionNum * self.recordNum:
+            if res != self.partitionNum * self.recordNum * (round + 1):
                 raise RetryableError()
 
             if self.curTest <= t:
                 self.curTest = t + 1
                 raise ResetAndRetry()
+
+        # after success, reset curTest for next round
+        self.curTest = 0
 
     def clean(self):
         for t in range(self.topicNum):

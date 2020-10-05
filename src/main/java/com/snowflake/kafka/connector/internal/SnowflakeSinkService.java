@@ -67,6 +67,11 @@ public interface SnowflakeSinkService
   void close(Collection<TopicPartition> partitions);
 
   /**
+   * close all cleaner thread but have no effect on sink service context
+   */
+  void setIsStoppedToTrue();
+
+  /**
    * retrieve sink service status
    * @return true is closed
    */
@@ -80,9 +85,9 @@ public interface SnowflakeSinkService
   void setRecordNumber(long num);
 
   /**
-   * change maximum data size of buffer to control the flush rate,
-   * the maximum file size is controlled by
-   * {@link com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES_MAX}
+   * change data size of buffer to control the flush rate,
+   * the minimum file size is controlled by
+   * {@link com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES_MIN}
    * @param size a non negative long number represents data size limitation
    */
   void setFileSize(long size);

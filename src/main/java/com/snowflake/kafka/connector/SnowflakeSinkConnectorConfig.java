@@ -48,7 +48,7 @@ public class SnowflakeSinkConnectorConfig
   public static final long BUFFER_COUNT_RECORDS_DEFAULT = 10000;
   static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
   public static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
-  public static final long BUFFER_SIZE_BYTES_MAX = 100000000;
+  public static final long BUFFER_SIZE_BYTES_MIN = 1;
   static final String TOPICS_TABLES_MAP = "snowflake.topic2table.map";
 
   // Time in seconds
@@ -69,6 +69,8 @@ public class SnowflakeSinkConnectorConfig
   private static final String PROXY_INFO = "Proxy Info";
   static final String JVM_PROXY_HOST = "jvm.proxy.host";
   static final String JVM_PROXY_PORT = "jvm.proxy.port";
+  static final String JVM_PROXY_USERNAME = "jvm.proxy.username";
+  static final String JVM_PROXY_PASSWORD = "jvm.proxy.password";
 
   // JDBC logging directory Info (environment variable)
   static final String SNOWFLAKE_JDBC_LOG_DIR = "JDBC_LOG_DIR";
@@ -109,6 +111,26 @@ public class SnowflakeSinkConnectorConfig
       config.put(field, value + "");
       LOGGER.info(Logging.logMessage("{} set to default {} seconds", field, value));
     }
+  }
+
+  /**
+   * Get a property from the config map
+   *
+   * @param config connector configuration
+   * @param key name of the key to be retrived
+   * @return proprity value or null
+   */
+  static String getProperty(final Map<String, String> config, final String key)
+  {
+    if (config.containsKey(key) && !config.get(key).isEmpty())
+    {
+      return config.get(key);
+    }
+    else
+    {
+      return null;
+    }
+
   }
 
   static ConfigDef newConfigDef()
@@ -182,8 +204,7 @@ public class SnowflakeSinkConnectorConfig
         PROXY_INFO,
         0,
         ConfigDef.Width.NONE,
-        JVM_PROXY_HOST
-        )
+        JVM_PROXY_HOST)
       .define(JVM_PROXY_PORT,
         Type.STRING,
         "",
@@ -193,6 +214,24 @@ public class SnowflakeSinkConnectorConfig
         1,
         ConfigDef.Width.NONE,
         JVM_PROXY_PORT)
+      .define(JVM_PROXY_USERNAME,
+        Type.STRING,
+        "",
+        Importance.LOW,
+        "JVM proxy username",
+        PROXY_INFO,
+        2,
+        ConfigDef.Width.NONE,
+        JVM_PROXY_USERNAME)
+      .define(JVM_PROXY_PASSWORD,
+        Type.STRING,
+        "",
+        Importance.LOW,
+        "JVM proxy password",
+        PROXY_INFO,
+        3,
+        ConfigDef.Width.NONE,
+        JVM_PROXY_PASSWORD)
       //Connector Config
       .define(TOPICS_TABLES_MAP,
         Type.STRING,
@@ -217,7 +256,7 @@ public class SnowflakeSinkConnectorConfig
       .define(BUFFER_SIZE_BYTES,
         Type.LONG,
         BUFFER_SIZE_BYTES_DEFAULT,
-        ConfigDef.Range.between(1, BUFFER_SIZE_BYTES_MAX),
+        ConfigDef.Range.atLeast(1),
         Importance.LOW,
         "Cumulative size of records buffered in memory per partition before triggering Snowflake ingestion",
         CONNECTOR_CONFIG,

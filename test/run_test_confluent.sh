@@ -95,7 +95,8 @@ curl $DOWNLOAD_URL --output apache.tgz
 tar xzvf apache.tgz > /dev/null 2>&1
 
 mkdir -p $APACHE_LOG_PATH
-rm $APACHE_LOG_PATH/zookeeper.log $APACHE_LOG_PATH/kafka.log $APACHE_LOG_PATH/kc.log || true
+rm $APACHE_LOG_PATH/zookeeper.log $APACHE_LOG_PATH/kafka.log || true
+rm $APACHE_LOG_PATH/kc.log || true
 rm -rf /tmp/kafka-logs /tmp/zookeeper || true
 
 compile_protobuf_converter_and_data $TEST_SET $CONFLUENT_FOLDER_NAME
@@ -115,22 +116,24 @@ echo -e "\n=== Start Schema Registry ==="
 $CONFLUENT_FOLDER_NAME/bin/schema-registry-start $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_SCHEMA_REGISTRY_CONFIG > $APACHE_LOG_PATH/sc.log 2>&1 &
 sleep 30
 
-# address of kafka
-SNOWFLAKE_KAFKA_PORT="9092"
+# address of Kafka and KC
+SNOWFLAKE_KAFKA_ADDRESS="localhost:9092"
 LOCAL_IP="localhost"
 SC_PORT=8081
 KC_PORT=8083
 
 set +e
 echo -e "\n=== Clean table stage and pipe ==="
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $NAME_SALT $PRESSURE
+python3 test_verify.py $SNOWFLAKE_KAFKA_ADDRESS http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $NAME_SALT $PRESSURE
 
-record_thread_count 2>&1 &
+# record_thread_count 2>&1 &
 # Send test data and verify DB result from Python
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT $TEST_SET $NAME_SALT $PRESSURE
+python3 test_verify.py $SNOWFLAKE_KAFKA_ADDRESS http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT $TEST_SET $NAME_SALT $PRESSURE
 testError=$?
+
 # delete_connectors_with_salt $NAME_SALT $LOCAL_IP $KC_PORT
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $NAME_SALT $PRESSURE
+python3 test_verify.py $SNOWFLAKE_KAFKA_ADDRESS http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $NAME_SALT $PRESSURE
+
 
 ##### Following commented code is used to track thread leak
 #sleep 100
@@ -140,7 +143,7 @@ python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT
 #NAME_SALT="_$NAME_SALT"
 #echo -e "=== Name Salt: $NAME_SALT ==="
 #create_connectors_with_salt $SNOWFLAKE_CREDENTIAL_FILE $NAME_SALT $LOCAL_IP $KC_PORT
-#python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $TEST_SET $NAME_SALT $PRESSURE
+#python3 test_verify.py $SNOWFLAKE_KAFKA_ADDRESS http://$LOCAL_IP:$SC_PORT $TEST_SET $NAME_SALT $PRESSURE
 #
 #sleep 100
 #
@@ -149,15 +152,12 @@ python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT
 #NAME_SALT="_$NAME_SALT"
 #echo -e "=== Name Salt: $NAME_SALT ==="
 #create_connectors_with_salt $SNOWFLAKE_CREDENTIAL_FILE $NAME_SALT $LOCAL_IP $KC_PORT
-#python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $TEST_SET $NAME_SALT $PRESSURE
+#python3 test_verify.py $SNOWFLAKE_KAFKA_ADDRESS http://$LOCAL_IP:$SC_PORT $TEST_SET $NAME_SALT $PRESSURE
 
 if [ $testError -ne 0 ]; then
     RED='\033[0;31m'
     NC='\033[0m' # No Color
     echo -e "${RED} There is error above this line ${NC}"
-#    tail -200 $APACHE_LOG_PATH/zookeeper.log
-#    tail -200 $APACHE_LOG_PATH/kafka.log
-    tail -200 $APACHE_LOG_PATH/kc.log
-#    tail -200 $APACHE_LOG_PATH/sc.log
+    cat $APACHE_LOG_PATH/kc.log
     error_exit "=== test_verify.py failed ==="
 fi

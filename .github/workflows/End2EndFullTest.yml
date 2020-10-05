@@ -1,4 +1,4 @@
-name: Kafka Connector End2End Full Version Test
+name: Kafka Connector End2End Full Version Test AWS
 
 on:
   schedule:
@@ -20,7 +20,7 @@ jobs:
         python-version: '3.6'
         architecture: 'x64'
     - name: Decrypt profile.json
-      run: ./.github/scripts/decrypt_secret.sh
+      run: ./.github/scripts/decrypt_secret.sh 'aws'
       env:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
     - name: Restore Maven Cache
@@ -33,8 +33,8 @@ jobs:
     - name: Install Dependency
       run: |
         pip3 install --upgrade setuptools
-        pip3 install "confluent-kafka[avro]"
-        pip3 install avro-python3
+        pip3 install requests certifi "confluent-kafka[avro,json,protobuf]>=1.5.0"
+        pip3 install avro-python3 kafka-python
         pip3 install protobuf
         pip3 install --upgrade snowflake-connector-python
         curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
@@ -49,20 +49,6 @@ jobs:
       run: |
         cd test
         ./build_apache.sh ../../snowflake-kafka-connector
-    
-    - name: End to End Test of Confluent Platform 5.0.0
-      env:
-        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
-      run: |
-        cd test
-        ./run_test_confluent.sh 5.0.0 ./apache_properties
-
-    - name: End to End Test of Apache Plarform 2.0.0
-      env:
-        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
-      run: |
-        cd test
-        ./run_test_apache.sh 2.0.0 ./apache_properties
 
     - name: End to End Test of Confluent Platform 5.2.0
       env:
