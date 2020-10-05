@@ -282,7 +282,7 @@ class InternalUtils
       {
         finalException = e;
         LOGGER.error(e.getMessage());
-        telemetry.reportKafkaSnowflakeThrottle(e.getMessage(), iteration);
+        telemetry.reportKafkaFatalError(e.getMessage());
       }
     }
     throw SnowflakeErrors.ERROR_2010.getException(finalException);

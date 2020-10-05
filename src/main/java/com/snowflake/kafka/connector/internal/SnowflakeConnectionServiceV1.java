@@ -85,7 +85,6 @@ public class SnowflakeConnectionServiceV1 extends Logging
     }
 
     logInfo("create table {}", tableName);
-    getTelemetryClient().reportKafkaCreateTable(tableName);
   }
 
   @Override
@@ -124,7 +123,6 @@ public class SnowflakeConnectionServiceV1 extends Logging
       throw SnowflakeErrors.ERROR_2009.getException(e);
     }
     logInfo("create pipe: {}", pipeName);
-    getTelemetryClient().reportKafkaCreatePipe(tableName, stageName, pipeName);
   }
 
   @Override
@@ -160,7 +158,6 @@ public class SnowflakeConnectionServiceV1 extends Logging
       throw SnowflakeErrors.ERROR_2008.getException(e);
     }
     logInfo("create stage {}", stageName);
-    getTelemetryClient().reportKafkaCreateStage(stageName);
   }
 
   @Override

@@ -790,7 +790,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       if (!files.isEmpty())
       {
         conn.moveToTableStage(tableName, stageName, files);
-        telemetryService.reportKafkaFileFailure(tableName, stageName, files);
       }
     }
 
@@ -840,7 +839,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         if (conn.isTableCompatible(tableName))
         {
           logInfo("Using existing table {}.", tableName);
-          telemetryService.reportKafkaReuseTable(tableName);
         }
         else
         {
@@ -858,7 +856,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         if (conn.isStageCompatible(stageName))
         {
           logInfo("Using existing stage {}.", stageName);
-          telemetryService.reportKafkaReuseStage(stageName);
         }
         else
         {
@@ -870,6 +867,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         logInfo("Creating new stage {}.", stageName);
         conn.createStage(stageName);
       }
+      SnowflakeTelemetryServiceV1.SnowflakeObjectCreation pipeCreation
+        = new SnowflakeTelemetryServiceV1.SnowflakeObjectCreation(tableName, stageName, pipeName);
+      return
     }
 
     private void sendUsageReport()
@@ -892,7 +892,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       {
         usageDataLock.unlock();
       }
-      telemetryService.reportKafkaUsage(start, end, numOfRecord, sizeOfData);
     }
 
     private void updateUsageData(long numOfRecord, long sizeOfData)

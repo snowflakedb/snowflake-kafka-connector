@@ -39,73 +39,21 @@ public interface SnowflakeTelemetryService
   void reportKafkaFatalError(String errorDetail);
 
   /**
-   * Event of a non fatal error in the connector
-   *
-   * @param errorDetail error message
-   */
-  void reportKafkaNonFatalError(String errorDetail);
-
-  /**
    * report connector usage
    *
-   * @param startTime    start time of reported period
-   * @param endTime      end time of reported period
-   * @param recordNumber number of records sent to SF
-   * @param byteNumber   number of bytes sent to SF
+   * @param pipeStatus   SnowflakePipeStatus object
    */
-  void reportKafkaUsage(long startTime, long endTime, long recordNumber, long byteNumber);
+  void reportKafkaPipeUsage(final SnowflakeTelemetryServiceV1.SnowflakePipeStatus pipeStatus);
 
   /**
-   * report table creation
+   * report connector pipe start
    *
-   * @param tableName table name
+   * @param objectCreation   SnowflakeObjectCreation object
    */
-  void reportKafkaCreateTable(String tableName);
+  void reportKafkaPipeStart(final SnowflakeTelemetryServiceV1.SnowflakeObjectCreation objectCreation);
 
   /**
-   * report table creation
-   *
-   * @param tableName table name
+   * flush buffered telemetry
    */
-  void reportKafkaReuseTable(String tableName);
-
-  /**
-   * report stage creation
-   *
-   * @param stageName stage name
-   */
-  void reportKafkaCreateStage(String stageName);
-
-  /**
-   * report stage reuse
-   *
-   * @param stageName stage name
-   */
-  void reportKafkaReuseStage(String stageName);
-
-  /**
-   * report pipe creation
-   *
-   * @param pipeName  pipe name
-   * @param stageName stage name
-   * @param tableName table name
-   */
-  void reportKafkaCreatePipe(String tableName, String stageName, String pipeName);
-
-  /**
-   * report file failures
-   *
-   * @param tableName table name
-   * @param stageName stage name
-   * @param filenames a list of file names
-   */
-  void reportKafkaFileFailure(String tableName, String stageName, List<String> filenames);
-
-  /**
-   * report Snowflake throttle
-   *
-   * @param errorDetail error message
-   * @param iteration slept time before execution
-   */
-  void reportKafkaSnowflakeThrottle(final String errorDetail, int iteration);
+  void flushTelemetry();
 }
