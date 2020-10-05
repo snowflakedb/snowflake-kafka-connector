@@ -43,14 +43,14 @@ public interface SnowflakeTelemetryService
    *
    * @param pipeStatus   SnowflakePipeStatus object
    */
-  void reportKafkaPipeUsage(final SnowflakeTelemetryServiceV1.SnowflakePipeStatus pipeStatus);
+  void reportKafkaPipeUsage(final SnowflakeTelemetryPipeStatus pipeStatus);
 
   /**
    * report connector pipe start
    *
    * @param objectCreation   SnowflakeObjectCreation object
    */
-  void reportKafkaPipeStart(final SnowflakeTelemetryServiceV1.SnowflakeObjectCreation objectCreation);
+  void reportKafkaPipeStart(final SnowflakeTelemetryPipeCreation objectCreation);
 
   /**
    * flush buffered telemetry
