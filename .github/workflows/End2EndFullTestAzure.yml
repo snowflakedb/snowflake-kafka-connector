@@ -3,6 +3,10 @@ name: Kafka Connector End2End Full Version Test Azure
 on:
   schedule:
     - cron:  '0 8 * * *'
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: '**'
 
 jobs:
   build:
