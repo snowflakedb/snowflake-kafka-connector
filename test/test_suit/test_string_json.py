@@ -27,7 +27,7 @@ class TestStringJson:
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
         # validate content of line 1
-        if self.driver.testVersion == "5.2.0" or self.driver.testVersion == "2.2.0":
+        if self.driver.testVersion != "5.5.0" and self.driver.testVersion != "2.5.0":
             goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":{}},"offset":0,"partition":0,"topic":"travis_correct_string_json....."}'
         else:
             goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":[]},"offset":0,"partition":0,"topic":"travis_correct_string_json....."}'
