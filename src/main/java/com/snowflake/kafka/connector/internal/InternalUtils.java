@@ -282,9 +282,8 @@ class InternalUtils
       {
         finalException = e;
         LOGGER.error(e.getMessage());
-        telemetry.reportKafkaFatalError(e.getMessage());
       }
     }
-    throw SnowflakeErrors.ERROR_2010.getException(finalException);
+    throw SnowflakeErrors.ERROR_2010.getException(finalException, telemetry);
   }
 }

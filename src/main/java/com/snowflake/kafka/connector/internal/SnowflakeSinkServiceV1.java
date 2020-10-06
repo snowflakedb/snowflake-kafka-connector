@@ -421,7 +421,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
             {
               logWarn("Cleaner encountered an exception {}:\n{}\n{}",
                 e.getClass(), e.getMessage(), e.getStackTrace());
-
+              telemetryService.reportKafkaFatalError(e.getMessage());
               forceCleanerFileReset = true;
 
             }
