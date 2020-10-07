@@ -122,6 +122,27 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     }
   }
 
+  boolean empty()
+  {
+    return this.processedOffset.get() == 0 &&
+            this.flushedOffset.get() == 0 &&
+            this.committedOffset.get() == 0 &&
+            this.purgedOffset.get() == 0 &&
+            this.totalNumberOfRecord.get() == 0 &&
+            this.totalSizeOfData.get() == 0 &&
+            this.fileCountOnStage.get() == 0 &&
+            this.fileCountOnIngestion.get() == 0 &&
+            this.fileCountPurged.get() == 0 &&
+            this.fileCountTableStage.get() == 0 &&
+            this.cleanerRestartCount.get() == 0 &&
+            this.averageKafkaLag.get() == 0 &&
+            this.averageKafkaLagRecordCount.get() == 0 &&
+            this.averageIngestionLag.get() == 0 &&
+            this.averageIngestionLagFileCount.get() == 0 &&
+            this.averageCommitLag.get() == 0 &&
+            this.averageCommitLagFileCount.get() == 0;
+  }
+
   void dumpTo(ObjectNode msg)
   {
     msg.put(TABLE_NAME, tableName);

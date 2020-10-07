@@ -34,7 +34,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   private static final String TIME = "time";
   private static final String VERSION = "version";
   private static final String KAFKA_VERSION = "kafka_version";
-  private static final String BACKOFF_TIME_BEFORE_EXECUTE = "backoff_time_before_execute";
+  private static final String IS_PIPE_CLOSING = "is_pipe_closing";
 
 
   private final Telemetry telemetry;
@@ -101,12 +101,16 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaPipeUsage(final SnowflakeTelemetryPipeStatus pipeStatus)
+  public void reportKafkaPipeUsage(final SnowflakeTelemetryPipeStatus pipeStatus, boolean isClosing)
   {
-
+    if (pipeStatus.empty())
+    {
+      return;
+    }
     ObjectNode msg = getObjectNode();
 
     pipeStatus.dumpTo(msg);
+    msg.put(IS_PIPE_CLOSING, isClosing);
 
     send(TelemetryType.KAFKA_PIPE_USAGE, msg);
   }

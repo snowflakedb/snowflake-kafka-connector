@@ -42,8 +42,9 @@ public interface SnowflakeTelemetryService
    * report connector usage
    *
    * @param pipeStatus   SnowflakePipeStatus object
+   * @param isClosing    is the pipe closing
    */
-  void reportKafkaPipeUsage(final SnowflakeTelemetryPipeStatus pipeStatus);
+  void reportKafkaPipeUsage(final SnowflakeTelemetryPipeStatus pipeStatus, boolean isClosing);
 
   /**
    * report connector pipe start

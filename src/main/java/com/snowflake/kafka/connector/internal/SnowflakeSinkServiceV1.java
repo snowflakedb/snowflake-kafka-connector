@@ -405,8 +405,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
           {
             try
             {
+              telemetryService.reportKafkaPipeUsage(pipeStatus, false);
               Thread.sleep(CLEAN_TIME);
-              telemetryService.reportKafkaPipeUsage(pipeStatus);
 
               if (forceCleanerFileReset && resetCleanerFiles()) {
                 continue;
@@ -654,8 +654,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       {
         fileListLock.unlock();
       }
-      // This api should throw exception if backoff failed
-      ingestionService.ingestFiles(fileNamesCopy);
 
       // update telemetry data
       long currentTime = System.currentTimeMillis();
@@ -664,8 +662,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       fileNamesCopy.forEach(
         name -> pipeStatus.updateCommitLag(currentTime - FileNameUtils.fileNameToTimeIngested(name))
       );
-
       logInfo("pipe {}, ingest files: {}", pipeName, fileNamesCopy);
+
+      // This api should throw exception if backoff failed. It also clears the input list
+      ingestionService.ingestFiles(fileNamesCopy);
+
       return pipeStatus.committedOffset.get();
     }
 
@@ -764,7 +765,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
       // update purged offset in telemetry
       loadedFiles.forEach(
-        name -> pipeStatus.flushedOffset.updateAndGet(
+        name -> pipeStatus.purgedOffset.updateAndGet(
             value -> Math.max(FileNameUtils.fileNameToEndOffset(name) + 1, value)
           )
       );
@@ -850,7 +851,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         logWarn("Failed to terminate Cleaner or Flusher");
       }
       ingestionService.close();
-      telemetryService.reportKafkaPipeUsage(pipeStatus);
+      telemetryService.reportKafkaPipeUsage(pipeStatus, true);
       logInfo("pipe {}: service closed", pipeName);
     }
 
