@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
-public class SnowflakeTelemetryBasicInfo {
+public abstract class SnowflakeTelemetryBasicInfo {
   String tableName;
   String stageName;
   String pipeName;

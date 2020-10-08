@@ -12,7 +12,7 @@ public class SnowflakeTelemetryPipeCreation extends SnowflakeTelemetryBasicInfo 
   boolean isReusePipe = false;                   // is the create reusing existing pipe
   int fileCountRestart = 0;                      // files on stage when cleaner starts
   int fileCountReprocessPurge = 0;               // files on stage that are purged due to reprocessing when cleaner starts
-  long startTime;                          // start time of the pipe
+  long startTime;                                // start time of the pipe
   static final String START_TIME                 = "start_time";
   static final String IS_REUSE_TABLE             = "is_reuse_table";
   static final String IS_REUSE_STAGE             = "is_reuse_stage";
