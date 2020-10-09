@@ -333,14 +333,18 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     private void init(long recordOffset)
     {
       logInfo("init pipe: {}", pipeName);
+      SnowflakeTelemetryPipeCreation pipeCreation
+        = new SnowflakeTelemetryPipeCreation(tableName, stageName, pipeName);
+
       // wait for sinkConnector to start
-      SnowflakeTelemetryPipeCreation pipeCreation = createTableAndStage();
+      createTableAndStage(pipeCreation);
       // recover will only check pipe status and create pipe if it does not exist.
       recover(pipeCreation);
 
       try
       {
         startCleaner(recordOffset, pipeCreation);
+        telemetryService.reportKafkaPipeStart(pipeCreation);
       } catch (Exception e)
       {
         logWarn("Cleaner and Flusher threads shut down before initialization");
@@ -383,7 +387,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       // Telemetry
       pipeCreation.fileCountRestart = tmpFileNames.size();
       pipeCreation.fileCountReprocessPurge = reprocessFiles.size();
-      telemetryService.reportKafkaPipeStart(pipeCreation);
 
       fileListLock.lock();
       try
@@ -826,10 +829,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
      * min)
      * And then throws exceptions if table or stage doesn't exit
      */
-    private SnowflakeTelemetryPipeCreation createTableAndStage()
+    private void createTableAndStage(SnowflakeTelemetryPipeCreation pipeCreation)
     {
-      SnowflakeTelemetryPipeCreation pipeCreation
-        = new SnowflakeTelemetryPipeCreation(tableName, stageName, pipeName);
       //create table if not exists
       if (conn.tableExist(tableName))
       {
@@ -866,7 +867,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         logInfo("Creating new stage {}.", stageName);
         conn.createStage(stageName);
       }
-      return pipeCreation;
     }
 
     private class PartitionBuffer
