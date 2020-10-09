@@ -129,6 +129,7 @@ public class SnowflakeSinkTask extends SinkTask
     conn = SnowflakeConnectionServiceFactory
       .builder()
       .setProperties(parsedConfig)
+      .setTaskID(this.id)
       .build();
 
     if (this.sink != null)

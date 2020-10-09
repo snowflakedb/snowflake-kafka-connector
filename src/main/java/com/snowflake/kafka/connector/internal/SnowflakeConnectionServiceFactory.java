@@ -16,6 +16,7 @@ public class SnowflakeConnectionServiceFactory
     private Properties prop;
     private SnowflakeURL url;
     private String connectorName;
+    private String taskID = "-1";
 
     // For testing only
     public SnowflakeConnectionServiceBuilder setProperties(Properties prop)
@@ -42,6 +43,12 @@ public class SnowflakeConnectionServiceFactory
       return this;
     }
 
+    public SnowflakeConnectionServiceBuilder setTaskID(String taskID)
+    {
+      this.taskID = taskID;
+      return this;
+    }
+
     public SnowflakeConnectionServiceBuilder setProperties(Map<String, String> conf)
     {
       if(!conf.containsKey(Utils.SF_URL))
@@ -59,7 +66,7 @@ public class SnowflakeConnectionServiceFactory
       InternalUtils.assertNotEmpty("properties", prop);
       InternalUtils.assertNotEmpty("url", url);
       InternalUtils.assertNotEmpty("connectorName", connectorName);
-      return new SnowflakeConnectionServiceV1(prop, url, connectorName);
+      return new SnowflakeConnectionServiceV1(prop, url, connectorName, taskID);
     }
   }
 }

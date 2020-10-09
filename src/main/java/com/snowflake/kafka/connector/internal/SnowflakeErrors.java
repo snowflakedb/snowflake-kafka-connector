@@ -414,7 +414,8 @@ public enum SnowflakeErrors
   {
     if(telemetryService != null)
     {
-      telemetryService.reportKafkaFatalError(getCode());
+      telemetryService.reportKafkaFatalError(
+        getCode() + msg.substring(0, Math.min(msg.length(), 500)));
     }
 
     if(msg == null || msg.isEmpty())
