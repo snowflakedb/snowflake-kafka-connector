@@ -52,9 +52,4 @@ public interface SnowflakeTelemetryService
    * @param objectCreation   SnowflakeObjectCreation object
    */
   void reportKafkaPipeStart(final SnowflakeTelemetryPipeCreation objectCreation);
-
-  /**
-   * flush buffered telemetry
-   */
-  void flushTelemetry();
 }

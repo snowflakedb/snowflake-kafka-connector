@@ -127,11 +127,6 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
 
   private void send(TelemetryType type, JsonNode data)
   {
-    send(type, data, true);
-  }
-
-  private void send(TelemetryType type, JsonNode data, boolean flush)
-  {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(SOURCE, KAFKA_CONNECTOR);
     msg.put(TYPE, type.toString());
@@ -141,25 +136,10 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
     {
       telemetry.addLogToBatch(TelemetryUtil.buildJobData(msg));
       logDebug("sending telemetry data: {}", data.toString());
-      if (flush)
-      {
-        telemetry.sendBatchAsync();
-      }
-    } catch (Exception e)
-    {
-      logError("Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
-    }
-  }
-
-  @Override
-  public void flushTelemetry()
-  {
-    try
-    {
       telemetry.sendBatchAsync();
     } catch (Exception e)
     {
-      logError("Failed to send telemetry data, Error: {}", e.getMessage());
+      logError("Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
     }
   }
 
