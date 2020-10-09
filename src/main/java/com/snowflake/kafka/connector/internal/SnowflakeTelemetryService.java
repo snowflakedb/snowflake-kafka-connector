@@ -39,9 +39,22 @@ public interface SnowflakeTelemetryService
   void reportKafkaFatalError(String errorDetail);
 
   /**
+   * report connector usage
+   *
+   * @param pipeStatus   SnowflakePipeStatus object
+   * @param isClosing    is the pipe closing
+   */
+  void reportKafkaPipeUsage(final SnowflakeTelemetryPipeStatus pipeStatus, boolean isClosing);
+
+  /**
    * report connector pipe start
    *
    * @param objectCreation   SnowflakeObjectCreation object
    */
   void reportKafkaPipeStart(final SnowflakeTelemetryPipeCreation objectCreation);
+
+  /**
+   * flush buffered telemetry
+   */
+  void flushTelemetry();
 }
