@@ -67,9 +67,7 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
 
   SnowflakeTelemetryPipeStatus(final String tableName, final String stageName, final String pipeName)
   {
-    this.tableName = tableName;
-    this.stageName = stageName;
-    this.pipeName = pipeName;
+    super(tableName, stageName, pipeName);
 
     this.processedOffset = new AtomicLong(0);
     this.flushedOffset = new AtomicLong(0);
@@ -143,6 +141,7 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
             this.averageCommitLagFileCount.get() == 0;
   }
 
+  @Override
   void dumpTo(ObjectNode msg)
   {
     msg.put(TABLE_NAME, tableName);

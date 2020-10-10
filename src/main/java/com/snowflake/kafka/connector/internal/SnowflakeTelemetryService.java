@@ -39,7 +39,7 @@ public interface SnowflakeTelemetryService
   void reportKafkaFatalError(String errorDetail);
 
   /**
-   * report connector usage
+   * report connector pipe status
    *
    * @param pipeStatus   SnowflakePipeStatus object
    * @param isClosing    is the pipe closing
