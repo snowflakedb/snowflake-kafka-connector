@@ -25,14 +25,16 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   static final String BYTE_NUMBER       = "byte_number";
 
   // File count info
-  AtomicLong fileCountOnStage;                  // files that are currently on stage
-  AtomicLong fileCountOnIngestion;              // files that are being ingested
-  AtomicLong fileCountPurged;                   // files that are purged
-  AtomicLong fileCountTableStage;               // files that are moved to table stage
-  static final String FILE_COUNT_ON_STAGE       = "file_count_on_stage";
-  static final String FILE_COUNT_ON_INGESTION   = "file_count_on_ingestion";
-  static final String FILE_COUNT_PURGED         = "file_count_purged";
-  static final String FILE_COUNT_TABLE_STAGE    = "file_count_table_stage";
+  AtomicLong fileCountOnStage;                              // files that are currently on stage
+  AtomicLong fileCountOnIngestion;                          // files that are being ingested
+  AtomicLong fileCountPurged;                               // files that are purged
+  AtomicLong fileCountTableStageIngestFail;                 // files that are moved to table stage due to ingestion failure
+  AtomicLong fileCountTableStageBrokenRecord;               // files that are moved to table stage due to broken record
+  static final String FILE_COUNT_ON_STAGE                   = "file_count_on_stage";
+  static final String FILE_COUNT_ON_INGESTION               = "file_count_on_ingestion";
+  static final String FILE_COUNT_PURGED                     = "file_count_purged";
+  static final String FILE_COUNT_TABLE_STAGE_INGEST_FAIL    = "file_count_table_stage_ingest_fail";
+  static final String FILE_COUNT_TABLE_STAGE_BROKEN_RECORD  = "file_count_table_stage_broken_record";
 
   // Cleaner restart count
   AtomicLong cleanerRestartCount;               // how many times the cleaner restarted
@@ -78,7 +80,8 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     this.fileCountOnStage = new AtomicLong(0);
     this.fileCountOnIngestion = new AtomicLong(0);
     this.fileCountPurged = new AtomicLong(0);
-    this.fileCountTableStage = new AtomicLong(0);
+    this.fileCountTableStageIngestFail = new AtomicLong(0);
+    this.fileCountTableStageBrokenRecord = new AtomicLong(0);
     this.cleanerRestartCount = new AtomicLong(0);
 
     this.averageKafkaLag = new AtomicLong(0);
@@ -131,7 +134,8 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
             this.fileCountOnStage.get() == 0 &&
             this.fileCountOnIngestion.get() == 0 &&
             this.fileCountPurged.get() == 0 &&
-            this.fileCountTableStage.get() == 0 &&
+            this.fileCountTableStageIngestFail.get() == 0 &&
+            this.fileCountTableStageBrokenRecord.get() == 0 &&
             this.cleanerRestartCount.get() == 0 &&
             this.averageKafkaLag.get() == 0 &&
             this.averageKafkaLagRecordCount.get() == 0 &&
@@ -157,7 +161,8 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     msg.put(FILE_COUNT_ON_STAGE, fileCountOnStage.get());
     msg.put(FILE_COUNT_ON_INGESTION, fileCountOnIngestion.get());
     msg.put(FILE_COUNT_PURGED, fileCountPurged.get());
-    msg.put(FILE_COUNT_TABLE_STAGE, fileCountTableStage.get());
+    msg.put(FILE_COUNT_TABLE_STAGE_INGEST_FAIL, fileCountTableStageIngestFail.get());
+    msg.put(FILE_COUNT_TABLE_STAGE_BROKEN_RECORD, fileCountTableStageBrokenRecord.get());
     msg.put(CLEANER_RESTART_COUNT, cleanerRestartCount.get());
 
     lagLock.lock();

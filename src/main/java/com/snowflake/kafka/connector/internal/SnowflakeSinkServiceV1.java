@@ -619,11 +619,13 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       {
         String fileName = FileNameUtils.brokenRecordFileName(prefix, record.kafkaOffset(), true);
         conn.putToTableStage(tableName, fileName, snowflakeContentToByteArray(key));
+        pipeStatus.fileCountTableStageBrokenRecord.incrementAndGet();
       }
       if (value != null)
       {
         String fileName = FileNameUtils.brokenRecordFileName(prefix, record.kafkaOffset(), false);
         conn.putToTableStage(tableName, fileName, snowflakeContentToByteArray(value));
+        pipeStatus.fileCountTableStageBrokenRecord.incrementAndGet();
       }
     }
 
@@ -776,7 +778,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       int fileCountRevomedFromStage = loadedFiles.size() + failedFiles.size();
       pipeStatus.fileCountOnStage.addAndGet( - fileCountRevomedFromStage);
       pipeStatus.fileCountOnIngestion.addAndGet( - fileCountRevomedFromStage);
-      pipeStatus.fileCountTableStage.addAndGet(failedFiles.size());
+      pipeStatus.fileCountTableStageIngestFail.addAndGet(failedFiles.size());
       pipeStatus.fileCountPurged.addAndGet(loadedFiles.size());
       // update lag information
       loadedFiles.forEach(
