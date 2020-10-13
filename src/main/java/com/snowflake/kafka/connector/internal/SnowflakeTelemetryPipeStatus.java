@@ -9,10 +9,10 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   // Offset info
-  AtomicLong processedOffset;           // processed offset + 1 (offset that is most recent in buffer)
-  AtomicLong flushedOffset;             // flushed offset + 1 (files on stage)
-  AtomicLong committedOffset;           // committed offset + 1 (files being ingested)
-  AtomicLong purgedOffset;              // purged offset + 1 (files purged or moved to table stage)
+  AtomicLong processedOffset;           // processed offset (offset that is most recent in buffer)
+  AtomicLong flushedOffset;             // flushed offset (files on stage)
+  AtomicLong committedOffset;           // committed offset (files being ingested)
+  AtomicLong purgedOffset;              // purged offset (files purged or moved to table stage)
   static final String PROCESSED_OFFSET  = "processed_offset";
   static final String FLUSHED_OFFSET    = "flushed_offset";
   static final String COMMITTED_OFFSET  = "committed_offset";
@@ -71,10 +71,10 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   {
     super(tableName, stageName, pipeName);
 
-    this.processedOffset = new AtomicLong(0);
-    this.flushedOffset = new AtomicLong(0);
-    this.committedOffset = new AtomicLong(0);
-    this.purgedOffset = new AtomicLong(0);
+    this.processedOffset = new AtomicLong(-1);
+    this.flushedOffset = new AtomicLong(-1);
+    this.committedOffset = new AtomicLong(-1);
+    this.purgedOffset = new AtomicLong(-1);
     this.totalNumberOfRecord = new AtomicLong(0);
     this.totalSizeOfData = new AtomicLong(0);
     this.fileCountOnStage = new AtomicLong(0);

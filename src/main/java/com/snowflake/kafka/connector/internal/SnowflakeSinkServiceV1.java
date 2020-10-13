@@ -15,6 +15,7 @@ import java.io.ObjectOutputStream;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
@@ -286,6 +287,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     private List<String> cleanerFileNames;
     private PartitionBuffer buffer;
     private final String prefix;
+    private final AtomicLong committedOffset; // loaded offset
+    private final AtomicLong flushedOffset;   // flushed offset (file on stage)
+    private final AtomicLong processedOffset; // processed offset
     private long previousFlushTimeStamp;
 
     //threads
@@ -315,6 +319,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       this.buffer = new PartitionBuffer();
       this.ingestionService = conn.buildIngestService(stageName, pipeName);
       this.prefix = FileNameUtils.filePrefix(conn.getConnectorName(), tableName, partition);
+      this.processedOffset = new AtomicLong(-1);
+      this.flushedOffset = new AtomicLong(-1);
+      this.committedOffset = new AtomicLong(-1);
       this.previousFlushTimeStamp = System.currentTimeMillis();
 
       this.bufferLock = new ReentrantLock();
@@ -486,7 +493,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       }
 
       //ignore ingested files
-      if (record.kafkaOffset() >= pipeStatus.processedOffset.get())
+      if (record.kafkaOffset() > processedOffset.get())
       {
         SinkRecord snowflakeRecord = record;
         if (shouldConvertContent(snowflakeRecord.value()))
@@ -517,7 +524,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
           bufferLock.lock();
           try
           {
-            pipeStatus.processedOffset.set(snowflakeRecord.kafkaOffset() + 1);
+            processedOffset.set(snowflakeRecord.kafkaOffset());
+            pipeStatus.processedOffset.set(snowflakeRecord.kafkaOffset());
             buffer.insert(snowflakeRecord);
             if (buffer.getBufferSize() >= getFileSize() ||
                 (getRecordNumber() != 0 && buffer.getNumOfRecord() >= getRecordNumber()))
@@ -646,7 +654,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     {
       if (fileNames.isEmpty())
       {
-        return pipeStatus.committedOffset.get();
+        return committedOffset.get() + 1;
       }
 
       List<String> fileNamesCopy = new ArrayList<>();
@@ -660,9 +668,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         fileListLock.unlock();
       }
 
+      committedOffset.set(flushedOffset.get());
       // update telemetry data
       long currentTime = System.currentTimeMillis();
-      pipeStatus.committedOffset.set(pipeStatus.flushedOffset.get());
+      pipeStatus.committedOffset.set(committedOffset.get());
       pipeStatus.fileCountOnIngestion.addAndGet(fileNamesCopy.size());
       fileNamesCopy.forEach(
         name -> pipeStatus.updateCommitLag(currentTime - FileNameUtils.fileNameToTimeIngested(name))
@@ -672,7 +681,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       // This api should throw exception if backoff failed. It also clears the input list
       ingestionService.ingestFiles(fileNamesCopy);
 
-      return pipeStatus.committedOffset.get();
+      return committedOffset.get() + 1;
     }
 
     private void flush(final PartitionBuffer buff)
@@ -691,7 +700,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       conn.putWithCache(stageName, fileName, content);
 
       // This is safe and atomic
-      pipeStatus.flushedOffset.updateAndGet((value) -> Math.max(buff.getLastOffset() + 1, value));
+      flushedOffset.updateAndGet((value) -> Math.max(buff.getLastOffset(), value));
+      pipeStatus.flushedOffset.set(flushedOffset.get());
       pipeStatus.fileCountOnStage.incrementAndGet(); // plus one
 
       fileListLock.lock();
@@ -771,7 +781,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       // update purged offset in telemetry
       loadedFiles.forEach(
         name -> pipeStatus.purgedOffset.updateAndGet(
-            value -> Math.max(FileNameUtils.fileNameToEndOffset(name) + 1, value)
+            value -> Math.max(FileNameUtils.fileNameToEndOffset(name), value)
           )
       );
       // update file count in telemetry
