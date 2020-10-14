@@ -287,7 +287,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     private List<String> cleanerFileNames;
     private PartitionBuffer buffer;
     private final String prefix;
-    private final AtomicLong committedOffset; // loaded offset
+    private final AtomicLong committedOffset; // loaded offset + 1
     private final AtomicLong flushedOffset;   // flushed offset (file on stage)
     private final AtomicLong processedOffset; // processed offset
     private long previousFlushTimeStamp;
@@ -321,7 +321,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       this.prefix = FileNameUtils.filePrefix(conn.getConnectorName(), tableName, partition);
       this.processedOffset = new AtomicLong(-1);
       this.flushedOffset = new AtomicLong(-1);
-      this.committedOffset = new AtomicLong(-1);
+      this.committedOffset = new AtomicLong(0);
       this.previousFlushTimeStamp = System.currentTimeMillis();
 
       this.bufferLock = new ReentrantLock();
@@ -654,7 +654,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     {
       if (fileNames.isEmpty())
       {
-        return committedOffset.get() + 1;
+        return committedOffset.get();
       }
 
       List<String> fileNamesCopy = new ArrayList<>();
@@ -671,7 +671,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       committedOffset.set(flushedOffset.get());
       // update telemetry data
       long currentTime = System.currentTimeMillis();
-      pipeStatus.committedOffset.set(committedOffset.get());
+      pipeStatus.committedOffset.set(committedOffset.get() - 1);
       pipeStatus.fileCountOnIngestion.addAndGet(fileNamesCopy.size());
       fileNamesCopy.forEach(
         name -> pipeStatus.updateCommitLag(currentTime - FileNameUtils.fileNameToTimeIngested(name))
@@ -681,7 +681,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       // This api should throw exception if backoff failed. It also clears the input list
       ingestionService.ingestFiles(fileNamesCopy);
 
-      return committedOffset.get() + 1;
+      return committedOffset.get();
     }
 
     private void flush(final PartitionBuffer buff)
@@ -700,8 +700,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       conn.putWithCache(stageName, fileName, content);
 
       // This is safe and atomic
-      flushedOffset.updateAndGet((value) -> Math.max(buff.getLastOffset(), value));
-      pipeStatus.flushedOffset.set(flushedOffset.get());
+      flushedOffset.updateAndGet((value) -> Math.max(buff.getLastOffset() + 1, value));
+      pipeStatus.flushedOffset.set(flushedOffset.get() - 1);
       pipeStatus.fileCountOnStage.incrementAndGet(); // plus one
 
       fileListLock.lock();
