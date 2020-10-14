@@ -101,6 +101,21 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
+  public void reportKafkaPipeUsage(final SnowflakeTelemetryPipeStatus pipeStatus, boolean isClosing)
+  {
+    if (pipeStatus.empty())
+    {
+      return;
+    }
+    ObjectNode msg = getObjectNode();
+
+    pipeStatus.dumpTo(msg);
+    msg.put(IS_PIPE_CLOSING, isClosing);
+
+    send(TelemetryType.KAFKA_PIPE_USAGE, msg);
+  }
+
+  @Override
   public void reportKafkaPipeStart(final SnowflakeTelemetryPipeCreation pipeCreation)
   {
     ObjectNode msg = getObjectNode();
@@ -112,11 +127,6 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
 
   private void send(TelemetryType type, JsonNode data)
   {
-    send(type, data, true);
-  }
-
-  private void send(TelemetryType type, JsonNode data, boolean flush)
-  {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(SOURCE, KAFKA_CONNECTOR);
     msg.put(TYPE, type.toString());
@@ -126,10 +136,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
     {
       telemetry.addLogToBatch(TelemetryUtil.buildJobData(msg));
       logDebug("sending telemetry data: {}", data.toString());
-      if (flush)
-      {
-        telemetry.sendBatchAsync();
-      }
+      telemetry.sendBatchAsync();
     } catch (Exception e)
     {
       logError("Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
