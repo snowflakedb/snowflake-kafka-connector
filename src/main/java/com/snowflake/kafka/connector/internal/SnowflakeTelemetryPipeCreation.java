@@ -22,12 +22,11 @@ public class SnowflakeTelemetryPipeCreation extends SnowflakeTelemetryBasicInfo 
 
   SnowflakeTelemetryPipeCreation(final String tableName, final String stageName, final String pipeName)
   {
-    this.tableName = tableName;
-    this.stageName = stageName;
-    this.pipeName = pipeName;
+    super(tableName, stageName, pipeName);
     this.startTime = System.currentTimeMillis();
   }
 
+  @Override
   void dumpTo(ObjectNode msg)
   {
     msg.put(TABLE_NAME, tableName);

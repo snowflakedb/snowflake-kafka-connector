@@ -298,6 +298,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     private final Lock bufferLock;
     private final Lock fileListLock;
 
+    //telemetry
+    private final SnowflakeTelemetryPipeStatus pipeStatus;
+
     //make the initialization lazy
     private boolean hasInitialized = false;
     private boolean forceCleanerFileReset = false;
@@ -323,6 +326,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
 
       this.bufferLock = new ReentrantLock();
       this.fileListLock = new ReentrantLock();
+
+      this.pipeStatus = new SnowflakeTelemetryPipeStatus(tableName, stageName, pipeName);
 
       this.cleanerExecutor = Executors.newSingleThreadExecutor();
       this.reprocessCleanerExecutor = Executors.newSingleThreadExecutor();
@@ -355,6 +360,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
     private boolean resetCleanerFiles() {
       try {
         logWarn("Resetting cleaner files {}", pipeName);
+        pipeStatus.cleanerRestartCount.incrementAndGet();
         // list stage again and try to clean the files leaked on stage
         // this can throw unchecked, it needs to be wrapped in a try/catch
         // if it fails again do not reset forceCleanerFileReset
@@ -387,6 +393,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       // Telemetry
       pipeCreation.fileCountRestart = tmpFileNames.size();
       pipeCreation.fileCountReprocessPurge = reprocessFiles.size();
+      // Files left on stage must be on ingestion, otherwise offset won't be committed and
+      // the file will be removed by the reprocess filter.
+      pipeStatus.fileCountOnIngestion.addAndGet(tmpFileNames.size());
+      pipeStatus.fileCountOnStage.addAndGet(tmpFileNames.size());
 
       fileListLock.lock();
       try
@@ -405,6 +415,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
           {
             try
             {
+              telemetryService.reportKafkaPipeUsage(pipeStatus, false);
               Thread.sleep(CLEAN_TIME);
 
               if (forceCleanerFileReset && resetCleanerFiles()) {
@@ -503,11 +514,18 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         }
         else
         {
+          // lag telemetry, note that sink record timestamp might be null
+          if (snowflakeRecord.timestamp() != null &&
+              snowflakeRecord.timestampType() != NO_TIMESTAMP_TYPE) {
+            pipeStatus.updateKafkaLag(System.currentTimeMillis() - snowflakeRecord.timestamp());
+          }
+
           PartitionBuffer tmpBuff = null;
           bufferLock.lock();
           try
           {
             processedOffset.set(snowflakeRecord.kafkaOffset());
+            pipeStatus.processedOffset.set(snowflakeRecord.kafkaOffset());
             buffer.insert(snowflakeRecord);
             if (buffer.getBufferSize() >= getFileSize() ||
                 (getRecordNumber() != 0 && buffer.getNumOfRecord() >= getRecordNumber()))
@@ -609,11 +627,13 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       {
         String fileName = FileNameUtils.brokenRecordFileName(prefix, record.kafkaOffset(), true);
         conn.putToTableStage(tableName, fileName, snowflakeContentToByteArray(key));
+        pipeStatus.fileCountTableStageBrokenRecord.incrementAndGet();
       }
       if (value != null)
       {
         String fileName = FileNameUtils.brokenRecordFileName(prefix, record.kafkaOffset(), false);
         conn.putToTableStage(tableName, fileName, snowflakeContentToByteArray(value));
+        pipeStatus.fileCountTableStageBrokenRecord.incrementAndGet();
       }
     }
 
@@ -649,6 +669,13 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       }
 
       committedOffset.set(flushedOffset.get());
+      // update telemetry data
+      long currentTime = System.currentTimeMillis();
+      pipeStatus.committedOffset.set(committedOffset.get() - 1);
+      pipeStatus.fileCountOnIngestion.addAndGet(fileNamesCopy.size());
+      fileNamesCopy.forEach(
+        name -> pipeStatus.updateCommitLag(currentTime - FileNameUtils.fileNameToTimeIngested(name))
+      );
       logInfo("pipe {}, ingest files: {}", pipeName, fileNamesCopy);
 
       // This api should throw exception if backoff failed. It also clears the input list
@@ -672,7 +699,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       String content = buff.getData();
       conn.putWithCache(stageName, fileName, content);
 
-      flushedOffset.set(Math.max(buff.getLastOffset() + 1, flushedOffset.get()));
+      // This is safe and atomic
+      flushedOffset.updateAndGet((value) -> Math.max(buff.getLastOffset() + 1, value));
+      pipeStatus.flushedOffset.set(flushedOffset.get() - 1);
+      pipeStatus.fileCountOnStage.incrementAndGet(); // plus one
 
       fileListLock.lock();
       try
@@ -747,6 +777,23 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       {
         fileListLock.unlock();
       }
+
+      // update purged offset in telemetry
+      loadedFiles.forEach(
+        name -> pipeStatus.purgedOffset.updateAndGet(
+            value -> Math.max(FileNameUtils.fileNameToEndOffset(name), value)
+          )
+      );
+      // update file count in telemetry
+      int fileCountRevomedFromStage = loadedFiles.size() + failedFiles.size();
+      pipeStatus.fileCountOnStage.addAndGet( - fileCountRevomedFromStage);
+      pipeStatus.fileCountOnIngestion.addAndGet( - fileCountRevomedFromStage);
+      pipeStatus.fileCountTableStageIngestFail.addAndGet(failedFiles.size());
+      pipeStatus.fileCountPurged.addAndGet(loadedFiles.size());
+      // update lag information
+      loadedFiles.forEach(
+        name -> pipeStatus.updateIngestionLag(currentTime - FileNameUtils.fileNameToTimeIngested(name))
+      );
     }
 
     private void filterResult(Map<String, InternalUtils.IngestedFileStatus> fileStatus,
@@ -819,6 +866,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         logWarn("Failed to terminate Cleaner or Flusher");
       }
       ingestionService.close();
+      telemetryService.reportKafkaPipeUsage(pipeStatus, true);
       logInfo("pipe {}: service closed", pipeName);
     }
 
@@ -930,6 +978,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         String result = stringBuilder.toString();
         logDebug("flush buffer: {} records, {} bytes, offset {} - {}",
           numOfRecord, bufferSize, firstOffset, lastOffset);
+        pipeStatus.totalSizeOfData.addAndGet(this.bufferSize);
+        pipeStatus.totalNumberOfRecord.addAndGet(this.numOfRecord);
         return result;
       }
 
