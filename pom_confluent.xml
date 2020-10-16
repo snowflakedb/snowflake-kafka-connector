@@ -96,8 +96,9 @@
                             <description>
                                 Snowflake is the data warehouse built for the
                                 cloud. The Snowflake Kafka connector lets you
-                                quickly and easily move JSON and AVRO messages
-                                from Kafka topics into Snowflake tables.
+                                quickly and easily move messages in formats
+                                like Avro, JSON, and Protobuf from Kafka topics
+                                into Snowflake tables.
                             </description>
                             <logo>logo/snowflake.png</logo>
 
