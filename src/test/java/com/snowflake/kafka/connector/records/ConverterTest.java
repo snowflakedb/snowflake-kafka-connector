@@ -20,17 +20,25 @@ import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.nio.ByteBuffer;
+import java.util.*;
+
+import io.confluent.connect.avro.AvroConverter;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
   .ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
   .ObjectNode;
+import org.apache.avro.LogicalTypes;
+import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.data.Time;
+import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.junit.Test;
@@ -40,13 +48,16 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Arrays;
+
+import static com.snowflake.kafka.connector.records.RecordService.MAX_SNOWFLAKE_NUMBER_PRECISION;
 
 public class ConverterTest
 {
 
   private static final ObjectMapper mapper = new ObjectMapper();
   private static final String TEST_FILE_NAME = "test.avro";
+
+  private static final String TEST_TOPIC = "test";
 
   @Test
   public void testJsonConverter()
@@ -124,6 +135,37 @@ public class ConverterTest
     input = converter.toConnectData("test",null);
     assert ((SnowflakeRecordContent) input.value()).getData()[0].toString().equals("{}");
 
+  }
+
+  @Test
+  public void testAvroWithSchemaRegistryByteInput() throws IOException
+  {
+    // avro
+    SchemaBuilder schemaBuilder = SchemaBuilder.struct()
+      .field("bytes", Schema.BYTES_SCHEMA)
+      .field("bytesReadOnly", Schema.BYTES_SCHEMA)
+      .field("bytesHex", Schema.BYTES_SCHEMA)
+      .field("bytesDecimal", Decimal.schema(MAX_SNOWFLAKE_NUMBER_PRECISION));
+    Struct original = new Struct(schemaBuilder.build())
+      .put("bytes", ByteBuffer.wrap("foo".getBytes()))
+      .put("bytesReadOnly", ByteBuffer.wrap("foo".getBytes()).asReadOnlyBuffer())
+      .put("bytesHex", new BigInteger("AC00A0BF", 16).toByteArray())
+      .put("bytesDecimal", new BigDecimal("1111111111111111111111111111111111111")
+                                    .setScale(MAX_SNOWFLAKE_NUMBER_PRECISION, BigDecimal.ROUND_HALF_UP));
+
+    SchemaRegistryClient schemaRegistry = new io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient();
+
+    SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
+    converter.setSchemaRegistry(schemaRegistry);
+
+    AvroConverter avroConverter = new AvroConverter(schemaRegistry);
+    avroConverter.configure(Collections.singletonMap("schema.registry.url", "http://fake-url"), false);
+    byte[] converted = avroConverter.fromConnectData(TEST_TOPIC, original.schema(), original);
+    SchemaAndValue avroInputValue = converter.toConnectData(TEST_TOPIC, converted);
+
+    SnowflakeRecordContent content = (SnowflakeRecordContent) avroInputValue.value();
+    assert content.getData()[0].toString()
+      .equals("{\"bytes\":\"foo\",\"bytesReadOnly\":\"foo\",\"bytesHex\":\"\\u0000¬\\u0000 ¿\",\"bytesDecimal\":1.1111111111111112E36}");
   }
 
   @Test
