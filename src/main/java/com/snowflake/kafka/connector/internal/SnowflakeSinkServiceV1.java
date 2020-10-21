@@ -604,6 +604,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       // Just checking buffer size, no atomic operation required
       if (buffer.isEmpty())
       {
+        this.previousFlushTimeStamp = System.currentTimeMillis();
         return;
       }
       PartitionBuffer tmpBuff;
