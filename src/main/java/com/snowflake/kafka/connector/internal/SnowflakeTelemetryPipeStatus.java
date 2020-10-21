@@ -125,10 +125,10 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
 
   boolean empty()
   {
-    return this.processedOffset.get() == 0 &&
-            this.flushedOffset.get() == 0 &&
-            this.committedOffset.get() == 0 &&
-            this.purgedOffset.get() == 0 &&
+    return this.processedOffset.get() == -1 &&
+            this.flushedOffset.get() == -1 &&
+            this.committedOffset.get() == -1 &&
+            this.purgedOffset.get() == -1 &&
             this.totalNumberOfRecord.get() == 0 &&
             this.totalSizeOfData.get() == 0 &&
             this.fileCountOnStage.get() == 0 &&
