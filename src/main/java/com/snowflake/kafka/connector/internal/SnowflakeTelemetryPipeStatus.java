@@ -40,6 +40,10 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   AtomicLong cleanerRestartCount;               // how many times the cleaner restarted
   static final String CLEANER_RESTART_COUNT     = "cleaner_restart_count";
 
+  // Memory usage
+  AtomicLong memoryUsage;               // how many times the cleaner restarted
+  static final String MEMORY_USAGE      = "memory_usage";
+
   //------------ following metrics are not cumulative, reset every time sent ------------//
   // Average lag of Kafka
   AtomicLong averageKafkaLag;                           // average lag on Kafka side
@@ -83,6 +87,7 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     this.fileCountTableStageIngestFail = new AtomicLong(0);
     this.fileCountTableStageBrokenRecord = new AtomicLong(0);
     this.cleanerRestartCount = new AtomicLong(0);
+    this.memoryUsage = new AtomicLong(0);
 
     this.averageKafkaLag = new AtomicLong(0);
     this.averageKafkaLagRecordCount = new AtomicLong(0);
@@ -137,6 +142,7 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
             this.fileCountTableStageIngestFail.get() == 0 &&
             this.fileCountTableStageBrokenRecord.get() == 0 &&
             this.cleanerRestartCount.get() == 0 &&
+            this.memoryUsage.get() == 0 &&
             this.averageKafkaLag.get() == 0 &&
             this.averageKafkaLagRecordCount.get() == 0 &&
             this.averageIngestionLag.get() == 0 &&
@@ -164,6 +170,7 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     msg.put(FILE_COUNT_TABLE_STAGE_INGEST_FAIL, fileCountTableStageIngestFail.get());
     msg.put(FILE_COUNT_TABLE_STAGE_BROKEN_RECORD, fileCountTableStageBrokenRecord.get());
     msg.put(CLEANER_RESTART_COUNT, cleanerRestartCount.get());
+    msg.put(MEMORY_USAGE, memoryUsage.get());
 
     lagLock.lock();
     try
