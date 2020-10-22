@@ -41,7 +41,7 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   static final String CLEANER_RESTART_COUNT     = "cleaner_restart_count";
 
   // Memory usage
-  AtomicLong memoryUsage;               // how many times the cleaner restarted
+  AtomicLong memoryUsage;               // buffer size of the pipe in Bytes
   static final String MEMORY_USAGE      = "memory_usage";
 
   //------------ following metrics are not cumulative, reset every time sent ------------//
