@@ -71,6 +71,10 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   {
     super(tableName, stageName, pipeName);
 
+    // Initial value of processed/flushed/committed/purged offset should be set to -1,
+    // because the offset stands for the last offset of the record that are at the status.
+    // When record with offset 0 is processed, processedOffset will be updated to 0.
+    // Therefore initial value should be set to -1 to indicate that no record have been processed.
     this.processedOffset = new AtomicLong(-1);
     this.flushedOffset = new AtomicLong(-1);
     this.committedOffset = new AtomicLong(-1);
@@ -125,6 +129,7 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
 
   boolean empty()
   {
+    // Check that all properties are still at the default value.
     return this.processedOffset.get() == -1 &&
             this.flushedOffset.get() == -1 &&
             this.committedOffset.get() == -1 &&
