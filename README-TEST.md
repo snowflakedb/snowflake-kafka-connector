@@ -133,3 +133,42 @@ Performance test is run daily and we manully check whether there is abnormal bah
 ## Regression Test
 
  Jenkins is used for regression test. The job is of name `ConnectorRegress_kafka_master`. In regression test we checkout the most recent master branch from GitHub and run unit test and integration test. We build the connector and test against two Snowflake deployments: qa1 and preprod3. This test helps us to identify breaking change in Snowflake before Snowflake releases. 
+
+## Related file short description
+
+Files in directory .github/scripts
+
+- decrypt_secret.sh: Decrypt `profile.json` for integration test and end to end test.
+
+- perf_test.json.gpg: Encrypted `profile.json` for performance test.
+
+- perf_test_decrypt_secret.sh: Decrypt `profile.json` for performance test.
+
+- profile.json.gpg: Encrypted `profile.json` for integration test and end to end test for AWS deployment
+
+- profile_azure.json.gpg: Encrypted `profile.json` for integration test and end to end test for Azure deployment
+
+Folders and files in directory test/
+
+- apache_properties/: Configurations for Kafka, Zookeepers, Kafka Connect, etc.
+- apache_properties_ssl/: Configurations for Kafka cluster with SSL enabled.
+- helm_values/: Configuration for Kafka cluster deplyed with Kubernetes.
+- perf_test/: Performance test file.
+- rest_request_template/: Connector configuration file for end to end test.
+- test_data/: Avro/Profobuf data for end to end test.
+- test_suit/: End to end test cases.
+- build_apache.sh: Build connector jar file.
+- build_image.sh: Build a container with the connector jar file and push that to local Docker repo.
+- generate_ssl_key.sh: Generate SSL key on the fly for testing with SSL enabled.
+- run_test_apache.sh: Run end to end test on Apache Kafka.
+- run_test_confluent.sh: Run end to end test on Confluent Kafka.
+- run_test.sh: Run end to end test on Confluent Kafka deployed on Kubernetes.
+- setup_k8s.sh: Setup Kubernetes environment.
+- test_verify.py: Driver program for calling test cases defiled in folder test_suit/.
+- utils.sh: Common shell functions.
+
+## How to check code coverage
+
+Visit this link for basic information: https://codecov.io/gh/snowflakedb/snowflake-kafka-connector
+
+This link for compare two commit or compare master vs master@ 5 days ago. https://codecov.io/gh/snowflakedb/snowflake-kafka-connector/compare 
