@@ -703,6 +703,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
       flushedOffset.updateAndGet((value) -> Math.max(buff.getLastOffset() + 1, value));
       pipeStatus.flushedOffset.set(flushedOffset.get() - 1);
       pipeStatus.fileCountOnStage.incrementAndGet(); // plus one
+      pipeStatus.memoryUsage.set(0);
 
       fileListLock.lock();
       try
@@ -965,6 +966,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService
         stringBuilder.append(data);
         numOfRecord++;
         bufferSize += data.length() * 2; //1 char = 2 bytes
+        pipeStatus.memoryUsage.addAndGet(data.length() * 2);
         lastOffset = record.kafkaOffset();
       }
 
