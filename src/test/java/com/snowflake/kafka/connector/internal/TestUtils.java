@@ -207,7 +207,7 @@ public class TestUtils
    *
    * @param tableName table name
    */
-  static void dropTable(String tableName)
+  public static void dropTable(String tableName)
   {
     String query = "drop table if exists " + tableName;
 
@@ -245,7 +245,7 @@ public class TestUtils
   /**
    * @return a random table name
    */
-  static String randomTableName()
+  public static String randomTableName()
   {
     return randomName("table");
   }
@@ -253,7 +253,7 @@ public class TestUtils
   /**
    * @return a random stage name
    */
-  static String randomStageName()
+  public static String randomStageName()
   {
     return randomName("stage");
   }
@@ -261,7 +261,7 @@ public class TestUtils
   /**
    * @return a random pipe name
    */
-  static String randomPipeName()
+  public static String randomPipeName()
   {
     return randomName("pipe");
   }
@@ -312,7 +312,7 @@ public class TestUtils
    *
    * @return snowflake connection for test
    */
-  static SnowflakeConnectionService getConnectionService()
+  public static SnowflakeConnectionService getConnectionService()
   {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
   }
