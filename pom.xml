@@ -347,7 +347,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-registry-client</artifactId>
-            <version>5.4.0</version>
+            <version>5.5.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -370,7 +370,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
-            <version>5.4.0</version>
+            <version>5.5.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -382,7 +382,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-connect-avro-converter</artifactId>
-            <version>5.4.0</version>
+            <version>5.5.1</version>
             <scope>test</scope>
         </dependency>
 
