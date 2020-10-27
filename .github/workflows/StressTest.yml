@@ -1,4 +1,4 @@
-name: Kafka Connector End2End Test AWS
+name: Kafka Connector Stress Test
 
 on:
   schedule:
