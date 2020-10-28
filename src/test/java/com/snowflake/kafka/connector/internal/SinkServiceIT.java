@@ -769,7 +769,7 @@ public class SinkServiceIT
     System.out.println("recover connection");
     doCallRealMethod().when(spyConn).purgeStage(anyString(), anyList());
 
-    // Total sleep time is 10 minutes to test read ingestHistory
+    // Sleep 4 minutes. Total sleep time is 10 minutes to test read ingestHistory
     Thread.sleep(4 * 60 * 1000);
 
     TestUtils.assertWithRetry(() -> spyConn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
