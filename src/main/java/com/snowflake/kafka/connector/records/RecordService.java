@@ -158,7 +158,7 @@ public class RecordService extends Logging
     return buffer.toString();
   }
 
-  private void putKey(SinkRecord record, ObjectNode meta)
+  void putKey(SinkRecord record, ObjectNode meta)
   {
     if (record.key() == null)
     {
