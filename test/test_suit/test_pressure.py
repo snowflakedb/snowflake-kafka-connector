@@ -53,6 +53,9 @@ class TestPressure:
             if self.curTest <= t:
                 self.curTest = t + 1
                 raise ResetAndRetry()
+            
+        # after success, reset curTest for next round
+        self.curTest = 0
 
     def clean(self):
         threadPool = ThreadPool(self.threadCount)
