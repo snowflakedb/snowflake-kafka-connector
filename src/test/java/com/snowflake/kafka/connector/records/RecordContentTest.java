@@ -1,20 +1,24 @@
 package com.snowflake.kafka.connector.records;
 
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.type.TypeReference;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 
 
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -22,6 +26,8 @@ import java.util.Map;
 public class RecordContentTest
 {
   private ObjectMapper mapper = new ObjectMapper();
+  private static String topic = "test";
+  private static int partition = 0;
 
   @Test
   public void test() throws IOException
@@ -111,5 +117,120 @@ public class RecordContentTest
     Map<String, Object> jsonMap = mapper.convertValue(jsonObject, new TypeReference<Map<String, Object>>(){});
     content = new SnowflakeRecordContent(null, jsonMap);
     assert content.getData()[0].toString().equals("{\"int8\":12,\"int16\":12,\"int32\":12,\"int64\":12,\"float32\":12.2,\"float64\":12.2,\"boolean\":true,\"string\":\"foo\",\"bytes\":\"Zm9v\",\"array\":[\"a\",\"b\",\"c\"],\"map\":{\"field\":1},\"mapNonStringKeys\":[[1,1]]}");
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testEmptyValue()
+  {
+    RecordService service = new RecordService();
+
+    SinkRecord record = new SinkRecord(
+      topic, partition,
+      null, null,
+      Schema.STRING_SCHEMA, null,
+      partition
+    );
+    service.processRecord(record);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testEmptyValueSchema() throws IOException
+  {
+    JsonNode data = mapper.readTree("{\"name\":123}");
+    SnowflakeRecordContent content = new SnowflakeRecordContent(data);
+    RecordService service = new RecordService();
+
+    SinkRecord record = new SinkRecord(
+      topic, partition,
+      null, null,
+      null, content,
+      partition
+    );
+    service.processRecord(record);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testWrongValueSchema() throws IOException
+  {
+    JsonNode data = mapper.readTree("{\"name\":123}");
+    SnowflakeRecordContent content = new SnowflakeRecordContent(data);
+    RecordService service = new RecordService();
+
+    SinkRecord record = new SinkRecord(
+      topic, partition,
+      null, null,
+      SchemaBuilder.string().name("aName").build(), content,
+      partition
+    );
+    // TODO: SNOW-215915 Fix this after stability push, if schema does not have a name
+    // There is OOM error in this test.
+    service.processRecord(record);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testWrongValueType()
+  {
+    RecordService service = new RecordService();
+
+    SinkRecord record = new SinkRecord(
+      topic, partition,
+      null, null,
+      new SnowflakeJsonSchema(), "string",
+      partition
+    );
+    service.processRecord(record);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testWrongKeySchema() throws IOException
+  {
+    JsonNode data = mapper.readTree("{\"name\":123}");
+    SnowflakeRecordContent content = new SnowflakeRecordContent(data);
+    RecordService service = new RecordService();
+
+    SinkRecord record = new SinkRecord(
+      topic, partition,
+      SchemaBuilder.string().name("aName").build(), content,
+      null, null,
+      partition
+    );
+    service.putKey(record, mapper.createObjectNode());
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testWrongKeyType()
+  {
+    RecordService service = new RecordService();
+
+    SinkRecord record = new SinkRecord(
+      topic, partition,
+      new SnowflakeJsonSchema(), "string",
+      null, null,
+      partition
+    );
+    service.putKey(record, mapper.createObjectNode());
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testConvertToJsonEmptyValue()
+  {
+    assert RecordService.convertToJson(null, null) == null;
+
+    Schema schema = SchemaBuilder.int32().optional().defaultValue(123).build();
+    assert RecordService.convertToJson(schema, null).toString().equals("123");
+
+    schema = SchemaBuilder.int32().build();
+    RecordService.convertToJson(schema, null);
+  }
+
+  @Test
+  public void testConvertToJsonReadOnlyByteBuffer()
+  {
+    String original = "bytes";
+    // Expecting a json string, which has additional quotes.
+    String expected = "\"" + Base64.getEncoder().encodeToString(original.getBytes()) + "\"";
+    ByteBuffer buffer = ByteBuffer.wrap(original.getBytes()).asReadOnlyBuffer();
+    Schema schema = SchemaBuilder.bytes().build();
+    assert RecordService.convertToJson(schema, buffer).toString().equals(expected);
   }
 }
