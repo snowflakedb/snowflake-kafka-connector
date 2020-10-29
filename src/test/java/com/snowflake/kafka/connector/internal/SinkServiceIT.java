@@ -763,14 +763,14 @@ public class SinkServiceIT
 
     System.out.println("break connection");
     doThrow(SnowflakeErrors.ERROR_2001.getException()).when(spyConn).purgeStage(anyString(), anyList());
-    // Sleep two minutes so that cleaner encounters two exceptions.
-    Thread.sleep(SnowflakeSinkServiceV1.CLEAN_TIME * 2);
+    // Sleep 6 minutes so that cleaner encounters 6 exceptions. Just to make sure cleaner restart is triggered
+    Thread.sleep(6 * 60 * 1000);
 
     System.out.println("recover connection");
     doCallRealMethod().when(spyConn).purgeStage(anyString(), anyList());
 
-    // read ingestHistory
-    Thread.sleep(480000);
+    // Sleep 4 minutes. Total sleep time is 10 minutes to test read ingestHistory
+    Thread.sleep(4 * 60 * 1000);
 
     TestUtils.assertWithRetry(() -> spyConn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
       table, partition)).size() == 0,

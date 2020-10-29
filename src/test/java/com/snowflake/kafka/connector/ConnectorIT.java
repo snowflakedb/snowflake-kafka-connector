@@ -12,6 +12,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.snowflake.kafka.connector.Utils.NAME;
+import static com.snowflake.kafka.connector.Utils.TASK_ID;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+import static com.snowflake.kafka.connector.internal.TestUtils.getConf;
+
 public class ConnectorIT
 {
   final static String allPropertiesList[] =
@@ -101,10 +106,10 @@ public class ConnectorIT
 
   static Map<String, String> getCorrectConfig()
   {
-    Map<String, String> config = TestUtils.getConf();
+    Map<String, String> config = getConf();
     config.remove(Utils.SF_WAREHOUSE);
     config.remove(Utils.NAME);
-    config.remove(Utils.TASK_ID);
+    config.remove(TASK_ID);
     return config;
   }
 
@@ -318,5 +323,20 @@ public class ConnectorIT
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(validateMap, new String[]{
     });
+  }
+
+  @Test
+  public void testConnectorComprehensive()
+  {
+    Map<String, String> config = getConf();
+    SnowflakeSinkConnector sinkConnector = new SnowflakeSinkConnector();
+    sinkConnector.start(config);
+    assert sinkConnector.taskClass().equals(SnowflakeSinkTask.class);
+    List<Map<String, String>> taskConfigs = sinkConnector.taskConfigs(2);
+    assert taskConfigs.get(0).get(TASK_ID).equals("0");
+    assert taskConfigs.get(0).get(NAME).equals(TEST_CONNECTOR_NAME);
+    assert taskConfigs.get(1).get(TASK_ID).equals("1");
+    sinkConnector.stop();
+    assert sinkConnector.version().equals(Utils.VERSION);
   }
 }

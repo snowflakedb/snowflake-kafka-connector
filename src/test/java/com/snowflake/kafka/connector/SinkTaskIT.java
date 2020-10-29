@@ -1,16 +1,29 @@
 package com.snowflake.kafka.connector;
 
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
+import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.*;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+
 public class SinkTaskIT {
+  private String topicName = TestUtils.randomTableName();
+  private SnowflakeConnectionService conn = TestUtils.getConnectionService();
+  private static int partition = 0;
 
   @Test
   public void testPreCommit()
@@ -61,6 +74,57 @@ public class SinkTaskIT {
       System.setProperty(Utils.HTTPS_PROXY_PASSWORD, "");
       throw e;
     }
+  }
+
+  @Test
+  public void testSinkTask() throws Exception
+  {
+    Map<String, String> config = TestUtils.getConf();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
+
+    sinkTask.start(config);
+    ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
+    topicPartitions.add(new TopicPartition(topicName, partition));
+    sinkTask.open(topicPartitions);
+
+    // send regular data
+    ArrayList<SinkRecord> records = new ArrayList<>();
+    String json = "{ \"f1\" : \"v1\" } ";
+    ObjectMapper objectMapper = new ObjectMapper();
+    Schema snowflakeSchema = new SnowflakeJsonSchema();
+    SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
+    for (int i = 0 ; i < BUFFER_COUNT_RECORDS_DEFAULT; ++i)
+    {
+      records.add(new SinkRecord(topicName, partition, snowflakeSchema, content,
+        snowflakeSchema, content, i));
+    }
+    sinkTask.put(records);
+
+    // send broken data
+    String brokenJson = "{ broken json";
+    records = new ArrayList<>();
+    content = new SnowflakeRecordContent(brokenJson.getBytes());
+    records.add(new SinkRecord(topicName, partition, snowflakeSchema, content,
+      snowflakeSchema, content, 10000));
+    sinkTask.put(records);
+
+    // commit offset
+    Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
+    offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(0));
+    offsetMap = sinkTask.preCommit(offsetMap);
+
+    sinkTask.close(topicPartitions);
+    sinkTask.stop();
+    assert offsetMap.get(topicPartitions.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
+  }
+
+  @After
+  public void after()
+  {
+    TestUtils.dropTable(topicName);
+    conn.dropStage(Utils.stageName(TEST_CONNECTOR_NAME, topicName));
+    conn.dropPipe(Utils.pipeName(TEST_CONNECTOR_NAME, topicName, partition));
   }
 
   /**
