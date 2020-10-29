@@ -162,7 +162,7 @@ public class RecordContentTest
       SchemaBuilder.string().name("aName").build(), content,
       partition
     );
-    // TODO: Fix this after stability push, if schema does not have a name
+    // TODO: SNOW-215915 Fix this after stability push, if schema does not have a name
     // There is OOM error in this test.
     service.processRecord(record);
   }
