@@ -17,11 +17,17 @@ function random-string() {
 source ./utils.sh
 
 # check argument number
-if [ ! "$#" -eq 1 ]; then
-    error_exit "Usage: ./run_test.sh <path to snowflake helm value>.  Aborting."
+if [ "$#" -lt 2 ] || [ "$#" -gt 3 ] ; then
+    error_exit "Usage: ./run_test.sh <version> <path to snowflake helm value> <pressure>.  Aborting."
 fi
 
-SNOWFLAKE_HELM_VALUE=$1
+CONFLUENT_VERSION=$1
+SNOWFLAKE_HELM_VALUE=$2
+if [ "$#" -gt 2 ] ; then
+  PRESSURE=$3
+else
+  PRESSURE="false"
+fi
 
 if [ ! -f "$SNOWFLAKE_HELM_VALUE" ]; then
     error_exit "Provided snowflake helm value file $SNOWFLAKE_HELM_VALUE does not exist.  Aborting."
@@ -36,11 +42,7 @@ if [ ! -f "$SNOWFLAKE_CREDENTIAL_FILE" ]; then
     error_exit "Provided SNOWFLAKE_CREDENTIAL_FILE $SNOWFLAKE_CREDENTIAL_FILE does not exist.  Aborting."
 fi
 
-if [[ $SNOWFLAKE_HELM_VALUE == *"apache"* ]]; then
-    TEST_SET="apache"
-else
-    TEST_SET="confluent"
-fi
+TEST_SET="confluent"
 
 # check if all required commands are installed
 # assume that helm and kubectl are configured
@@ -121,19 +123,14 @@ CONFLUENT_SCHEMA_REGISTRY=$(kubectl get service/snow-cp-schema-registry -o jsonp
 echo -e "\n=== K8S ip: $K_IP, Kafka Connect Port: $KC_PORT, Schema Registry Port: $SC_PORT  ==="
 
 echo -e "\n=== Clean table stage and pipe ==="
-python3 test_verify.py $K_IP:$SNOWFLAKE_KAFKA_PORT http://$K_IP:$SC_PORT clean $NAME_SALT
-
-create_connectors_with_salt $SNOWFLAKE_CREDENTIAL_FILE $NAME_SALT $K_IP $KC_PORT
-
-echo -e "\n=== sleep for 10 secs to wait for connectors to load ==="
-sleep 10
+python3 test_verify.py $K_IP:$SNOWFLAKE_KAFKA_PORT http://$K_IP:$SC_PORT $K_IP:$KC_PORT clean $CONFLUENT_VERSION $NAME_SALT $PRESSURE false
 
 set +e
 # Send test data and verify DB result from Python
-python3 test_verify.py $K_IP:$SNOWFLAKE_KAFKA_PORT http://$K_IP:$SC_PORT $TEST_SET $NAME_SALT
+python3 test_verify.py $K_IP:$SNOWFLAKE_KAFKA_PORT http://$K_IP:$SC_PORT $K_IP:$KC_PORT $TEST_SET $CONFLUENT_VERSION $NAME_SALT $PRESSURE false
 testError=$?
-delete_connectors_with_salt $NAME_SALT $K_IP $KC_PORT
-python3 test_verify.py $K_IP:$SNOWFLAKE_KAFKA_PORT http://$K_IP:$SC_PORT clean $NAME_SALT
+
+python3 test_verify.py $K_IP:$SNOWFLAKE_KAFKA_PORT http://$K_IP:$SC_PORT $K_IP:$KC_PORT clean $CONFLUENT_VERSION $NAME_SALT $PRESSURE false
 
 if [ $testError -ne 0 ]; then
     RED='\033[0;31m'

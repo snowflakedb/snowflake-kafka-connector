@@ -255,8 +255,8 @@ class KafkaTest:
                 code = requests.delete(delete_url, timeout=10).status_code
                 if code == 404 or code == 200 or code == 201:
                     break
-            except:
-                pass
+            except Exception as e:
+                print(datetime.now().strftime("\n%H:%M:%S "), "=== Error creating connector {} ===".format(e))
             print(datetime.now().strftime("\n%H:%M:%S "), "=== sleep for 30 secs to wait for kafka connect to accept connection ===")
             sleep(30)
             retry += 1
