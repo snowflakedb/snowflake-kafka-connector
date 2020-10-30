@@ -27,6 +27,8 @@ import java.util.*;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.connect.avro.AvroData;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import net.snowflake.client.jdbc.internal.apache.commons.codec.Charsets;
+import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Hex;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
@@ -146,9 +148,6 @@ public class ConverterTest
       .addToSchema(org.apache.avro.Schema.create(org.apache.avro.Schema.Type.BYTES));
     org.apache.avro.Schema schemaWithDecimal = org.apache.avro.SchemaBuilder
       .record("MyRecord").fields()
-      .name("bytes").type().bytesType().noDefault()
-      .name("bytesReadOnly").type().bytesType().noDefault()
-      .name("bytesHex").type().bytesType().noDefault()
       .name("bytesDecimal").type(decimalType).noDefault()
       .endRecord();
     System.out.println(schemaWithDecimal.toString(true));
@@ -157,9 +156,6 @@ public class ConverterTest
     BigDecimal testDecimal = new BigDecimal("90.0000");
     BigInteger testInt = testDecimal.unscaledValue();
     GenericRecord avroRecord = new GenericData.Record(schemaWithDecimal);
-    avroRecord.put("bytes", ByteBuffer.wrap("foo".getBytes()));
-    avroRecord.put("bytesReadOnly", ByteBuffer.wrap("foo".getBytes()).asReadOnlyBuffer());
-    avroRecord.put("bytesHex", new BigInteger("AC00A0BF", 16).toByteArray());
     avroRecord.put("bytesDecimal", testInt.toByteArray());
 
     // Verify that byte representation of unscaled BigDecimal(90.0000) is equivalent with BigInteger("0DBBA0", 16)
@@ -175,6 +171,9 @@ public class ConverterTest
     avroConverter.configure(Collections.singletonMap("schema.registry.url", "http://fake-url"), false);
     byte[] converted = avroConverter.fromConnectData(TEST_TOPIC, schemaAndValue.schema(), schemaAndValue.value());
 
+    // The byte array "converted" in the previous line is the value that gets stored in Kafka in a real cluster.
+    System.out.println(Hex.encodeHexString(converted)); // 0000000001060dbba0, 0dbba0 is the encoding for the BigDecimal
+
     // Use Snowflake AVRO converter to convert byte array to JSON
     SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
     converter.setSchemaRegistry(schemaRegistry);
@@ -183,7 +182,7 @@ public class ConverterTest
 
     // This string is exactly what will appear in Snowflake Database.
     assert content.getData()[0].toString()
-      .equals("{\"bytes\":\"foo\",\"bytesReadOnly\":\"foo\",\"bytesHex\":\"\\u0000¬\\u0000 ¿\",\"bytesDecimal\":90.0}");
+      .equals("{\"bytesDecimal\":90.0}");
   }
 
   @Test
