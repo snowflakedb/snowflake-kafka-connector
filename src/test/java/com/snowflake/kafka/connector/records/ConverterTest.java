@@ -141,10 +141,9 @@ public class ConverterTest
   @Test
   public void testAvroWithSchemaRegistryByteInput() throws IOException
   {
-
-    org.apache.avro.Schema decimalType = LogicalTypes.decimal(4, 3)
+    // Define AVRO Schema
+    org.apache.avro.Schema decimalType = LogicalTypes.decimal(20, 4)
       .addToSchema(org.apache.avro.Schema.create(org.apache.avro.Schema.Type.BYTES));
-
     org.apache.avro.Schema schemaWithDecimal = org.apache.avro.SchemaBuilder
       .record("MyRecord").fields()
       .name("bytes").type().bytesType().noDefault()
@@ -154,48 +153,37 @@ public class ConverterTest
       .endRecord();
     System.out.println(schemaWithDecimal.toString(true));
 
-    BigDecimal testDecimal = new BigDecimal("35116.101");
+    // Create AVRO object with the schema
+    BigDecimal testDecimal = new BigDecimal("90.0000");
     BigInteger testInt = testDecimal.unscaledValue();
-
     GenericRecord avroRecord = new GenericData.Record(schemaWithDecimal);
     avroRecord.put("bytes", ByteBuffer.wrap("foo".getBytes()));
     avroRecord.put("bytesReadOnly", ByteBuffer.wrap("foo".getBytes()).asReadOnlyBuffer());
     avroRecord.put("bytesHex", new BigInteger("AC00A0BF", 16).toByteArray());
     avroRecord.put("bytesDecimal", testInt.toByteArray());
 
-//    Map<String, String> props = new HashMap<>();
-//    props.put("type", "bytes");
-//    props.put("logicalType", "decimal");
-//
-//    // avro
-//    Schema schema = SchemaBuilder.struct()
-//      .field("bytes", Schema.BYTES_SCHEMA)
-//      .field("bytesReadOnly", Schema.BYTES_SCHEMA)
-//      .field("bytesHex", Schema.BYTES_SCHEMA)
-//      .field("bytesDecimal", ).parameters(props);
-//    Struct original = new Struct(schema)
-//      .put("bytes", ByteBuffer.wrap("foo".getBytes()))
-//      .put("bytesReadOnly", ByteBuffer.wrap("foo".getBytes()).asReadOnlyBuffer())
-//      .put("bytesHex", new BigInteger("AC00A0BF", 16).toByteArray())
-//      .put("bytesDecimal", new BigInteger("0DBBA0", 16).toByteArray());
+    // Verify that byte representation of unscaled BigDecimal(90.0000) is equivalent with BigInteger("0DBBA0", 16)
+    assert Arrays.equals(testInt.toByteArray(), new BigInteger("0DBBA0", 16).toByteArray());
 
+    // Convert AVRO data to Kafka Connect Data for AVRO converter
     AvroData avroData = new AvroData(100);
     SchemaAndValue schemaAndValue = avroData.toConnectData(schemaWithDecimal, avroRecord);
 
+    // Use Confluent AVRO converter to convert AVRO data into byte array
     SchemaRegistryClient schemaRegistry = new io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient();
-
-    SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
-    converter.setSchemaRegistry(schemaRegistry);
-
     AvroConverter avroConverter = new AvroConverter(schemaRegistry);
     avroConverter.configure(Collections.singletonMap("schema.registry.url", "http://fake-url"), false);
     byte[] converted = avroConverter.fromConnectData(TEST_TOPIC, schemaAndValue.schema(), schemaAndValue.value());
-    SchemaAndValue avroInputValue = converter.toConnectData(TEST_TOPIC, converted);
 
+    // Use Snowflake AVRO converter to convert byte array to JSON
+    SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
+    converter.setSchemaRegistry(schemaRegistry);
+    SchemaAndValue avroInputValue = converter.toConnectData(TEST_TOPIC, converted);
     SnowflakeRecordContent content = (SnowflakeRecordContent) avroInputValue.value();
-    System.out.println(content.getData()[0].toString());
+
+    // This string is exactly what will appear in Snowflake Database.
     assert content.getData()[0].toString()
-      .equals("{\"bytes\":\"foo\",\"bytesReadOnly\":\"foo\",\"bytesHex\":\"\\u0000¬\\u0000 ¿\",\"bytesDecimal\":35116.101}");
+      .equals("{\"bytes\":\"foo\",\"bytesReadOnly\":\"foo\",\"bytesHex\":\"\\u0000¬\\u0000 ¿\",\"bytesDecimal\":90.0}");
   }
 
   @Test
