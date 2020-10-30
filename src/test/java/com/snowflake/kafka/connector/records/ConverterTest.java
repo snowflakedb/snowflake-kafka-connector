@@ -194,8 +194,8 @@ public class ConverterTest
 
     SnowflakeRecordContent content = (SnowflakeRecordContent) avroInputValue.value();
     System.out.println(content.getData()[0].toString());
-//    assert content.getData()[0].toString()
-//      .equals("{\"bytes\":\"foo\",\"bytesReadOnly\":\"foo\",\"bytesHex\":\"\\u0000¬\\u0000 ¿\",\"bytesDecimal\":90}");
+    assert content.getData()[0].toString()
+      .equals("{\"bytes\":\"foo\",\"bytesReadOnly\":\"foo\",\"bytesHex\":\"\\u0000¬\\u0000 ¿\",\"bytesDecimal\":35116.101}");
   }
 
   @Test
