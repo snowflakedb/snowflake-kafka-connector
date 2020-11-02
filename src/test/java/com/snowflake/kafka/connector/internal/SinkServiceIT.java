@@ -637,17 +637,19 @@ public class SinkServiceIT
       SnowflakeSinkServiceFactory
         .builder(conn)
         .setRecordNumber(1)
-        .addTask(table, topic, partition)
         .build();
-    service.startTask("fake-table", "fake-topic", 1);
-    service.insert(
-      new SinkRecord("fake-topic", 1, null, null, null, null, 0)
-    );
-    TopicPartition topicPartition = new TopicPartition("fake-topic", 1);
+    TopicPartition topicPartition = new TopicPartition(topic, partition);
     service.getOffset(topicPartition);
     List<TopicPartition> topicPartitionList = new ArrayList<>();
     topicPartitionList.add(topicPartition);
     service.close(topicPartitionList);
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input = converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+    service.insert(
+      new SinkRecord(topic, partition, null, null, input.schema(), input.value(), 0)
+    );
+    service.startTask(table, topic, partition);
   }
 
   @Test
