@@ -145,7 +145,13 @@ In the test we open 2400 partitions and send 40,000 records in total to each par
 
 ## Regression Test
 
- Jenkins is used for regression test. The job is of name `ConnectorRegress_kafka_master`. In regression test we checkout the most recent master branch from GitHub and run unit test and integration test. We build the connector and test against two Snowflake deployments: qa1 and preprod3. This test helps us to identify breaking change in Snowflake before Snowflake releases. 
+ Jenkins is used for regression test. The seed job is of name `ConnectorRegressRunner`. In regression test we checkout code from GitHub and run unit test and integration test. We build the connector and test against Snowflake deployed on preprod3. This test helps us to identify breaking change in Snowflake before Snowflake releases. There are three sub-jobs:
+
+`ConnectorRegress_kafka_v1.4.3`: test Kafka Connector version 1.4.3.
+
+`ConnectorRegress_kafka_v1.5.0`: test Kafka Connector version 1.5.0.
+
+`ConnectorRegress_kafka_master`: test Kafka Connector most recent master branch.
 
 ## Related file short description
 
