@@ -629,6 +629,30 @@ public class SinkServiceIT
   }
 
   @Test
+  public void testSinkServiceNegative()
+  {
+    conn.createTable(table);
+    conn.createStage(stage);
+    SnowflakeSinkService service =
+      SnowflakeSinkServiceFactory
+        .builder(conn)
+        .setRecordNumber(1)
+        .build();
+    TopicPartition topicPartition = new TopicPartition(topic, partition);
+    service.getOffset(topicPartition);
+    List<TopicPartition> topicPartitionList = new ArrayList<>();
+    topicPartitionList.add(topicPartition);
+    service.close(topicPartitionList);
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input = converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+    service.insert(
+      new SinkRecord(topic, partition, null, null, input.schema(), input.value(), 0)
+    );
+    service.startTask(table, topic, partition);
+  }
+
+  @Test
   public void testRecoverReprocessFiles() throws Exception
   {
     String data = "{\"content\":{\"name\":\"test\"},\"meta\":{\"offset\":0," +
