@@ -14,6 +14,8 @@ GitHub Action is used for CI/CD test. The workflows can be found in `.github/wor
 
 `PerfTest.yml` : Run performance test with Snowflake deployed on AWS.
 
+`StressTest.yml`: Run unit test. Then run stress test on Confluent 5.5.0 with Snowflake deployed on AWS.
+
 #### Manage secrets
 
 All test requires a `profile.json` to execute, which contains username and private key to login into Snowflake. On GitHub Action this file is encrypted and in each workflow, there is a step called `Decrypt profile.json` to dectypt the file for testing. 
@@ -92,20 +94,21 @@ Everytime we run the test, a four digit random sub-string will be appended to th
 
 #### End to End Testcases
 
-| Test Name                                        | Key Converter                               | Value Converter                             | Topic # | Partition # per Topic | Record # per Partition | SinkTask # | Execution Time | Daily Run | Notes                                                |
+| Test Name                                        | Key Converter                               | Value Converter                             | Topic # | Partition # per Topic | Record # per Partition | SinkTask # | Execution Time | Frequency | Notes                                                |
 | ------------------------------------------------ | ------------------------------------------- | ------------------------------------------- | ------- | --------------------- | ---------------------- | ---------- | -------------- | --------- | ---------------------------------------------------- |
-| travis_correct_avro_avro                         | SnowflakeAvroConverterWithoutSchemaRegistry | SnowflakeAvroConverterWithoutSchemaRegistry | 1       | 1                     | 100                    | 1          | < 4 Mins       | Y         |                                                      |
-| travis_correct_avrosr_avrosr                     | SnowflakeAvroConverter                      | SnowflakeAvroConverter                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Y         |                                                      |
-| travis_correct_json_json                         | SnowflakeJsonConverter                      | SnowflakeJsonConverter                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Y         |                                                      |
-| travis_correct_native_complex_smt                | StringConverter                             | JsonConverter (native)                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Y         | SMTs: ValueToKey ExtractField$Key ReplaceField$Value |
-| travis_correct_native_string_avrosr              | StringConverter                             | AvroConverter (native)                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Y         |                                                      |
-| travis_correct_native_string_json_without_schema | StringConverter                             | JsonConverter (native)                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Y         |                                                      |
-| travis_correct_native_string_protobuf            | StringConverter                             | ProtobufConverter (native)                  | 1       | 1                     | 100                    | 1          | < 4 Mins       | Y         |                                                      |
-| travis_correct_string_avro                       | StringConverter                             | SnowflakeAvroConverterWithoutSchemaRegistry | 1       | 1                     | 100                    | 1          | < 4 Mins       | Y         |                                                      |
-| travis_correct_string_avrosr                     | StringConverter                             | SnowflakeAvroConverter                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Y         |                                                      |
-| travis_correct_string_json                       | StringConverter                             | SnowflakeJsonConverter                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Y         |                                                      |
-| travis_pressure_restart                          | StringConverter                             | SnowflakeJsonConverter                      | 10      | 3                     | 100,000                | 3          | < 10 Mins      | Y         | Restarts connector every minute while consuming      |
-| travis_pressure_string_json                      | StringConverter                             | SnowflakeJsonConverter                      | 200     | 12                    | 10,000                 | 4          | < 3 Hours      | N         |                                                      |
+| travis_correct_avro_avro                         | SnowflakeAvroConverterWithoutSchemaRegistry | SnowflakeAvroConverterWithoutSchemaRegistry | 1       | 1                     | 100                    | 1          | < 4 Mins       | Every PR  |                                                      |
+| travis_correct_avrosr_avrosr                     | SnowflakeAvroConverter                      | SnowflakeAvroConverter                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Every PR  |                                                      |
+| travis_correct_json_json                         | SnowflakeJsonConverter                      | SnowflakeJsonConverter                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Every PR  |                                                      |
+| travis_correct_native_complex_smt                | StringConverter                             | JsonConverter (native)                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Every PR  | SMTs: ValueToKey ExtractField$Key ReplaceField$Value |
+| travis_correct_native_string_avrosr              | StringConverter                             | AvroConverter (native)                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Every PR  |                                                      |
+| travis_correct_native_string_json_without_schema | StringConverter                             | JsonConverter (native)                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Every PR  |                                                      |
+| travis_correct_native_string_protobuf            | StringConverter                             | ProtobufConverter (blueapron)               | 1       | 1                     | 100                    | 1          | < 4 Mins       | Every PR  |                                                      |
+| travis_correct_string_avro                       | StringConverter                             | SnowflakeAvroConverterWithoutSchemaRegistry | 1       | 1                     | 100                    | 1          | < 4 Mins       | Every PR  |                                                      |
+| travis_correct_string_avrosr                     | StringConverter                             | SnowflakeAvroConverter                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Every PR  |                                                      |
+| travis_correct_string_json                       | StringConverter                             | SnowflakeJsonConverter                      | 1       | 1                     | 100                    | 1          | < 4 Mins       | Every PR  |                                                      |
+| travis_pressure_restart                          | StringConverter                             | SnowflakeJsonConverter                      | 10      | 3                     | 200,000                | 3          | < 10 Mins      | Daily     | Restarts connector every minute while consuming      |
+| travis_pressure_string_json                      | StringConverter                             | SnowflakeJsonConverter                      | 200     | 12                    | 40,000                 | 10         | < 4 Hours      | Weekly    |                                                      |
+| travis_correct_confluent_protobuf_protobuf       | ProtobufConverter (Confluent)               | ProtobufConverter (Confluent)               | 1       | 1                     | 100                    | 1          | < 4 Mins       | Manually  | Only works with Confluent version >= 5.5.0.          |
 
 ### Daily Full Version Test
 
@@ -130,9 +133,25 @@ The Snowflake connector takes around 20 minutes to ingest 1G of data no matter w
 
 Performance test is run daily and we manully check whether there is abnormal bahaviour in the running time of the test. As long as the test takes around 2 hours to finish, there is no big performance change. 
 
+### Stress Test
+
+Stress test is a test case in end to end test framework. For stress test, the basic Kafka and Kafka Connect cluster configurations are the same with end to end test, which is single node Kafka and Kafka Connect cluster. The test case is run weekly with GitHub Action workflow defined in `StressTest.yml`. To run the stress test manually, follow the build step of end to end test, then execute:
+
+```
+./run_test_confluent.sh 5.5.0 ./apache_properties true
+```
+
+In the test we open 2400 partitions and send 40,000 records in total to each partition. 40,000 records are sent in 4 rounds. In each round 10,000 records are sent, the framework verify that the 10,000 records shows up in Snowflake before it starts to send the next round. 
+
 ## Regression Test
 
- Jenkins is used for regression test. The job is of name `ConnectorRegress_kafka_master`. In regression test we checkout the most recent master branch from GitHub and run unit test and integration test. We build the connector and test against two Snowflake deployments: qa1 and preprod3. This test helps us to identify breaking change in Snowflake before Snowflake releases. 
+ Jenkins is used for regression test. The seed job is of name `ConnectorRegressRunner`. In regression test we checkout code from GitHub and run unit test and integration test. We build the connector and test against Snowflake deployed on preprod3. This test helps us to identify breaking change in Snowflake before Snowflake releases. There are three sub-jobs:
+
+`ConnectorRegress_kafka_v1.4.3`: test Kafka Connector version 1.4.3.
+
+`ConnectorRegress_kafka_v1.5.0`: test Kafka Connector version 1.5.0.
+
+`ConnectorRegress_kafka_master`: test Kafka Connector most recent master branch.
 
 ## Related file short description
 
