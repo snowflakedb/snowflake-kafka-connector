@@ -7,7 +7,7 @@ class TestPressureRestart:
         self.topics = []
         self.topicNum = 10
         self.partitionNum = 3
-        self.recordNum = 1000000
+        self.recordNum = 200000
         self.curTest = 0
         self.configIncreamental = 0
         self.fileName = "travis_pressure_restart"
