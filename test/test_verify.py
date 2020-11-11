@@ -215,6 +215,9 @@ class KafkaTest:
         code = requests.delete(delete_url, timeout=10).status_code
         print(datetime.now().strftime("%H:%M:%S "), code)
 
+    def restartKafkaConnectPod(self):
+        os.system("kubectl get pods --no-headers=true | awk '/snow-cp-kafka-connect/{print $1}'| xargs kubectl delete pod")
+
     def createConnector(self, fileName, nameSalt):
         rest_template_path = "./rest_request_template"
         rest_generate_path = "./rest_request_generated"
@@ -309,9 +312,13 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False]
+        # only test protobuf on Schema Registry on Confluent version >= 5.5.0
+        testProtobufSR = driver.testVersion >= "5.5.0"
+        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, testProtobufSR]
     elif testSet == "apache":
         testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False]
+    elif testSet == "k8s":
+        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, False, False]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
@@ -328,6 +335,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         testSuitEnableList2 = [True]
     elif testSet == "apache":
         testSuitEnableList2 = [True]
+    elif testSet == "k8s":
+        testSuitEnableList2 = [True]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
@@ -343,6 +352,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     if testSet == "confluent":
         testSuitEnableList3 = [pressure]
     elif testSet == "apache":
+        testSuitEnableList3 = [pressure]
+    elif testSet == "k8s":
         testSuitEnableList3 = [pressure]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))

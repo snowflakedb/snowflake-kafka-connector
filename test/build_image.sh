@@ -120,8 +120,6 @@ echo -e "\n=== copy built snowflake plugin into container ==="
 docker cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $DEV_CONTAINER_NAME:$KAFKA_CONNECT_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME || \
 docker cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $DEV_CONTAINER_NAME:$KAFKA_CONNECT_PLUGIN_PATH_5_0_0/$SNOWFLAKE_PLUGIN_NAME
 
-compile_protobuf_converter_and_data kubernetes $DEV_CONTAINER_NAME:$KAFKA_CONNECT_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME
-
 echo -e "\n=== commit the mocified container to snowflake image ==="
 docker commit $DEV_CONTAINER_NAME $SNOWFLAKE_DOCKER_IMAGE:$SNOWFLAKE_TAG
 

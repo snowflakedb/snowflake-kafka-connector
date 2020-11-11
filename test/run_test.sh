@@ -42,7 +42,7 @@ if [ ! -f "$SNOWFLAKE_CREDENTIAL_FILE" ]; then
     error_exit "Provided SNOWFLAKE_CREDENTIAL_FILE $SNOWFLAKE_CREDENTIAL_FILE does not exist.  Aborting."
 fi
 
-TEST_SET="confluent"
+TEST_SET="k8s"
 
 # check if all required commands are installed
 # assume that helm and kubectl are configured

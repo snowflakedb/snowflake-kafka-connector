@@ -88,10 +88,6 @@ compile_protobuf_converter_and_data()
 
     cp $PROTOBUF_CONVERTER_JAR $TARGET_FOLDER || true
     echo -e "\n=== copied protobuf converter to $TARGET_FOLDER ==="
-  elif [ "$TEST_SET" == "kubernetes" ]; then
-    echo -e "\n=== copied protobuf converter to $TARGET_FOLDER ==="
-    docker cp $PROTOBUF_DATA_JAR $KAFKA_FOLDER_NAME
-    docker cp $PROTOBUF_CONVERTER_JAR $KAFKA_FOLDER_NAME
   else
     TARGET_FOLDER="$KAFKA_FOLDER_NAME/libs"
 
