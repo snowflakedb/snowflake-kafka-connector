@@ -4,6 +4,10 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
+import io.confluent.connect.avro.AvroConverter;
+import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -16,15 +20,9 @@ import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import io.confluent.connect.avro.AvroConverter;
-import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
-import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -799,6 +797,40 @@ public class SinkServiceIT
     TestUtils.assertWithRetry(() -> spyConn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
       table, partition)).size() == 0,
       30, 8);
+  }
+
+  /**
+   * Test what happens after upload failed
+   * @throws Exception
+   */
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testUploadBroken() throws Exception
+  {
+    conn.createTable(table);
+    conn.createStage(stage);
+    SnowflakeInternalStage internalStage = new SnowflakeInternalStage((SnowflakeConnectionV1) conn.getConnection(), 30 * 60 * 1000);
+    SnowflakeInternalStage spyInternalStage = spy(internalStage);
+    SnowflakeConnectionServiceV1 spyConn = (SnowflakeConnectionServiceV1) spy(conn);
+    spyConn.setInternalStage(spyInternalStage);
+
+    SnowflakeSinkService service =
+      SnowflakeSinkServiceFactory
+        .builder(spyConn)
+        .setRecordNumber(1)
+        .addTask(table, topic, partition)
+        .build();
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input = converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+    long offset = 0;
+
+    SinkRecord record1 = new SinkRecord(topic, partition, Schema.STRING_SCHEMA
+      , "test", input.schema(), input.value(), offset);
+
+
+    doThrow(SnowflakeErrors.ERROR_5018.getException()).when(spyInternalStage).putWithCache(anyString(), anyString(), anyString());
+
+    service.insert(record1);
   }
 
   /**

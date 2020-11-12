@@ -2,20 +2,16 @@ package com.snowflake.kafka.connector.internal;
 
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
-import net.snowflake.client.jdbc.SnowflakeStatement;
 import net.snowflake.client.jdbc.cloud.storage.StageInfo;
-import net.snowflake.ingest.connection.HistoryResponse;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
@@ -29,7 +25,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
   private final String taskID;
   private final Properties prop;
   private final SnowflakeURL url;
-  private final SnowflakeInternalStage internalStage;
+  private SnowflakeInternalStage internalStage;
   private StageInfo.StageType stageType;
 
   SnowflakeConnectionServiceV1(Properties prop, SnowflakeURL url,
@@ -55,6 +51,12 @@ public class SnowflakeConnectionServiceV1 extends Logging
         .setTaskID(this.taskID)
         .build();
     logInfo("initialized the snowflake connection");
+  }
+
+  // Added for testing
+  public void setInternalStage(SnowflakeInternalStage internalStage)
+  {
+    this.internalStage = internalStage;
   }
 
   @Override

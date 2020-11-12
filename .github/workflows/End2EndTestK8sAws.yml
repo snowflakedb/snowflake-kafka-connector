@@ -1,0 +1,62 @@
+name: Kafka Connector K8s End2End Test Aws
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+    - name: "Install Java 8"
+      uses: actions/setup-java@v1
+      with:
+        java-version: 1.8
+    - name: Install Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: '3.6'
+        architecture: 'x64'
+    - name: Decrypt profile.json
+      run: ./.github/scripts/decrypt_secret.sh 'aws'
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+    - name: Install Dependency
+      run: |
+        pip3 install --upgrade setuptools
+        pip3 install requests certifi "confluent-kafka[avro,json,protobuf]>=1.5.0"
+        pip3 install avro-python3 kafka-python
+        pip3 install protobuf
+        pip3 install --upgrade snowflake-connector-python
+        curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+        sudo apt-get -y install jq
+        sudo apt-get -y install protobuf-compiler
+    - name: Start Kubernetes Cluster
+        env:
+          CHANGE_MINIKUBE_NONE_USER: true
+        run: |
+          sudo apt-get -y install conntrack
+          curl -Lo minikube https://storage.googleapis.com/minikube/releases/v1.9.1/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+          sudo minikube start --vm-driver=none
+          sudo chown -R $USER $HOME/.kube $HOME/.minikube || true
+          minikube update-context
+
+    - name: Build with Unit Test
+      env:
+        JACOCO_COVERAGE: true
+        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+        SHELL: "/bin/bash"
+      run: |
+        cd test
+        ./build_image.sh 5.5.0 ../../snowflake-kafka-connector package
+
+    - name: End to End Test of Kubernetes with Confluent 5.5
+      env:
+        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+      run: |
+        cd test
+        ./run_test.sh 5.5.0 ./helm_values/snow_values_5.5.yaml

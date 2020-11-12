@@ -237,6 +237,25 @@ class KafkaTest:
 
     def restartKafkaConnectPod(self):
         os.system("kubectl get pods --no-headers=true | awk '/snow-cp-kafka-connect/{print $1}'| xargs kubectl delete pod")
+        print(datetime.now().strftime("%H:%M:%S "), "restart Kafka Connect pod")
+
+    def deleteK8sLogFolder(self):
+        os.system("rm -rf k8s_log")
+        print(datetime.now().strftime("%H:%M:%S "), "delete K8s log folder")
+
+    def dumpK8sLog(self, loopCount, round):
+        os.system("mkdir -p k8s_log")
+        with open("k8s_log/script.sh", "w") as f:
+            f.write("""
+            for file in $(kubectl get pods --no-headers=true | awk '/snow-cp-kafka-connect/{print $1}')
+            do
+                kubectl logs pod/$file -c cp-kafka-connect-server > ./k8s_log/"""
+                    + str(round) + "-" + str(loopCount) + """-${file}.txt
+            done""")
+            f.close()
+        os.system("chmod +x k8s_log/script.sh")
+        os.system("bash ./k8s_log/script.sh")
+        print(datetime.now().strftime("%H:%M:%S "), "dumped K8s log")
 
     def createConnector(self, fileName, nameSalt):
         rest_template_path = "./rest_request_template"
@@ -304,6 +323,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_pressure import TestPressure
     from test_suit.test_pressure_restart import TestPressureRestart
 
+    from test_suit.test_cluster_restart import TestClusterRestart
+
     from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
     from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
 
@@ -319,6 +340,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testNativeComplexSmt = TestNativeComplexSmt(driver, nameSalt)
     testPressure = TestPressure(driver, nameSalt)
     testPressureRestart = TestPressureRestart(driver, nameSalt)
+
+    testClusterRestart = TestClusterRestart(driver, nameSalt)
 
     testNativeStringProtobuf = TestNativeStringProtobuf(driver, nameSalt)
     testConfluentProtobufProtobuf = TestConfluentProtobufProtobuf(driver, nameSalt)
@@ -347,20 +370,20 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     ############################ round 2 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 2 ===")
-    testSuitList2 = [testPressureRestart]
+    testSuitList2 = [testPressureRestart, testClusterRestart]
 
-    testCleanEnableList2 = [True]
+    testCleanEnableList2 = [True, True]
     testSuitEnableList2 = []
     if testSet == "confluent":
-        testSuitEnableList2 = [True]
+        testSuitEnableList2 = [True, False]
     elif testSet == "apache":
-        testSuitEnableList2 = [True]
+        testSuitEnableList2 = [True, False]
     elif testSet == "k8s":
-        testSuitEnableList2 = [True]
+        testSuitEnableList2 = [False, True]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    execution(testSet, testSuitList2, testCleanEnableList2, testSuitEnableList2, driver, nameSalt, 2)
+    execution(testSet, testSuitList2, testCleanEnableList2, testSuitEnableList2, driver, nameSalt, 20)
     ############################ round 2 ############################
 
     ############################ round 3 ############################
@@ -403,8 +426,6 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
                         print(datetime.now().strftime("\n%H:%M:%S "), "=== Sending " + test.__class__.__name__ + " data ===")
                         test.send()
                         print(datetime.now().strftime("%H:%M:%S "), "=== Done " + test.__class__.__name__ + " ===", flush=True)
-
-                driver.verifyWaitTime()
 
                 for i, test in enumerate(testSuitList):
                     if testSuitEnableList[i]:
