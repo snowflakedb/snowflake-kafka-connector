@@ -383,7 +383,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    execution(testSet, testSuitList2, testCleanEnableList2, testSuitEnableList2, driver, nameSalt, 20)
+    execution(testSet, testSuitList2, testCleanEnableList2, testSuitEnableList2, driver, nameSalt, 2)
     ############################ round 2 ############################
 
     ############################ round 3 ############################
