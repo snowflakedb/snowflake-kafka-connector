@@ -46,11 +46,11 @@ class TestClusterRestart:
 
             if res < self.partitionNum * self.recordNum * (round + 1):
                 raise RetryableError(" Record count in table: " + str(res) +
-                                     " Expecting: " + self.partitionNum * self.recordNum * (round + 1))
+                                     " Expecting: " + str(self.partitionNum * self.recordNum * (round + 1)))
 
             if res > self.partitionNum * self.recordNum * (round + 1):
                 raise NonRetryableError(" Record count in table: " + str(res) +
-                                        " Expecting: " + self.partitionNum * self.recordNum * (round + 1))
+                                        " Expecting: " + str(self.partitionNum * self.recordNum * (round + 1)))
 
             if self.curTest <= t:
                 self.curTest = t + 1
