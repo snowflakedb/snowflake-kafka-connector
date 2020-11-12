@@ -88,7 +88,7 @@ compile_protobuf_converter_and_data()
 
     cp $PROTOBUF_CONVERTER_JAR $TARGET_FOLDER || true
     echo -e "\n=== copied protobuf converter to $TARGET_FOLDER ==="
-  else
+  elif [ "$TEST_SET" == "apache" ]; then
     TARGET_FOLDER="$KAFKA_FOLDER_NAME/libs"
 
     export CLASSPATH=$CLASSPATH:$(pwd)/$PROTOBUF_DATA_JAR

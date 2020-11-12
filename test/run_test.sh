@@ -62,6 +62,8 @@ NAME_SALT=$(random-string)
 NAME_SALT="_$NAME_SALT"
 echo -e "=== Name Salt: $NAME_SALT ==="
 
+compile_protobuf_converter_and_data $TEST_SET "dummy"
+
 SNOWFLAKE_KAFKA_PORT="31090"
 
 helm repo add confluentinc https://confluentinc.github.io/cp-helm-charts/
