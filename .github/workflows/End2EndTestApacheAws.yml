@@ -43,7 +43,7 @@ jobs:
         SHELL: "/bin/bash"
       run: |
         cd test
-        ./build_apache.sh ../../snowflake-kafka-connector package
+        ./build_apache.sh .. package
 
     - name: End to End Test of Apache Plarform 2.5
       env:

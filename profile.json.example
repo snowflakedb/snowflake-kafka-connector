@@ -1,6 +1,8 @@
 {
   "user": "user name",
   "private_key": "private key",
+  "encrypted_private_key": "encrypted private key",
+  "private_key_passphrase": "private key passphrase",
   "host": "acountname.snowflakecomputing.com:443",
   "schema": "schema name",
   "database": "database name",
