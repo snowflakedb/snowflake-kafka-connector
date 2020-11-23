@@ -70,9 +70,9 @@ DEV_CONTAINER_NAME="snow-dev-build"
 # bind minikube to local docker image repo
 if ! minikube status; then
     echo -e "\n=== minikube not running, try to start ==="
-    minikube config set memory 8192
-    minikube config set cpus 4
-    minikube config set disk-size 20000MB
+    minikube config set memory 16192
+    minikube config set cpus 8
+    minikube config set disk-size 40000MB
     minikube start
 fi
 eval $(minikube docker-env)

@@ -1,5 +1,8 @@
 from test_suit.test_utils import RetryableError, NonRetryableError, ResetAndRetry
 import json
+import random
+import string
+from multiprocessing.dummy import Pool as ThreadPool
 
 class TestClusterRestart:
     def __init__(self, driver, nameSalt):
@@ -13,6 +16,7 @@ class TestClusterRestart:
         self.fileName = "travis_cluster_restart"
         self.connectorName = self.fileName + nameSalt
         self.nameSalt = nameSalt
+        self.threadCount = 10
         for i in range(self.topicNum):
             self.topics.append(self.fileName + str(i) + nameSalt)
 
@@ -24,19 +28,26 @@ class TestClusterRestart:
         for t in range(self.topicNum):
             self.driver.createTopics(self.topics[t], self.partitionNum, 1)
 
-        for p in range(self.partitionNum):
-            for t in range(self.topicNum):
-                value = []
-                for e in range(self.recordNum):
-                    value.append(json.dumps(
-                        {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
-                    ).encode('utf-8'))
-                self.driver.sendBytesData(self.topics[t], value, partition=p)
+        args = []
+        threadPool = ThreadPool(self.threadCount)
+        for t in range(self.topicNum):
+            for p in range(self.partitionNum):
+                args.append((t, p))
+        threadPool.starmap(self.sendHelper, args)
+        threadPool.close()
+        threadPool.join()
+
+    def sendHelper(self, t, p):
+        value = []
+        for e in range(self.recordNum):
+            randomString = ''.join(random.choices(string.ascii_uppercase + string.digits, k=300))
+            value.append(json.dumps({randomString: str(e)}).encode('utf-8'))
+        self.driver.sendBytesData(self.topics[t], value, partition=p)
 
     def verify(self, round):
         # restart connector with different config
         self.configIncreamental = self.configIncreamental + 1
-        if self.configIncreamental % 2 == 0:
+        if self.configIncreamental % 10 == 9:
             self.driver.dumpK8sLog(self.configIncreamental, round)
             self.driver.restartKafkaConnectPod()
 

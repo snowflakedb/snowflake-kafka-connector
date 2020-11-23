@@ -5,13 +5,14 @@ cp-kafka-connect:
     imageTag: dev
     imagePullPolicy: Never # pull from local docker build 
     # this component does not have nodeport service, so open proxy
+    heapOptions: "-Xms2512M -Xmx2512M"
     resources:
         requests:
             memory: "64Mi"
             cpu: "100m"
         limits:
-            memory: "2Gi"
-            cpu: 1000m
+            memory: "6Gi"
+            cpu: 2000m
 
 cp-kafka:
     imageTag: 5.5.0
@@ -24,13 +25,14 @@ cp-kafka:
         servicePort: 19092 # this is the default value
         firstListenerPort: 31090 # this is the default value
         # access kafka directly from outside cluster without proxy
+    heapOptions: "-Xms2512M -Xmx2512M"
     resources:
         requests:
             memory: "64Mi"
             cpu: "100m"
         limits:
-            memory: "2Gi"
-            cpu: 1000m
+            memory: "5Gi"
+            cpu: 2000m
 
 cp-zookeeper:
     imageTag: 5.5.0

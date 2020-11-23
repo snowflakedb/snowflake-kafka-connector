@@ -9,6 +9,9 @@
     "snowflake.database.name":"SNOWFLAKE_DATABASE",
     "snowflake.schema.name":"SNOWFLAKE_SCHEMA",
     "tasks.max": "3",
+    "buffer.count.records":"50000",
+    "buffer.flush.time":"3000",
+    "buffer.size.bytes":"500000000",
     "key.converter":"org.apache.kafka.connect.storage.StringConverter",
     "value.converter":"com.snowflake.kafka.connector.records.SnowflakeJsonConverter"
   }
