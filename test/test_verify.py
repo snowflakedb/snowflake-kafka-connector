@@ -208,6 +208,26 @@ class KafkaTest:
         r = requests.put(requestURL, json=config, headers=self.httpHeader)
         print(datetime.now().strftime("%H:%M:%S "), r, " updated connector config")
 
+    def restartConnector(self, connectorName):
+        requestURL = "http://{}/connectors/{}/restart".format(self.kafkaConnectAddress, connectorName)
+        r = requests.post(requestURL, headers=self.httpHeader)
+        print(datetime.now().strftime("%H:%M:%S "), r, " restart connector")
+
+    def pauseConnector(self, connectorName):
+        requestURL = "http://{}/connectors/{}/pause".format(self.kafkaConnectAddress, connectorName)
+        r = requests.put(requestURL, headers=self.httpHeader)
+        print(datetime.now().strftime("%H:%M:%S "), r, " pause connector")
+
+    def resumeConnector(self, connectorName):
+        requestURL = "http://{}/connectors/{}/resume".format(self.kafkaConnectAddress, connectorName)
+        r = requests.put(requestURL, headers=self.httpHeader)
+        print(datetime.now().strftime("%H:%M:%S "), r, " resume connector")
+
+    def deleteConnector(self, connectorName):
+        requestURL = "http://{}/connectors/{}".format(self.kafkaConnectAddress, connectorName)
+        r = requests.delete(requestURL, headers=self.httpHeader)
+        print(datetime.now().strftime("%H:%M:%S "), r, " delete connector")
+
     def closeConnector(self, fileName, nameSalt):
         snowflake_connector_name = fileName.split(".")[0] + nameSalt
         delete_url = "http://{}/connectors/{}".format(self.kafkaConnectAddress, snowflake_connector_name)

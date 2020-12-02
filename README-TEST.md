@@ -4,9 +4,17 @@
 
 GitHub Action is used for CI/CD test. The workflows can be found in `.github/workflows`. Currently, there are 5 workflows:
 
-`End2EndTest.yml` : Run unit test and integration test. Then run end to end test on Confluent 5.5.0 and Apache 2.5.0. Test against Snowflake with on AWS. Run on all PRs.
+`End2EndTestApacheAws.yml` : Run unit test. Then run end to end test on Apache 2.5.0. Test against Snowflake with on AWS. Run on all PRs.
 
-`End2EndTestAzure.yml` : Same with the previous workflow but test with Snowflake deployed on AZURE.
+`End2EndTestApacheAzure.yml` : Same with the previous workflow but test with Snowflake deployed on AZURE.
+
+`End2EndTestConfluentAws.yml` : Run unit test. Then run end to end test on Confluent 5.5.0. Test against Snowflake with on AWS. Run on all PRs.
+
+`End2EndTestConfluentAzure.yml` : Same with the previous workflow but test with Snowflake deployed on AZURE.
+
+`IntegrationTestAws.yml` : Run unit and integration test. Test against Snowflake with on AWS. Run on all PRs.
+
+`IntegrationTestAzure.yml` : Same with the previous workflow but test with Snowflake deployed on AZURE.
 
 `End2EndTestFull.yml` : Run unit test and integration test. Then run end to end test on Confluent 5.2.0, 5.4.0, and 5.5.0 and Apache 2.2.0, 2.4.0, and 2.5.0. Test with Snowflake deployed on AWS. Executed daily, checkout the most recent master branch.
 
@@ -145,7 +153,13 @@ In the test we open 2400 partitions and send 40,000 records in total to each par
 
 ## Regression Test
 
- Jenkins is used for regression test. The job is of name `ConnectorRegress_kafka_master`. In regression test we checkout the most recent master branch from GitHub and run unit test and integration test. We build the connector and test against two Snowflake deployments: qa1 and preprod3. This test helps us to identify breaking change in Snowflake before Snowflake releases. 
+ Jenkins is used for regression test. The seed job is of name `ConnectorRegressRunner`. In regression test we checkout code from GitHub and run unit test and integration test. We build the connector and test against Snowflake deployed on preprod3. This test helps us to identify breaking change in Snowflake before Snowflake releases. There are three sub-jobs:
+
+`ConnectorRegress_kafka_v1.4.3`: test Kafka Connector version 1.4.3.
+
+`ConnectorRegress_kafka_v1.5.0`: test Kafka Connector version 1.5.0.
+
+`ConnectorRegress_kafka_master`: test Kafka Connector most recent master branch.
 
 ## Related file short description
 
