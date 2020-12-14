@@ -16,20 +16,26 @@ function random-string() {
 source ./utils.sh
 
 # check argument number
-if [ "$#" -lt 2 ] || [ "$#" -gt 3 ] ; then
-    error_exit "Usage: ./run_test.sh <version> <path to apache config folder> <pressure>.  Aborting."
+if [ "$#" -lt 2 ] || [ "$#" -gt 4 ] ; then
+    error_exit "Usage: ./run_test.sh <version> <path to apache config folder> <pressure> <ssl>.  Aborting."
 fi
 
 APACHE_VERSION=$1
 SNOWFLAKE_APACHE_CONFIG_PATH=$2
-if [ "$#" -eq 3 ] ; then
+if [ "$#" -gt 2 ] ; then
   PRESSURE=$3
 else
   PRESSURE="false"
 fi
+if [ "$#" -gt 3 ] ; then
+  SSL=$4
+else
+  SSL="false"
+fi
 SNOWFLAKE_ZOOKEEPER_CONFIG="zookeeper.properties"
 SNOWFLAKE_KAFKA_CONFIG="server.properties"
 SNOWFLAKE_KAFKA_CONNECT_CONFIG="connect-distributed.properties"
+KAFKA_SERVER_JAAS="kafka_server_jaas.conf"
 
 if [ ! -d "$SNOWFLAKE_APACHE_CONFIG_PATH" ]; then
     error_exit "Provided snowflake apache config folder $SNOWFLAKE_APACHE_CONFIG_PATH does not exist.  Aborting."
@@ -87,6 +93,14 @@ compile_protobuf_converter_and_data $TEST_SET $APACHE_FOLDER_NAME
 
 trap "pkill -9 -P $$" SIGINT SIGTERM EXIT
 
+if [ "$SSL" = "true" ]; then
+    echo -e "\n=== using SSL ===="
+    ./generate_ssl_key.sh
+    SNOWFLAKE_KAFKA_ADDRESS="localhost:9094"
+    export KAFKA_OPTS="-Djava.security.auth.login.config=$SNOWFLAKE_APACHE_CONFIG_PATH/$KAFKA_SERVER_JAAS"
+else
+    SNOWFLAKE_KAFKA_ADDRESS="localhost:9092"
+fi
 echo -e "\n=== Start Zookeeper ==="
 $APACHE_FOLDER_NAME/bin/zookeeper-server-start.sh $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_ZOOKEEPER_CONFIG > $APACHE_LOG_PATH/zookeeper.log 2>&1 &
 sleep 10
@@ -104,16 +118,16 @@ SC_PORT=8081
 KC_PORT=8083
 
 echo -e "\n=== Clean table stage and pipe ==="
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $NAME_SALT $PRESSURE
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $APACHE_VERSION $NAME_SALT $PRESSURE $SSL
 
 #create_connectors_with_salt $SNOWFLAKE_CREDENTIAL_FILE $NAME_SALT $LOCAL_IP $KC_PORT
 
 set +e
 # Send test data and verify DB result from Python
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT $TEST_SET $NAME_SALT $PRESSURE
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT $TEST_SET $APACHE_VERSION $NAME_SALT $PRESSURE $SSL
 testError=$?
 # delete_connectors_with_salt $NAME_SALT $LOCAL_IP $KC_PORT
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $NAME_SALT $PRESSURE
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $APACHE_VERSION $NAME_SALT $PRESSURE $SSL
 
 if [ $testError -ne 0 ]; then
     RED='\033[0;31m'

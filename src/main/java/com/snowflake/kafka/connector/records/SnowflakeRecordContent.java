@@ -44,7 +44,7 @@ public class SnowflakeRecordContent
    * constructor for json converter
    * @param data json node
    */
-  SnowflakeRecordContent(JsonNode data)
+  public SnowflakeRecordContent(JsonNode data)
   {
     this.content = new JsonNode[1];
     this.content[0] = data;

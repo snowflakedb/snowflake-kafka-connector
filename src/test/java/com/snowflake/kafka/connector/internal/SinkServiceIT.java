@@ -629,6 +629,30 @@ public class SinkServiceIT
   }
 
   @Test
+  public void testSinkServiceNegative()
+  {
+    conn.createTable(table);
+    conn.createStage(stage);
+    SnowflakeSinkService service =
+      SnowflakeSinkServiceFactory
+        .builder(conn)
+        .setRecordNumber(1)
+        .build();
+    TopicPartition topicPartition = new TopicPartition(topic, partition);
+    service.getOffset(topicPartition);
+    List<TopicPartition> topicPartitionList = new ArrayList<>();
+    topicPartitionList.add(topicPartition);
+    service.close(topicPartitionList);
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input = converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+    service.insert(
+      new SinkRecord(topic, partition, null, null, input.schema(), input.value(), 0)
+    );
+    service.startTask(table, topic, partition);
+  }
+
+  @Test
   public void testRecoverReprocessFiles() throws Exception
   {
     String data = "{\"content\":{\"name\":\"test\"},\"meta\":{\"offset\":0," +
@@ -763,14 +787,14 @@ public class SinkServiceIT
 
     System.out.println("break connection");
     doThrow(SnowflakeErrors.ERROR_2001.getException()).when(spyConn).purgeStage(anyString(), anyList());
-    // Sleep two minutes so that cleaner encounters two exceptions.
-    Thread.sleep(SnowflakeSinkServiceV1.CLEAN_TIME * 2);
+    // Sleep 6 minutes so that cleaner encounters 6 exceptions. Just to make sure cleaner restart is triggered
+    Thread.sleep(6 * 60 * 1000);
 
     System.out.println("recover connection");
     doCallRealMethod().when(spyConn).purgeStage(anyString(), anyList());
 
-    // read ingestHistory
-    Thread.sleep(480000);
+    // Sleep 4 minutes. Total sleep time is 10 minutes to test read ingestHistory
+    Thread.sleep(4 * 60 * 1000);
 
     TestUtils.assertWithRetry(() -> spyConn.listStage(stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME,
       table, partition)).size() == 0,

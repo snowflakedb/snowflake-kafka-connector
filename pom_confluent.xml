@@ -13,7 +13,7 @@
 
     <groupId>com.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>1.5.0</version>
+    <version>1.5.1</version>
     <packaging>jar</packaging>
     <name>Snowflake Kafka Connector</name>
     <description>Snowflake Kafka Connect Sink Connector</description>
@@ -96,8 +96,9 @@
                             <description>
                                 Snowflake is the data warehouse built for the
                                 cloud. The Snowflake Kafka connector lets you
-                                quickly and easily move JSON and AVRO messages
-                                from Kafka topics into Snowflake tables.
+                                quickly and easily move messages in formats
+                                like Avro, JSON, and Protobuf from Kafka topics
+                                into Snowflake tables.
                             </description>
                             <logo>logo/snowflake.png</logo>
 
@@ -277,7 +278,7 @@
                 <executions>
                     <execution>
                         <id>sign-artifacts</id>
-                        <phase>verify</phase>
+                        <phase>package</phase>
                         <goals>
                             <goal>sign</goal>
                         </goals>
@@ -405,7 +406,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-registry-client</artifactId>
-            <version>5.4.0</version>
+            <version>5.5.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -428,7 +429,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
-            <version>5.4.0</version>
+            <version>5.5.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -440,7 +441,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-connect-avro-converter</artifactId>
-            <version>5.4.0</version>
+            <version>5.5.1</version>
             <scope>test</scope>
         </dependency>
 

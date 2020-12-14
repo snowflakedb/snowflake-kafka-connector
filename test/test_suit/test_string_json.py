@@ -27,9 +27,14 @@ class TestStringJson:
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
         # validate content of line 1
+        oldVersions = ["5.4.0", "5.3.0", "5.2.0", "2.4.0", "2.3.0", "2.2.0"]
+        if self.driver.testVersion in oldVersions:
+            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":{}},"offset":0,"partition":0,"topic":"travis_correct_string_json....."}'
+        else:
+            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":[]},"offset":0,"partition":0,"topic":"travis_correct_string_json....."}'
+
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
-        goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":[]},"offset":0,"partition":0,"topic":"travis_correct_string_json....."}'
         goldContent = r'{"number":"0"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 

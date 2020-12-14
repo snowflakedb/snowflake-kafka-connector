@@ -1,0 +1,53 @@
+name: Kafka Connector Confluent End2End Test Azure
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+    - name: "Install Java 8"
+      uses: actions/setup-java@v1
+      with:
+        java-version: 1.8
+    - name: Install Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: '3.6'
+        architecture: 'x64'
+    - name: Decrypt profile.json
+      run: ./.github/scripts/decrypt_secret.sh 'azure'
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+    - name: Install Dependency
+      run: |
+        pip3 install --upgrade setuptools
+        pip3 install requests certifi "confluent-kafka[avro,json,protobuf]>=1.5.0"
+        pip3 install avro-python3 kafka-python
+        pip3 install protobuf
+        pip3 install --upgrade snowflake-connector-python
+        curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+        sudo apt-get -y install jq
+        sudo apt-get -y install protobuf-compiler
+    
+    - name: Build with Unit Test
+      env:
+        JACOCO_COVERAGE: true
+        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+        SHELL: "/bin/bash"
+      run: |
+        cd test
+        ./build_apache.sh ../../snowflake-kafka-connector package
+
+    - name: End to End Test of Confluent Platform 5.5
+      env:
+        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+      run: |
+        cd test
+        ./run_test_confluent.sh 5.5.0 ./apache_properties

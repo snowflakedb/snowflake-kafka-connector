@@ -22,7 +22,8 @@ def errorExit(message):
 
 
 class KafkaTest:
-    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath):
+    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, testVersion, enableSSL):
+        self.testVersion = testVersion
         self.credentialPath = credentialPath
         with open(self.credentialPath) as f:
             credentialJson = json.load(f)
@@ -46,13 +47,26 @@ class KafkaTest:
         self.schemaRegistryAddress = schemaRegistryAddress
         self.kafkaAddress = kafkaAddress
 
-        self.kafkaConnectAddress = kafkaConnectAddress
-        self.schemaRegistryAddress = schemaRegistryAddress
+        if enableSSL:
+            print(datetime.now().strftime("\n%H:%M:%S "), "=== Enable SSL ===")
+            self.client_config = {
+                "bootstrap.servers": kafkaAddress,
+                "security.protocol": "SASL_SSL",
+                "ssl.ca.location": "./crts/ca-cert",
+                "sasl.mechanism": "PLAIN",
+                "sasl.username": "client",
+                "sasl.password": "client-secret"
+            }
+        else:
+            self.client_config = {
+                "bootstrap.servers": kafkaAddress
+            }
 
-        self.adminClient = AdminClient({"bootstrap.servers": kafkaAddress})
-        self.producer = Producer({'bootstrap.servers': kafkaAddress})
-        self.avroProducer = AvroProducer({'bootstrap.servers': kafkaAddress,
-                                          'schema.registry.url': schemaRegistryAddress})
+        self.adminClient = AdminClient(self.client_config)
+        self.producer = Producer(self.client_config)
+        sc_config = self.client_config
+        sc_config['schema.registry.url'] = schemaRegistryAddress
+        self.avroProducer = AvroProducer(sc_config)
 
         reg = "[^\/]*snowflakecomputing"  # find the account name
         account = re.findall(reg, testHost)
@@ -194,6 +208,26 @@ class KafkaTest:
         r = requests.put(requestURL, json=config, headers=self.httpHeader)
         print(datetime.now().strftime("%H:%M:%S "), r, " updated connector config")
 
+    def restartConnector(self, connectorName):
+        requestURL = "http://{}/connectors/{}/restart".format(self.kafkaConnectAddress, connectorName)
+        r = requests.post(requestURL, headers=self.httpHeader)
+        print(datetime.now().strftime("%H:%M:%S "), r, " restart connector")
+
+    def pauseConnector(self, connectorName):
+        requestURL = "http://{}/connectors/{}/pause".format(self.kafkaConnectAddress, connectorName)
+        r = requests.put(requestURL, headers=self.httpHeader)
+        print(datetime.now().strftime("%H:%M:%S "), r, " pause connector")
+
+    def resumeConnector(self, connectorName):
+        requestURL = "http://{}/connectors/{}/resume".format(self.kafkaConnectAddress, connectorName)
+        r = requests.put(requestURL, headers=self.httpHeader)
+        print(datetime.now().strftime("%H:%M:%S "), r, " resume connector")
+
+    def deleteConnector(self, connectorName):
+        requestURL = "http://{}/connectors/{}".format(self.kafkaConnectAddress, connectorName)
+        r = requests.delete(requestURL, headers=self.httpHeader)
+        print(datetime.now().strftime("%H:%M:%S "), r, " delete connector")
+
     def closeConnector(self, fileName, nameSalt):
         snowflake_connector_name = fileName.split(".")[0] + nameSalt
         delete_url = "http://{}/connectors/{}".format(self.kafkaConnectAddress, snowflake_connector_name)
@@ -333,7 +367,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    execution(testSet, testSuitList3, testCleanEnableList3, testSuitEnableList3, driver, nameSalt)
+    execution(testSet, testSuitList3, testCleanEnableList3, testSuitEnableList3, driver, nameSalt, 4)
     ############################ round 3 ############################
 
 
@@ -376,17 +410,19 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 7:
+    if len(sys.argv) != 9:
         errorExit(
             """\n=== Usage: ./ingest.py <kafka address> <schema registry address> <kafka connect address>
-             <test set> <name salt> <pressure>===""")
+             <test set> <test version> <name salt> <pressure> <enableSSL>===""")
 
     kafkaAddress = sys.argv[1]
     schemaRegistryAddress = sys.argv[2]
     kafkaConnectAddress = sys.argv[3]
     testSet = sys.argv[4]
-    nameSalt = sys.argv[5]
-    pressure = (sys.argv[6] == 'true')
+    testVersion = sys.argv[5]
+    nameSalt = sys.argv[6]
+    pressure = (sys.argv[7] == 'true')
+    enableSSL = (sys.argv[8] == 'true')
 
     if "SNOWFLAKE_CREDENTIAL_FILE" not in os.environ:
         errorExit(
@@ -398,6 +434,6 @@ if __name__ == "__main__":
         errorExit("\n=== Provided SNOWFLAKE_CREDENTIAL_FILE {} does not exist.  Aborting. ===".format(
             credentialPath))
 
-    kafkaTest = KafkaTest(kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath)
+    kafkaTest = KafkaTest(kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, testVersion, enableSSL)
 
     runTestSet(kafkaTest, testSet, nameSalt, pressure)

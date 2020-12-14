@@ -12,6 +12,12 @@ public interface SnowflakeTelemetryService
   void setAppName(String name);
 
   /**
+   * set task id
+   * @param taskID task id
+   */
+  void setTaskID(String taskID);
+
+  /**
    * Event of connector start
    * @param startTime task start time
    * @param maxTasks max number of tasks
@@ -33,73 +39,17 @@ public interface SnowflakeTelemetryService
   void reportKafkaFatalError(String errorDetail);
 
   /**
-   * Event of a non fatal error in the connector
+   * report connector pipe status
    *
-   * @param errorDetail error message
+   * @param pipeStatus   SnowflakePipeStatus object
+   * @param isClosing    is the pipe closing
    */
-  void reportKafkaNonFatalError(String errorDetail);
+  void reportKafkaPipeUsage(final SnowflakeTelemetryPipeStatus pipeStatus, boolean isClosing);
 
   /**
-   * report connector usage
+   * report connector pipe start
    *
-   * @param startTime    start time of reported period
-   * @param endTime      end time of reported period
-   * @param recordNumber number of records sent to SF
-   * @param byteNumber   number of bytes sent to SF
+   * @param objectCreation   SnowflakeObjectCreation object
    */
-  void reportKafkaUsage(long startTime, long endTime, long recordNumber, long byteNumber);
-
-  /**
-   * report table creation
-   *
-   * @param tableName table name
-   */
-  void reportKafkaCreateTable(String tableName);
-
-  /**
-   * report table creation
-   *
-   * @param tableName table name
-   */
-  void reportKafkaReuseTable(String tableName);
-
-  /**
-   * report stage creation
-   *
-   * @param stageName stage name
-   */
-  void reportKafkaCreateStage(String stageName);
-
-  /**
-   * report stage reuse
-   *
-   * @param stageName stage name
-   */
-  void reportKafkaReuseStage(String stageName);
-
-  /**
-   * report pipe creation
-   *
-   * @param pipeName  pipe name
-   * @param stageName stage name
-   * @param tableName table name
-   */
-  void reportKafkaCreatePipe(String tableName, String stageName, String pipeName);
-
-  /**
-   * report file failures
-   *
-   * @param tableName table name
-   * @param stageName stage name
-   * @param filenames a list of file names
-   */
-  void reportKafkaFileFailure(String tableName, String stageName, List<String> filenames);
-
-  /**
-   * report Snowflake throttle
-   *
-   * @param errorDetail error message
-   * @param iteration slept time before execution
-   */
-  void reportKafkaSnowflakeThrottle(final String errorDetail, int iteration);
+  void reportKafkaPipeStart(final SnowflakeTelemetryPipeCreation objectCreation);
 }

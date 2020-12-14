@@ -7,11 +7,12 @@ class TestPressureRestart:
         self.topics = []
         self.topicNum = 10
         self.partitionNum = 3
-        self.recordNum = 100000
+        self.recordNum = 200000
         self.curTest = 0
         self.configIncreamental = 0
         self.fileName = "travis_pressure_restart"
         self.connectorName = self.fileName + nameSalt
+        self.nameSalt = nameSalt
         for i in range(self.topicNum):
             self.topics.append(self.fileName + str(i) + nameSalt)
 
@@ -34,9 +35,19 @@ class TestPressureRestart:
     def verify(self, round):
         # restart connector with different config
         self.configIncreamental = self.configIncreamental + 1
-        if self.configIncreamental > 0:
+        if self.configIncreamental % 7 == 2:
             configMap = {"buffer.size.bytes": str(6000000 + self.configIncreamental)}
             self.driver.updateConnectorConfig(self.fileName, self.connectorName, configMap)
+        elif self.configIncreamental % 7 == 3:
+            self.driver.restartConnector(self.connectorName)
+        elif self.configIncreamental % 7 == 4:
+            self.driver.pauseConnector(self.connectorName)
+        elif self.configIncreamental % 7 == 5:
+            self.driver.resumeConnector(self.connectorName)
+        elif self.configIncreamental % 7 == 6:
+            self.driver.deleteConnector(self.connectorName)
+        elif self.configIncreamental % 7 == 0:
+            self.driver.createConnector(self.getConfigFileName(), self.nameSalt)
 
         for t in range(self.curTest, self.topicNum):
             res = self.driver.snowflake_conn.cursor().execute(
