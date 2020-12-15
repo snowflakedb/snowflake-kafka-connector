@@ -6,16 +6,15 @@ import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeFileTransferAgent;
 import net.snowflake.client.jdbc.SnowflakeFileTransferConfig;
 import net.snowflake.client.jdbc.SnowflakeFileTransferMetadataV1;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class InternalStageIT {
@@ -144,16 +143,23 @@ public class InternalStageIT {
     // Sleep until it expire
     Thread.sleep(2 * 60 * 60 * 1000);
 
-    SnowflakeFileTransferAgent.uploadWithoutConnection(
-      SnowflakeFileTransferConfig.Builder.newInstance()
-        .setSnowflakeFileTransferMetadata(fileTransferMetadata)
-        .setUploadStream(inStream)
-        .setRequireCompress(true)
-        .setOcspMode(OCSPMode.FAIL_OPEN)
-        .build());
+    DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+    LocalDateTime now = LocalDateTime.now();
+    System.out.println("start time: " + dtf.format(now));
 
-    List<String> filesExpire = service.listStage(stageNameExpire, "testExpire");
-    assert filesExpire.size() == 1;
+    try {
+      SnowflakeFileTransferAgent.uploadWithoutConnection(
+        SnowflakeFileTransferConfig.Builder.newInstance()
+          .setSnowflakeFileTransferMetadata(fileTransferMetadata)
+          .setUploadStream(inStream)
+          .setRequireCompress(true)
+          .setOcspMode(OCSPMode.FAIL_OPEN)
+          .build());
+    } finally {
+      dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+      now = LocalDateTime.now();
+      System.out.println("end time: " + dtf.format(now));
+    }
   }
 
 }
