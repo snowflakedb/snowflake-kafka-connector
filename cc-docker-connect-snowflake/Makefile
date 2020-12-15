@@ -17,7 +17,7 @@ cc-connect-snowflake-sink:
 	[ -d kafka-connect-snowflake ] || git clone git@github.com:confluentinc/snowflake-kafka-connector.git kafka-connect-snowflake
 	git -C kafka-connect-snowflake checkout master
 	git -C kafka-connect-snowflake pull origin master
-	mvn -f kafka-connect-snowflake/pom_confluent.xml -am -Dconnect.component.version=ccloud -Dmaven.test.skip=true clean package
+	mvn -f kafka-connect-snowflake/pom_confluent.xml -am -Dconnect.component.version=ccloud -Dmaven.test.skip=true -Dgpg.skip clean package
 	docker build \
 		-t confluentinc/cc-connect-snowflake-sink:$(IMAGE_VERSION) \
 		--build-arg BASE_VERSION=$(BASE_VERSION) \
