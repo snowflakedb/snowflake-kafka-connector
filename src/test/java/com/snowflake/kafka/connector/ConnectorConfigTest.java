@@ -45,6 +45,21 @@ public class ConnectorConfigTest
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testFlushTimeSmall(){
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+      (SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN - 1) + "");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testFlushTimeNotNumber(){
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "fdas");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testEmptyName()
   {
     Map<String, String> config = getConfig();
@@ -188,6 +203,14 @@ public class ConnectorConfigTest
   {
     Map<String, String> config = getConfig();
     config.remove(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testEmptyBufferCountNegative()
+  {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "-1");
     Utils.validateConfig(config);
   }
 

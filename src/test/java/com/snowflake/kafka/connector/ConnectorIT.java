@@ -1,18 +1,19 @@
 package com.snowflake.kafka.connector;
 
-import com.snowflake.kafka.connector.internal.TestUtils;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigValue;
 import org.junit.Test;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class ConnectorTest
+import static com.snowflake.kafka.connector.Utils.NAME;
+import static com.snowflake.kafka.connector.Utils.TASK_ID;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+import static com.snowflake.kafka.connector.internal.TestUtils.getConf;
+
+public class ConnectorIT
 {
   final static String allPropertiesList[] =
     {
@@ -101,10 +102,10 @@ public class ConnectorTest
 
   static Map<String, String> getCorrectConfig()
   {
-    Map<String, String> config = TestUtils.getConf();
+    Map<String, String> config = getConf();
     config.remove(Utils.SF_WAREHOUSE);
     config.remove(Utils.NAME);
-    config.remove(Utils.TASK_ID);
+    config.remove(TASK_ID);
     return config;
   }
 
@@ -318,5 +319,38 @@ public class ConnectorTest
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(validateMap, new String[]{
     });
+  }
+
+  @Test
+  public void testConnectorComprehensive()
+  {
+    Map<String, String> config = getConf();
+    SnowflakeSinkConnector sinkConnector = new SnowflakeSinkConnector();
+    sinkConnector.start(config);
+    assert sinkConnector.taskClass().equals(SnowflakeSinkTask.class);
+    List<Map<String, String>> taskConfigs = sinkConnector.taskConfigs(2);
+    assert taskConfigs.get(0).get(TASK_ID).equals("0");
+    assert taskConfigs.get(0).get(NAME).equals(TEST_CONNECTOR_NAME);
+    assert taskConfigs.get(1).get(TASK_ID).equals("1");
+    sinkConnector.stop();
+    assert sinkConnector.version().equals(Utils.VERSION);
+  }
+
+  @Test
+  public void testConnectorComprehensiveNegative() throws Exception
+  {
+    Map<String, String> config = getConf();
+    SnowflakeSinkConnector sinkConnector = new SnowflakeSinkConnector();
+    ExecutorService testThread = Executors.newSingleThreadExecutor();
+    testThread.submit(
+      () -> {
+        // After 10 minutes this thread will throw error. 10 minutes is too long
+        // for this test, so kill the thread after 6 seconds, which should have
+        // covered enough lines.
+        sinkConnector.taskConfigs(2);
+      }
+    );
+    Thread.sleep(6000);
+    testThread.shutdownNow();
   }
 }

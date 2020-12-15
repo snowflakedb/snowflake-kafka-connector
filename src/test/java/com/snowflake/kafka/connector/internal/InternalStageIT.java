@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 
-public class InternalStageTest {
+public class InternalStageIT {
 
   private final SnowflakeConnectionService service = TestUtils.getConnectionService();
 

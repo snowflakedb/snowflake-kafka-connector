@@ -26,15 +26,17 @@ public class SnowflakeConnectionServiceV1 extends Logging
   private final Connection conn;
   private final SnowflakeTelemetryService telemetry;
   private final String connectorName;
+  private final String taskID;
   private final Properties prop;
   private final SnowflakeURL url;
   private final SnowflakeInternalStage internalStage;
   private StageInfo.StageType stageType;
 
   SnowflakeConnectionServiceV1(Properties prop, SnowflakeURL url,
-                               String connectorName)
+                               String connectorName, String taskID)
   {
     this.connectorName = connectorName;
+    this.taskID = taskID;
     this.url = url;
     this.prop = prop;
     this.stageType = null;
@@ -48,7 +50,10 @@ public class SnowflakeConnectionServiceV1 extends Logging
     long credentialExpireTime = 30 * 60 * 1000L;
     this.internalStage = new SnowflakeInternalStage((SnowflakeConnectionV1) this.conn, credentialExpireTime);
     this.telemetry =
-      SnowflakeTelemetryServiceFactory.builder(conn).setAppName(this.connectorName).build();
+      SnowflakeTelemetryServiceFactory.builder(conn)
+        .setAppName(this.connectorName)
+        .setTaskID(this.taskID)
+        .build();
     logInfo("initialized the snowflake connection");
   }
 
@@ -80,7 +85,6 @@ public class SnowflakeConnectionServiceV1 extends Logging
     }
 
     logInfo("create table {}", tableName);
-    getTelemetryClient().reportKafkaCreateTable(tableName);
   }
 
   @Override
@@ -119,7 +123,6 @@ public class SnowflakeConnectionServiceV1 extends Logging
       throw SnowflakeErrors.ERROR_2009.getException(e);
     }
     logInfo("create pipe: {}", pipeName);
-    getTelemetryClient().reportKafkaCreatePipe(tableName, stageName, pipeName);
   }
 
   @Override
@@ -155,7 +158,6 @@ public class SnowflakeConnectionServiceV1 extends Logging
       throw SnowflakeErrors.ERROR_2008.getException(e);
     }
     logInfo("create stage {}", stageName);
-    getTelemetryClient().reportKafkaCreateStage(stageName);
   }
 
   @Override

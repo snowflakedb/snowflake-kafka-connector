@@ -24,6 +24,12 @@ class SnowflakeTelemetryServiceFactory
       return this;
     }
 
+    SnowflakeTelemetryServiceBuilder setTaskID(String taskID)
+    {
+      this.service.setTaskID(taskID);
+      return this;
+    }
+
     SnowflakeTelemetryService build()
     {
       return this.service;

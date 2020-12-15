@@ -1,7 +1,9 @@
 package com.snowflake.kafka.connector.mock;
 
+import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
@@ -23,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class MockSchemaRegistryClient implements SchemaRegistryClient
 {
@@ -108,8 +111,18 @@ public class MockSchemaRegistryClient implements SchemaRegistryClient
   }
 
   @Override
+  public Optional<ParsedSchema> parseSchema(String s, String s1, List<SchemaReference> list) {
+    return Optional.empty();
+  }
+
+  @Override
   public int register(final String s, final Schema schema) throws IOException, RestClientException
   {
+    return 0;
+  }
+
+  @Override
+  public int register(String s, ParsedSchema parsedSchema) throws IOException, RestClientException {
     return 0;
   }
 
@@ -117,6 +130,11 @@ public class MockSchemaRegistryClient implements SchemaRegistryClient
   public int register(final String s, final Schema schema, final int i,
                       final int i1) throws IOException, RestClientException
   {
+    return 0;
+  }
+
+  @Override
+  public int register(String s, ParsedSchema parsedSchema, int i, int i1) throws IOException, RestClientException {
     return 0;
   }
 
@@ -133,6 +151,11 @@ public class MockSchemaRegistryClient implements SchemaRegistryClient
   }
 
   @Override
+  public ParsedSchema getSchemaById(int i) throws IOException, RestClientException {
+    return null;
+  }
+
+  @Override
   public Schema getBySubjectAndID(final String s, final int i) throws IOException, RestClientException
   {
     return null;
@@ -141,6 +164,11 @@ public class MockSchemaRegistryClient implements SchemaRegistryClient
   @Override
   public Schema getBySubjectAndId(final String s, final int i) throws IOException, RestClientException
   {
+    return null;
+  }
+
+  @Override
+  public ParsedSchema getSchemaBySubjectAndId(String s, int i) throws IOException, RestClientException {
     return null;
   }
 
@@ -163,6 +191,11 @@ public class MockSchemaRegistryClient implements SchemaRegistryClient
   }
 
   @Override
+  public int getVersion(String s, ParsedSchema parsedSchema) throws IOException, RestClientException {
+    return 0;
+  }
+
+  @Override
   public List<Integer> getAllVersions(final String s) throws IOException, RestClientException
   {
     return null;
@@ -171,6 +204,11 @@ public class MockSchemaRegistryClient implements SchemaRegistryClient
   @Override
   public boolean testCompatibility(final String s, final Schema schema) throws IOException, RestClientException
   {
+    return false;
+  }
+
+  @Override
+  public boolean testCompatibility(String s, ParsedSchema parsedSchema) throws IOException, RestClientException {
     return false;
   }
 
@@ -229,6 +267,11 @@ public class MockSchemaRegistryClient implements SchemaRegistryClient
   public int getId(final String s, final Schema schema) throws IOException,
     RestClientException
   {
+    return 0;
+  }
+
+  @Override
+  public int getId(String s, ParsedSchema parsedSchema) throws IOException, RestClientException {
     return 0;
   }
 

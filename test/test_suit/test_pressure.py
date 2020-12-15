@@ -10,8 +10,6 @@ class TestPressure:
         self.topicNum = 200
         self.partitionNum = 12
         self.recordNum = 10000
-        self.round = 1
-        self.sleepTime = 1
         self.curTest = 0
         self.threadCount = 10
         self.fileName = "travis_pressure_string_json"
@@ -28,13 +26,11 @@ class TestPressure:
             self.driver.createTopics(self.topics[t], self.partitionNum, 1)
         sleep(5)
 
-        for r in range(self.round):
-            args = []
-            for t in range(self.topicNum):
-                for p in range(self.partitionNum):
-                    args.append((t, p))
-            threadPool.starmap(self.sendHelper, args)
-            sleep(self.sleepTime)
+        args = []
+        for t in range(self.topicNum):
+            for p in range(self.partitionNum):
+                args.append((t, p))
+        threadPool.starmap(self.sendHelper, args)
         threadPool.close()
         threadPool.join()
 
@@ -51,15 +47,15 @@ class TestPressure:
         for t in range(self.curTest, self.topicNum):
             res = self.driver.snowflake_conn.cursor().execute(
                 "SELECT count(*) FROM {}".format(self.topics[t])).fetchone()[0]
-            if res != self.partitionNum * self.recordNum * self.round:
+            if res != self.partitionNum * self.recordNum * (round + 1):
                 raise RetryableError()
 
             if self.curTest <= t:
                 self.curTest = t + 1
                 raise ResetAndRetry()
-
-        # for t in range(self.topicNum):
-        #     self.driver.verifyStageIsCleaned(self.connectorName, self.topics[t])
+            
+        # after success, reset curTest for next round
+        self.curTest = 0
 
     def clean(self):
         threadPool = ThreadPool(self.threadCount)

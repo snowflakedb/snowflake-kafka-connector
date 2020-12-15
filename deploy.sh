@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# exit on error
+set -e
 
 THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 

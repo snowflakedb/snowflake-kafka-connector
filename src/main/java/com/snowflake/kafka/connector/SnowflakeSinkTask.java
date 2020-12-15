@@ -129,6 +129,7 @@ public class SnowflakeSinkTask extends SinkTask
     conn = SnowflakeConnectionServiceFactory
       .builder()
       .setProperties(parsedConfig)
+      .setTaskID(this.id)
       .build();
 
     if (this.sink != null)
@@ -331,7 +332,7 @@ public class SnowflakeSinkTask extends SinkTask
     throw new TimeoutException();
   }
 
-  private void logWarningForPutAndPrecommit(long startTime, int size, String apiName)
+  void logWarningForPutAndPrecommit(long startTime, int size, String apiName)
   {
     long executionTime = (System.currentTimeMillis() - startTime) / 1000;
     if (executionTime > 300)
