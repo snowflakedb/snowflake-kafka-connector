@@ -6,9 +6,6 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.type.TypeReference;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-
-
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -17,10 +14,10 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 public class RecordContentTest
@@ -221,6 +218,19 @@ public class RecordContentTest
 
     schema = SchemaBuilder.int32().build();
     RecordService.convertToJson(schema, null);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testConvertToJsonNonOptional()
+  {
+    Schema schema = SchemaBuilder.int32().build();
+    RecordService.convertToJson(schema, null);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testConvertToJsonNoSchemaType()
+  {
+    RecordService.convertToJson(null, new SnowflakeJsonSchema());
   }
 
   @Test
