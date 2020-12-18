@@ -249,8 +249,8 @@ public class SnowflakeSinkConnector extends SinkConnector
       }
     }
     // If private key or private key passphrase is provided through file, skip validation
-    if (connectorConfigs.get(Utils.SF_PRIVATE_KEY).contains("${file:") ||
-      connectorConfigs.get(Utils.PRIVATE_KEY_PASSPHRASE).contains("${file:"))
+    if (connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, "").contains("${file:") ||
+      connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, "").contains("${file:"))
       return result;
 
     // We don't validate name, since it is not included in the return value
