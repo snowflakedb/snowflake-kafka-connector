@@ -21,19 +21,16 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
+import org.apache.avro.data.TimeConversions;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
-import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.DatumWriter;
-import org.apache.avro.io.Decoder;
-import org.apache.avro.io.DecoderFactory;
-import org.apache.avro.io.EncoderFactory;
-import org.apache.avro.io.JsonEncoder;
+import org.apache.avro.io.*;
 import org.apache.kafka.connect.data.SchemaAndValue;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -168,18 +165,25 @@ public class SnowflakeAvroConverter extends SnowflakeConverter
   /**
    * Parse Avro record with schema
    *
-   * @param bytes  avro data
+   * @param data  avro data
    * @param schema avro schema
    * @return JsonNode  array
    */
-  private JsonNode parseAvroWithSchema(final byte[] bytes, Schema schema)
+  private JsonNode parseAvroWithSchema(final byte[] data, Schema schema)
   {
-    GenericDatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
-    InputStream input = new ByteArrayInputStream(bytes);
-    Decoder decoder = DecoderFactory.get().binaryDecoder(input, null);
+    final GenericData genericData = new GenericData();
+    // Conversion for logical type Decimal. There are conversions for other logical types as well.
+    genericData.addLogicalTypeConversion(new Conversions.DecimalConversion());
+
+    InputStream is = new ByteArrayInputStream(data);
+    Decoder decoder = DecoderFactory.get().binaryDecoder(is, null);
+    DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema, schema, genericData);
     try
     {
       GenericRecord datum = reader.read(null, decoder);
+      // For byte data without logical type, this toString method handles it this way:
+      // writeEscapedString(StandardCharsets.ISO_8859_1.decode(bytes), buffer);
+      // The generated string is escaped ISO_8859_1 decoded string.
       return mapper.readTree(datum.toString());
     } catch (IOException e)
     {
