@@ -18,16 +18,29 @@ package com.snowflake.kafka.connector.records;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.util.*;
+
 import io.confluent.connect.avro.AvroConverter;
+import io.confluent.connect.avro.AvroData;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import net.snowflake.client.jdbc.internal.apache.commons.codec.Charsets;
+import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Hex;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.avro.LogicalTypes;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.data.SchemaAndValue;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.junit.Test;
 
@@ -37,6 +50,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import static com.snowflake.kafka.connector.records.RecordService.MAX_SNOWFLAKE_NUMBER_PRECISION;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,6 +61,8 @@ public class ConverterTest
 
   private static final ObjectMapper mapper = new ObjectMapper();
   private static final String TEST_FILE_NAME = "test.avro";
+
+  private static final String TEST_TOPIC = "test";
 
   @Test
   public void testJsonConverter()
@@ -124,6 +140,51 @@ public class ConverterTest
     input = converter.toConnectData("test",null);
     assert ((SnowflakeRecordContent) input.value()).getData()[0].toString().equals("{}");
 
+  }
+
+  @Test
+  public void testAvroWithSchemaRegistryByteInput() throws IOException
+  {
+    // Define AVRO Schema
+    org.apache.avro.Schema decimalType = LogicalTypes.decimal(20, 4)
+      .addToSchema(org.apache.avro.Schema.create(org.apache.avro.Schema.Type.BYTES));
+    org.apache.avro.Schema schemaWithDecimal = org.apache.avro.SchemaBuilder
+      .record("MyRecord").fields()
+      .name("bytesDecimal").type(decimalType).noDefault()
+      .endRecord();
+    System.out.println(schemaWithDecimal.toString(true));
+
+    // Create AVRO object with the schema
+    BigDecimal testDecimal = new BigDecimal("90.0000");
+    BigInteger testInt = testDecimal.unscaledValue();
+    GenericRecord avroRecord = new GenericData.Record(schemaWithDecimal);
+    avroRecord.put("bytesDecimal", testInt.toByteArray());
+
+    // Verify that byte representation of unscaled BigDecimal(90.0000) is equivalent with BigInteger("0DBBA0", 16)
+    assert Arrays.equals(testInt.toByteArray(), new BigInteger("0DBBA0", 16).toByteArray());
+
+    // Convert AVRO data to Kafka Connect Data for AVRO converter
+    AvroData avroData = new AvroData(100);
+    SchemaAndValue schemaAndValue = avroData.toConnectData(schemaWithDecimal, avroRecord);
+
+    // Use Confluent AVRO converter to convert AVRO data into byte array
+    SchemaRegistryClient schemaRegistry = new io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient();
+    AvroConverter avroConverter = new AvroConverter(schemaRegistry);
+    avroConverter.configure(Collections.singletonMap("schema.registry.url", "http://fake-url"), false);
+    byte[] converted = avroConverter.fromConnectData(TEST_TOPIC, schemaAndValue.schema(), schemaAndValue.value());
+
+    // The byte array "converted" in the previous line is the value that gets stored in Kafka in a real cluster.
+    System.out.println(Hex.encodeHexString(converted)); // 0000000001060dbba0, 0dbba0 is the encoding for the BigDecimal
+
+    // Use Snowflake AVRO converter to convert byte array to JSON
+    SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
+    converter.setSchemaRegistry(schemaRegistry);
+    SchemaAndValue avroInputValue = converter.toConnectData(TEST_TOPIC, converted);
+    SnowflakeRecordContent content = (SnowflakeRecordContent) avroInputValue.value();
+
+    // This string is exactly what will appear in Snowflake Database.
+    assert content.getData()[0].toString()
+      .equals("{\"bytesDecimal\":90.0}");
   }
 
   @Test
