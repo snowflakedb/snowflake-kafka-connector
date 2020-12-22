@@ -16,22 +16,18 @@
  */
 package com.snowflake.kafka.connector;
 
-import com.snowflake.kafka.connector.internal.Logging;
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import com.snowflake.kafka.connector.internal.SnowflakeTelemetryService;
-import com.snowflake.kafka.connector.internal.SnowflakeURL;
+import com.snowflake.kafka.connector.internal.*;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.common.config.ConfigValue;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -252,6 +248,10 @@ public class SnowflakeSinkConnector extends SinkConnector
             ": proxy username and password must be provided together");
       }
     }
+    // If private key or private key passphrase is provided through file, skip validation
+    if (connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, "").contains("${file:") ||
+      connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, "").contains("${file:"))
+      return result;
 
     // We don't validate name, since it is not included in the return value
     // so just put a test connector here

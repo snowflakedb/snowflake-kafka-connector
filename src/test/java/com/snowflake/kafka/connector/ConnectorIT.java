@@ -211,6 +211,25 @@ public class ConnectorIT
     });
   }
 
+
+  @Test
+  public void testValidateFilePasswordConfig()
+  {
+    Map<String, String> config = getCorrectConfig();
+    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, " ${file:/");
+    Map<String, ConfigValue> validateMap = toValidateMap(config);
+    assertPropHasError(validateMap, new String[]{});
+  }
+
+  @Test
+  public void testValidateFilePassphraseConfig()
+  {
+    Map<String, String> config = getCorrectConfig();
+    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, " ${file:/");
+    Map<String, ConfigValue> validateMap = toValidateMap(config);
+    assertPropHasError(validateMap, new String[]{});
+  }
+
   @Test
   public void testValidateErrorPassphraseConfig()
   {
