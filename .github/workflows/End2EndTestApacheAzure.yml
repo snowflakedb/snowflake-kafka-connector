@@ -35,6 +35,20 @@ jobs:
         curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
         sudo apt-get -y install jq
         sudo apt-get -y install protobuf-compiler
+
+    - name: Install Squid as Proxy Server and Apache Utils for Password Authentication
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install squid3
+        sudo apt-get install apache2-utils
+
+    - name: Change squid config and run Proxy Server
+      run: |
+        sudo touch /etc/squid/passwords
+        sudo chmod 777 /etc/squid/passwords
+        sudo htpasswd -db -c /etc/squid/passwords admin test
+        sudo mv .github/scripts/squid.conf /etc/squid/squid.conf
+        sudo service squid start
     
     - name: Build with Unit Test
       env:
