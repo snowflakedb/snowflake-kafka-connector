@@ -79,6 +79,15 @@ public class SnowflakeSinkTask extends SinkTask
     return conn;
   }
 
+  /**
+   * Return an instance of SnowflakeConnection if it was set previously by calling Start().
+   * Else, return an empty
+   * @return Optional of SnowflakeConnectionService
+   */
+  public Optional<SnowflakeConnectionService> getSnowflakeConnection() {
+    return Optional.ofNullable(getConnection());
+  }
+
   private SnowflakeSinkService getSink()
   {
     try

@@ -289,6 +289,7 @@ class KafkaTest:
 
 def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_string_json import TestStringJson
+    from test_suit.test_string_json_proxy import TestStringJsonProxy
     from test_suit.test_json_json import TestJsonJson
     from test_suit.test_string_avro import TestStringAvro
     from test_suit.test_avro_avro import TestAvroAvro
@@ -320,18 +321,21 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testNativeStringProtobuf = TestNativeStringProtobuf(driver, nameSalt)
     testConfluentProtobufProtobuf = TestConfluentProtobufProtobuf(driver, nameSalt)
 
+    testStringJsonProxy = TestStringJsonProxy(driver, nameSalt)
+
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
     testSuitList1 = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
                      testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
-                     testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf]
+                     testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf, testStringJsonProxy]
 
-    testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True]
+    # Adding StringJsonProxy test at the end
+    testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True, True]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False]
+        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False, True]
     elif testSet == "apache":
-        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False]
+        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False, True]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 

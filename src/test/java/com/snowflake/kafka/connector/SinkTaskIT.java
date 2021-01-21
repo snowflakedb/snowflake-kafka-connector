@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector;
 
+import com.snowflake.kafka.connector.internal.FileNameUtils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeIngestionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
@@ -12,12 +14,10 @@ import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
-import org.junit.Ignore;
+import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
@@ -26,6 +26,14 @@ public class SinkTaskIT {
   private String topicName = TestUtils.randomTableName();
   private SnowflakeConnectionService conn = TestUtils.getConnectionService();
   private static int partition = 0;
+
+  @After
+  public void after()
+  {
+    TestUtils.dropTable(topicName);
+    conn.dropStage(Utils.stageName(TEST_CONNECTOR_NAME, topicName));
+    conn.dropPipe(Utils.pipeName(TEST_CONNECTOR_NAME, topicName, partition));
+  }
 
   @Test
   public void testPreCommit()
@@ -172,19 +180,14 @@ public class SinkTaskIT {
     sinkTask.logWarningForPutAndPrecommit(System.currentTimeMillis() - 400 * 1000, 1, "put");
   }
 
-  @After
-  public void after()
-  {
-    TestUtils.dropTable(topicName);
-    conn.dropStage(Utils.stageName(TEST_CONNECTOR_NAME, topicName));
-    conn.dropPipe(Utils.pipeName(TEST_CONNECTOR_NAME, topicName, partition));
-  }
+  /* Proxy Related tests */
 
   /**
-   * This test is skipped because it is manually tested. To run this test, spin up a http/https proxy
-   * at 127.0.0.1:3128 and set authentication as required. 
+   * To run this test, spin up a http/https proxy at 127.0.0.1:3128 and set authentication as required.
+   *
+   * For instructions on how to setup proxy server take a look at .github/workflows/IntegrationTestAws.yml
    */
-  @Ignore
+  @Test
   public void testSinkTaskProxyConfig()
   {
     Map<String, String> config = TestUtils.getConf();
@@ -192,8 +195,8 @@ public class SinkTaskIT {
 
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "127.0.0.1");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "test");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "kafkaTestPassword");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "admin");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "test");
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
     sinkTask.start(config);
@@ -204,9 +207,35 @@ public class SinkTaskIT {
     assert System.getProperty(Utils.HTTPS_PROXY_HOST).equals("127.0.0.1");
     assert System.getProperty(Utils.HTTPS_PROXY_PORT).equals("3128");
     assert System.getProperty(Utils.JDK_HTTP_AUTH_TUNNELING).isEmpty();
-    assert System.getProperty(Utils.HTTP_PROXY_USER).equals("test");
-    assert System.getProperty(Utils.HTTP_PROXY_PASSWORD).equals("kafkaTestPassword");
-    assert System.getProperty(Utils.HTTPS_PROXY_USER).equals("test");
-    assert System.getProperty(Utils.HTTPS_PROXY_PASSWORD).equals("kafkaTestPassword");
+    assert System.getProperty(Utils.HTTP_PROXY_USER).equals("admin");
+    assert System.getProperty(Utils.HTTP_PROXY_PASSWORD).equals("test");
+    assert System.getProperty(Utils.HTTPS_PROXY_USER).equals("admin");
+    assert System.getProperty(Utils.HTTPS_PROXY_PASSWORD).equals("test");
+
+    // get the snowflakeconnection service which was made during sinkTask
+
+    Optional<SnowflakeConnectionService> optSfConnectionService = sinkTask.getSnowflakeConnection();
+
+    Assert.assertTrue(optSfConnectionService.isPresent());
+
+    SnowflakeConnectionService connectionService = optSfConnectionService.get();
+
+    String stage = TestUtils.randomStageName();
+    String pipe = TestUtils.randomPipeName();
+    String table = TestUtils.randomTableName();
+
+    connectionService.createStage(stage);
+    connectionService.createTable(table);
+    connectionService.createPipe(table, stage, pipe);
+
+    SnowflakeIngestionService ingestionService = connectionService.buildIngestService(stage, pipe);
+
+    String file = "{\"aa\":123}";
+    String fileName = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 0, 1);
+
+    connectionService.putWithCache(stage, fileName, file);
+    ingestionService.ingestFile(fileName);
+    List<String> names = new ArrayList<>(1);
+    names.add(fileName);
   }
 }
