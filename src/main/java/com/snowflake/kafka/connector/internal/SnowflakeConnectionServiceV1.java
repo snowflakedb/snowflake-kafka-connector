@@ -48,7 +48,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
       throw SnowflakeErrors.ERROR_1001.getException(e);
     }
     long credentialExpireTime = 30 * 60 * 1000L;
-    this.internalStage = new SnowflakeInternalStage((SnowflakeConnectionV1) this.conn, credentialExpireTime);
+    this.internalStage = new SnowflakeInternalStage((SnowflakeConnectionV1) this.conn, credentialExpireTime, prop);
     this.telemetry =
       SnowflakeTelemetryServiceFactory.builder(conn)
         .setAppName(this.connectorName)

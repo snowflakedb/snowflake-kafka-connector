@@ -24,7 +24,6 @@ import org.apache.kafka.common.config.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Map;
 
 /**
@@ -67,10 +66,10 @@ public class SnowflakeSinkConnectorConfig
 
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
-  static final String JVM_PROXY_HOST = "jvm.proxy.host";
-  static final String JVM_PROXY_PORT = "jvm.proxy.port";
-  static final String JVM_PROXY_USERNAME = "jvm.proxy.username";
-  static final String JVM_PROXY_PASSWORD = "jvm.proxy.password";
+  public static final String JVM_PROXY_HOST = "jvm.proxy.host";
+  public static final String JVM_PROXY_PORT = "jvm.proxy.port";
+  public static final String JVM_PROXY_USERNAME = "jvm.proxy.username";
+  public static final String JVM_PROXY_PASSWORD = "jvm.proxy.password";
 
   // JDBC logging directory Info (environment variable)
   static final String SNOWFLAKE_JDBC_LOG_DIR = "JDBC_LOG_DIR";

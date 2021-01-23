@@ -317,6 +317,10 @@ public class TestUtils
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
   }
 
+  public static SnowflakeConnectionService getConnectionService(Map<String, String> configuration) {
+    return SnowflakeConnectionServiceFactory.builder().setProperties(configuration).build();
+  }
+
   /**
    * retrieve table size from snowflake
    * @param tableName table name

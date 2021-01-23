@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import net.snowflake.client.core.SFSessionProperty;
 import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
 import net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import net.snowflake.ingest.connection.IngestStatus;
@@ -155,6 +157,18 @@ class InternalUtils
         case Utils.PRIVATE_KEY_PASSPHRASE:
           privateKeyPassphrase = entry.getValue();
           break;
+        case SnowflakeSinkConnectorConfig.JVM_PROXY_HOST:
+          properties.put(SFSessionProperty.PROXY_HOST.getPropertyKey(), entry.getValue());
+          break;
+        case SnowflakeSinkConnectorConfig.JVM_PROXY_PORT:
+          properties.put(SFSessionProperty.PROXY_PORT.getPropertyKey(), entry.getValue());
+          break;
+        case SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME:
+          properties.put(SFSessionProperty.PROXY_USER.getPropertyKey(), entry.getValue());
+          break;
+        case SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD:
+          properties.put(SFSessionProperty.PROXY_PASSWORD.getPropertyKey(), entry.getValue());
+          break;
         default:
           //ignore unrecognized keys
       }
@@ -202,6 +216,14 @@ class InternalUtils
     if (!properties.containsKey(JDBC_USER))
     {
       throw SnowflakeErrors.ERROR_0016.getException();
+    }
+
+    // check if proxy parameters are set in conf and set useProxy to true
+    // Both proxy host and port should be set
+    if (properties.containsKey(SFSessionProperty.PROXY_HOST.getPropertyKey()) &&
+        properties.containsKey(SFSessionProperty.PROXY_PORT.getPropertyKey()))
+    {
+      properties.put(SFSessionProperty.USE_PROXY.getPropertyKey(), "true");
     }
 
     return properties;

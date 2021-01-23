@@ -1,22 +1,23 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import net.snowflake.client.core.OCSPMode;
+import net.snowflake.client.core.SFSessionProperty;
 import net.snowflake.client.core.SFStatement;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeFileTransferAgent;
 import net.snowflake.client.jdbc.SnowflakeFileTransferConfig;
 import net.snowflake.client.jdbc.SnowflakeFileTransferMetadataV1;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 public class InternalStageIT {
 
@@ -26,6 +27,7 @@ public class InternalStageIT {
   private final String stageName2 = TestUtils.randomStageName();
   private final String stageName3 = TestUtils.randomStageName();
   private final String stageName4 = TestUtils.randomStageName();
+  private final String proxyStage = TestUtils.randomStageName();
   private final String stageNameExpire= "kafka_connector_test_stage_credential_cache_expire";
 
   @After
@@ -46,7 +48,7 @@ public class InternalStageIT {
     service.createStage(stageName3);
 
     SnowflakeInternalStage agent = new SnowflakeInternalStage((SnowflakeConnectionV1) service.getConnection(),
-      30 * 60 * 1000L);
+      30 * 60 * 1000L, null);
 
     // PUT two files to stageName1
     long startTime = System.currentTimeMillis();
@@ -82,6 +84,48 @@ public class InternalStageIT {
 
   }
 
+  /**
+   * Tests internal put with cache API with proxy parameters set.
+   * Please take a look at workflow file for configuration of proxy.
+   */
+  @Test
+  public void testInternalStageWithProxy() {
+    // create stage
+    Properties proxyProperties = new Properties();
+
+    proxyProperties.put(SFSessionProperty.USE_PROXY.getPropertyKey(), "true");
+    proxyProperties.put(SFSessionProperty.PROXY_HOST.getPropertyKey(), "localhost");
+    proxyProperties.put(SFSessionProperty.PROXY_PORT.getPropertyKey(), "3128");
+    proxyProperties.put(SFSessionProperty.PROXY_USER.getPropertyKey(), "admin");
+    proxyProperties.put(SFSessionProperty.PROXY_PASSWORD.getPropertyKey(), "test");
+
+    // Create new snowflake connection service
+    Map<String, String> config = TestUtils.getConf();
+
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "admin");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "test");
+
+    SnowflakeConnectionService proxyConnectionService = TestUtils.getConnectionService(config);
+    proxyConnectionService.createStage(proxyStage);
+
+    SnowflakeInternalStage agent = new SnowflakeInternalStage(
+            (SnowflakeConnectionV1) proxyConnectionService.getConnection(),
+            30 * 60 * 1000L, // cache expiration time
+            proxyProperties); // proxy parameters used in JDBC
+
+    // PUT two files to proxyStage
+    long startTime = System.currentTimeMillis();
+    agent.putWithCache(proxyStage, "testInternalStageWithProxy1", "Any cache");
+    agent.putWithCache(proxyStage, "testInternalStageWithProxy2", "Any cache");
+    List<String> files1 = proxyConnectionService.listStage(proxyStage, "testInternalStage");
+    assert files1.size() == 2;
+    System.out.println(Logging.logMessage("Time: {} ms",
+            (System.currentTimeMillis() - startTime)));
+    proxyConnectionService.dropStage(proxyStage);
+  }
+
   @Test
   public void testCredentialRefresh() throws Exception
   {
@@ -91,7 +135,7 @@ public class InternalStageIT {
 
     // credential expires in 30 seconds
     SnowflakeInternalStage agent = new SnowflakeInternalStage((SnowflakeConnectionV1) service.getConnection(),
-      30 * 1000L);
+      30 * 1000L, null);
 
     // PUT two files to stageName1
     agent.putWithCache(stageName4, "testCacheFileName1", "Any cache");
