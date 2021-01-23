@@ -18,6 +18,9 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.Utils;
+import net.snowflake.client.core.HttpUtil;
+import net.snowflake.client.core.SFSessionProperty;
+import net.snowflake.client.jdbc.SnowflakeSQLException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
     .ObjectMapper;
@@ -29,12 +32,11 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Random;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static com.snowflake.kafka.connector.Utils.*;
 
 
 public class TestUtils
@@ -316,6 +318,46 @@ public class TestUtils
   {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
   }
+
+  /**
+   * @param configuration map of properties required to set while getting the connection
+   * @return snowflake connection for given config map
+   */
+  public static SnowflakeConnectionService getConnectionService(Map<String, String> configuration) {
+    return SnowflakeConnectionServiceFactory.builder().setProperties(configuration).build();
+  }
+
+  /** 
+   * Reset proxy parameters in JDBC.
+   * JDBC's useProxy parameter is static member, needs to be reset after every test run.
+   * i.e needs to run after every new connection is set which modifies the proxy parameter.
+   */
+  public static void resetProxyParametersInJDBC() throws SnowflakeSQLException {
+    Map<SFSessionProperty, Object> resetProxy = new EnumMap(SFSessionProperty.class);
+    resetProxy.put(SFSessionProperty.USE_PROXY, false);
+    HttpUtil.configureCustomProxyProperties(resetProxy);
+  }
+
+  /**
+   * Reset proxy parameters in JVM which is enabled during starting a sink Task.
+   * Call this if your test/code executes the Utils.enableJVMProxy function
+   */
+  public static void resetProxyParametersInJVM() {
+    System.setProperty(HTTP_USE_PROXY, "");
+    System.setProperty(HTTP_PROXY_HOST, "");
+    System.setProperty(HTTP_PROXY_PORT, "");
+    System.setProperty(HTTPS_PROXY_HOST, "");
+    System.setProperty(HTTPS_PROXY_PORT, "");
+
+    // No harm in unsetting user password as well
+    System.setProperty(JDK_HTTP_AUTH_TUNNELING, "");
+    System.setProperty(HTTP_PROXY_USER, "");
+    System.setProperty(HTTP_PROXY_PASSWORD, "");
+    System.setProperty(HTTPS_PROXY_USER, "");
+    System.setProperty(HTTPS_PROXY_PASSWORD, "");
+  }
+
+
 
   /**
    * retrieve table size from snowflake
