@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
@@ -34,11 +35,16 @@ public class SnowflakeInternalStage extends Logging {
   public static String dummyPutCommandTemplate = "PUT file:///tmp/dummy_location_kakfa_connector_tmp/ @";
   private final SnowflakeConnectionV1 conn;
   private final long expirationTime;
+  // Proxy parameters that we set while calling the snowflake JDBC.
+  // Also required to pass in the uploadWithoutConnection API in the SnowflakeFileTransferConfig
+  // It may not necessarily just contain proxy parameters, JDBC client filters all other properties.
+  private final Properties proxyProperties;
 
-  public SnowflakeInternalStage(SnowflakeConnectionV1 conn, long expirationTime)
+  public SnowflakeInternalStage(SnowflakeConnectionV1 conn, long expirationTime, Properties proxyProperties)
   {
     this.conn = conn;
     this.expirationTime = expirationTime;
+    this.proxyProperties = proxyProperties;
   }
 
   /**
@@ -115,6 +121,7 @@ public class SnowflakeInternalStage extends Logging {
             .setUploadStream(inStream)
             .setRequireCompress(true)
             .setOcspMode(OCSPMode.FAIL_OPEN)
+            .setProxyProperties(proxyProperties)
             .build());
       } catch (Throwable t)
       {

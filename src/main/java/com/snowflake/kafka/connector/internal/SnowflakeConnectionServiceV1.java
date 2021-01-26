@@ -28,18 +28,22 @@ public class SnowflakeConnectionServiceV1 extends Logging
   private final String connectorName;
   private final String taskID;
   private final Properties prop;
+
+  // Placeholder for all proxy related properties set in the connector configuration
+  private final Properties proxyProperties;
   private final SnowflakeURL url;
   private final SnowflakeInternalStage internalStage;
   private StageInfo.StageType stageType;
 
   SnowflakeConnectionServiceV1(Properties prop, SnowflakeURL url,
-                               String connectorName, String taskID)
+                               String connectorName, String taskID, Properties proxyProperties)
   {
     this.connectorName = connectorName;
     this.taskID = taskID;
     this.url = url;
     this.prop = prop;
     this.stageType = null;
+    this.proxyProperties = proxyProperties;
     try
     {
       this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), prop);
@@ -48,7 +52,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
       throw SnowflakeErrors.ERROR_1001.getException(e);
     }
     long credentialExpireTime = 30 * 60 * 1000L;
-    this.internalStage = new SnowflakeInternalStage((SnowflakeConnectionV1) this.conn, credentialExpireTime);
+    this.internalStage = new SnowflakeInternalStage((SnowflakeConnectionV1) this.conn, credentialExpireTime, proxyProperties);
     this.telemetry =
       SnowflakeTelemetryServiceFactory.builder(conn)
         .setAppName(this.connectorName)
