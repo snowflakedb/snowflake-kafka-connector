@@ -42,3 +42,11 @@ class TestStringJsonProxy:
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)
+        # unset the JVM parameters
+        print("Unset JVM Parameters")
+        mvnExecMain = "mvn exec:java -Dexec.mainClass=\"com.snowflake.kafka.connector.internal.ResetProxyConfigExec\""
+        print(self.run_cmd(mvnExecMain).split())
+
+    def run_cmd(self, command):
+        import subprocess
+        return subprocess.Popen(command, shell=True, stdout=subprocess.PIPE).stdout.read()

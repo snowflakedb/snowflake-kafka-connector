@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import com.snowflake.kafka.connector.Utils;
 
 import java.util.Map;
@@ -14,6 +15,7 @@ public class SnowflakeConnectionServiceFactory
   public static class SnowflakeConnectionServiceBuilder extends Logging
   {
     private Properties prop;
+    private Properties proxyProperties;
     private SnowflakeURL url;
     private String connectorName;
     private String taskID = "-1";
@@ -57,6 +59,10 @@ public class SnowflakeConnectionServiceFactory
       }
       this.url = new SnowflakeURL(conf.get(Utils.SF_URL));
       this.prop = InternalUtils.createProperties(conf, this.url.sslEnabled());
+      // TODO: Ideally only one property is required, but because we dont pass it around in JDBC and snowpipe SDK,
+      //  it is better if we have two properties decoupled
+      // Right now, proxy parameters are picked from jvm system properties, in future they need to be decoupled
+      this.proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
       this.connectorName = conf.get(Utils.NAME);
       return this;
     }
@@ -66,7 +72,7 @@ public class SnowflakeConnectionServiceFactory
       InternalUtils.assertNotEmpty("properties", prop);
       InternalUtils.assertNotEmpty("url", url);
       InternalUtils.assertNotEmpty("connectorName", connectorName);
-      return new SnowflakeConnectionServiceV1(prop, url, connectorName, taskID);
+      return new SnowflakeConnectionServiceV1(prop, url, connectorName, taskID, proxyProperties);
     }
   }
 }
