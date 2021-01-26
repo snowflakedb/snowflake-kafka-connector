@@ -1,7 +1,13 @@
 package com.snowflake.kafka.connector;
 
+import com.snowflake.kafka.connector.internal.TestUtils;
+import net.snowflake.client.core.HttpUtil;
+import net.snowflake.client.core.SFSessionProperty;
+import net.snowflake.client.jdbc.SnowflakeSQLException;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigValue;
+import org.junit.After;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.*;
@@ -107,6 +113,15 @@ public class ConnectorIT
     config.remove(Utils.NAME);
     config.remove(TASK_ID);
     return config;
+  }
+
+  @After
+  public void cleanup() throws SnowflakeSQLException {
+    try {
+      TestUtils.resetProxyParametersInJDBC();
+    } catch (SnowflakeSQLException ex) {
+      Assert.fail("Cannot reset proxy parameters in:" + this.getClass().getName());
+    }
   }
 
   @Test
@@ -332,9 +347,9 @@ public class ConnectorIT
   {
     Map<String, String> config = getCorrectConfig();
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "user");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "pass");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "admin");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "test");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(validateMap, new String[]{
     });
