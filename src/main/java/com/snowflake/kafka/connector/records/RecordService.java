@@ -28,6 +28,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.*;
 import org.apache.kafka.connect.data.Date;
+import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -52,7 +53,8 @@ public class RecordService extends Logging
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
 
-  public static final SimpleDateFormat ISO_DATE_FORMAT= new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+  public static final SimpleDateFormat ISO_DATE_TIME_FORMAT= new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+  public static final SimpleDateFormat ISO_DATE_FORMAT= new SimpleDateFormat("yyyy-MM-dd");
   public static final SimpleDateFormat TIME_FORMAT= new SimpleDateFormat("HH:mm:ss.SSSZ");
   static final int MAX_SNOWFLAKE_NUMBER_PRECISION = 38;
 
@@ -255,6 +257,9 @@ public class RecordService extends Logging
           }
           if (schema != null && Time.LOGICAL_NAME.equals(schema.name())) {
             return JsonNodeFactory.instance.textNode(TIME_FORMAT.format((java.util.Date) value));
+          }
+          if (schema != null && Timestamp.LOGICAL_NAME.equals(schema.name())) {
+            return JsonNodeFactory.instance.textNode(ISO_DATE_TIME_FORMAT.format((java.util.Date) value));
           }
           return JsonNodeFactory.instance.numberNode((Integer) value);
         case INT64:
