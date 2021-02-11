@@ -119,7 +119,7 @@ public class SnowflakeInternalStage extends Logging {
           SnowflakeFileTransferConfig.Builder.newInstance()
             .setSnowflakeFileTransferMetadata(fileTransferMetadata)
             .setUploadStream(inStream)
-            .setRequireCompress(true)
+            .setRequireCompress(false)
             .setOcspMode(OCSPMode.FAIL_OPEN)
             .setProxyProperties(proxyProperties)
             .build());
