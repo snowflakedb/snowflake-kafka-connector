@@ -45,6 +45,7 @@ import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.storage.SimpleHeaderConverter;
 import org.junit.Test;
 
 public class ConverterTest {
@@ -245,6 +246,19 @@ public class ConverterTest {
     expected.put("test", new BigDecimal("999999999999999999999999999999999999999"));
     // TODO: uncomment it once KAFKA-10457 is merged
     // assert expected.toString().equals(result.toString());
+  }
+
+  @Test
+  public void testConnectSimpleHeaderConverter_MapDateAndOtherTypes() throws JsonProcessingException {
+    SimpleHeaderConverter headerConverter = new SimpleHeaderConverter();
+    String rawHeader = "{\"f1\": \"1970-03-22\", \"f2\": true}";
+    SchemaAndValue schemaAndValue = headerConverter.toConnectHeader("test", "h1", rawHeader.getBytes(StandardCharsets.US_ASCII));
+    JsonNode result = RecordService.convertToJson(schemaAndValue.schema(), schemaAndValue.value());
+
+    ObjectNode expected = mapper.createObjectNode();
+    expected.put("f1", 6930000000L);
+    expected.put("f2", true);
+    assert expected.toString().equals(result.toString());
   }
 
   @Test
