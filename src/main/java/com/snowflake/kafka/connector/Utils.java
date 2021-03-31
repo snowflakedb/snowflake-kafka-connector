@@ -31,6 +31,7 @@ import java.io.InputStreamReader;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -93,17 +94,22 @@ public class Utils
   /**
    * check the connector version from Maven repo, report if any update
    * version is available.
+   *
+   * A URl connection timeout is added in case Maven repo is not reachable in a proxy'd environment.
+   * Returning false from this method doesnt have any side effects to start the connector.
    */
   static boolean checkConnectorVersion()
   {
-    LOGGER.info(Logging.logMessage("Snowflake Kafka Connector Version: {}",
+    LOGGER.info(Logging.logMessage("Current Snowflake Kafka Connector Version: {}",
       VERSION));
     try
     {
       String latestVersion = null;
       int largestNumber = 0;
-      URL url = new URL(MVN_REPO);
-      InputStream input = url.openStream();
+      URLConnection urlConnection =  new URL(MVN_REPO).openConnection();
+      urlConnection.setConnectTimeout(5000);
+      urlConnection.setReadTimeout(5000);
+      InputStream input = urlConnection.getInputStream();
       BufferedReader bufferedReader =
         new BufferedReader(new InputStreamReader(input));
       String line;
