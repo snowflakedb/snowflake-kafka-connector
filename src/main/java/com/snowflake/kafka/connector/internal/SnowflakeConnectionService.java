@@ -188,13 +188,16 @@ public interface SnowflakeConnectionService {
    * @param content file content
    * @param stageName stage name
    */
+  @Deprecated
   void put(String stageName, String fileName, String content);
 
   /**
-   * put a file to stage. Cache credential for AWS and Azure storage. Don't cache for GCS.
+   * put a file to stage. Cache credential for AWS, Azure and GCS storage.
    *
-   * @param fileName file name
-   * @param content file content
+   * @param fileName  file name which is of format (stageName/connectorName/tableName/partition/offsetStart_offsetEnd_timestamp)
+   *                  Check {@link FileNameUtils to find out fileName is determined}
+   *
+   * @param content   file content
    * @param stageName stage name
    */
   void putWithCache(final String stageName, final String fileName, final String content);

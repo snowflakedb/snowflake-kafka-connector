@@ -1,11 +1,5 @@
 package com.snowflake.kafka.connector.internal;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import net.snowflake.client.core.OCSPMode;
 import net.snowflake.client.core.SFStatement;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
@@ -13,6 +7,13 @@ import net.snowflake.client.jdbc.SnowflakeFileTransferAgent;
 import net.snowflake.client.jdbc.SnowflakeFileTransferConfig;
 import net.snowflake.client.jdbc.SnowflakeFileTransferMetadataV1;
 import net.snowflake.client.jdbc.cloud.storage.StageInfo;
+
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public class SnowflakeInternalStage extends Logging {
 
@@ -31,8 +32,10 @@ public class SnowflakeInternalStage extends Logging {
   private final ConcurrentMap<String, SnowflakeMetadataWithExpiration> storageInfoCache =
       new ConcurrentHashMap<>();
 
-  public static String dummyPutCommandTemplate =
-      "PUT file:///tmp/dummy_location_kakfa_connector_tmp/ @";
+  // GCS Put version requires the dummy command to have filename
+  public static String dummyPutCommandTemplate = "PUT file:///%s @%s";
+  private static final String PUT_COMMAND_DUMMY_FILENAME = "dummyFileName";
+
   private final SnowflakeConnectionV1 conn;
   private final long expirationTime;
   // Proxy parameters that we set while calling the snowflake JDBC.
@@ -55,7 +58,7 @@ public class SnowflakeInternalStage extends Logging {
    */
   public StageInfo.StageType getStageType(String stage) {
     try {
-      String command = dummyPutCommandTemplate + stage;
+      String command = String.format(dummyPutCommandTemplate, PUT_COMMAND_DUMMY_FILENAME, stage);
       SnowflakeFileTransferAgent agent =
           new SnowflakeFileTransferAgent(
               command, conn.getSfSession(), new SFStatement(conn.getSfSession()));
@@ -74,32 +77,34 @@ public class SnowflakeInternalStage extends Logging {
    * @param data Data string to be uploaded
    */
   public void putWithCache(String stage, String fullFilePath, String data) {
-    String command = dummyPutCommandTemplate + stage;
-
+    //    String command = String.format(dummyPutCommandTemplate, fullFilePath) + stage;
+    String command =
+        String.format(dummyPutCommandTemplate, FilenameUtils.getName(fullFilePath), stage)
+            + "/"
+            + FilenameUtils.getFullPathNoEndSeparator(fullFilePath);
     try {
       SnowflakeMetadataWithExpiration credential = storageInfoCache.getOrDefault(stage, null);
       if (!isCredentialValid(credential)) {
-        logDebug("Query credential for stage:{}, filePath:{}", stage, fullFilePath);
+        logDebug("Query credential for stage " + stage);
         SnowflakeFileTransferAgent agent =
             new SnowflakeFileTransferAgent(
                 command, conn.getSfSession(), new SFStatement(conn.getSfSession()));
-        // If the backend is not GCP, we cache the credential. Otherwise throw error.
         // transfer metadata list must only have one element
         SnowflakeFileTransferMetadataV1 fileTransferMetadata =
             (SnowflakeFileTransferMetadataV1) agent.getFileTransferMetadatas().get(0);
-        if (fileTransferMetadata.getStageInfo().getStageType() != StageInfo.StageType.GCS) {
+        if (fileTransferMetadata.getStageInfo().getStageType() == StageInfo.StageType.LOCAL_FS) {
+          throw SnowflakeErrors.ERROR_5017.getException();
+        } else {
           // Overwrite the credential to be used
           credential =
               new SnowflakeMetadataWithExpiration(fileTransferMetadata, System.currentTimeMillis());
           storageInfoCache.put(stage, credential);
-        } else {
-          throw SnowflakeErrors.ERROR_5017.getException();
         }
       }
 
       SnowflakeFileTransferMetadataV1 fileTransferMetadata = credential.fileTransferMetadata;
       // Set filename to be uploaded
-      fileTransferMetadata.setPresignedUrlFileName(fullFilePath);
+      //      fileTransferMetadata.setPresignedUrlFileName(fullFilePath);
 
       byte[] dataBytes = data.getBytes(StandardCharsets.UTF_8);
       InputStream inStream = new ByteArrayInputStream(dataBytes);
@@ -115,17 +120,20 @@ public class SnowflakeInternalStage extends Logging {
                 .setOcspMode(OCSPMode.FAIL_OPEN)
                 .setProxyProperties(proxyProperties)
                 .build());
-      } catch (Throwable t) {
+      } catch (Exception e) {
         // If this api encounters error, invalid the cached credentials
         // Caller will retry this function
-        logWarn("uploadWithoutConnection encountered an error for fileName:{}", fullFilePath);
+        logWarn(
+            "uploadWithoutConnection encountered an exception:{} for filePath:{} in Storage:{}",
+            e.getMessage(),
+            fullFilePath,
+            credential.fileTransferMetadata.getStageInfo().getStageType());
         storageInfoCache.remove(stage);
-        throw t;
+        throw e;
       }
 
-    } catch (Exception e) {
-      logWarn("Caught exception in putWithCache for fileName:{}", e.getMessage(), fullFilePath);
-      throw SnowflakeErrors.ERROR_5018.getException(e);
+    } catch (Throwable t) {
+      throw SnowflakeErrors.ERROR_5018.getException(t.getMessage());
     }
   }
 

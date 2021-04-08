@@ -1,5 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
+import net.snowflake.client.jdbc.SnowflakeConnectionV1;
+import net.snowflake.client.jdbc.SnowflakeDriver;
+import net.snowflake.client.jdbc.cloud.storage.StageInfo;
+
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -11,9 +15,6 @@ import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
-import net.snowflake.client.jdbc.SnowflakeConnectionV1;
-import net.snowflake.client.jdbc.SnowflakeDriver;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 
 /**
  * Implementation of Snowflake Connection Service interface which includes all handshake between KC
@@ -535,6 +536,8 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   }
 
   @Override
+  @Deprecated
+  // Only using it in test for performance testing
   public void put(final String stageName, final String fileName, final String content) {
     InternalUtils.assertNotEmpty("stageName", stageName);
     SnowflakeConnectionV1 sfconn = (SnowflakeConnectionV1) conn;
@@ -564,21 +567,16 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     if (stageType == null) {
       stageType = internalStage.getStageType(stageName);
     }
-    // Normal upload for GCS, cached upload for Azure and S3.
-    if (stageType == StageInfo.StageType.GCS) {
-      put(stageName, fileName, content);
-    } else if (stageType == StageInfo.StageType.AZURE || stageType == StageInfo.StageType.S3) {
-      try {
-        InternalUtils.backoffAndRetry(
-            telemetry,
-            SnowflakeInternalOperations.UPLOAD_FILE_TO_INTERNAL_STAGE_NO_CONNECTION,
-            () -> {
-              internalStage.putWithCache(stageName, fileName, content);
-              return true;
-            });
-      } catch (Exception e) {
-        throw SnowflakeErrors.ERROR_2011.getException(e);
-      }
+    try {
+      InternalUtils.backoffAndRetry(
+          telemetry,
+          SnowflakeInternalOperations.UPLOAD_FILE_TO_INTERNAL_STAGE_NO_CONNECTION,
+          () -> {
+            internalStage.putWithCache(stageName, fileName, content);
+            return true;
+          });
+    } catch (Exception e) {
+      throw SnowflakeErrors.ERROR_2011.getException(e);
     }
   }
 
