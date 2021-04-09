@@ -8,6 +8,9 @@ snowflake_deployment=$1
 if [ $snowflake_deployment = 'aws' ]; then
   gpg --quiet --batch --yes --decrypt --passphrase="$SNOWFLAKE_TEST_PROFILE_SECRET" \
   --output profile.json .github/scripts/profile.json.gpg
+elif [ $snowflake_deployment = 'gcs' ]; then
+  gpg --quiet --batch --yes --decrypt --passphrase="$SNOWFLAKE_GCS_TEST_PROFILE_SECRET" \
+  --output profile.json .github/scripts/profile_gcs.json.gpg
 else
   gpg --quiet --batch --yes --decrypt --passphrase="$SNOWFLAKE_TEST_PROFILE_SECRET" \
   --output profile.json .github/scripts/profile_azure.json.gpg
