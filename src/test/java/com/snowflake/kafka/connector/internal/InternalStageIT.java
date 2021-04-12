@@ -9,6 +9,7 @@ import net.snowflake.client.jdbc.SnowflakeFileTransferAgent;
 import net.snowflake.client.jdbc.SnowflakeFileTransferConfig;
 import net.snowflake.client.jdbc.SnowflakeFileTransferMetadataV1;
 import net.snowflake.client.jdbc.SnowflakeSQLException;
+import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -47,41 +48,50 @@ public class InternalStageIT {
     service.createStage(stageName1);
     service.createStage(stageName2);
     service.createStage(stageName3);
-
+    long startTime, fileNumber = 50;
     SnowflakeInternalStage agent = new SnowflakeInternalStage((SnowflakeConnectionV1) service.getConnection(),
       30 * 60 * 1000L, null);
 
-    // PUT two files to stageName1
-    long startTime = System.currentTimeMillis();
-    agent.putWithCache(stageName1, "testCacheFileName1", "Any cache");
-    agent.putWithCache(stageName1, "testCacheFileName2", "Any cache");
-    List<String> files1 = service.listStage(stageName1, "testCache");
-    assert files1.size() == 2;
-    System.out.println(Logging.logMessage("Time: {} ms",
-      (System.currentTimeMillis() - startTime)));
-
-    // PUT 50 files to stageName2
-    startTime = System.currentTimeMillis();
-    int fileNumber = 50;
-    for (int i = 0; i < fileNumber; i++)
+    // we are using putwithcache API in s3 and azure.
+    // TODO:: Once we move GCS to putWithCache, we can remove this check.
+    if (usePutWithCacheApi(agent, stageName1))
     {
-      agent.putWithCache(stageName2, "appName/tableName/partition/testCacheFileName" + i, "Any cache");
-    }
-    List<String> files2 = service.listStage(stageName2, "appName/tableName/partition/testCache");
-    assert files2.size() == fileNumber;
-    System.out.println(Logging.logMessage("Time: {} ms",
-      (System.currentTimeMillis() - startTime)));
+      // PUT two files to stageName1
+      startTime = System.currentTimeMillis();
+      agent.putWithCache(stageName1, "testCacheFileName1", "Any cache");
+      agent.putWithCache(stageName1, "testCacheFileName2", "Any cache");
+      List<String> files1 = service.listStage(stageName1, "testCache");
+      assert files1.size() == 2;
+      System.out.println(Logging.logMessage("Time: {} ms",
+              (System.currentTimeMillis() - startTime)));
 
-    // PUT 50 files to stageName3
-    startTime = System.currentTimeMillis();
-    for (int i = 0; i < fileNumber; i++)
-    {
-      service.put(stageName3, "appName/tableName/partition/testNoCacheFileName" + i, "Any cache");
+      // PUT 50 files to stageName2
+      startTime = System.currentTimeMillis();
+      fileNumber = 50;
+      for (int i = 0; i < fileNumber; i++)
+      {
+        agent.putWithCache(stageName2, "appName/tableName/partition/testCacheFileName" + i, "Any cache");
+      }
+      List<String> files2 = service.listStage(stageName2, "appName/tableName/partition/testCache");
+      assert files2.size() == fileNumber;
+      System.out.println(Logging.logMessage("Time: {} ms",
+              (System.currentTimeMillis() - startTime)));
     }
-    List<String> files3 = service.listStage(stageName3, "appName/tableName/partition/testNoCache");
-    assert files3.size() == fileNumber;
-    System.out.println(Logging.logMessage("Time: {} ms",
-      (System.currentTimeMillis() - startTime)));
+
+    // When stage is GCS
+    if (!usePutWithCacheApi(agent, stageName1))
+    {
+      // PUT 50 files to stageName3
+      startTime = System.currentTimeMillis();
+      for (int i = 0; i < fileNumber; i++)
+      {
+        service.put(stageName3, "appName/tableName/partition/testNoCacheFileName" + i, "Any cache");
+      }
+      List<String> files3 = service.listStage(stageName3, "appName/tableName/partition/testNoCache");
+      assert files3.size() == fileNumber;
+      System.out.println(Logging.logMessage("Time: {} ms",
+              (System.currentTimeMillis() - startTime)));
+    }
 
   }
 
@@ -119,8 +129,17 @@ public class InternalStageIT {
 
     // PUT two files to proxyStage
     long startTime = System.currentTimeMillis();
-    agent.putWithCache(proxyStage, "testInternalStageWithProxy1", "Any cache");
-    agent.putWithCache(proxyStage, "testInternalStageWithProxy2", "Any cache");
+    if (usePutWithCacheApi(agent, proxyStage))
+    {
+      agent.putWithCache(proxyStage, "testInternalStageWithProxy1", "Any cache");
+      agent.putWithCache(proxyStage, "testInternalStageWithProxy2", "Any cache");
+    }
+    else
+    {
+      proxyConnectionService.put(proxyStage, "testInternalStageWithProxy1", "Any cache");
+      proxyConnectionService.put(proxyStage, "testInternalStageWithProxy2", "Any cache");
+    }
+
     List<String> files1 = proxyConnectionService.listStage(proxyStage, "testInternalStage");
     assert files1.size() == 2;
     System.out.println(Logging.logMessage("Time: {} ms",
@@ -131,6 +150,7 @@ public class InternalStageIT {
     TestUtils.resetProxyParametersInJDBC();
   }
 
+  // Only runs in AWS and Azure until we move to putwithcache in gcs.
   @Test
   public void testCredentialRefresh() throws Exception
   {
@@ -142,20 +162,22 @@ public class InternalStageIT {
     SnowflakeInternalStage agent = new SnowflakeInternalStage((SnowflakeConnectionV1) service.getConnection(),
       30 * 1000L, null);
 
-    // PUT two files to stageName1
-    agent.putWithCache(stageName4, "testCacheFileName1", "Any cache");
-    agent.putWithCache(stageName4, "testCacheFileName2", "Any cache");
-    List<String> files1 = service.listStage(stageName4, "testCache");
-    assert files1.size() == 2;
+    if (usePutWithCacheApi(agent, stageName4))
+    {
+      // PUT two files to stageName1
+      agent.putWithCache(stageName4, "testCacheFileName1", "Any cache");
+      agent.putWithCache(stageName4, "testCacheFileName2", "Any cache");
+      List<String> files1 = service.listStage(stageName4, "testCache");
+      assert files1.size() == 2;
 
-    // wait until the credential expires
-    Thread.sleep(60 * 1000);
+      // wait until the credential expires
+      Thread.sleep(60 * 1000);
 
-    agent.putWithCache(stageName4, "testCacheFileName3", "Any cache");
-    agent.putWithCache(stageName4, "testCacheFileName4", "Any cache");
-    List<String> files2 = service.listStage(stageName4, "testCache");
-    assert files2.size() == 4;
-
+      agent.putWithCache(stageName4, "testCacheFileName3", "Any cache");
+      agent.putWithCache(stageName4, "testCacheFileName4", "Any cache");
+      List<String> files2 = service.listStage(stageName4, "testCache");
+      assert files2.size() == 4;
+    }
   }
 
   @Ignore
@@ -205,4 +227,15 @@ public class InternalStageIT {
     assert filesExpire.size() == 1;
   }
 
+  private boolean usePutWithCacheApi(final SnowflakeInternalStage agent,
+                                     final String stageName)
+  {
+    if (agent.getStageType(stageName) == StageInfo.StageType.S3 ||
+            agent.getStageType(stageName) == StageInfo.StageType.AZURE)
+    {
+      System.out.println("Using Put with cache since stage is in:" + agent.getStageType(stageName));
+      return true;
+    }
+    return false;
+  }
 }
