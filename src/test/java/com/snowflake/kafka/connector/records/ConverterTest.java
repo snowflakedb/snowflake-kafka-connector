@@ -22,6 +22,8 @@ import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 import io.confluent.connect.avro.AvroConverter;
@@ -260,14 +262,16 @@ public class ConverterTest
   }
 
   @Test
-  public void testConnectSimpleHeaderConverter_MapDateAndOtherTypes() throws JsonProcessingException {
+  public void testConnectSimpleHeaderConverter_MapDateAndOtherTypes() throws JsonProcessingException, ParseException {
     SimpleHeaderConverter headerConverter = new SimpleHeaderConverter();
-    String rawHeader = "{\"f1\": \"1970-03-22T00:00:00.000Z\", \"f2\": true}";
+    String timestamp = "1970-03-22T00:00:00.000Z";
+    String rawHeader = "{\"f1\": \"" + timestamp + "\", \"f2\": true}";
     SchemaAndValue schemaAndValue = headerConverter.toConnectHeader("test", "h1", rawHeader.getBytes(StandardCharsets.US_ASCII));
     JsonNode result = RecordService.convertToJson(schemaAndValue.schema(), schemaAndValue.value());
 
     ObjectNode expected = mapper.createObjectNode();
-    expected.put("f1", 6930000000L);
+    long expectedTimestampValue = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").parse("1970-03-22T00:00:00.000Z").getTime();
+    expected.put("f1", expectedTimestampValue);
     expected.put("f2", true);
     assert expected.toString().equals(result.toString());
   }
