@@ -251,7 +251,7 @@ public class ConverterTest {
   @Test
   public void testConnectSimpleHeaderConverter_MapDateAndOtherTypes() throws JsonProcessingException {
     SimpleHeaderConverter headerConverter = new SimpleHeaderConverter();
-    String rawHeader = "{\"f1\": \"1970-03-22\", \"f2\": true}";
+    String rawHeader = "{\"f1\": \"1970-03-22T00:00:00.000Z\", \"f2\": true}";
     SchemaAndValue schemaAndValue = headerConverter.toConnectHeader("test", "h1", rawHeader.getBytes(StandardCharsets.US_ASCII));
     JsonNode result = RecordService.convertToJson(schemaAndValue.schema(), schemaAndValue.value());
 
