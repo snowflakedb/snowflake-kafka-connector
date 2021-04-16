@@ -21,17 +21,6 @@ import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.connect.avro.AvroData;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Hex;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
@@ -47,6 +36,20 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.storage.SimpleHeaderConverter;
 import org.junit.Test;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ConverterTest {
 
@@ -249,14 +252,22 @@ public class ConverterTest {
   }
 
   @Test
-  public void testConnectSimpleHeaderConverter_MapDateAndOtherTypes() throws JsonProcessingException {
+  public void testConnectSimpleHeaderConverter_MapDateAndOtherTypes()
+      throws JsonProcessingException, ParseException {
     SimpleHeaderConverter headerConverter = new SimpleHeaderConverter();
-    String rawHeader = "{\"f1\": \"1970-03-22T00:00:00.000Z\", \"f2\": true}";
-    SchemaAndValue schemaAndValue = headerConverter.toConnectHeader("test", "h1", rawHeader.getBytes(StandardCharsets.US_ASCII));
+    String timestamp = "1970-03-22T00:00:00.000Z";
+    String rawHeader = "{\"f1\": \"" + timestamp + "\", \"f2\": true}";
+    SchemaAndValue schemaAndValue =
+        headerConverter.toConnectHeader(
+            "test", "h1", rawHeader.getBytes(StandardCharsets.US_ASCII));
     JsonNode result = RecordService.convertToJson(schemaAndValue.schema(), schemaAndValue.value());
 
     ObjectNode expected = mapper.createObjectNode();
-    expected.put("f1", 6930000000L);
+    long expectedTimestampValue =
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+            .parse("1970-03-22T00:00:00.000Z")
+            .getTime();
+    expected.put("f1", expectedTimestampValue);
     expected.put("f2", true);
     assert expected.toString().equals(result.toString());
   }
