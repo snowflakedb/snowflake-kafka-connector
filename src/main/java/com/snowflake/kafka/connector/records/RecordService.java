@@ -207,7 +207,8 @@ public class RecordService extends Logging {
             schema = Timestamp.SCHEMA;
             schemaType = Schema.Type.INT64;
           } else {
-            throw SnowflakeErrors.ERROR_5015.getException("Java class " + value.getClass() + " does not have corresponding schema type.");
+            throw SnowflakeErrors.ERROR_5015.getException(
+                "Java class " + value.getClass() + " does not have corresponding schema type.");
           }
         }
       } else {
