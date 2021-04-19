@@ -1,5 +1,5 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
-import json
+import json, os
 
 
 class TestStringJsonProxy:
@@ -44,6 +44,10 @@ class TestStringJsonProxy:
         self.driver.cleanTableStagePipe(self.topic)
         # unset the JVM parameters
         print("Unset JVM Parameters")
+        path_parent = os.path.dirname(os.getcwd())
+        print("Current Directory:{0}".format(path_parent))
+        os.chdir(path_parent)
+        print("One directory Up".format(os.getcwd()))
         mvnExecMain = "mvn exec:java -Dexec.mainClass=\"com.snowflake.kafka.connector.internal.ResetProxyConfigExec\""
         print(self.run_cmd(mvnExecMain).split())
 
