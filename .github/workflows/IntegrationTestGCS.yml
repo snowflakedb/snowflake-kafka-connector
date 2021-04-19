@@ -24,7 +24,7 @@ jobs:
       - name: Decrypt profile.json
         run: ./.github/scripts/decrypt_secret.sh 'gcs'
         env:
-          SNOWFLAKE_GCS_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_GCS_TEST_PROFILE_SECRET }}
+          SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
       - name: Install Dependency
         run: |
           pip3 install --upgrade setuptools
