@@ -47,9 +47,9 @@ class TestStringJsonProxy:
         path_parent = os.path.dirname(os.getcwd())
         print("Current Directory:{0}".format(path_parent))
         os.chdir(path_parent)
-        print("One directory Up".format(os.getcwd()))
+        print("One directory Up:{0}".format(os.getcwd()))
         mvnExecMain = "mvn exec:java -Dexec.mainClass=\"com.snowflake.kafka.connector.internal.ResetProxyConfigExec\""
-        print(self.run_cmd(mvnExecMain).split())
+        print(self.run_cmd(mvnExecMain))
 
     def run_cmd(self, command):
         import subprocess
