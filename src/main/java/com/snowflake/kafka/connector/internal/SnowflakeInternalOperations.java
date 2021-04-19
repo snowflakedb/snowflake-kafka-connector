@@ -8,7 +8,10 @@ public enum SnowflakeInternalOperations {
   /* Put api (uploadStream) for GCS */
   UPLOAD_FILE_TO_INTERNAL_STAGE,
 
-  /* Put API for AWS and Azure which caches the crdentials. */
+  /* Put without connections API for AWS, Azure and GCS.
+   * In GCS, we will not reuse the credentials since we require presigned URL for every file.
+   * In AWS and Azure, we will cache the credential.
+   */
   UPLOAD_FILE_TO_INTERNAL_STAGE_NO_CONNECTION,
 
   /* Broken records or (Failed ingestion files) or (files in internal stage for > 1 hour ) */

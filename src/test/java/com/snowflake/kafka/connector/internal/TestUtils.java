@@ -16,14 +16,10 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.Utils.*;
+
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.Utils;
-import net.snowflake.client.core.HttpUtil;
-import net.snowflake.client.core.SFSessionProperty;
-import net.snowflake.client.jdbc.SnowflakeSQLException;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.File;
 import java.io.IOException;
 import java.security.PrivateKey;
@@ -34,8 +30,11 @@ import java.sql.Statement;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static com.snowflake.kafka.connector.Utils.*;
+import net.snowflake.client.core.HttpUtil;
+import net.snowflake.client.core.SFSessionProperty;
+import net.snowflake.client.jdbc.SnowflakeSQLException;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 
 public class TestUtils {
   // test profile properties
@@ -54,7 +53,7 @@ public class TestUtils {
       Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(key|value)_(\\d+)\\.gz$");
 
   // profile path
-  private static final String PROFILE_PATH = "profile_gcs.json";
+  private static final String PROFILE_PATH = "profile.json";
 
   private static final ObjectMapper mapper = new ObjectMapper();
 

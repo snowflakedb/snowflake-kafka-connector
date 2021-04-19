@@ -1,9 +1,5 @@
 package com.snowflake.kafka.connector.internal;
 
-import net.snowflake.client.jdbc.SnowflakeConnectionV1;
-import net.snowflake.client.jdbc.SnowflakeDriver;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -15,6 +11,9 @@ import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
+import net.snowflake.client.jdbc.SnowflakeConnectionV1;
+import net.snowflake.client.jdbc.SnowflakeDriver;
+import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 
 /**
  * Implementation of Snowflake Connection Service interface which includes all handshake between KC
@@ -50,10 +49,10 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_1001.getException(e);
     }
-    long credentialExpireTime = 30 * 60 * 1000L;
+    long credentialExpireTimeMillis = 30 * 60 * 1000L;
     this.internalStage =
         new SnowflakeInternalStage(
-            (SnowflakeConnectionV1) this.conn, credentialExpireTime, proxyProperties);
+            (SnowflakeConnectionV1) this.conn, credentialExpireTimeMillis, proxyProperties);
     this.telemetry =
         SnowflakeTelemetryServiceFactory.builder(conn)
             .setAppName(this.connectorName)
@@ -572,10 +571,16 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
           telemetry,
           SnowflakeInternalOperations.UPLOAD_FILE_TO_INTERNAL_STAGE_NO_CONNECTION,
           () -> {
-            internalStage.putWithCache(stageName, fileName, content);
+            internalStage.putWithCache(stageName, fileName, content, stageType);
             return true;
           });
     } catch (Exception e) {
+      logError(
+          "Put With Cache(uploadWithoutConnection) failed after multiple retries for stageName:{},"
+              + " stageType:{}, fullFilePath:{}",
+          stageName,
+          stageType,
+          fileName);
       throw SnowflakeErrors.ERROR_2011.getException(e);
     }
   }
@@ -712,5 +717,9 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   @Override
   public Connection getConnection() {
     return this.conn;
+  }
+
+  public SnowflakeInternalStage getInternalStage() {
+    return this.internalStage;
   }
 }

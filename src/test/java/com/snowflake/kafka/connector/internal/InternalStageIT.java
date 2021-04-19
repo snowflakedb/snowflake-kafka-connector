@@ -1,21 +1,21 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import net.snowflake.client.core.OCSPMode;
-import net.snowflake.client.core.SFSessionProperty;
-import net.snowflake.client.core.SFStatement;
-import net.snowflake.client.jdbc.*;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Test;
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import net.snowflake.client.core.OCSPMode;
+import net.snowflake.client.core.SFSessionProperty;
+import net.snowflake.client.core.SFStatement;
+import net.snowflake.client.jdbc.*;
+import net.snowflake.client.jdbc.cloud.storage.StageInfo;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Ignore;
+import org.junit.Test;
 
 public class InternalStageIT {
 
@@ -23,12 +23,14 @@ public class InternalStageIT {
   private static final String stageName1 = TestUtils.randomStageName();
   private static final String stageName2 = TestUtils.randomStageName();
   private static final String stageNameGCSPut = TestUtils.randomStageName();
-  private static final String stageNameGCSPutWithCache =
-      "kafka_connector_test_stage_8521123643496264815";
+  private static final String stageNameGCSPutWithCache = TestUtils.randomStageName();
   private static final String stageName4 = TestUtils.randomStageName();
   private static final String proxyStage = TestUtils.randomStageName();
   private static final String stageNameExpire =
       "kafka_connector_test_stage_credential_cache_expire";
+
+  /* Stage Type will be same for all this tests since at once we only run it against one cloud */
+  private static StageInfo.StageType stageType;
 
   @BeforeClass
   public static void beforeAllClasses() {
@@ -40,6 +42,8 @@ public class InternalStageIT {
     service.createStage(stageName4);
     service.createStage(proxyStage);
     service.createStage(stageNameExpire);
+    stageType =
+        ((SnowflakeConnectionServiceV1) service).getInternalStage().getStageType(stageName1);
   }
 
   @AfterClass
@@ -63,8 +67,8 @@ public class InternalStageIT {
 
     // PUT two files to stageName1
     startTime = System.currentTimeMillis();
-    agent.putWithCache(stageName1, "testCacheFileName1", "Any cache");
-    agent.putWithCache(stageName1, "testCacheFileName2", "Any cache");
+    agent.putWithCache(stageName1, "testCacheFileName1", "Any cache", stageType);
+    agent.putWithCache(stageName1, "testCacheFileName2", "Any cache", stageType);
     List<String> files1 = service.listStage(stageName1, "testCache");
     assert files1.size() == 2;
     System.out.println(Logging.logMessage("Time: {} ms", (System.currentTimeMillis() - startTime)));
@@ -73,29 +77,33 @@ public class InternalStageIT {
     startTime = System.currentTimeMillis();
     for (int i = 0; i < fileNumber; i++) {
       agent.putWithCache(
-          stageName2, "appName/tableName/partition/testCacheFileName" + i, "Any cache");
+          stageName2, "appName/tableName/partition/testCacheFileName" + i, "Any cache", stageType);
     }
     List<String> files2 = service.listStage(stageName2, "appName/tableName/partition/testCache");
     assert files2.size() == fileNumber;
     System.out.println(Logging.logMessage("Time: {} ms", (System.currentTimeMillis() - startTime)));
   }
 
+  @Ignore
   @Test
   public void testComparePutAPIVersionsForGCS() {
-    // PUT 500 files to stageName3
-    final int numberOfFiles = 1;
+
+    // PUT 50 files to stageName3
+    final int numberOfFiles = 50;
     long startTime = System.currentTimeMillis();
-    //    for (int i = 0; i < numberOfFiles; i++)
-    //    {
-    //      service.put(stageNameGCSPut, "appName/tableName/partition/testNoCacheFileName" + i, "Any
-    // data");
-    //    }
-    //    System.out.println(Logging.logMessage("Time for putting {} files in GCS is:{} ms",
-    // numberOfFiles,
-    //            (System.currentTimeMillis() - startTime)));
-    //    List<String> files = service.listStage(stageNameGCSPut,
-    // "appName/tableName/partition/testNoCacheFileName");
-    //    assert files.size() == numberOfFiles;
+    for (int i = 0; i < numberOfFiles; i++) {
+      service.put(
+          stageNameGCSPut, "appName/tableName/partition/testNoCacheFileName" + i, "Any data");
+    }
+    System.out.println(
+        Logging.logMessage(
+            "Time for putting {} files in GCS is:{} ms",
+            numberOfFiles,
+            (System.currentTimeMillis() - startTime)));
+
+    List<String> files =
+        service.listStage(stageNameGCSPut, "appName/tableName/partition/testNoCacheFileName");
+    assert files.size() == numberOfFiles;
 
     System.out.println("Same test but with uploadWithoutConnection API");
     startTime = System.currentTimeMillis();
@@ -103,7 +111,7 @@ public class InternalStageIT {
       service.putWithCache(
           stageNameGCSPutWithCache,
           "appName/tableName/partition/testCacheFileName" + i,
-          "1|36901|O|173665.47|1996-01-02|5-LOW|Clerk#000000951|0|nstructions sleep furiously among |");
+          "Any data");
     }
     System.out.println(
         Logging.logMessage(
@@ -121,7 +129,6 @@ public class InternalStageIT {
    * file for configuration of proxy.
    */
   @Test
-  @Ignore
   public void testInternalStageWithProxy() throws SnowflakeSQLException {
     // create properties for proxy
     Properties proxyProperties = new Properties();
@@ -152,8 +159,8 @@ public class InternalStageIT {
 
     // PUT two files to proxyStage
     long startTime = System.currentTimeMillis();
-    agent.putWithCache(proxyStage, "testInternalStageWithProxy1", "Any cache");
-    agent.putWithCache(proxyStage, "testInternalStageWithProxy2", "Any cache");
+    agent.putWithCache(proxyStage, "testInternalStageWithProxy1", "Any cache", stageType);
+    agent.putWithCache(proxyStage, "testInternalStageWithProxy2", "Any cache", stageType);
 
     List<String> files1 = proxyConnectionService.listStage(proxyStage, "testInternalStage");
     assert files1.size() == 2;
@@ -172,16 +179,16 @@ public class InternalStageIT {
             (SnowflakeConnectionV1) service.getConnection(), 30 * 1000L, null);
 
     // PUT two files to stageName1
-    agent.putWithCache(stageName4, "testCacheFileName1", "Any cache");
-    agent.putWithCache(stageName4, "testCacheFileName2", "Any cache");
+    agent.putWithCache(stageName4, "testCacheFileName1", "Any cache", stageType);
+    agent.putWithCache(stageName4, "testCacheFileName2", "Any cache", stageType);
     List<String> files1 = service.listStage(stageName4, "testCache");
     assert files1.size() == 2;
 
     // wait until the credential expires
     Thread.sleep(60 * 1000);
 
-    agent.putWithCache(stageName4, "testCacheFileName3", "Any cache");
-    agent.putWithCache(stageName4, "testCacheFileName4", "Any cache");
+    agent.putWithCache(stageName4, "testCacheFileName3", "Any cache", stageType);
+    agent.putWithCache(stageName4, "testCacheFileName4", "Any cache", stageType);
     List<String> files2 = service.listStage(stageName4, "testCache");
     assert files2.size() == 4;
   }
@@ -197,7 +204,8 @@ public class InternalStageIT {
     String fullFilePath = "testExpire1";
     String data = "Any cache";
 
-    String command = SnowflakeInternalStage.dummyPutCommandTemplate + stageNameExpire;
+    String command =
+        String.format(SnowflakeInternalStage.dummyPutCommandTemplateAWSAndAzure, stageNameExpire);
 
     SnowflakeFileTransferAgent agent =
         new SnowflakeFileTransferAgent(
