@@ -385,9 +385,9 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     # should we enable this? Set to false to disable
     testSuitEnableList4 = []
     if testSet == "confluent":
-        testSuitEnableList4 = [True]
+        testSuitEnableList4 = [False]
     elif testSet == "apache":
-        testSuitEnableList4 = [True]
+        testSuitEnableList4 = [False]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
