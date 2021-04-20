@@ -106,6 +106,7 @@ CONFLUENT_FOLDER_NAME="./confluent-$CONFLUENT_VERSION"
 rm -rf $CONFLUENT_FOLDER_NAME || true
 rm apache.tgz || true
 
+echo "Trying to download:${DOWNLOAD_URL}"
 curl $DOWNLOAD_URL --output apache.tgz
 tar xzvf apache.tgz > /dev/null 2>&1
 
