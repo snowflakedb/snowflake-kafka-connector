@@ -377,7 +377,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     ############################ round 4: Proxy End To End Test ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 4: Proxy E2E Test ===")
     print("Proxy Test should be the last test, since it modifies the JVM values")
-    testSuitList4 = [testStringJsonProxy]
+    testSuitList4 = []
 
     # Should we invoke clean before and after the test
     testCleanEnableList4 = [True]
