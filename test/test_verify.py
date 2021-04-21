@@ -273,9 +273,11 @@ class KafkaTest:
         while retry < MAX_RETRY:
             try:
                 code = requests.delete(delete_url, timeout=10).status_code
+                print("Delete request returned:{0}".format(code))
                 if code == 404 or code == 200 or code == 201:
                     break
-            except:
+            except BaseException as e:
+                print('An exception occurred: {}'.format(e))
                 pass
             print(datetime.now().strftime("\n%H:%M:%S "), "=== sleep for 30 secs to wait for kafka connect to accept connection ===")
             sleep(30)
@@ -283,8 +285,11 @@ class KafkaTest:
         if retry == MAX_RETRY:
             errorExit("\n=== max retry exceeded, kafka connect not ready in 10 mins ===")
 
+        print("Running following HTTP request:{0}".format(post_url))
         r = requests.post(post_url, json=json.loads(config), headers=self.httpHeader)
-        print(datetime.now().strftime("%H:%M:%S "), json.loads(r.content.decode("utf-8"))["name"], r.status_code)
+        print("Returned the request with status code:{0}".format(r.status_code))
+        print(requests.get(post_url))
+        # print(datetime.now().strftime("%H:%M:%S "), json.loads(r.content.decode("utf-8"))["name"], r.status_code)
 
 
 def runTestSet(driver, testSet, nameSalt, pressure):
