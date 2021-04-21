@@ -114,6 +114,7 @@ rm $APACHE_LOG_PATH/zookeeper.log $APACHE_LOG_PATH/kafka.log || true
 rm $APACHE_LOG_PATH/kc.log || true
 rm -rf /tmp/kafka-logs /tmp/zookeeper || true
 
+# Fips Jar installation, required for encrypted private key
 fipsInstallDirectory=$CONFLUENT_FOLDER_NAME/"share/java/kafka"
 echo $fipsInstallDirectory
 lsCommand=$(ls $fipsInstallDirectory | grep fips | wc -l)
@@ -121,9 +122,8 @@ echo $lsCommand
 
 if [ $lsCommand == 0 ]; then
     echo "Installing fips Jars in:"$fipsInstallDirectory
-    wget -q -P $fipsInstallDirectory https://repo1.maven.org/maven2/org/bouncycastle/bcpkix-fips/1.0.3/bcpkix-fips-1.0.3.jar
-    wget -q -P $fipsInstallDirectory https://repo1.maven.org/maven2/org/bouncycastle/bc-fips/1.0.2/bc-fips-1.0.2.jar
-
+    wget -P $fipsInstallDirectory https://repo1.maven.org/maven2/org/bouncycastle/bcpkix-fips/1.0.3/bcpkix-fips-1.0.3.jar
+    wget -P $fipsInstallDirectory https://repo1.maven.org/maven2/org/bouncycastle/bc-fips/1.0.2/bc-fips-1.0.2.jar
 else
     echo "No need to download Fips Libraries"
 fi
