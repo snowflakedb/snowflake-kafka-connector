@@ -257,6 +257,7 @@ class KafkaTest:
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
         with open("{}/{}".format(rest_template_path, fileName), 'r') as f:
             fileContent = f.read()
+            # Template has passphrase, use the encrypted version of P8 Key
             if fileContent.find("snowflake.private.key.passphrase") != -1:
                 pk = pkEncrypted
             fileContent = fileContent \
@@ -289,15 +290,13 @@ class KafkaTest:
             sleep(30)
             retry += 1
         if retry == MAX_RETRY:
-            # errorExit("\n=== max retry exceeded, kafka connect not ready in 10 mins ===")
             print("Kafka Delete request not successful:{0}".format(delete_url))
 
-        print("Running following HTTP request:{0}".format(post_url))
+        print("Post HTTP request to Create Connector:{0}".format(post_url))
         r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
-        print("Returned the Post request with status code:{0}".format(r.status_code))
-        getConnectors = requests.get(post_url)
-        print("Get Connectors status:{0}, response:{1}".format(getConnectors.status_code, getConnectors.content))
-        # print(datetime.now().strftime("%H:%M:%S "), json.loads(r.content.decode("utf-8"))["name"], r.status_code)
+        print(datetime.now().strftime("%H:%M:%S "), json.loads(r.content.decode("utf-8"))["name"], r.status_code)
+        getConnectorResponse = requests.get(post_url)
+        print("Get Connectors status:{0}, response:{1}".format(getConnectorResponse.status_code, getConnectorResponse.content))
 
 
 def runTestSet(driver, testSet, nameSalt, pressure):
@@ -343,12 +342,12 @@ def runTestSet(driver, testSet, nameSalt, pressure):
                      testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf]
 
     # Adding StringJsonProxy test at the end
-    testCleanEnableList1 = [False, True, False, False, False, False, False, False, False, False, False]
+    testCleanEnableList1 = [True, True, False, False, False, False, False, False, False, False, False]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [False, True, False, False, False, False, False, False, False, False, False]
+        testSuitEnableList1 = [True, True, False, False, False, False, False, False, False, False, False]
     elif testSet == "apache":
-        testSuitEnableList1 = [False, True, False, False, False, False, False, False, False, False, False]
+        testSuitEnableList1 = [True, True, False, False, False, False, False, False, False, False, False]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 

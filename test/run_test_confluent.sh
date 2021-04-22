@@ -127,7 +127,9 @@ if [ $lsCommand == 0 ]; then
     wget -P $fipsInstallDirectory https://repo1.maven.org/maven2/org/bouncycastle/bc-fips/1.0.2/bc-fips-1.0.2.jar
     cp $fipsInstallDirectory/bcpkix-fips-1.0.3.jar $KAFKA_CONNECT_PLUGIN_PATH
     cp $fipsInstallDirectory/bc-fips-1.0.2.jar $KAFKA_CONNECT_PLUGIN_PATH
+    echo "list KAFKA_CONNECT_PLUGIN_PATH: $KAFKA_CONNECT_PLUGIN_PATH"
     ls $KAFKA_CONNECT_PLUGIN_PATH
+    echo "list confluent test share directory: $fipsInstallDirectory"
     ls $fipsInstallDirectory
 else
     echo "No need to download Fips Libraries"
