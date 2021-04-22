@@ -246,6 +246,8 @@ class KafkaTest:
             testDatabase = credentialJson["database"]
             testSchema = credentialJson["schema"]
             pk = credentialJson["private_key"]
+            # Use Encrypted key if passphrase is non empty
+            pkEncrypted = credentialJson["encrypted_private_key"]
 
         print(datetime.now().strftime("\n%H:%M:%S "), "=== generate sink connector rest reqeuest from {} ===".format(rest_template_path))
         if not os.path.exists(rest_generate_path):
@@ -254,7 +256,10 @@ class KafkaTest:
 
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
         with open("{}/{}".format(rest_template_path, fileName), 'r') as f:
-            config = f.read() \
+            fileContent = f.read()
+            if fileContent.find("snowflake.private.key.passphrase") != -1:
+                pk = pkEncrypted
+            fileContent = fileContent \
                 .replace("SNOWFLAKE_PRIVATE_KEY", pk) \
                 .replace("SNOWFLAKE_HOST", testHost) \
                 .replace("SNOWFLAKE_USER", testUser) \
@@ -264,7 +269,7 @@ class KafkaTest:
                 .replace("SNOWFLAKE_TEST_TOPIC", snowflake_connector_name) \
                 .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name)
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
-                fw.write(config)
+                fw.write(fileContent)
 
         MAX_RETRY = 3
         retry = 0
@@ -288,9 +293,10 @@ class KafkaTest:
             print("Kafka Delete request not successful:{0}".format(delete_url))
 
         print("Running following HTTP request:{0}".format(post_url))
-        r = requests.post(post_url, json=json.loads(config), headers=self.httpHeader)
-        print("Returned the request with status code:{0}".format(r.status_code))
-        print(requests.get(post_url))
+        r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
+        print("Returned the Post request with status code:{0}".format(r.status_code))
+        getConnectors = requests.get(post_url)
+        print("Get Connectors status:{0}, response:{1}".format(getConnectors.status_code, getConnectors.content))
         # print(datetime.now().strftime("%H:%M:%S "), json.loads(r.content.decode("utf-8"))["name"], r.status_code)
 
 
@@ -337,12 +343,12 @@ def runTestSet(driver, testSet, nameSalt, pressure):
                      testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf]
 
     # Adding StringJsonProxy test at the end
-    testCleanEnableList1 = [True, False, False, False, False, False, False, False, False, False, False]
+    testCleanEnableList1 = [False, True, False, False, False, False, False, False, False, False, False]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [True, False, False, False, False, False, False, False, False, False, False]
+        testSuitEnableList1 = [False, True, False, False, False, False, False, False, False, False, False]
     elif testSet == "apache":
-        testSuitEnableList1 = [True, False, False, False, False, False, False, False, False, False, False]
+        testSuitEnableList1 = [False, True, False, False, False, False, False, False, False, False, False]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
