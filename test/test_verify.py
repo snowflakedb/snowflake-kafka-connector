@@ -40,7 +40,7 @@ class KafkaTest:
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
-        self.MAX_RETRY = 120  # max wait time 120 mins
+        self.MAX_RETRY = 5  # max wait time 5 mins
         self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 10000 data was in the queue
 
         self.kafkaConnectAddress = kafkaConnectAddress
@@ -246,6 +246,8 @@ class KafkaTest:
             testDatabase = credentialJson["database"]
             testSchema = credentialJson["schema"]
             pk = credentialJson["private_key"]
+            # Use Encrypted key if passphrase is non empty
+            pkEncrypted = credentialJson["encrypted_private_key"]
 
         print(datetime.now().strftime("\n%H:%M:%S "), "=== generate sink connector rest reqeuest from {} ===".format(rest_template_path))
         if not os.path.exists(rest_generate_path):
@@ -254,7 +256,11 @@ class KafkaTest:
 
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
         with open("{}/{}".format(rest_template_path, fileName), 'r') as f:
-            config = f.read() \
+            fileContent = f.read()
+            # Template has passphrase, use the encrypted version of P8 Key
+            if fileContent.find("snowflake.private.key.passphrase") != -1:
+                pk = pkEncrypted
+            fileContent = fileContent \
                 .replace("SNOWFLAKE_PRIVATE_KEY", pk) \
                 .replace("SNOWFLAKE_HOST", testHost) \
                 .replace("SNOWFLAKE_USER", testUser) \
@@ -264,27 +270,33 @@ class KafkaTest:
                 .replace("SNOWFLAKE_TEST_TOPIC", snowflake_connector_name) \
                 .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name)
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
-                fw.write(config)
+                fw.write(fileContent)
 
-        MAX_RETRY = 20
+        MAX_RETRY = 3
         retry = 0
         delete_url = "http://{}/connectors/{}".format(self.kafkaConnectAddress, snowflake_connector_name)
         post_url = "http://{}/connectors".format(self.kafkaConnectAddress)
         while retry < MAX_RETRY:
             try:
+                print("Delete request:{0}".format(delete_url))
                 code = requests.delete(delete_url, timeout=10).status_code
+                print("Delete request returned:{0}".format(code))
                 if code == 404 or code == 200 or code == 201:
                     break
-            except:
+            except BaseException as e:
+                print('An exception occurred: {}'.format(e))
                 pass
             print(datetime.now().strftime("\n%H:%M:%S "), "=== sleep for 30 secs to wait for kafka connect to accept connection ===")
             sleep(30)
             retry += 1
         if retry == MAX_RETRY:
-            errorExit("\n=== max retry exceeded, kafka connect not ready in 10 mins ===")
+            print("Kafka Delete request not successful:{0}".format(delete_url))
 
-        r = requests.post(post_url, json=json.loads(config), headers=self.httpHeader)
+        print("Post HTTP request to Create Connector:{0}".format(post_url))
+        r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
         print(datetime.now().strftime("%H:%M:%S "), json.loads(r.content.decode("utf-8"))["name"], r.status_code)
+        getConnectorResponse = requests.get(post_url)
+        print("Get Connectors status:{0}, response:{1}".format(getConnectorResponse.status_code, getConnectorResponse.content))
 
 
 def runTestSet(driver, testSet, nameSalt, pressure):
