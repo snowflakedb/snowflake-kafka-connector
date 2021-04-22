@@ -40,7 +40,7 @@ class KafkaTest:
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
-        self.MAX_RETRY = 120  # max wait time 120 mins
+        self.MAX_RETRY = 5  # max wait time 120 mins
         self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 10000 data was in the queue
 
         self.kafkaConnectAddress = kafkaConnectAddress
@@ -266,12 +266,13 @@ class KafkaTest:
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
                 fw.write(config)
 
-        MAX_RETRY = 20
+        MAX_RETRY = 3
         retry = 0
         delete_url = "http://{}/connectors/{}".format(self.kafkaConnectAddress, snowflake_connector_name)
         post_url = "http://{}/connectors".format(self.kafkaConnectAddress)
         while retry < MAX_RETRY:
             try:
+                print("Delete request:{0}".format(delete_url))
                 code = requests.delete(delete_url, timeout=10).status_code
                 print("Delete request returned:{0}".format(code))
                 if code == 404 or code == 200 or code == 201:
@@ -283,7 +284,8 @@ class KafkaTest:
             sleep(30)
             retry += 1
         if retry == MAX_RETRY:
-            errorExit("\n=== max retry exceeded, kafka connect not ready in 10 mins ===")
+            # errorExit("\n=== max retry exceeded, kafka connect not ready in 10 mins ===")
+            print("Kafka Delete request not successful:{0}".format(delete_url))
 
         print("Running following HTTP request:{0}".format(post_url))
         r = requests.post(post_url, json=json.loads(config), headers=self.httpHeader)
