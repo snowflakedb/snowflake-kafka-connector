@@ -656,7 +656,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
     InputStream input = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
     try
     {
-      InternalUtils.backoffAndRetry(telemetry,
+      InternalUtils.backoffAndRetry(telemetry, SnowflakeInternalOperations.UPLOAD_FILE_TO_INTERNAL_STAGE,
           () ->
           {
             sfconn.uploadStream(stageName,
@@ -689,7 +689,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
     {
       try
       {
-        InternalUtils.backoffAndRetry(telemetry,
+        InternalUtils.backoffAndRetry(telemetry, SnowflakeInternalOperations.UPLOAD_FILE_TO_INTERNAL_STAGE_NO_CONNECTION,
           () ->
           {
             internalStage.putWithCache(stageName, fileName, content);
@@ -712,7 +712,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
 
     try
     {
-      InternalUtils.backoffAndRetry(telemetry,
+      InternalUtils.backoffAndRetry(telemetry, SnowflakeInternalOperations.UPLOAD_FILE_TO_TABLE_STAGE,
           () ->
           {
             sfconn.uploadStream("%" + tableName,
@@ -830,7 +830,7 @@ public class SnowflakeConnectionServiceV1 extends Logging
 
     try
     {
-      InternalUtils.backoffAndRetry(telemetry,
+      InternalUtils.backoffAndRetry(telemetry, SnowflakeInternalOperations.REMOVE_FILE_FROM_INTERNAL_STAGE,
         () ->
         {
           PreparedStatement stmt = conn.prepareStatement(query);

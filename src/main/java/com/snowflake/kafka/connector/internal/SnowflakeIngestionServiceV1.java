@@ -56,7 +56,7 @@ public class SnowflakeIngestionServiceV1 extends Logging
   {
     try
     {
-      InternalUtils.backoffAndRetry(telemetry,
+      InternalUtils.backoffAndRetry(telemetry, SnowflakeInternalOperations.INSERT_FILES_SNOWPIPE_API,
           () -> ingestManager.ingestFile(new StagedFileWrapper(fileName), null)
       );
     } catch (Exception e)
@@ -76,7 +76,7 @@ public class SnowflakeIngestionServiceV1 extends Logging
     logDebug("ingest files: {}", fileNames);
     try
     {
-      InternalUtils.backoffAndRetry(telemetry,
+      InternalUtils.backoffAndRetry(telemetry, SnowflakeInternalOperations.INSERT_FILES_SNOWPIPE_API,
           () ->
           {
             while (fileNames.size() > 0)
@@ -118,7 +118,7 @@ public class SnowflakeIngestionServiceV1 extends Logging
     HistoryResponse response;
     try
     {
-      response = (HistoryResponse) InternalUtils.backoffAndRetry(telemetry,
+      response = (HistoryResponse) InternalUtils.backoffAndRetry(telemetry, SnowflakeInternalOperations.INSERT_REPORT_SNOWPIPE_API,
           () -> ingestManager.getHistory(null, null, beginMark)
       );
     } catch (Exception e)
@@ -210,7 +210,7 @@ public class SnowflakeIngestionServiceV1 extends Logging
       try
       {
         final String startTimeInclusiveFinal = startTimeInclusive;
-        response = (HistoryRangeResponse) InternalUtils.backoffAndRetry(telemetry,
+        response = (HistoryRangeResponse) InternalUtils.backoffAndRetry(telemetry, SnowflakeInternalOperations.LOAD_HISTORY_SCAN_SNOWPIPE_API,
             () ->
                 ingestManager.getHistoryRange(null, (String) startTimeInclusiveFinal, endTimeExclusive)
         );
