@@ -296,11 +296,14 @@ class InternalUtils
   /**
    * Backoff logic
    * @param telemetry telemetry service
+   * @param operation Internal Operation Type which corresponds to the lambda function runnable
    * @param runnable the lambda function itself
    * @return the object that the function returns
    * @throws Exception if the runnable function throws exception
    */
-  public static Object backoffAndRetry(final SnowflakeTelemetryService telemetry, final backoffFunction runnable) throws Exception
+  public static Object backoffAndRetry(final SnowflakeTelemetryService telemetry,
+                                       final SnowflakeInternalOperations operation,
+                                       final backoffFunction runnable) throws Exception
   {
     Exception finalException = null;
     for (final int iteration : backoffSec)
@@ -308,6 +311,7 @@ class InternalUtils
       if (iteration != 0)
       {
         Thread.sleep(iteration * 1000);
+        LOGGER.debug("Retry Count:{} for operation:{}", iteration, operation);
       }
       try
       {
@@ -316,7 +320,7 @@ class InternalUtils
       catch (Exception e)
       {
         finalException = e;
-        LOGGER.error(e.getMessage());
+        LOGGER.debug("Retry count:{} caught an exception for operation:{} with message:{}", iteration, operation, e.getMessage());
       }
     }
     throw SnowflakeErrors.ERROR_2010.getException(finalException, telemetry);

@@ -10,7 +10,7 @@ function error_exit() {
 }
 
 function random-string() {
-    cat /dev/urandom | env LC_CTYPE=C tr -cd 'a-z0-9' | head -c 4 
+    cat /dev/urandom | env LC_CTYPE=C tr -cd 'a-z0-9' | head -c 4
 }
 
 source ./utils.sh
@@ -134,6 +134,10 @@ if [ $lsCommand == 0 ]; then
 else
     echo "No need to download Fips Libraries"
 fi
+
+# Copy the sample connect log4j properties file to appropriate directory
+echo "Copying connect-log4j.properties file to confluent folder"
+cp -fr ./connect-log4j.properties $CONFLUENT_FOLDER_NAME/"etc/kafka/"
 
 compile_protobuf_converter_and_data $TEST_SET $CONFLUENT_FOLDER_NAME
 

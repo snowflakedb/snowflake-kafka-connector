@@ -83,7 +83,7 @@ public class SnowflakeInternalStage extends Logging {
       SnowflakeMetadataWithExpiration credential = storageInfoCache.getOrDefault(stage, null);
       if (!isCredentialValid(credential))
       {
-        logDebug("Query credential for stage " + stage);
+        logDebug("Query credential for stage:{}, filePath:{}", stage, fullFilePath);
         SnowflakeFileTransferAgent agent = new SnowflakeFileTransferAgent(
           command,
           conn.getSfSession(),
@@ -127,13 +127,14 @@ public class SnowflakeInternalStage extends Logging {
       {
         // If this api encounters error, invalid the cached credentials
         // Caller will retry this function
-        logWarn("uploadWithoutConnection encountered an error");
+        logWarn("uploadWithoutConnection encountered an error for fileName:{}", fullFilePath);
         storageInfoCache.remove(stage);
         throw t;
       }
 
     } catch (Exception e)
     {
+      logWarn("Caught exception in putWithCache for fileName:{}", e.getMessage(), fullFilePath);
       throw SnowflakeErrors.ERROR_5018.getException(e);
     }
   }
