@@ -276,14 +276,14 @@ class InternalUtils {
     Exception finalException = null;
     for (final int iteration : backoffSec) {
       if (iteration != 0) {
-        Thread.sleep(iteration * 1000);
+        Thread.sleep(iteration * 1000L);
         LOGGER.debug("Retry Count:{} for operation:{}", iteration, operation);
       }
       try {
         return runnable.apply();
       } catch (Exception e) {
         finalException = e;
-        LOGGER.debug(
+        LOGGER.error(
             "Retry count:{} caught an exception for operation:{} with message:{}",
             iteration,
             operation,
