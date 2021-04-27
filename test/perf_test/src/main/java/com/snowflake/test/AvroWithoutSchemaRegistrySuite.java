@@ -3,16 +3,13 @@ package com.snowflake.test;
 import com.snowflake.producer.AvroWithoutSchemaRegistryProducer;
 import com.snowflake.producer.Producer;
 
-public class AvroWithoutSchemaRegistrySuite extends TestBase<byte[]>
-{
+public class AvroWithoutSchemaRegistrySuite extends TestBase<byte[]> {
   private final Enums.TestCases testCase;
   private final AvroWithoutSchemaRegistryProducer producer;
 
-  public AvroWithoutSchemaRegistrySuite(Enums.Tables table)
-  {
+  public AvroWithoutSchemaRegistrySuite(Enums.Tables table) {
     this.producer = new AvroWithoutSchemaRegistryProducer();
-    switch (table)
-    {
+    switch (table) {
       case ONE_G_TABLE:
         this.testCase = Enums.TestCases.AVRO_WITHOUT_SCHEMA_REGISTRY_ONE_G_TABLE;
         break;
@@ -27,14 +24,12 @@ public class AvroWithoutSchemaRegistrySuite extends TestBase<byte[]>
   }
 
   @Override
-  protected Producer<byte[]> getProducer()
-  {
+  protected Producer<byte[]> getProducer() {
     return producer;
   }
 
   @Override
-  protected Enums.TestCases getTestCase()
-  {
+  protected Enums.TestCases getTestCase() {
     return testCase;
   }
 }

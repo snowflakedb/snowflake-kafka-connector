@@ -186,8 +186,8 @@ public class RecordService extends Logging {
     if (logicalValue == null) {
       if (schema
           == null) // Any schema is valid and we don't have a default, so treat this as an optional
-                   // schema
-      return null;
+        // schema
+        return null;
       if (schema.defaultValue() != null) return convertToJson(schema, schema.defaultValue());
       if (schema.isOptional()) return JsonNodeFactory.instance.nullNode();
       throw SnowflakeErrors.ERROR_5015.getException(
