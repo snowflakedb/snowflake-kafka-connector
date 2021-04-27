@@ -1,15 +1,14 @@
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.internal.InternalUtils.convertIngestStatus;
+import static com.snowflake.kafka.connector.internal.InternalUtils.timestampToDate;
+
+import java.security.PrivateKey;
+import java.util.*;
 import net.snowflake.ingest.SimpleIngestManager;
 import net.snowflake.ingest.connection.HistoryRangeResponse;
 import net.snowflake.ingest.connection.HistoryResponse;
 import net.snowflake.ingest.utils.StagedFileWrapper;
-
-import java.security.PrivateKey;
-import java.util.*;
-
-import static com.snowflake.kafka.connector.internal.InternalUtils.convertIngestStatus;
-import static com.snowflake.kafka.connector.internal.InternalUtils.timestampToDate;
 
 public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIngestionService {
   private static final long ONE_HOUR = 60 * 60 * 1000;

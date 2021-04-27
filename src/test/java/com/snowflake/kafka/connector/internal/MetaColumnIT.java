@@ -3,6 +3,8 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
+import java.nio.charset.StandardCharsets;
+import java.sql.ResultSet;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.connect.data.Schema;
@@ -10,9 +12,6 @@ import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Test;
-
-import java.nio.charset.StandardCharsets;
-import java.sql.ResultSet;
 
 public class MetaColumnIT {
   private String topic = "test";

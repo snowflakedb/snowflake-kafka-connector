@@ -17,7 +17,6 @@
 package com.snowflake.kafka.connector.records;
 
 import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
-
 import java.util.Map;
 
 class AvroConverterConfig extends AbstractKafkaAvroSerDeConfig {

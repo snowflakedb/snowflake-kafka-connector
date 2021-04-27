@@ -18,6 +18,12 @@ package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.*;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.RetriableException;
@@ -25,13 +31,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Supplier;
 
 /**
  * SnowflakeSinkTask implements SinkTask for Kafka Connect framework. expects configuration from
@@ -318,9 +317,9 @@ public class SnowflakeSinkTask extends SinkTask {
       // But having this warning helps customer to debug their Kafka Connect config.
       LOGGER.warn(
           Logging.logMessage(
-              "SnowflakeSinkTask[ID:{}]:{} {}. "
-                  + "Time: {} seconds > 300 seconds. If there is CommitFailedException in the log or there is "
-                  + "duplicated records, refer to this link for solution: "
+              "SnowflakeSinkTask[ID:{}]:{} {}. Time: {} seconds > 300 seconds. If there is"
+                  + " CommitFailedException in the log or there is duplicated records, refer to"
+                  + " this link for solution: "
                   + "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
               this.id,
               apiName,

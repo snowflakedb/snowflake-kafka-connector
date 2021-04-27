@@ -1,5 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
+import java.io.StringReader;
+import java.security.PrivateKey;
+import java.security.Security;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.bouncycastle.openssl.PEMParser;
@@ -7,10 +10,6 @@ import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.bouncycastle.openssl.jcajce.JceOpenSSLPKCS8DecryptorProviderBuilder;
 import org.bouncycastle.operator.InputDecryptorProvider;
 import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo;
-
-import java.io.StringReader;
-import java.security.PrivateKey;
-import java.security.Security;
 
 public class EncryptionUtils {
   public static PrivateKey parseEncryptedPrivateKey(String key, String passphrase) {

@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
+import java.sql.Connection;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
@@ -8,8 +9,6 @@ import net.snowflake.client.jdbc.telemetry.Telemetry;
 import net.snowflake.client.jdbc.telemetry.TelemetryClient;
 import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
 import org.apache.kafka.common.utils.AppInfoParser;
-
-import java.sql.Connection;
 
 public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTelemetryService {
   private static final ObjectMapper MAPPER = new ObjectMapper();

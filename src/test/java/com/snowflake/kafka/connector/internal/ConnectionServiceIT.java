@@ -1,15 +1,14 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
-import org.junit.After;
-import org.junit.Test;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import org.junit.After;
+import org.junit.Test;
 
 public class ConnectionServiceIT {
   private final SnowflakeConnectionService conn = TestUtils.getConnectionService();

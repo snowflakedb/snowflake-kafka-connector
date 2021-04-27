@@ -3,9 +3,8 @@ package com.snowflake.producer;
 import com.snowflake.Utils;
 import com.snowflake.schema.ThreeHundredColumnTable;
 import com.snowflake.test.Enums;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-
 import java.util.Scanner;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 
 public class ThreeHundredColumnTableProducer extends AvroProducer<ThreeHundredColumnTable> {
   @Override

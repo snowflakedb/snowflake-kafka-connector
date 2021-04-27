@@ -1,10 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FileNameUtils {
   private static final Logger LOGGER = LoggerFactory.getLogger(FileNameUtils.class.getName());

@@ -17,14 +17,13 @@
 package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.Logging;
+import java.util.Map;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Map;
 
 /**
  * SnowflakeSinkConnectorConfig class is used for specifying the set of expected configurations. For
@@ -233,7 +232,8 @@ public class SnowflakeSinkConnectorConfig {
             "",
             topicToTableValidator,
             Importance.LOW,
-            "Map of topics to tables (optional). Format : comma-seperated tuples, e.g. <topic-1>:<table-1>,<topic-2>:<table-2>,... ",
+            "Map of topics to tables (optional). Format : comma-seperated tuples, e.g."
+                + " <topic-1>:<table-1>,<topic-2>:<table-2>,... ",
             CONNECTOR_CONFIG,
             0,
             ConfigDef.Width.NONE,
@@ -244,7 +244,8 @@ public class SnowflakeSinkConnectorConfig {
             BUFFER_COUNT_RECORDS_DEFAULT,
             ConfigDef.Range.atLeast(1),
             Importance.LOW,
-            "Number of records buffered in memory per partition before triggering Snowflake ingestion",
+            "Number of records buffered in memory per partition before triggering Snowflake"
+                + " ingestion",
             CONNECTOR_CONFIG,
             1,
             ConfigDef.Width.NONE,
@@ -255,7 +256,8 @@ public class SnowflakeSinkConnectorConfig {
             BUFFER_SIZE_BYTES_DEFAULT,
             ConfigDef.Range.atLeast(1),
             Importance.LOW,
-            "Cumulative size of records buffered in memory per partition before triggering Snowflake ingestion",
+            "Cumulative size of records buffered in memory per partition before triggering"
+                + " Snowflake ingestion",
             CONNECTOR_CONFIG,
             2,
             ConfigDef.Width.NONE,
@@ -276,7 +278,8 @@ public class SnowflakeSinkConnectorConfig {
             Type.BOOLEAN,
             SNOWFLAKE_METADATA_DEFAULT,
             Importance.LOW,
-            "Flag to control whether there is metadata collected. If set to false, all metadata will be dropped",
+            "Flag to control whether there is metadata collected. If set to false, all metadata"
+                + " will be dropped",
             SNOWFLAKE_METADATA_FLAGS,
             0,
             ConfigDef.Width.NONE,
@@ -306,7 +309,8 @@ public class SnowflakeSinkConnectorConfig {
             Type.BOOLEAN,
             SNOWFLAKE_METADATA_DEFAULT,
             Importance.LOW,
-            "Flag to control whether kafka partition and offset are collected in snowflake metadata",
+            "Flag to control whether kafka partition and offset are collected in snowflake"
+                + " metadata",
             SNOWFLAKE_METADATA_FLAGS,
             3,
             ConfigDef.Width.NONE,
@@ -328,7 +332,8 @@ public class SnowflakeSinkConnectorConfig {
     }
 
     public String toString() {
-      return "Topic to table map format : comma-seperated tuples, e.g. <topic-1>:<table-1>,<topic-2>:<table-2>,... ";
+      return "Topic to table map format : comma-seperated tuples, e.g."
+          + " <topic-1>:<table-1>,<topic-2>:<table-2>,... ";
     }
   }
 }

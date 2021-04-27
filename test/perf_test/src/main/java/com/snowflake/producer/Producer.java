@@ -1,13 +1,11 @@
 package com.snowflake.producer;
 
+import com.snowflake.test.Enums.TestCases;
+import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Properties;
 import java.util.Scanner;
-
-import com.snowflake.test.Enums.TestCases;
-
-import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;

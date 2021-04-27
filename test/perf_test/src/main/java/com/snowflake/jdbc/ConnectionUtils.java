@@ -1,5 +1,6 @@
 package com.snowflake.jdbc;
 
+import com.snowflake.Utils;
 import java.io.File;
 import java.io.IOException;
 import java.security.KeyFactory;
@@ -9,16 +10,11 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
-
-import com.snowflake.Utils;
-
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 public class ConnectionUtils {
   private static final String CONF_FILE_NAME = "config/snowflake.json";

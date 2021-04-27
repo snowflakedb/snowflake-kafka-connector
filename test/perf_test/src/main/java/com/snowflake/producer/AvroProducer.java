@@ -1,8 +1,7 @@
 package com.snowflake.producer;
 
-import java.util.Properties;
-
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
+import java.util.Properties;
 import org.apache.kafka.clients.producer.KafkaProducer;
 
 public abstract class AvroProducer<T> extends Producer<T> {

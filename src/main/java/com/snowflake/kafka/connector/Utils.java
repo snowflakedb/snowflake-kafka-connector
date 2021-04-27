@@ -19,11 +19,6 @@ package com.snowflake.kafka.connector;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import org.apache.kafka.common.config.Config;
-import org.apache.kafka.common.config.ConfigValue;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
@@ -37,6 +32,10 @@ import java.util.Map;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.kafka.common.config.Config;
+import org.apache.kafka.common.config.ConfigValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Various arbitrary helper functions */
 public class Utils {

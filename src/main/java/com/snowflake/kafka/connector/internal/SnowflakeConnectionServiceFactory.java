@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
-
 import java.util.Map;
 import java.util.Properties;
 

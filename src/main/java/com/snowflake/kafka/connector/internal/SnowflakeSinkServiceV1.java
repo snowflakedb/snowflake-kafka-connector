@@ -1,15 +1,13 @@
 package com.snowflake.kafka.connector.internal;
 
+import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
+
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
-import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.sink.SinkRecord;
-
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.util.*;
@@ -19,8 +17,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
-
-import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.sink.SinkRecord;
 
 class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   private static final long ONE_HOUR = 60 * 60 * 1000L;

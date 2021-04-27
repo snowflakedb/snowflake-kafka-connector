@@ -1,6 +1,12 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 import net.snowflake.client.core.OCSPMode;
 import net.snowflake.client.core.SFSessionProperty;
 import net.snowflake.client.core.SFStatement;
@@ -9,13 +15,6 @@ import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Test;
-
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
 
 public class InternalStageIT {
 

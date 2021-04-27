@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.internal.InternalUtils.IngestedFileStatus;
-
 import java.util.List;
 import java.util.Map;
 

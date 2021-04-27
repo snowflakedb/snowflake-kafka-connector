@@ -1,16 +1,15 @@
 package com.snowflake.test;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-
 import com.snowflake.Utils;
 import com.snowflake.jdbc.ConnectionUtils;
 import com.snowflake.producer.Producer;
 import com.snowflake.reporter.JsonArray;
 import com.snowflake.reporter.TestSuite;
 import com.snowflake.test.Enums.TestCases;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 public abstract class TestBase<T> {
   private static final long TIME_OUT_SEC = 3600; // 40 mins

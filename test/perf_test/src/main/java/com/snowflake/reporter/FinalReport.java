@@ -1,11 +1,10 @@
 package com.snowflake.reporter;
 
+import com.snowflake.Utils;
+import com.snowflake.jdbc.ConnectionUtils;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-
-import com.snowflake.Utils;
-import com.snowflake.jdbc.ConnectionUtils;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 

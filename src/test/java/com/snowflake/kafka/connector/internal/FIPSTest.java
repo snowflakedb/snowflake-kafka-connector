@@ -1,5 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
+import java.io.IOException;
+import java.io.StringWriter;
+import java.security.PrivateKey;
+import java.security.Security;
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.crypto.CryptoServicesRegistrar;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
@@ -9,11 +13,6 @@ import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfoBuilder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS8EncryptedPrivateKeyInfoBuilder;
 import org.bouncycastle.pkcs.jcajce.JcePKCSPBEOutputEncryptorBuilder;
 import org.junit.Test;
-
-import java.io.IOException;
-import java.io.StringWriter;
-import java.security.PrivateKey;
-import java.security.Security;
 
 public class FIPSTest {
   @Test

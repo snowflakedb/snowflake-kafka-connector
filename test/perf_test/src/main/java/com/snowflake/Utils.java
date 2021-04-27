@@ -1,19 +1,17 @@
 package com.snowflake;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-
 import com.snowflake.jdbc.ConnectionUtils;
 import com.snowflake.reporter.*;
 import com.snowflake.test.Enums;
 import com.snowflake.test.Enums.Formats;
-
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import net.snowflake.client.jdbc.internal.apache.http.HttpResponse;
 import net.snowflake.client.jdbc.internal.apache.http.client.HttpClient;
-import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpPost;
 import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpDelete;
+import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpPost;
 import net.snowflake.client.jdbc.internal.apache.http.entity.StringEntity;
 import net.snowflake.client.jdbc.internal.apache.http.impl.client.HttpClientBuilder;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;

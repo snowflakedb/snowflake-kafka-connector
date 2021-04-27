@@ -16,11 +16,10 @@
  */
 package com.snowflake.kafka.connector.records;
 
-import org.apache.kafka.connect.data.Field;
-import org.apache.kafka.connect.data.Schema;
-
 import java.util.List;
 import java.util.Map;
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
 
 /** Snowflake json schema */
 public class SnowflakeJsonSchema implements Schema {

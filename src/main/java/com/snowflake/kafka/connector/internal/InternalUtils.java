@@ -2,13 +2,6 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import net.snowflake.client.core.SFSessionProperty;
-import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
-import net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
-import net.snowflake.ingest.connection.IngestStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -20,6 +13,12 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
+import net.snowflake.client.core.SFSessionProperty;
+import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
+import net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
+import net.snowflake.ingest.connection.IngestStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 class InternalUtils {
   // JDBC parameter list

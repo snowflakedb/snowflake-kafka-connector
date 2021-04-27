@@ -2,6 +2,9 @@ package com.snowflake.producer;
 
 import com.snowflake.Utils;
 import com.snowflake.test.Enums;
+import java.io.ByteArrayOutputStream;
+import java.util.Properties;
+import java.util.Scanner;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
@@ -10,10 +13,6 @@ import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-
-import java.io.ByteArrayOutputStream;
-import java.util.Properties;
-import java.util.Scanner;
 
 public class AvroWithoutSchemaRegistryProducer extends Producer<byte[]> {
   private final KafkaProducer<String, byte[]> producer;

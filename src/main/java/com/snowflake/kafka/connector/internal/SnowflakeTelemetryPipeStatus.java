@@ -1,10 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
 public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   // Offset info

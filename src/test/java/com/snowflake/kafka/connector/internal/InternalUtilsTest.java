@@ -2,14 +2,13 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.mock.MockResultSetForSizeTest;
-import net.snowflake.ingest.connection.IngestStatus;
-import org.junit.Test;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import net.snowflake.ingest.connection.IngestStatus;
+import org.junit.Test;
 
 public class InternalUtilsTest {
   @Test

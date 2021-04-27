@@ -18,7 +18,6 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 

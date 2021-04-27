@@ -1,10 +1,9 @@
 package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import org.junit.Test;
-
 import java.util.HashMap;
 import java.util.Map;
+import org.junit.Test;
 
 public class ConnectorConfigTest {
   static Map<String, String> getConfig() {

@@ -18,6 +18,8 @@ package com.snowflake.kafka.connector.records;
 
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import java.io.IOException;
+import java.util.ArrayList;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.SeekableByteArrayInput;
@@ -25,9 +27,6 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.kafka.connect.data.SchemaAndValue;
-
-import java.io.IOException;
-import java.util.ArrayList;
 
 public class SnowflakeAvroConverterWithoutSchemaRegistry extends SnowflakeConverter {
   /**

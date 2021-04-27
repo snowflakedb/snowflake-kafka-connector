@@ -1,12 +1,10 @@
 package com.snowflake.producer;
 
+import com.snowflake.Utils;
+import com.snowflake.test.Enums.TestCases;
 import java.io.FileNotFoundException;
 import java.util.Properties;
 import java.util.Scanner;
-
-import com.snowflake.Utils;
-import com.snowflake.test.Enums.TestCases;
-
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.serialization.StringSerializer;
 

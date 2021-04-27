@@ -1,5 +1,11 @@
 package com.snowflake.kafka.connector.internal;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import net.snowflake.client.core.OCSPMode;
 import net.snowflake.client.core.SFStatement;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
@@ -7,13 +13,6 @@ import net.snowflake.client.jdbc.SnowflakeFileTransferAgent;
 import net.snowflake.client.jdbc.SnowflakeFileTransferConfig;
 import net.snowflake.client.jdbc.SnowflakeFileTransferMetadataV1;
 import net.snowflake.client.jdbc.cloud.storage.StageInfo;
-
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 public class SnowflakeInternalStage extends Logging {
 

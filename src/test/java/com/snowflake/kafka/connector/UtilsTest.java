@@ -2,12 +2,11 @@ package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class UtilsTest {
   @Rule public final EnvironmentVariables environmentVariables = new EnvironmentVariables();

@@ -1,5 +1,9 @@
 package com.snowflake.kafka.connector.records;
 
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.record.TimestampType;
@@ -10,11 +14,6 @@ import org.apache.kafka.connect.header.ConnectHeaders;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Test;
-
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.text.SimpleDateFormat;
-import java.util.*;
 
 public class HeaderTest {
   private static final ObjectMapper MAPPER = new ObjectMapper();

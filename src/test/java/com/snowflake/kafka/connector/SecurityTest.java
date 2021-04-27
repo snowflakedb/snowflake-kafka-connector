@@ -3,14 +3,13 @@ package com.snowflake.kafka.connector;
 import com.snowflake.kafka.connector.internal.EncryptionUtils;
 import com.snowflake.kafka.connector.internal.FIPSTest;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import org.bouncycastle.operator.OperatorCreationException;
-import org.junit.Test;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Map;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.junit.Test;
 
 public class SecurityTest {
 

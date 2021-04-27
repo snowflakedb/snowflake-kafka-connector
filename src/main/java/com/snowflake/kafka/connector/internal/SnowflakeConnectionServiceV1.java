@@ -1,9 +1,5 @@
 package com.snowflake.kafka.connector.internal;
 
-import net.snowflake.client.jdbc.SnowflakeConnectionV1;
-import net.snowflake.client.jdbc.SnowflakeDriver;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -15,6 +11,9 @@ import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
+import net.snowflake.client.jdbc.SnowflakeConnectionV1;
+import net.snowflake.client.jdbc.SnowflakeDriver;
+import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 
 public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeConnectionService {
   private final Connection conn;

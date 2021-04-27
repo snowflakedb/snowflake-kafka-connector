@@ -18,6 +18,13 @@ package com.snowflake.kafka.connector.records;
 
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
+import java.util.TimeZone;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayNode;
@@ -28,14 +35,6 @@ import org.apache.kafka.connect.data.*;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
-
-import java.math.BigDecimal;
-import java.nio.ByteBuffer;
-import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map;
-import java.util.TimeZone;
 
 public class RecordService extends Logging {
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -143,7 +142,8 @@ public class RecordService extends Logging {
     } else if (SnowflakeJsonSchema.NAME.equals(record.keySchema().name())) {
       if (!(record.key() instanceof SnowflakeRecordContent)) {
         throw SnowflakeErrors.ERROR_0010.getException(
-            "Input record key should be SnowflakeRecordContent object if key schema is SNOWFLAKE_JSON_SCHEMA");
+            "Input record key should be SnowflakeRecordContent object if key schema is"
+                + " SNOWFLAKE_JSON_SCHEMA");
       }
 
       SnowflakeRecordContent keyContent = (SnowflakeRecordContent) record.key();
@@ -162,7 +162,8 @@ public class RecordService extends Logging {
       }
     } else {
       throw SnowflakeErrors.ERROR_0010.getException(
-          "Unsupported Key format, please implement either String Key Converter or Snowflake Converters");
+          "Unsupported Key format, please implement either String Key Converter or Snowflake"
+              + " Converters");
     }
   }
 

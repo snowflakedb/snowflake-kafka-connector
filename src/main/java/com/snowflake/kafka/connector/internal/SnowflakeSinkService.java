@@ -1,11 +1,10 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.sink.SinkRecord;
-
 import java.util.Collection;
 import java.util.Map;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.sink.SinkRecord;
 
 /** Background service of data sink, responsible to create/drop pipe and ingest/purge files */
 public interface SnowflakeSinkService {

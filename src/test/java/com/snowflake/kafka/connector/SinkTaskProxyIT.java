@@ -1,15 +1,14 @@
 package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.*;
-import net.snowflake.client.jdbc.SnowflakeSQLException;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import net.snowflake.client.jdbc.SnowflakeSQLException;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Test;
 
 public class SinkTaskProxyIT {
 

@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-
 import java.util.Map;
 
 /** A factory to create {@link SnowflakeSinkService} */

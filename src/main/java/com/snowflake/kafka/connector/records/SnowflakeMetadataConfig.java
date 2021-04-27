@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.records;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-
 import java.util.HashMap;
 import java.util.Map;
 

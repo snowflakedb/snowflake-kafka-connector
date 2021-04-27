@@ -6,9 +6,8 @@ import com.snowflake.test.Enums;
 import com.snowflake.test.JsonTestSuite;
 import com.snowflake.test.OneGTableSuite;
 import com.snowflake.test.ThreeHundredColumnTableSuite;
-import org.junit.Test;
-
 import java.io.IOException;
+import org.junit.Test;
 
 public class PerfTest {
   @Test
