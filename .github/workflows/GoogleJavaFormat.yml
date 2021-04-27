@@ -1,0 +1,19 @@
+name: GoogleJavaFormat
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  formatting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: GoogleJavaFormat
+        id: googlejavaformat
+        uses: axel-op/googlejavaformat-action@v3
+        with:
+          skipCommit: true
+          args: "-n --set-exit-if-changed"

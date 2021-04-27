@@ -2,6 +2,9 @@ package com.snowflake.producer;
 
 import com.snowflake.Utils;
 import com.snowflake.test.Enums;
+import java.io.ByteArrayOutputStream;
+import java.util.Properties;
+import java.util.Scanner;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
@@ -11,37 +14,31 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
-import java.io.ByteArrayOutputStream;
-import java.util.Properties;
-import java.util.Scanner;
-
-public class AvroWithoutSchemaRegistryProducer extends Producer<byte[]>
-{
+public class AvroWithoutSchemaRegistryProducer extends Producer<byte[]> {
   private final KafkaProducer<String, byte[]> producer;
 
-  public AvroWithoutSchemaRegistryProducer()
-  {
+  public AvroWithoutSchemaRegistryProducer() {
     Properties props = getProperties(ByteArraySerializer.class.getCanonicalName());
     this.producer = new KafkaProducer<>(props);
   }
 
   @Override
-  protected KafkaProducer<String, byte[]> getProducer()
-  {
+  protected KafkaProducer<String, byte[]> getProducer() {
     return producer;
   }
 
   @Override
-  public void send(final Enums.TestCases testCase)
-  {
-    System.out.println("loading table: " + testCase.getTableName() +
-      " in format: " + testCase.getFormatName() + " to Kafka");
-    try
-    {
+  public void send(final Enums.TestCases testCase) {
+    System.out.println(
+        "loading table: "
+            + testCase.getTableName()
+            + " in format: "
+            + testCase.getFormatName()
+            + " to Kafka");
+    try {
       Scanner scanner = getFileScanner(testCase);
       Schema schema = testCase.getTable().getSchema();
-      while (scanner.hasNextLine())
-      {
+      while (scanner.hasNextLine()) {
         GenericData.Record record = new GenericData.Record(schema);
         GenericDatumWriter<GenericRecord> writer = new GenericDatumWriter<>(schema);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -49,8 +46,7 @@ public class AvroWithoutSchemaRegistryProducer extends Producer<byte[]>
         fileWriter.create(schema, output);
 
         JsonNode data = Utils.MAPPER.readTree(scanner.nextLine());
-        switch (testCase.getTable())
-        {
+        switch (testCase.getTable()) {
           case ONE_G_TABLE:
             record.put("C_CUSTKEY", data.get("C_CUSTKEY").asLong());
             record.put("C_NAME", data.get("C_NAME").asText());
@@ -62,10 +58,8 @@ public class AvroWithoutSchemaRegistryProducer extends Producer<byte[]>
             record.put("C_NATIONKEY", data.get("C_NATIONKEY").asLong());
             break;
           case THREE_HUNDRED_COLUMN_TABLE:
-            for (int i = 0; i < 300; i++)
-            {
-              switch (i % 8)
-              {
+            for (int i = 0; i < 300; i++) {
+              switch (i % 8) {
                 case 0:
                   record.put("C" + i, data.get("C" + i).asDouble());
                   break;
@@ -91,14 +85,10 @@ public class AvroWithoutSchemaRegistryProducer extends Producer<byte[]>
       }
       scanner.close();
       close();
-    }
-    catch (Exception e)
-    {
+    } catch (Exception e) {
       e.printStackTrace();
       System.exit(1);
     }
     System.out.println("finished loading");
-
   }
-
 }

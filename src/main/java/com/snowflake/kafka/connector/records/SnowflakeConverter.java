@@ -17,44 +17,30 @@
 package com.snowflake.kafka.connector.records;
 
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
-    .ObjectMapper;
+import java.util.Map;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.storage.Converter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
-
-
-/**
- * Snowflake Converter
- */
-public abstract class SnowflakeConverter implements Converter
-{
+/** Snowflake Converter */
+public abstract class SnowflakeConverter implements Converter {
 
   protected static final Logger LOGGER =
       LoggerFactory.getLogger(SnowflakeConverter.class.getName());
 
   final ObjectMapper mapper = new ObjectMapper();
 
-  /**
-   * unused
-   */
+  /** unused */
   @Override
-  public void configure(final Map<String, ?> map, final boolean b)
-  {
-    //not necessary
+  public void configure(final Map<String, ?> map, final boolean b) {
+    // not necessary
   }
 
-  /**
-   * doesn't support data source connector
-   */
+  /** doesn't support data source connector */
   @Override
-  public byte[] fromConnectData(final String s, final Schema schema, final
-  Object o)
-  {
+  public byte[] fromConnectData(final String s, final Schema schema, final Object o) {
     throw SnowflakeErrors.ERROR_5002.getException();
   }
-
 }

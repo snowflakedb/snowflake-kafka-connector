@@ -16,88 +16,73 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import java.util.List;
+import java.util.Map;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 
-import java.util.List;
-import java.util.Map;
-
-/**
- * Snowflake json schema
- */
-public class SnowflakeJsonSchema implements Schema
-{
+/** Snowflake json schema */
+public class SnowflakeJsonSchema implements Schema {
   static String NAME = "SNOWFLAKE_JSON_SCHEMA";
   static int VERSION = 1;
+
   @Override
-  public Type type()
-  {
+  public Type type() {
     return Type.STRUCT;
   }
 
   @Override
-  public boolean isOptional()
-  {
+  public boolean isOptional() {
     return false;
   }
 
   @Override
-  public Object defaultValue()
-  {
+  public Object defaultValue() {
     return null;
   }
 
   @Override
-  public String name()
-  {
+  public String name() {
     return NAME;
   }
 
   @Override
-  public Integer version()
-  {
+  public Integer version() {
     return VERSION;
   }
 
   @Override
-  public String doc()
-  {
+  public String doc() {
     return null;
   }
 
   @Override
-  public Map<String, String> parameters()
-  {
+  public Map<String, String> parameters() {
     return null;
   }
 
   @Override
-  public Schema keySchema()
-  {
+  public Schema keySchema() {
     return null;
   }
 
   @Override
-  public Schema valueSchema()
-  {
+  public Schema valueSchema() {
     return null;
   }
 
   @Override
-  public List<Field> fields()
-  {
+  public List<Field> fields() {
     return null;
   }
 
   @Override
-  public Field field(final String s)
-  {
+  public Field field(final String s) {
     return null;
   }
 
   @Override
-  public Schema schema()
-  {
+  public Schema schema() {
     return null;
   }
 }
