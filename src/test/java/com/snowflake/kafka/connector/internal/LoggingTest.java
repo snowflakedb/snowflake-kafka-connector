@@ -18,47 +18,59 @@ package com.snowflake.kafka.connector.internal;
 
 import org.junit.Test;
 
-public class LoggingTest
-{
+public class LoggingTest {
   @Test
-  public void testLogMessageGenerator()
-  {
-    //no variable
+  public void testLogMessageGenerator() {
+    // no variable
     String expected = "\n" + Logging.SF_LOG_TAG + " test message";
 
     assert Logging.logMessage("test message").equals(expected);
 
-    //1 variable
+    // 1 variable
     expected = "\n" + Logging.SF_LOG_TAG + " 1 test message";
 
     assert Logging.logMessage("{} test message", 1).equals(expected);
 
-    //2 variables
-    expected = "\n" + Logging.SF_LOG_TAG + " 1 test message\n" + Logging
-        .SF_LOG_TAG + " 2 test message";
+    // 2 variables
+    expected =
+        "\n" + Logging.SF_LOG_TAG + " 1 test message\n" + Logging.SF_LOG_TAG + " 2 test message";
 
-    assert Logging.logMessage("{} test message\n{} test message", 1, 2).equals
-        (expected);
+    assert Logging.logMessage("{} test message\n{} test message", 1, 2).equals(expected);
 
-    //3 variables
-    expected = "\n" + Logging.SF_LOG_TAG + " 1 test message\n" + Logging
-        .SF_LOG_TAG + " 2 test message\n" + Logging.SF_LOG_TAG + " 3 test " +
-        "message";
+    // 3 variables
+    expected =
+        "\n"
+            + Logging.SF_LOG_TAG
+            + " 1 test message\n"
+            + Logging.SF_LOG_TAG
+            + " 2 test message\n"
+            + Logging.SF_LOG_TAG
+            + " 3 test "
+            + "message";
 
-    assert Logging.logMessage("{} test message\n{} test message\n{} test " +
-        "message", 1, 2, 3).equals(expected);
+    assert Logging.logMessage("{} test message\n{} test message\n{} test " + "message", 1, 2, 3)
+        .equals(expected);
 
-    //4 variables
-    expected = "\n" + Logging.SF_LOG_TAG + " 1 test message\n" + Logging
-        .SF_LOG_TAG + " 2 test message\n" + Logging.SF_LOG_TAG + " 3 test " +
-        "message\n" + Logging.SF_LOG_TAG + " 4 test message";
+    // 4 variables
+    expected =
+        "\n"
+            + Logging.SF_LOG_TAG
+            + " 1 test message\n"
+            + Logging.SF_LOG_TAG
+            + " 2 test message\n"
+            + Logging.SF_LOG_TAG
+            + " 3 test "
+            + "message\n"
+            + Logging.SF_LOG_TAG
+            + " 4 test message";
 
-    assert Logging.logMessage("{} test message\n{} test message\n{} test " +
-        "message\n{} test message", 1, 2, 3, 4).equals(expected);
+    assert Logging.logMessage(
+            "{} test message\n{} test message\n{} test " + "message\n{} test message", 1, 2, 3, 4)
+        .equals(expected);
 
     // nulls
     expected = "\n" + Logging.SF_LOG_TAG + " null test message";
-    assert Logging.logMessage("{} test message",  (String) null).equals(expected);
+    assert Logging.logMessage("{} test message", (String) null).equals(expected);
 
     expected = "\n" + Logging.SF_LOG_TAG + " some string test null message null";
     assert Logging.logMessage("{} test {} message {}", "some string", null, null).equals(expected);

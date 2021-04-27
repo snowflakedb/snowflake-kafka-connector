@@ -2,36 +2,30 @@ package com.snowflake.kafka.connector.internal;
 
 import java.sql.Connection;
 
-class SnowflakeTelemetryServiceFactory
-{
+class SnowflakeTelemetryServiceFactory {
 
-  static SnowflakeTelemetryServiceBuilder builder(Connection conn)
-  {
+  static SnowflakeTelemetryServiceBuilder builder(Connection conn) {
     return new SnowflakeTelemetryServiceBuilder(conn);
   }
 
-  static class SnowflakeTelemetryServiceBuilder extends Logging
-  {
+  static class SnowflakeTelemetryServiceBuilder extends Logging {
     private final SnowflakeTelemetryService service;
-    SnowflakeTelemetryServiceBuilder(Connection conn)
-    {
+
+    SnowflakeTelemetryServiceBuilder(Connection conn) {
       this.service = new SnowflakeTelemetryServiceV1(conn);
     }
 
-    SnowflakeTelemetryServiceBuilder setAppName(String name)
-    {
+    SnowflakeTelemetryServiceBuilder setAppName(String name) {
       this.service.setAppName(name);
       return this;
     }
 
-    SnowflakeTelemetryServiceBuilder setTaskID(String taskID)
-    {
+    SnowflakeTelemetryServiceBuilder setTaskID(String taskID) {
       this.service.setTaskID(taskID);
       return this;
     }
 
-    SnowflakeTelemetryService build()
-    {
+    SnowflakeTelemetryService build() {
       return this.service;
     }
   }
