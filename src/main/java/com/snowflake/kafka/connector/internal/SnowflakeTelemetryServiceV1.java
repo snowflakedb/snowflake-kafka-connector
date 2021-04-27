@@ -1,26 +1,19 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
+import java.sql.Connection;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import net.snowflake.client.jdbc.telemetry.Telemetry;
 import net.snowflake.client.jdbc.telemetry.TelemetryClient;
-import net.snowflake.client.jdbc.telemetry.TelemetryData;
 import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
 import org.apache.kafka.common.utils.AppInfoParser;
 
-import java.sql.Connection;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-
-public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTelemetryService
-{
+public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTelemetryService {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  //constant string list
+  // constant string list
   private static final String SOURCE = "source";
   private static final String TYPE = "type";
   private static final String KAFKA_CONNECTOR = "kafka_connector";
@@ -36,30 +29,25 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   private static final String KAFKA_VERSION = "kafka_version";
   private static final String IS_PIPE_CLOSING = "is_pipe_closing";
 
-
   private final Telemetry telemetry;
   private String name = null;
   private String taskID = null;
 
-  SnowflakeTelemetryServiceV1(Connection conn)
-  {
+  SnowflakeTelemetryServiceV1(Connection conn) {
     this.telemetry = TelemetryClient.createTelemetry(conn);
   }
 
   @Override
-  public void setAppName(final String name)
-  {
+  public void setAppName(final String name) {
     this.name = name;
   }
 
   @Override
-  public void setTaskID(final String taskID)
-  {
+  public void setTaskID(final String taskID) {
     this.taskID = taskID;
   }
 
-  private ObjectNode getObjectNode()
-  {
+  private ObjectNode getObjectNode() {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(APP_NAME, getAppName());
     msg.put(TASK_ID, getTaskID());
@@ -67,8 +55,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaStart(final long startTime, final int maxTasks)
-  {
+  public void reportKafkaStart(final long startTime, final int maxTasks) {
     ObjectNode msg = getObjectNode();
 
     msg.put(START_TIME, startTime);
@@ -79,8 +66,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaStop(final long startTime)
-  {
+  public void reportKafkaStop(final long startTime) {
     ObjectNode msg = getObjectNode();
 
     msg.put(START_TIME, startTime);
@@ -90,8 +76,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaFatalError(final String errorDetail)
-  {
+  public void reportKafkaFatalError(final String errorDetail) {
     ObjectNode msg = getObjectNode();
 
     msg.put(TIME, System.currentTimeMillis());
@@ -101,10 +86,9 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaPipeUsage(final SnowflakeTelemetryPipeStatus pipeStatus, boolean isClosing)
-  {
-    if (pipeStatus.empty())
-    {
+  public void reportKafkaPipeUsage(
+      final SnowflakeTelemetryPipeStatus pipeStatus, boolean isClosing) {
+    if (pipeStatus.empty()) {
       return;
     }
     ObjectNode msg = getObjectNode();
@@ -116,8 +100,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaPipeStart(final SnowflakeTelemetryPipeCreation pipeCreation)
-  {
+  public void reportKafkaPipeStart(final SnowflakeTelemetryPipeCreation pipeCreation) {
     ObjectNode msg = getObjectNode();
 
     pipeCreation.dumpTo(msg);
@@ -125,46 +108,38 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
     send(TelemetryType.KAFKA_PIPE_START, msg);
   }
 
-  private void send(TelemetryType type, JsonNode data)
-  {
+  private void send(TelemetryType type, JsonNode data) {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(SOURCE, KAFKA_CONNECTOR);
     msg.put(TYPE, type.toString());
     msg.set(DATA, data);
-    msg.put(VERSION, Utils.VERSION); //version number
-    try
-    {
+    msg.put(VERSION, Utils.VERSION); // version number
+    try {
       telemetry.addLogToBatch(TelemetryUtil.buildJobData(msg));
       logDebug("sending telemetry data: {}", data.toString());
       telemetry.sendBatchAsync();
-    } catch (Exception e)
-    {
+    } catch (Exception e) {
       logError("Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
     }
   }
 
-  private String getAppName()
-  {
-    if (name == null || name.isEmpty())
-    {
+  private String getAppName() {
+    if (name == null || name.isEmpty()) {
       logWarn("appName in telemetry service is empty");
       return "empty_appName";
     }
     return name;
   }
 
-  private String getTaskID()
-  {
-    if (taskID == null || taskID.isEmpty())
-    {
+  private String getTaskID() {
+    if (taskID == null || taskID.isEmpty()) {
       logWarn("taskID in telemetry service is empty");
       return "empty_taskID";
     }
     return taskID;
   }
 
-  private enum TelemetryType
-  {
+  private enum TelemetryType {
     KAFKA_START("kafka_start"),
     KAFKA_STOP("kafka_stop"),
     KAFKA_FATAL_ERROR("kafka_fatal_error"),
@@ -173,14 +148,12 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
 
     private final String name;
 
-    TelemetryType(String name)
-    {
+    TelemetryType(String name) {
       this.name = name;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
       return this.name;
     }
   }

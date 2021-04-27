@@ -5,8 +5,7 @@ import org.junit.Test;
 public class TelemetryUnitTest {
 
   @Test
-  public void testEmptyPipeStatusObject()
-  {
+  public void testEmptyPipeStatusObject() {
     String table = "table";
     String stage = "stage";
     String pipe = "pipe";

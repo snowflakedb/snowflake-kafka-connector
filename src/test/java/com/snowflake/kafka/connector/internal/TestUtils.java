@@ -16,15 +16,10 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.Utils.*;
+
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.Utils;
-import net.snowflake.client.core.HttpUtil;
-import net.snowflake.client.core.SFSessionProperty;
-import net.snowflake.client.jdbc.SnowflakeSQLException;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind
-    .ObjectMapper;
-
 import java.io.File;
 import java.io.IOException;
 import java.security.PrivateKey;
@@ -35,13 +30,14 @@ import java.sql.Statement;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import net.snowflake.client.core.HttpUtil;
+import net.snowflake.client.core.SFSessionProperty;
+import net.snowflake.client.jdbc.SnowflakeSQLException;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 
-import static com.snowflake.kafka.connector.Utils.*;
-
-
-public class TestUtils
-{
-  //test profile properties
+public class TestUtils {
+  // test profile properties
   private static final String USER = "user";
   private static final String DATABASE = "database";
   private static final String SCHEMA = "schema";
@@ -52,14 +48,14 @@ public class TestUtils
   private static final String PRIVATE_KEY_PASSPHRASE = "private_key_passphrase";
   private static final Random random = new Random();
   private static final String DES_RSA_KEY = "des_rsa_key";
-  public final static String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
-  private static final Pattern BROKEN_RECORD_PATTERN = Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(key|value)_(\\d+)\\.gz$");
+  public static final String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
+  private static final Pattern BROKEN_RECORD_PATTERN =
+      Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(key|value)_(\\d+)\\.gz$");
 
+  // profile path
+  private static final String PROFILE_PATH = "profile.json";
 
-  //profile path
-  private final static String PROFILE_PATH = "profile.json";
-
-  private final static ObjectMapper mapper = new ObjectMapper();
+  private static final ObjectMapper mapper = new ObjectMapper();
 
   private static Connection conn = null;
 
@@ -69,27 +65,19 @@ public class TestUtils
 
   private static JsonNode profile = null;
 
-
-  private static JsonNode getProfile()
-  {
-    if (profile == null)
-    {
-      try
-      {
+  private static JsonNode getProfile() {
+    if (profile == null) {
+      try {
         profile = mapper.readTree(new File(PROFILE_PATH));
-      } catch (IOException e)
-      {
+      } catch (IOException e) {
         throw new RuntimeException(e);
       }
     }
     return profile;
   }
 
-  /**
-   * load all login info from profile
-   */
-  private static void init()
-  {
+  /** load all login info from profile */
+  private static void init() {
     conf = new HashMap<>();
 
     conf.put(Utils.SF_USER, getProfile().get(USER).asText());
@@ -101,31 +89,28 @@ public class TestUtils
 
     conf.put(Utils.NAME, TEST_CONNECTOR_NAME);
 
-    //enable test query mark
+    // enable test query mark
     conf.put(Utils.TASK_ID, "");
   }
 
-  static String getEncryptedPrivateKey()
-  {
+  static String getEncryptedPrivateKey() {
     return getProfile().get(ENCRYPTED_PRIVATE_KEY).asText();
   }
 
-  static String getPrivateKeyPassphrase()
-  {
+  static String getPrivateKeyPassphrase() {
     return getProfile().get(PRIVATE_KEY_PASSPHRASE).asText();
   }
 
   /**
    * read private key string from test profile
+   *
    * @return a string value represents private key
    */
-  public static String getKeyString()
-  {
+  public static String getKeyString() {
     return getConf().get(Utils.SF_PRIVATE_KEY);
   }
 
-  public static PrivateKey getPrivateKey()
-  {
+  public static PrivateKey getPrivateKey() {
     return InternalUtils.parsePrivateKey(TestUtils.getKeyString());
   }
 
@@ -135,10 +120,8 @@ public class TestUtils
    * @return jdbc connection
    * @throws Exception when meeting error
    */
-  private static Connection getConnection() throws Exception
-  {
-    if (conn != null)
-    {
+  private static Connection getConnection() throws Exception {
+    if (conn != null) {
       return conn;
     }
 
@@ -156,26 +139,19 @@ public class TestUtils
    *
    * @return a map of parameters
    */
-  public static Map<String, String> getConf()
-  {
-    if (conf == null)
-    {
+  public static Map<String, String> getConf() {
+    if (conf == null) {
       init();
     }
     return new HashMap<>(conf);
   }
 
-  /**
-   *
-   * @return JDBC config with encrypted private key
-   */
-  static Map<String, String> getConfWithEncryptedKey()
-  {
-    if (conf == null)
-    {
+  /** @return JDBC config with encrypted private key */
+  static Map<String, String> getConfWithEncryptedKey() {
+    if (conf == null) {
       init();
     }
-    Map<String, String> config =  new HashMap<>(conf);
+    Map<String, String> config = new HashMap<>(conf);
 
     config.remove(Utils.SF_PRIVATE_KEY);
     config.put(Utils.SF_PRIVATE_KEY, getEncryptedPrivateKey());
@@ -190,16 +166,13 @@ public class TestUtils
    * @param query sql query string
    * @return result set
    */
-  static ResultSet executeQuery(String query)
-  {
-    try
-    {
+  static ResultSet executeQuery(String query) {
+    try {
       Statement statement = getConnection().createStatement();
       return statement.executeQuery(query);
     }
-    //if ANY exceptions occur, an illegal state has been reached
-    catch (Exception e)
-    {
+    // if ANY exceptions occur, an illegal state has been reached
+    catch (Exception e) {
       throw new IllegalStateException(e);
     }
   }
@@ -209,25 +182,20 @@ public class TestUtils
    *
    * @param tableName table name
    */
-  public static void dropTable(String tableName)
-  {
+  public static void dropTable(String tableName) {
     String query = "drop table if exists " + tableName;
 
     executeQuery(query);
   }
 
-  /**
-   * Select * from table
-   */
-  static ResultSet showTable(String tableName)
-  {
+  /** Select * from table */
+  static ResultSet showTable(String tableName) {
     String query = "select * from " + tableName;
 
     return executeQuery(query);
   }
 
-  static String getDesRsaKey()
-  {
+  static String getDesRsaKey() {
     return getProfile().get(DES_RSA_KEY).asText();
   }
 
@@ -237,34 +205,24 @@ public class TestUtils
    * @param objectName e.g. table, stage, pipe
    * @return kafka_connector_test_objectName_randomNum
    */
-  private static String randomName(String objectName)
-  {
+  private static String randomName(String objectName) {
     long num = random.nextLong();
     num = num < 0 ? (num + 1) * (-1) : num;
     return "kafka_connector_test_" + objectName + "_" + num;
   }
 
-  /**
-   * @return a random table name
-   */
-  public static String randomTableName()
-  {
+  /** @return a random table name */
+  public static String randomTableName() {
     return randomName("table");
   }
 
-  /**
-   * @return a random stage name
-   */
-  public static String randomStageName()
-  {
+  /** @return a random stage name */
+  public static String randomStageName() {
     return randomName("stage");
   }
 
-  /**
-   * @return a random pipe name
-   */
-  public static String randomPipeName()
-  {
+  /** @return a random pipe name */
+  public static String randomPipeName() {
     return randomName("pipe");
   }
 
@@ -274,17 +232,14 @@ public class TestUtils
    * @param name property name
    * @return property value
    */
-  private static String get(String name)
-  {
+  private static String get(String name) {
     Map<String, String> properties = getConf();
 
     return properties.get(name);
   }
 
-  static SnowflakeURL getUrl()
-  {
-    if (url == null)
-    {
+  static SnowflakeURL getUrl() {
+    if (url == null) {
       url = new SnowflakeURL(get(Utils.SF_URL));
     }
     return url;
@@ -292,30 +247,22 @@ public class TestUtils
 
   /**
    * Check Snowflake Error Code in test
+   *
    * @param error Snowflake error
    * @param func function throwing exception
    * @return true is error code is correct, otherwise, false
    */
-  public static boolean assertError(SnowflakeErrors error, Runnable func)
-  {
-    try
-    {
+  public static boolean assertError(SnowflakeErrors error, Runnable func) {
+    try {
       func.run();
-    }
-    catch (SnowflakeKafkaConnectorException e)
-    {
+    } catch (SnowflakeKafkaConnectorException e) {
       return e.checkErrorCode(error);
     }
     return false;
   }
 
-
-  /**
-   *
-   * @return snowflake connection for test
-   */
-  public static SnowflakeConnectionService getConnectionService()
-  {
+  /** @return snowflake connection for test */
+  public static SnowflakeConnectionService getConnectionService() {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
   }
 
@@ -327,10 +274,10 @@ public class TestUtils
     return SnowflakeConnectionServiceFactory.builder().setProperties(configuration).build();
   }
 
-  /** 
-   * Reset proxy parameters in JDBC.
-   * JDBC's useProxy parameter is static member, needs to be reset after every test run.
-   * i.e needs to run after every new connection is set which modifies the proxy parameter.
+  /**
+   * Reset proxy parameters in JDBC. JDBC's useProxy parameter is static member, needs to be reset
+   * after every test run. i.e needs to run after every new connection is set which modifies the
+   * proxy parameter.
    */
   public static void resetProxyParametersInJDBC() throws SnowflakeSQLException {
     Map<SFSessionProperty, Object> resetProxy = new EnumMap(SFSessionProperty.class);
@@ -339,8 +286,8 @@ public class TestUtils
   }
 
   /**
-   * Reset proxy parameters in JVM which is enabled during starting a sink Task.
-   * Call this if your test/code executes the Utils.enableJVMProxy function
+   * Reset proxy parameters in JVM which is enabled during starting a sink Task. Call this if your
+   * test/code executes the Utils.enableJVMProxy function
    */
   public static void resetProxyParametersInJVM() {
     System.setProperty(HTTP_USE_PROXY, "");
@@ -357,21 +304,18 @@ public class TestUtils
     System.setProperty(HTTPS_PROXY_PASSWORD, "");
   }
 
-
-
   /**
    * retrieve table size from snowflake
+   *
    * @param tableName table name
    * @return size of table
    * @throws SQLException if meet connection issue
    */
-  static int tableSize(String tableName) throws SQLException
-  {
+  static int tableSize(String tableName) throws SQLException {
     String query = "show tables like '" + tableName + "'";
     ResultSet result = executeQuery(query);
 
-    if(result.next())
-    {
+    if (result.next()) {
       return result.getInt("rows");
     }
 
@@ -380,71 +324,65 @@ public class TestUtils
 
   /**
    * verify broken record file name is valid
+   *
    * @param name file name
    * @return true is file name is valid, false otherwise
    */
-  static boolean verifyBrokenRecordName(String name)
-  {
+  static boolean verifyBrokenRecordName(String name) {
     return BROKEN_RECORD_PATTERN.matcher(name).find();
   }
 
   /**
    * read partition number from broken record file
+   *
    * @param name file name
    * @return partition number
    */
-  static int getPartitionFromBrokenFileName(String name)
-  {
-    return  Integer.parseInt(readFromBrokenFileName(name, 1));
+  static int getPartitionFromBrokenFileName(String name) {
+    return Integer.parseInt(readFromBrokenFileName(name, 1));
   }
 
   /**
    * read offset from broken record file
+   *
    * @param name file name
    * @return offset
    */
-  static long getOffsetFromBrokenFileName(String name)
-  {
-    return  Long.parseLong(readFromBrokenFileName(name, 2));
+  static long getOffsetFromBrokenFileName(String name) {
+    return Long.parseLong(readFromBrokenFileName(name, 2));
   }
 
   /**
    * Extract info from broken record file
+   *
    * @param name file name
    * @param index group index
    * @return target info
    */
-  private static String readFromBrokenFileName(String name, int index)
-  {
+  private static String readFromBrokenFileName(String name, int index) {
     Matcher matcher = BROKEN_RECORD_PATTERN.matcher(name);
-    if(!matcher.find())
-    {
+    if (!matcher.find()) {
       throw SnowflakeErrors.ERROR_0008.getException(("Input file name: " + name));
     }
     return matcher.group(index);
   }
 
-  /**
-   * Interface to define the lambda function to be used by assertWithRetry
-   */
-  interface AssertFunction
-  {
+  /** Interface to define the lambda function to be used by assertWithRetry */
+  interface AssertFunction {
     boolean operate() throws Exception;
   }
 
   /**
    * Assert with sleep and retry logic
+   *
    * @param func the lambda function to be asserted defined by interface AssertFunction
    * @param intervalSec retry time interval in seconds
    * @param maxRetry max retry times
    */
-  static void assertWithRetry(AssertFunction func, int intervalSec, int maxRetry) throws Exception
-  {
+  static void assertWithRetry(AssertFunction func, int intervalSec, int maxRetry) throws Exception {
     int iteration = 1;
-    while (! func.operate())
-    {
-      if (iteration > maxRetry)
-      {
+    while (!func.operate()) {
+      if (iteration > maxRetry) {
         throw new InterruptedException("Max retry exceeded");
       }
       Thread.sleep(intervalSec * 1000);
@@ -452,4 +390,3 @@ public class TestUtils
     }
   }
 }
-

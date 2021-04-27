@@ -1,24 +1,24 @@
 package com.snowflake.kafka.connector.internal;
 
-import java.util.List;
-
-public interface SnowflakeTelemetryService
-{
+public interface SnowflakeTelemetryService {
 
   /**
    * set app name
+   *
    * @param name app name
    */
   void setAppName(String name);
 
   /**
    * set task id
+   *
    * @param taskID task id
    */
   void setTaskID(String taskID);
 
   /**
    * Event of connector start
+   *
    * @param startTime task start time
    * @param maxTasks max number of tasks
    */
@@ -41,15 +41,15 @@ public interface SnowflakeTelemetryService
   /**
    * report connector pipe status
    *
-   * @param pipeStatus   SnowflakePipeStatus object
-   * @param isClosing    is the pipe closing
+   * @param pipeStatus SnowflakePipeStatus object
+   * @param isClosing is the pipe closing
    */
   void reportKafkaPipeUsage(final SnowflakeTelemetryPipeStatus pipeStatus, boolean isClosing);
 
   /**
    * report connector pipe start
    *
-   * @param objectCreation   SnowflakeObjectCreation object
+   * @param objectCreation SnowflakeObjectCreation object
    */
   void reportKafkaPipeStart(final SnowflakeTelemetryPipeCreation objectCreation);
 }

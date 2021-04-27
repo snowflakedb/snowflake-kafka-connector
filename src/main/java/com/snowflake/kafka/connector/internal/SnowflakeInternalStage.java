@@ -1,20 +1,18 @@
 package com.snowflake.kafka.connector.internal;
 
-import net.snowflake.client.core.OCSPMode;
-import net.snowflake.client.core.SFStatement;
-import net.snowflake.client.jdbc.*;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import net.snowflake.client.core.OCSPMode;
+import net.snowflake.client.core.SFStatement;
+import net.snowflake.client.jdbc.SnowflakeConnectionV1;
+import net.snowflake.client.jdbc.SnowflakeFileTransferAgent;
+import net.snowflake.client.jdbc.SnowflakeFileTransferConfig;
+import net.snowflake.client.jdbc.SnowflakeFileTransferMetadataV1;
+import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 
 public class SnowflakeInternalStage extends Logging {
 
@@ -22,17 +20,19 @@ public class SnowflakeInternalStage extends Logging {
     SnowflakeFileTransferMetadataV1 fileTransferMetadata;
     long timestamp;
 
-    SnowflakeMetadataWithExpiration(SnowflakeFileTransferMetadataV1 fileTransferMetadata, long timestamp)
-    {
+    SnowflakeMetadataWithExpiration(
+        SnowflakeFileTransferMetadataV1 fileTransferMetadata, long timestamp) {
       this.fileTransferMetadata = fileTransferMetadata;
       this.timestamp = timestamp;
     }
   }
 
   // Any operation on the map should be atomic
-  private final ConcurrentMap<String, SnowflakeMetadataWithExpiration> storageInfoCache = new ConcurrentHashMap<>();
+  private final ConcurrentMap<String, SnowflakeMetadataWithExpiration> storageInfoCache =
+      new ConcurrentHashMap<>();
 
-  public static String dummyPutCommandTemplate = "PUT file:///tmp/dummy_location_kakfa_connector_tmp/ @";
+  public static String dummyPutCommandTemplate =
+      "PUT file:///tmp/dummy_location_kakfa_connector_tmp/ @";
   private final SnowflakeConnectionV1 conn;
   private final long expirationTime;
   // Proxy parameters that we set while calling the snowflake JDBC.
@@ -40,8 +40,8 @@ public class SnowflakeInternalStage extends Logging {
   // It may not necessarily just contain proxy parameters, JDBC client filters all other properties.
   private final Properties proxyProperties;
 
-  public SnowflakeInternalStage(SnowflakeConnectionV1 conn, long expirationTime, Properties proxyProperties)
-  {
+  public SnowflakeInternalStage(
+      SnowflakeConnectionV1 conn, long expirationTime, Properties proxyProperties) {
     this.conn = conn;
     this.expirationTime = expirationTime;
     this.proxyProperties = proxyProperties;
@@ -49,58 +49,50 @@ public class SnowflakeInternalStage extends Logging {
 
   /**
    * Get the backend stage type, S3, Azure or GCS. Involves one GS call.
+   *
    * @param stage name of the stage
    * @return stage type
    */
-  public StageInfo.StageType getStageType(String stage)
-  {
+  public StageInfo.StageType getStageType(String stage) {
     try {
       String command = dummyPutCommandTemplate + stage;
-      SnowflakeFileTransferAgent agent = new SnowflakeFileTransferAgent(
-        command,
-        conn.getSfSession(),
-        new SFStatement(conn.getSfSession())
-      );
+      SnowflakeFileTransferAgent agent =
+          new SnowflakeFileTransferAgent(
+              command, conn.getSfSession(), new SFStatement(conn.getSfSession()));
       return agent.getStageInfo().getStageType();
-    } catch (Exception e)
-    {
+    } catch (Exception e) {
       throw SnowflakeErrors.ERROR_5019.getException(e);
     }
   }
 
   /**
-   * Upload file to internal stage with previously cached credentials. Refresh credential every 30 minutes
-   * @param stage        Stage name
+   * Upload file to internal stage with previously cached credentials. Refresh credential every 30
+   * minutes
+   *
+   * @param stage Stage name
    * @param fullFilePath Full file name to be uploaded
-   * @param data         Data string to be uploaded
+   * @param data Data string to be uploaded
    */
-  public void putWithCache(String stage, String fullFilePath, String data)
-  {
+  public void putWithCache(String stage, String fullFilePath, String data) {
     String command = dummyPutCommandTemplate + stage;
 
-    try
-    {
+    try {
       SnowflakeMetadataWithExpiration credential = storageInfoCache.getOrDefault(stage, null);
-      if (!isCredentialValid(credential))
-      {
+      if (!isCredentialValid(credential)) {
         logDebug("Query credential for stage:{}, filePath:{}", stage, fullFilePath);
-        SnowflakeFileTransferAgent agent = new SnowflakeFileTransferAgent(
-          command,
-          conn.getSfSession(),
-          new SFStatement(conn.getSfSession())
-        );
+        SnowflakeFileTransferAgent agent =
+            new SnowflakeFileTransferAgent(
+                command, conn.getSfSession(), new SFStatement(conn.getSfSession()));
         // If the backend is not GCP, we cache the credential. Otherwise throw error.
         // transfer metadata list must only have one element
         SnowflakeFileTransferMetadataV1 fileTransferMetadata =
-          (SnowflakeFileTransferMetadataV1) agent.getFileTransferMetadatas().get(0);
-        if (fileTransferMetadata.getStageInfo().getStageType() != StageInfo.StageType.GCS)
-        {
+            (SnowflakeFileTransferMetadataV1) agent.getFileTransferMetadatas().get(0);
+        if (fileTransferMetadata.getStageInfo().getStageType() != StageInfo.StageType.GCS) {
           // Overwrite the credential to be used
-          credential = new SnowflakeMetadataWithExpiration(fileTransferMetadata, System.currentTimeMillis());
+          credential =
+              new SnowflakeMetadataWithExpiration(fileTransferMetadata, System.currentTimeMillis());
           storageInfoCache.put(stage, credential);
-        }
-        else
-        {
+        } else {
           throw SnowflakeErrors.ERROR_5017.getException();
         }
       }
@@ -116,15 +108,14 @@ public class SnowflakeInternalStage extends Logging {
       // Need to prevent passing expired credential to it.
       try {
         SnowflakeFileTransferAgent.uploadWithoutConnection(
-          SnowflakeFileTransferConfig.Builder.newInstance()
-            .setSnowflakeFileTransferMetadata(fileTransferMetadata)
-            .setUploadStream(inStream)
-            .setRequireCompress(true)
-            .setOcspMode(OCSPMode.FAIL_OPEN)
-            .setProxyProperties(proxyProperties)
-            .build());
-      } catch (Throwable t)
-      {
+            SnowflakeFileTransferConfig.Builder.newInstance()
+                .setSnowflakeFileTransferMetadata(fileTransferMetadata)
+                .setUploadStream(inStream)
+                .setRequireCompress(true)
+                .setOcspMode(OCSPMode.FAIL_OPEN)
+                .setProxyProperties(proxyProperties)
+                .build());
+      } catch (Throwable t) {
         // If this api encounters error, invalid the cached credentials
         // Caller will retry this function
         logWarn("uploadWithoutConnection encountered an error for fileName:{}", fullFilePath);
@@ -132,17 +123,14 @@ public class SnowflakeInternalStage extends Logging {
         throw t;
       }
 
-    } catch (Exception e)
-    {
+    } catch (Exception e) {
       logWarn("Caught exception in putWithCache for fileName:{}", e.getMessage(), fullFilePath);
       throw SnowflakeErrors.ERROR_5018.getException(e);
     }
   }
 
-  private boolean isCredentialValid(SnowflakeMetadataWithExpiration credential)
-  {
+  private boolean isCredentialValid(SnowflakeMetadataWithExpiration credential) {
     // Kay is cached and not expired
-    return credential != null &&
-          System.currentTimeMillis() - credential.timestamp < expirationTime;
+    return credential != null && System.currentTimeMillis() - credential.timestamp < expirationTime;
   }
 }

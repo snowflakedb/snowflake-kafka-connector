@@ -18,6 +18,8 @@ package com.snowflake.kafka.connector.records;
 
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import java.io.IOException;
+import java.util.ArrayList;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.SeekableByteArrayInput;
@@ -26,11 +28,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.kafka.connect.data.SchemaAndValue;
 
-import java.io.IOException;
-import java.util.ArrayList;
-
-public class SnowflakeAvroConverterWithoutSchemaRegistry extends SnowflakeConverter
-{
+public class SnowflakeAvroConverterWithoutSchemaRegistry extends SnowflakeConverter {
   /**
    * Parse Avro record without schema
    *
@@ -39,66 +37,54 @@ public class SnowflakeAvroConverterWithoutSchemaRegistry extends SnowflakeConver
    * @return Json Array
    */
   @Override
-  public SchemaAndValue toConnectData(final String topic, final byte[] value)
-  {
-    if(value == null)
-    {
+  public SchemaAndValue toConnectData(final String topic, final byte[] value) {
+    if (value == null) {
       return new SchemaAndValue(new SnowflakeJsonSchema(), new SnowflakeRecordContent());
     }
-    try
-    {
-      //avro input parser
+    try {
+      // avro input parser
       DatumReader<GenericRecord> datumReader = new GenericDatumReader<>();
       DataFileReader<GenericRecord> dataFileReader;
 
-      try
-      {
-        dataFileReader = new DataFileReader<>(new SeekableByteArrayInput(value),
-          datumReader);
-      } catch (Exception e)
-      {
-        throw SnowflakeErrors.ERROR_0010.getException("Failed to parse AVRO " +
-          "record\n" + e.getMessage());
+      try {
+        dataFileReader = new DataFileReader<>(new SeekableByteArrayInput(value), datumReader);
+      } catch (Exception e) {
+        throw SnowflakeErrors.ERROR_0010.getException(
+            "Failed to parse AVRO " + "record\n" + e.getMessage());
       }
 
       ArrayList<JsonNode> buffer = new ArrayList<>();
-      while (dataFileReader.hasNext())
-      {
+      while (dataFileReader.hasNext()) {
         String jsonString = dataFileReader.next().toString();
-        try
-        {
+        try {
           buffer.add(mapper.readTree(jsonString));
-        } catch (IOException e)
-        {
-          throw SnowflakeErrors.ERROR_0010.getException("Failed to parse JSON" +
-            " " +
-            "record\nInput String: " + jsonString + "\n" + e.getMessage());
-
+        } catch (IOException e) {
+          throw SnowflakeErrors.ERROR_0010.getException(
+              "Failed to parse JSON"
+                  + " "
+                  + "record\nInput String: "
+                  + jsonString
+                  + "\n"
+                  + e.getMessage());
         }
       }
 
       JsonNode[] result = new JsonNode[buffer.size()];
-      for (int i = 0; i < buffer.size(); i++)
-      {
+      for (int i = 0; i < buffer.size(); i++) {
         result[i] = buffer.get(i);
       }
 
-      try
-      {
+      try {
         dataFileReader.close();
-      } catch (IOException e)
-      {
-        throw SnowflakeErrors.ERROR_0010.getException("Failed to parse AVRO " +
-          "record\n" + e.getMessage());
+      } catch (IOException e) {
+        throw SnowflakeErrors.ERROR_0010.getException(
+            "Failed to parse AVRO " + "record\n" + e.getMessage());
       }
 
-      return new SchemaAndValue(new SnowflakeJsonSchema(),
-        new SnowflakeRecordContent(result));
-    } catch (Exception e)
-    {
+      return new SchemaAndValue(new SnowflakeJsonSchema(), new SnowflakeRecordContent(result));
+    } catch (Exception e) {
       LOGGER.error(Logging.logMessage("Failed to parse AVRO record\n" + e.getMessage()));
-      return new SchemaAndValue(new SnowflakeJsonSchema(),
-        new SnowflakeRecordContent(value));
+      return new SchemaAndValue(new SnowflakeJsonSchema(), new SnowflakeRecordContent(value));
     }
   }
 }

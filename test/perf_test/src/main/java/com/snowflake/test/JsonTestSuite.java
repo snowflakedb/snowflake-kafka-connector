@@ -5,16 +5,13 @@ import com.snowflake.producer.Producer;
 import com.snowflake.test.Enums.Tables;
 import com.snowflake.test.Enums.TestCases;
 
-public class JsonTestSuite extends TestBase<String>
-{
+public class JsonTestSuite extends TestBase<String> {
   private final JsonProducer producer;
   private final TestCases testCase;
 
-  public JsonTestSuite(Tables table)
-  {
+  public JsonTestSuite(Tables table) {
     this.producer = new JsonProducer();
-    switch (table)
-    {
+    switch (table) {
       case ONE_G_TABLE:
         this.testCase = TestCases.JSON_ONE_G_TABLE;
         break;
@@ -26,18 +23,15 @@ public class JsonTestSuite extends TestBase<String>
         System.err.println("Unsupport table name: " + table);
         System.exit(1);
     }
-
   }
 
   @Override
-  protected Producer<String> getProducer()
-  {
+  protected Producer<String> getProducer() {
     return producer;
   }
 
   @Override
-  protected TestCases getTestCase()
-  {
+  protected TestCases getTestCase() {
     return testCase;
   }
 }

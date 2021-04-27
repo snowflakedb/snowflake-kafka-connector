@@ -1,9 +1,15 @@
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -13,11 +19,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.*;
-
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
-import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 
 public class SinkTaskIT {
   private String topicName;
@@ -39,8 +40,7 @@ public class SinkTaskIT {
   }
 
   @Test
-  public void testPreCommit()
-  {
+  public void testPreCommit() {
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
     Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
 
@@ -49,8 +49,7 @@ public class SinkTaskIT {
   }
 
   @Test
-  public void testSinkTask() throws Exception
-  {
+  public void testSinkTask() throws Exception {
     Map<String, String> config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
@@ -66,10 +65,18 @@ public class SinkTaskIT {
     ObjectMapper objectMapper = new ObjectMapper();
     Schema snowflakeSchema = new SnowflakeJsonSchema();
     SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
-    for (int i = 0 ; i < BUFFER_COUNT_RECORDS_DEFAULT; ++i)
-    {
-      records.add(new SinkRecord(topicName, partition, snowflakeSchema, content,
-        snowflakeSchema, content, i, System.currentTimeMillis(), TimestampType.CREATE_TIME));
+    for (int i = 0; i < BUFFER_COUNT_RECORDS_DEFAULT; ++i) {
+      records.add(
+          new SinkRecord(
+              topicName,
+              partition,
+              snowflakeSchema,
+              content,
+              snowflakeSchema,
+              content,
+              i,
+              System.currentTimeMillis(),
+              TimestampType.CREATE_TIME));
     }
     sinkTask.put(records);
 
@@ -77,8 +84,17 @@ public class SinkTaskIT {
     String brokenJson = "{ broken json";
     records = new ArrayList<>();
     content = new SnowflakeRecordContent(brokenJson.getBytes());
-    records.add(new SinkRecord(topicName, partition, snowflakeSchema, content,
-      snowflakeSchema, content, 10000, System.currentTimeMillis(), TimestampType.CREATE_TIME));
+    records.add(
+        new SinkRecord(
+            topicName,
+            partition,
+            snowflakeSchema,
+            content,
+            snowflakeSchema,
+            content,
+            10000,
+            System.currentTimeMillis(),
+            TimestampType.CREATE_TIME));
     sinkTask.put(records);
 
     // commit offset
@@ -92,8 +108,7 @@ public class SinkTaskIT {
   }
 
   @Test
-  public void testSinkTaskNegative() throws Exception
-  {
+  public void testSinkTaskNegative() throws Exception {
     Map<String, String> config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
@@ -118,10 +133,18 @@ public class SinkTaskIT {
     ObjectMapper objectMapper = new ObjectMapper();
     Schema snowflakeSchema = new SnowflakeJsonSchema();
     SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
-    for (int i = 0 ; i < BUFFER_COUNT_RECORDS_DEFAULT; ++i)
-    {
-      records.add(new SinkRecord(topicName, partition, snowflakeSchema, content,
-        snowflakeSchema, content, i, System.currentTimeMillis(), TimestampType.CREATE_TIME));
+    for (int i = 0; i < BUFFER_COUNT_RECORDS_DEFAULT; ++i) {
+      records.add(
+          new SinkRecord(
+              topicName,
+              partition,
+              snowflakeSchema,
+              content,
+              snowflakeSchema,
+              content,
+              i,
+              System.currentTimeMillis(),
+              TimestampType.CREATE_TIME));
     }
     sinkTask.put(records);
 
@@ -129,8 +152,17 @@ public class SinkTaskIT {
     String brokenJson = "{ broken json";
     records = new ArrayList<>();
     content = new SnowflakeRecordContent(brokenJson.getBytes());
-    records.add(new SinkRecord(topicName, partition, snowflakeSchema, content,
-      snowflakeSchema, content, 10000, System.currentTimeMillis(), TimestampType.CREATE_TIME));
+    records.add(
+        new SinkRecord(
+            topicName,
+            partition,
+            snowflakeSchema,
+            content,
+            snowflakeSchema,
+            content,
+            10000,
+            System.currentTimeMillis(),
+            TimestampType.CREATE_TIME));
     sinkTask.put(records);
 
     // commit offset

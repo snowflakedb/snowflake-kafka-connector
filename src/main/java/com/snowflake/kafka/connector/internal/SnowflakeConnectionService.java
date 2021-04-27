@@ -3,14 +3,13 @@ package com.snowflake.kafka.connector.internal;
 import java.sql.Connection;
 import java.util.List;
 
-public interface SnowflakeConnectionService
-{
+public interface SnowflakeConnectionService {
   /**
    * Create a table with two variant columns: RECORD_METADATA and RECORD_CONTENT
    *
    * @param tableName a string represents table name
-   * @param overwrite if true, execute "create or replace table" query;
-   *                  otherwise, run "create table if not exists"
+   * @param overwrite if true, execute "create or replace table" query; otherwise, run "create table
+   *     if not exists"
    */
   void createTable(String tableName, boolean overwrite);
 
@@ -24,19 +23,18 @@ public interface SnowflakeConnectionService
   /**
    * create a snowpipe
    *
-   * @param pipeName  pipe name
+   * @param pipeName pipe name
    * @param tableName table name
    * @param stageName stage name
-   * @param overwrite if true, execute "create or replace pipe" statement,
-   *                  otherwise, run "create pipe if not exists"
+   * @param overwrite if true, execute "create or replace pipe" statement, otherwise, run "create
+   *     pipe if not exists"
    */
-  void createPipe(String tableName, String stageName, String pipeName,
-                  boolean overwrite);
+  void createPipe(String tableName, String stageName, String pipeName, boolean overwrite);
 
   /**
    * create a snowpipe if not exists
    *
-   * @param pipeName  pipe name
+   * @param pipeName pipe name
    * @param tableName table name
    * @param stageName stage name
    */
@@ -46,8 +44,8 @@ public interface SnowflakeConnectionService
    * create a stage
    *
    * @param stageName stage name
-   * @param overwrite if true, execute "create or replace stage" statement;
-   *                  otherwise, run "create stage if not exists"
+   * @param overwrite if true, execute "create or replace stage" statement; otherwise, run "create
+   *     stage if not exists"
    */
   void createStage(String stageName, boolean overwrite);
 
@@ -83,12 +81,11 @@ public interface SnowflakeConnectionService
   boolean pipeExist(String pipeName);
 
   /**
-   * Check the given table has correct schema
-   * correct schema: (record_metadata variant, record_content variant)
+   * Check the given table has correct schema correct schema: (record_metadata variant,
+   * record_content variant)
    *
    * @param tableName table name
-   * @return true if schema is correct, false is schema is incorrect or
-   * table does not exist
+   * @return true if schema is correct, false is schema is incorrect or table does not exist
    */
   boolean isTableCompatible(String tableName);
 
@@ -96,19 +93,17 @@ public interface SnowflakeConnectionService
    * Examine all file names matches our pattern
    *
    * @param stageName stage name
-   * @return true is stage is compatible,
-   * false if stage does not exist or file name invalid
+   * @return true is stage is compatible, false if stage does not exist or file name invalid
    */
   boolean isStageCompatible(String stageName);
 
   /**
    * check snowpipe definition
    *
-   * @param pipeName  pipe name
+   * @param pipeName pipe name
    * @param tableName table name
    * @param stageName stage name
-   * @return true if definition is correct, false if it is incorrect
-   * or pipe does not exists
+   * @return true if definition is correct, false if it is incorrect or pipe does not exists
    */
   boolean isPipeCompatible(String tableName, String stageName, String pipeName);
 
@@ -152,7 +147,7 @@ public interface SnowflakeConnectionService
    * purge files from given stage
    *
    * @param stageName stage name
-   * @param files     list of file names
+   * @param files list of file names
    */
   void purgeStage(String stageName, List<String> files);
 
@@ -163,38 +158,34 @@ public interface SnowflakeConnectionService
    *
    * @param stageName stage name
    * @param tableName table name
-   * @param prefix    prefix name
+   * @param prefix prefix name
    */
   void moveToTableStage(String tableName, String stageName, String prefix);
 
   /**
-   * list a stage and return a list of file names contained in given
-   * subdirectory
+   * list a stage and return a list of file names contained in given subdirectory
    *
-   * @param stageName    stage name
-   * @param prefix       prefix name
+   * @param stageName stage name
+   * @param prefix prefix name
    * @param isTableStage true if it is a table stage
-   * @return a list of file names in given subdirectory, file name =
-   * "{prefix}filename"
+   * @return a list of file names in given subdirectory, file name = "{prefix}filename"
    */
   List<String> listStage(String stageName, String prefix, boolean isTableStage);
 
   /**
-   * list a non table stage and return a list of file names contained in given
-   * subdirectory
+   * list a non table stage and return a list of file names contained in given subdirectory
    *
-   * @param stageName    stage name
-   * @param prefix       prefix name
-   * @return a list of file names in given subdirectory, file name =
-   * "{prefix}filename"
+   * @param stageName stage name
+   * @param prefix prefix name
+   * @return a list of file names in given subdirectory, file name = "{prefix}filename"
    */
   List<String> listStage(String stageName, String prefix);
 
   /**
    * put a file to stage
    *
-   * @param fileName  file name
-   * @param content   file content
+   * @param fileName file name
+   * @param content file content
    * @param stageName stage name
    */
   void put(String stageName, String fileName, String content);
@@ -202,50 +193,41 @@ public interface SnowflakeConnectionService
   /**
    * put a file to stage. Cache credential for AWS and Azure storage. Don't cache for GCS.
    *
-   * @param fileName  file name
-   * @param content   file content
+   * @param fileName file name
+   * @param content file content
    * @param stageName stage name
    */
   void putWithCache(final String stageName, final String fileName, final String content);
 
   /**
    * put a file to table stage
+   *
    * @param tableName table name
    * @param fileName file name
    * @param content file content
    */
   void putToTableStage(String tableName, String fileName, byte[] content);
-  /**
-   *
-   * @return telemetry client
-   */
+  /** @return telemetry client */
   SnowflakeTelemetryService getTelemetryClient();
 
-  /**
-   * Close Connection
-   */
+  /** Close Connection */
   void close();
 
-  /**
-   * @return true is connection is closed
-   */
+  /** @return true is connection is closed */
   boolean isClosed();
 
-  /**
-   * @return name of Kafka Connector instance
-   */
+  /** @return name of Kafka Connector instance */
   String getConnectorName();
 
   /**
    * build ingest service instance for given stage and pipe
+   *
    * @param stageName stage name
    * @param pipeName pipe name
    * @return an instance of SnowflakeIngestService
    */
   SnowflakeIngestionService buildIngestService(String stageName, String pipeName);
 
-  /**
-   * @return the raw jdbc connection
-   */
+  /** @return the raw jdbc connection */
   Connection getConnection();
 }

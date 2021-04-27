@@ -3,11 +3,9 @@ package com.snowflake.kafka.connector.records;
 import org.apache.kafka.connect.data.Schema;
 import org.junit.Test;
 
-public class ValueSchemaTest
-{
+public class ValueSchemaTest {
   @Test
-  public void testSnowflakeJsonSchema()
-  {
+  public void testSnowflakeJsonSchema() {
     Schema schema = new SnowflakeJsonSchema();
 
     assert schema.type() == Schema.Type.STRUCT;
