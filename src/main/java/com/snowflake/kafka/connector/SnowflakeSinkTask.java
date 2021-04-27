@@ -33,9 +33,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * SnowflakeSinkTask implements SinkTask for Kafka Connect framework. expects configuration from
- * SnowflakeSinkConnector creates sink service instance takes records loaded from those Kafka
- * partitions, ingests to Snowflake via Sink service
+ * SnowflakeSinkTask implements SinkTask for Kafka Connect framework.
+ *
+ * <p>Expects configuration from SnowflakeSinkConnector
+ *
+ * <p>Creates sink service instance, takes records loaded from those Kafka partitions and ingests to
+ * Snowflake via Sink service
  */
 public class SnowflakeSinkTask extends SinkTask {
   private static final long WAIT_TIME = 5 * 1000; // 5 sec
@@ -180,8 +183,10 @@ public class SnowflakeSinkTask extends SinkTask {
   }
 
   /**
-   * close sink service close all running task because the parameter of open function contains all
-   * partition info but not only the new partition
+   * Closes sink service
+   *
+   * <p>Closes all running task because the parameter of open function contains all partition info
+   * but not only the new partition
    *
    * @param partitions - The list of all partitions that were assigned to the task
    */

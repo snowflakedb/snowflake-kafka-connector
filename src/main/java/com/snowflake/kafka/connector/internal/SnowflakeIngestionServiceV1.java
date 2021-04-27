@@ -10,6 +10,18 @@ import net.snowflake.ingest.connection.HistoryRangeResponse;
 import net.snowflake.ingest.connection.HistoryResponse;
 import net.snowflake.ingest.utils.StagedFileWrapper;
 
+/**
+ * Implementation of Snowpipe API calls. i.e handshake between KC and Snowpipe API's.
+ *
+ * <p>1. ingestFiles
+ *
+ * <p>2. insertReport - Continuous polling
+ *
+ * <p>3. loadHistoryScan - for last 1 hour.
+ *
+ * <p>The difference between above two APIs @see <a
+ * href="https://docs.snowflake.com/en/user-guide/data-load-snowpipe-rest-apis.html">here</a>
+ */
 public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIngestionService {
   private static final long ONE_HOUR = 60 * 60 * 1000;
 
