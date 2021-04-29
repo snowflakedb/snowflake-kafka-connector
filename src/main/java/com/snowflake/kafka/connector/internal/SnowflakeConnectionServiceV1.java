@@ -11,6 +11,7 @@ import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 import net.snowflake.client.jdbc.cloud.storage.StageInfo;
@@ -32,6 +33,8 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   private final SnowflakeInternalStage internalStage;
   private StageInfo.StageType stageType;
 
+  private static final long CREDENTIAL_EXPIRY_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(30);
+
   SnowflakeConnectionServiceV1(
       Properties prop,
       SnowflakeURL url,
@@ -49,7 +52,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_1001.getException(e);
     }
-    long credentialExpireTimeMillis = 30 * 60 * 1000L;
+    long credentialExpireTimeMillis = CREDENTIAL_EXPIRY_TIMEOUT_MILLIS;
     this.internalStage =
         new SnowflakeInternalStage(
             (SnowflakeConnectionV1) this.conn, credentialExpireTimeMillis, proxyProperties);

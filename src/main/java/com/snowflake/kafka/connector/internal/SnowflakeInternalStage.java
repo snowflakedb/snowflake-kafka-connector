@@ -59,6 +59,8 @@ public class SnowflakeInternalStage extends Logging {
   // GCS Put version requires the dummy command to have filename and entire filePath including
   // stageName after "@"
   // For example: PUT file:///fileName @stageName/app/table/partition
+  // Here are all the replacements required until JDBC bug is fixed: SNOW-350676
+  // fileName, stageName and full file path (excluding the fileName)
   public static String dummyPutCommandTemplateGCS = "PUT file:///%s @%s/%s";
 
   // Aws and Azure Put version requires fullFilePath to be set as presignedURL
@@ -122,7 +124,16 @@ public class SnowflakeInternalStage extends Logging {
 
   /**
    * Upload file to internal stage with previously cached credentials. Refresh credential every 30
-   * minutes
+   * minutes for AWS and Azure. We do cache for GCS but we always refresh it for every put(every
+   * file upload)
+   *
+   * <p>If we pass in expired credentials, we will get expired credentials error from cloud.
+   *
+   * <p>JDBC itself should renew the token but looks like that part of the code is not working.
+   * https://github.com/snowflakedb/snowflake-jdbc/blob/master/src/main/java/net/snowflake/client/jdbc/cloud/storage/SnowflakeS3Client.java#L738
+   *
+   * <p>We are already doing a retry for this failure and renew the credentials from our end by
+   * calling tradition put API with connection.
    *
    * @param stageName Stage name
    * @param fullFilePath Full file name to be uploaded
@@ -135,6 +146,7 @@ public class SnowflakeInternalStage extends Logging {
       SnowflakeMetadataWithExpiration credential = storageInfoCache.getOrDefault(stageName, null);
 
       if (!isCredentialValid(credential, stageType)) {
+        // This should always be executed in GCS
         logDebug(
             "Query credential(Refreshing Credentials) for stageName:{}, filePath:{}",
             stageName,
@@ -153,6 +165,7 @@ public class SnowflakeInternalStage extends Logging {
         storageInfoCache.get(stageName).fileTransferMetadata;
     // Set filename to be uploaded
     // This set is not useful in GCS since there is a bug in JDBC which doesnt use destFileName.
+    // TODO: https://snowflakecomputing.atlassian.net/browse/SNOW-350676
     fileTransferMetadata.setPresignedUrlFileName(fullFilePath);
 
     byte[] dataBytes = data.getBytes(StandardCharsets.UTF_8);
@@ -169,6 +182,11 @@ public class SnowflakeInternalStage extends Logging {
               .setOcspMode(OCSPMode.FAIL_OPEN)
               .setProxyProperties(proxyProperties)
               .build());
+      logInfo(
+          "uploadWithoutConnection successful for stageName:{}, filePath:{}",
+          stageName,
+          fullFilePath,
+          fullFilePath);
     } catch (Exception e) {
       // If this api encounters error, invalidate the cached credentials
       // Caller will retry this function
@@ -207,19 +225,8 @@ public class SnowflakeInternalStage extends Logging {
   protected void refreshCredentials(
       final String stageName, final StageInfo.StageType stageType, final String fullFilePath)
       throws SnowflakeSQLException {
-    String putCommandToFetchMetadata;
-    if (stageType == StageInfo.StageType.GCS) {
-      putCommandToFetchMetadata =
-          String.format(
-              dummyPutCommandTemplateGCS,
-              FilenameUtils.getName(fullFilePath), // Gets just the fileName
-              stageName,
-              FilenameUtils.getFullPathNoEndSeparator(
-                  fullFilePath)); // Gets everything leading up to the file
-    } else {
-      // AWS and Azure
-      putCommandToFetchMetadata = String.format(dummyPutCommandTemplateAWSAndAzure, stageName);
-    }
+    String putCommandToFetchMetadata =
+        getDummyPutCommandTemplateForFileTransferMetadata(stageName, stageType, fullFilePath);
 
     // This should always be executed in GCS
     SnowflakeFileTransferAgent agent =
@@ -238,7 +245,25 @@ public class SnowflakeInternalStage extends Logging {
       // Overwrite the credential to be used
       SnowflakeMetadataWithExpiration credential =
           new SnowflakeMetadataWithExpiration(fileTransferMetadata, System.currentTimeMillis());
+      // Caching it here since we require to fetch the credential(Metadata) in the caller function
+      // again.
       storageInfoCache.put(stageName, credential);
+      logDebug("Caching credential successful for stage:{}", stageName);
+    }
+  }
+
+  private String getDummyPutCommandTemplateForFileTransferMetadata(
+      final String stageName, final StageInfo.StageType stageType, final String fullFilePath) {
+    if (stageType == StageInfo.StageType.GCS) {
+      return String.format(
+          dummyPutCommandTemplateGCS,
+          FilenameUtils.getName(fullFilePath), // Gets just the fileName
+          stageName,
+          FilenameUtils.getFullPathNoEndSeparator(
+              fullFilePath)); // Gets everything leading up to the file
+    } else {
+      // AWS and Azure
+      return String.format(dummyPutCommandTemplateAWSAndAzure, stageName);
     }
   }
 }
