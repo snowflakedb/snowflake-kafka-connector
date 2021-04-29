@@ -84,11 +84,10 @@ public class InternalStageIT {
     System.out.println(Logging.logMessage("Time: {} ms", (System.currentTimeMillis() - startTime)));
   }
 
-  @Ignore
   @Test
   public void testComparePutAPIVersionsForGCS() {
 
-    // PUT 50 files to stageName3
+    // PUT 500 files to stageName3
     final int numberOfFiles = 50;
     long startTime = System.currentTimeMillis();
     for (int i = 0; i < numberOfFiles; i++) {
