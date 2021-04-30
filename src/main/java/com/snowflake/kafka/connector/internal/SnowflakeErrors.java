@@ -228,9 +228,7 @@ public enum SnowflakeErrors {
       "Invalid SinkRecord received",
       "SinkRecord.value and SinkRecord.valueSchema cannot be null"),
   ERROR_5017(
-      "5017",
-      "Invalid api call to cached put",
-      "Cached put only support AWS and Azure. However GCP was found as storage"),
+      "5017", "Invalid api call to cached put", "Cached put only support AWS, Azure and GCS."),
   ERROR_5018("5018", "Failed to execute cached put", "Error in cached put command"),
   ERROR_5019("5019", "Failed to get stage storage type", "Error in get storage type");
 

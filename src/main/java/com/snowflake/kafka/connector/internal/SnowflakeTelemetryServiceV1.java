@@ -116,7 +116,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
     msg.put(VERSION, Utils.VERSION); // version number
     try {
       telemetry.addLogToBatch(TelemetryUtil.buildJobData(msg));
-      logDebug("sending telemetry data: {}", data.toString());
+      logDebug("sending telemetry data: {} of type:{}", data.toString(), type.toString());
       telemetry.sendBatchAsync();
     } catch (Exception e) {
       logError("Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
