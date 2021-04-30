@@ -199,10 +199,18 @@ public class RecordService extends Logging {
     try {
       final Schema.Type schemaType;
       if (schema == null) {
-        schemaType = ConnectSchema.schemaType(value.getClass());
-        if (schemaType == null)
-          throw SnowflakeErrors.ERROR_5015.getException(
-              "Java class " + value.getClass() + " does not have corresponding schema type.");
+        Schema.Type primitiveType = ConnectSchema.schemaType(value.getClass());
+        if (primitiveType != null) {
+          schemaType = primitiveType;
+        } else {
+          if (value instanceof java.util.Date) {
+            schema = Timestamp.SCHEMA;
+            schemaType = Schema.Type.INT64;
+          } else {
+            throw SnowflakeErrors.ERROR_5015.getException(
+                "Java class " + value.getClass() + " does not have corresponding schema type.");
+          }
+        }
       } else {
         schemaType = schema.type();
       }
