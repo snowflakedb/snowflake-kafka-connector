@@ -28,6 +28,8 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,6 +47,7 @@ import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.storage.SimpleHeaderConverter;
 import org.junit.Test;
 
 public class ConverterTest {
@@ -245,6 +248,27 @@ public class ConverterTest {
     expected.put("test", new BigDecimal("999999999999999999999999999999999999999"));
     // TODO: uncomment it once KAFKA-10457 is merged
     // assert expected.toString().equals(result.toString());
+  }
+
+  @Test
+  public void testConnectSimpleHeaderConverter_MapDateAndOtherTypes()
+      throws JsonProcessingException, ParseException {
+    SimpleHeaderConverter headerConverter = new SimpleHeaderConverter();
+    String timestamp = "1970-03-22T00:00:00.000Z";
+    String rawHeader = "{\"f1\": \"" + timestamp + "\", \"f2\": true}";
+    SchemaAndValue schemaAndValue =
+        headerConverter.toConnectHeader(
+            "test", "h1", rawHeader.getBytes(StandardCharsets.US_ASCII));
+    JsonNode result = RecordService.convertToJson(schemaAndValue.schema(), schemaAndValue.value());
+
+    ObjectNode expected = mapper.createObjectNode();
+    long expectedTimestampValue =
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+            .parse("1970-03-22T00:00:00.000Z")
+            .getTime();
+    expected.put("f1", expectedTimestampValue);
+    expected.put("f2", true);
+    assert expected.toString().equals(result.toString());
   }
 
   @Test

@@ -43,6 +43,7 @@ class TestStringJsonProxy:
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)
         # unset the JVM parameters
+        print("Unset JVM Parameters in Clean phase of testing")
         path_parent = os.path.dirname(os.getcwd())
         print("Current Directory:{0}".format(path_parent))
         os.chdir(path_parent)
