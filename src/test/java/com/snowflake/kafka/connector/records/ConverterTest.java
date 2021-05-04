@@ -16,6 +16,8 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import static com.snowflake.kafka.connector.records.RecordService.ISO_DATE_TIME_FORMAT;
+
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
 import io.confluent.connect.avro.AvroConverter;
@@ -30,10 +32,20 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Hex;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
@@ -48,6 +60,7 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.storage.SimpleHeaderConverter;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class ConverterTest {
@@ -56,6 +69,16 @@ public class ConverterTest {
   private static final String TEST_FILE_NAME = "test.avro";
 
   private static final String TEST_TOPIC = "test";
+
+  private static ThreadLocal<GregorianCalendar> CALENDAR_THREAD_SAFE =
+      ThreadLocal.withInitial(
+          () -> {
+            GregorianCalendar gregorianCalendar =
+                new GregorianCalendar(1970, Calendar.JANUARY, 1, 0, 0, 0);
+            gregorianCalendar.setTimeZone(TimeZone.getTimeZone("UTC"));
+            gregorianCalendar.add(Calendar.DATE, 10000);
+            return gregorianCalendar;
+          });
 
   @Test
   public void testJsonConverter() {
@@ -230,6 +253,48 @@ public class ConverterTest {
     ObjectNode expected = mapper.createObjectNode();
     expected.put("test", Integer.MAX_VALUE);
     assert expected.toString().equals(result.toString());
+  }
+
+  @Test
+  public void testConnectJsonConverter_INT32_Time_Thread_Safe()
+      throws ExecutionException, InterruptedException {
+
+    Callable<Boolean> task = () -> testSimpleDataFormat_jsonConverter_thread_safe();
+
+    // pool with 5 threads
+    ExecutorService exec = Executors.newFixedThreadPool(5);
+    List<Future<Boolean>> results = new ArrayList<>();
+
+    // perform 10 date conversions
+    for (int i = 0; i < 50; i++) {
+      results.add(exec.submit(task));
+    }
+    exec.shutdown();
+
+    // look at the results
+    for (Future<Boolean> result : results) {
+      Assert.assertTrue(result.get());
+    }
+  }
+
+  private boolean testSimpleDataFormat_jsonConverter_thread_safe() {
+    JsonConverter jsonConverter = new JsonConverter();
+    Map<String, ?> config = Collections.singletonMap("schemas.enable", true);
+
+    jsonConverter.configure(config, false);
+
+    String value =
+        "{ \"schema\": { \"type\": \"int32\", \"name\": \"org.apache.kafka.connect.data.Date\","
+            + " \"version\": 1 }, \"payload\": 10000 }";
+    SchemaAndValue schemaInputValue = jsonConverter.toConnectData("test", value.getBytes());
+
+    JsonNode result =
+        RecordService.convertToJson(schemaInputValue.schema(), schemaInputValue.value());
+    System.out.println("Record Service result:" + result + " Thread :" + Thread.currentThread());
+
+    String exptectedDateTimeFormatStr =
+        ISO_DATE_TIME_FORMAT.get().format(CALENDAR_THREAD_SAFE.get().getTime());
+    return result.toString().contains(exptectedDateTimeFormatStr);
   }
 
   @Test
