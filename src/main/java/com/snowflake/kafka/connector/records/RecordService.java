@@ -50,14 +50,20 @@ public class RecordService extends Logging {
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
 
-  public static final SimpleDateFormat ISO_DATE_FORMAT =
-      new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-  public static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("HH:mm:ss.SSSZ");
-  static final int MAX_SNOWFLAKE_NUMBER_PRECISION = 38;
+  // For each task, we require a separate instance of SimpleDataFormat, since they are not
+  // inherently thread safe
+  static final ThreadLocal<SimpleDateFormat> ISO_DATE_TIME_FORMAT =
+      ThreadLocal.withInitial(
+          () -> {
+            SimpleDateFormat simpleDateFormat =
+                new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+            return simpleDateFormat;
+          });
 
-  static {
-    ISO_DATE_FORMAT.setTimeZone(TimeZone.getTimeZone("UTC"));
-  }
+  public static final ThreadLocal<SimpleDateFormat> TIME_FORMAT =
+      ThreadLocal.withInitial(() -> new SimpleDateFormat("HH:mm:ss.SSSZ"));
+  static final int MAX_SNOWFLAKE_NUMBER_PRECISION = 38;
 
   // This class is designed to work with empty metadata config map
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
@@ -222,10 +228,11 @@ public class RecordService extends Logging {
         case INT32:
           if (schema != null && Date.LOGICAL_NAME.equals(schema.name())) {
             return JsonNodeFactory.instance.textNode(
-                ISO_DATE_FORMAT.format((java.util.Date) value));
+                ISO_DATE_TIME_FORMAT.get().format((java.util.Date) value));
           }
           if (schema != null && Time.LOGICAL_NAME.equals(schema.name())) {
-            return JsonNodeFactory.instance.textNode(TIME_FORMAT.format((java.util.Date) value));
+            return JsonNodeFactory.instance.textNode(
+                TIME_FORMAT.get().format((java.util.Date) value));
           }
           return JsonNodeFactory.instance.numberNode((Integer) value);
         case INT64:
