@@ -13,8 +13,10 @@ import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.sql.ResultSet;
 import java.util.*;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -168,6 +170,68 @@ public class SinkServiceIT {
     service.closeAll();
     // don't drop pipe in current version
     //    assert !conn.pipeExist(pipe);
+  }
+
+  @Test
+  public void testTombstoneRecords_ingestion() throws Exception {
+    conn.createTable(table);
+    conn.createStage(stage);
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn)
+            .setRecordNumber(1)
+            .addTask(table, topic, partition)
+            .build();
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input = converter.toConnectData(topic, null);
+    long offset = 0;
+
+    SinkRecord record1 =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
+
+    service.insert(record1);
+    TestUtils.assertWithRetry(
+        () ->
+            conn.listStage(
+                        stage,
+                        FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition))
+                    .size()
+                == 1,
+        5,
+        4);
+    service.callAllGetOffset();
+    List<String> files =
+        conn.listStage(
+            stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition));
+    String fileName = files.get(0);
+
+    assert FileNameUtils.fileNameToTimeIngested(fileName) < System.currentTimeMillis();
+    assert FileNameUtils.fileNameToPartition(fileName) == partition;
+    assert FileNameUtils.fileNameToStartOffset(fileName) == offset;
+    assert FileNameUtils.fileNameToEndOffset(fileName) == offset;
+
+    // wait for ingest
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 30, 20);
+
+    ResultSet resultSet = TestUtils.showTable(table);
+    LinkedList<String> contentResult = new LinkedList<>();
+    while (resultSet.next()) {
+      contentResult.add(resultSet.getString("RECORD_CONTENT"));
+    }
+    resultSet.close();
+
+    assert contentResult.size() == 1;
+
+    ObjectNode emptyNode = MAPPER.createObjectNode();
+    assert contentResult.get(0).equalsIgnoreCase(emptyNode.toString());
+
+    // change cleaner
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 0, 30, 20);
+
+    assert service.getOffset(new TopicPartition(topic, partition)) == offset + 1;
+
+    service.closeAll();
   }
 
   @Test
