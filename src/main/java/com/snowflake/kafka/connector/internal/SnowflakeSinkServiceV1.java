@@ -10,7 +10,13 @@ import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -69,10 +75,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   public void insert(final Collection<SinkRecord> records) {
     // note that records can be empty
     for (SinkRecord record : records) {
+      // Might happen a count of record based flushing
       insert(record);
     }
     // check all sink context to see if they need to be flushed
     for (ServiceContext pipe : pipes.values()) {
+      // Time based flushing
       if (pipe.shouldFlush()) {
         pipe.flushBuffer();
       }
@@ -243,6 +251,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     private final SnowflakeConnectionService conn;
     private final SnowflakeIngestionService ingestionService;
     private List<String> fileNames;
+
+    // Includes a list of files:
+    // 1. Which are added after a flush into internal stage is successful
+    // 2. While an app restarts and we do list on an internal stage to find out what needs to be
+    // done on leaked files.
     private List<String> cleanerFileNames;
     private PartitionBuffer buffer;
     private final String prefix;
@@ -337,24 +350,27 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       return forceCleanerFileReset;
     }
 
+    // If there are files already on stage, we need to decide whether we will reprocess the offsets
+    // or we will purge them.
     private void startCleaner(long recordOffset, SnowflakeTelemetryPipeCreation pipeCreation) {
       // When cleaner start, scan stage for all files of this pipe.
       // If we know that we are going to reprocess the file, then safely delete the file.
-      List<String> tmpFileNames = conn.listStage(stageName, prefix);
+      List<String> currentFilesOnStage = conn.listStage(stageName, prefix);
       List<String> reprocessFiles = new ArrayList<>();
-      fileterFileReprocess(tmpFileNames, reprocessFiles, recordOffset);
+
+      filterFileReprocess(currentFilesOnStage, reprocessFiles, recordOffset);
 
       // Telemetry
-      pipeCreation.fileCountRestart = tmpFileNames.size();
+      pipeCreation.fileCountRestart = currentFilesOnStage.size();
       pipeCreation.fileCountReprocessPurge = reprocessFiles.size();
       // Files left on stage must be on ingestion, otherwise offset won't be committed and
       // the file will be removed by the reprocess filter.
-      pipeStatus.fileCountOnIngestion.addAndGet(tmpFileNames.size());
-      pipeStatus.fileCountOnStage.addAndGet(tmpFileNames.size());
+      pipeStatus.fileCountOnIngestion.addAndGet(currentFilesOnStage.size());
+      pipeStatus.fileCountOnStage.addAndGet(currentFilesOnStage.size());
 
       fileListLock.lock();
       try {
-        cleanerFileNames.addAll(tmpFileNames);
+        cleanerFileNames.addAll(currentFilesOnStage);
       } finally {
         fileListLock.unlock();
       }
@@ -405,10 +421,30 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       }
     }
 
-    private void fileterFileReprocess(
-        List<String> tmpFileNames, List<String> reprocessFiles, long recordOffset) {
+    /**
+     * Does in place manipulation of passed currentFilesOnStage. The caller of this function passes
+     * in the list of files(name) on the stage. (ls @stageName)
+     *
+     * <p>In return it expects the list of files (reprocessFiles) which is a subset of
+     * currentFilesOnStage.
+     *
+     * <p>How do we find list of reprocessFiles?
+     *
+     * <p>1. Find out the start offset from the list of files currently on stage.
+     *
+     * <p>2. If the current offset passed by the connector is less than any of the start offset of
+     * found files, we will reprocess this files and at the same time remove from
+     * currentListOfFiles. (Idea being if the current offset is still found on stage, it is not
+     * purged, so we will reprocess)
+     *
+     * @param currentFilesOnStage LIST.OF((ls @stageNAME))
+     * @param reprocessFiles Empty but we will fill this.
+     * @param recordOffset current offset
+     */
+    private void filterFileReprocess(
+        List<String> currentFilesOnStage, List<String> reprocessFiles, long recordOffset) {
       // iterate over a copy since reprocess files get removed from it
-      new LinkedList<>(tmpFileNames)
+      new LinkedList<>(currentFilesOnStage)
           .forEach(
               name -> {
                 long fileStartOffset = FileNameUtils.fileNameToStartOffset(name);
@@ -417,7 +453,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
                 // all content of this file will be reprocessed. Thus this file can be deleted.
                 if (recordOffset <= fileStartOffset) {
                   reprocessFiles.add(name);
-                  tmpFileNames.remove(name);
+                  currentFilesOnStage.remove(name);
                 }
               });
     }
@@ -431,6 +467,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     private void insert(final SinkRecord record) {
       // init pipe
       if (!hasInitialized) {
+        // This will only be called once at the beginning when an offset arrives for first time
+        // after connector starts/rebalance
         init(record.kafkaOffset());
         this.hasInitialized = true;
       }
@@ -635,6 +673,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     }
 
     private void checkStatus() {
+      // We are using a temporary list which will reset the cleanerFileNames
+      // After this checkStatus() call, we will have an updated cleanerFileNames which are subset of
+      // existing cleanerFileNames
+      // this time th
       List<String> tmpFileNames;
 
       fileListLock.lock();
@@ -650,13 +692,21 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       List<String> failedFiles = new LinkedList<>();
 
       // ingest report
-      filterResult(
+      // This will update the loadedFiles (successfully loaded) &
+      // failedFiles: PARTIAL + FAILED
+      // In any cases tmpFileNames will be updated.
+      // If we get all files in ingestReport, tmpFileNames will be empty
+      filterResultFromSnowpipeScan(
           ingestionService.readIngestReport(tmpFileNames), tmpFileNames, loadedFiles, failedFiles);
 
       // old files
       List<String> oldFiles = new LinkedList<>();
 
       // iterate over a copy since failed files get removed from it
+      // Iterate over those files which were not found in ingest report call and are sitting more
+      // than an hour earlier.
+      // Also add those files into oldFiles which are not purged/found in ingestReport since last 10
+      // minutes.
       new LinkedList<>(tmpFileNames)
           .forEach(
               name -> {
@@ -669,8 +719,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
                 }
               });
       // load history
+      // Use loadHistoryScan API to scan last one hour of data and if filter files from above
+      // filtered list.
+      // This is the last filtering we do and after this, we start purging loadedFiles and moving
+      // failedFiles to tableStage
       if (!oldFiles.isEmpty()) {
-        filterResult(
+        filterResultFromSnowpipeScan(
             ingestionService.readOneHourHistory(tmpFileNames, currentTime - ONE_HOUR),
             tmpFileNames,
             loadedFiles,
@@ -682,6 +736,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
       fileListLock.lock();
       try {
+        // Add back all those files which were neither found in ingestReport nor in loadHistoryScan
         cleanerFileNames.addAll(tmpFileNames);
       } finally {
         fileListLock.unlock();
@@ -705,7 +760,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
                   currentTime - FileNameUtils.fileNameToTimeIngested(name)));
     }
 
-    private void filterResult(
+    // fileStatus Map may include mapping of fileNames with their ingestion status.
+    // It can be received either from insertReport API or loadHistoryScan
+    private void filterResultFromSnowpipeScan(
         Map<String, InternalUtils.IngestedFileStatus> fileStatus,
         List<String> allFiles,
         List<String> loadedFiles,
