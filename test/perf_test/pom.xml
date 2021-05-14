@@ -12,7 +12,7 @@
     <repository>
       <id>confluent</id>
       <name>Confluent Maven Repo</name>
-      <url>http://packages.confluent.io/maven/io/confluent/kafka-avro-serializer/5.1.2/kafka-avro-serializer-5.1.2.jar</url>
+      <url>http://packages.confluent.io/maven/</url>
     </repository>
   </repositories>
   <dependencies>
