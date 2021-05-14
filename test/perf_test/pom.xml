@@ -12,7 +12,7 @@
     <repository>
       <id>confluent</id>
       <name>Confluent Maven Repo</name>
-      <url>http://packages.confluent.io/maven/</url>
+      <url>http://packages.confluent.io/maven/io/confluent/kafka-avro-serializer/5.1.2/kafka-avro-serializer-5.1.2.jar</url>
     </repository>
   </repositories>
   <dependencies>
@@ -26,7 +26,7 @@
     <dependency>
       <groupId>net.snowflake</groupId>
       <artifactId>snowflake-jdbc</artifactId>
-      <version>3.12.12</version>
+      <version>3.13.3</version>
     </dependency>
     <dependency>
       <groupId>org.apache.kafka</groupId>
