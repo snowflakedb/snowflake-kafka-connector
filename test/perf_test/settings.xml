@@ -6,7 +6,7 @@
             <id>confluent</id>
             <mirrorOf>confluent</mirrorOf>
             <name>Nexus public mirror</name>
-            <url>http://packages.confluent.io/maven/</url>
+            <url>https://packages.confluent.io/maven/</url>
         </mirror>
     </mirrors>
 </settings>

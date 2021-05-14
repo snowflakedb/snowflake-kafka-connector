@@ -12,7 +12,7 @@
     <repository>
       <id>confluent</id>
       <name>Confluent Maven Repo</name>
-      <url>http://packages.confluent.io/maven/</url>
+      <url>https://packages.confluent.io/maven/</url>
       <releases>
         <enabled>true</enabled>
       </releases>
