@@ -13,6 +13,12 @@
       <id>confluent</id>
       <name>Confluent Maven Repo</name>
       <url>http://packages.confluent.io/maven/</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
     </repository>
   </repositories>
   <dependencies>
