@@ -34,7 +34,7 @@ popd
 
 export CONFLUENT_HOME="$c_dir/confluent"
 #run test
-mvn clean compile
+mvn clean compile -U -e -X
 mvn test
 
 #stop kafka
