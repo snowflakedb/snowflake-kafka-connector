@@ -46,6 +46,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Hex;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
@@ -149,6 +151,32 @@ public class ConverterTest {
 
     // null value
     input = converter.toConnectData("test", null);
+    assert ((SnowflakeRecordContent) input.value()).getData()[0].toString().equals("{}");
+  }
+
+  @Test
+  public void testAvroWithSchemaRegistryAndReaderSchema() throws IOException
+  {
+    MockSchemaRegistryClient client = new MockSchemaRegistryClient();
+    SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
+    Map<String, String> configs = new HashMap<String, String>();
+    configs.put(
+            SnowflakeAvroConverter.READER_SCHEMA,
+            "{\"name\":\"test_avro\",\"type\":\"record\",\"fields\":[{\"name\":\"int\",\"type\":\"int\"},{\"name\":\"newfield\",\"type\":\"int\",\"default\": 1}]}");
+    configs.put(
+            AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG,
+            "http://fake-url");
+    converter.configure(configs, false);
+    converter.setSchemaRegistry(client);
+
+    SchemaAndValue input = converter.toConnectData("test", client.getData());
+    SnowflakeRecordContent content = (SnowflakeRecordContent) input.value();
+    assert content.getData().length == 1;
+    assert content.getData()[0].asText().equals(mapper.readTree("{\"int" +
+            "\":1234, \"newfield\":1}").asText());
+
+    //null value
+    input = converter.toConnectData("test",null);
     assert ((SnowflakeRecordContent) input.value()).getData()[0].toString().equals("{}");
   }
 
