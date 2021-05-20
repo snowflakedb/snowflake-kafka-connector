@@ -28,6 +28,7 @@ import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
+import org.apache.avro.SchemaParseException;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
@@ -43,9 +44,14 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
   // By default, we don't break when schema registry is not found
   private boolean breakOnSchemaRegistryError = false;
 
+  public static final String READER_SCHEMA = "reader.schema";
+
+  private Schema readerSchema = null;
+
   @Override
   public void configure(final Map<String, ?> configs, final boolean isKey) {
     readBreakOnSchemaRegistryError(configs);
+    readReaderSchema(configs);
     try { // todo: graceful way to check schema registry
       AvroConverterConfig avroConverterConfig = new AvroConverterConfig(configs);
       schemaRegistry =
@@ -66,6 +72,32 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
       }
     } catch (Exception e) {
       // do nothing
+    }
+  }
+
+  void readReaderSchema(final Map<String, ?> configs)
+  {
+    Object readerSchemaFromConfig = configs.get(READER_SCHEMA);
+
+    if (readerSchemaFromConfig == null)
+    {
+      return;
+    }
+
+    if (readerSchemaFromConfig instanceof String)
+    {
+      try
+      {
+        readerSchema = new Schema.Parser().parse((String) readerSchemaFromConfig);
+      }
+      catch (SchemaParseException e)
+      {
+        throw SnowflakeErrors.ERROR_0024.getException(e);
+      }
+    }
+    else
+    {
+      throw SnowflakeErrors.ERROR_0024.getException();
     }
   }
 
@@ -153,7 +185,10 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
 
     InputStream is = new ByteArrayInputStream(data);
     Decoder decoder = DecoderFactory.get().binaryDecoder(is, null);
-    DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema, schema, genericData);
+    DatumReader<GenericRecord> reader = new GenericDatumReader<>(
+            schema,
+            readerSchema == null ? schema : readerSchema,
+            genericData);
     try {
       GenericRecord datum = reader.read(null, decoder);
       // For byte data without logical type, this toString method handles it this way:
