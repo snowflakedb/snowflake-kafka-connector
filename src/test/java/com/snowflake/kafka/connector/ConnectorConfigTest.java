@@ -224,7 +224,7 @@ public class ConnectorConfigTest {
     config.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, "CONFLUENT");
     Utils.validateConfig(config);
 
-    config.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, "NONE");
+    config.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, "UNKNOWN");
     Utils.validateConfig(config);
   }
 

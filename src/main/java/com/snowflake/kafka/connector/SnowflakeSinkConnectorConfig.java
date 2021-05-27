@@ -327,7 +327,7 @@ public class SnowflakeSinkConnectorConfig {
         .define(
             PROVIDER_CONFIG,
             Type.STRING,
-            KafkaProvider.NONE.name(),
+            KafkaProvider.UNKNOWN.name(),
             KAFKA_PROVIDER_VALIDATOR,
             Importance.LOW,
             "Whether kafka is running on Confluent code, self hosted or other managed service");
@@ -357,6 +357,8 @@ public class SnowflakeSinkConnectorConfig {
   public static class KafkaProviderValidator implements ConfigDef.Validator {
     public KafkaProviderValidator() {}
 
+    // This API is called by framework to ensure the validity when connector is started or when a
+    // validate REST API is called
     public void ensureValid(String name, Object value) {
       assert value instanceof String;
       final String strValue = (String) value;
@@ -379,7 +381,7 @@ public class SnowflakeSinkConnectorConfig {
   /* Enum which represents allowed values of kafka provider. (Hosted Platform) */
   public enum KafkaProvider {
     // Default value, when nothing is provided. (More like Not Applicable)
-    NONE,
+    UNKNOWN,
 
     // Kafka/KC is on self hosted node
     SELF_HOSTED,
@@ -388,6 +390,7 @@ public class SnowflakeSinkConnectorConfig {
     CONFLUENT,
     ;
 
+    // All valid enum values
     public static final List<String> PROVIDER_NAMES =
         Arrays.stream(KafkaProvider.values())
             .map(kafkaProvider -> kafkaProvider.name().toLowerCase())
@@ -398,7 +401,7 @@ public class SnowflakeSinkConnectorConfig {
     public static KafkaProvider of(final String kafkaProviderStr) {
 
       if (Strings.isNullOrEmpty(kafkaProviderStr)) {
-        return KafkaProvider.NONE;
+        return KafkaProvider.UNKNOWN;
       }
 
       for (final KafkaProvider b : KafkaProvider.values()) {
