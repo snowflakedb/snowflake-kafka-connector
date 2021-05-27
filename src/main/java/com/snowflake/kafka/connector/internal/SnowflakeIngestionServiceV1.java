@@ -39,12 +39,20 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
       String connectionScheme,
       String stageName,
       String pipeName,
-      PrivateKey privateKey) {
+      PrivateKey privateKey,
+      String userAgentSuffix) {
     this.stageName = stageName;
     try {
       this.ingestManager =
           new SimpleIngestManager(
-              accountName, userName, pipeName, privateKey, connectionScheme, host, port);
+              accountName,
+              userName,
+              pipeName,
+              privateKey,
+              connectionScheme,
+              host,
+              port,
+              userAgentSuffix);
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_0002.getException(e);
     }
@@ -240,5 +248,10 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
     }
 
     return result;
+  }
+
+  /* Only used for testing */
+  public SimpleIngestManager getIngestManager() {
+    return this.ingestManager;
   }
 }
