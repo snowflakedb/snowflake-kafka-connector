@@ -359,6 +359,7 @@ public class SnowflakeSinkConnectorConfig {
 
     // This API is called by framework to ensure the validity when connector is started or when a
     // validate REST API is called
+    @Override
     public void ensureValid(String name, Object value) {
       assert value instanceof String;
       final String strValue = (String) value;
