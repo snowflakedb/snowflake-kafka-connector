@@ -712,9 +712,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
               name -> {
                 long time = FileNameUtils.fileNameToTimeIngested(name);
                 if (time < currentTime - ONE_HOUR) {
+                  // means this file was added to stage an hour earlier
                   failedFiles.add(name);
                   tmpFileNames.remove(name);
                 } else if (time < currentTime - TEN_MINUTES) {
+                  // this was added 10 mins earlier but not before 1 hour. (before last 10 mins and
+                  // 1 hour)
                   oldFiles.add(name);
                 }
               });
