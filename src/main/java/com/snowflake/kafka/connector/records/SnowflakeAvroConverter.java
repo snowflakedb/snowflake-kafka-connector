@@ -52,7 +52,7 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
   @Override
   public void configure(final Map<String, ?> configs, final boolean isKey) {
     readBreakOnSchemaRegistryError(configs);
-    readReaderSchema(configs);
+    parseReaderSchema(configs);
     try { // todo: graceful way to check schema registry
       AvroConverterConfig avroConverterConfig = new AvroConverterConfig(configs);
       schemaRegistry =
@@ -77,11 +77,11 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
   }
 
   /**
-   * get reader schema from config if provided
+   * Parse reader schema from config if provided
    *
    * @param configs configuration for converter
    */
-  void readReaderSchema(final Map<String, ?> configs) {
+  void parseReaderSchema(final Map<String, ?> configs) {
     Object readerSchemaFromConfig = configs.get(READER_SCHEMA);
 
     if (readerSchemaFromConfig == null) {
