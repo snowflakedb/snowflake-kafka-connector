@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.Utils;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -31,22 +32,32 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   private final Properties proxyProperties;
   private final SnowflakeURL url;
   private final SnowflakeInternalStage internalStage;
+
+  // This info is provided in the connector configuration
+  // This property will be appeneded to user agent while calling snowpipe API in http request
+  private final String kafkaProvider;
+
   private StageInfo.StageType stageType;
 
   private static final long CREDENTIAL_EXPIRY_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(30);
+
+  // User agent suffix we want to pass in to ingest service
+  public static final String USER_AGENT_SUFFIX_FORMAT = "SFKafkaConnector/%s provider/%s";
 
   SnowflakeConnectionServiceV1(
       Properties prop,
       SnowflakeURL url,
       String connectorName,
       String taskID,
-      Properties proxyProperties) {
+      Properties proxyProperties,
+      String kafkaProvider) {
     this.connectorName = connectorName;
     this.taskID = taskID;
     this.url = url;
     this.prop = prop;
     this.stageType = null;
     this.proxyProperties = proxyProperties;
+    this.kafkaProvider = kafkaProvider;
     try {
       this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), prop);
     } catch (SQLException e) {
@@ -648,6 +659,8 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       final String stageName, final String pipeName) {
     String account = url.getAccount();
     String user = prop.getProperty(InternalUtils.JDBC_USER);
+    String userAgentSuffixInHttpRequest =
+        String.format(USER_AGENT_SUFFIX_FORMAT, Utils.VERSION, kafkaProvider);
     String host = url.getUrlWithoutPort();
     int port = url.getPort();
     String connectionScheme = url.getScheme();
@@ -659,7 +672,15 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
             + pipeName;
     PrivateKey privateKey = (PrivateKey) prop.get(InternalUtils.JDBC_PRIVATE_KEY);
     return SnowflakeIngestionServiceFactory.builder(
-            account, user, host, port, connectionScheme, stageName, fullPipeName, privateKey)
+            account,
+            user,
+            host,
+            port,
+            connectionScheme,
+            stageName,
+            fullPipeName,
+            privateKey,
+            userAgentSuffixInHttpRequest)
         .setTelemetry(this.telemetry)
         .build();
   }

@@ -200,4 +200,38 @@ public class ConnectorConfigTest {
     config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "adssadsa");
     Utils.validateConfig(config);
   }
+
+  @Test
+  public void testKafkaProviderConfigValue_valid_null() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, null);
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testKafkaProviderConfigValue_valid_empty() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, "");
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testKafkaProviderConfigValue_valid_provider() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, "self_hosted");
+    Utils.validateConfig(config);
+
+    config.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, "CONFLUENT");
+    Utils.validateConfig(config);
+
+    config.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, "UNKNOWN");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testKafkaProviderConfigValue_invalid_value() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, "Something_which_is_not_supported");
+    Utils.validateConfig(config);
+  }
 }

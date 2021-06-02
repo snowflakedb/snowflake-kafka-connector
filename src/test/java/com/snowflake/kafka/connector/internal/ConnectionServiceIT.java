@@ -1,13 +1,17 @@
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1.USER_AGENT_SUFFIX_FORMAT;
+
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
+import net.snowflake.ingest.internal.apache.http.Header;
+import net.snowflake.ingest.internal.apache.http.HttpHeaders;
+import net.snowflake.ingest.internal.apache.http.client.methods.HttpPost;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class ConnectionServiceIT {
@@ -48,6 +52,35 @@ public class ConnectionServiceIT {
         .getProperties()
         .getProperty(InternalUtils.JDBC_SSL)
         .equals("off");
+  }
+
+  @Test
+  public void testUserAgentSuffixInIngestionService() {
+    Map<String, String> testConfig = TestUtils.getConf();
+    String kafkaProvider = SnowflakeSinkConnectorConfig.KafkaProvider.SELF_HOSTED.name();
+    String userAgentExpectedSuffixInHttpHeader =
+        String.format(USER_AGENT_SUFFIX_FORMAT, Utils.VERSION, kafkaProvider);
+    testConfig.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, kafkaProvider);
+    SnowflakeConnectionService conn =
+        SnowflakeConnectionServiceFactory.builder().setProperties(testConfig).build();
+    SnowflakeIngestionServiceV1 ingestionService =
+        (SnowflakeIngestionServiceV1) conn.buildIngestService(stageName, pipeName);
+    try {
+      HttpPost httpPostInsertRequest =
+          ingestionService
+              .getIngestManager()
+              .getRequestBuilder()
+              .generateInsertRequest(UUID.randomUUID(), pipeName, Collections.EMPTY_LIST, false);
+      for (Header h : httpPostInsertRequest.getAllHeaders()) {
+        if (h.getName().equalsIgnoreCase(HttpHeaders.USER_AGENT)) {
+          System.out.println(h);
+          Assert.assertTrue(h.getValue().contains(userAgentExpectedSuffixInHttpHeader));
+          Assert.assertTrue(h.getValue().endsWith(userAgentExpectedSuffixInHttpHeader));
+        }
+      }
+    } catch (Exception e) {
+      Assert.fail("Should not throw an exception:" + e.getMessage());
+    }
   }
 
   @Test

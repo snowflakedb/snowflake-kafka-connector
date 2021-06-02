@@ -1,5 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.PROVIDER_CONFIG;
+
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import java.util.Map;
 import java.util.Properties;
@@ -15,6 +18,11 @@ public class SnowflakeConnectionServiceFactory {
     private SnowflakeURL url;
     private String connectorName;
     private String taskID = "-1";
+
+    // whether kafka is hosted on premise or on confluent cloud.
+    // This info is provided in the connector configuration
+    // This property will be appeneded to user agent while calling snowpipe API in http request
+    private String kafkaProvider = null;
 
     // For testing only
     public SnowflakeConnectionServiceBuilder setProperties(Properties prop) {
@@ -48,6 +56,8 @@ public class SnowflakeConnectionServiceFactory {
       }
       this.url = new SnowflakeURL(conf.get(Utils.SF_URL));
       this.prop = InternalUtils.createProperties(conf, this.url.sslEnabled());
+      this.kafkaProvider =
+          SnowflakeSinkConnectorConfig.KafkaProvider.of(conf.get(PROVIDER_CONFIG)).name();
       // TODO: Ideally only one property is required, but because we dont pass it around in JDBC and
       // snowpipe SDK,
       //  it is better if we have two properties decoupled
@@ -62,7 +72,8 @@ public class SnowflakeConnectionServiceFactory {
       InternalUtils.assertNotEmpty("properties", prop);
       InternalUtils.assertNotEmpty("url", url);
       InternalUtils.assertNotEmpty("connectorName", connectorName);
-      return new SnowflakeConnectionServiceV1(prop, url, connectorName, taskID, proxyProperties);
+      return new SnowflakeConnectionServiceV1(
+          prop, url, connectorName, taskID, proxyProperties, kafkaProvider);
     }
   }
 }

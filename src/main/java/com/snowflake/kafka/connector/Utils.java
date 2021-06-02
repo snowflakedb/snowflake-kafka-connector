@@ -460,6 +460,17 @@ public class Utils {
     // set jdbc logging directory
     Utils.setJDBCLoggingDirectory();
 
+    // validate whether kafka provider config is a valid value
+    if (config.containsKey(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG)) {
+      try {
+        SnowflakeSinkConnectorConfig.KafkaProvider.of(
+            config.get(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG));
+      } catch (IllegalArgumentException exception) {
+        LOGGER.error(Logging.logMessage("Kafka provider config error:{}", exception.getMessage()));
+        configIsValid = false;
+      }
+    }
+
     if (!configIsValid) {
       throw SnowflakeErrors.ERROR_0001.getException();
     }
