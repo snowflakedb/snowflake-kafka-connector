@@ -13,9 +13,18 @@ public class SnowflakeIngestionServiceFactory {
       String connectionScheme,
       String stageName,
       String pipeName,
-      PrivateKey privateKey) {
+      PrivateKey privateKey,
+      String userAgentSuffix) {
     return new SnowflakeIngestionServiceBuilder(
-        accountName, userName, host, port, connectionScheme, stageName, pipeName, privateKey);
+        accountName,
+        userName,
+        host,
+        port,
+        connectionScheme,
+        stageName,
+        pipeName,
+        privateKey,
+        userAgentSuffix);
   }
 
   /** Builder class to create instance of {@link SnowflakeIngestionService} */
@@ -30,10 +39,19 @@ public class SnowflakeIngestionServiceFactory {
         String connectionScheme,
         String stageName,
         String pipeName,
-        PrivateKey privateKey) {
+        PrivateKey privateKey,
+        String userAgentSuffix) {
       this.service =
           new SnowflakeIngestionServiceV1(
-              accountName, userName, host, port, connectionScheme, stageName, pipeName, privateKey);
+              accountName,
+              userName,
+              host,
+              port,
+              connectionScheme,
+              stageName,
+              pipeName,
+              privateKey,
+              userAgentSuffix);
     }
 
     SnowflakeIngestionServiceBuilder setTelemetry(SnowflakeTelemetryService telemetry) {

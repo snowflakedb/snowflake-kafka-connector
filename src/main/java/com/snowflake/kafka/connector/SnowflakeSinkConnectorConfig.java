@@ -16,8 +16,12 @@
  */
 package com.snowflake.kafka.connector;
 
+import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.Logging;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
@@ -81,11 +85,16 @@ public class SnowflakeSinkConnectorConfig {
   public static final String SNOWFLAKE_METADATA_ALL = "snowflake.metadata.all";
   public static final String SNOWFLAKE_METADATA_DEFAULT = "true";
 
+  // Where is Kafka hosted? self, confluent or any other in future.
+  // By default it will be None since this is not enforced and only used for monitoring
+  public static final String PROVIDER_CONFIG = "provider";
+
   private static final Logger LOGGER =
       LoggerFactory.getLogger(SnowflakeSinkConnectorConfig.class.getName());
 
   private static final ConfigDef.Validator nonEmptyStringValidator = new ConfigDef.NonEmptyString();
   private static final ConfigDef.Validator topicToTableValidator = new TopicToTableValidator();
+  private static final ConfigDef.Validator KAFKA_PROVIDER_VALIDATOR = new KafkaProviderValidator();
 
   static void setDefaultValues(Map<String, String> config) {
     setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);
@@ -314,7 +323,14 @@ public class SnowflakeSinkConnectorConfig {
             SNOWFLAKE_METADATA_FLAGS,
             3,
             ConfigDef.Width.NONE,
-            SNOWFLAKE_METADATA_OFFSET_AND_PARTITION);
+            SNOWFLAKE_METADATA_OFFSET_AND_PARTITION)
+        .define(
+            PROVIDER_CONFIG,
+            Type.STRING,
+            KafkaProvider.UNKNOWN.name(),
+            KAFKA_PROVIDER_VALIDATOR,
+            Importance.LOW,
+            "Whether kafka is running on Confluent code, self hosted or other managed service");
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {
@@ -334,6 +350,70 @@ public class SnowflakeSinkConnectorConfig {
     public String toString() {
       return "Topic to table map format : comma-seperated tuples, e.g."
           + " <topic-1>:<table-1>,<topic-2>:<table-2>,... ";
+    }
+  }
+
+  /* Validator to validate Kafka Provider values which says where kafka is hosted */
+  public static class KafkaProviderValidator implements ConfigDef.Validator {
+    public KafkaProviderValidator() {}
+
+    // This API is called by framework to ensure the validity when connector is started or when a
+    // validate REST API is called
+    @Override
+    public void ensureValid(String name, Object value) {
+      assert value instanceof String;
+      final String strValue = (String) value;
+      // The value can be null or empty.
+      try {
+        KafkaProvider kafkaProvider = KafkaProvider.of(strValue);
+        LOGGER.debug("KafkaProvider value is:{}", kafkaProvider.name());
+      } catch (final IllegalArgumentException e) {
+        throw new ConfigException(PROVIDER_CONFIG, value, e.getMessage());
+      }
+    }
+
+    public String toString() {
+      return "Whether kafka is running on Confluent code, self hosted or other managed service."
+          + " Allowed values are:"
+          + String.join(",", KafkaProvider.PROVIDER_NAMES);
+    }
+  }
+
+  /* Enum which represents allowed values of kafka provider. (Hosted Platform) */
+  public enum KafkaProvider {
+    // Default value, when nothing is provided. (More like Not Applicable)
+    UNKNOWN,
+
+    // Kafka/KC is on self hosted node
+    SELF_HOSTED,
+
+    // Hosted/managed by Confluent
+    CONFLUENT,
+    ;
+
+    // All valid enum values
+    public static final List<String> PROVIDER_NAMES =
+        Arrays.stream(KafkaProvider.values())
+            .map(kafkaProvider -> kafkaProvider.name().toLowerCase())
+            .collect(Collectors.toList());
+
+    // Returns the KafkaProvider object from string. It does convert an empty or null value to an
+    // Enum.
+    public static KafkaProvider of(final String kafkaProviderStr) {
+
+      if (Strings.isNullOrEmpty(kafkaProviderStr)) {
+        return KafkaProvider.UNKNOWN;
+      }
+
+      for (final KafkaProvider b : KafkaProvider.values()) {
+        if (b.name().equalsIgnoreCase(kafkaProviderStr)) {
+          return b;
+        }
+      }
+      throw new IllegalArgumentException(
+          String.format(
+              "Unsupported provider name: %s. Supported are: %s",
+              kafkaProviderStr, String.join(",", PROVIDER_NAMES)));
     }
   }
 }
