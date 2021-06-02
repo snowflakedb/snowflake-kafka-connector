@@ -81,29 +81,24 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
    *
    * @param configs configuration for converter
    */
-  void readReaderSchema(final Map<String, ?> configs)
-  {
+  void readReaderSchema(final Map<String, ?> configs) {
     Object readerSchemaFromConfig = configs.get(READER_SCHEMA);
 
-    if (readerSchemaFromConfig == null)
-    {
+    if (readerSchemaFromConfig == null) {
       return;
     }
 
-    if (readerSchemaFromConfig instanceof String)
-    {
-      try
-      {
+    if (readerSchemaFromConfig instanceof String) {
+      try {
         readerSchema = new Schema.Parser().parse((String) readerSchemaFromConfig);
-      }
-      catch (SchemaParseException e)
-      {
-        LOGGER.error(Logging.logMessage("the string provided for reader.schema is no valid Avro schema: " + e.getMessage()));
+      } catch (SchemaParseException e) {
+        LOGGER.error(
+            Logging.logMessage(
+                "the string provided for reader.schema is no valid Avro schema: "
+                    + e.getMessage()));
         throw SnowflakeErrors.ERROR_0024.getException(e);
       }
-    }
-    else
-    {
+    } else {
       LOGGER.error(Logging.logMessage("reader.schema has to be a string"));
       throw SnowflakeErrors.ERROR_0024.getException();
     }
@@ -168,11 +163,9 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
       return new SchemaAndValue(
           new SnowflakeJsonSchema(),
           new SnowflakeRecordContent(
-                  parseAvroWithSchema(
-                    data,
-                    writerSchema,
-                    readerSchema == null ? writerSchema : readerSchema),
-                  id));
+              parseAvroWithSchema(
+                  data, writerSchema, readerSchema == null ? writerSchema : readerSchema),
+              id));
     } catch (Exception e) {
       return logErrorAndReturnBrokenRecord(e, bytes);
     }
@@ -186,21 +179,24 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
 
   /**
    * Parse Avro record with a writer schema and a reader schema. The writer and the reader schema
-   * have to be compatible as described in https://avro.apache.org/docs/1.9.2/spec.html#Schema+Resolution
+   * have to be compatible as described in
+   * https://avro.apache.org/docs/1.9.2/spec.html#Schema+Resolution
    *
    * @param data avro data
    * @param writerSchema avro schema with which data got serialized
    * @param readerSchema avro schema that describes the shape of the returned JsonNode
    * @return JsonNode array
    */
-  private JsonNode parseAvroWithSchema(final byte[] data, Schema writerSchema, Schema readerSchema) {
+  private JsonNode parseAvroWithSchema(
+      final byte[] data, Schema writerSchema, Schema readerSchema) {
     final GenericData genericData = new GenericData();
     // Conversion for logical type Decimal. There are conversions for other logical types as well.
     genericData.addLogicalTypeConversion(new Conversions.DecimalConversion());
 
     InputStream is = new ByteArrayInputStream(data);
     Decoder decoder = DecoderFactory.get().binaryDecoder(is, null);
-    DatumReader<GenericRecord> reader = new GenericDatumReader<>(writerSchema, readerSchema, genericData);
+    DatumReader<GenericRecord> reader =
+        new GenericDatumReader<>(writerSchema, readerSchema, genericData);
     try {
       GenericRecord datum = reader.read(null, decoder);
       // For byte data without logical type, this toString method handles it this way:
