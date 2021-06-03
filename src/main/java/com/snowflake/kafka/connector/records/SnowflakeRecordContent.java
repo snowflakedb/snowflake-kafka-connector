@@ -126,11 +126,13 @@ public class SnowflakeRecordContent {
     return content.clone();
   }
 
-
   /**
-   * Check if primary reason for this record content's value to be an empty json String, a null value?
+   * Check if primary reason for this record content's value to be an empty json String, a null
+   * value?
    *
-   * <p> i.e if value passed in by record is empty json node (`{}`), we don't interpret this as null value.
+   * <p>i.e if value passed in by record is empty json node (`{}`), we don't interpret this as null
+   * value.
+   *
    * @return true if content value is empty json node as well as isNullValueRecord is set to true.
    */
   public boolean isRecordContentValueNull() {

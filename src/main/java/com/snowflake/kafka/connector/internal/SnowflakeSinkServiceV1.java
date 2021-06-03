@@ -1018,8 +1018,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   }
 
   /**
-   * Only used for testing
-   * Given a pipename, find out if buffer for this pipe has any data inserted.
+   * Only used for testing Given a pipename, find out if buffer for this pipe has any data inserted.
+   *
    * @param pipeName
    * @return
    */

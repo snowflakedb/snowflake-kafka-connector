@@ -17,7 +17,6 @@ import java.sql.ResultSet;
 import java.util.*;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.avro.data.Json;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -266,7 +265,9 @@ public class SinkServiceIT {
         new SinkRecord(
             topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
     service.insert(Collections.singletonList(record1));
-    Assert.assertTrue(((SnowflakeSinkServiceV1)service).isPartitionBufferEmpty(SnowflakeSinkServiceV1.getNameIndex(topic, partition)));
+    Assert.assertTrue(
+        ((SnowflakeSinkServiceV1) service)
+            .isPartitionBufferEmpty(SnowflakeSinkServiceV1.getNameIndex(topic, partition)));
     TestUtils.assertWithRetry(
         () ->
             conn.listStage(
@@ -288,22 +289,23 @@ public class SinkServiceIT {
   }
 
   @Test
-  public void testTombstoneRecords_IGNORE_behavior_ingestion_CommunityJsonConverter() throws Exception {
+  public void testTombstoneRecords_IGNORE_behavior_ingestion_CommunityJsonConverter()
+      throws Exception {
     conn.createTable(table);
     conn.createStage(stage);
     SnowflakeSinkService service =
-            SnowflakeSinkServiceFactory.builder(conn)
-                    .setRecordNumber(1)
-                    .addTask(table, topic, partition)
-                    .setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE)
-                    .build();
+        SnowflakeSinkServiceFactory.builder(conn)
+            .setRecordNumber(1)
+            .addTask(table, topic, partition)
+            .setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE)
+            .build();
 
     // Verifying it here to see if it fallbacks to default behavior - which is to ingest empty json
     // string
     Assert.assertTrue(
-            service
-                    .getBehaviorOnNullValuesConfig()
-                    .equals(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE));
+        service
+            .getBehaviorOnNullValuesConfig()
+            .equals(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE));
     JsonConverter converter = new JsonConverter();
     HashMap<String, String> converterConfig = new HashMap<String, String>();
     converterConfig.put("schemas.enable", "false");
@@ -312,19 +314,21 @@ public class SinkServiceIT {
     long offset = 0;
 
     SinkRecord record1 =
-            new SinkRecord(
-                    topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
     service.insert(Collections.singletonList(record1));
-    Assert.assertTrue(((SnowflakeSinkServiceV1)service).isPartitionBufferEmpty(SnowflakeSinkServiceV1.getNameIndex(topic, partition)));
+    Assert.assertTrue(
+        ((SnowflakeSinkServiceV1) service)
+            .isPartitionBufferEmpty(SnowflakeSinkServiceV1.getNameIndex(topic, partition)));
     TestUtils.assertWithRetry(
-            () ->
-                    conn.listStage(
-                            stage,
-                            FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition))
-                            .size()
-                            == 0,
-            5,
-            4);
+        () ->
+            conn.listStage(
+                        stage,
+                        FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition))
+                    .size()
+                == 0,
+        5,
+        4);
 
     // wait for ingest
     TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 0, 30, 20);
