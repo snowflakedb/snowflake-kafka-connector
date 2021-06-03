@@ -4,7 +4,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.sink.SinkRecord;
 
 public class SnowflakeRecordContent {
 
@@ -27,8 +26,8 @@ public class SnowflakeRecordContent {
    * <p>If we change this logic in future, we need to carefully modify how we handle tombstone
    * records.
    *
-   * <p>@see {@link
-   * com.snowflake.kafka.connector.internal.SnowflakeSinkServiceV1#maybeSkipOnNullValue(SinkRecord)}
+   * <p>@see
+   * com.snowflake.kafka.connector.internal.SnowflakeSinkServiceV1#maybeSkipOnNullValue(SinkRecord)
    */
   public SnowflakeRecordContent() {
     content = new JsonNode[1];
