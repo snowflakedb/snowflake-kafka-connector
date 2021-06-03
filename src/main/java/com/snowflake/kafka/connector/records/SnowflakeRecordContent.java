@@ -4,6 +4,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.sink.SinkRecord;
 
 public class SnowflakeRecordContent {
 
@@ -14,11 +15,26 @@ public class SnowflakeRecordContent {
   private int schemaID;
   private boolean isBroken;
 
-  /** constructor for null value */
+  // We have to introduce this field so as to distinguish a null value record from a record whose
+  // actual contents are an empty json node.
+  // This is only set inside a constructor which is called when a byte value found in the record is
+  // null.
+  private boolean isNullValueRecord;
+
+  /**
+   * Constructor for null value.
+   *
+   * <p>If we change this logic in future, we need to carefully modify how we handle tombstone
+   * records.
+   *
+   * <p>@see {@link
+   * com.snowflake.kafka.connector.internal.SnowflakeSinkServiceV1#maybeSkipOnNullValue(SinkRecord)}
+   */
   public SnowflakeRecordContent() {
     content = new JsonNode[1];
     content[0] = MAPPER.createObjectNode();
     brokenData = null;
+    isNullValueRecord = true;
   }
 
   /**
@@ -108,5 +124,19 @@ public class SnowflakeRecordContent {
     }
     assert content != null;
     return content.clone();
+  }
+
+
+  /**
+   * Check if primary reason for this record content's value to be an empty json String, a null value?
+   *
+   * <p> i.e if value passed in by record is empty json node (`{}`), we don't interpret this as null value.
+   * @return true if content value is empty json node as well as isNullValueRecord is set to true.
+   */
+  public boolean isRecordContentValueNull() {
+    if (content != null && content[0].isEmpty() && isNullValueRecord) {
+      return true;
+    }
+    return false;
   }
 }
