@@ -14,6 +14,8 @@ public class SnowflakeConnectionServiceFactory {
 
   public static class SnowflakeConnectionServiceBuilder extends Logging {
     private Properties prop;
+
+    // it can be empty but will always be non null
     private Properties proxyProperties;
     private SnowflakeURL url;
     private String connectorName;
