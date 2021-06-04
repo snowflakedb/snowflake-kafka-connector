@@ -26,8 +26,7 @@ public class SnowflakeRecordContent {
    * <p>If we change this logic in future, we need to carefully modify how we handle tombstone
    * records.
    *
-   * <p>@see
-   * com.snowflake.kafka.connector.internal.SnowflakeSinkServiceV1#maybeSkipOnNullValue(SinkRecord)
+   * <p>@see SnowflakeSinkServiceV1#shouldSkipNullValue(SinkRecord)
    */
   public SnowflakeRecordContent() {
     content = new JsonNode[1];

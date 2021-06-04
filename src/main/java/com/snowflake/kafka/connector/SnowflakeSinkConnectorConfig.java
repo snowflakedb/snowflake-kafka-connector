@@ -435,13 +435,13 @@ public class SnowflakeSinkConnectorConfig {
 
   /* The allowed values for tombstone records. */
   public enum BehaviorOnNullValues {
-    // Ignore would filter out records which has null value, but a valid key.
-    IGNORE,
-
     // Default as the name suggests, would be a default behavior which will not filter null values.
     // This will put an empty JSON string in corresponding snowflake table.
     // Using this means we will fall back to old behavior before introducing this config.
     DEFAULT,
+
+    // Ignore would filter out records which has null value, but a valid key.
+    IGNORE,
     ;
 
     /* Validator to validate behavior.on.null.values which says whether kafka should keep null value records or ignore them while ingesting into snowflake table. */

@@ -84,7 +84,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     // note that records can be empty
     for (SinkRecord record : records) {
       // check if need to handle null value records
-      if (maybeSkipOnNullValue(record)) {
+      if (shouldSkipNullValue(record)) {
         continue;
       }
       // Might happen a count of record based flushing
@@ -115,7 +115,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
    * @return true if we would skip adding it to buffer -> skip to internal stage and hence skipped
    *     inside SF Table
    */
-  private boolean maybeSkipOnNullValue(SinkRecord record) {
+  private boolean shouldSkipNullValue(SinkRecord record) {
     boolean isRecordValueNull = false;
     // get valueSchema
     Schema valueSchema = record.valueSchema();
@@ -150,9 +150,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     }
 
     if (isRecordValueNull) {
-      if (behaviorOnNullValues
-          .toString()
-          .equalsIgnoreCase(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE.toString())) {
+      if (behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE) {
         logDebug(
             "Null valued record from topic '{}', partition {} and offset {} was skipped.",
             record.topic(),
