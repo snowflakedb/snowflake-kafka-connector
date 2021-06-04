@@ -59,7 +59,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     this.proxyProperties = proxyProperties;
     this.kafkaProvider = kafkaProvider;
     try {
-      if (!proxyProperties.isEmpty()) {
+      if (proxyProperties != null && !proxyProperties.isEmpty()) {
         Properties combinedProperties =
             mergeProxyAndConnectionProperties(this.prop, this.proxyProperties);
         logDebug("Proxy properties are set, passing in JDBC while creating the connection");
