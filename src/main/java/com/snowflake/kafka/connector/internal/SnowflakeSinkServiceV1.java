@@ -116,53 +116,48 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
    *     inside SF Table
    */
   private boolean shouldSkipNullValue(SinkRecord record) {
-    boolean isRecordValueNull = false;
-    // get valueSchema
-    Schema valueSchema = record.valueSchema();
-    if (valueSchema instanceof SnowflakeJsonSchema) {
-      // we can conclude this is a custom/KC defined converter.
-      // i.e one of SFJson, SFAvro and SFAvroWithSchemaRegistry Converter
-      if (record.value() instanceof SnowflakeRecordContent) {
-        SnowflakeRecordContent recordValueContent = (SnowflakeRecordContent) record.value();
-        if (recordValueContent.isRecordContentValueNull()) {
+    if (behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+      return false;
+    } else {
+      boolean isRecordValueNull = false;
+      // get valueSchema
+      Schema valueSchema = record.valueSchema();
+      if (valueSchema instanceof SnowflakeJsonSchema) {
+        // we can conclude this is a custom/KC defined converter.
+        // i.e one of SFJson, SFAvro and SFAvroWithSchemaRegistry Converter
+        if (record.value() instanceof SnowflakeRecordContent) {
+          SnowflakeRecordContent recordValueContent = (SnowflakeRecordContent) record.value();
+          if (recordValueContent.isRecordContentValueNull()) {
+            logDebug(
+                "Record value schema is:{} and value is Empty Json Node for topic {}, partition {}"
+                    + " and offset {}",
+                valueSchema.getClass().getName(),
+                record.topic(),
+                record.kafkaPartition(),
+                record.kafkaOffset());
+            isRecordValueNull = true;
+          }
+        }
+      } else {
+        // Else, it is one of the community converters.
+        // Tombstone handler SMT can be used but we need to check here if value is null if SMT is
+        // not used
+        if (record.value() == null) {
           logDebug(
-              "Record value schema is:{} and value is Empty Json Node for topic {}, partition {}"
-                  + " and offset {}",
-              valueSchema.getClass().getName(),
+              "Record value is null for topic {}, partition {} and offset {}",
               record.topic(),
               record.kafkaPartition(),
               record.kafkaOffset());
           isRecordValueNull = true;
         }
       }
-    } else {
-      // Else, it is one of the community converters.
-      // Tombstone handler SMT can be used but we need to check here if value is null if SMT is not
-      // used
-      if (record.value() == null) {
-        logDebug(
-            "Record value is null for topic {}, partition {} and offset {}",
-            record.topic(),
-            record.kafkaPartition(),
-            record.kafkaOffset());
-        isRecordValueNull = true;
-      }
-    }
-
-    if (isRecordValueNull) {
-      if (behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE) {
+      if (isRecordValueNull) {
         logDebug(
             "Null valued record from topic '{}', partition {} and offset {} was skipped.",
             record.topic(),
             record.kafkaPartition(),
             record.kafkaOffset());
         return true;
-      } else {
-        logDebug(
-            "Null valued records are written to Snowflake as empty Json since config provided"
-                + " for {} is {}",
-            SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
-            behaviorOnNullValues.toString());
       }
     }
     return false;
