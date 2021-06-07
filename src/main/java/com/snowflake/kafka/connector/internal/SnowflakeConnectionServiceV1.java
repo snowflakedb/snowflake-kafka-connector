@@ -59,7 +59,14 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     this.proxyProperties = proxyProperties;
     this.kafkaProvider = kafkaProvider;
     try {
-      this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), prop);
+      if (proxyProperties != null && !proxyProperties.isEmpty()) {
+        Properties combinedProperties =
+            mergeProxyAndConnectionProperties(this.prop, this.proxyProperties);
+        logDebug("Proxy properties are set, passing in JDBC while creating the connection");
+        this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), combinedProperties);
+      } else {
+        this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), prop);
+      }
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_1001.getException(e);
     }
@@ -73,6 +80,17 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
             .setTaskID(this.taskID)
             .build();
     logInfo("initialized the snowflake connection");
+  }
+
+  /* Merges the two properties. */
+  private static Properties mergeProxyAndConnectionProperties(
+      Properties connectionProperties, Properties proxyProperties) {
+    assert connectionProperties != null;
+    assert proxyProperties != null;
+    Properties mergedProperties = new Properties();
+    mergedProperties.putAll(connectionProperties);
+    mergedProperties.putAll(proxyProperties);
+    return mergedProperties;
   }
 
   @Override
