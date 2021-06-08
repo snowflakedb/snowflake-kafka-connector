@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Map;
 
@@ -66,6 +67,13 @@ public class SnowflakeSinkServiceFactory {
     public SnowflakeSinkServiceBuilder setMetadataConfig(SnowflakeMetadataConfig configMap) {
       this.service.setMetadataConfig(configMap);
       logInfo("metadata config map is {}", configMap.toString());
+      return this;
+    }
+
+    public SnowflakeSinkServiceBuilder setBehaviorOnNullValuesConfig(
+        SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
+      this.service.setBehaviorOnNullValuesConfig(behavior);
+      logInfo("Config Behavior on null value is {}", behavior.toString());
       return this;
     }
 

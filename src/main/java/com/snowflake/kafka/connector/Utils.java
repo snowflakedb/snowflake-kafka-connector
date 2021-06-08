@@ -16,6 +16,9 @@
  */
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
+
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
@@ -33,6 +36,7 @@ import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.kafka.common.config.Config;
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.ConfigValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -467,6 +471,21 @@ public class Utils {
             config.get(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG));
       } catch (IllegalArgumentException exception) {
         LOGGER.error(Logging.logMessage("Kafka provider config error:{}", exception.getMessage()));
+        configIsValid = false;
+      }
+    }
+
+    if (config.containsKey(BEHAVIOR_ON_NULL_VALUES_CONFIG)) {
+      try {
+        // This throws an exception if config value is invalid.
+        VALIDATOR.ensureValid(
+            BEHAVIOR_ON_NULL_VALUES_CONFIG, config.get(BEHAVIOR_ON_NULL_VALUES_CONFIG));
+      } catch (ConfigException exception) {
+        LOGGER.error(
+            Logging.logMessage(
+                "Kafka config:{} error:{}",
+                BEHAVIOR_ON_NULL_VALUES_CONFIG,
+                exception.getMessage()));
         configIsValid = false;
       }
     }

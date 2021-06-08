@@ -234,4 +234,21 @@ public class ConnectorConfigTest {
     config.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, "Something_which_is_not_supported");
     Utils.validateConfig(config);
   }
+
+  @Test
+  public void testBehaviorOnNullValuesConfig_valid_value() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, "IGNORE");
+    Utils.validateConfig(config);
+
+    config.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, "DEFAULT");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testBehaviorOnNullValuesConfig_invalid_value() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, "INVALID");
+    Utils.validateConfig(config);
+  }
 }

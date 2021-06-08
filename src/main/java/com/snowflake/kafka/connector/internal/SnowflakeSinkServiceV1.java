@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.RecordService;
@@ -42,6 +43,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   private final SnowflakeTelemetryService telemetryService;
   private Map<String, String> topic2TableMap;
 
+  // Behavior to be set at the start of connector start. (For tombstone records)
+  private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues;
+
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
@@ -56,6 +60,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     isStopped = false;
     this.telemetryService = conn.getTelemetryClient();
     this.topic2TableMap = new HashMap<>();
+
+    // Setting the default value in constructor
+    // meaning it will not ignore the null values (Tombstone records wont be ignored/filtered)
+    this.behaviorOnNullValues = SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
   }
 
   @Override
@@ -75,6 +83,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   public void insert(final Collection<SinkRecord> records) {
     // note that records can be empty
     for (SinkRecord record : records) {
+      // check if need to handle null value records
+      if (shouldSkipNullValue(record)) {
+        continue;
+      }
       // Might happen a count of record based flushing
       insert(record);
     }
@@ -85,6 +97,70 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
         pipe.flushBuffer();
       }
     }
+  }
+
+  /**
+   * Returns true if we want to skip this record since the value is null or it is an empty json
+   * string.
+   *
+   * <p>Remember, we need to check what is the value schema. Depending on the value schema, we need
+   * to find out if the value is null or empty JSON. It can be empty JSON string in case of custom
+   * snowflake converters.
+   *
+   * <p>If the value is an empty JSON node, we could assume the value passed was null.
+   *
+   * @see com.snowflake.kafka.connector.records.SnowflakeJsonConverter#toConnectData when bytes ==
+   *     null case
+   * @param record record sent from Kafka to KC
+   * @return true if we would skip adding it to buffer -> skip to internal stage and hence skipped
+   *     inside SF Table
+   */
+  private boolean shouldSkipNullValue(SinkRecord record) {
+    if (behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+      return false;
+    } else {
+      boolean isRecordValueNull = false;
+      // get valueSchema
+      Schema valueSchema = record.valueSchema();
+      if (valueSchema instanceof SnowflakeJsonSchema) {
+        // we can conclude this is a custom/KC defined converter.
+        // i.e one of SFJson, SFAvro and SFAvroWithSchemaRegistry Converter
+        if (record.value() instanceof SnowflakeRecordContent) {
+          SnowflakeRecordContent recordValueContent = (SnowflakeRecordContent) record.value();
+          if (recordValueContent.isRecordContentValueNull()) {
+            logDebug(
+                "Record value schema is:{} and value is Empty Json Node for topic {}, partition {}"
+                    + " and offset {}",
+                valueSchema.getClass().getName(),
+                record.topic(),
+                record.kafkaPartition(),
+                record.kafkaOffset());
+            isRecordValueNull = true;
+          }
+        }
+      } else {
+        // Else, it is one of the community converters.
+        // Tombstone handler SMT can be used but we need to check here if value is null if SMT is
+        // not used
+        if (record.value() == null) {
+          logDebug(
+              "Record value is null for topic {}, partition {} and offset {}",
+              record.topic(),
+              record.kafkaPartition(),
+              record.kafkaOffset());
+          isRecordValueNull = true;
+        }
+      }
+      if (isRecordValueNull) {
+        logDebug(
+            "Null valued record from topic '{}', partition {} and offset {} was skipped.",
+            record.topic(),
+            record.kafkaPartition(),
+            record.kafkaOffset());
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
@@ -240,7 +316,19 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     return this.fileSize;
   }
 
-  private static String getNameIndex(String topic, int partition) {
+  @Override
+  public void setBehaviorOnNullValuesConfig(
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
+    this.behaviorOnNullValues = behavior;
+  }
+
+  @Override
+  public SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig() {
+    return this.behaviorOnNullValues;
+  }
+
+  @VisibleForTesting
+  protected static String getNameIndex(String topic, int partition) {
     return topic + "_" + partition;
   }
 
@@ -855,6 +943,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       }
     }
 
+    private boolean isBufferEmpty() {
+      return this.buffer.isEmpty();
+    }
+
     private class PartitionBuffer {
       private final StringBuilder stringBuilder;
       private int numOfRecord;
@@ -916,5 +1008,18 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
         return result;
       }
     }
+  }
+
+  /**
+   * Only used for testing Given a pipename, find out if buffer for this pipe has any data inserted.
+   *
+   * @param pipeName
+   * @return
+   */
+  protected boolean isPartitionBufferEmpty(final String pipeName) {
+    if (pipes.containsKey(pipeName)) {
+      return pipes.get(pipeName).isBufferEmpty();
+    }
+    return false;
   }
 }
