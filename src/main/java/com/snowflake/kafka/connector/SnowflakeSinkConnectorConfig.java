@@ -20,6 +20,7 @@ import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.Logging;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.config.ConfigDef;
@@ -48,6 +49,9 @@ public class SnowflakeSinkConnectorConfig {
   public static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
   public static final long BUFFER_SIZE_BYTES_MIN = 1;
   static final String TOPICS_TABLES_MAP = "snowflake.topic2table.map";
+
+  // For tombstone records
+  public static final String BEHAVIOR_ON_NULL_VALUES_CONFIG = "behavior.on.null.values";
 
   // Time in seconds
   public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
@@ -330,7 +334,19 @@ public class SnowflakeSinkConnectorConfig {
             KafkaProvider.UNKNOWN.name(),
             KAFKA_PROVIDER_VALIDATOR,
             Importance.LOW,
-            "Whether kafka is running on Confluent code, self hosted or other managed service");
+            "Whether kafka is running on Confluent code, self hosted or other managed service")
+        .define(
+            BEHAVIOR_ON_NULL_VALUES_CONFIG,
+            Type.STRING,
+            BehaviorOnNullValues.DEFAULT.toString(),
+            BehaviorOnNullValues.VALIDATOR,
+            Importance.LOW,
+            "How to handle records with a null value (i.e. Kafka tombstone records)."
+                + " Valid options are 'DEFAULT' and 'IGNORE'.",
+            CONNECTOR_CONFIG,
+            4,
+            ConfigDef.Width.NONE,
+            BEHAVIOR_ON_NULL_VALUES_CONFIG);
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {
@@ -414,6 +430,55 @@ public class SnowflakeSinkConnectorConfig {
           String.format(
               "Unsupported provider name: %s. Supported are: %s",
               kafkaProviderStr, String.join(",", PROVIDER_NAMES)));
+    }
+  }
+
+  /* The allowed values for tombstone records. */
+  public enum BehaviorOnNullValues {
+    // Default as the name suggests, would be a default behavior which will not filter null values.
+    // This will put an empty JSON string in corresponding snowflake table.
+    // Using this means we will fall back to old behavior before introducing this config.
+    DEFAULT,
+
+    // Ignore would filter out records which has null value, but a valid key.
+    IGNORE,
+    ;
+
+    /* Validator to validate behavior.on.null.values which says whether kafka should keep null value records or ignore them while ingesting into snowflake table. */
+    public static final ConfigDef.Validator VALIDATOR =
+        new ConfigDef.Validator() {
+          private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names());
+
+          @Override
+          public void ensureValid(String name, Object value) {
+            if (value instanceof String) {
+              value = ((String) value).toLowerCase(Locale.ROOT);
+            }
+            validator.ensureValid(name, value);
+          }
+
+          // Overridden here so that ConfigDef.toEnrichedRst shows possible values correctly
+          @Override
+          public String toString() {
+            return validator.toString();
+          }
+        };
+
+    // All valid enum values
+    public static String[] names() {
+      BehaviorOnNullValues[] behaviors = values();
+      String[] result = new String[behaviors.length];
+
+      for (int i = 0; i < behaviors.length; i++) {
+        result[i] = behaviors[i].toString();
+      }
+
+      return result;
+    }
+
+    @Override
+    public String toString() {
+      return name().toLowerCase(Locale.ROOT);
     }
   }
 }

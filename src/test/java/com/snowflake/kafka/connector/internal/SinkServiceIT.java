@@ -25,6 +25,7 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -173,7 +174,7 @@ public class SinkServiceIT {
   }
 
   @Test
-  public void testTombstoneRecords_ingestion() throws Exception {
+  public void testTombstoneRecords_DEFAULT_behavior_ingestion_SFJsonConverter() throws Exception {
     conn.createTable(table);
     conn.createStage(stage);
     SnowflakeSinkService service =
@@ -182,6 +183,12 @@ public class SinkServiceIT {
             .addTask(table, topic, partition)
             .build();
 
+    // Verifying it here to see if it fallbacks to default behavior - which is to ingest empty json
+    // string
+    Assert.assertTrue(
+        service
+            .getBehaviorOnNullValuesConfig()
+            .equals(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT));
     SnowflakeConverter converter = new SnowflakeJsonConverter();
     SchemaAndValue input = converter.toConnectData(topic, null);
     long offset = 0;
@@ -189,8 +196,7 @@ public class SinkServiceIT {
     SinkRecord record1 =
         new SinkRecord(
             topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
-
-    service.insert(record1);
+    service.insert(Collections.singletonList(record1));
     TestUtils.assertWithRetry(
         () ->
             conn.listStage(
@@ -230,6 +236,106 @@ public class SinkServiceIT {
     TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 0, 30, 20);
 
     assert service.getOffset(new TopicPartition(topic, partition)) == offset + 1;
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testTombstoneRecords_IGNORE_behavior_ingestion_SFJsonConverter() throws Exception {
+    conn.createTable(table);
+    conn.createStage(stage);
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn)
+            .setRecordNumber(1)
+            .addTask(table, topic, partition)
+            .setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE)
+            .build();
+
+    // Verifying it here to see if it fallbacks to default behavior - which is to ingest empty json
+    // string
+    Assert.assertTrue(
+        service
+            .getBehaviorOnNullValuesConfig()
+            .equals(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE));
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input = converter.toConnectData(topic, null);
+    long offset = 0;
+
+    SinkRecord record1 =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
+    service.insert(Collections.singletonList(record1));
+    Assert.assertTrue(
+        ((SnowflakeSinkServiceV1) service)
+            .isPartitionBufferEmpty(SnowflakeSinkServiceV1.getNameIndex(topic, partition)));
+    TestUtils.assertWithRetry(
+        () ->
+            conn.listStage(
+                        stage,
+                        FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition))
+                    .size()
+                == 0,
+        5,
+        4);
+
+    // wait for ingest
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 0, 30, 20);
+
+    ResultSet resultSet = TestUtils.showTable(table);
+    Assert.assertTrue(resultSet.getFetchSize() == 0);
+    resultSet.close();
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testTombstoneRecords_IGNORE_behavior_ingestion_CommunityJsonConverter()
+      throws Exception {
+    conn.createTable(table);
+    conn.createStage(stage);
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn)
+            .setRecordNumber(1)
+            .addTask(table, topic, partition)
+            .setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE)
+            .build();
+
+    // Verifying it here to see if it fallbacks to default behavior - which is to ingest empty json
+    // string
+    Assert.assertTrue(
+        service
+            .getBehaviorOnNullValuesConfig()
+            .equals(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE));
+    JsonConverter converter = new JsonConverter();
+    HashMap<String, String> converterConfig = new HashMap<String, String>();
+    converterConfig.put("schemas.enable", "false");
+    converter.configure(converterConfig, false);
+    SchemaAndValue input = converter.toConnectData(topic, null);
+    long offset = 0;
+
+    SinkRecord record1 =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
+    service.insert(Collections.singletonList(record1));
+    Assert.assertTrue(
+        ((SnowflakeSinkServiceV1) service)
+            .isPartitionBufferEmpty(SnowflakeSinkServiceV1.getNameIndex(topic, partition)));
+    TestUtils.assertWithRetry(
+        () ->
+            conn.listStage(
+                        stage,
+                        FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition))
+                    .size()
+                == 0,
+        5,
+        4);
+
+    // wait for ingest
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 0, 30, 20);
+
+    ResultSet resultSet = TestUtils.showTable(table);
+    Assert.assertTrue(resultSet.getFetchSize() == 0);
+    resultSet.close();
 
     service.closeAll();
   }
