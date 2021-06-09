@@ -60,8 +60,10 @@ jobs:
         ./build_apache.sh ../../snowflake-kafka-connector package
 
     - name: End to End Test of Confluent Platform 5.5
+      uses: nick-invision/retry@v2
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
-      run: |
-        cd test
-        ./run_test_confluent.sh 5.5.0 ./apache_properties
+      with:
+        timeout_minutes: 60
+        max_attempts: 3
+        command: cd test && ./run_test_confluent.sh 5.5.0 ./apache_properties
