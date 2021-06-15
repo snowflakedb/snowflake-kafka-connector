@@ -10,7 +10,7 @@ function error_exit() {
 }
 
 function random-string() {
-    cat /dev/urandom | env LC_CTYPE=C tr -cd 'a-z0-9' | head -c 4 
+    cat /dev/urandom | env LC_CTYPE=C tr -cd 'a-z0-9' | head -c 4
 }
 
 source ./utils.sh
@@ -88,6 +88,31 @@ tar xzvf apache.tgz > /dev/null 2>&1
 mkdir -p $APACHE_LOG_PATH
 rm $APACHE_LOG_PATH/zookeeper.log $APACHE_LOG_PATH/kafka.log $APACHE_LOG_PATH/kc.log || true
 rm -rf /tmp/kafka-logs /tmp/zookeeper || true
+
+# Fips Jar installation, required for encrypted private key
+fipsInstallDirectory=$APACHE_FOLDER_NAME/"libs"
+KAFKA_CONNECT_PLUGIN_PATH="/usr/local/share/kafka/plugins"
+echo $fipsInstallDirectory
+lsCommand=$(ls $fipsInstallDirectory | grep fips | wc -l)
+echo $lsCommand
+
+if [ $lsCommand == 0 ]; then
+    echo "Installing fips Jars in:"$fipsInstallDirectory
+    wget -P $fipsInstallDirectory https://repo1.maven.org/maven2/org/bouncycastle/bcpkix-fips/1.0.3/bcpkix-fips-1.0.3.jar
+    wget -P $fipsInstallDirectory https://repo1.maven.org/maven2/org/bouncycastle/bc-fips/1.0.2/bc-fips-1.0.2.jar
+    cp $fipsInstallDirectory/bcpkix-fips-1.0.3.jar $KAFKA_CONNECT_PLUGIN_PATH
+    cp $fipsInstallDirectory/bc-fips-1.0.2.jar $KAFKA_CONNECT_PLUGIN_PATH
+    echo "list KAFKA_CONNECT_PLUGIN_PATH: $KAFKA_CONNECT_PLUGIN_PATH"
+    ls $KAFKA_CONNECT_PLUGIN_PATH
+    echo "list apache test libs directory: $fipsInstallDirectory"
+    ls $fipsInstallDirectory
+else
+    echo "No need to download Fips Libraries"
+fi
+
+# Copy the sample connect log4j properties file to appropriate directory
+echo "Copying connect-log4j to apache folder"
+cp -fr ./connect-log4j.properties $APACHE_FOLDER_NAME/"config/"
 
 compile_protobuf_converter_and_data $TEST_SET $APACHE_FOLDER_NAME
 

@@ -3,13 +3,11 @@ package com.snowflake.reporter;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
-public class TestCase extends Reporter
-{
+public class TestCase extends Reporter {
 
   private final ObjectNode node;
 
-  public TestCase(String name, String tableName, long time)
-  {
+  public TestCase(String name, String tableName, long time) {
     node = MAPPER.createObjectNode();
     node.put(NAME, name);
     node.put(TABLE_NAME, tableName);
@@ -19,9 +17,7 @@ public class TestCase extends Reporter
   }
 
   @Override
-  public JsonNode getNode()
-  {
+  public JsonNode getNode() {
     return node;
   }
-
 }

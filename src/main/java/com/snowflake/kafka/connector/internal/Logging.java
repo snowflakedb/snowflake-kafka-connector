@@ -18,104 +18,79 @@
 package com.snowflake.kafka.connector.internal;
 
 import java.util.Objects;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Base class for all classes enable logging
- */
-public class Logging
-{
-  //todo: change to interface when upgrading to Java 9 or later
+/** Base class for all classes enable logging */
+public class Logging {
+  // todo: change to interface when upgrading to Java 9 or later
   private final Logger log = LoggerFactory.getLogger(getClass().getName());
 
   // only message
-  protected void logInfo(String msg)
-  {
-    if(log.isInfoEnabled())
-    {
+  protected void logInfo(String msg) {
+    if (log.isInfoEnabled()) {
       log.info(logMessage(msg));
     }
   }
 
-  protected void logTrace(String msg)
-  {
-    if(log.isTraceEnabled())
-    {
+  protected void logTrace(String msg) {
+    if (log.isTraceEnabled()) {
       log.trace(logMessage(msg));
     }
   }
 
-  protected void logDebug(String msg)
-  {
-    if(log.isDebugEnabled())
-    {
+  protected void logDebug(String msg) {
+    if (log.isDebugEnabled()) {
       log.debug(logMessage(msg));
     }
   }
 
-  protected void logWarn(String msg)
-  {
-    if(log.isWarnEnabled())
-    {
+  protected void logWarn(String msg) {
+    if (log.isWarnEnabled()) {
       log.warn(logMessage(msg));
     }
   }
 
-  protected void logError(String msg)
-  {
-    if(log.isErrorEnabled())
-    {
+  protected void logError(String msg) {
+    if (log.isErrorEnabled()) {
       log.error(logMessage(msg));
     }
   }
 
-  //format and variables
-  protected void logInfo(String format, Object... vars)
-  {
-    if(log.isInfoEnabled())
-    {
+  // format and variables
+  protected void logInfo(String format, Object... vars) {
+    if (log.isInfoEnabled()) {
       log.info(logMessage(format, vars));
     }
   }
 
-  protected void logTrace(String format, Object... vars)
-  {
-    if(log.isTraceEnabled())
-    {
+  protected void logTrace(String format, Object... vars) {
+    if (log.isTraceEnabled()) {
       log.trace(logMessage(format, vars));
     }
   }
 
-  protected void logDebug(String format, Object... vars)
-  {
-    if(log.isDebugEnabled())
-    {
+  protected void logDebug(String format, Object... vars) {
+    if (log.isDebugEnabled()) {
       log.debug(logMessage(format, vars));
     }
   }
 
-  protected void logWarn(String format, Object... vars)
-  {
-    if(log.isWarnEnabled())
-    {
+  protected void logWarn(String format, Object... vars) {
+    if (log.isWarnEnabled()) {
       log.warn(format, vars);
     }
   }
 
-  protected void logError(String format, Object... vars)
-  {
-    if(log.isErrorEnabled())
-    {
+  protected void logError(String format, Object... vars) {
+    if (log.isErrorEnabled()) {
       log.error(logMessage(format, vars));
     }
   }
 
+  // static elements
 
-  //static elements
-
-  //log message tag
+  // log message tag
   static final String SF_LOG_TAG = "[SF_KAFKA_CONNECTOR]";
 
   /*
@@ -134,8 +109,7 @@ public class Logging
    * @param msg log message
    * @return log message wrapped by snowflake tag
    */
-  public static String logMessage(String msg)
-  {
+  public static String logMessage(String msg) {
     return "\n".concat(msg).replaceAll("\n", "\n" + SF_LOG_TAG + " ");
   }
 
@@ -143,14 +117,12 @@ public class Logging
    * wrap a message contains multiple variables
    *
    * @param format log message format string
-   * @param vars   variable list
+   * @param vars variable list
    * @return log message wrapped by snowflake tag
    */
-  public static String logMessage(String format, Object... vars)
-  {
-    for (int i = 0; i < vars.length; i++)
-    {
-      format = format.replaceFirst("\\{}", Objects.toString(vars[i]).replaceAll("\\$","\\\\\\$"));
+  public static String logMessage(String format, Object... vars) {
+    for (int i = 0; i < vars.length; i++) {
+      format = format.replaceFirst("\\{}", Objects.toString(vars[i]).replaceAll("\\$", "\\\\\\$"));
     }
     return logMessage(format);
   }

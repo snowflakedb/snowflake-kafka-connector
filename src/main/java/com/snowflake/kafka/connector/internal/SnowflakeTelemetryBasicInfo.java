@@ -8,10 +8,10 @@ public abstract class SnowflakeTelemetryBasicInfo {
   final String pipeName;
   static final String TABLE_NAME = "table_name";
   static final String STAGE_NAME = "stage_name";
-  static final String PIPE_NAME  = "pipe_name";
+  static final String PIPE_NAME = "pipe_name";
 
-  SnowflakeTelemetryBasicInfo(final String tableName, final String stageName, final String pipeName)
-  {
+  SnowflakeTelemetryBasicInfo(
+      final String tableName, final String stageName, final String pipeName) {
     this.tableName = tableName;
     this.stageName = stageName;
     this.pipeName = pipeName;

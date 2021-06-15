@@ -27,8 +27,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMappe
 }
 */
 
-public abstract class Reporter
-{
+public abstract class Reporter {
   static final String NAME = "name";
   static final String TIME = "time";
   static final String TABLE_NAME = "table_name";
@@ -40,35 +39,26 @@ public abstract class Reporter
 
   static final ObjectMapper MAPPER = new ObjectMapper();
 
-  abstract public JsonNode getNode();
+  public abstract JsonNode getNode();
 
-  String getAppName()
-  {
-    if (Utils.TEST_MODE)
-    {
+  String getAppName() {
+    if (Utils.TEST_MODE) {
       return APP_NAME.concat("_test");
-    }
-    else
-    {
+    } else {
       return APP_NAME;
     }
   }
 
   @Override
-  public String toString()
-  {
+  public String toString() {
     return getNode().toString();
   }
 
-
-  public JsonArray toJsonArray()
-  {
+  public JsonArray toJsonArray() {
     return new JsonArray(this);
   }
 
-  public JsonArray add(Reporter other)
-  {
+  public JsonArray add(Reporter other) {
     return toJsonArray().add(other);
   }
-
 }

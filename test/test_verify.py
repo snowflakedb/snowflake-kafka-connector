@@ -246,6 +246,8 @@ class KafkaTest:
             testDatabase = credentialJson["database"]
             testSchema = credentialJson["schema"]
             pk = credentialJson["private_key"]
+            # Use Encrypted key if passphrase is non empty
+            pkEncrypted = credentialJson["encrypted_private_key"]
 
         print(datetime.now().strftime("\n%H:%M:%S "), "=== generate sink connector rest reqeuest from {} ===".format(rest_template_path))
         if not os.path.exists(rest_generate_path):
@@ -254,7 +256,11 @@ class KafkaTest:
 
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
         with open("{}/{}".format(rest_template_path, fileName), 'r') as f:
-            config = f.read() \
+            fileContent = f.read()
+            # Template has passphrase, use the encrypted version of P8 Key
+            if fileContent.find("snowflake.private.key.passphrase") != -1:
+                pk = pkEncrypted
+            fileContent = fileContent \
                 .replace("SNOWFLAKE_PRIVATE_KEY", pk) \
                 .replace("SNOWFLAKE_HOST", testHost) \
                 .replace("SNOWFLAKE_USER", testUser) \
@@ -264,31 +270,38 @@ class KafkaTest:
                 .replace("SNOWFLAKE_TEST_TOPIC", snowflake_connector_name) \
                 .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name)
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
-                fw.write(config)
+                fw.write(fileContent)
 
-        MAX_RETRY = 20
+        MAX_RETRY = 3
         retry = 0
         delete_url = "http://{}/connectors/{}".format(self.kafkaConnectAddress, snowflake_connector_name)
         post_url = "http://{}/connectors".format(self.kafkaConnectAddress)
         while retry < MAX_RETRY:
             try:
+                print("Delete request:{0}".format(delete_url))
                 code = requests.delete(delete_url, timeout=10).status_code
+                print("Delete request returned:{0}".format(code))
                 if code == 404 or code == 200 or code == 201:
                     break
-            except:
+            except BaseException as e:
+                print('An exception occurred: {}'.format(e))
                 pass
             print(datetime.now().strftime("\n%H:%M:%S "), "=== sleep for 30 secs to wait for kafka connect to accept connection ===")
             sleep(30)
             retry += 1
         if retry == MAX_RETRY:
-            errorExit("\n=== max retry exceeded, kafka connect not ready in 10 mins ===")
+            print("Kafka Delete request not successful:{0}".format(delete_url))
 
-        r = requests.post(post_url, json=json.loads(config), headers=self.httpHeader)
+        print("Post HTTP request to Create Connector:{0}".format(post_url))
+        r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
         print(datetime.now().strftime("%H:%M:%S "), json.loads(r.content.decode("utf-8"))["name"], r.status_code)
+        getConnectorResponse = requests.get(post_url)
+        print("Get Connectors status:{0}, response:{1}".format(getConnectorResponse.status_code, getConnectorResponse.content))
 
 
 def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_string_json import TestStringJson
+    from test_suit.test_string_json_proxy import TestStringJsonProxy
     from test_suit.test_json_json import TestJsonJson
     from test_suit.test_string_avro import TestStringAvro
     from test_suit.test_avro_avro import TestAvroAvro
@@ -320,12 +333,15 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testNativeStringProtobuf = TestNativeStringProtobuf(driver, nameSalt)
     testConfluentProtobufProtobuf = TestConfluentProtobufProtobuf(driver, nameSalt)
 
+    testStringJsonProxy = TestStringJsonProxy(driver, nameSalt)
+
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
     testSuitList1 = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
                      testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
                      testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf]
 
+    # Adding StringJsonProxy test at the end
     testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True]
     testSuitEnableList1 = []
     if testSet == "confluent":
@@ -369,6 +385,26 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     execution(testSet, testSuitList3, testCleanEnableList3, testSuitEnableList3, driver, nameSalt, 4)
     ############################ round 3 ############################
+
+    ############################ round 4: Proxy End To End Test ############################
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 4: Proxy E2E Test ===")
+    print("Proxy Test should be the last test, since it modifies the JVM values")
+    testSuitList4 = [testStringJsonProxy]
+
+    # Should we invoke clean before and after the test
+    testCleanEnableList4 = [True]
+
+    # should we enable this? Set to false to disable
+    testSuitEnableList4 = []
+    if testSet == "confluent":
+        testSuitEnableList4 = [True]
+    elif testSet == "apache":
+        testSuitEnableList4 = [True]
+    elif testSet != "clean":
+        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+
+    execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
+    ############################ round 4 ############################
 
 
 def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round = 1):

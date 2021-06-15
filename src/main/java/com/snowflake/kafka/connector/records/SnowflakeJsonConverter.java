@@ -17,38 +17,30 @@
 package com.snowflake.kafka.connector.records;
 
 import com.snowflake.kafka.connector.internal.Logging;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.connect.data.SchemaAndValue;
 
-public class SnowflakeJsonConverter extends SnowflakeConverter
-{
+public class SnowflakeJsonConverter extends SnowflakeConverter {
 
   /**
    * cast bytes array to Json array
    *
-   * @param s     topic name. unused
+   * @param s topic name. unused
    * @param bytes input bytes array, only support single json record now
    * @return JSON array
    */
   @Override
-  public SchemaAndValue toConnectData(final String s, final byte[] bytes)
-  {
-    if(bytes == null)
-    {
+  public SchemaAndValue toConnectData(final String s, final byte[] bytes) {
+    if (bytes == null) {
       return new SchemaAndValue(new SnowflakeJsonSchema(), new SnowflakeRecordContent());
     }
-    try
-    {
-      //always return an array of JsonNode because AVRO record may contains
+    try {
+      // always return an array of JsonNode because AVRO record may contains
       // multiple records
-      return new SchemaAndValue(new SnowflakeJsonSchema(),
-        new SnowflakeRecordContent(mapper.readTree(bytes)));
-    } catch (Exception ex)
-    {
+      return new SchemaAndValue(
+          new SnowflakeJsonSchema(), new SnowflakeRecordContent(mapper.readTree(bytes)));
+    } catch (Exception ex) {
       LOGGER.error(Logging.logMessage("Failed to parse JSON record\n" + ex.toString()));
-      return new SchemaAndValue(new SnowflakeJsonSchema(),
-        new SnowflakeRecordContent(bytes));
+      return new SchemaAndValue(new SnowflakeJsonSchema(), new SnowflakeRecordContent(bytes));
     }
   }
 }

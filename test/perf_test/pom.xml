@@ -12,7 +12,13 @@
     <repository>
       <id>confluent</id>
       <name>Confluent Maven Repo</name>
-      <url>http://packages.confluent.io/maven/</url>
+      <url>https://packages.confluent.io/maven/</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
     </repository>
   </repositories>
   <dependencies>
@@ -26,7 +32,7 @@
     <dependency>
       <groupId>net.snowflake</groupId>
       <artifactId>snowflake-jdbc</artifactId>
-      <version>3.12.12</version>
+      <version>3.13.3</version>
     </dependency>
     <dependency>
       <groupId>org.apache.kafka</groupId>
@@ -74,6 +80,13 @@
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>2.22.1</version>
+        <configuration>
+          <testFailureIgnore>true</testFailureIgnore>
+          <useSystemClassLoader>false</useSystemClassLoader>
+          <forkCount>3</forkCount>
+          <reuseForks>true</reuseForks>
+          <argLine>-Xmx1024m -XX:MaxPermSize=256m</argLine>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
