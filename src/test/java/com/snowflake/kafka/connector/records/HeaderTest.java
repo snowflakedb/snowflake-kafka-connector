@@ -8,6 +8,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Schema.Type;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.header.ConnectHeaders;
@@ -209,5 +210,21 @@ public class HeaderTest {
         System.currentTimeMillis(),
         TimestampType.CREATE_TIME,
         headers);
+  }
+  
+  @Test
+  public void testEmptyMap()throws IOException {
+    Schema MAP_SCHEMA = new SchemaBuilder(Type.MAP);
+    String mapName = "properties";
+    Headers headers = new ConnectHeaders()
+        .addMap(mapName, Collections.emptyMap(), MAP_SCHEMA);
+    SinkRecord record = createTestRecord(headers);
+    RecordService service = new RecordService();
+    JsonNode node = MAPPER.readTree(service.processRecord(record));
+
+    assert node.get("meta").has("headers");
+    JsonNode headerNode = node.get("meta").get("headers");
+    assert headerNode.has(mapName);
+    assert headerNode.get(mapName).asText().equals("");
   }
 }
