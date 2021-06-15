@@ -66,7 +66,7 @@ public class SnowflakeSinkConnectorConfig {
   static final String SNOWFLAKE_DATABASE = Utils.SF_DATABASE;
   static final String SNOWFLAKE_SCHEMA = Utils.SF_SCHEMA;
   static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
-
+  static final String SNOWFLAKE_PASSWORD = Utils.SF_PASSWORD;
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
   public static final String JVM_PROXY_HOST = "jvm.proxy.host";
@@ -155,6 +155,16 @@ public class SnowflakeSinkConnectorConfig {
             1,
             ConfigDef.Width.NONE,
             SNOWFLAKE_USER)
+        .define(
+            SNOWFLAKE_PASSWORD,
+            Type.PASSWORD,
+            "",
+            Importance.HIGH,
+            "Password Snowflake user",
+            SNOWFLAKE_LOGIN_INFO,
+            2,
+            ConfigDef.Width.NONE,
+            SNOWFLAKE_PASSWORD)
         .define(
             SNOWFLAKE_PRIVATE_KEY,
             Type.PASSWORD,

@@ -435,10 +435,10 @@ public class Utils {
       configIsValid = false;
     }
 
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY)) {
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY) && !config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PASSWORD)) {
       LOGGER.error(
           Logging.logMessage(
-              "{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY));
+              "{} or {} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, SnowflakeSinkConnectorConfig.SNOWFLAKE_PASSWORD));
       configIsValid = false;
     }
 

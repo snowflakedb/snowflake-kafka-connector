@@ -20,6 +20,7 @@ public class ConnectorIT {
   static final String allPropertiesList[] = {
     SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
     SnowflakeSinkConnectorConfig.SNOWFLAKE_USER,
+    SnowflakeSinkConnectorConfig.SNOWFLAKE_PASSWORD,
     SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA,
     SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE,
     SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
@@ -72,6 +73,7 @@ public class ConnectorIT {
     Map<String, String> config = new HashMap<>();
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL, "");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER, "");
+    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PASSWORD, "");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, "");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, "");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA, "");
@@ -234,6 +236,19 @@ public class ConnectorIT {
           SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE
         });
   }
+
+  @Test
+  public void testValidateErrorPasswordConfig() {
+    Map<String, String> config = getCorrectConfig();
+    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PASSWORD, "wrongPassword");
+    Map<String, ConfigValue> validateMap = toValidateMap(config);
+    assertPropHasError(
+        validateMap,
+        new String[] {
+          SnowflakeSinkConnectorConfig.SNOWFLAKE_PASSWORD
+        });
+  }
+
 
   @Test
   public void testValidateErrorDatabaseConfig() {
