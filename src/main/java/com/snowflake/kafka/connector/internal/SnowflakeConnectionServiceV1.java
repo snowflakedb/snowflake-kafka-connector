@@ -698,6 +698,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
             stageName,
             fullPipeName,
             privateKey,
+            password,
             userAgentSuffixInHttpRequest)
         .setTelemetry(this.telemetry)
         .build();

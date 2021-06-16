@@ -53,6 +53,7 @@ public class Utils {
   public static final String SF_SCHEMA = "snowflake.schema.name";
   public static final String SF_USER = "snowflake.user.name";
   public static final String SF_PRIVATE_KEY = "snowflake.private.key";
+  public static final String SF_PASSWORD = "snowflake.user.password";
   public static final String SF_URL = "snowflake.url.name";
   public static final String SF_SSL = "sfssl"; // for test only
   public static final String SF_WAREHOUSE = "sfwarehouse"; // for test only

@@ -40,6 +40,7 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
       String stageName,
       String pipeName,
       PrivateKey privateKey,
+      String password,
       String userAgentSuffix) {
     this.stageName = stageName;
     try {
@@ -49,6 +50,7 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
               userName,
               pipeName,
               privateKey,
+              password,
               connectionScheme,
               host,
               port,

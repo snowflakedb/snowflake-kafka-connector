@@ -26,6 +26,7 @@ class InternalUtils {
   static final String JDBC_SCHEMA = "schema";
   static final String JDBC_USER = "user";
   static final String JDBC_PRIVATE_KEY = "privateKey";
+  static final String JDBC_PASSWORD = "password"
   static final String JDBC_SSL = "ssl";
   static final String JDBC_SESSION_KEEP_ALIVE = "client_session_keep_alive";
   static final String JDBC_WAREHOUSE = "warehouse"; // for test only
@@ -135,6 +136,9 @@ class InternalUtils {
         case Utils.SF_USER:
           properties.put(JDBC_USER, entry.getValue());
           break;
+        case Utils.SF_PASSWORD:
+          properties.put(JDBC_PASSWORD, entry.getValue());
+          break;
         case Utils.SF_WAREHOUSE:
           properties.put(JDBC_WAREHOUSE, entry.getValue());
           break;
@@ -164,7 +168,7 @@ class InternalUtils {
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
 
     // required parameter check
-    if (!properties.containsKey(JDBC_PRIVATE_KEY)) {
+    if (!properties.containsKey(JDBC_PRIVATE_KEY) && !properties.containsKey(JDBC_PASSWORD)) {
       throw SnowflakeErrors.ERROR_0013.getException();
     }
 

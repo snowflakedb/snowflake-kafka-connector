@@ -14,6 +14,7 @@ public class SnowflakeIngestionServiceFactory {
       String stageName,
       String pipeName,
       PrivateKey privateKey,
+      String password,
       String userAgentSuffix) {
     return new SnowflakeIngestionServiceBuilder(
         accountName,
@@ -24,6 +25,7 @@ public class SnowflakeIngestionServiceFactory {
         stageName,
         pipeName,
         privateKey,
+        password,
         userAgentSuffix);
   }
 
@@ -40,6 +42,7 @@ public class SnowflakeIngestionServiceFactory {
         String stageName,
         String pipeName,
         PrivateKey privateKey,
+        String password,
         String userAgentSuffix) {
       this.service =
           new SnowflakeIngestionServiceV1(
@@ -51,6 +54,7 @@ public class SnowflakeIngestionServiceFactory {
               stageName,
               pipeName,
               privateKey,
+              password,
               userAgentSuffix);
     }
 

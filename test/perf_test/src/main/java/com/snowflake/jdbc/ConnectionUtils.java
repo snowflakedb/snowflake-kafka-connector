@@ -27,7 +27,7 @@ public class ConnectionUtils {
   public static final String USER = "user";
   public static final String PRIVATE_KEY = "private_key";
   private static final String P_KEY = "privateKey";
-  private static final String PASSWORD = "password";
+  public static final String PASSWORD = "password";
   private static final String RESULT_STAGE = "KAFKA_PERF_TEST_STAGE";
   private static final String RESULT_TABLE = "DO_NOT_DELETE_KAFKA_PERF_TEST_RESULT_TABLE";
 

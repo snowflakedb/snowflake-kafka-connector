@@ -46,6 +46,7 @@ public class TestUtils {
   private static final String PRIVATE_KEY = "private_key";
   private static final String ENCRYPTED_PRIVATE_KEY = "encrypted_private_key";
   private static final String PRIVATE_KEY_PASSPHRASE = "private_key_passphrase";
+  private static final String PASSWORD = "password";
   private static final Random random = new Random();
   private static final String DES_RSA_KEY = "des_rsa_key";
   public static final String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
