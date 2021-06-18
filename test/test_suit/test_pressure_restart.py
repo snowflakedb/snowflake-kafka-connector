@@ -6,7 +6,7 @@ class TestPressureRestart:
         self.driver = driver
         self.topics = []
         self.topicNum = 10
-        self.partitionNum = 10
+        self.partitionNum = 3
         self.recordNum = 200000
         self.curTest = 0
         self.configIncreamental = 0
