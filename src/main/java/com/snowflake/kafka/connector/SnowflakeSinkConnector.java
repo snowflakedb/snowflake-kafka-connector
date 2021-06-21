@@ -184,6 +184,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
   @Override
   public Config validate(Map<String, String> connectorConfigs) {
+    LOGGER.debug("Validating connector Config: Start");
     // cross-fields validation here
     Config result = super.validate(connectorConfigs);
 
@@ -197,6 +198,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     try {
       Utils.validateProxySetting(connectorConfigs);
     } catch (SnowflakeKafkaConnectorException e) {
+      LOGGER.error("Error validating proxy parameters:{}", e.getMessage());
       switch (e.getCode()) {
         case "0022":
           Utils.updateConfigErrorMessage(
@@ -231,6 +233,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
       testConnection =
           SnowflakeConnectionServiceFactory.builder().setProperties(connectorConfigs).build();
     } catch (SnowflakeKafkaConnectorException e) {
+      LOGGER.error(
+          "Validate: Error connecting to snowflake:{}, errorCode:{}", e.getMessage(), e.getCode());
       // Since url, user, db, schema, exist in config and is not empty,
       // the exceptions here would be invalid URL, and cannot connect, and no private key
       switch (e.getCode()) {
@@ -264,6 +268,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     try {
       testConnection.databaseExists(connectorConfigs.get(Utils.SF_DATABASE));
     } catch (SnowflakeKafkaConnectorException e) {
+      LOGGER.error("Validate Error msg:{}, errorCode:{}", e.getMessage(), e.getCode());
       if (e.getCode().equals("2001")) {
         Utils.updateConfigErrorMessage(result, Utils.SF_DATABASE, " database does not exist");
       } else {
@@ -275,6 +280,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     try {
       testConnection.schemaExists(connectorConfigs.get(Utils.SF_SCHEMA));
     } catch (SnowflakeKafkaConnectorException e) {
+      LOGGER.error("Validate Error msg:{}, errorCode:{}", e.getMessage(), e.getCode());
       if (e.getCode().equals("2001")) {
         Utils.updateConfigErrorMessage(result, Utils.SF_SCHEMA, " schema does not exist");
       } else {
