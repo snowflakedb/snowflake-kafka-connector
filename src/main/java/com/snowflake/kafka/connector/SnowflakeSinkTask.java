@@ -300,7 +300,9 @@ public class SnowflakeSinkTask extends SinkTask {
    * @return result map
    */
   static Map<String, String> getTopicToTableMap(Map<String, String> config) {
-    if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)) {
+    if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)
+            && !config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP).isEmpty()
+    ) {
       Map<String, String> result =
           Utils.parseTopicToTableMap(config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP));
       if (result != null) {
