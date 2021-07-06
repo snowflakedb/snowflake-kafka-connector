@@ -251,4 +251,11 @@ public class ConnectorConfigTest {
     config.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, "INVALID");
     Utils.validateConfig(config);
   }
+
+  @Test
+  public void testEmptyTopic2TableMap() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.TOPICS, "");
+    Utils.validateConfig(config);
+  }
 }
