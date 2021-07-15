@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import java.lang.management.ManagementFactory;
-import javax.management.JMException;
+import java.util.Optional;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
@@ -50,16 +50,15 @@ public abstract class SnowflakeTelemetryBasicInfo {
    */
   public synchronized void registerMBean() {
     try {
-      final MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
-      if (mBeanServer == null) {
-        LOGGER.info(Logging.logMessage("JMX not supported, bean '{}' not registered", mBeanName));
-        return;
+      Optional<MBeanServer> optMBeanServer = getValidMbeanServer();
+      if (optMBeanServer.isPresent()) {
+        optMBeanServer.get().registerMBean(this, mBeanName);
+        LOGGER.info(Logging.logMessage("Registered Mbean:{}", mBeanName));
       }
-      mBeanServer.registerMBean(this, mBeanName);
-      LOGGER.info(Logging.logMessage("Registered Mbean:{}", mBeanName));
-    } catch (JMException e) {
+    } catch (Exception e) {
       LOGGER.warn(
-          Logging.logMessage("Unable to register the MBean '{}': {}", mBeanName, e.getMessage()));
+          Logging.logMessage(
+              "Unable to register the MBean: '{}' with exception: {}", mBeanName, e.getMessage()));
     }
   }
 
@@ -68,26 +67,42 @@ public abstract class SnowflakeTelemetryBasicInfo {
    * synchronized to prevent preemption between registration and un-registration.
    */
   public synchronized void unregisterMBean() {
-    if (this.mBeanName != null && enableJMXMonitoring) {
-      try {
-        final MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
-        if (mBeanServer == null) {
-          LOGGER.info(Logging.logMessage("JMX not supported, bean '{}' not registered"));
-          return;
-        }
-        mBeanServer.unregisterMBean(mBeanName);
-      } catch (JMException e) {
-        LOGGER.warn(
-            Logging.logMessage(
-                "Unable to unregister the MBean '{}': {}", mBeanName, e.getMessage()));
+    try {
+      Optional<MBeanServer> optMBeanServer = getValidMbeanServer();
+      if (optMBeanServer.isPresent()) {
+        optMBeanServer.get().unregisterMBean(mBeanName);
+        LOGGER.info(Logging.logMessage("Unregistered Mbean:{}", mBeanName));
       }
+    } catch (Exception e) {
+      LOGGER.warn(
+          Logging.logMessage("Unable to unregister the MBean '{}': {}", mBeanName, e.getMessage()));
     }
+  }
+
+  /**
+   * @return Gets an {@link MBeanServer} instance wrapped around Optional if we are able to fetch
+   *     from ManagementFactory.
+   */
+  private Optional<MBeanServer> getValidMbeanServer() {
+    if (this.mBeanName != null && enableJMXMonitoring) {
+      final MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
+      if (mBeanServer == null) {
+        LOGGER.info(Logging.logMessage("JMX not supported, bean '{}' not registered/unregistered"));
+        throw new UnsupportedOperationException("JMX not supported");
+      }
+      return Optional.of(mBeanServer);
+    }
+    LOGGER.info(
+        Logging.logMessage(
+            "Mbean Name is invalid or JMX is not enabled for class:{}", this.getClass().getName()));
+    return Optional.empty();
   }
 
   /**
    * Create a JMX metric name for the given metric.
    *
    * @param pipeName the name of the context
+   * @param connectorName Connector Name given inside configuration. (A required config)
    * @return the JMX metric name
    * @throws com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException if the name is
    *     invalid
@@ -97,6 +112,7 @@ public abstract class SnowflakeTelemetryBasicInfo {
     try {
       return new ObjectName(metricName);
     } catch (MalformedObjectNameException e) {
+      LOGGER.warn(Logging.logMessage("Could not create Object name for MetricName:{}", metricName));
       throw SnowflakeErrors.ERROR_5020.getException();
     }
   }
