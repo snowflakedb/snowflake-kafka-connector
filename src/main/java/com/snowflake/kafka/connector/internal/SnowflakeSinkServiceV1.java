@@ -388,7 +388,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       this.bufferLock = new ReentrantLock();
       this.fileListLock = new ReentrantLock();
 
-      this.pipeStatus = new SnowflakeTelemetryPipeStatus(tableName, stageName, pipeName);
+      this.pipeStatus =
+          new SnowflakeTelemetryPipeStatus(tableName, stageName, pipeName, conn.getConnectorName());
 
       this.cleanerExecutor = Executors.newSingleThreadExecutor();
       this.reprocessCleanerExecutor = Executors.newSingleThreadExecutor();
@@ -399,7 +400,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     private void init(long recordOffset) {
       logInfo("init pipe: {}", pipeName);
       SnowflakeTelemetryPipeCreation pipeCreation =
-          new SnowflakeTelemetryPipeCreation(tableName, stageName, pipeName);
+          new SnowflakeTelemetryPipeCreation(
+              tableName, stageName, pipeName, this.conn.getConnectorName());
 
       // wait for sinkConnector to start
       createTableAndStage(pipeCreation);
@@ -558,6 +560,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
         // This will only be called once at the beginning when an offset arrives for first time
         // after connector starts/rebalance
         init(record.kafkaOffset());
+
+        // register Mbean in MbeanServer for this pipe
+        this.pipeStatus.registerMBean();
         this.hasInitialized = true;
       }
 
@@ -904,6 +909,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       } catch (Exception e) {
         logWarn("Failed to terminate Cleaner or Flusher");
       }
+      this.pipeStatus.unregisterMBean();
       ingestionService.close();
       telemetryService.reportKafkaPipeUsage(pipeStatus, true);
       logInfo("pipe {}: service closed", pipeName);
