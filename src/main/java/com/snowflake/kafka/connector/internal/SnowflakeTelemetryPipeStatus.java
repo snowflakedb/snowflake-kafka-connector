@@ -5,18 +5,31 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
-public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
-  // Offset info
-  AtomicLong processedOffset; // processed offset (offset that is most recent in buffer)
-  AtomicLong flushedOffset; // flushed offset (files on stage)
-  AtomicLong committedOffset; // committed offset (files being ingested)
-  AtomicLong purgedOffset; // purged offset (files purged or moved to table stage)
+public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo
+    implements SnowflakeTelemetryPipeStatusMBean {
+  // ---------- Offset info ----------
+
+  // processed offset (offset that is most recent in buffer)
+  AtomicLong processedOffset;
+
+  // flushed offset (files on stage)
+  AtomicLong flushedOffset;
+
+  // committed offset (files being ingested)
+  // NOTE: These offsets are not necessarily the offsets that were ingested into SF table. These are
+  // the offsets for which commit API has being called and KC has invoked ingestFiles for those set
+  // of offsets.
+  AtomicLong committedOffset;
+
+  // purged offset (files purged or moved to table stage)
+  AtomicLong purgedOffset;
+
   static final String PROCESSED_OFFSET = "processed_offset";
   static final String FLUSHED_OFFSET = "flushed_offset";
   static final String COMMITTED_OFFSET = "committed_offset";
   static final String PURGED_OFFSET = "purged_offset";
 
-  // Legacy metrix
+  // Legacy metrics
   AtomicLong totalNumberOfRecord; // total number of record
   AtomicLong totalSizeOfData; // total size of data
   static final String RECORD_NUMBER = "record_number";
@@ -72,8 +85,11 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   static final String END_TIME = "end_time";
 
   SnowflakeTelemetryPipeStatus(
-      final String tableName, final String stageName, final String pipeName) {
-    super(tableName, stageName, pipeName);
+      final String tableName,
+      final String stageName,
+      final String pipeName,
+      final String connectorName) {
+    super(tableName, stageName, pipeName, connectorName, true);
 
     // Initial value of processed/flushed/committed/purged offset should be set to -1,
     // because the offset stands for the last offset of the record that are at the status.
@@ -184,5 +200,47 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
 
     msg.put(START_TIME, startTime.getAndSet(System.currentTimeMillis()));
     msg.put(END_TIME, System.currentTimeMillis());
+  }
+
+  // ------------- Mbean Interface implementations ------------- //
+
+  @Override
+  public long getProcessedOffset() {
+    return processedOffset.get();
+  }
+
+  @Override
+  public long getFlushedOffset() {
+    return flushedOffset.get();
+  }
+
+  @Override
+  public long getCommittedOffset() {
+    return committedOffset.get();
+  }
+
+  @Override
+  public long getPurgedOffset() {
+    return purgedOffset.get();
+  }
+
+  @Override
+  public long getFileCountOnInternalStage() {
+    return fileCountOnStage.get();
+  }
+
+  @Override
+  public long getFileCountOnIngestion() {
+    return fileCountOnIngestion.get();
+  }
+
+  @Override
+  public long getFileCountFailedIngestionOnTableStage() {
+    return fileCountTableStageIngestFail.get();
+  }
+
+  @Override
+  public long getFileCountBrokenRecordOnTableStage() {
+    return fileCountTableStageBrokenRecord.get();
   }
 }

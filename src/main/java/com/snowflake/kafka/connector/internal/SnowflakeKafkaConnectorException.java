@@ -3,7 +3,7 @@ package com.snowflake.kafka.connector.internal;
 public class SnowflakeKafkaConnectorException extends RuntimeException {
   private final String code;
 
-  SnowflakeKafkaConnectorException(String msg, String code) {
+  public SnowflakeKafkaConnectorException(String msg, String code) {
     super(msg);
     this.code = code;
   }
