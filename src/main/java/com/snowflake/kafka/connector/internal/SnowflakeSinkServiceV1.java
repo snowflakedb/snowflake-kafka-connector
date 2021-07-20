@@ -46,6 +46,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   // Behavior to be set at the start of connector start. (For tombstone records)
   private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues;
 
+  // default is true unless the configuration provided is false;
+  // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
+  private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
+
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
@@ -323,6 +327,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   }
 
   @Override
+  public void setCustomJMXMetrics(boolean enableJMX) {
+    this.enableCustomJMXMonitoring = enableJMX;
+  }
+
+  @Override
   public SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig() {
     return this.behaviorOnNullValues;
   }
@@ -389,7 +398,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       this.fileListLock = new ReentrantLock();
 
       this.pipeStatus =
-          new SnowflakeTelemetryPipeStatus(tableName, stageName, pipeName, conn.getConnectorName());
+          new SnowflakeTelemetryPipeStatus(
+              tableName, stageName, pipeName, conn.getConnectorName(), enableCustomJMXMonitoring);
 
       this.cleanerExecutor = Executors.newSingleThreadExecutor();
       this.reprocessCleanerExecutor = Executors.newSingleThreadExecutor();

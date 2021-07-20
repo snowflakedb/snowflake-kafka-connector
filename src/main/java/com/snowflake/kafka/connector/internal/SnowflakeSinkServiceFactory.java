@@ -77,6 +77,12 @@ public class SnowflakeSinkServiceFactory {
       return this;
     }
 
+    public SnowflakeSinkServiceBuilder setCustomJMXMetrics(final boolean enableJMX) {
+      this.service.setCustomJMXMetrics(enableJMX);
+      logInfo("Config JMX value {}. (true = Enabled, false = Disabled)", enableJMX);
+      return this;
+    }
+
     public SnowflakeSinkService build() {
       logInfo("{} created", SnowflakeSinkService.class.getName());
       return service;

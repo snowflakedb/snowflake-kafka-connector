@@ -93,6 +93,10 @@ public class SnowflakeSinkConnectorConfig {
   // By default it will be None since this is not enforced and only used for monitoring
   public static final String PROVIDER_CONFIG = "provider";
 
+  // metrics
+  public static final String JMX_OPT = "jmx";
+  public static final boolean JMX_OPT_DEFAULT = true;
+
   private static final Logger LOGGER =
       LoggerFactory.getLogger(SnowflakeSinkConnectorConfig.class.getName());
 
@@ -346,7 +350,13 @@ public class SnowflakeSinkConnectorConfig {
             CONNECTOR_CONFIG,
             4,
             ConfigDef.Width.NONE,
-            BEHAVIOR_ON_NULL_VALUES_CONFIG);
+            BEHAVIOR_ON_NULL_VALUES_CONFIG)
+        .define(
+            JMX_OPT,
+            ConfigDef.Type.BOOLEAN,
+            JMX_OPT_DEFAULT,
+            ConfigDef.Importance.HIGH,
+            "Whether to enable JMX MBeans for custom SF metrics");
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {

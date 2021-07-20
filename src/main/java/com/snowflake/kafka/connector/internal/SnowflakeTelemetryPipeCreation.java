@@ -24,7 +24,12 @@ public class SnowflakeTelemetryPipeCreation extends SnowflakeTelemetryBasicInfo 
       final String stageName,
       final String pipeName,
       final String connectorName) {
-    super(tableName, stageName, pipeName, connectorName, false /* Disable JMX Monitoring for now*/);
+    super(
+        tableName,
+        stageName,
+        pipeName,
+        connectorName,
+        false /* Disable JMX Monitoring for this class as of now*/);
     this.startTime = System.currentTimeMillis();
   }
 

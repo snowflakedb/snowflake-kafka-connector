@@ -88,8 +88,9 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo
       final String tableName,
       final String stageName,
       final String pipeName,
-      final String connectorName) {
-    super(tableName, stageName, pipeName, connectorName, true);
+      final String connectorName,
+      final boolean enableCustomJMXConfig) {
+    super(tableName, stageName, pipeName, connectorName, enableCustomJMXConfig);
 
     // Initial value of processed/flushed/committed/purged offset should be set to -1,
     // because the offset stands for the last offset of the record that are at the status.

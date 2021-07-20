@@ -11,7 +11,8 @@ public class TelemetryUnitTest {
     String pipe = "pipe";
     String connectorName = "testConnector";
     SnowflakeTelemetryPipeStatus pipeStatus =
-        new SnowflakeTelemetryPipeStatus(table, stage, pipe, connectorName);
+        new SnowflakeTelemetryPipeStatus(
+            table, stage, pipe, connectorName, true /* Set true for test*/);
     assert pipeStatus.empty();
     pipeStatus.averageCommitLagFileCount.set(1);
     assert !pipeStatus.empty();
