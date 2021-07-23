@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.codahale.metrics.MetricRegistry;
 import org.junit.Test;
 
 public class TelemetryUnitTest {
@@ -12,27 +13,27 @@ public class TelemetryUnitTest {
     String connectorName = "testConnector";
     SnowflakeTelemetryPipeStatus pipeStatus =
         new SnowflakeTelemetryPipeStatus(
-            table, stage, pipe, connectorName, true /* Set true for test*/);
+            table, stage, pipe, connectorName, true /* Set true for test*/, new MetricRegistry());
     assert pipeStatus.empty();
     pipeStatus.averageCommitLagFileCount.set(1);
     assert !pipeStatus.empty();
-    pipeStatus.averageCommitLag.set(1);
+    pipeStatus.averageCommitLagMs.set(1);
     assert !pipeStatus.empty();
     pipeStatus.averageIngestionLagFileCount.set(1);
     assert !pipeStatus.empty();
-    pipeStatus.averageIngestionLag.set(1);
+    pipeStatus.averageIngestionLagMs.set(1);
     assert !pipeStatus.empty();
     pipeStatus.averageKafkaLagRecordCount.set(1);
     assert !pipeStatus.empty();
-    pipeStatus.averageKafkaLag.set(1);
+    pipeStatus.averageKafkaLagMs.set(1);
     assert !pipeStatus.empty();
     pipeStatus.memoryUsage.set(1);
     assert !pipeStatus.empty();
     pipeStatus.cleanerRestartCount.set(1);
     assert !pipeStatus.empty();
-    pipeStatus.fileCountTableStageBrokenRecord.set(1);
+    pipeStatus.updateBrokenRecordMetrics(1l);
     assert !pipeStatus.empty();
-    pipeStatus.fileCountTableStageIngestFail.set(1);
+    pipeStatus.updateFailedIngestionMetrics(1l);
     assert !pipeStatus.empty();
     pipeStatus.fileCountPurged.set(1);
     assert !pipeStatus.empty();
