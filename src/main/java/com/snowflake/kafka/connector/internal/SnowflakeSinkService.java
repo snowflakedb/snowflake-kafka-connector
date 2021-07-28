@@ -120,6 +120,9 @@ public interface SnowflakeSinkService {
   /* Set the behavior on what action to perform when this( @see com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BEHAVIOR_ON_NULL_VALUES_CONFIG ) config is set. */
   void setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior);
 
+  /* Should we emit Custom SF JMX Metrics to Mbean Server? If true (Default), we emit in form of SimpleMbeans */
+  void setCustomJMXMetrics(boolean enableJMX);
+
   /* Only used in testing and verifying what was the passed value of this behavior from config to sink service*/
   SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig();
 }

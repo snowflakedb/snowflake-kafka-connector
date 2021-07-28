@@ -5,6 +5,7 @@ import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
+import javax.management.InstanceNotFoundException;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -37,6 +38,7 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
     conn.createStage(stageName);
     final String pipeName = Utils.pipeName(conn.getConnectorName(), tableName, partition);
 
+    // This means that default is true.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .addTask(tableName, topic, partition)
@@ -93,5 +95,39 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
         mBeanServer.getAttribute(objectName, "FileCountFailedIngestionOnTableStage").equals(0l));
     Assert.assertTrue(
         mBeanServer.getAttribute(objectName, "FileCountBrokenRecordOnTableStage").equals(0l));
+  }
+
+  @Test(expected = InstanceNotFoundException.class)
+  public void testJMXDisabledInMBeanServer() throws Exception {
+    conn.createTable(tableName);
+    conn.createStage(stageName);
+    final String pipeName = Utils.pipeName(conn.getConnectorName(), tableName, partition);
+
+    // This means that default is true.
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn)
+            .setCustomJMXMetrics(false)
+            .addTask(tableName, topic, partition)
+            .setRecordNumber(1)
+            .build();
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue result =
+        converter.toConnectData(topic, ("{\"name\":\"test\"}").getBytes(StandardCharsets.UTF_8));
+    SinkRecord record =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "key1", result.schema(), result.value(), 0);
+
+    service.insert(record);
+
+    // required for committedOffset metric
+    service.callAllGetOffset();
+
+    final MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
+    final ObjectName objectName =
+        SnowflakeTelemetryBasicInfo.metricName(pipeName, TestUtils.TEST_CONNECTOR_NAME);
+
+    // expected to get the error because it was never registered if JMX was set to false.
+    mBeanServer.getAttribute(objectName, "ProcessedOffset");
   }
 }
