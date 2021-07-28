@@ -7,6 +7,7 @@ import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import com.codahale.metrics.jmx.JmxReporter;
 import com.google.common.collect.Maps;
+import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil.EventType;
 import java.util.*;
@@ -261,10 +262,12 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
    */
   private void initializeJMXMetrics(
       final String pipeName, final String connectorName, MetricRegistry metricRegistry) {
-    // For JMX Reporter
-    // create meter per event type
+    // Lazily remove all registered metrics from the registry since this can be invoked during
+    // partition reassignment
+    MetricsJmxReporter.removeMetricsFromRegistry(metricRegistry);
     try {
       // Latency JMX
+      // create meter per event type
       Arrays.stream(EventType.values())
           .forEach(
               eventType ->

@@ -4,7 +4,6 @@ import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.*;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
 import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -361,7 +360,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   /** Equivalent to unregistering all mbeans with a prefix JMX_METRIC_PREFIX */
   private void unregisterAllSnowflakeJMXMetrics() {
     if (enableCustomJMXMonitoring) {
-      metricRegistry.removeMatching(MetricFilter.startsWith(MetricsUtil.JMX_METRIC_PREFIX));
+      MetricsJmxReporter.removeMetricsFromRegistry(this.metricRegistry);
     }
   }
 

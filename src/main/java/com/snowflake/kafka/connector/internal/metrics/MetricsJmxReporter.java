@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.metrics;
 
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.JMX_METRIC_PREFIX;
 
+import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.jmx.JmxReporter;
 import com.google.common.annotations.VisibleForTesting;
@@ -74,5 +75,14 @@ public class MetricsJmxReporter {
       LOGGER.warn(Logging.logMessage("Could not create Object name for MetricName:{}", metricName));
       throw SnowflakeErrors.ERROR_5020.getException();
     }
+  }
+
+  /**
+   * De register all snowflake KC related metrics from registry
+   *
+   * @param metricRegistry to remove all metrics from
+   */
+  public static void removeMetricsFromRegistry(MetricRegistry metricRegistry) {
+    metricRegistry.removeMatching(MetricFilter.startsWith(MetricsUtil.JMX_METRIC_PREFIX));
   }
 }
