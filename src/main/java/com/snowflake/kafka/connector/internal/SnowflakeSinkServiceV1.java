@@ -1,12 +1,15 @@
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.*;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
+import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
@@ -36,8 +39,13 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   private static final long TEN_MINUTES = 10 * 60 * 1000L;
   protected static final long CLEAN_TIME = 60 * 1000L; // one minutes
 
-  private long flushTime; // in seconds
+  // Set in config (Time based flush) in seconds
+  private long flushTime;
+  // Set in config (buffer size based flush) in bytes
   private long fileSize;
+
+  // Set in config (Threshold before we send the buffer to internal stage) corresponds to # of
+  // records in kafka
   private long recordNum;
   private final SnowflakeConnectionService conn;
   private final Map<String, ServiceContext> pipes;
@@ -391,6 +399,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     // telemetry
     private final SnowflakeTelemetryPipeStatus pipeStatus;
 
+    // buffer metrics, updated everytime when a buffer is flushed to internal stage
+    private Meter partitionBufferSizeBytesMeter; // in Bytes
+    private Meter partitionBufferCountMeter;
+
     // make the initialization lazy
     private boolean hasInitialized = false;
     private boolean forceCleanerFileReset = false;
@@ -429,6 +441,15 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
       this.cleanerExecutor = Executors.newSingleThreadExecutor();
       this.reprocessCleanerExecutor = Executors.newSingleThreadExecutor();
+
+      if (enableCustomJMXMonitoring) {
+        partitionBufferCountMeter =
+            metricRegistry.meter(
+                MetricsUtil.constructMetricName(pipeName, BUFFER_SUB_DOMAIN, BUFFER_RECORD_COUNT));
+        partitionBufferSizeBytesMeter =
+            metricRegistry.meter(
+                MetricsUtil.constructMetricName(pipeName, BUFFER_SUB_DOMAIN, BUFFER_SIZE_BYTES));
+      }
 
       logInfo("pipe: {} - service started", pipeName);
     }
@@ -780,6 +801,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       String content = buff.getData();
       conn.putWithCache(stageName, fileName, content);
 
+      // compute metrics which will be exported to JMX for now.
+      // TODO: Send it to Telemetry API too
+      computeBufferMetrics(buff);
+
       // This is safe and atomic
       flushedOffset.updateAndGet((value) -> Math.max(buff.getLastOffset() + 1, value));
       pipeStatus.flushedOffset.set(flushedOffset.get() - 1);
@@ -983,6 +1008,16 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
     private boolean isBufferEmpty() {
       return this.buffer.isEmpty();
+    }
+
+    /**
+     * called when we flush the buffer to internal stage by calling put API.
+     *
+     * @param buffer that was pushed in stage
+     */
+    private void computeBufferMetrics(final PartitionBuffer buffer) {
+      partitionBufferSizeBytesMeter.mark(buffer.getBufferSize());
+      partitionBufferCountMeter.mark(buffer.getNumOfRecord());
     }
 
     private class PartitionBuffer {
