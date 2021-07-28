@@ -21,6 +21,7 @@ public abstract class SnowflakeTelemetryBasicInfo {
   private ObjectName mBeanName;
 
   // A boolean to turn on or off a JMX metric as required.
+  // The value is dependent on whether it is passed in derived class + a JMX config value
   private volatile boolean enableJMXMonitoring;
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeTelemetryBasicInfo.class);

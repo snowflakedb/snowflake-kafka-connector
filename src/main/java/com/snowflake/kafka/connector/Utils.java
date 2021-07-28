@@ -18,6 +18,7 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -486,6 +487,14 @@ public class Utils {
                 "Kafka config:{} error:{}",
                 BEHAVIOR_ON_NULL_VALUES_CONFIG,
                 exception.getMessage()));
+        configIsValid = false;
+      }
+    }
+
+    if (config.containsKey(JMX_OPT)) {
+      if (!(config.get(JMX_OPT).equalsIgnoreCase("true")
+          || config.get(JMX_OPT).equalsIgnoreCase("false"))) {
+        LOGGER.error(Logging.logMessage("Kafka config:{} should either be true or false", JMX_OPT));
         configIsValid = false;
       }
     }
