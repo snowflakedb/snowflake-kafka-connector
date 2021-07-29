@@ -175,7 +175,11 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     }
   }
 
-  /** When either key or value is broken. */
+  /**
+   * When either key or value is broken.
+   *
+   * @param n number of records
+   */
   public void updateBrokenRecordMetrics(long n) {
     this.fileCountTableStageBrokenRecord.addAndGet(n);
     if (enableCustomJMXConfig) {
@@ -183,7 +187,11 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     }
   }
 
-  /** When Ingestion status of n number of files is not found/failed. */
+  /**
+   * When Ingestion status of n number of files is not found/failed.
+   *
+   * @param n number of files failed ingestion
+   */
   public void updateFailedIngestionMetrics(long n) {
     this.fileCountTableStageIngestFail.addAndGet(n);
     if (enableCustomJMXConfig) {
@@ -264,7 +272,7 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
       final String pipeName, final String connectorName, MetricRegistry metricRegistry) {
     // Lazily remove all registered metrics from the registry since this can be invoked during
     // partition reassignment
-    MetricsJmxReporter.removeMetricsFromRegistry(metricRegistry);
+    MetricsJmxReporter.removeMetricsFromRegistry(metricRegistry, pipeName);
     try {
       // Latency JMX
       // create meter per event type

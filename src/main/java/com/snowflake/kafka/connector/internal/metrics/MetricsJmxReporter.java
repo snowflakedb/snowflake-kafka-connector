@@ -47,14 +47,19 @@ public class MetricsJmxReporter {
         .build();
   }
 
+  /**
+   * This method is called to fetch an object name for all registered metrics. It can be called
+   * during registration or unregistration.
+   *
+   * @param connectorName name of the connector. (From Config)
+   * @param jmxDomain JMX Domain
+   * @param metricName metric name used while registering the metric. (Check {@link
+   *     MetricsUtil#constructMetricName(String, String, String)}
+   * @return Object Name constructed from above three args
+   */
   @VisibleForTesting
   public static ObjectName getObjectName(
       String connectorName, String jmxDomain, String metricName) {
-    LOGGER.debug(
-        "registering JMX objectName - instanceName: {}, jmxDomain: {}, metricName: {}",
-        connectorName,
-        jmxDomain,
-        metricName);
     try {
       StringBuilder sb =
           new StringBuilder(jmxDomain).append(":connector=").append(connectorName).append(',');
@@ -81,8 +86,10 @@ public class MetricsJmxReporter {
    * De register all snowflake KC related metrics from registry
    *
    * @param metricRegistry to remove all metrics from
+   * @param prefixFilter prefix for removing the filter.
    */
-  public static void removeMetricsFromRegistry(MetricRegistry metricRegistry) {
-    metricRegistry.removeMatching(MetricFilter.startsWith(MetricsUtil.JMX_METRIC_PREFIX));
+  public static void removeMetricsFromRegistry(
+      MetricRegistry metricRegistry, final String prefixFilter) {
+    metricRegistry.removeMatching(MetricFilter.startsWith(prefixFilter));
   }
 }

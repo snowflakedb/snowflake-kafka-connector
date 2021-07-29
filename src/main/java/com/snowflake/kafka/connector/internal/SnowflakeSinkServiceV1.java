@@ -240,6 +240,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
                   tp.topic(),
                   tp.partition(),
                   e.getMessage());
+            } finally {
+              sc.unregisterPipeJMXMetrics();
             }
           } else {
             logWarn(
@@ -249,15 +251,17 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
                 tp.partition());
           }
         });
-    unregisterAllSnowflakeJMXMetrics();
   }
 
   @Override
   public void closeAll() {
     this.isStopped = true; // release all cleaner and flusher threads
-    pipes.forEach((name, context) -> context.close());
+    pipes.forEach(
+        (name, context) -> {
+          context.close();
+          context.unregisterPipeJMXMetrics();
+        });
     pipes.clear();
-    unregisterAllSnowflakeJMXMetrics();
   }
 
   @Override
@@ -355,13 +359,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   @Override
   public MetricRegistry getMetricRegistry() {
     return this.metricRegistry;
-  }
-
-  /** Equivalent to unregistering all mbeans with a prefix JMX_METRIC_PREFIX */
-  private void unregisterAllSnowflakeJMXMetrics() {
-    if (enableCustomJMXMonitoring) {
-      MetricsJmxReporter.removeMetricsFromRegistry(this.metricRegistry);
-    }
   }
 
   @VisibleForTesting
@@ -1015,8 +1012,17 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
      * @param buffer that was pushed in stage
      */
     private void computeBufferMetrics(final PartitionBuffer buffer) {
-      partitionBufferSizeBytesMeter.mark(buffer.getBufferSize());
-      partitionBufferCountMeter.mark(buffer.getNumOfRecord());
+      if (enableCustomJMXMonitoring) {
+        partitionBufferSizeBytesMeter.mark(buffer.getBufferSize());
+        partitionBufferCountMeter.mark(buffer.getNumOfRecord());
+      }
+    }
+
+    /** Equivalent to unregistering all mbeans with a prefix JMX_METRIC_PREFIX */
+    private void unregisterPipeJMXMetrics() {
+      if (enableCustomJMXMonitoring) {
+        MetricsJmxReporter.removeMetricsFromRegistry(metricRegistry, this.pipeName);
+      }
     }
 
     private class PartitionBuffer {
