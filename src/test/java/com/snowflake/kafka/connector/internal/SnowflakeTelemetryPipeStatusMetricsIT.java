@@ -65,7 +65,7 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
     // required for committedOffset metric
     service.callAllGetOffset();
 
-    MetricRegistry metricRegistry = service.getMetricRegistry();
+    MetricRegistry metricRegistry = service.getMetricRegistry(pipeName);
     Assert.assertFalse(metricRegistry.getMetrics().isEmpty());
     Assert.assertTrue(metricRegistry.getMetrics().size() == 14);
 
@@ -198,7 +198,7 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
     // required for committedOffset metric
     service.callAllGetOffset();
 
-    MetricRegistry metricRegistry = service.getMetricRegistry();
+    MetricRegistry metricRegistry = service.getMetricRegistry(pipeName);
     Assert.assertTrue(metricRegistry.getMetrics().isEmpty());
   }
 }

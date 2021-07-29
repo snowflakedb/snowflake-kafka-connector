@@ -128,6 +128,7 @@ public interface SnowflakeSinkService {
   /* Only used in testing and verifying what was the passed value of this behavior from config to sink service*/
   SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig();
 
+  /* Get metric registry of an associated pipe */
   @VisibleForTesting
-  MetricRegistry getMetricRegistry();
+  MetricRegistry getMetricRegistry(final String pipeName);
 }
