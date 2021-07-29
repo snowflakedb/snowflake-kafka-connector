@@ -83,13 +83,21 @@ public class MetricsJmxReporter {
   }
 
   /**
-   * De register all snowflake KC related metrics from registry
+   * Unregister all snowflake KC related metrics from registry
    *
    * @param metricRegistry to remove all metrics from
    * @param prefixFilter prefix for removing the filter.
    */
   public static void removeMetricsFromRegistry(
       MetricRegistry metricRegistry, final String prefixFilter) {
-    metricRegistry.removeMatching(MetricFilter.startsWith(prefixFilter));
+    if (metricRegistry.getMetrics().size() != 0) {
+      LOGGER.debug(Logging.logMessage("Unregistering all metrics for pipe:{}", prefixFilter));
+      metricRegistry.removeMatching(MetricFilter.startsWith(prefixFilter));
+      LOGGER.debug(
+          Logging.logMessage(
+              "Metric registry size for pipe:{} is:{}",
+              prefixFilter,
+              metricRegistry.getMetrics().size()));
+    }
   }
 }

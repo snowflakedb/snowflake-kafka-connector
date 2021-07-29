@@ -329,6 +329,11 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
 
       JmxReporter jmxReporter = createJMXReporter(metricRegistry, connectorName);
       jmxReporter.start();
+      LOGGER.debug(
+          Logging.logMessage(
+              "Registered {} metrics for pipeName:{}",
+              metricRegistry.getMetrics().size(),
+              pipeName));
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());
     }
