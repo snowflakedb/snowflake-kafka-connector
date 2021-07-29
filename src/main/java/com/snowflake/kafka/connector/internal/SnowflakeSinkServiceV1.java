@@ -3,7 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.*;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
-import com.codahale.metrics.Meter;
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -396,8 +396,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     private final SnowflakeTelemetryPipeStatus pipeStatus;
 
     // buffer metrics, updated everytime when a buffer is flushed to internal stage
-    private Meter partitionBufferSizeBytesMeter; // in Bytes
-    private Meter partitionBufferCountMeter;
+    private Histogram partitionBufferSizeBytesHistogram; // in Bytes
+    private Histogram partitionBufferCountHistogram;
 
     // make the initialization lazy
     private boolean hasInitialized = false;
@@ -439,11 +439,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       this.reprocessCleanerExecutor = Executors.newSingleThreadExecutor();
 
       if (enableCustomJMXMonitoring) {
-        partitionBufferCountMeter =
-            metricRegistry.meter(
+        partitionBufferCountHistogram =
+            metricRegistry.histogram(
                 MetricsUtil.constructMetricName(pipeName, BUFFER_SUB_DOMAIN, BUFFER_RECORD_COUNT));
-        partitionBufferSizeBytesMeter =
-            metricRegistry.meter(
+        partitionBufferSizeBytesHistogram =
+            metricRegistry.histogram(
                 MetricsUtil.constructMetricName(pipeName, BUFFER_SUB_DOMAIN, BUFFER_SIZE_BYTES));
       }
 
@@ -1013,8 +1013,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
      */
     private void computeBufferMetrics(final PartitionBuffer buffer) {
       if (enableCustomJMXMonitoring) {
-        partitionBufferSizeBytesMeter.mark(buffer.getBufferSize());
-        partitionBufferCountMeter.mark(buffer.getNumOfRecord());
+        partitionBufferSizeBytesHistogram.update(buffer.getBufferSize());
+        partitionBufferCountHistogram.update(buffer.getNumOfRecord());
       }
     }
 
