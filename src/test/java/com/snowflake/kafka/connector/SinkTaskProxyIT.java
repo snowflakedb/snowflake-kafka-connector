@@ -8,6 +8,7 @@ import java.util.Optional;
 import net.snowflake.client.jdbc.SnowflakeSQLException;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class SinkTaskProxyIT {
@@ -23,6 +24,7 @@ public class SinkTaskProxyIT {
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Ignore
   public void testSinkTaskProxyConfigMock() {
     Map<String, String> config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
