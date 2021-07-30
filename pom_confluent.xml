@@ -452,6 +452,19 @@
             <version>3.13.3</version>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/io.dropwizard.metrics/metrics-core -->
+        <dependency>
+            <groupId>io.dropwizard.metrics</groupId>
+            <artifactId>metrics-core</artifactId>
+            <version>4.2.3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.dropwizard.metrics</groupId>
+            <artifactId>metrics-jmx</artifactId>
+            <version>4.2.3</version>
+        </dependency>
+
         <!--junit for unit test-->
         <dependency>
             <groupId>junit</groupId>

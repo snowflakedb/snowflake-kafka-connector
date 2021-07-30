@@ -1,13 +1,14 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
-import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
-import javax.management.InstanceNotFoundException;
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
+import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -63,12 +64,23 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
     // required for committedOffset metric
     service.callAllGetOffset();
 
-    final MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
-    final ObjectName objectName =
-        SnowflakeTelemetryBasicInfo.metricName(pipeName, TestUtils.TEST_CONNECTOR_NAME);
+    MetricRegistry metricRegistry = service.getMetricRegistry();
+    Assert.assertFalse(metricRegistry.getMetrics().isEmpty());
+    Assert.assertTrue(metricRegistry.getMetrics().size() == 12);
 
-    Assert.assertTrue(mBeanServer.getAttribute(objectName, "ProcessedOffset").equals(1l));
-    Assert.assertTrue(mBeanServer.getAttribute(objectName, "FlushedOffset").equals(1l));
+    Map<String, Gauge> registeredGauges = metricRegistry.getGauges();
+
+    final String metricProcessedOffset =
+        MetricsUtil.constructMetricName(
+            pipeName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.PROCESSED_OFFSET);
+    Assert.assertTrue(registeredGauges.containsKey(metricProcessedOffset));
+    Assert.assertEquals(1L, (long) registeredGauges.get(metricProcessedOffset).getValue());
+
+    final String metricFlushedOffset =
+        MetricsUtil.constructMetricName(
+            pipeName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.FLUSHED_OFFSET);
+    Assert.assertTrue(registeredGauges.containsKey(metricFlushedOffset));
+    Assert.assertEquals(1L, (long) registeredGauges.get(metricFlushedOffset).getValue());
 
     // wait for ingest
     // Since number of records are 2, we expect two entries in table
@@ -85,20 +97,59 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
                 == 0,
         30,
         20);
-    Assert.assertTrue(mBeanServer.getAttribute(objectName, "CommittedOffset").equals(1l));
-    Assert.assertTrue(mBeanServer.getAttribute(objectName, "PurgedOffset").equals(1l));
 
-    // Since we have purged everything, all other file counters will be 0
-    Assert.assertTrue(mBeanServer.getAttribute(objectName, "FileCountOnInternalStage").equals(0l));
-    Assert.assertTrue(mBeanServer.getAttribute(objectName, "FileCountOnIngestion").equals(0l));
-    Assert.assertTrue(
-        mBeanServer.getAttribute(objectName, "FileCountFailedIngestionOnTableStage").equals(0l));
-    Assert.assertTrue(
-        mBeanServer.getAttribute(objectName, "FileCountBrokenRecordOnTableStage").equals(0l));
+    final String metricCommittedOffset =
+        MetricsUtil.constructMetricName(
+            pipeName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.COMMITTED_OFFSET);
+    Assert.assertTrue(registeredGauges.containsKey(metricCommittedOffset));
+    Assert.assertEquals(1L, (long) registeredGauges.get(metricCommittedOffset).getValue());
+
+    final String metricPurgedOffset =
+        MetricsUtil.constructMetricName(
+            pipeName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.PURGED_OFFSET);
+    Assert.assertTrue(registeredGauges.containsKey(metricPurgedOffset));
+    Assert.assertEquals(1L, (long) registeredGauges.get(metricPurgedOffset).getValue());
+
+    // File count Gauges
+
+    final String metricFileCountInternalStage =
+        MetricsUtil.constructMetricName(
+            pipeName, MetricsUtil.FILE_COUNT_SUB_DOMAIN, MetricsUtil.FILE_COUNT_ON_STAGE);
+    Assert.assertTrue(registeredGauges.containsKey(metricFileCountInternalStage));
+    Assert.assertEquals(0L, registeredGauges.get(metricFileCountInternalStage).getValue());
+
+    final String metricFileCountIngestion =
+        MetricsUtil.constructMetricName(
+            pipeName, MetricsUtil.FILE_COUNT_SUB_DOMAIN, MetricsUtil.FILE_COUNT_ON_INGESTION);
+    Assert.assertTrue(registeredGauges.containsKey(metricFileCountIngestion));
+    Assert.assertEquals(0L, registeredGauges.get(metricFileCountIngestion).getValue());
+
+    final String metricFileCountPurged =
+        MetricsUtil.constructMetricName(
+            pipeName, MetricsUtil.FILE_COUNT_SUB_DOMAIN, MetricsUtil.FILE_COUNT_PURGED);
+    Assert.assertTrue(registeredGauges.containsKey(metricFileCountPurged));
+    Assert.assertEquals(2L, registeredGauges.get(metricFileCountPurged).getValue());
+
+    Map<String, Meter> registeredMeters = metricRegistry.getMeters();
+    final String metricFileCountBrokenRecord =
+        MetricsUtil.constructMetricName(
+            pipeName,
+            MetricsUtil.FILE_COUNT_SUB_DOMAIN,
+            MetricsUtil.FILE_COUNT_TABLE_STAGE_BROKEN_RECORD);
+    Assert.assertTrue(registeredMeters.containsKey(metricFileCountBrokenRecord));
+    Assert.assertEquals(0L, registeredMeters.get(metricFileCountBrokenRecord).getCount());
+
+    final String metricFileCountIngestionFailed =
+        MetricsUtil.constructMetricName(
+            pipeName,
+            MetricsUtil.FILE_COUNT_SUB_DOMAIN,
+            MetricsUtil.FILE_COUNT_TABLE_STAGE_INGESTION_FAIL);
+    Assert.assertTrue(registeredMeters.containsKey(metricFileCountIngestionFailed));
+    Assert.assertEquals(0L, registeredMeters.get(metricFileCountIngestionFailed).getCount());
   }
 
-  @Test(expected = InstanceNotFoundException.class)
-  public void testJMXDisabledInMBeanServer() throws Exception {
+  @Test
+  public void testJMXDisabledInMBeanServer() {
     conn.createTable(tableName);
     conn.createStage(stageName);
     final String pipeName = Utils.pipeName(conn.getConnectorName(), tableName, partition);
@@ -123,11 +174,7 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
     // required for committedOffset metric
     service.callAllGetOffset();
 
-    final MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
-    final ObjectName objectName =
-        SnowflakeTelemetryBasicInfo.metricName(pipeName, TestUtils.TEST_CONNECTOR_NAME);
-
-    // expected to get the error because it was never registered if JMX was set to false.
-    mBeanServer.getAttribute(objectName, "ProcessedOffset");
+    MetricRegistry metricRegistry = service.getMetricRegistry();
+    Assert.assertTrue(metricRegistry.getMetrics().isEmpty());
   }
 }

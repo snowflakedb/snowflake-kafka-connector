@@ -20,16 +20,8 @@ public class SnowflakeTelemetryPipeCreation extends SnowflakeTelemetryBasicInfo 
   static final String FILE_COUNT_REPROCESS_PURGE = "file_count_reprocess_purge";
 
   SnowflakeTelemetryPipeCreation(
-      final String tableName,
-      final String stageName,
-      final String pipeName,
-      final String connectorName) {
-    super(
-        tableName,
-        stageName,
-        pipeName,
-        connectorName,
-        false /* Disable JMX Monitoring for this class as of now*/);
+      final String tableName, final String stageName, final String pipeName) {
+    super(tableName, stageName, pipeName);
     this.startTime = System.currentTimeMillis();
   }
 

@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.codahale.metrics.MetricRegistry;
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
@@ -125,4 +127,7 @@ public interface SnowflakeSinkService {
 
   /* Only used in testing and verifying what was the passed value of this behavior from config to sink service*/
   SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig();
+
+  @VisibleForTesting
+  MetricRegistry getMetricRegistry();
 }
