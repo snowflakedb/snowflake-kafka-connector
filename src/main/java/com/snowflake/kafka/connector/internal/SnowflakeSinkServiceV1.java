@@ -2,9 +2,12 @@ package com.snowflake.kafka.connector.internal;
 
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
+import com.codahale.metrics.MetricFilter;
+import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
@@ -49,6 +52,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   // default is true unless the configuration provided is false;
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
+
+  // Metric registry instance (common for all partitions/pipes) which will hold all registered
+  // Metrics
+  private final MetricRegistry metricRegistry = new MetricRegistry();
 
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
     if (conn == null || conn.isClosed()) {
@@ -235,6 +242,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
                 tp.partition());
           }
         });
+    unregisterAllSnowflakeJMXMetrics();
   }
 
   @Override
@@ -242,6 +250,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     this.isStopped = true; // release all cleaner and flusher threads
     pipes.forEach((name, context) -> context.close());
     pipes.clear();
+    unregisterAllSnowflakeJMXMetrics();
   }
 
   @Override
@@ -336,6 +345,18 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     return this.behaviorOnNullValues;
   }
 
+  @Override
+  public MetricRegistry getMetricRegistry() {
+    return this.metricRegistry;
+  }
+
+  /** Equivalent to unregistering all mbeans with a prefix JMX_METRIC_PREFIX */
+  private void unregisterAllSnowflakeJMXMetrics() {
+    if (enableCustomJMXMonitoring) {
+      metricRegistry.removeMatching(MetricFilter.startsWith(MetricsUtil.JMX_METRIC_PREFIX));
+    }
+  }
+
   @VisibleForTesting
   protected static String getNameIndex(String topic, int partition) {
     return topic + "_" + partition;
@@ -399,7 +420,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
       this.pipeStatus =
           new SnowflakeTelemetryPipeStatus(
-              tableName, stageName, pipeName, conn.getConnectorName(), enableCustomJMXMonitoring);
+              tableName,
+              stageName,
+              pipeName,
+              conn.getConnectorName(),
+              enableCustomJMXMonitoring,
+              metricRegistry);
 
       this.cleanerExecutor = Executors.newSingleThreadExecutor();
       this.reprocessCleanerExecutor = Executors.newSingleThreadExecutor();
@@ -410,8 +436,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     private void init(long recordOffset) {
       logInfo("init pipe: {}", pipeName);
       SnowflakeTelemetryPipeCreation pipeCreation =
-          new SnowflakeTelemetryPipeCreation(
-              tableName, stageName, pipeName, this.conn.getConnectorName());
+          new SnowflakeTelemetryPipeCreation(tableName, stageName, pipeName);
 
       // wait for sinkConnector to start
       createTableAndStage(pipeCreation);
@@ -570,9 +595,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
         // This will only be called once at the beginning when an offset arrives for first time
         // after connector starts/rebalance
         init(record.kafkaOffset());
-
-        // register Mbean in MbeanServer for this pipe
-        this.pipeStatus.registerMBean();
         this.hasInitialized = true;
       }
 
@@ -697,12 +719,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       if (key != null) {
         String fileName = FileNameUtils.brokenRecordFileName(prefix, record.kafkaOffset(), true);
         conn.putToTableStage(tableName, fileName, snowflakeContentToByteArray(key));
-        pipeStatus.fileCountTableStageBrokenRecord.incrementAndGet();
+        pipeStatus.updateBrokenRecordMetrics(1l);
       }
       if (value != null) {
         String fileName = FileNameUtils.brokenRecordFileName(prefix, record.kafkaOffset(), false);
         conn.putToTableStage(tableName, fileName, snowflakeContentToByteArray(value));
-        pipeStatus.fileCountTableStageBrokenRecord.incrementAndGet();
+        pipeStatus.updateBrokenRecordMetrics(1l);
       }
     }
 
@@ -851,10 +873,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
               pipeStatus.purgedOffset.updateAndGet(
                   value -> Math.max(FileNameUtils.fileNameToEndOffset(name), value)));
       // update file count in telemetry
-      int fileCountRevomedFromStage = loadedFiles.size() + failedFiles.size();
-      pipeStatus.fileCountOnStage.addAndGet(-fileCountRevomedFromStage);
-      pipeStatus.fileCountOnIngestion.addAndGet(-fileCountRevomedFromStage);
-      pipeStatus.fileCountTableStageIngestFail.addAndGet(failedFiles.size());
+      int fileCountRemovedFromStage = loadedFiles.size() + failedFiles.size();
+      pipeStatus.fileCountOnStage.addAndGet(-fileCountRemovedFromStage);
+      pipeStatus.fileCountOnIngestion.addAndGet(-fileCountRemovedFromStage);
+      pipeStatus.updateFailedIngestionMetrics(failedFiles.size());
+
       pipeStatus.fileCountPurged.addAndGet(loadedFiles.size());
       // update lag information
       loadedFiles.forEach(
@@ -919,7 +942,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       } catch (Exception e) {
         logWarn("Failed to terminate Cleaner or Flusher");
       }
-      this.pipeStatus.unregisterMBean();
       ingestionService.close();
       telemetryService.reportKafkaPipeUsage(pipeStatus, true);
       logInfo("pipe {}: service closed", pipeName);
