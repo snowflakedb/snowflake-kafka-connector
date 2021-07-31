@@ -16,13 +16,7 @@ import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -356,9 +350,21 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     return this.behaviorOnNullValues;
   }
 
+  /**
+   * Loop through all pipes in memory and find out the metric registry instance for that pipe. The
+   * pipes object's key is not pipeName hence need to loop over.
+   *
+   * @param pipeName associated MetricRegistry to fetch
+   * @return Optional MetricRegistry. (Empty if pipe was not found in pipes map)
+   */
   @Override
-  public MetricRegistry getMetricRegistry(final String pipeName) {
-    return this.pipes.get(pipeName).metricRegistry;
+  public Optional<MetricRegistry> getMetricRegistry(final String pipeName) {
+    for (Map.Entry<String, ServiceContext> entry : this.pipes.entrySet()) {
+      if (entry.getValue().pipeName.equalsIgnoreCase(pipeName)) {
+        return Optional.of(entry.getValue().getMetricRegistry());
+      }
+    }
+    return Optional.empty();
   }
 
   @VisibleForTesting
@@ -1038,7 +1044,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     /**
      * Get Metric registry instance of this pipe
      *
-     * @return Metric Registry
+     * @return Metric Registry (Non Null)
      */
     public MetricRegistry getMetricRegistry() {
       return this.metricRegistry;

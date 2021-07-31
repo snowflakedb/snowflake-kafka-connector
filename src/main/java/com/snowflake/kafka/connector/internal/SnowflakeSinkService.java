@@ -6,6 +6,7 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 
@@ -130,5 +131,5 @@ public interface SnowflakeSinkService {
 
   /* Get metric registry of an associated pipe */
   @VisibleForTesting
-  MetricRegistry getMetricRegistry(final String pipeName);
+  Optional<MetricRegistry> getMetricRegistry(final String pipeName);
 }
