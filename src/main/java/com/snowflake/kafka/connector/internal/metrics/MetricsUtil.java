@@ -89,19 +89,19 @@ public class MetricsUtil {
      * be null if the value was not set inside a record. {@link
      * org.apache.kafka.connect.connector.ConnectRecord#timestamp()}
      */
-    KAFKA_LAG("kafka_lag"),
+    KAFKA_LAG("kafka-lag"),
 
     /**
      * Time difference between file being uploaded to internal stage to time invoking insertFiles
      * API.
      */
-    COMMIT_LAG("commit_lag"),
+    COMMIT_LAG("commit-lag"),
 
     /**
      * Time difference between file being uploaded to internal stage to time knowing the successful
      * file ingestion status through insertReport or loadHistoryScan API.
      */
-    INGESTION_LAG("ingestion_lag"),
+    INGESTION_LAG("ingestion-lag"),
     ;
 
     /** The metric name that will be used in JMX */
