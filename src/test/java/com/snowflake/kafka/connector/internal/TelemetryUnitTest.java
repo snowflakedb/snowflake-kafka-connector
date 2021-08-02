@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.codahale.metrics.MetricRegistry;
+import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import org.junit.Test;
 
 public class TelemetryUnitTest {
@@ -11,9 +12,11 @@ public class TelemetryUnitTest {
     String stage = "stage";
     String pipe = "pipe";
     String connectorName = "testConnector";
+    MetricsJmxReporter metricsJmxReporter =
+        new MetricsJmxReporter(new MetricRegistry(), connectorName);
     SnowflakeTelemetryPipeStatus pipeStatus =
         new SnowflakeTelemetryPipeStatus(
-            table, stage, pipe, connectorName, true /* Set true for test*/, new MetricRegistry());
+            table, stage, pipe, true /* Set true for test*/, metricsJmxReporter);
     assert pipeStatus.empty();
     pipeStatus.averageCommitLagFileCount.set(1);
     assert !pipeStatus.empty();

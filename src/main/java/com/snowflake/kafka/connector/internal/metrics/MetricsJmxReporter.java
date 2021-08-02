@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.metrics;
 
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.JMX_METRIC_PREFIX;
 
+import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.jmx.JmxReporter;
 import com.google.common.annotations.VisibleForTesting;
@@ -18,42 +19,51 @@ import org.slf4j.LoggerFactory;
 /**
  * Helper class for creation of JMX Metrics from metrics registry, also includes a definition to
  * create an ObjectName used to register a {@link com.codahale.metrics.Metric}
+ *
+ * <p>This instance is separate for all pipes and hence registration and unregistration of metrics
+ * is handled per pipe level.
  */
 public class MetricsJmxReporter {
   static final Logger LOGGER = LoggerFactory.getLogger(MetricsJmxReporter.class);
 
-  /**
-   * Create JMXReporter Instance, which internally handles the mbean server fetching and
-   * registration of Mbeans. We use codehale metrics library to achieve this. More details
-   * here: @see <a href="https://metrics.dropwizard.io/4.2.0/getting-started.html">DropWizard</a>
-   *
-   * <p>We will convert all duration to SECONDS and prefix our metrics with {@link
-   * MetricsUtil#JMX_METRIC_PREFIX}
-   *
-   * @param metricRegistry Pool of metrics we have registered. May be a Gauge, Meter, Histogram.
-   * @param connectorName connectorName passed inside configuration
-   * @return JMXReporter instance.
-   */
-  public static JmxReporter createJMXReporter(
-      final MetricRegistry metricRegistry, final String connectorName) {
+  // The registry which will hold pool of all metrics for this instance
+  private final MetricRegistry metricRegistry;
 
-    return JmxReporter.forRegistry(metricRegistry)
-        .inDomain(JMX_METRIC_PREFIX)
-        .convertDurationsTo(TimeUnit.SECONDS)
-        .createsObjectNamesWith(
-            (ignoreMeterType, jmxDomain, metricName) ->
-                getObjectName(connectorName, jmxDomain, metricName))
-        .build();
+  /**
+   * Wrapper on top of listeners and metricRegistry for codehale. This will be useful to start the
+   * jmx metrics when time is appropriate. (Check {@link MetricsJmxReporter#start()}
+   */
+  private final JmxReporter jmxReporter;
+
+  public MetricsJmxReporter(MetricRegistry metricRegistry, final String connectorName) {
+    this.metricRegistry = metricRegistry;
+    this.jmxReporter = createJMXReporter(connectorName);
   }
 
+  public MetricRegistry getMetricRegistry() {
+    return metricRegistry;
+  }
+
+  /**
+   * This function will internally register all metrics present inside metric registry and will
+   * register mbeans to the mbeanserver
+   */
+  public void start() {
+    jmxReporter.start();
+  }
+
+  /**
+   * This method is called to fetch an object name for all registered metrics. It can be called
+   * during registration or unregistration. (Internal implementation of codehale)
+   *
+   * @param connectorName name of the connector. (From Config)
+   * @param jmxDomain JMX Domain
+   * @param metricName metric name used while registering the metric. (Check {@link
+   *     MetricsUtil#constructMetricName(String, String, String)}
+   * @return Object Name constructed from above three args
+   */
   @VisibleForTesting
-  public static ObjectName getObjectName(
-      String connectorName, String jmxDomain, String metricName) {
-    LOGGER.debug(
-        "registering JMX objectName - instanceName: {}, jmxDomain: {}, metricName: {}",
-        connectorName,
-        jmxDomain,
-        metricName);
+  static ObjectName getObjectName(String connectorName, String jmxDomain, String metricName) {
     try {
       StringBuilder sb =
           new StringBuilder(jmxDomain).append(":connector=").append(connectorName).append(',');
@@ -74,5 +84,44 @@ public class MetricsJmxReporter {
       LOGGER.warn(Logging.logMessage("Could not create Object name for MetricName:{}", metricName));
       throw SnowflakeErrors.ERROR_5020.getException();
     }
+  }
+
+  /**
+   * Unregister all snowflake KC related metrics from registry
+   *
+   * @param prefixFilter prefix for removing the filter.
+   */
+  public void removeMetricsFromRegistry(final String prefixFilter) {
+    if (metricRegistry.getMetrics().size() != 0) {
+      LOGGER.debug(Logging.logMessage("Unregistering all metrics for pipe:{}", prefixFilter));
+      metricRegistry.removeMatching(MetricFilter.startsWith(prefixFilter));
+      LOGGER.debug(
+          Logging.logMessage(
+              "Metric registry size for pipe:{} is:{}, names:{}",
+              prefixFilter,
+              metricRegistry.getMetrics().size(),
+              metricRegistry.getMetrics().keySet().toString()));
+    }
+  }
+
+  /**
+   * Create JMXReporter Instance, which internally handles the mbean server fetching and
+   * registration of Mbeans. We use codehale metrics library to achieve this. More details
+   * here: @see <a href="https://metrics.dropwizard.io/4.2.0/getting-started.html">DropWizard</a>
+   *
+   * <p>We will convert all duration to SECONDS and prefix our metrics with {@link
+   * MetricsUtil#JMX_METRIC_PREFIX}
+   *
+   * @param connectorName connectorName passed inside configuration
+   * @return JMXReporter instance.
+   */
+  private JmxReporter createJMXReporter(final String connectorName) {
+    return JmxReporter.forRegistry(this.metricRegistry)
+        .inDomain(JMX_METRIC_PREFIX)
+        .convertDurationsTo(TimeUnit.SECONDS)
+        .createsObjectNamesWith(
+            (ignoreMeterType, jmxDomain, metricName) ->
+                getObjectName(connectorName, jmxDomain, metricName))
+        .build();
   }
 }

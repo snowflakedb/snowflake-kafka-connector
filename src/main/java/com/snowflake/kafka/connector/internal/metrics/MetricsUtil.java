@@ -70,6 +70,15 @@ public class MetricsUtil {
    */
   public static final String PURGED_OFFSET = "purged-offset";
 
+  // Buffer related constants
+  public static final String BUFFER_SUB_DOMAIN = "buffer";
+
+  // the inmemory buffer size in bytes
+  public static final String BUFFER_SIZE_BYTES = "buffer-size-bytes";
+
+  // in memory buffer count representing the number of records in kafka
+  public static final String BUFFER_RECORD_COUNT = "buffer-record-count";
+
   // Event Latency related constants
 
   public static final String LATENCY_SUB_DOMAIN = "latencies";
