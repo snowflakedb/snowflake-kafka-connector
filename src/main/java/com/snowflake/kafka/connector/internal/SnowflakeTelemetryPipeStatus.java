@@ -1,12 +1,11 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter.createJMXReporter;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.*;
 
 import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
-import com.codahale.metrics.jmx.JmxReporter;
 import com.google.common.collect.Maps;
+import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil.EventType;
 import java.util.*;
@@ -108,9 +107,8 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
       final String tableName,
       final String stageName,
       final String pipeName,
-      final String connectorName,
       final boolean enableCustomJMXConfig,
-      final MetricRegistry metricRegistry) {
+      final MetricsJmxReporter metricsJmxReporter) {
     super(tableName, stageName, pipeName);
 
     // Initial value of processed/flushed/committed/purged offset should be set to -1,
@@ -142,7 +140,7 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     this.lagLock = new ReentrantLock();
     this.enableCustomJMXConfig = enableCustomJMXConfig;
     if (enableCustomJMXConfig) {
-      initializeJMXMetrics(pipeName, connectorName, metricRegistry);
+      registerPipeJMXMetrics(pipeName, metricsJmxReporter);
     }
   }
 
@@ -174,7 +172,11 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     }
   }
 
-  /** When either key or value is broken. */
+  /**
+   * When either key or value is broken.
+   *
+   * @param n number of records
+   */
   public void updateBrokenRecordMetrics(long n) {
     this.fileCountTableStageBrokenRecord.addAndGet(n);
     if (enableCustomJMXConfig) {
@@ -182,7 +184,11 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     }
   }
 
-  /** When Ingestion status of n number of files is not found/failed. */
+  /**
+   * When Ingestion status of n number of files is not found/failed.
+   *
+   * @param n number of files failed ingestion
+   */
   public void updateFailedIngestionMetrics(long n) {
     this.fileCountTableStageIngestFail.addAndGet(n);
     if (enableCustomJMXConfig) {
@@ -252,72 +258,82 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   // --------------- JMX Metrics --------------- //
 
   /**
-   * Registers all the Metrics inside the metricRegistry The registered metric will be a subclass of
-   * {@link Metric}
+   * Registers all the Metrics inside the metricRegistry. The registered metric will be a subclass
+   * of {@link Metric}
    *
-   * @param connectorName connectorName
-   * @param metricRegistry for registering all metrics related to above connector and this specific
-   *     pipe
+   * @param pipeName pipeName
+   * @param metricsJmxReporter wrapper class for registering all metrics related to above connector
+   *     and pipe
    */
-  private void initializeJMXMetrics(
-      final String pipeName, final String connectorName, MetricRegistry metricRegistry) {
-    // For JMX Reporter
-    // create meter per event type
+  private void registerPipeJMXMetrics(
+      final String pipeName, MetricsJmxReporter metricsJmxReporter) {
+    MetricRegistry currentMetricRegistry = metricsJmxReporter.getMetricRegistry();
+
+    // Lazily remove all registered metrics from the registry since this can be invoked during
+    // partition reassignment
+    LOGGER.debug(
+        Logging.logMessage(
+            "Registering metrics for pipe:{}, existing:{}",
+            pipeName,
+            metricsJmxReporter.getMetricRegistry().getMetrics().keySet().toString()));
+    metricsJmxReporter.removeMetricsFromRegistry(pipeName);
+
     try {
       // Latency JMX
+      // create meter per event type
       Arrays.stream(EventType.values())
           .forEach(
               eventType ->
                   eventsByType.put(
                       eventType,
-                      metricRegistry.timer(
+                      currentMetricRegistry.timer(
                           constructMetricName(
                               pipeName, LATENCY_SUB_DOMAIN, eventType.getMetricName()))));
 
       // Offset JMX
-      metricRegistry.register(
+      currentMetricRegistry.register(
           constructMetricName(pipeName, OFFSET_SUB_DOMAIN, MetricsUtil.PROCESSED_OFFSET),
           (Gauge<Long>) () -> processedOffset.get());
 
-      metricRegistry.register(
+      currentMetricRegistry.register(
           constructMetricName(pipeName, OFFSET_SUB_DOMAIN, MetricsUtil.FLUSHED_OFFSET),
           (Gauge<Long>) () -> flushedOffset.get());
 
-      metricRegistry.register(
+      currentMetricRegistry.register(
           constructMetricName(pipeName, OFFSET_SUB_DOMAIN, MetricsUtil.COMMITTED_OFFSET),
           (Gauge<Long>) () -> committedOffset.get());
 
-      metricRegistry.register(
+      currentMetricRegistry.register(
           constructMetricName(pipeName, OFFSET_SUB_DOMAIN, MetricsUtil.PURGED_OFFSET),
           (Gauge<Long>) () -> purgedOffset.get());
 
       // File count JMX
-      metricRegistry.register(
+      currentMetricRegistry.register(
           constructMetricName(pipeName, FILE_COUNT_SUB_DOMAIN, MetricsUtil.FILE_COUNT_ON_INGESTION),
           (Gauge<Long>) () -> fileCountOnIngestion.get());
 
-      metricRegistry.register(
+      currentMetricRegistry.register(
           constructMetricName(pipeName, FILE_COUNT_SUB_DOMAIN, MetricsUtil.FILE_COUNT_ON_STAGE),
           (Gauge<Long>) () -> fileCountOnStage.get());
 
-      metricRegistry.register(
-          constructMetricName(pipeName, FILE_COUNT_SUB_DOMAIN, MetricsUtil.FILE_COUNT_PURGED),
-          (Gauge<Long>) () -> fileCountPurged.get());
+      metricsJmxReporter
+          .getMetricRegistry()
+          .register(
+              constructMetricName(pipeName, FILE_COUNT_SUB_DOMAIN, MetricsUtil.FILE_COUNT_PURGED),
+              (Gauge<Long>) () -> fileCountPurged.get());
 
       fileCountTableStageBrokenRecordMeter =
-          metricRegistry.meter(
+          currentMetricRegistry.meter(
               constructMetricName(
                   pipeName,
                   FILE_COUNT_SUB_DOMAIN,
                   MetricsUtil.FILE_COUNT_TABLE_STAGE_BROKEN_RECORD));
 
       fileCountTableStageIngestFailMeter =
-          metricRegistry.meter(
+          currentMetricRegistry.meter(
               constructMetricName(
                   pipeName, FILE_COUNT_SUB_DOMAIN, FILE_COUNT_TABLE_STAGE_INGESTION_FAIL));
 
-      JmxReporter jmxReporter = createJMXReporter(metricRegistry, connectorName);
-      jmxReporter.start();
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());
     }

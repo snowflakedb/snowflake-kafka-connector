@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.Utils;
@@ -64,9 +65,9 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
     // required for committedOffset metric
     service.callAllGetOffset();
 
-    MetricRegistry metricRegistry = service.getMetricRegistry();
+    MetricRegistry metricRegistry = service.getMetricRegistry(pipeName).get();
     Assert.assertFalse(metricRegistry.getMetrics().isEmpty());
-    Assert.assertTrue(metricRegistry.getMetrics().size() == 12);
+    Assert.assertTrue(metricRegistry.getMetrics().size() == 14);
 
     Map<String, Gauge> registeredGauges = metricRegistry.getGauges();
 
@@ -146,6 +147,29 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
             MetricsUtil.FILE_COUNT_TABLE_STAGE_INGESTION_FAIL);
     Assert.assertTrue(registeredMeters.containsKey(metricFileCountIngestionFailed));
     Assert.assertEquals(0L, registeredMeters.get(metricFileCountIngestionFailed).getCount());
+
+    // buffer metrics
+    Map<String, Histogram> registeredHistograms = metricRegistry.getHistograms();
+    final String metricBufferRecordCount =
+        MetricsUtil.constructMetricName(
+            pipeName, MetricsUtil.BUFFER_SUB_DOMAIN, MetricsUtil.BUFFER_RECORD_COUNT);
+    Assert.assertTrue(registeredHistograms.containsKey(metricBufferRecordCount));
+    Assert.assertEquals(2L, registeredHistograms.get(metricBufferRecordCount).getCount());
+
+    // two files will be generated both with one record each
+    Assert.assertEquals(
+        1.0, registeredHistograms.get(metricBufferRecordCount).getSnapshot().getMean(), 0.001);
+    Assert.assertEquals(
+        1.0, registeredHistograms.get(metricBufferRecordCount).getSnapshot().getMax(), 0.001);
+
+    final String metricBufferSizeBytes =
+        MetricsUtil.constructMetricName(
+            pipeName, MetricsUtil.BUFFER_SUB_DOMAIN, MetricsUtil.BUFFER_SIZE_BYTES);
+    Assert.assertTrue(registeredHistograms.containsKey(metricBufferSizeBytes));
+    Assert.assertEquals(2L, registeredHistograms.get(metricBufferSizeBytes).getCount());
+
+    // two files will be generated both with one record each
+    Assert.assertEquals(2, registeredHistograms.get(metricBufferRecordCount).getSnapshot().size());
   }
 
   @Test
@@ -174,7 +198,7 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
     // required for committedOffset metric
     service.callAllGetOffset();
 
-    MetricRegistry metricRegistry = service.getMetricRegistry();
+    MetricRegistry metricRegistry = service.getMetricRegistry(pipeName).get();
     Assert.assertTrue(metricRegistry.getMetrics().isEmpty());
   }
 }
