@@ -259,6 +259,15 @@ public class SnowflakeSinkTask extends SinkTask {
     LOGGER.debug(
         Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit {}", this.id, offsets.size()));
 
+    offsets.forEach(
+        (topicPartition, offsetAndMetadata) -> {
+          LOGGER.debug(
+              Logging.logMessage(
+                  "SnowflakeSinkTask[ID:{}]:preCommit asked for offset:{}",
+                  this.id,
+                  offsetAndMetadata.offset()));
+        });
+
     // return an empty map means that offset commitment is not desired
     if (sink == null || sink.isClosed()) {
       LOGGER.warn(
@@ -292,6 +301,14 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     logWarningForPutAndPrecommit(startTime, offsets.size(), "preCommit");
+    committedOffsets.forEach(
+        (topicPartition, offsetAndMetadata) -> {
+          LOGGER.debug(
+              Logging.logMessage(
+                  "Committing offset no:{} for partition:{}",
+                  offsetAndMetadata.offset(),
+                  topicPartition.partition()));
+        });
     return committedOffsets;
   }
 

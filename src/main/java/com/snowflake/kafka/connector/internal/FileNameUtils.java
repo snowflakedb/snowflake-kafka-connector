@@ -142,7 +142,7 @@ public class FileNameUtils {
   }
 
   /**
-   * check whether the given file is expired
+   * Only Used in testing check whether the given file is expired
    *
    * @param fileName file name
    * @return true if expired, otherwise false

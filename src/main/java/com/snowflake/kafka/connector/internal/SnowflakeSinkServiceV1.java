@@ -99,7 +99,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       if (shouldSkipNullValue(record)) {
         continue;
       }
-      // Might happen a count of record based flushing
+      // Might trigger a count of records/size of buffer based flushing
       insert(record);
     }
     // check all sink context to see if they need to be flushed
@@ -378,14 +378,26 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     private final String pipeName;
     private final SnowflakeConnectionService conn;
     private final SnowflakeIngestionService ingestionService;
+
+    // Files which were flushed into internal stage. (After put api was called)
+    // these are reset during every precommit API call. Before reset, we call insertFiles API on all
+    // fileNames. Only added before JDBC PUT.
     private List<String> fileNames;
 
     // Includes a list of files:
     // 1. Which are added after a flush into internal stage is successful
     // 2. While an app restarts and we do list on an internal stage to find out what needs to be
     // done on leaked files.
+    // Note: This is a bit different from List<String> fileNames defined above. `fileNames` just
+    // contains the files
+    // added after put API was successful, cleanerFileNames apart from having files added to
+    // internal stage, also includes files already present (through list stage)
     private List<String> cleanerFileNames;
     private PartitionBuffer buffer;
+
+    // prefix = connectorName/tableName/partition (this prefix is unique per pipe/ServiceContext)
+    // We add a prefix before an actual fileName to identify unique fileNames across pipes because
+    // all files goes into a single stage. This will help us call insertFiles only from this pipe.
     private final String prefix;
     private final AtomicLong committedOffset; // loaded offset + 1
     private final AtomicLong flushedOffset; // flushed offset (file on stage)
@@ -668,6 +680,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
             bufferLock.unlock();
           }
 
+          // either of records or bytes buffer threshold has reached and we need to flush to
+          // internal stage
           if (tmpBuff != null) {
             flush(tmpBuff);
           }
@@ -790,6 +804,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       long currentTime = System.currentTimeMillis();
       pipeStatus.committedOffset.set(committedOffset.get() - 1);
       pipeStatus.fileCountOnIngestion.addAndGet(fileNamesCopy.size());
+
+      // To update the commitLag metric, we dont necessarily need timestamp from fileName.
+      // We can keep maintain a map which contains a fileName and timestamp when it was added to
+      // stage.
+      // Or change List<String> fileNames to a Map<String, long>
       fileNamesCopy.forEach(
           name ->
               pipeStatus.updateCommitLag(currentTime - FileNameUtils.fileNameToTimeIngested(name)));
@@ -874,9 +893,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
               name -> {
                 long time = FileNameUtils.fileNameToTimeIngested(name);
                 if (time < currentTime - ONE_HOUR) {
+                  // this file was added to stage an hour earlier
                   failedFiles.add(name);
                   tmpFileNames.remove(name);
                 } else if (time < currentTime - TEN_MINUTES) {
+                  // this was added 10 minutes earlier but not before 1 hour. (before last 10
+                  // minutes and 1 hour)
                   oldFiles.add(name);
                 }
               });
@@ -917,6 +939,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
       pipeStatus.fileCountPurged.addAndGet(loadedFiles.size());
       // update lag information
+      // loadedFiles can be converted into a linkedHashmap of fileName and time of
       loadedFiles.forEach(
           name ->
               pipeStatus.updateIngestionLag(

@@ -31,6 +31,7 @@ class InternalUtils {
   static final String JDBC_WAREHOUSE = "warehouse"; // for test only
 
   // internal parameters
+  // Not used anywhere in production code
   static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; // 10 days
 
   private static final Logger LOGGER = LoggerFactory.getLogger(InternalUtils.class.getName());
