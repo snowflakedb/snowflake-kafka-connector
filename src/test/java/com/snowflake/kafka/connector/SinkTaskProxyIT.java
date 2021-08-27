@@ -15,12 +15,7 @@ public class SinkTaskProxyIT {
 
   @After
   public void testCleanup() {
-    try {
-      TestUtils.resetProxyParametersInJDBC();
-      TestUtils.resetProxyParametersInJVM();
-    } catch (SnowflakeSQLException ex) {
-      Assert.fail("Cannot reset proxy parameters in:" + this.getClass().getName());
-    }
+    TestUtils.resetProxyParametersInJVM();
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)

@@ -14,6 +14,7 @@ import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigValue;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class ConnectorIT {
@@ -98,15 +99,6 @@ public class ConnectorIT {
     config.remove(Utils.NAME);
     config.remove(TASK_ID);
     return config;
-  }
-
-  @After
-  public void cleanup() throws SnowflakeSQLException {
-    try {
-      TestUtils.resetProxyParametersInJDBC();
-    } catch (SnowflakeSQLException ex) {
-      Assert.fail("Cannot reset proxy parameters in:" + this.getClass().getName());
-    }
   }
 
   @Test
@@ -284,6 +276,7 @@ public class ConnectorIT {
     assertPropHasError(validateMap, new String[] {});
   }
 
+  @Ignore
   @Test
   public void testErrorProxyUsernameConfig() {
     Map<String, String> config = getCorrectConfig();

@@ -275,17 +275,6 @@ public class TestUtils {
   }
 
   /**
-   * Reset proxy parameters in JDBC. JDBC's useProxy parameter is static member, needs to be reset
-   * after every test run. i.e needs to run after every new connection is set which modifies the
-   * proxy parameter.
-   */
-  public static void resetProxyParametersInJDBC() throws SnowflakeSQLException {
-    Map<SFSessionProperty, Object> resetProxy = new EnumMap(SFSessionProperty.class);
-    resetProxy.put(SFSessionProperty.USE_PROXY, false);
-    HttpUtil.configureCustomProxyProperties(resetProxy);
-  }
-
-  /**
    * Reset proxy parameters in JVM which is enabled during starting a sink Task. Call this if your
    * test/code executes the Utils.enableJVMProxy function
    */
