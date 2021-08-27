@@ -59,15 +59,20 @@ KAFKA_CONNECT_PLUGIN_PATH="/usr/local/share/kafka/plugins"
 # copy credential to SNOWFLAKE_CONNECTOR_PATH
 cp -rf $SNOWFLAKE_CREDENTIAL_FILE $SNOWFLAKE_CONNECTOR_PATH || true
 
+# installing a local jar using mvn deploy file
+LOCAL_INGEST_SDK_PATH="local-maven-repo/"
+
 # build and test the local repo
 pushd $SNOWFLAKE_CONNECTOR_PATH
 case $BUILD_METHOD in
 	verify)
 	  mvn clean
+	  mvn deploy:deploy-file -DgroupId=net.snowflake -DartifactId=snowflake-ingest-sdk -Dversion=1.0 -Durl=file:./$LOCAL_INGEST_SDK_PATH -DrepositoryId=local-maven-repo -DupdateReleaseInfo=true -Dfile=$LOCAL_INGEST_SDK_PATH/snowflake-ingest-sdk.jar
     mvn verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 		;;
 	package)
 	  mvn clean
+	  mvn deploy:deploy-file -DgroupId=net.snowflake -DartifactId=snowflake-ingest-sdk -Dversion=1.0 -Durl=file:./$LOCAL_INGEST_SDK_PATH -DrepositoryId=local-maven-repo -DupdateReleaseInfo=true -Dfile=$LOCAL_INGEST_SDK_PATH/snowflake-ingest-sdk.jar
     mvn package -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 		;;
 	none)
