@@ -26,7 +26,7 @@ fi
 if [[ -z "${SNOWFLAKE_CONNECTOR_PATH}" ]]; then
     # Always re-pull code from github, no one should develop under the test_script folder
     echo -e "\n=== path to snowflake connector repo is not set, clone snowflake-kafka-connector from github and build ==="
-    SNOWFLAKE_CONNECTOR_PATH="./snowflake-kafka-connector"
+    SNOWFLAKE_CONNECTOR_PATH="./snowflake-kafka-connector-private"
     echo -e "\n=== $SNOWFLAKE_CONNECTOR_PATH will be force deleted ==="
     rm -rf $SNOWFLAKE_CONNECTOR_PATH
     mkdir $SNOWFLAKE_CONNECTOR_PATH
@@ -59,15 +59,20 @@ KAFKA_CONNECT_PLUGIN_PATH="/usr/local/share/kafka/plugins"
 # copy credential to SNOWFLAKE_CONNECTOR_PATH
 cp -rf $SNOWFLAKE_CREDENTIAL_FILE $SNOWFLAKE_CONNECTOR_PATH || true
 
+# installing a local jar using mvn deploy file
+PRIVATE_INGEST_SDK_PATH="local-maven-repo-private/"
+
 # build and test the local repo
 pushd $SNOWFLAKE_CONNECTOR_PATH
 case $BUILD_METHOD in
 	verify)
 	  mvn clean
+	  mvn deploy:deploy-file -DgroupId=net.snowflake -DartifactId=snowflake-ingest-sdk -Dversion=1.0 -Durl=file:./$PRIVATE_INGEST_SDK_PATH -DrepositoryId=local-maven-repo-private -DupdateReleaseInfo=true -Dfile=$PRIVATE_INGEST_SDK_PATH/snowflake-ingest-sdk.jar
     mvn verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 		;;
 	package)
 	  mvn clean
+	  mvn deploy:deploy-file -DgroupId=net.snowflake -DartifactId=snowflake-ingest-sdk -Dversion=1.0 -Durl=file:./$PRIVATE_INGEST_SDK_PATH -DrepositoryId=local-maven-repo-private -DupdateReleaseInfo=true -Dfile=$PRIVATE_INGEST_SDK_PATH/snowflake-ingest-sdk.jar
     mvn package -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 		;;
 	none)

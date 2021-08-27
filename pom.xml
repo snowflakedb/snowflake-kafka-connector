@@ -37,9 +37,9 @@
 
     <scm>
         <connection>
-            scm:git:https://github.com/snowflakedb/snowflake-kafka-connector.git
+            scm:git:https://github.com/snowflakedb/snowflake-kafka-connector-private.git
         </connection>
-        <url>https://github.com/snowflakedb/snowflake-kafka-connector</url>
+        <url>https://github.com/snowflakedb/snowflake-kafka-connector-private</url>
     </scm>
 
     <!-- Set our Language Level to Java 8 -->
@@ -67,6 +67,12 @@
             <snapshots>
                 <enabled>true</enabled>
             </snapshots>
+        </repository>
+
+<!--        Placeholder for local import of an unpublished library to maven repo. (i.e this is a local repository)-->
+        <repository>
+            <id>local-maven-repo-private</id>
+            <url>file:///${project.basedir}/local-maven-repo-private</url>
         </repository>
     </repositories>
 
@@ -320,7 +326,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-ingest-sdk</artifactId>
-            <version>0.10.4-beta</version>
+            <version>1.0</version>
         </dependency>
 
         <dependency>
