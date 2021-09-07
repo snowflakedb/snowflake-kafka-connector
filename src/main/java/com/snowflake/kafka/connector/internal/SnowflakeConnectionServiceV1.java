@@ -723,7 +723,9 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
    */
   private String pipeDefinition(String tableName, String stageName) {
     return "copy into "
+        + "\""
         + tableName
+        + "\""
         + "(RECORD_METADATA, RECORD_CONTENT) from (select $1:meta, $1:content from"
         + " @"
         + stageName

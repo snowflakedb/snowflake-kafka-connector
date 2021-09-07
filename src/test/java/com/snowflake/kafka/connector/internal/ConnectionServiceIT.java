@@ -362,4 +362,18 @@ public class ConnectionServiceIT {
     service.close();
     assert service.isClosed();
   }
+
+  @Test
+  public void testReservedSnowflakeIdentifierInPipeDefinition() {
+    final String reservedSnowflakeIdentifierAsTableName = "ORDER";
+    conn.createStage(stageName);
+    conn.createTable(reservedSnowflakeIdentifierAsTableName);
+
+    // pipe doesn't exit
+    assert !conn.pipeExist(pipeName);
+    // create pipe
+    conn.createPipe(reservedSnowflakeIdentifierAsTableName, stageName, pipeName);
+    // pipe exists
+    assert conn.pipeExist(pipeName);
+  }
 }
