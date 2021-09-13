@@ -34,9 +34,11 @@ public class SnowflakeURL extends Logging {
 
   private int port;
 
+  private static final String SNOWFLAKE_URL_REGEX_PATTERN =
+      "^(https?://)?((([\\w\\d]+)(\\.[\\w\\d-]+){2,})(:(\\d+))?)/?$";
+
   public SnowflakeURL(String urlStr) {
-    Pattern pattern =
-        Pattern.compile("^(https?://)?((([\\w\\d]+)(\\" + ".[\\w\\d-]+){2,})(:(\\d+))?)/?$");
+    Pattern pattern = Pattern.compile(SNOWFLAKE_URL_REGEX_PATTERN);
 
     Matcher matcher = pattern.matcher(urlStr.trim().toLowerCase());
 
