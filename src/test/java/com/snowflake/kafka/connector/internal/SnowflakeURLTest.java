@@ -118,4 +118,43 @@ public class SnowflakeURLTest {
 
     new SnowflakeURL(url);
   }
+
+  @Test
+  public void testRegionlessURLString() {
+    String url = "http://org-account.snowflake.com:80";
+
+    SnowflakeURL sfurl = new SnowflakeURL(url);
+
+    assert !sfurl.sslEnabled();
+
+    assert sfurl.getAccount().equals("org-account");
+
+    assert sfurl.getFullUrl().equals("org-account.snowflake.com:80");
+
+    assert sfurl.getPort() == 80;
+
+    assert sfurl.getScheme().equals("http");
+
+    assert sfurl.getJdbcUrl().equals("jdbc:snowflake://" + sfurl.getFullUrl());
+  }
+
+  @Test
+  public void testRegionlessWithPrivateLinkURL() {
+    // test with privatelink too
+    String url = "https://org-account.privatelink.snowflake.com:80";
+
+    SnowflakeURL sfurl = new SnowflakeURL(url);
+
+    assert sfurl.sslEnabled();
+
+    assert sfurl.getAccount().equals("org-account");
+
+    assert sfurl.getFullUrl().equals("org-account.privatelink.snowflake.com:80");
+
+    assert sfurl.getPort() == 80;
+
+    assert sfurl.getScheme().equals("https");
+
+    assert sfurl.getJdbcUrl().equals("jdbc:snowflake://" + sfurl.getFullUrl());
+  }
 }
