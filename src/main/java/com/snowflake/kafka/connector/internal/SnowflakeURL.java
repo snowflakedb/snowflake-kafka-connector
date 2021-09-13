@@ -34,9 +34,27 @@ public class SnowflakeURL extends Logging {
 
   private int port;
 
+  /**
+   * There are several matching groups here. Matching groups numbers are identified as the opening
+   * braces start and are indexed from number 1.
+   *
+   * <p>Group 1: If https is present or not. (Not required)
+   *
+   * <p>Group 2: Is the entire URL including the port number
+   *
+   * <p>Group 3: URL until .com
+   *
+   * <p>Group 4: Account name (may include org-account/alias)
+   *
+   * <p>Group 5: (Everything after accountname or org-accountname until .com)
+   *
+   * <p>Group 7: port number
+   */
+  private static final String SNOWFLAKE_URL_REGEX_PATTERN =
+      "^(https?://)?((([\\w\\d-]+)(\\.[\\w\\d-]+){2,})(:(\\d+))?)/?$";
+
   public SnowflakeURL(String urlStr) {
-    Pattern pattern =
-        Pattern.compile("^(https?://)?((([\\w\\d]+)(\\" + ".[\\w\\d-]+){2,})(:(\\d+))?)/?$");
+    Pattern pattern = Pattern.compile(SNOWFLAKE_URL_REGEX_PATTERN);
 
     Matcher matcher = pattern.matcher(urlStr.trim().toLowerCase());
 
