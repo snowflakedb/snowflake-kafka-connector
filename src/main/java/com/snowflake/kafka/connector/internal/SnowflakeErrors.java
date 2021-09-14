@@ -97,6 +97,10 @@ public enum SnowflakeErrors {
       "0023",
       "Invalid proxy username or password",
       "Both username and password need to be provided if one of them is provided"),
+  ERROR_0024(
+      "0024",
+      "Reader schema invalid",
+      "A reader schema is provided but can not be parsed as an Avro schema"),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
