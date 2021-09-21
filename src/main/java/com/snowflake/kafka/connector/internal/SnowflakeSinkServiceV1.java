@@ -566,6 +566,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
             () -> {
               try {
                 Thread.sleep(CLEAN_TIME);
+                logInfo(
+                    "Purging files already present on the stage before start. ReprocessFileSize:{}",
+                    reprocessFiles.size());
                 purge(reprocessFiles);
               } catch (Exception e) {
                 logError(
@@ -785,6 +788,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
         fileListLock.unlock();
       }
 
+      logInfo("pipe {}, ingest files: {}", pipeName, fileNamesCopy);
+
+      // This api should throw exception if backoff failed. It also clears the input list
+      ingestionService.ingestFiles(fileNamesCopy);
+
+      // committedOffset should be updated only when ingestFiles has succeeded.
       committedOffset.set(flushedOffset.get());
       // update telemetry data
       long currentTime = System.currentTimeMillis();
@@ -793,10 +802,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       fileNamesCopy.forEach(
           name ->
               pipeStatus.updateCommitLag(currentTime - FileNameUtils.fileNameToTimeIngested(name)));
-      logInfo("pipe {}, ingest files: {}", pipeName, fileNamesCopy);
-
-      // This api should throw exception if backoff failed. It also clears the input list
-      ingestionService.ingestFiles(fileNamesCopy);
 
       return committedOffset.get();
     }
@@ -892,8 +897,14 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
             loadedFiles,
             failedFiles);
       }
-
+      logDebug(
+          "Purging loaded files for pipe:{}, loadedFileCount:{}", pipeName, loadedFiles.size());
       purge(loadedFiles);
+
+      logDebug(
+          "Moving failed files for pipe:{} to tableStage failedFileCount:{}",
+          pipeName,
+          failedFiles.size());
       moveToTableStage(failedFiles);
 
       fileListLock.lock();

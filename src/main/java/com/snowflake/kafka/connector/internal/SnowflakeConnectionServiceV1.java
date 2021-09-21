@@ -65,6 +65,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
         logDebug("Proxy properties are set, passing in JDBC while creating the connection");
         this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), combinedProperties);
       } else {
+        logInfo("Establishing a JDBC connection with url:{}", url.getJdbcUrl());
         this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), prop);
       }
     } catch (SQLException e) {
