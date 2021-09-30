@@ -333,6 +333,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testNativeStringProtobuf = TestNativeStringProtobuf(driver, nameSalt)
     testConfluentProtobufProtobuf = TestConfluentProtobufProtobuf(driver, nameSalt)
 
+    # We will run StringJsonProxy test at the end (round 4)
     testStringJsonProxy = TestStringJsonProxy(driver, nameSalt)
 
     ############################ round 1 ############################
@@ -341,11 +342,11 @@ def runTestSet(driver, testSet, nameSalt, pressure):
                      testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
                      testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf]
 
-    # Adding StringJsonProxy test at the end
+    # clean is set to true for all tests
     testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False]
+        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, False, True]
     elif testSet == "apache":
         testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False]
     elif testSet != "clean":
