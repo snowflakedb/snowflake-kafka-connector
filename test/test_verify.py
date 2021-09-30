@@ -330,6 +330,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testPressure = TestPressure(driver, nameSalt)
     testPressureRestart = TestPressureRestart(driver, nameSalt)
 
+    # we can run this test on both confluent and OSS kafka
     testNativeStringProtobuf = TestNativeStringProtobuf(driver, nameSalt)
     testConfluentProtobufProtobuf = TestConfluentProtobufProtobuf(driver, nameSalt)
 
@@ -346,7 +347,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, False, True]
+        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, True]
     elif testSet == "apache":
         testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False]
     elif testSet != "clean":
