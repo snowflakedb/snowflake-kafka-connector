@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.IngestionTypeConfig;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import java.nio.charset.StandardCharsets;
@@ -35,7 +36,7 @@ public class MetaColumnIT {
     conn.createStage(stageName);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .addTask(tableName, topic, partition)
             .setRecordNumber(3)
             .build();
