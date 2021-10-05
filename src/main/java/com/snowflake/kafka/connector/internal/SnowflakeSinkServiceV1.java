@@ -29,6 +29,12 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * This is per task configuration. A task can be assigned multiple partitions. Major methods are
+ * startTask, insert, getOffset and close methods. StartTask: Called when partitions are assigned.
+ * Responsible for generating the POJOs. Insert and offset are called when SinkTask's put and
+ * precommit APIs are called.
+ */
 class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkServiceV1.class);
 
@@ -385,7 +391,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     // 2. While an app restarts and we do list on an internal stage to find out what needs to be
     // done on leaked files.
     private List<String> cleanerFileNames;
-    private PartitionBuffer buffer;
+    private SnowpipeBuffer buffer;
     private final String prefix;
     private final AtomicLong committedOffset; // loaded offset + 1
     private final AtomicLong flushedOffset; // flushed offset (file on stage)
@@ -426,7 +432,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       this.conn = conn;
       this.fileNames = new LinkedList<>();
       this.cleanerFileNames = new LinkedList<>();
-      this.buffer = new PartitionBuffer();
+      this.buffer = new SnowpipeBuffer();
       this.ingestionService = conn.buildIngestService(stageName, pipeName);
       this.prefix = FileNameUtils.filePrefix(conn.getConnectorName(), tableName, partition);
       this.processedOffset = new AtomicLong(-1);
@@ -653,7 +659,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
             pipeStatus.updateKafkaLag(System.currentTimeMillis() - snowflakeRecord.timestamp());
           }
 
-          PartitionBuffer tmpBuff = null;
+          SnowpipeBuffer tmpBuff = null;
           bufferLock.lock();
           try {
             processedOffset.set(snowflakeRecord.kafkaOffset());
@@ -662,7 +668,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
             if (buffer.getBufferSize() >= getFileSize()
                 || (getRecordNumber() != 0 && buffer.getNumOfRecord() >= getRecordNumber())) {
               tmpBuff = buffer;
-              this.buffer = new PartitionBuffer();
+              this.buffer = new SnowpipeBuffer();
             }
           } finally {
             bufferLock.unlock();
@@ -735,11 +741,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       if (buffer.isEmpty()) {
         return;
       }
-      PartitionBuffer tmpBuff;
+      SnowpipeBuffer tmpBuff;
       bufferLock.lock();
       try {
         tmpBuff = buffer;
-        this.buffer = new PartitionBuffer();
+        this.buffer = new SnowpipeBuffer();
       } finally {
         bufferLock.unlock();
       }
@@ -801,7 +807,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       return committedOffset.get();
     }
 
-    private void flush(final PartitionBuffer buff) {
+    private void flush(final SnowpipeBuffer buff) {
       if (buff == null || buff.isEmpty()) {
         return;
       }
@@ -1027,7 +1033,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
      *
      * @param buffer that was pushed in stage
      */
-    private void computeBufferMetrics(final PartitionBuffer buffer) {
+    private void computeBufferMetrics(final SnowpipeBuffer buffer) {
       if (enableCustomJMXMonitoring) {
         partitionBufferSizeBytesHistogram.update(buffer.getBufferSize());
         partitionBufferCountHistogram.update(buffer.getNumOfRecord());
@@ -1050,64 +1056,38 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       return this.metricRegistry;
     }
 
-    private class PartitionBuffer {
+    private class SnowpipeBuffer extends PartitionBuffer<String> {
       private final StringBuilder stringBuilder;
-      private int numOfRecord;
-      private int bufferSize;
-      private long firstOffset;
-      private long lastOffset;
 
-      private int getNumOfRecord() {
-        return numOfRecord;
-      }
-
-      private int getBufferSize() {
-        return bufferSize;
-      }
-
-      private long getFirstOffset() {
-        return firstOffset;
-      }
-
-      private long getLastOffset() {
-        return lastOffset;
-      }
-
-      private PartitionBuffer() {
+      private SnowpipeBuffer() {
+        super();
         stringBuilder = new StringBuilder();
-        numOfRecord = 0;
-        bufferSize = 0;
-        firstOffset = -1;
-        lastOffset = -1;
       }
 
-      private void insert(SinkRecord record) {
-        String data = recordService.processRecord(record);
-        if (bufferSize == 0) {
-          firstOffset = record.kafkaOffset();
+      @Override
+      public void insert(SinkRecord record) {
+        String data = recordService.getProcessedRecordForSnowpipe(record);
+        if (getBufferSize() == 0) {
+          setFirstOffset(record.kafkaOffset());
         }
 
         stringBuilder.append(data);
-        numOfRecord++;
-        bufferSize += data.length() * 2; // 1 char = 2 bytes
+        setNumOfRecord(getNumOfRecord() + 1);
+        setBufferSize(getBufferSize() + data.length() * 2); // 1 char = 2 bytes
+        setLastOffset(record.kafkaOffset());
         pipeStatus.memoryUsage.addAndGet(data.length() * 2);
-        lastOffset = record.kafkaOffset();
       }
 
-      private boolean isEmpty() {
-        return numOfRecord == 0;
-      }
-
-      private String getData() {
+      public String getData() {
         String result = stringBuilder.toString();
         logDebug(
             "flush buffer: {} records, {} bytes, offset {} - {}",
-            numOfRecord,
-            bufferSize,
-            firstOffset,
-            lastOffset);
-        pipeStatus.totalSizeOfData.addAndGet(this.bufferSize);
-        pipeStatus.totalNumberOfRecord.addAndGet(this.numOfRecord);
+            getNumOfRecord(),
+            getBufferSize(),
+            getFirstOffset(),
+            getLastOffset());
+        pipeStatus.totalSizeOfData.addAndGet(getBufferSize());
+        pipeStatus.totalNumberOfRecord.addAndGet(getNumOfRecord());
         return result;
       }
     }
