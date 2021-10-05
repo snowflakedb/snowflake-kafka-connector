@@ -59,6 +59,7 @@ public class Utils {
   public static final String SF_SSL = "sfssl"; // for test only
   public static final String SF_WAREHOUSE = "sfwarehouse"; // for test only
   public static final String PRIVATE_KEY_PASSPHRASE = "snowflake.private.key" + ".passphrase";
+  public static final String SF_ROLE = "snowflake.role.name";
 
   // constants strings
   private static final String KAFKA_OBJECT_PREFIX = "SNOWFLAKE_KAFKA_CONNECTOR";
@@ -87,6 +88,9 @@ public class Utils {
   // mvn repo
   private static final String MVN_REPO =
       "https://repo1.maven.org/maven2/com/snowflake/snowflake-kafka-connector/";
+
+  public static final String TABLE_COLUMN_CONTENT = "RECORD_CONTENT";
+  public static final String TABLE_COLUMN_METADATA = "RECORD_METADATA";
 
   private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class.getName());
 
