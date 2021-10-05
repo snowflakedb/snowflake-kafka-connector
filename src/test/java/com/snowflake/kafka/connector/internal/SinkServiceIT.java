@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.IngestionTypeConfig;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
@@ -24,10 +25,7 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.*;
 
 public class SinkServiceIT {
   private SnowflakeConnectionService conn = TestUtils.getConnectionService();
@@ -78,7 +76,9 @@ public class SinkServiceIT {
   @Test
   public void testSinkServiceBuilder() {
     // default value
-    SnowflakeSinkService service = SnowflakeSinkServiceFactory.builder(conn).build();
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
+            .build();
 
     assert service.getFileSize() == SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
     assert service.getFlushTime() == SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT;
@@ -86,7 +86,7 @@ public class SinkServiceIT {
 
     // set some value
     service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setFileSize(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT * 4)
             .setFlushTime(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN + 10)
             .setRecordNumber(10)
@@ -98,7 +98,7 @@ public class SinkServiceIT {
 
     // set some invalid value
     service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setRecordNumber(-100)
             .setFlushTime(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN - 10)
             .setFileSize(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN - 1)
@@ -110,13 +110,19 @@ public class SinkServiceIT {
 
     // connection test
     assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_5010, () -> SnowflakeSinkServiceFactory.builder(null).build());
+        SnowflakeErrors.ERROR_5010,
+        () ->
+            SnowflakeSinkServiceFactory.builder(
+                    null, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
+                .build());
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_5010,
         () -> {
           SnowflakeConnectionService conn = TestUtils.getConnectionService();
           conn.close();
-          SnowflakeSinkServiceFactory.builder(conn).build();
+          SnowflakeSinkServiceFactory.builder(
+                  conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
+              .build();
         });
   }
 
@@ -125,7 +131,7 @@ public class SinkServiceIT {
     conn.createTable(table);
     conn.createStage(stage);
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setRecordNumber(1)
             .addTask(table, topic, partition)
             .build();
@@ -178,7 +184,7 @@ public class SinkServiceIT {
     conn.createTable(table);
     conn.createStage(stage);
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setRecordNumber(1)
             .addTask(table, topic, partition)
             .build();
@@ -245,7 +251,7 @@ public class SinkServiceIT {
     conn.createTable(table);
     conn.createStage(stage);
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setRecordNumber(1)
             .addTask(table, topic, partition)
             .setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE)
@@ -294,7 +300,7 @@ public class SinkServiceIT {
     conn.createTable(table);
     conn.createStage(stage);
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setRecordNumber(1)
             .addTask(table, topic, partition)
             .setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE)
@@ -418,7 +424,7 @@ public class SinkServiceIT {
             startOffset + 3);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setRecordNumber(recordCount)
             .addTask(table, topic, partition)
             .build();
@@ -606,7 +612,7 @@ public class SinkServiceIT {
     conn.createStage(stage);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setRecordNumber(recordCount)
             .addTask(table, topic, partition)
             .build();
@@ -689,7 +695,7 @@ public class SinkServiceIT {
             startOffset + 2);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setRecordNumber(recordCount)
             .addTask(table, topic, partition)
             .build();
@@ -729,7 +735,7 @@ public class SinkServiceIT {
             topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(), 2);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setRecordNumber(recordCount)
             .addTask(table, topic, partition)
             .build();
@@ -781,7 +787,7 @@ public class SinkServiceIT {
     SinkRecord brokenValue = new SinkRecord(topic, partition, null, null, null, null, 0);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setRecordNumber(recordCount)
             .addTask(table, topic, partition)
             .build();
@@ -798,7 +804,7 @@ public class SinkServiceIT {
     int numLimit = 100;
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setRecordNumber(numLimit)
             .setFlushTime(30)
             .addTask(table, topic, partition)
@@ -845,7 +851,7 @@ public class SinkServiceIT {
     long size = 10000;
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setFileSize(size)
             .setFlushTime(10)
             .addTask(table, topic, partition)
@@ -877,7 +883,7 @@ public class SinkServiceIT {
     long flushTime = 20;
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setFlushTime(flushTime)
             .addTask(table, topic, partition)
             .build();
@@ -902,7 +908,9 @@ public class SinkServiceIT {
     conn.createTable(table);
     conn.createStage(stage);
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn).setRecordNumber(1).build();
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
+            .setRecordNumber(1)
+            .build();
     TopicPartition topicPartition = new TopicPartition(topic, partition);
     service.getOffset(topicPartition);
     List<TopicPartition> topicPartitionList = new ArrayList<>();
@@ -950,7 +958,7 @@ public class SinkServiceIT {
     assert getStageSize(stage, table, 0) == 4;
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .addTask(table, topic, partition)
             .setRecordNumber(1) // immediate flush
             .build();
@@ -999,7 +1007,9 @@ public class SinkServiceIT {
             offset);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn).addTask(table, topic, partition).build();
+        SnowflakeSinkServiceFactory.builder(conn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
+            .addTask(table, topic, partition)
+            .build();
 
     service.insert(record);
 
@@ -1030,7 +1040,8 @@ public class SinkServiceIT {
     SnowflakeConnectionService spyConn = spy(conn);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(spyConn)
+        SnowflakeSinkServiceFactory.builder(
+                spyConn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setRecordNumber(1)
             .addTask(table, topic, partition)
             .build();
@@ -1097,7 +1108,8 @@ public class SinkServiceIT {
     SnowflakeConnectionService spyConn = spy(conn);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(spyConn)
+        SnowflakeSinkServiceFactory.builder(
+                spyConn, IngestionTypeConfig.SNOWPIPE, TestUtils.getConf())
             .setRecordNumber(1)
             .addTask(table, topic, partition)
             .build();

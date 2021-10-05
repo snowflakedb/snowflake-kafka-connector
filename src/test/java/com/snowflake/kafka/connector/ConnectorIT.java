@@ -5,15 +5,11 @@ import static com.snowflake.kafka.connector.Utils.TASK_ID;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConf;
 
-import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import net.snowflake.client.jdbc.SnowflakeSQLException;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigValue;
-import org.junit.After;
-import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
