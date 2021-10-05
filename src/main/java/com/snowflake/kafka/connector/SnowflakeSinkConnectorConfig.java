@@ -18,10 +18,8 @@ package com.snowflake.kafka.connector;
 
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.Logging;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import com.snowflake.kafka.connector.internal.streaming.IngestionTypeConfig;
+import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
@@ -67,6 +65,9 @@ public class SnowflakeSinkConnectorConfig {
   static final String SNOWFLAKE_SCHEMA = Utils.SF_SCHEMA;
   static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
 
+  // For streaming ingest client
+  static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
+
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
   public static final String JVM_PROXY_HOST = "jvm.proxy.host";
@@ -96,6 +97,11 @@ public class SnowflakeSinkConnectorConfig {
   // metrics
   public static final String JMX_OPT = "jmx";
   public static final boolean JMX_OPT_DEFAULT = true;
+
+  // for Snowpipe vs Streaming Ingest
+  public static final String INGESTION_METHOD_OPT = "snowflake.ingestion.version";
+  public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
+      IngestionTypeConfig.SNOWPIPE.getVersion(); // Snowpipe
 
   private static final Logger LOGGER =
       LoggerFactory.getLogger(SnowflakeSinkConnectorConfig.class.getName());
@@ -201,6 +207,17 @@ public class SnowflakeSinkConnectorConfig {
             5,
             ConfigDef.Width.NONE,
             SNOWFLAKE_SCHEMA)
+        .define(
+            SNOWFLAKE_ROLE,
+            Type.STRING,
+            null,
+            nonEmptyStringValidator,
+            Importance.LOW,
+            "Snowflake user name",
+            SNOWFLAKE_LOGIN_INFO,
+            6,
+            ConfigDef.Width.NONE,
+            SNOWFLAKE_USER)
         // proxy
         .define(
             JVM_PROXY_HOST,
@@ -356,7 +373,18 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Type.BOOLEAN,
             JMX_OPT_DEFAULT,
             ConfigDef.Importance.HIGH,
-            "Whether to enable JMX MBeans for custom SF metrics");
+            "Whether to enable JMX MBeans for custom SF metrics")
+        .define(
+            INGESTION_METHOD_OPT,
+            Type.STRING,
+            INGESTION_METHOD_DEFAULT_SNOWPIPE,
+            IngestionTypeConfig.VALIDATOR,
+            Importance.LOW,
+            "Use 1.0 or 2.0 for Snowpipe or Streaming ingest respectively",
+            CONNECTOR_CONFIG,
+            5,
+            ConfigDef.Width.NONE,
+            INGESTION_METHOD_OPT);
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {

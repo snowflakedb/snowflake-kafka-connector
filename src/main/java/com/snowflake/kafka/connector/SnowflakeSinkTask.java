@@ -17,6 +17,7 @@
 package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.*;
+import com.snowflake.kafka.connector.internal.streaming.IngestionTypeConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
 import java.util.HashMap;
@@ -139,6 +140,13 @@ public class SnowflakeSinkTask extends SinkTask {
           Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.JMX_OPT));
     }
 
+    IngestionTypeConfig ingestionType = IngestionTypeConfig.SNOWPIPE;
+    if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
+      ingestionType =
+          IngestionTypeConfig.getIngestionTypeFromVersion(
+              parsedConfig.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT));
+    }
+
     conn =
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(parsedConfig)
@@ -149,7 +157,7 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.closeAll();
     }
     this.sink =
-        SnowflakeSinkServiceFactory.builder(getConnection())
+        SnowflakeSinkServiceFactory.builder(getConnection(), ingestionType, parsedConfig)
             .setFileSize(bufferSizeBytes)
             .setRecordNumber(bufferCountRecords)
             .setFlushTime(bufferFlushTime)
