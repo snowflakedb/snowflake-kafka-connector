@@ -19,8 +19,10 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -35,6 +37,11 @@ import org.slf4j.LoggerFactory;
  *
  * <p>The number of TopicPartitionChannel objects can scale in proportion to the number of
  * partitions of a topic.
+
+ * <p>Please note: No two tasks can work on a same partition
+ *
+ * <p>@see <a
+ * href="https://kafka.apache.org/24/javadoc/org/apache/kafka/connect/sink/SinkTask.html">here</a>
  */
 public class TopicPartitionChannel {
   private static final Logger LOGGER = LoggerFactory.getLogger(TopicPartitionChannel.class);
@@ -44,12 +51,32 @@ public class TopicPartitionChannel {
   private long previousFlushTimeStampMs;
 
   private boolean hasChannelInitialized = false;
-
-  /* Buffer to hold JSON converted incoming SinkRecords */
-  /* Eventually this buffer will only be a transient buffer and wont exist across multiple PUT api calls */
+  /**
+   * We will use this buffer only for storing temporary records which are converted into Snowflake
+   * understood table format.
+   *
+   * Records will be buffered after they are being processed. (Key and
+   * values are converted to Json format since there is only format table in Snowflake for a
+   * kafka topic at the moment)
+   *
+   * The data from this buffer will then be used to call insertRows
+   * API
+   *
+   * Hence, buffer here is just transient and doesnt live long enough.
+   */
   private PartitionBuffer streamingBuffer;
 
+  // This arrayList corresponds to records fetched from put API of SnowflakeSinkTask
+  private List<SinkRecord> sinkRecordsFromKafka = new ArrayList<>();
+
+  // TODO: Do we even need this lock?
+  // Can we pass in the List to a function which does the calculation in place?
+  // Anyways no two tasks will work on a partition and instance of TopicPartitionChannel is per
+  // topic per partition
+  // There wont be any concurrency problems testing will be much easy
   final Lock bufferLock = new ReentrantLock(true);
+
+  final ReadWriteLock sinkRecordListLock = new ReentrantReadWriteLock(true);
 
   // -------- private final fields -------- //
 
@@ -89,6 +116,20 @@ public class TopicPartitionChannel {
     this.committedOffset = new AtomicLong(0);
   }
 
+  public void processAndInsertSinkRecords(final List<SinkRecord> recordsFromPut) {
+    LOGGER.debug(
+        "Processing {} records from Kafka. TopicPartitionChannelInfo:{}",
+        recordsFromPut.size(),
+        this);
+    recordsFromPut.forEach(this::insertRecordToBuffer);
+
+    LOGGER.debug(
+        "Successfully Processed/buffered {} records from Kafka for TopicPartitionChannelInfo:{}",
+        this.streamingBuffer.getNumOfRecord(),
+        this);
+    insertBufferedRows();
+  }
+
   // inserts the record into buffer
   public void insertRecordToBuffer(SinkRecord record) {
     if (!hasChannelInitialized) {
@@ -99,7 +140,7 @@ public class TopicPartitionChannel {
       this.hasChannelInitialized = true;
     }
 
-    // ignore ingested files
+    // ignore ingested records
     if (record.kafkaOffset() > processedOffset.get()) {
       SinkRecord snowflakeRecord = record;
       if (shouldConvertContent(snowflakeRecord.value())) {
@@ -119,7 +160,7 @@ public class TopicPartitionChannel {
           // TODO:SNOW-529751 telemetry
         }
 
-        // acquire the lock before writing the record into buffer
+        // acquire the lock before adding record to temporary list
         bufferLock.lock();
         try {
           streamingBuffer.insert(snowflakeRecord);
@@ -215,6 +256,12 @@ public class TopicPartitionChannel {
       this.previousFlushTimeStampMs = System.currentTimeMillis();
       return;
     }
+    LOGGER.info(
+        "Invoking insertRows API for channel:{}, noOfRecords:{}, startOffset:{}, endOffset:{}",
+        this,
+        intermediateBuffer.getNumOfRecord(),
+        intermediateBuffer.getFirstOffset(),
+        intermediateBuffer.getLastOffset());
     InsertValidationResponse response =
         channel.insertRows(
             (Iterable<Map<String, Object>>) intermediateBuffer.getData(),
@@ -309,7 +356,25 @@ public class TopicPartitionChannel {
   }
 
   public String getChannelName() {
-    return this.channel.getFullyQualifiedTableName();
+    return this.channel.getFullyQualifiedName();
+  }
+
+  // ------ SETTERS ------ //
+
+  public void setSinkRecordsFromKafka(List<SinkRecord> recordsFromKafka) {
+    // Even though no two tasks can receive records from same partition, we would like to acquire a
+    // write lock before writing it to array list
+    // And, topicPartitionChannel object is per topic and partition
+    sinkRecordListLock.writeLock().lock();
+    try {
+      LOGGER.debug(
+          "Adding {} records into topicPartitionChannel:{}",
+          recordsFromKafka.size(),
+          getChannelName());
+      sinkRecordsFromKafka.addAll(recordsFromKafka);
+    } finally {
+      sinkRecordListLock.writeLock().unlock();
+    }
   }
 
   // ------ INNER CLASS ------ //
@@ -367,5 +432,12 @@ public class TopicPartitionChannel {
           getLastOffset());
       return tableRows;
     }
+  }
+
+  public String toString() {
+    return "StreamingChannelName:"
+        + getChannelName()
+        + ", FullyQualifiedTableName:{}"
+        + this.channel.getFullyQualifiedTableName();
   }
 }
