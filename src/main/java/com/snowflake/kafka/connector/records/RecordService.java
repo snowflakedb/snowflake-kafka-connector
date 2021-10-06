@@ -16,6 +16,8 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.Logging;
@@ -36,9 +38,6 @@ import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
-
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 public class RecordService extends Logging {
   private static final ObjectMapper MAPPER = new ObjectMapper();

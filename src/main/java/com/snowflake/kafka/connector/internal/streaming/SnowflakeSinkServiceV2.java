@@ -118,29 +118,54 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void insert(Collection<SinkRecord> records) {
-    // note that records can be empty
+    Map<String, List<SinkRecord>> topicPartitionsToRecords = new HashMap<>();
     for (SinkRecord record : records) {
       // check if need to handle null value records
       if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
         continue;
       }
-      // Might happen a count of record based flushing
-      insert(record);
+      String topicPartitionChannelName = getOrInitTopicPartitionChannelName(record);
+      // if present, just add.
+      // if not present, create a new arraylist and then add it to the list
+      topicPartitionsToRecords
+          .computeIfAbsent(topicPartitionChannelName, mapKey -> new ArrayList<>())
+          .add(record);
     }
-    // check all sink context to see if they need to be flushed
-    for (TopicPartitionChannel partitionChannel : partitionsToChannel.values()) {
-      // Time based flushing
-      if ((System.currentTimeMillis() - partitionChannel.getPreviousFlushTimeStampMs())
-          >= (getFlushTime() * 1000)) {
-        LOGGER.info("Time based flush for channel:{}", partitionChannel.getChannelName());
-        LOGGER.info(
-            "Current:{}, previousFlushTime:{}, threshold:{}",
-            System.currentTimeMillis(),
-            partitionChannel.getPreviousFlushTimeStampMs(),
-            (getFlushTime() * 1000));
-        partitionChannel.insertBufferedRows();
-      }
+
+    // we will not worry about any flushing logic, once we know which records corresponds to which
+    // topicPartitions, we will start processing those records
+
+    // once they are processed, we will immediately call insertRows API and not buffer
+    // TODO:: Optimize processing and calling insertRows in its own thread
+    topicPartitionsToRecords.forEach(
+        (topicPartitionChannelName, sinkRecords) -> {
+          TopicPartitionChannel partitionChannel =
+              partitionsToChannel.get(topicPartitionChannelName);
+          // sets the received records in put API in TopicPartitionChannel
+          //          partitionChannel.setSinkRecordsFromKafka(sinkRecords);
+
+          // Step1: We will process each record (Convert the SinkRecord to snowflake
+          // record/JSON-ify)
+          // Step2: Buffer them and immediately call insertRows API after we have processed all
+          // records for this partition
+          partitionChannel.processAndInsertSinkRecords(sinkRecords);
+        });
+  }
+
+  public String getOrInitTopicPartitionChannelName(SinkRecord record) {
+    String nameIndex = getNameIndex(record.topic(), record.kafkaPartition());
+    // init a new topic partition
+    if (!partitionsToChannel.containsKey(nameIndex)) {
+      LOGGER.warn(
+          "Topic: {} Partition: {} hasn't been initialized by OPEN " + "function",
+          record.topic(),
+          record.kafkaPartition());
+      startTask(
+          Utils.tableName(record.topic(), this.topic2TableMap),
+          record.topic(),
+          record.kafkaPartition());
     }
+    return nameIndex;
   }
 
   @Override
@@ -211,7 +236,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           partitionsToChannel.get(name).closeChannel();
         });
 
-    // do we need to close the client? If I close, I will have to re init the client upon rebalance in open()
+    // do we need to close the client? If I close, I will have to re init the client upon rebalance
+    // in open()
     LOGGER.info("Closing Client:{}", this.streamingIngestClientName);
     try {
       streamingIngestClient.close().get();
