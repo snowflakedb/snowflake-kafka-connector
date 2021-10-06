@@ -137,6 +137,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     // once they are processed, we will immediately call insertRows API and not buffer
     // TODO:: Optimize processing and calling insertRows in its own thread
+    // Take a look at https://github.com/confluentinc/kafka-connect-bigquery/blob/master/kcbq-connector/src/main/java/com/wepay/kafka/connect/bigquery/write/batch/GCSBatchTableWriter.java
+    // they do similar thing and run it in multiple threads as runnable task
     topicPartitionsToRecords.forEach(
         (topicPartitionChannelName, sinkRecords) -> {
           TopicPartitionChannel partitionChannel =
