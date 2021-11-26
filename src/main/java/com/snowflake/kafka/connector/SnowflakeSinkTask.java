@@ -16,6 +16,8 @@
  */
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.PROCESSING_GUARANTEE;
+
 import com.snowflake.kafka.connector.internal.*;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
@@ -139,6 +141,11 @@ public class SnowflakeSinkTask extends SinkTask {
           Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.JMX_OPT));
     }
 
+    // Get the processing guarantee type from config, default to at_least_once
+    SnowflakeSinkConnectorConfig.ProcessingGuarantee processingGuarantee =
+        SnowflakeSinkConnectorConfig.ProcessingGuarantee.of(
+            parsedConfig.getOrDefault(PROCESSING_GUARANTEE, null));
+
     conn =
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(parsedConfig)
@@ -157,6 +164,7 @@ public class SnowflakeSinkTask extends SinkTask {
             .setMetadataConfig(metadataConfig)
             .setBehaviorOnNullValuesConfig(behavior)
             .setCustomJMXMetrics(enableCustomJMXMonitoring)
+            .setProcessingGuarantee(processingGuarantee)
             .build();
 
     LOGGER.info(

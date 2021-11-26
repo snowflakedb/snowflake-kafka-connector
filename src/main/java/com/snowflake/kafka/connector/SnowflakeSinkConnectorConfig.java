@@ -93,6 +93,8 @@ public class SnowflakeSinkConnectorConfig {
   // By default it will be None since this is not enforced and only used for monitoring
   public static final String PROVIDER_CONFIG = "provider";
 
+  public static final String PROCESSING_GUARANTEE = "processing.guarantee";
+
   // metrics
   public static final String JMX_OPT = "jmx";
   public static final boolean JMX_OPT_DEFAULT = true;
@@ -103,6 +105,8 @@ public class SnowflakeSinkConnectorConfig {
   private static final ConfigDef.Validator nonEmptyStringValidator = new ConfigDef.NonEmptyString();
   private static final ConfigDef.Validator topicToTableValidator = new TopicToTableValidator();
   private static final ConfigDef.Validator KAFKA_PROVIDER_VALIDATOR = new KafkaProviderValidator();
+  private static final ConfigDef.Validator PROCESSING_GUARANTEE_VALIDATOR =
+      new ProcessingGuaranteeValidator();
 
   static void setDefaultValues(Map<String, String> config) {
     setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);
@@ -356,7 +360,15 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Type.BOOLEAN,
             JMX_OPT_DEFAULT,
             ConfigDef.Importance.HIGH,
-            "Whether to enable JMX MBeans for custom SF metrics");
+            "Whether to enable JMX MBeans for custom SF metrics")
+        .define(
+            PROCESSING_GUARANTEE,
+            Type.STRING,
+            ProcessingGuarantee.AT_LEAST_ONCE.name(),
+            PROCESSING_GUARANTEE_VALIDATOR,
+            Importance.LOW,
+            "Determines the ingest semantics for snowflake connector, currently support"
+                + " at-least-once and exactly-once processing guarantees");
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {
@@ -402,6 +414,29 @@ public class SnowflakeSinkConnectorConfig {
       return "Whether kafka is running on Confluent code, self hosted or other managed service."
           + " Allowed values are:"
           + String.join(",", KafkaProvider.PROVIDER_NAMES);
+    }
+  }
+
+  /* Validator to validate Kafka processing guarantee types    */
+  public static class ProcessingGuaranteeValidator implements ConfigDef.Validator {
+    public ProcessingGuaranteeValidator() {}
+
+    @Override
+    public void ensureValid(String name, Object value) {
+      assert value instanceof String;
+      final String strValue = (String) value;
+      // The value can be null or empty.
+      try {
+        ProcessingGuarantee processingGuarantee = ProcessingGuarantee.of(strValue);
+        LOGGER.debug("ProcessingGuarantee type is:{}", processingGuarantee.name());
+      } catch (final IllegalArgumentException e) {
+        throw new ConfigException(PROVIDER_CONFIG, value, e.getMessage());
+      }
+    }
+
+    public String toString() {
+      return "Allowed processing guarantee types:"
+          + String.join(",", ProcessingGuarantee.PROCESSING_GUARANTEE_TYPES);
     }
   }
 
@@ -484,6 +519,43 @@ public class SnowflakeSinkConnectorConfig {
       }
 
       return result;
+    }
+
+    @Override
+    public String toString() {
+      return name().toLowerCase(Locale.ROOT);
+    }
+  }
+
+  /**
+   * Enum which represents the type of processing guarantees that the customer want (either
+   * at_least_once (default) or exactly_once
+   */
+  public enum ProcessingGuarantee {
+    AT_LEAST_ONCE,
+    EXACTLY_ONCE,
+    ;
+
+    public static final List<String> PROCESSING_GUARANTEE_TYPES =
+        Arrays.stream(ProcessingGuarantee.values())
+            .map(processingGuarantee -> processingGuarantee.name().toLowerCase())
+            .collect(Collectors.toList());
+
+    public static ProcessingGuarantee of(final String processingGuaranteeType) {
+
+      if (Strings.isNullOrEmpty(processingGuaranteeType)) {
+        return AT_LEAST_ONCE;
+      }
+
+      for (final ProcessingGuarantee b : ProcessingGuarantee.values()) {
+        if (b.name().equalsIgnoreCase(processingGuaranteeType)) {
+          return b;
+        }
+      }
+      throw new IllegalArgumentException(
+          String.format(
+              "Unsupported Processing Guarantee Type: %s. Supported are: %s",
+              processingGuaranteeType, String.join(",", PROCESSING_GUARANTEE_TYPES)));
     }
 
     @Override

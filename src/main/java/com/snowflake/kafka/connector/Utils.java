@@ -16,9 +16,8 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -497,6 +496,18 @@ public class Utils {
         LOGGER.error(Logging.logMessage("Kafka config:{} should either be true or false", JMX_OPT));
         configIsValid = false;
       }
+    }
+
+    try {
+      SnowflakeSinkConnectorConfig.ProcessingGuarantee.of(
+          config.getOrDefault(PROCESSING_GUARANTEE, null));
+    } catch (IllegalArgumentException exception) {
+      LOGGER.error(
+          Logging.logMessage(
+              "Processing Guarantee config:{} error:{}",
+              PROCESSING_GUARANTEE,
+              exception.getMessage()));
+      configIsValid = false;
     }
 
     if (!configIsValid) {
