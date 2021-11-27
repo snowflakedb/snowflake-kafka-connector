@@ -132,9 +132,10 @@ public interface SnowflakeSinkService {
   /**
    * set the processing guarantee, giving user the option to enable exactly once semantic
    *
-   * @param processingGuarantee
+   * @param ingestionProcessingGuarantee
    */
-  void setProcessingGuarantee(SnowflakeSinkConnectorConfig.ProcessingGuarantee processingGuarantee);
+  void setProcessingGuarantee(
+      SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee ingestionProcessingGuarantee);
 
   /* Get metric registry of an associated pipe */
   @VisibleForTesting

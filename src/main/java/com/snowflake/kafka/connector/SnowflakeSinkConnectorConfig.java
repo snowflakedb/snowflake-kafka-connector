@@ -364,7 +364,7 @@ public class SnowflakeSinkConnectorConfig {
         .define(
             PROCESSING_GUARANTEE,
             Type.STRING,
-            ProcessingGuarantee.AT_LEAST_ONCE.name(),
+            IngestionProcessingGuarantee.AT_LEAST_ONCE.name(),
             PROCESSING_GUARANTEE_VALIDATOR,
             Importance.LOW,
             "Determines the ingest semantics for snowflake connector, currently support"
@@ -427,8 +427,9 @@ public class SnowflakeSinkConnectorConfig {
       final String strValue = (String) value;
       // The value can be null or empty.
       try {
-        ProcessingGuarantee processingGuarantee = ProcessingGuarantee.of(strValue);
-        LOGGER.debug("ProcessingGuarantee type is:{}", processingGuarantee.name());
+        IngestionProcessingGuarantee ingestionProcessingGuarantee =
+            IngestionProcessingGuarantee.of(strValue);
+        LOGGER.debug("ProcessingGuarantee type is:{}", ingestionProcessingGuarantee.name());
       } catch (final IllegalArgumentException e) {
         throw new ConfigException(PROVIDER_CONFIG, value, e.getMessage());
       }
@@ -436,7 +437,7 @@ public class SnowflakeSinkConnectorConfig {
 
     public String toString() {
       return "Allowed processing guarantee types:"
-          + String.join(",", ProcessingGuarantee.PROCESSING_GUARANTEE_TYPES);
+          + String.join(",", IngestionProcessingGuarantee.PROCESSING_GUARANTEE_TYPES);
     }
   }
 
@@ -531,23 +532,30 @@ public class SnowflakeSinkConnectorConfig {
    * Enum which represents the type of processing guarantees that the customer want (either
    * at_least_once (default) or exactly_once
    */
-  public enum ProcessingGuarantee {
+  public enum IngestionProcessingGuarantee {
+    /**
+     * At-least-once semantics means records received by Snowflake Connector are never lost but
+     * could be ingested multiple times
+     */
     AT_LEAST_ONCE,
+    /**
+     * Exactly-once semantics means records received by Snowflake Connector are only ingested once
+     */
     EXACTLY_ONCE,
     ;
 
     public static final List<String> PROCESSING_GUARANTEE_TYPES =
-        Arrays.stream(ProcessingGuarantee.values())
+        Arrays.stream(IngestionProcessingGuarantee.values())
             .map(processingGuarantee -> processingGuarantee.name().toLowerCase())
             .collect(Collectors.toList());
 
-    public static ProcessingGuarantee of(final String processingGuaranteeType) {
+    public static IngestionProcessingGuarantee of(final String processingGuaranteeType) {
 
       if (Strings.isNullOrEmpty(processingGuaranteeType)) {
         return AT_LEAST_ONCE;
       }
 
-      for (final ProcessingGuarantee b : ProcessingGuarantee.values()) {
+      for (final IngestionProcessingGuarantee b : IngestionProcessingGuarantee.values()) {
         if (b.name().equalsIgnoreCase(processingGuaranteeType)) {
           return b;
         }

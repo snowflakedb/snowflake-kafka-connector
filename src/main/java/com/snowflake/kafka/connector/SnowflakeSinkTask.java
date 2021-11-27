@@ -142,9 +142,11 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     // Get the processing guarantee type from config, default to at_least_once
-    SnowflakeSinkConnectorConfig.ProcessingGuarantee processingGuarantee =
-        SnowflakeSinkConnectorConfig.ProcessingGuarantee.of(
-            parsedConfig.getOrDefault(PROCESSING_GUARANTEE, null));
+    SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee ingestionProcessingGuarantee =
+        SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee.of(
+            parsedConfig.getOrDefault(
+                PROCESSING_GUARANTEE,
+                SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee.AT_LEAST_ONCE.name()));
 
     conn =
         SnowflakeConnectionServiceFactory.builder()
@@ -164,7 +166,7 @@ public class SnowflakeSinkTask extends SinkTask {
             .setMetadataConfig(metadataConfig)
             .setBehaviorOnNullValuesConfig(behavior)
             .setCustomJMXMetrics(enableCustomJMXMonitoring)
-            .setProcessingGuarantee(processingGuarantee)
+            .setProcessingGuarantee(ingestionProcessingGuarantee)
             .build();
 
     LOGGER.info(

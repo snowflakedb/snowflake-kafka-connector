@@ -60,8 +60,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
   // default is at_least_once semantic for data ingestion unless the configuration provided is
   // exactly_once
-  private SnowflakeSinkConnectorConfig.ProcessingGuarantee processingGuarantee =
-      SnowflakeSinkConnectorConfig.ProcessingGuarantee.AT_LEAST_ONCE;
+  private SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee ingestionProcessingGuarantee =
+      SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee.AT_LEAST_ONCE;
 
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
     if (conn == null || conn.isClosed()) {
@@ -357,8 +357,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
   @Override
   public void setProcessingGuarantee(
-      SnowflakeSinkConnectorConfig.ProcessingGuarantee processingGuarantee) {
-    this.processingGuarantee = processingGuarantee;
+      SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee ingestionProcessingGuarantee) {
+    this.ingestionProcessingGuarantee = ingestionProcessingGuarantee;
   }
 
   /**

@@ -501,8 +501,10 @@ public class Utils {
     }
 
     try {
-      SnowflakeSinkConnectorConfig.ProcessingGuarantee.of(
-          config.getOrDefault(PROCESSING_GUARANTEE, null));
+      SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee.of(
+          config.getOrDefault(
+              PROCESSING_GUARANTEE,
+              SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee.AT_LEAST_ONCE.name()));
     } catch (IllegalArgumentException exception) {
       LOGGER.error(
           Logging.logMessage(
