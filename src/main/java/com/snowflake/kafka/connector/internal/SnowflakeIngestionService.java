@@ -46,6 +46,28 @@ public interface SnowflakeIngestionService {
    */
   Map<String, IngestedFileStatus> readOneHourHistory(List<String> files, long startTime);
 
+  /**
+   * configure the Snowpipe client and return the client sequencer
+   *
+   * @return a Long value contains the client sequencer
+   */
+  Long configureClient();
+
+  /**
+   * get the Snowpipe client and return the offset token
+   *
+   * @return a String value contains the offset token
+   */
+  String getClientStatus();
+
+  /**
+   * Ingest a list of files with the clientInfo (clientSequencer and offsetToken)
+   *
+   * @param fileNames file name List
+   * @param clientSequencer client sequencer for unique identification the Snowpipe client
+   */
+  void ingestFilesWithClientInfo(List<String> fileNames, Long clientSequencer);
+
   /** close ingest service */
   void close();
 }

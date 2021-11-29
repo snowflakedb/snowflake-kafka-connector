@@ -6,8 +6,11 @@ import static com.snowflake.kafka.connector.internal.InternalUtils.timestampToDa
 import java.security.PrivateKey;
 import java.util.*;
 import net.snowflake.ingest.SimpleIngestManager;
+import net.snowflake.ingest.connection.ClientStatusResponse;
+import net.snowflake.ingest.connection.ConfigureClientResponse;
 import net.snowflake.ingest.connection.HistoryRangeResponse;
 import net.snowflake.ingest.connection.HistoryResponse;
+import net.snowflake.ingest.connection.InsertFilesClientInfo;
 import net.snowflake.ingest.utils.StagedFileWrapper;
 
 /**
@@ -253,5 +256,105 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
   /* Only used for testing */
   public SimpleIngestManager getIngestManager() {
     return this.ingestManager;
+  }
+
+  /**
+   * configure the Snowpipe client and return the client sequencer
+   *
+   * @return a Long value contains the client sequencer
+   */
+  public Long configureClient() {
+    ConfigureClientResponse response;
+    try {
+      response =
+          (ConfigureClientResponse)
+              InternalUtils.backoffAndRetry(
+                  telemetry,
+                  SnowflakeInternalOperations.CONFIGURE_CLIENT_SNOWPIPE_API,
+                  () -> ingestManager.configureClient(null));
+    } catch (Exception e) {
+      throw SnowflakeErrors.ERROR_3006.getException(e);
+    }
+    if (response != null && response.getClientSequencer() != null) {
+      return response.getClientSequencer();
+    } else {
+      throw SnowflakeErrors.ERROR_4001.getException("the response of configure client is null ");
+    }
+  }
+
+  /**
+   * get the Snowpipe client and return the offset token
+   *
+   * @return a String value contains the offset token
+   */
+  public String getClientStatus() {
+    ClientStatusResponse response;
+    try {
+      response =
+          (ClientStatusResponse)
+              InternalUtils.backoffAndRetry(
+                  telemetry,
+                  SnowflakeInternalOperations.GET_CLIENT_STATUS_SNOWPIPE_API,
+                  () -> ingestManager.getClientStatus(null));
+    } catch (Exception e) {
+      throw SnowflakeErrors.ERROR_3007.getException(e);
+    }
+    // offsetToken is ok to be null
+    // should we pass the clientSequencer and make sure it matches with returned clientSequencer
+    return response.getOffsetToken();
+  }
+
+  /**
+   * Ingest a list of files with the clientInfo (clientSequencer and offsetToken)
+   *
+   * @param fileNames file name List
+   * @param clientSequencer client sequencer for unique identification the Snowpipe client
+   */
+  public void ingestFilesWithClientInfo(List<String> fileNames, Long clientSequencer) {
+    if (fileNames.isEmpty()) {
+      return;
+    }
+    logDebug("ingest files: {}", fileNames);
+    try {
+      InternalUtils.backoffAndRetry(
+          telemetry,
+          SnowflakeInternalOperations.INSERT_FILES_WITH_CLIENT_INFO_SNOWPIPE_API,
+          () -> {
+            while (fileNames.size() > 0) {
+              // Can not send more than 5000 files in one request,
+              // so batch 4000 as one request
+              int toIndex = Math.min(4000, fileNames.size());
+              List<String> fileNamesBatch = fileNames.subList(0, toIndex);
+              String offsetToken = getLastOffsetTokenFromBatch(fileNamesBatch);
+              InsertFilesClientInfo clientInfo =
+                  new InsertFilesClientInfo(clientSequencer, offsetToken);
+              Set<String> fileNamesSet = new HashSet<>(fileNamesBatch);
+              ingestManager.ingestFiles(
+                  SimpleIngestManager.wrapFilepaths(fileNamesSet), null, false, clientInfo);
+              fileNamesBatch.clear();
+            }
+            return true;
+          });
+    } catch (Exception e) {
+      throw SnowflakeErrors.ERROR_3008.getException(e);
+    }
+  }
+
+  /**
+   * Get the last offset number from a list of fileName
+   *
+   * @param fileNameBatch
+   * @return Offset number in String format
+   */
+  private String getLastOffsetTokenFromBatch(List<String> fileNameBatch) {
+    Long lastFileEndOffset =
+        FileNameUtils.fileNameToEndOffset(fileNameBatch.get(fileNameBatch.size() - 1));
+    for (String fileName : fileNameBatch) {
+      if (lastFileEndOffset < FileNameUtils.fileNameToEndOffset(fileName)) {
+        lastFileEndOffset = FileNameUtils.fileNameToEndOffset(fileName);
+        logWarn("The file name list is not sequential.");
+      }
+    }
+    return lastFileEndOffset.toString();
   }
 }
