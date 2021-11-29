@@ -278,7 +278,7 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
     if (response != null && response.getClientSequencer() != null) {
       return response.getClientSequencer();
     } else {
-      throw SnowflakeErrors.ERROR_4001.getException("the response of configure client is null ");
+      throw SnowflakeErrors.ERROR_4001.getException("the response of configure client is null");
     }
   }
 
@@ -299,22 +299,25 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_3007.getException(e);
     }
-    // offsetToken is ok to be null
-    // should we pass the clientSequencer and make sure it matches with returned clientSequencer
-    return response.getOffsetToken();
+    if (response != null) {
+      // offsetToken is ok to be null
+      return response.getOffsetToken();
+    } else {
+      throw SnowflakeErrors.ERROR_4001.getException("the response of get client status is null");
+    }
   }
 
   /**
    * Ingest a list of files with the clientInfo (clientSequencer and offsetToken)
    *
    * @param fileNames file name List
-   * @param clientSequencer client sequencer for unique identification the Snowpipe client
+   * @param clientSequencer unique identification of the Snowpipe client
    */
-  public void ingestFilesWithClientInfo(List<String> fileNames, Long clientSequencer) {
+  public void ingestFilesWithClientInfo(List<String> fileNames, long clientSequencer) {
     if (fileNames.isEmpty()) {
       return;
     }
-    logDebug("ingest files: {}", fileNames);
+    logDebug("ingest files with client info: {}, clientSequencer: {} ", fileNames, clientSequencer);
     try {
       InternalUtils.backoffAndRetry(
           telemetry,
@@ -352,7 +355,7 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
     for (String fileName : fileNameBatch) {
       if (lastFileEndOffset < FileNameUtils.fileNameToEndOffset(fileName)) {
         lastFileEndOffset = FileNameUtils.fileNameToEndOffset(fileName);
-        logWarn("The file name list is not sequential.");
+        logWarn("The fileName list is not sequential.");
       }
     }
     return lastFileEndOffset.toString();

@@ -64,9 +64,9 @@ public interface SnowflakeIngestionService {
    * Ingest a list of files with the clientInfo (clientSequencer and offsetToken)
    *
    * @param fileNames file name List
-   * @param clientSequencer client sequencer for unique identification the Snowpipe client
+   * @param clientSequencer unique identification of the Snowpipe client
    */
-  void ingestFilesWithClientInfo(List<String> fileNames, Long clientSequencer);
+  void ingestFilesWithClientInfo(List<String> fileNames, long clientSequencer);
 
   /** close ingest service */
   void close();

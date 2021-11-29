@@ -105,7 +105,6 @@ public class IngestionServiceIT {
     String fileName = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 0, 1);
     // Upload a file on internal stage
     conn.put(stage, fileName, file);
-
     // Register/Configure a snowpipe client
     Long clientSequencer = ingestService.configureClient();
     assert clientSequencer.equals(0l);
