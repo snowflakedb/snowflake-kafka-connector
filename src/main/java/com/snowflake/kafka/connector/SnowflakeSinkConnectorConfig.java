@@ -529,7 +529,7 @@ public class SnowflakeSinkConnectorConfig {
   }
 
   /**
-   * Enum which represents the type of processing guarantees that the customer want (either
+   * Enum which represents the type of delivery guarantees that the customer want (either
    * at_least_once (default) or exactly_once
    */
   public enum IngestionDeliveryGuarantee {
