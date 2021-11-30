@@ -129,6 +129,14 @@ public interface SnowflakeSinkService {
   /* Only used in testing and verifying what was the passed value of this behavior from config to sink service*/
   SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig();
 
+  /**
+   * set the processing guarantee, giving user the option to enable exactly once semantic
+   *
+   * @param ingestionProcessingGuarantee
+   */
+  void setProcessingGuarantee(
+      SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee ingestionProcessingGuarantee);
+
   /* Get metric registry of an associated pipe */
   @VisibleForTesting
   Optional<MetricRegistry> getMetricRegistry(final String pipeName);
