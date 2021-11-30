@@ -104,7 +104,8 @@
 
                             <supportProviderName>Snowflake, Inc.
                             </supportProviderName>
-                            <supportSummary>This feature is in preview, and
+                            <supportSummary>Some features of the connector may be in preview
+                                as mentioned in the documentation, and
                                 provided primarily for evaluation and testing
                                 purposes. If you decide to use a preview feature
                                 in production, please contact Snowflake Support
