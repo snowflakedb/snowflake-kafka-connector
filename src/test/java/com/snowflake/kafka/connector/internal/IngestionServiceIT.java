@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class IngestionServiceIT {
@@ -64,6 +65,7 @@ public class IngestionServiceIT {
     assert ingestService.getStageName().equals(stage);
   }
 
+  @Ignore
   @Test
   public void ingestFileWithClientInfoTestSuccessful() throws Exception {
     String file = "{\"aa\":123}";
@@ -72,7 +74,7 @@ public class IngestionServiceIT {
     conn.put(stage, fileName, file);
 
     // Register/Configure a snowpipe client
-    Long clientSequencer = ingestService.configureClient();
+    Long clientSequencer = ingestService.configureClient()
     assert clientSequencer.equals(0l);
     // Reconfigure the snowpipe client, the clientSequencer should increase
     clientSequencer = ingestService.configureClient();
@@ -99,6 +101,7 @@ public class IngestionServiceIT {
     assert offsetToken.equals("1");
   }
 
+  @Ignore
   @Test(expected = SnowflakeKafkaConnectorException.class)
   public void ingestFileWithClientInfoTestFailed() throws Exception {
     String file = "{\"aa\":123}";
