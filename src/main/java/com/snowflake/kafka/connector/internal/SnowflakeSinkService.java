@@ -130,12 +130,12 @@ public interface SnowflakeSinkService {
   SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig();
 
   /**
-   * set the processing guarantee, giving user the option to enable exactly once semantic
+   * set the delivery guarantee, giving user the option to enable exactly once semantic
    *
-   * @param ingestionProcessingGuarantee
+   * @param ingestionDeliveryGuarantee
    */
-  void setProcessingGuarantee(
-      SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee ingestionProcessingGuarantee);
+  void setDeliveryGuarantee(
+      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee);
 
   /* Get metric registry of an associated pipe */
   @VisibleForTesting

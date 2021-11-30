@@ -83,10 +83,10 @@ public class SnowflakeSinkServiceFactory {
       return this;
     }
 
-    public SnowflakeSinkServiceBuilder setProcessingGuarantee(
-        SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee ingestionProcessingGuarantee) {
-      this.service.setProcessingGuarantee(ingestionProcessingGuarantee);
-      logInfo("Conifg Processing Guarantee type {}.", ingestionProcessingGuarantee.toString());
+    public SnowflakeSinkServiceBuilder setDeliveryGuarantee(
+        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
+      this.service.setDeliveryGuarantee(ingestionDeliveryGuarantee);
+      logInfo("Config Delivery Guarantee type {}.", ingestionDeliveryGuarantee.toString());
       return this;
     }
 

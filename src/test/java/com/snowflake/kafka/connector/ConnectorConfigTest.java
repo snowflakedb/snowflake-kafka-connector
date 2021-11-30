@@ -270,25 +270,25 @@ public class ConnectorConfigTest {
   }
 
   @Test
-  public void testProcessingGuarantee_valid_value() {
+  public void testDeliveryGuarantee_valid_value() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.PROCESSING_GUARANTEE, "at_least_once");
+    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "at_least_once");
     Utils.validateConfig(config);
 
-    config.put(SnowflakeSinkConnectorConfig.PROCESSING_GUARANTEE, "exactly_once");
+    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "exactly_once");
     Utils.validateConfig(config);
 
-    config.put(SnowflakeSinkConnectorConfig.PROCESSING_GUARANTEE, "");
+    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "");
     Utils.validateConfig(config);
 
-    config.put(SnowflakeSinkConnectorConfig.PROCESSING_GUARANTEE, null);
+    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, null);
     Utils.validateConfig(config);
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testProcessingGuarantee_invalid_value() {
+  public void testDeliveryGuarantee_invalid_value() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.PROCESSING_GUARANTEE, "INVALID");
+    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "INVALID");
     Utils.validateConfig(config);
   }
 }
