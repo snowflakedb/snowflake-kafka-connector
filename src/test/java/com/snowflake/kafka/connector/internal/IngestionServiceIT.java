@@ -74,7 +74,7 @@ public class IngestionServiceIT {
     conn.put(stage, fileName, file);
 
     // Register/Configure a snowpipe client
-    Long clientSequencer = ingestService.configureClient()
+    Long clientSequencer = ingestService.configureClient();
     assert clientSequencer.equals(0l);
     // Reconfigure the snowpipe client, the clientSequencer should increase
     clientSequencer = ingestService.configureClient();
