@@ -58,6 +58,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
 
+  // default is at_least_once semantic for data ingestion unless the configuration provided is
+  // exactly_once
+  private SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee ingestionProcessingGuarantee =
+      SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee.AT_LEAST_ONCE;
+
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
@@ -348,6 +353,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   @Override
   public SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig() {
     return this.behaviorOnNullValues;
+  }
+
+  @Override
+  public void setProcessingGuarantee(
+      SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee ingestionProcessingGuarantee) {
+    this.ingestionProcessingGuarantee = ingestionProcessingGuarantee;
   }
 
   /**
