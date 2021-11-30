@@ -93,7 +93,7 @@ public class SnowflakeSinkConnectorConfig {
   // By default it will be None since this is not enforced and only used for monitoring
   public static final String PROVIDER_CONFIG = "provider";
 
-  public static final String PROCESSING_GUARANTEE = "processing.guarantee";
+  public static final String DELIVERY_GUARANTEE = "delivery.guarantee";
 
   // metrics
   public static final String JMX_OPT = "jmx";
@@ -105,8 +105,8 @@ public class SnowflakeSinkConnectorConfig {
   private static final ConfigDef.Validator nonEmptyStringValidator = new ConfigDef.NonEmptyString();
   private static final ConfigDef.Validator topicToTableValidator = new TopicToTableValidator();
   private static final ConfigDef.Validator KAFKA_PROVIDER_VALIDATOR = new KafkaProviderValidator();
-  private static final ConfigDef.Validator PROCESSING_GUARANTEE_VALIDATOR =
-      new ProcessingGuaranteeValidator();
+  private static final ConfigDef.Validator DELIVERY_GUARANTEE_VALIDATOR =
+      new DeliveryGuaranteeValidator();
 
   static void setDefaultValues(Map<String, String> config) {
     setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);
@@ -362,13 +362,13 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Importance.HIGH,
             "Whether to enable JMX MBeans for custom SF metrics")
         .define(
-            PROCESSING_GUARANTEE,
+            DELIVERY_GUARANTEE,
             Type.STRING,
-            IngestionProcessingGuarantee.AT_LEAST_ONCE.name(),
-            PROCESSING_GUARANTEE_VALIDATOR,
+            IngestionDeliveryGuarantee.AT_LEAST_ONCE.name(),
+            DELIVERY_GUARANTEE_VALIDATOR,
             Importance.LOW,
             "Determines the ingest semantics for snowflake connector, currently support"
-                + " at-least-once and exactly-once processing guarantees");
+                + " at-least-once and exactly-once delivery guarantees");
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {
@@ -417,9 +417,9 @@ public class SnowflakeSinkConnectorConfig {
     }
   }
 
-  /* Validator to validate Kafka processing guarantee types    */
-  public static class ProcessingGuaranteeValidator implements ConfigDef.Validator {
-    public ProcessingGuaranteeValidator() {}
+  /* Validator to validate Kafka delivery guarantee types    */
+  public static class DeliveryGuaranteeValidator implements ConfigDef.Validator {
+    public DeliveryGuaranteeValidator() {}
 
     @Override
     public void ensureValid(String name, Object value) {
@@ -427,17 +427,17 @@ public class SnowflakeSinkConnectorConfig {
       final String strValue = (String) value;
       // The value can be null or empty.
       try {
-        IngestionProcessingGuarantee ingestionProcessingGuarantee =
-            IngestionProcessingGuarantee.of(strValue);
-        LOGGER.debug("ProcessingGuarantee type is:{}", ingestionProcessingGuarantee.name());
+        IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
+            IngestionDeliveryGuarantee.of(strValue);
+        LOGGER.debug("DeliveryGuarantee type is:{}", ingestionDeliveryGuarantee.name());
       } catch (final IllegalArgumentException e) {
         throw new ConfigException(PROVIDER_CONFIG, value, e.getMessage());
       }
     }
 
     public String toString() {
-      return "Allowed processing guarantee types:"
-          + String.join(",", IngestionProcessingGuarantee.PROCESSING_GUARANTEE_TYPES);
+      return "Allowed Delivery guarantee types:"
+          + String.join(",", IngestionDeliveryGuarantee.DELIVERY_GUARANTEE_TYPES);
     }
   }
 
@@ -532,7 +532,7 @@ public class SnowflakeSinkConnectorConfig {
    * Enum which represents the type of processing guarantees that the customer want (either
    * at_least_once (default) or exactly_once
    */
-  public enum IngestionProcessingGuarantee {
+  public enum IngestionDeliveryGuarantee {
     /**
      * At-least-once semantics means records received by Snowflake Connector are never lost but
      * could be ingested multiple times
@@ -544,26 +544,26 @@ public class SnowflakeSinkConnectorConfig {
     EXACTLY_ONCE,
     ;
 
-    public static final List<String> PROCESSING_GUARANTEE_TYPES =
-        Arrays.stream(IngestionProcessingGuarantee.values())
-            .map(processingGuarantee -> processingGuarantee.name().toLowerCase())
+    public static final List<String> DELIVERY_GUARANTEE_TYPES =
+        Arrays.stream(IngestionDeliveryGuarantee.values())
+            .map(deliveryGuarantee -> deliveryGuarantee.name().toLowerCase())
             .collect(Collectors.toList());
 
-    public static IngestionProcessingGuarantee of(final String processingGuaranteeType) {
+    public static IngestionDeliveryGuarantee of(final String deliveryGuaranteeType) {
 
-      if (Strings.isNullOrEmpty(processingGuaranteeType)) {
+      if (Strings.isNullOrEmpty(deliveryGuaranteeType)) {
         return AT_LEAST_ONCE;
       }
 
-      for (final IngestionProcessingGuarantee b : IngestionProcessingGuarantee.values()) {
-        if (b.name().equalsIgnoreCase(processingGuaranteeType)) {
+      for (final IngestionDeliveryGuarantee b : IngestionDeliveryGuarantee.values()) {
+        if (b.name().equalsIgnoreCase(deliveryGuaranteeType)) {
           return b;
         }
       }
       throw new IllegalArgumentException(
           String.format(
-              "Unsupported Processing Guarantee Type: %s. Supported are: %s",
-              processingGuaranteeType, String.join(",", PROCESSING_GUARANTEE_TYPES)));
+              "Unsupported Delivery Guarantee Type: %s. Supported are: %s",
+              deliveryGuaranteeType, String.join(",", DELIVERY_GUARANTEE_TYPES)));
     }
 
     @Override
