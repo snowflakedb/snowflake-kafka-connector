@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import net.snowflake.ingest.connection.ClientStatusResponse;
+import net.snowflake.ingest.connection.ConfigureClientResponse;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -36,6 +38,8 @@ public class IngestionServiceIT {
   @Test
   public void ingestFileTest() throws Exception {
     String file = "{\"aa\":123}";
+    // File Name Format: app/table/partition/start_end_timeStamp.fileFormat.gz
+    // start offset = 0, end offset = 1
     String fileName = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 0, 1);
 
     conn.put(stage, fileName, file);
@@ -69,22 +73,24 @@ public class IngestionServiceIT {
   @Test
   public void ingestFileWithClientInfoTestSuccessful() throws Exception {
     String file = "{\"aa\":123}";
+    // File Name Format: app/table/partition/start_end_timeStamp.fileFormat.gz
+    // start offset = 0, end offset = 1
     String fileName = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 0, 1);
     // Upload a file on internal stage
     conn.put(stage, fileName, file);
 
     // Register/Configure a snowpipe client
-    Long clientSequencer = ingestService.configureClient();
-    assert clientSequencer.equals(0l);
+    ConfigureClientResponse configureClientResponse = ingestService.configureClient();
+    assert configureClientResponse.getClientSequencer().equals(0l);
     // Reconfigure the snowpipe client, the clientSequencer should increase
-    clientSequencer = ingestService.configureClient();
-    assert clientSequencer.equals(1l);
+    configureClientResponse = ingestService.configureClient();
+    assert configureClientResponse.getClientSequencer().equals(1l);
     // Get the client offset token
-    String offsetToken = ingestService.getClientStatus();
-    assert offsetToken == null;
+    ClientStatusResponse clientStatusResponse = ingestService.getClientStatus();
+    assert clientStatusResponse.getOffsetToken() == null;
     // Ingest the file with client info
     ingestService.ingestFilesWithClientInfo(
-        new ArrayList<>(Arrays.asList(fileName)), clientSequencer);
+        new ArrayList<>(Arrays.asList(fileName)), configureClientResponse.getClientSequencer());
     // recreate the file list for ingest report
     List fileNameList = new ArrayList<>(Arrays.asList(fileName));
     // make sure ingest is successful
@@ -97,27 +103,53 @@ public class IngestionServiceIT {
         60,
         9);
     // after ingestion, check if the offset token is updated
-    offsetToken = ingestService.getClientStatus();
-    assert offsetToken.equals("1");
+    clientStatusResponse = ingestService.getClientStatus();
+    assert clientStatusResponse.getOffsetToken().equals("1");
   }
 
   @Ignore
   @Test(expected = SnowflakeKafkaConnectorException.class)
   public void ingestFileWithClientInfoTestFailed() throws Exception {
     String file = "{\"aa\":123}";
+    // File Name Format: app/table/partition/start_end_timeStamp.fileFormat.gz
+    // start offset = 0, end offset = 1
     String fileName = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 0, 1);
     // Upload a file on internal stage
     conn.put(stage, fileName, file);
     // Register/Configure a snowpipe client
-    Long clientSequencer = ingestService.configureClient();
-    assert clientSequencer.equals(0l);
+    ConfigureClientResponse configureClientResponse = ingestService.configureClient();
+    assert configureClientResponse.getClientSequencer().equals(0l);
     // Reconfigure the snowpipe client, the clientSequencer should increase
-    clientSequencer = ingestService.configureClient();
-    assert clientSequencer.equals(1l);
+    configureClientResponse = ingestService.configureClient();
+    assert configureClientResponse.getClientSequencer().equals(1l);
     // Get the client offset token
-    String offsetToken = ingestService.getClientStatus();
-    assert offsetToken == null;
+    ClientStatusResponse clientStatusResponse = ingestService.getClientStatus();
+    assert clientStatusResponse.getOffsetToken() == null;
     // Ingest the file with outdated client info should throw error
     ingestService.ingestFilesWithClientInfo(new ArrayList<>(Arrays.asList(fileName)), 0l);
+  }
+
+  @Ignore
+  @Test
+  public void ingestMultipleFilesWithClientInfoTest() {
+    String fileContent = "{\"aa\":123}";
+    // start offset = 0, end offset = 1
+    String fileName1 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 0, 1);
+    // start offset = 2, end offset = 3
+    String fileName2 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 2, 3);
+    // start offset = 1, end offset = 2
+    String fileName3 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 1, 2);
+    // Register/Configure a snowpipe client
+    ConfigureClientResponse configureClientResponse = ingestService.configureClient();
+    assert configureClientResponse.getClientSequencer().equals(0l);
+    // Get the client offset token
+    ClientStatusResponse clientStatusResponse = ingestService.getClientStatus();
+    assert clientStatusResponse.getOffsetToken() == null;
+    // Ingest files that are not sequential, offset should update to latest
+    ingestService.ingestFilesWithClientInfo(
+        new ArrayList<>(Arrays.asList(fileName1, fileName2, fileName3)), 0l);
+    // Offset should update to 3
+    clientStatusResponse = ingestService.getClientStatus();
+    assert clientStatusResponse.getOffsetToken().equals("3");
   }
 }

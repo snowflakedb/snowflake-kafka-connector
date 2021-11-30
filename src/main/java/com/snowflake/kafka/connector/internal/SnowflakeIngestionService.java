@@ -3,6 +3,8 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.internal.InternalUtils.IngestedFileStatus;
 import java.util.List;
 import java.util.Map;
+import net.snowflake.ingest.connection.ClientStatusResponse;
+import net.snowflake.ingest.connection.ConfigureClientResponse;
 
 /** Ingestion service manages snow pipe */
 public interface SnowflakeIngestionService {
@@ -51,14 +53,14 @@ public interface SnowflakeIngestionService {
    *
    * @return a Long value contains the client sequencer
    */
-  Long configureClient();
+  ConfigureClientResponse configureClient();
 
   /**
    * get the Snowpipe client and return the offset token
    *
    * @return a String value contains the offset token
    */
-  String getClientStatus();
+  ClientStatusResponse getClientStatus();
 
   /**
    * Ingest a list of files with the clientInfo (clientSequencer and offsetToken)
