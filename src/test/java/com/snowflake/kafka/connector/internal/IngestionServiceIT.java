@@ -8,6 +8,7 @@ import net.snowflake.ingest.connection.ClientStatusResponse;
 import net.snowflake.ingest.connection.ConfigureClientResponse;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class IngestionServiceIT {
@@ -126,6 +127,7 @@ public class IngestionServiceIT {
     ingestService.ingestFilesWithClientInfo(new ArrayList<>(Arrays.asList(fileName)), 0l);
   }
 
+  @Ignore
   @Test
   public void ingestMultipleFilesWithClientInfoTest() {
     String fileContent = "{\"aa\":123}";
