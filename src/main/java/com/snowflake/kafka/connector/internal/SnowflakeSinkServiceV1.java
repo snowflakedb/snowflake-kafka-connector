@@ -60,8 +60,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
   // default is at_least_once semantic for data ingestion unless the configuration provided is
   // exactly_once
-  private SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee ingestionProcessingGuarantee =
-      SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee.AT_LEAST_ONCE;
+  private SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
+      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE;
 
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
     if (conn == null || conn.isClosed()) {
@@ -356,9 +356,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   }
 
   @Override
-  public void setProcessingGuarantee(
-      SnowflakeSinkConnectorConfig.IngestionProcessingGuarantee ingestionProcessingGuarantee) {
-    this.ingestionProcessingGuarantee = ingestionProcessingGuarantee;
+  public void setDeliveryGuarantee(
+      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
+    this.ingestionDeliveryGuarantee = ingestionDeliveryGuarantee;
   }
 
   /**
@@ -644,6 +644,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
         metricsJmxReporter.start();
         this.hasInitialized = true;
       }
+      // get offsettoken
 
       // ignore ingested files
       if (record.kafkaOffset() > processedOffset.get()) {
