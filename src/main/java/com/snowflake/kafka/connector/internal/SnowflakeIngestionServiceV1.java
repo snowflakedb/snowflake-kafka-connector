@@ -85,7 +85,7 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
     if (fileNames.isEmpty()) {
       return;
     }
-    logDebug("ingest files: {}", fileNames);
+    logDebug("ingest files: {}", Arrays.toString(fileNames.toArray()));
     try {
       InternalUtils.backoffAndRetry(
           telemetry,
@@ -261,9 +261,10 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
   /**
    * configure the Snowpipe client and return the client sequencer
    *
-   * @return a Long value contains the client sequencer
+   * @return ConfigureClientResponse contains the client sequencer
    */
-  public Long configureClient() {
+  @Override
+  public ConfigureClientResponse configureClient() {
     ConfigureClientResponse response;
     try {
       response =
@@ -275,19 +276,20 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_3006.getException(e);
     }
-    if (response != null && response.getClientSequencer() != null) {
-      return response.getClientSequencer();
+    if (response != null) {
+      return response;
     } else {
       throw SnowflakeErrors.ERROR_4001.getException("the response of configure client is null");
     }
   }
 
   /**
-   * get the Snowpipe client and return the offset token
+   * get the Snowpipe client and return the ConfigureClientResponse
    *
-   * @return a String value contains the offset token
+   * @return ConfigureClientResponse contains the offset token (nullable) and client sequencer
    */
-  public String getClientStatus() {
+  @Override
+  public ClientStatusResponse getClientStatus() {
     ClientStatusResponse response;
     try {
       response =
@@ -301,7 +303,7 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
     }
     if (response != null) {
       // offsetToken is ok to be null
-      return response.getOffsetToken();
+      return response;
     } else {
       throw SnowflakeErrors.ERROR_4001.getException("the response of get client status is null");
     }
@@ -313,11 +315,15 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
    * @param fileNames file name List
    * @param clientSequencer unique identification of the Snowpipe client
    */
+  @Override
   public void ingestFilesWithClientInfo(List<String> fileNames, long clientSequencer) {
     if (fileNames.isEmpty()) {
       return;
     }
-    logDebug("ingest files with client info: {}, clientSequencer: {} ", fileNames, clientSequencer);
+    logDebug(
+        "ingest files with client info: {}, clientSequencer: {} ",
+        Arrays.toString(fileNames.toArray()),
+        clientSequencer);
     try {
       InternalUtils.backoffAndRetry(
           telemetry,
