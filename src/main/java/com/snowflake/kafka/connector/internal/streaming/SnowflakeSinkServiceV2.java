@@ -18,6 +18,22 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * This is per task configuration. A task can be assigned multiple partitions. Major methods are
+ * startTask, insert, getOffset and close methods.
+ *
+ * <p>StartTask: Called when partitions are assigned. Responsible for generating the POJOs.
+ *
+ * <p>Insert and getOffset are called when {@link
+ * com.snowflake.kafka.connector.SnowflakeSinkTask#put(Collection)} and {@link
+ * com.snowflake.kafka.connector.SnowflakeSinkTask#preCommit(Map)} APIs are called.
+ *
+ * <p>This implementation of SinkService uses Streaming Snowpipe (Streaming Ingestion)
+ *
+ * <p>Hence this initializes the channel, opens, closes. The StreamingIngestChannel resides inside
+ * {@link TopicPartitionChannel} which is per pipe(partition) based on which partitions are assigned
+ * to the task.
+ */
 public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkServiceV2.class);
