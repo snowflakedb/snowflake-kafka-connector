@@ -135,10 +135,10 @@ public class IngestionServiceIT {
     String fileContent = "{\"aa\":123}";
     // start offset = 0, end offset = 1
     String fileName1 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 0, 1);
+    // start offset = 4, end offset = 5
+    String fileName2 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 4, 5);
     // start offset = 2, end offset = 3
-    String fileName2 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 2, 3);
-    // start offset = 1, end offset = 2
-    String fileName3 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 1, 2);
+    String fileName3 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 2, 3);
     // Register/Configure a snowpipe client
     ConfigureClientResponse configureClientResponse = ingestService.configureClient();
     assert configureClientResponse.getClientSequencer().equals(0l);
@@ -150,6 +150,6 @@ public class IngestionServiceIT {
         new ArrayList<>(Arrays.asList(fileName1, fileName2, fileName3)), 0l);
     // Offset should update to 3
     clientStatusResponse = ingestService.getClientStatus();
-    assert clientStatusResponse.getOffsetToken().equals("3");
+    assert clientStatusResponse.getOffsetToken().equals("5");
   }
 }
