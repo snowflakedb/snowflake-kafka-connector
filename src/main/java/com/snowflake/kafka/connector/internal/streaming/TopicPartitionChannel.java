@@ -26,6 +26,15 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * This is a wrapper on top of Streaming Ingest Channel which is responsible for ingesting rows to
+ * Snowflake.
+ *
+ * <p>There is a one to one relation between partition and channel.
+ *
+ * <p>The number of TopicPartitionChannel objects can scale in proportion to the number of
+ * partitions of a topic.
+ */
 public class TopicPartitionChannel {
   private static final Logger LOGGER = LoggerFactory.getLogger(TopicPartitionChannel.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -35,6 +44,8 @@ public class TopicPartitionChannel {
 
   private boolean hasChannelInitialized = false;
 
+  /* Buffer to hold JSON converted incoming SinkRecords */
+  /* Eventually this buffer will only be a transient buffer and wont exist across multiple PUT api calls */
   private PartitionBuffer streamingBuffer;
 
   final Lock bufferLock = new ReentrantLock(true);
@@ -46,6 +57,7 @@ public class TopicPartitionChannel {
 
   private final SnowflakeConnectionService snowflakeConnectionService;
 
+  /* Responsible for converting records to Json */
   private final RecordService recordService;
 
   private final String tableName;
@@ -246,6 +258,7 @@ public class TopicPartitionChannel {
   // should we rely on precommits frequency to give us the last committed offset token?
   // or should we have a BG thread polling on every channel to updae the Atomic long and simply
   // return the atomic long's current value
+  // For now we will rely on preCommit API to fetch the inserted offsets into Snowflake
   public long getCommittedOffset() {
     LOGGER.info(
         "Fetching last committed offset for partition channel:{}",
@@ -333,6 +346,7 @@ public class TopicPartitionChannel {
           });
     }
 
+    /* Get all rows which are present in this list. Each map corresponds to one row whose keys are column names. */
     @Override
     public List<Map<String, Object>> getData() {
       LOGGER.info(
