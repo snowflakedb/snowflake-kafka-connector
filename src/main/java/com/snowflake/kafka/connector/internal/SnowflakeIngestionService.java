@@ -51,14 +51,14 @@ public interface SnowflakeIngestionService {
   /**
    * configure the Snowpipe client and return the client sequencer
    *
-   * @return a Long value contains the client sequencer
+   * @return ConfigureClientResponse contains the client sequencer
    */
   ConfigureClientResponse configureClient();
 
   /**
-   * get the Snowpipe client and return the offset token
+   * get the Snowpipe client and return the ConfigureClientResponse
    *
-   * @return a String value contains the offset token
+   * @return ConfigureClientResponse contains the offset token (nullable) and client sequencer
    */
   ClientStatusResponse getClientStatus();
 

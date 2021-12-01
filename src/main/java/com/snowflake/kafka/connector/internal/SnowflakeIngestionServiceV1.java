@@ -258,11 +258,6 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
     return this.ingestManager;
   }
 
-  /**
-   * configure the Snowpipe client and return the client sequencer
-   *
-   * @return ConfigureClientResponse contains the client sequencer
-   */
   @Override
   public ConfigureClientResponse configureClient() {
     ConfigureClientResponse response;
@@ -283,11 +278,6 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
     }
   }
 
-  /**
-   * get the Snowpipe client and return the ConfigureClientResponse
-   *
-   * @return ConfigureClientResponse contains the offset token (nullable) and client sequencer
-   */
   @Override
   public ClientStatusResponse getClientStatus() {
     ClientStatusResponse response;
@@ -309,12 +299,6 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
     }
   }
 
-  /**
-   * Ingest a list of files with the clientInfo (clientSequencer and offsetToken)
-   *
-   * @param fileNames file name List
-   * @param clientSequencer unique identification of the Snowpipe client
-   */
   @Override
   public void ingestFilesWithClientInfo(List<String> fileNames, long clientSequencer) {
     if (fileNames.isEmpty()) {
