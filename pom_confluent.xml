@@ -13,7 +13,7 @@
 
     <groupId>com.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>1.6.0</version>
+    <version>1.6.1</version>
     <packaging>jar</packaging>
     <name>Snowflake Kafka Connector</name>
     <description>Snowflake Kafka Connect Sink Connector</description>
@@ -104,7 +104,8 @@
 
                             <supportProviderName>Snowflake, Inc.
                             </supportProviderName>
-                            <supportSummary>This feature is in preview, and
+                            <supportSummary>Some features of the connector may be in preview
+                                as mentioned in the documentation, and
                                 provided primarily for evaluation and testing
                                 purposes. If you decide to use a preview feature
                                 in production, please contact Snowflake Support
@@ -401,7 +402,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.10.0</version>
+            <version>2.10.5.1</version>
         </dependency>
         <dependency>
             <groupId>io.confluent</groupId>
@@ -469,7 +470,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.12</version>
+            <version>4.13.1</version>
             <scope>test</scope>
         </dependency>
 

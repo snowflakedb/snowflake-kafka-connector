@@ -16,6 +16,8 @@
  */
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
+
 import com.snowflake.kafka.connector.internal.*;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
@@ -139,6 +141,13 @@ public class SnowflakeSinkTask extends SinkTask {
           Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.JMX_OPT));
     }
 
+    // Get the Delivery guarantee type from config, default to at_least_once
+    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
+        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
+            parsedConfig.getOrDefault(
+                DELIVERY_GUARANTEE,
+                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
+
     conn =
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(parsedConfig)
@@ -157,6 +166,7 @@ public class SnowflakeSinkTask extends SinkTask {
             .setMetadataConfig(metadataConfig)
             .setBehaviorOnNullValuesConfig(behavior)
             .setCustomJMXMetrics(enableCustomJMXMonitoring)
+            .setDeliveryGuarantee(ingestionDeliveryGuarantee)
             .build();
 
     LOGGER.info(
