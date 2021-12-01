@@ -65,6 +65,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
 
+  // default is at_least_once semantic for data ingestion unless the configuration provided is
+  // exactly_once
+  private SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
+      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE;
+
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
@@ -357,6 +362,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     return this.behaviorOnNullValues;
   }
 
+  @Override
+  public void setDeliveryGuarantee(
+      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
+    this.ingestionDeliveryGuarantee = ingestionDeliveryGuarantee;
+  }
+
   /**
    * Loop through all pipes in memory and find out the metric registry instance for that pipe. The
    * pipes object's key is not pipeName hence need to loop over.
@@ -640,6 +651,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
         metricsJmxReporter.start();
         this.hasInitialized = true;
       }
+      // get offsettoken
 
       // ignore ingested files
       if (record.kafkaOffset() > processedOffset.get()) {

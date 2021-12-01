@@ -83,6 +83,13 @@ public class SnowflakeSinkServiceFactory {
       return this;
     }
 
+    public SnowflakeSinkServiceBuilder setDeliveryGuarantee(
+        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
+      this.service.setDeliveryGuarantee(ingestionDeliveryGuarantee);
+      logInfo("Config Delivery Guarantee type {}.", ingestionDeliveryGuarantee.toString());
+      return this;
+    }
+
     public SnowflakeSinkService build() {
       logInfo("{} created", SnowflakeSinkService.class.getName());
       return service;

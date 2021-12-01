@@ -18,6 +18,7 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
 import com.snowflake.kafka.connector.internal.Logging;
@@ -46,7 +47,7 @@ import org.slf4j.LoggerFactory;
 public class Utils {
 
   // Connector version, change every release
-  public static final String VERSION = "1.6.0";
+  public static final String VERSION = "1.6.1";
 
   // connector parameter list
   public static final String NAME = "name";
@@ -497,6 +498,18 @@ public class Utils {
         LOGGER.error(Logging.logMessage("Kafka config:{} should either be true or false", JMX_OPT));
         configIsValid = false;
       }
+    }
+
+    try {
+      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
+          config.getOrDefault(
+              DELIVERY_GUARANTEE,
+              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
+    } catch (IllegalArgumentException exception) {
+      LOGGER.error(
+          Logging.logMessage(
+              "Delivery Guarantee config:{} error:{}", DELIVERY_GUARANTEE, exception.getMessage()));
+      configIsValid = false;
     }
 
     if (!configIsValid) {

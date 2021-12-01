@@ -268,4 +268,27 @@ public class ConnectorConfigTest {
     config.put(SnowflakeSinkConnectorConfig.JMX_OPT, "INVALID");
     Utils.validateConfig(config);
   }
+
+  @Test
+  public void testDeliveryGuarantee_valid_value() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "at_least_once");
+    Utils.validateConfig(config);
+
+    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "exactly_once");
+    Utils.validateConfig(config);
+
+    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "");
+    Utils.validateConfig(config);
+
+    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, null);
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testDeliveryGuarantee_invalid_value() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "INVALID");
+    Utils.validateConfig(config);
+  }
 }

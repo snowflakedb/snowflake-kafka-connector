@@ -93,6 +93,8 @@ public class SnowflakeSinkConnectorConfig {
   // By default it will be None since this is not enforced and only used for monitoring
   public static final String PROVIDER_CONFIG = "provider";
 
+  public static final String DELIVERY_GUARANTEE = "delivery.guarantee";
+
   // metrics
   public static final String JMX_OPT = "jmx";
   public static final boolean JMX_OPT_DEFAULT = true;
@@ -103,6 +105,8 @@ public class SnowflakeSinkConnectorConfig {
   private static final ConfigDef.Validator nonEmptyStringValidator = new ConfigDef.NonEmptyString();
   private static final ConfigDef.Validator topicToTableValidator = new TopicToTableValidator();
   private static final ConfigDef.Validator KAFKA_PROVIDER_VALIDATOR = new KafkaProviderValidator();
+  private static final ConfigDef.Validator DELIVERY_GUARANTEE_VALIDATOR =
+      new DeliveryGuaranteeValidator();
 
   static void setDefaultValues(Map<String, String> config) {
     setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);
@@ -356,7 +360,15 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Type.BOOLEAN,
             JMX_OPT_DEFAULT,
             ConfigDef.Importance.HIGH,
-            "Whether to enable JMX MBeans for custom SF metrics");
+            "Whether to enable JMX MBeans for custom SF metrics")
+        .define(
+            DELIVERY_GUARANTEE,
+            Type.STRING,
+            IngestionDeliveryGuarantee.AT_LEAST_ONCE.name(),
+            DELIVERY_GUARANTEE_VALIDATOR,
+            Importance.LOW,
+            "Determines the ingest semantics for snowflake connector, currently support"
+                + " at-least-once and exactly-once delivery guarantees");
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {
@@ -402,6 +414,30 @@ public class SnowflakeSinkConnectorConfig {
       return "Whether kafka is running on Confluent code, self hosted or other managed service."
           + " Allowed values are:"
           + String.join(",", KafkaProvider.PROVIDER_NAMES);
+    }
+  }
+
+  /* Validator to validate Kafka delivery guarantee types    */
+  public static class DeliveryGuaranteeValidator implements ConfigDef.Validator {
+    public DeliveryGuaranteeValidator() {}
+
+    @Override
+    public void ensureValid(String name, Object value) {
+      assert value instanceof String;
+      final String strValue = (String) value;
+      // The value can be null or empty.
+      try {
+        IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
+            IngestionDeliveryGuarantee.of(strValue);
+        LOGGER.debug("DeliveryGuarantee type is:{}", ingestionDeliveryGuarantee.name());
+      } catch (final IllegalArgumentException e) {
+        throw new ConfigException(PROVIDER_CONFIG, value, e.getMessage());
+      }
+    }
+
+    public String toString() {
+      return "Allowed Delivery guarantee types:"
+          + String.join(",", IngestionDeliveryGuarantee.DELIVERY_GUARANTEE_TYPES);
     }
   }
 
@@ -484,6 +520,50 @@ public class SnowflakeSinkConnectorConfig {
       }
 
       return result;
+    }
+
+    @Override
+    public String toString() {
+      return name().toLowerCase(Locale.ROOT);
+    }
+  }
+
+  /**
+   * Enum which represents the type of delivery guarantees that the customer want (either
+   * at_least_once (default) or exactly_once
+   */
+  public enum IngestionDeliveryGuarantee {
+    /**
+     * At-least-once semantics means records received by Snowflake Connector are never lost but
+     * could be ingested multiple times
+     */
+    AT_LEAST_ONCE,
+    /**
+     * Exactly-once semantics means records received by Snowflake Connector are only ingested once
+     */
+    EXACTLY_ONCE,
+    ;
+
+    public static final List<String> DELIVERY_GUARANTEE_TYPES =
+        Arrays.stream(IngestionDeliveryGuarantee.values())
+            .map(deliveryGuarantee -> deliveryGuarantee.name().toLowerCase())
+            .collect(Collectors.toList());
+
+    public static IngestionDeliveryGuarantee of(final String deliveryGuaranteeType) {
+
+      if (Strings.isNullOrEmpty(deliveryGuaranteeType)) {
+        return AT_LEAST_ONCE;
+      }
+
+      for (final IngestionDeliveryGuarantee b : IngestionDeliveryGuarantee.values()) {
+        if (b.name().equalsIgnoreCase(deliveryGuaranteeType)) {
+          return b;
+        }
+      }
+      throw new IllegalArgumentException(
+          String.format(
+              "Unsupported Delivery Guarantee Type: %s. Supported are: %s",
+              deliveryGuaranteeType, String.join(",", DELIVERY_GUARANTEE_TYPES)));
     }
 
     @Override
