@@ -436,7 +436,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
     // exactly once semantics
     private final AtomicLong clientSequencer = new AtomicLong(-1);
-    private final AtomicLong serverSideOffset = new AtomicLong(-1);
+    // This offset is updated when Snowflake has received offset from ingest file and has queued it
+    // For verifying the ingestion status, we use the insertReport api
+    private final AtomicLong offsetPersistedInSnowflake = new AtomicLong(-1);
 
     private ServiceContext(
         String tableName,
@@ -499,7 +501,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       // recover will only check pipe status and create pipe if it does not exist.
       recover(pipeCreation);
 
-      // when exactly_once is enabled,fetch clientSequencer and serverSideOffset
+      // when exactly_once is enabled,fetch clientSequencer and offsetPersistedInSnowflake
       if (ingestionDeliveryGuarantee
           == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE) {
         ConfigureClientResponse configureClientResponse = ingestionService.configureClient();
@@ -508,9 +510,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
         String offsetToken = clientStatusResponse.getOffsetToken();
         try {
           if (offsetToken == null) {
-            this.serverSideOffset.set(-1);
+            this.offsetPersistedInSnowflake.set(-1);
           } else {
-            this.serverSideOffset.set(Long.parseLong(offsetToken));
+            this.offsetPersistedInSnowflake.set(Long.parseLong(offsetToken));
           }
         } catch (NumberFormatException e) {
           logError("The offsetToken string does not contain a parsable long.");
@@ -676,11 +678,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       }
       // only get offset token once when service context is initialized
       // ignore ingested files
-      // if ingestionDeliveryGuarantee is AT_LEAST_ONCE, ignore serverSideOffset
+      // if ingestionDeliveryGuarantee is AT_LEAST_ONCE, ignore offsetPersistedInSnowflake
       // else discard the record if the record offset is smaller or equal to server side offset
       if ((ingestionDeliveryGuarantee
                   == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE
-              || record.kafkaOffset() > this.serverSideOffset.get())
+              || record.kafkaOffset() > this.offsetPersistedInSnowflake.get())
           && record.kafkaOffset() > processedOffset.get()) {
         SinkRecord snowflakeRecord = record;
         if (shouldConvertContent(snowflakeRecord.value())) {
@@ -846,9 +848,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
         String offsetToken = ingestionService.getClientStatus().getOffsetToken();
         // Update server side offset
         if (offsetToken == null) {
-          this.serverSideOffset.set(-1);
+          this.offsetPersistedInSnowflake.set(-1);
         } else {
-          this.serverSideOffset.set(Long.parseLong(offsetToken));
+          this.offsetPersistedInSnowflake.set(Long.parseLong(offsetToken));
         }
       } else {
         ingestionService.ingestFiles(fileNamesCopy);
