@@ -8,8 +8,11 @@ import static com.snowflake.kafka.connector.internal.TestUtils.getConf;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigValue;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class ConnectorIT {
@@ -267,8 +270,7 @@ public class ConnectorIT {
     Map<String, String> config = getCorrectConfig();
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
-    Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(validateMap, new String[] {});
+    Utils.validateProxySetting(config);
   }
 
   @Test
@@ -277,13 +279,13 @@ public class ConnectorIT {
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "user");
-    Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap,
-        new String[] {
-          SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME,
-          SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD
-        });
+    try {
+      Utils.validateProxySetting(config);
+    } catch (SnowflakeKafkaConnectorException e) {
+      Assert.assertEquals("0023", e.getCode());
+      return;
+    }
+    Assert.fail();
   }
 
   @Test
@@ -292,13 +294,13 @@ public class ConnectorIT {
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "pass");
-    Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap,
-        new String[] {
-          SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME,
-          SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD
-        });
+    try {
+      Utils.validateProxySetting(config);
+    } catch (SnowflakeKafkaConnectorException e) {
+      Assert.assertEquals("0023", e.getCode());
+      return;
+    }
+    Assert.fail();
   }
 
   @Test
@@ -308,8 +310,7 @@ public class ConnectorIT {
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "admin");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "test");
-    Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(validateMap, new String[] {});
+    Utils.validateProxySetting(config);
   }
 
   @Test
