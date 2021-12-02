@@ -843,6 +843,13 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       if (ingestionDeliveryGuarantee
           == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE) {
         ingestionService.ingestFilesWithClientInfo(fileNamesCopy, this.clientSequencer.get());
+        String offsetToken = ingestionService.getClientStatus().getOffsetToken();
+        // Update server side offset
+        if (offsetToken == null) {
+          this.serverSideOffset.set(-1);
+        } else {
+          this.serverSideOffset.set(Long.parseLong(offsetToken));
+        }
       } else {
         ingestionService.ingestFiles(fileNamesCopy);
       }
