@@ -1318,6 +1318,7 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(1)
+            .setCustomJMXMetrics(false)
             .setDeliveryGuarantee(
                 SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, topic, partition)
@@ -1368,10 +1369,11 @@ public class SinkServiceIT {
     // Should update the client sequencer
     service2.insert(record2);
     // call snowpipe ingest api on old service, should throw exception
-    try {
-      service.callAllGetOffset();
-    } catch (SnowflakeKafkaConnectorException exception) {
-    }
+    assert TestUtils.assertError(
+            SnowflakeErrors.ERROR_3008,
+            () -> {
+              service.callAllGetOffset();
+            });
     // call snowpipe ingest api on new service, should succeed
     service2.callAllGetOffset();
 
