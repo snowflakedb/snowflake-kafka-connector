@@ -316,15 +316,18 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
               List<String> fileNamesBatch = fileNames.subList(0, toIndex);
               String offsetToken = getLastOffsetTokenFromBatch(fileNamesBatch);
               logDebug(
-                      "ingest files with client info: {}, clientSequencer: {}, offsetToken: {} ",
-                      Arrays.toString(fileNamesBatch.toArray()),
-                      clientSequencer,
-                      offsetToken);
+                  "ingest files with client info: {}, clientSequencer: {}, offsetToken: {} ",
+                  Arrays.toString(fileNamesBatch.toArray()),
+                  clientSequencer,
+                  offsetToken);
               InsertFilesClientInfo clientInfo =
                   new InsertFilesClientInfo(clientSequencer, offsetToken);
               Set<String> fileNamesSet = new HashSet<>(fileNamesBatch);
               ingestManager.ingestFiles(
-                  SimpleIngestManager.wrapFilepaths(fileNamesSet), null /* requestId*/, false /*showSkippedFiles*/, clientInfo);
+                  SimpleIngestManager.wrapFilepaths(fileNamesSet),
+                  null /* requestId*/,
+                  false /*showSkippedFiles*/,
+                  clientInfo);
               fileNamesBatch.clear();
             }
             return true;
