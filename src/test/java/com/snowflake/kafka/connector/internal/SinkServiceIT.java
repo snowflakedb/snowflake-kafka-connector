@@ -1370,10 +1370,10 @@ public class SinkServiceIT {
     service2.insert(record2);
     // call snowpipe ingest api on old service, should throw exception
     assert TestUtils.assertError(
-            SnowflakeErrors.ERROR_3008,
-            () -> {
-              service.callAllGetOffset();
-            });
+        SnowflakeErrors.ERROR_3008,
+        () -> {
+          service.callAllGetOffset();
+        });
     // call snowpipe ingest api on new service, should succeed
     service2.callAllGetOffset();
 
