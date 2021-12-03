@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import net.snowflake.client.jdbc.SnowflakeSQLException;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Ignore;
@@ -15,12 +14,7 @@ public class SinkTaskProxyIT {
 
   @After
   public void testCleanup() {
-    try {
-      TestUtils.resetProxyParametersInJDBC();
-      TestUtils.resetProxyParametersInJVM();
-    } catch (SnowflakeSQLException ex) {
-      Assert.fail("Cannot reset proxy parameters in:" + this.getClass().getName());
-    }
+    TestUtils.resetProxyParametersInJVM();
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
