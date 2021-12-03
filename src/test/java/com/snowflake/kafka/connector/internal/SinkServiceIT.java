@@ -1310,7 +1310,7 @@ public class SinkServiceIT {
   }
 
   @Ignore
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   // files write to FDB for an older clientSequencer should be discarded
   public void testFileDiscardWithExactlyOnceSemantics() throws Exception {
     conn.createTable(table);
@@ -1360,15 +1360,26 @@ public class SinkServiceIT {
                 SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, topic, partition)
             .build();
-    offset = 1;
+    offset = 0;
     // Create sink record with same offset
     SinkRecord record2 =
         new SinkRecord(
             topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
     // Should update the client sequencer
     service2.insert(record2);
-    // call snowpipe ingest api
-    service.callAllGetOffset();
+    // call snowpipe ingest api on old service, should throw exception
+    try {
+      service.callAllGetOffset();
+    } catch (SnowflakeKafkaConnectorException exception) {
+    }
+    // call snowpipe ingest api on new service, should succeed
+    service2.callAllGetOffset();
+
+    // Make sure correct client sequencer and offset token
+    clientStatusResponse = ingestionService.getClientStatus();
+    assert clientStatusResponse.getClientSequencer() == 1;
+    assert clientStatusResponse.getOffsetToken() != null;
+    assert Long.parseLong(clientStatusResponse.getOffsetToken()) == offset;
 
     service.closeAll();
     service2.closeAll();

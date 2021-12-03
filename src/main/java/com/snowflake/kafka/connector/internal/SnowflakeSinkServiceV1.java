@@ -504,25 +504,34 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       // when exactly_once is enabled,fetch clientSequencer and offsetPersistedInSnowflake
       if (ingestionDeliveryGuarantee
           == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE) {
-        ConfigureClientResponse configureClientResponse = ingestionService.configureClient();
-        this.clientSequencer.set(configureClientResponse.getClientSequencer());
-        ClientStatusResponse clientStatusResponse = ingestionService.getClientStatus();
-        String offsetToken = clientStatusResponse.getOffsetToken();
-        try {
-          if (offsetToken == null) {
-            this.offsetPersistedInSnowflake.set(-1);
-          } else {
-            this.offsetPersistedInSnowflake.set(Long.parseLong(offsetToken));
-          }
-        } catch (NumberFormatException e) {
-          logError("The offsetToken string does not contain a parsable long.");
-        }
+        initClientInfo();
       }
+
       try {
         startCleaner(recordOffset, pipeCreation);
         telemetryService.reportKafkaPipeStart(pipeCreation);
       } catch (Exception e) {
         logWarn("Cleaner and Flusher threads shut down before initialization");
+      }
+    }
+
+    private void initClientInfo() {
+      ConfigureClientResponse configureClientResponse = ingestionService.configureClient();
+      this.clientSequencer.set(configureClientResponse.getClientSequencer());
+      ClientStatusResponse clientStatusResponse = ingestionService.getClientStatus();
+      String offsetToken = clientStatusResponse.getOffsetToken();
+      try {
+        if (offsetToken == null) {
+          this.offsetPersistedInSnowflake.set(-1);
+        } else {
+          this.offsetPersistedInSnowflake.set(Long.parseLong(offsetToken));
+        }
+        logInfo(
+            "Initialized client info, clientSequencer: {}, offsetToken: {}.",
+            this.clientSequencer.get(),
+            this.offsetPersistedInSnowflake.get());
+      } catch (NumberFormatException e) {
+        logError("The offsetToken string does not contain a parsable long.");
       }
     }
 

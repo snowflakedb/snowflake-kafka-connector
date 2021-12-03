@@ -304,10 +304,6 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
     if (fileNames.isEmpty()) {
       return;
     }
-    logDebug(
-        "ingest files with client info: {}, clientSequencer: {} ",
-        Arrays.toString(fileNames.toArray()),
-        clientSequencer);
     try {
       InternalUtils.backoffAndRetry(
           telemetry,
@@ -319,6 +315,11 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
               int toIndex = Math.min(4000, fileNames.size());
               List<String> fileNamesBatch = fileNames.subList(0, toIndex);
               String offsetToken = getLastOffsetTokenFromBatch(fileNamesBatch);
+              logDebug(
+                  "ingest files with client info: {}, clientSequencer: {}, offsetToken: {} ",
+                  Arrays.toString(fileNamesBatch.toArray()),
+                  clientSequencer,
+                  offsetToken);
               InsertFilesClientInfo clientInfo =
                   new InsertFilesClientInfo(clientSequencer, offsetToken);
               Set<String> fileNamesSet = new HashSet<>(fileNamesBatch);
