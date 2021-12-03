@@ -30,9 +30,6 @@ import java.sql.Statement;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.snowflake.client.core.HttpUtil;
-import net.snowflake.client.core.SFSessionProperty;
-import net.snowflake.client.jdbc.SnowflakeSQLException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 
@@ -272,17 +269,6 @@ public class TestUtils {
    */
   public static SnowflakeConnectionService getConnectionService(Map<String, String> configuration) {
     return SnowflakeConnectionServiceFactory.builder().setProperties(configuration).build();
-  }
-
-  /**
-   * Reset proxy parameters in JDBC. JDBC's useProxy parameter is static member, needs to be reset
-   * after every test run. i.e needs to run after every new connection is set which modifies the
-   * proxy parameter.
-   */
-  public static void resetProxyParametersInJDBC() throws SnowflakeSQLException {
-    Map<SFSessionProperty, Object> resetProxy = new EnumMap(SFSessionProperty.class);
-    resetProxy.put(SFSessionProperty.USE_PROXY, false);
-    HttpUtil.configureCustomProxyProperties(resetProxy);
   }
 
   /**
