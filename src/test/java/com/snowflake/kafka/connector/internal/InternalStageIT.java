@@ -165,9 +165,6 @@ public class InternalStageIT {
     assert files1.size() == 2;
     System.out.println(Logging.logMessage("Time: {} ms", (System.currentTimeMillis() - startTime)));
     proxyConnectionService.dropStage(proxyStage);
-
-    // Reset proxy configuration
-    TestUtils.resetProxyParametersInJDBC();
   }
 
   @Test
