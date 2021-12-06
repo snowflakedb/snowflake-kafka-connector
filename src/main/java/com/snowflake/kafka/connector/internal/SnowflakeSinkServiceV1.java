@@ -504,7 +504,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       // when exactly_once is enabled,fetch clientSequencer and offsetPersistedInSnowflake
       if (ingestionDeliveryGuarantee
           == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE) {
-        initClientInfo();
+        initClientInfoForExactlyOnceDelivery();
       }
 
       try {
@@ -515,7 +515,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       }
     }
 
-    private void initClientInfo() {
+    /**
+     * Initialize the client info (clientSequencer and offsetPersistedInSnowflake) by calling
+     * ingestion service API configureClient and getClientStatus
+     */
+    private void initClientInfoForExactlyOnceDelivery() {
       ConfigureClientResponse configureClientResponse = ingestionService.configureClient();
       this.clientSequencer.set(configureClientResponse.getClientSequencer());
       ClientStatusResponse clientStatusResponse = ingestionService.getClientStatus();
@@ -527,7 +531,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
           this.offsetPersistedInSnowflake.set(Long.parseLong(offsetToken));
         }
         logInfo(
-            "Initialized client info, clientSequencer: {}, offsetToken: {}.",
+            "Initialized client info for pipe:{}, clientSequencer:{}, offsetToken:{}.",
+            this.pipeName,
             this.clientSequencer.get(),
             this.offsetPersistedInSnowflake.get());
       } catch (NumberFormatException e) {
