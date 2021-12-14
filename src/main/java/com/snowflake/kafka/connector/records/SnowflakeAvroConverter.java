@@ -168,7 +168,8 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
               id));
     } catch (Exception e) {
       if (breakOnSchemaRegistryError) {
-        throw SnowflakeErrors.ERROR_0010.getException(e);
+        throw SnowflakeErrors.ERROR_0010.getException(
+                "Failed to parse AVRO " + "record\n" + e.toString());
       } else {
         return logErrorAndReturnBrokenRecord(e, bytes);
       }
