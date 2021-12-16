@@ -21,7 +21,7 @@ class TestExactlyOnceSemantic:
                 key.append(json.dumps({'number': str(e)}).encode('utf-8'))
                 value.append(json.dumps({'number': str(e)}).encode('utf-8'))
             self.driver.sendBytesData(self.topic, value, key)
-            sleep(2)
+            sleep(i)
 
     def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
@@ -29,7 +29,7 @@ class TestExactlyOnceSemantic:
         if res < 1000:
             raise RetryableError()
         elif res > 1000:
-            raise NonRetryableError("Duplication occurs, number of record in table is larger then number of record sent")
+            raise NonRetryableError("Duplication occurred, number of record in table is larger than number of record sent")
 
         res = self.driver.snowflake_conn.cursor().execute("Select record_metadata:\"offset\"::string as OFFSET_NO,record_metadata:\"partition\"::string as PARTITION_NO from {} group by OFFSET_NO, PARTITION_NO having count(*)>1".format(self.topic)).fetchone()
 
