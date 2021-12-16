@@ -7,7 +7,7 @@ from time import sleep
 class TestExactlyOnceSemanticTimeBased:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "exactly_once_semantic_time_based"
+        self.fileName = "exactly_once_semantic"
         self.topic = self.fileName + nameSalt
 
     def getConfigFileName(self):
