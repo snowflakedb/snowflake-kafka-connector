@@ -55,9 +55,12 @@ public class SnowflakeSinkTask extends SinkTask {
   private SnowflakeConnectionService conn = null;
   private String id = "-1";
 
+  // Rebalancing Test
   private boolean enableRebalancing = SnowflakeSinkConnectorConfig.REBALANCING_DEFAULT;
   private int rebalancingCounter = 0;
-  private final int rebalancingThreshold = 5;
+  private final int rebalancingThreshold = 10;
+  private final int rebalancingSleepTime = 310000;
+
   private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkTask.class);
 
   /** default constructor, invoked by kafka connect framework */
@@ -249,15 +252,9 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void put(final Collection<SinkRecord> records) {
     if (enableRebalancing && records.size() > 0) {
-      rebalancingCounter++;
-      if (rebalancingCounter == rebalancingThreshold) {
-        try {
-          Thread.sleep(310000);
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        }
-      }
+      processRebalancingTest();
     }
+
     long startTime = System.currentTimeMillis();
     LOGGER.debug(
         Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records", this.id, records.size()));
@@ -377,5 +374,19 @@ public class SnowflakeSinkTask extends SinkTask {
               size,
               executionTime));
     }
+  }
+
+  /**
+   * When rebalancing test is enabled, trigger sleep after rebalacing threshold is reached
+   */
+  void processRebalancingTest(){
+      rebalancingCounter++;
+      if (rebalancingCounter == rebalancingThreshold) {
+        try {
+          Thread.sleep(rebalancingSleepTime);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+      }
   }
 }

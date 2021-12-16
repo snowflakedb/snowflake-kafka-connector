@@ -4,10 +4,10 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 from time import sleep
 
-class TestExactlyOnceSemantic:
+class TestAtLeastOnceSemantic:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "exactly_once_semantic"
+        self.fileName = "at_least_once_semantic"
         self.topic = self.fileName + nameSalt
 
     def getConfigFileName(self):
@@ -28,13 +28,10 @@ class TestExactlyOnceSemantic:
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res < 1000:
             raise RetryableError()
-        elif res > 1000:
-            raise NonRetryableError("Duplication occurred, number of record in table is larger than number of record sent")
-
-        res = self.driver.snowflake_conn.cursor().execute("Select record_metadata:\"offset\"::string as OFFSET_NO,record_metadata:\"partition\"::string as PARTITION_NO from {} group by OFFSET_NO, PARTITION_NO having count(*)>1".format(self.topic)).fetchone()
-
-        if res is not None:
-            raise NonRetryableError("Duplication detected")
+        elif res >= 1000:
+            res = self.driver.snowflake_conn.cursor().execute("Select record_metadata:\"offset\"::string as OFFSET_NO,record_metadata:\"partition\"::string as PARTITION_NO from {} group by OFFSET_NO, PARTITION_NO having count(*)>1".format(self.topic)).fetchone()
+            if res is None:
+                raise NonRetryableError("Duplication should be detected with at least once semantic")
 
         self.driver.verifyStageIsCleaned(self.topic)
 
