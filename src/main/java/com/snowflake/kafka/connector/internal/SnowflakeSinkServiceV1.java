@@ -369,7 +369,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
     this.ingestionDeliveryGuarantee = ingestionDeliveryGuarantee;
   }
-
   /**
    * Loop through all pipes in memory and find out the metric registry instance for that pipe. The
    * pipes object's key is not pipeName hence need to loop over.
