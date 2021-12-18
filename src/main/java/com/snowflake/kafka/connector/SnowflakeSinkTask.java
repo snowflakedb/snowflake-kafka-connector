@@ -376,17 +376,15 @@ public class SnowflakeSinkTask extends SinkTask {
     }
   }
 
-  /**
-   * When rebalancing test is enabled, trigger sleep after rebalacing threshold is reached
-   */
-  void processRebalancingTest(){
-      rebalancingCounter++;
-      if (rebalancingCounter == rebalancingThreshold) {
-        try {
-          Thread.sleep(rebalancingSleepTime);
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        }
+  /** When rebalancing test is enabled, trigger sleep after rebalacing threshold is reached */
+  void processRebalancingTest() {
+    rebalancingCounter++;
+    if (rebalancingCounter == rebalancingThreshold) {
+      try {
+        Thread.sleep(rebalancingSleepTime);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
       }
+    }
   }
 }
