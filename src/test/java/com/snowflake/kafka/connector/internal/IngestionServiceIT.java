@@ -8,7 +8,6 @@ import net.snowflake.ingest.connection.ClientStatusResponse;
 import net.snowflake.ingest.connection.ConfigureClientResponse;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class IngestionServiceIT {
@@ -69,7 +68,6 @@ public class IngestionServiceIT {
     assert ingestService.getStageName().equals(stage);
   }
 
-  @Ignore
   @Test
   public void ingestFileWithClientInfoTestSuccessful() throws Exception {
     String file = "{\"aa\":123}";
@@ -107,7 +105,6 @@ public class IngestionServiceIT {
     assert clientStatusResponse.getOffsetToken().equals("1");
   }
 
-  @Ignore
   @Test(expected = SnowflakeKafkaConnectorException.class)
   public void ingestFileWithClientInfoTestFailed() throws Exception {
     String file = "{\"aa\":123}";
@@ -129,7 +126,6 @@ public class IngestionServiceIT {
     ingestService.ingestFilesWithClientInfo(new ArrayList<>(Arrays.asList(fileName)), 0l);
   }
 
-  @Ignore
   @Test
   public void ingestMultipleFilesWithClientInfoTest() {
     String fileContent = "{\"aa\":123}";
