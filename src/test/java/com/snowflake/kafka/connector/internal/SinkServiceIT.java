@@ -1149,7 +1149,6 @@ public class SinkServiceIT {
         8);
   }
 
-  @Ignore
   @Test
   public void testIngestionWithExactlyOnceSemanticsHappyCase() throws Exception {
     conn.createTable(table);
@@ -1241,7 +1240,6 @@ public class SinkServiceIT {
     service2.closeAll();
   }
 
-  @Ignore
   @Test
   // Start buffering if offsets from kafka > server side offset else discard
   public void testRecordDiscardWithExactlyOnceSemantics() throws Exception {
@@ -1309,7 +1307,6 @@ public class SinkServiceIT {
             .isPartitionBufferEmpty(SnowflakeSinkServiceV1.getNameIndex(topic, partition)));
   }
 
-  @Ignore
   @Test
   // files write to FDB for an older clientSequencer should be discarded
   public void testFileDiscardWithExactlyOnceSemantics() throws Exception {
