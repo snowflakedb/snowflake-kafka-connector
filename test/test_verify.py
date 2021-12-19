@@ -339,8 +339,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     # atleast once and exactly once testing
     testExactlyOnceSemantics = TestExactlyOnceSemantic(driver, nameSalt)
-    testAtleastOnceSemantics = TestAtLeastOnceSemantic(driver, nameSalt)
-    testExactlyOnceSemanticsTimeBuffer = TestExactlyOnceSemanticTimeBased(driver, nameSalt)
+    # testAtleastOnceSemantics = TestAtLeastOnceSemantic(driver, nameSalt)
+    # testExactlyOnceSemanticsTimeBuffer = TestExactlyOnceSemanticTimeBased(driver, nameSalt)
 
     testStringJsonProxy = TestStringJsonProxy(driver, nameSalt)
 
@@ -349,18 +349,18 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     # testSuitList1 = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
     #                  testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
     #                  testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf]
-    testSuitList1 = [testExactlyOnceSemantics, testAtleastOnceSemantics, testExactlyOnceSemanticsTimeBuffer]
+    testSuitList1 = [testExactlyOnceSemantics]
 
     # Adding StringJsonProxy test at the end
     # testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True]
-    testCleanEnableList1 = [True, True, True]
+    testCleanEnableList1 = [True]
     testSuitEnableList1 = []
     if testSet == "confluent":
         # testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False]
-        testSuitEnableList1 = [True, True, True]
+        testSuitEnableList1 = [True]
     elif testSet == "apache":
         # testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False]
-        testSuitEnableList1 = [True, True, True]
+        testSuitEnableList1 = [True]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
