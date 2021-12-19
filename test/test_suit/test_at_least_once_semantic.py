@@ -30,6 +30,8 @@ class TestAtLeastOnceSemantic:
             raise RetryableError()
         elif res >= 1000:
             res = self.driver.snowflake_conn.cursor().execute("Select record_metadata:\"offset\"::string as OFFSET_NO,record_metadata:\"partition\"::string as PARTITION_NO from {} group by OFFSET_NO, PARTITION_NO having count(*)>1".format(self.topic)).fetchone()
+            print("Result is:")
+            print(res)
             if res is None:
                 raise NonRetryableError("Duplication should be detected with at least once semantic")
 

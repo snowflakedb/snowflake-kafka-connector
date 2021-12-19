@@ -339,8 +339,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     # atleast once and exactly once testing
     testExactlyOnceSemantics = TestExactlyOnceSemantic(driver, nameSalt)
-    # testAtleastOnceSemantics = TestAtLeastOnceSemantic(driver, nameSalt)
-    # testExactlyOnceSemanticsTimeBuffer = TestExactlyOnceSemanticTimeBased(driver, nameSalt)
+    testAtleastOnceSemantics = TestAtLeastOnceSemantic(driver, nameSalt)
+    testExactlyOnceSemanticsTimeBuffer = TestExactlyOnceSemanticTimeBased(driver, nameSalt)
 
     testStringJsonProxy = TestStringJsonProxy(driver, nameSalt)
 
