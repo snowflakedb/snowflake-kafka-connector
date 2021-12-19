@@ -127,8 +127,8 @@ public class SnowflakeSinkConnectorConfig {
    * Get a property from the config map
    *
    * @param config connector configuration
-   * @param key name of the key to be retrived
-   * @return proprity value or null
+   * @param key name of the key to be retrieved
+   * @return property value or null
    */
   static String getProperty(final Map<String, String> config, final String key) {
     if (config.containsKey(key) && !config.get(key).isEmpty()) {
@@ -253,7 +253,7 @@ public class SnowflakeSinkConnectorConfig {
             "",
             topicToTableValidator,
             Importance.LOW,
-            "Map of topics to tables (optional). Format : comma-seperated tuples, e.g."
+            "Map of topics to tables (optional). Format : comma-separated tuples, e.g."
                 + " <topic-1>:<table-1>,<topic-2>:<table-2>,... ",
             CONNECTOR_CONFIG,
             0,
@@ -386,7 +386,7 @@ public class SnowflakeSinkConnectorConfig {
     }
 
     public String toString() {
-      return "Topic to table map format : comma-seperated tuples, e.g."
+      return "Topic to table map format : comma-separated tuples, e.g."
           + " <topic-1>:<table-1>,<topic-2>:<table-2>,... ";
     }
   }
@@ -404,7 +404,6 @@ public class SnowflakeSinkConnectorConfig {
       // The value can be null or empty.
       try {
         KafkaProvider kafkaProvider = KafkaProvider.of(strValue);
-        LOGGER.debug("KafkaProvider value is:{}", kafkaProvider.name());
       } catch (final IllegalArgumentException e) {
         throw new ConfigException(PROVIDER_CONFIG, value, e.getMessage());
       }
@@ -429,7 +428,6 @@ public class SnowflakeSinkConnectorConfig {
       try {
         IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
             IngestionDeliveryGuarantee.of(strValue);
-        LOGGER.debug("DeliveryGuarantee type is:{}", ingestionDeliveryGuarantee.name());
       } catch (final IllegalArgumentException e) {
         throw new ConfigException(PROVIDER_CONFIG, value, e.getMessage());
       }

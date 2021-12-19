@@ -56,9 +56,9 @@ public interface SnowflakeIngestionService {
   ConfigureClientResponse configureClient();
 
   /**
-   * get the Snowpipe client and return the ConfigureClientResponse
+   * get the Snowpipe client and return the ClientStatusResponse
    *
-   * @return ConfigureClientResponse contains the offset token (nullable) and client sequencer
+   * @return ClientStatusResponse contains the offset token (nullable) and client sequencer
    */
   ClientStatusResponse getClientStatus();
 
