@@ -3,6 +3,10 @@ from confluent_kafka.avro import AvroProducer
 from confluent_kafka.admin import AdminClient, NewTopic
 from time import sleep
 from datetime import datetime
+
+from test_suit.test_at_least_once_semantic import TestAtLeastOnceSemantic
+from test_suit.test_exactly_once_semantic import TestExactlyOnceSemantic
+from test_suit.test_exactly_once_semantic_time_based import TestExactlyOnceSemanticTimeBased
 from test_suit.test_utils import parsePrivateKey, RetryableError
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -333,21 +337,30 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testNativeStringProtobuf = TestNativeStringProtobuf(driver, nameSalt)
     testConfluentProtobufProtobuf = TestConfluentProtobufProtobuf(driver, nameSalt)
 
+    # atleast once and exactly once testing
+    testExactlyOnceSemantics = TestExactlyOnceSemantic(driver, nameSalt)
+    testAtleastOnceSemantics = TestAtLeastOnceSemantic(driver, nameSalt)
+    testExactlyOnceSemanticsTimeBuffer = TestExactlyOnceSemanticTimeBased(driver, nameSalt)
+
     testStringJsonProxy = TestStringJsonProxy(driver, nameSalt)
 
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
-    testSuitList1 = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
-                     testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
-                     testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf]
+    # testSuitList1 = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
+    #                  testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
+    #                  testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf]
+    testSuitList1 = [testExactlyOnceSemantics, testAtleastOnceSemantics, testExactlyOnceSemanticsTimeBuffer]
 
     # Adding StringJsonProxy test at the end
-    testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True]
+    # testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True]
+    testCleanEnableList1 = [True, True, True]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False]
+        # testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False]
+        testSuitEnableList1 = [True, True, True]
     elif testSet == "apache":
-        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False]
+        # testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False]
+        testSuitEnableList1 = [True, True, True]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
@@ -355,55 +368,55 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     ############################ round 1 ############################
 
     ############################ round 2 ############################
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 2 ===")
-    testSuitList2 = [testPressureRestart]
-
-    testCleanEnableList2 = [True]
-    testSuitEnableList2 = []
-    if testSet == "confluent":
-        testSuitEnableList2 = [True]
-    elif testSet == "apache":
-        testSuitEnableList2 = [True]
-    elif testSet != "clean":
-        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-    execution(testSet, testSuitList2, testCleanEnableList2, testSuitEnableList2, driver, nameSalt, 2)
-    ############################ round 2 ############################
-
-    ############################ round 3 ############################
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 3 ===")
-    testSuitList3 = [testPressure]
-
-    testCleanEnableList3 = [pressure]
-    testSuitEnableList3 = []
-    if testSet == "confluent":
-        testSuitEnableList3 = [pressure]
-    elif testSet == "apache":
-        testSuitEnableList3 = [pressure]
-    elif testSet != "clean":
-        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-    execution(testSet, testSuitList3, testCleanEnableList3, testSuitEnableList3, driver, nameSalt, 4)
-    ############################ round 3 ############################
-
-    ############################ round 4: Proxy End To End Test ############################
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 4: Proxy E2E Test ===")
-    print("Proxy Test should be the last test, since it modifies the JVM values")
-    testSuitList4 = [testStringJsonProxy]
-
-    # Should we invoke clean before and after the test
-    testCleanEnableList4 = [True]
-
-    # should we enable this? Set to false to disable
-    testSuitEnableList4 = []
-    if testSet == "confluent":
-        testSuitEnableList4 = [True]
-    elif testSet == "apache":
-        testSuitEnableList4 = [True]
-    elif testSet != "clean":
-        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-    execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
+    # print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 2 ===")
+    # testSuitList2 = [testPressureRestart]
+    #
+    # testCleanEnableList2 = [True]
+    # testSuitEnableList2 = []
+    # if testSet == "confluent":
+    #     testSuitEnableList2 = [True]
+    # elif testSet == "apache":
+    #     testSuitEnableList2 = [True]
+    # elif testSet != "clean":
+    #     errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+    #
+    # execution(testSet, testSuitList2, testCleanEnableList2, testSuitEnableList2, driver, nameSalt, 2)
+    # ############################ round 2 ############################
+    #
+    # ############################ round 3 ############################
+    # print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 3 ===")
+    # testSuitList3 = [testPressure]
+    #
+    # testCleanEnableList3 = [pressure]
+    # testSuitEnableList3 = []
+    # if testSet == "confluent":
+    #     testSuitEnableList3 = [pressure]
+    # elif testSet == "apache":
+    #     testSuitEnableList3 = [pressure]
+    # elif testSet != "clean":
+    #     errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+    #
+    # execution(testSet, testSuitList3, testCleanEnableList3, testSuitEnableList3, driver, nameSalt, 4)
+    # ############################ round 3 ############################
+    #
+    # ############################ round 4: Proxy End To End Test ############################
+    # print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 4: Proxy E2E Test ===")
+    # print("Proxy Test should be the last test, since it modifies the JVM values")
+    # testSuitList4 = [testStringJsonProxy]
+    #
+    # # Should we invoke clean before and after the test
+    # testCleanEnableList4 = [True]
+    #
+    # # should we enable this? Set to false to disable
+    # testSuitEnableList4 = []
+    # if testSet == "confluent":
+    #     testSuitEnableList4 = [True]
+    # elif testSet == "apache":
+    #     testSuitEnableList4 = [True]
+    # elif testSet != "clean":
+    #     errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+    #
+    # execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
     ############################ round 4 ############################
 
 
