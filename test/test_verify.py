@@ -419,6 +419,46 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     # execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
     ############################ round 4 ############################
 
+    ############################ round 5 ############################
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 5 Atleast Once ===")
+    testSuitList5 = [testAtleastOnceSemantics]
+
+    # Adding StringJsonProxy test at the end
+    # testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True]
+    testCleanEnableList5 = [True]
+    testSuitEnableList5 = []
+    if testSet == "confluent":
+        # testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False]
+        testSuitEnableList5 = [True]
+    elif testSet == "apache":
+        # testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False]
+        testSuitEnableList5 = [True]
+    elif testSet != "clean":
+        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+
+    execution(testSet, testSuitList5, testCleanEnableList5, testSuitEnableList5, driver, nameSalt)
+    ############################ round 5 ############################
+
+    ############################ round 6 ############################
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 6 Exactly Once with Time Threshold ===")
+    testSuitList6 = [testExactlyOnceSemanticsTimeBuffer]
+
+    # Adding StringJsonProxy test at the end
+    # testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True]
+    testCleanEnableList6 = [True]
+    testSuitEnableList6 = []
+    if testSet == "confluent":
+        # testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False]
+        testSuitEnableList6 = [True]
+    elif testSet == "apache":
+        # testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False]
+        testSuitEnableList6 = [True]
+    elif testSet != "clean":
+        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+
+    execution(testSet, testSuitList6, testCleanEnableList6, testSuitEnableList6, driver, nameSalt)
+    ############################ round 6 ############################
+
 
 def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round = 1):
     if testSet == "clean":

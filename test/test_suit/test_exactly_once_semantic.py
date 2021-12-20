@@ -27,12 +27,14 @@ class TestExactlyOnceSemantic:
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res < 1000:
+            print("Topic:" + self.topic + " count is less than 1000, will retry")
             raise RetryableError()
         elif res > 1000:
+            print("Topic:" + self.topic + " count is more than 1000, duplicates detected")
             raise NonRetryableError("Duplication occurred, number of record in table is larger than number of record sent")
 
         res = self.driver.snowflake_conn.cursor().execute("Select record_metadata:\"offset\"::string as OFFSET_NO,record_metadata:\"partition\"::string as PARTITION_NO from {} group by OFFSET_NO, PARTITION_NO having count(*)>1".format(self.topic)).fetchone()
-
+        print(res)
         if res is not None:
             raise NonRetryableError("Duplication detected")
 

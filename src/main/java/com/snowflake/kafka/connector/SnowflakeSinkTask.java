@@ -57,11 +57,12 @@ public class SnowflakeSinkTask extends SinkTask {
 
   // Rebalancing Test
   private boolean enableRebalancing = SnowflakeSinkConnectorConfig.REBALANCING_DEFAULT;
+  // After REBALANCING_THRESHOLD put operations, insert a thread.sleep which will trigger rebalance
   private int rebalancingCounter = 0;
 
   // After 5 put operations, we will insert a sleep which will cause a rebalance since heartbeat is
   // not found
-  private final int REBALANCING_THRESHOLD = 5;
+  private final int REBALANCING_THRESHOLD = 10;
 
   // This value should be more than max.poll.interval.ms
   // check connect-distributed.properties file used to start kafka connect
@@ -387,6 +388,7 @@ public class SnowflakeSinkTask extends SinkTask {
     rebalancingCounter++;
     if (rebalancingCounter == REBALANCING_THRESHOLD) {
       try {
+        LOGGER.debug("[TEST_ONLY] Sleeping :{} ms to trigger a rebalance", rebalancingSleepTime);
         Thread.sleep(rebalancingSleepTime);
       } catch (InterruptedException e) {
         e.printStackTrace();
