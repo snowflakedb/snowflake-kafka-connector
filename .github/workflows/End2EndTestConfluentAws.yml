@@ -62,6 +62,8 @@ jobs:
     - name: End to End Test of Confluent Platform 5.5
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+        SF_CLOUD_PLATFORM: "AWS"
+        ENABLE_DELIVERY_GUARANTEE_TESTS: "True"
       run: |
         cd test
         ./run_test_confluent.sh 5.5.0 ./apache_properties
