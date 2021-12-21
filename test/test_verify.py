@@ -3,6 +3,10 @@ from confluent_kafka.avro import AvroProducer
 from confluent_kafka.admin import AdminClient, NewTopic
 from time import sleep
 from datetime import datetime
+
+from test_suit.test_at_least_once_semantic import TestAtLeastOnceSemantic
+from test_suit.test_exactly_once_semantic import TestExactlyOnceSemantic
+from test_suit.test_exactly_once_semantic_time_based import TestExactlyOnceSemanticTimeBased
 from test_suit.test_utils import parsePrivateKey, RetryableError
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -22,9 +26,13 @@ def errorExit(message):
 
 
 class KafkaTest:
-    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, testVersion, enableSSL):
+    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, testVersion, enableSSL, snowflakeCloudPlatform, enableDeliveryGuaranteeTests = False):
         self.testVersion = testVersion
         self.credentialPath = credentialPath
+        # can be None or one of AWS, AZURE, GCS
+        self.snowflakeCloudPlatform = snowflakeCloudPlatform
+        # default is false or set to true as env variable
+        self.enableDeliveryGuaranteeTests = enableDeliveryGuaranteeTests
         with open(self.credentialPath) as f:
             credentialJson = json.load(f)
             testHost = credentialJson["host"]
@@ -299,6 +307,60 @@ class KafkaTest:
         print("Get Connectors status:{0}, response:{1}".format(getConnectorResponse.status_code, getConnectorResponse.content))
 
 
+def runDeliveryGuaranteeTests(driver, testSet, nameSalt):
+
+    if driver.snowflakeCloudPlatform == 'GCS' or driver.snowflakeCloudPlatform is None:
+        print("Not running Delivery Guarantee tests in GCS due to flakiness")
+        return
+
+    print("Begin Delivery Guarantee tests in:" + str(driver.snowflakeCloudPlatform))
+    # atleast once and exactly once testing
+    testExactlyOnceSemantics = TestExactlyOnceSemantic(driver, nameSalt)
+    testAtleastOnceSemantics = TestAtLeastOnceSemantic(driver, nameSalt)
+    testExactlyOnceSemanticsTimeBuffer = TestExactlyOnceSemanticTimeBased(driver, nameSalt)
+
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== Exactly Once Test ===")
+    testSuitList4 = [testExactlyOnceSemantics]
+
+    testCleanEnableList4 = [True]
+    testSuitEnableList4 = []
+    if testSet == "confluent":
+        testSuitEnableList4 = [True]
+    elif testSet == "apache":
+        testSuitEnableList4 = [True]
+    elif testSet != "clean":
+        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+
+    execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
+
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== At least Once Test ===")
+    testSuitList5 = [testAtleastOnceSemantics]
+
+    testCleanEnableList5 = [True]
+    testSuitEnableList5 = []
+    if testSet == "confluent":
+        testSuitEnableList5 = [True]
+    elif testSet == "apache":
+        testSuitEnableList5 = [True]
+    elif testSet != "clean":
+        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+
+    execution(testSet, testSuitList5, testCleanEnableList5, testSuitEnableList5, driver, nameSalt)
+
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== Exactly Once with Time Threshold ===")
+    testSuitList6 = [testExactlyOnceSemanticsTimeBuffer]
+
+    testCleanEnableList6 = [True]
+    testSuitEnableList6 = []
+    if testSet == "confluent":
+        testSuitEnableList6 = [True]
+    elif testSet == "apache":
+        testSuitEnableList6 = [True]
+    elif testSet != "clean":
+        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+
+    execution(testSet, testSuitList6, testCleanEnableList6, testSuitEnableList6, driver, nameSalt)
+
 def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_string_json import TestStringJson
     from test_suit.test_string_json_proxy import TestStringJsonProxy
@@ -386,8 +448,16 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     execution(testSet, testSuitList3, testCleanEnableList3, testSuitEnableList3, driver, nameSalt, 4)
     ############################ round 3 ############################
 
-    ############################ round 4: Proxy End To End Test ############################
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 4: Proxy E2E Test ===")
+    print("Enable Delivery Guarantee tests:" + str(driver.enableDeliveryGuaranteeTests))
+    if driver.enableDeliveryGuaranteeTests:
+        # Atleast once and exactly once gurantee tests
+        runDeliveryGuaranteeTests(driver, testSet, nameSalt)
+
+
+    ############################ Always run Proxy tests in the end ############################
+
+    ############################ Proxy End To End Test ############################
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
     print("Proxy Test should be the last test, since it modifies the JVM values")
     testSuitList4 = [testStringJsonProxy]
 
@@ -404,7 +474,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
     execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
-    ############################ round 4 ############################
+    ############################ Proxy End To End Test End ############################
 
 
 def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round = 1):
@@ -470,6 +540,24 @@ if __name__ == "__main__":
         errorExit("\n=== Provided SNOWFLAKE_CREDENTIAL_FILE {} does not exist.  Aborting. ===".format(
             credentialPath))
 
-    kafkaTest = KafkaTest(kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, testVersion, enableSSL)
+    # This will either be AWS, AZURE or GCS
+    snowflakeCloudPlatform = None
+
+    # If it is not set, we will not run delivery guarantee tests
+    enableDeliveryGuaranteeTests = False
+    if "SF_CLOUD_PLATFORM" in os.environ:
+        snowflakeCloudPlatform = os.environ['SF_CLOUD_PLATFORM']
+
+    if "ENABLE_DELIVERY_GUARANTEE_TESTS" in os.environ:
+        enableDeliveryGuaranteeTests = (os.environ['ENABLE_DELIVERY_GUARANTEE_TESTS'] == 'True')
+
+    kafkaTest = KafkaTest(kafkaAddress,
+                          schemaRegistryAddress,
+                          kafkaConnectAddress,
+                          credentialPath,
+                          testVersion,
+                          enableSSL,
+                          snowflakeCloudPlatform,
+                          enableDeliveryGuaranteeTests)
 
     runTestSet(kafkaTest, testSet, nameSalt, pressure)

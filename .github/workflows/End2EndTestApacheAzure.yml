@@ -62,6 +62,8 @@ jobs:
     - name: End to End Test of Apache Plarform 2.5
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+        SF_CLOUD_PLATFORM: "AZURE"
+        ENABLE_DELIVERY_GUARANTEE_TESTS: "True"
       run: |
         cd test
         ./run_test_apache.sh 2.5.0 ./apache_properties
