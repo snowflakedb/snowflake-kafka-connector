@@ -498,5 +498,11 @@
             <version>4.1.0</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.github.ydespreaux.testcontainers</groupId>
+            <artifactId>testcontainers-kafka</artifactId>
+            <version>1.0.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
