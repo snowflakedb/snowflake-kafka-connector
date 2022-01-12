@@ -168,7 +168,7 @@ public class SnowflakeSinkTask extends SinkTask {
     IngestionTypeConfig ingestionType = IngestionTypeConfig.SNOWPIPE;
     if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
       ingestionType =
-          IngestionTypeConfig.getIngestionTypeFromVersion(
+          IngestionTypeConfig.valueOf(
               parsedConfig.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT));
     }
 

@@ -291,4 +291,21 @@ public class ConnectorConfigTest {
     config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "INVALID");
     Utils.validateConfig(config);
   }
+
+  @Test
+  public void testIngestionTypeConfig_valid_value() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, "SNOWPIPE");
+    Utils.validateConfig(config);
+
+    config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, "SNOWPIPE_STREAMING");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testIngestionTypeConfig_invalid_value() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, "INVALID_VALUE");
+    Utils.validateConfig(config);
+  }
 }

@@ -2,14 +2,13 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.streaming.IngestionTypeConfig;
-import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Map;
 
 /** A factory to create {@link SnowflakeSinkService} */
 public class SnowflakeSinkServiceFactory {
   /**
-   * create service builder
+   * create service builder. To be used when Snowpipe streaming is the method of ingestion.
    *
    * @param conn snowflake connection service
    * @param ingestionType ingestion Type based on config
@@ -23,6 +22,16 @@ public class SnowflakeSinkServiceFactory {
     return new SnowflakeSinkServiceBuilder(conn, ingestionType, connectorConfig);
   }
 
+  /**
+   * Basic builder which internally uses SinkServiceV1 (Snowpipe)
+   *
+   * @param conn
+   * @return
+   */
+  public static SnowflakeSinkServiceBuilder builder(SnowflakeConnectionService conn) {
+    return new SnowflakeSinkServiceBuilder(conn);
+  }
+
   /** Builder class to create instance of {@link SnowflakeSinkService} */
   public static class SnowflakeSinkServiceBuilder extends Logging {
     private final SnowflakeSinkService service;
@@ -34,10 +43,16 @@ public class SnowflakeSinkServiceFactory {
       if (ingestionType == IngestionTypeConfig.SNOWPIPE) {
         this.service = new SnowflakeSinkServiceV1(conn);
       } else {
-        this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
+        // Use SinkServiceV2
+        // TODO:SNOW-447418
+        service = null;
       }
 
       logInfo("{} created", this.getClass().getName());
+    }
+
+    private SnowflakeSinkServiceBuilder(SnowflakeConnectionService conn) {
+      this.service = new SnowflakeSinkServiceV1(conn);
     }
 
     public SnowflakeSinkServiceBuilder addTask(String tableName, String topic, int partition) {
