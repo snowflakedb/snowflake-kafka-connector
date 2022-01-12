@@ -40,9 +40,13 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This is per task configuration. A task can be assigned multiple partitions. Major methods are
- * startTask, insert, getOffset and close methods. StartTask: Called when partitions are assigned.
- * Responsible for generating the POJOs. Insert and offset are called when SinkTask's put and
- * precommit APIs are called.
+ * startTask, insert, getOffset and close methods.
+ *
+ * <p>StartTask: Called when partitions are assigned. Responsible for generating the POJOs.
+ *
+ * <p>Insert and getOffset are called when {@link
+ * com.snowflake.kafka.connector.SnowflakeSinkTask#put(Collection)} and {@link
+ * com.snowflake.kafka.connector.SnowflakeSinkTask#preCommit(Map)} APIs are called.
  */
 class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkServiceV1.class);
@@ -1153,6 +1157,17 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       return this.metricRegistry;
     }
 
+    /**
+     * Implementation of Buffer for Snowpipe based implementation of KC.
+     *
+     * <p>Please note {@link #insert(SinkRecord)} API is called from {@link
+     * com.snowflake.kafka.connector.SnowflakeSinkTask#put(Collection)} API and it is possible the
+     * buffered data is present across multiple PUT apis.
+     *
+     * <p>Check the usage of {@link #getData()} to understand when we would empty this buffer and
+     * when we would generate files in internal stage for snowpipe to ingest later using Snowpipe's
+     * REST APIs
+     */
     private class SnowpipeBuffer extends PartitionBuffer<String> {
       private final StringBuilder stringBuilder;
 
