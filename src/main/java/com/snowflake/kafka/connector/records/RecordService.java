@@ -134,9 +134,10 @@ public class RecordService extends Logging {
   /**
    * Given a single Record from put API, process it and convert it into a Json String.
    *
-   * <p>Remember, Snowflake table has two columns -> both of them are VARIANT columns whose contents
+   * <p>Remember, Snowflake table has two columns, both of them are VARIANT columns whose contents
    * are in JSON
    *
+   * @param record record from Kafka
    * @return Json String with metadata and actual Payload from Kafka Record
    */
   public String getProcessedRecordForSnowpipe(SinkRecord record) {

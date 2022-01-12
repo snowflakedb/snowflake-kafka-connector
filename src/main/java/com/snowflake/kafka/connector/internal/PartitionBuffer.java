@@ -28,7 +28,7 @@ public abstract class PartitionBuffer<T> {
   private long firstOffset;
   private long lastOffset;
 
-  /** Get number of records in this buffer */
+  /* Get number of records in this buffer */
   public int getNumOfRecord() {
     return numOfRecord;
   }
