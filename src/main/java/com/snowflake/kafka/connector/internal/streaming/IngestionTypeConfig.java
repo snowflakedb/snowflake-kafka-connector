@@ -1,40 +1,22 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 import org.apache.kafka.common.config.ConfigDef;
 
 public enum IngestionTypeConfig {
-  SNOWPIPE("1.0"),
 
-  // Ignore would filter out records which has null value, but a valid key.
-  STREAMING_INGESTION("2.0"),
+  /* Default Way of ingestion */
+  SNOWPIPE,
+
+  /* Snowpipe streaming which doesnt convert records to intermediate files (from client perspective) */
+  SNOWPIPE_STREAMING,
   ;
-
-  final String version;
-
-  IngestionTypeConfig(String version) {
-    this.version = version;
-  }
-
-  public String getVersion() {
-    return version;
-  }
-
-  private static final Map<String, IngestionTypeConfig> versionToIngestionType;
-
-  static {
-    versionToIngestionType = new HashMap<>();
-    for (IngestionTypeConfig v : IngestionTypeConfig.values()) {
-      versionToIngestionType.put(v.version, v);
-    }
-  }
 
   /* Validator to validate behavior.on.null.values which says whether kafka should keep null value records or ignore them while ingesting into snowflake table. */
   public static final ConfigDef.Validator VALIDATOR =
       new ConfigDef.Validator() {
-        private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names());
+        private final ConfigDef.ValidString validator =
+            ConfigDef.ValidString.in(IngestionTypeConfig.allIngestionTypes());
 
         @Override
         public void ensureValid(String name, Object value) {
@@ -51,20 +33,16 @@ public enum IngestionTypeConfig {
         }
       };
 
-  // All valid enum values which returns the version numbers
-  public static String[] names() {
-    IngestionTypeConfig[] ingestionTypes = values();
-    String[] result = new String[ingestionTypes.length];
+  // All valid enum values
+  public static String[] allIngestionTypes() {
+    IngestionTypeConfig[] configs = values();
+    String[] result = new String[configs.length];
 
-    for (int i = 0; i < ingestionTypes.length; i++) {
-      result[i] = ingestionTypes[i].getVersion();
+    for (int i = 0; i < configs.length; i++) {
+      result[i] = configs[i].toString();
     }
 
     return result;
-  }
-
-  public static IngestionTypeConfig getIngestionTypeFromVersion(String version) {
-    return versionToIngestionType.get(version);
   }
 
   @Override

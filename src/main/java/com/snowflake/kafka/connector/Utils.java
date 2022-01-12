@@ -19,11 +19,13 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.streaming.IngestionTypeConfig;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
@@ -514,6 +516,19 @@ public class Utils {
           Logging.logMessage(
               "Delivery Guarantee config:{} error:{}", DELIVERY_GUARANTEE, exception.getMessage()));
       configIsValid = false;
+    }
+
+    if (config.containsKey(INGESTION_METHOD_OPT)) {
+      try {
+        // This throws an exception if config value is invalid.
+        IngestionTypeConfig.VALIDATOR.ensureValid(
+            INGESTION_METHOD_OPT, config.get(INGESTION_METHOD_OPT));
+      } catch (ConfigException exception) {
+        LOGGER.error(
+            Logging.logMessage(
+                "Kafka config:{} error:{}", INGESTION_METHOD_OPT, exception.getMessage()));
+        configIsValid = false;
+      }
     }
 
     if (!configIsValid) {

@@ -100,10 +100,10 @@ public class SnowflakeSinkConnectorConfig {
   public static final String JMX_OPT = "jmx";
   public static final boolean JMX_OPT_DEFAULT = true;
 
-  // for Snowpipe vs Streaming Ingest
-  public static final String INGESTION_METHOD_OPT = "snowflake.ingestion.version";
+  // for Snowpipe vs Streaming Snowpipe
+  public static final String INGESTION_METHOD_OPT = "snowflake.ingestion.method";
   public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
-      IngestionTypeConfig.SNOWPIPE.getVersion(); // Snowpipe
+      IngestionTypeConfig.SNOWPIPE.toString();
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
