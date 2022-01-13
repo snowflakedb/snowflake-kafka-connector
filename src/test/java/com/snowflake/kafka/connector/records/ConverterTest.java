@@ -185,9 +185,9 @@ public class ConverterTest {
     SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
     Map<String, String> configs = new HashMap<String, String>();
     configs.put(
-            SnowflakeAvroConverter.READER_SCHEMA,
-            "{\"name\":\"test_avro\",\"type\":\"record\",\"fields\":[{\"name\":\"int\",\"type\":\"int\"},{\"name\":\"newfield\",\"type\":\"int\",\"default\":"
-                    + " 1},{\"name\":\"missingfield\",\"type\"::\"int\"}]}");
+        SnowflakeAvroConverter.READER_SCHEMA,
+        "{\"name\":\"test_avro\",\"type\":\"record\",\"fields\":[{\"name\":\"int\",\"type\":\"int\"},{\"name\":\"newfield\",\"type\":\"int\",\"default\":"
+            + " 1},{\"name\":\"missingfield\",\"type\"::\"int\"}]}");
     configs.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, "http://fake-url");
     converter.configure(configs, false);
     converter.setSchemaRegistry(client);

@@ -169,7 +169,7 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
     } catch (Exception e) {
       if (breakOnSchemaRegistryError) {
         throw SnowflakeErrors.ERROR_0010.getException(
-                "Failed to parse AVRO " + "record\n" + e.toString());
+            "Failed to parse AVRO " + "record\n" + e.toString());
       } else {
         return logErrorAndReturnBrokenRecord(e, bytes);
       }
@@ -192,8 +192,8 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
    * @param readerSchema avro schema that describes the shape of the returned JsonNode
    * @return JsonNode array
    */
-  private JsonNode parseAvroWithSchema(
-      final byte[] data, Schema writerSchema, Schema readerSchema) throws IOException {
+  private JsonNode parseAvroWithSchema(final byte[] data, Schema writerSchema, Schema readerSchema)
+      throws IOException {
     final GenericData genericData = new GenericData();
     // Conversion for logical type Decimal. There are conversions for other logical types as well.
     genericData.addLogicalTypeConversion(new Conversions.DecimalConversion());
