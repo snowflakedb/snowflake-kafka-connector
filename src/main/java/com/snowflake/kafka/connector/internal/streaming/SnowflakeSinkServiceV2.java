@@ -216,7 +216,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           partitionsToChannel.get(name).closeChannel();
         });
 
-    // do we need to close the client? If I close, I will have to re init the client upon rebalance in open()
+    // do we need to close the client? If I close, I will have to re init the client upon rebalance
+    // in open()
     LOGGER.info("Closing Client:{}", this.streamingIngestClientName);
     try {
       streamingIngestClient.close().get();
