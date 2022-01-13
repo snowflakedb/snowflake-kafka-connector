@@ -89,7 +89,7 @@
                             <goal>kafka-connect</goal>
                         </goals>
                         <configuration>
-                            <title>Snowflake Kafka Connector</title>
+                            <title>Snowflake Sink Connector</title>
                             <documentationUrl>
                                 https://docs.snowflake.net/manuals/user-guide/kafka-connector.html
                             </documentationUrl>
