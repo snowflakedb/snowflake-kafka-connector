@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Map;
 
@@ -43,9 +44,7 @@ public class SnowflakeSinkServiceFactory {
       if (ingestionType == IngestionMethodConfig.SNOWPIPE) {
         this.service = new SnowflakeSinkServiceV1(conn);
       } else {
-        // Use SinkServiceV2
-        // TODO:SNOW-447418
-        service = null;
+        service = new SnowflakeSinkServiceV2(conn, connectorConfig);
       }
 
       logInfo("{} created", this.service.getClass().getName());
