@@ -26,7 +26,7 @@ jobs:
       - name: Install Dependency
         run: |
           pip3 install --upgrade setuptools
-          pip3 install requests certifi "confluent-kafka[avro,json,protobuf]>=1.5.0"
+          pip3 install requests certifi "confluent-kafka[avro,json,protobuf]==1.7.0"
           pip3 install avro-python3 kafka-python
           pip3 install protobuf
           pip3 install --upgrade snowflake-connector-python
