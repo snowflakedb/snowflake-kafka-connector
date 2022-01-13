@@ -293,6 +293,10 @@ public class TopicPartitionChannel {
   /**
    * A buffer which holds the rows before calling insertRows API. It implements the PartitionBuffer
    * class which has all common fields about a buffer.
+   *
+   * <p>This Buffer has same buffer threshold as of Snowpipe Buffer.
+   *
+   * <p>We would remove this long lived buffer logic in separate commit. SNOW-473896
    */
   private class StreamingBuffer extends PartitionBuffer<List<Map<String, Object>>> {
     // Used to buffer rows per channel
