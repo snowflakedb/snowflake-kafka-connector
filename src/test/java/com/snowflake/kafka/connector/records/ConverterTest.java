@@ -179,6 +179,22 @@ public class ConverterTest {
     assert ((SnowflakeRecordContent) input.value()).getData()[0].toString().equals("{}");
   }
 
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testAvroWithSchemaRegistryAndWrongReaderSchema() throws IOException {
+    MockSchemaRegistryClient client = new MockSchemaRegistryClient();
+    SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
+    Map<String, String> configs = new HashMap<String, String>();
+    configs.put(
+        SnowflakeAvroConverter.READER_SCHEMA,
+        "{\"name\":\"test_avro\",\"type\":\"record\",\"fields\":[{\"name\":\"int\",\"type\":\"int\"},{\"name\":\"newfield\",\"type\":\"int\",\"default\":"
+            + " 1},{\"name\":\"missingfield\",\"type\"::\"int\"}]}");
+    configs.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, "http://fake-url");
+    converter.configure(configs, false);
+    converter.setSchemaRegistry(client);
+
+    SchemaAndValue input = converter.toConnectData("test", client.getData());
+  }
+
   @Test
   public void testAvroWithSchemaRegistryByteInput() throws IOException {
     // Define AVRO Schema

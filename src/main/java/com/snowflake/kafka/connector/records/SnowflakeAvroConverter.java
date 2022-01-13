@@ -167,7 +167,12 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
                   data, writerSchema, readerSchema == null ? writerSchema : readerSchema),
               id));
     } catch (Exception e) {
-      return logErrorAndReturnBrokenRecord(e, bytes);
+      if (breakOnSchemaRegistryError) {
+        throw SnowflakeErrors.ERROR_0010.getException(
+            "Failed to parse AVRO " + "record\n" + e.toString());
+      } else {
+        return logErrorAndReturnBrokenRecord(e, bytes);
+      }
     }
   }
 
@@ -187,8 +192,8 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
    * @param readerSchema avro schema that describes the shape of the returned JsonNode
    * @return JsonNode array
    */
-  private JsonNode parseAvroWithSchema(
-      final byte[] data, Schema writerSchema, Schema readerSchema) {
+  private JsonNode parseAvroWithSchema(final byte[] data, Schema writerSchema, Schema readerSchema)
+      throws IOException {
     final GenericData genericData = new GenericData();
     // Conversion for logical type Decimal. There are conversions for other logical types as well.
     genericData.addLogicalTypeConversion(new Conversions.DecimalConversion());
@@ -197,15 +202,10 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
     Decoder decoder = DecoderFactory.get().binaryDecoder(is, null);
     DatumReader<GenericRecord> reader =
         new GenericDatumReader<>(writerSchema, readerSchema, genericData);
-    try {
-      GenericRecord datum = reader.read(null, decoder);
-      // For byte data without logical type, this toString method handles it this way:
-      // writeEscapedString(StandardCharsets.ISO_8859_1.decode(bytes), buffer);
-      // The generated string is escaped ISO_8859_1 decoded string.
-      return mapper.readTree(datum.toString());
-    } catch (IOException e) {
-      throw SnowflakeErrors.ERROR_0010.getException(
-          "Failed to parse AVRO " + "record\n" + e.toString());
-    }
+    GenericRecord datum = reader.read(null, decoder);
+    // For byte data without logical type, this toString method handles it this way:
+    // writeEscapedString(StandardCharsets.ISO_8859_1.decode(bytes), buffer);
+    // The generated string is escaped ISO_8859_1 decoded string.
+    return mapper.readTree(datum.toString());
   }
 }
