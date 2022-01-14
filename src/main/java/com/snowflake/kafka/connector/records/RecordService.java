@@ -173,7 +173,7 @@ public class RecordService extends Logging {
    * @return Json String with metadata and actual Payload from Kafka Record
    */
   public Map<String, Object> getProcessedRecordForStreamingIngest(SinkRecord record) {
-    SnowflakeTableColumns row = processRecord(record);
+    SnowflakeTableRow row = processRecord(record);
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.content.getData()) {
       try {

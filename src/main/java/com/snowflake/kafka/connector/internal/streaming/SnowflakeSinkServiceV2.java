@@ -4,10 +4,17 @@ import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.*;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
+import com.snowflake.kafka.connector.internal.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -31,16 +38,13 @@ import org.slf4j.LoggerFactory;
  * <p>This implementation of SinkService uses Streaming Snowpipe (Streaming Ingestion)
  *
  * <p>Hence this initializes the channel, opens, closes. The StreamingIngestChannel resides inside
- * {@link TopicPartitionChannel} which is per pipe(partition) based on which partitions are assigned
- * to the task.
+ * {@link TopicPartitionChannel} which is per partition.
  */
 public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkServiceV2.class);
 
-  private static final long ONE_HOUR = 60 * 60 * 1000L;
-  private static final long TEN_MINUTES = 10 * 60 * 1000L;
-  protected static final long CLEAN_TIME = 60 * 1000L; // one minutes
+  private static String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 
   // Assume next three values are a threshold after which we will call insertRows API
   // Set in config (Time based flush) in seconds
@@ -51,6 +55,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // Set in config (Threshold before we call insertRows API) corresponds to # of
   // records in kafka
   private long recordNum;
+
+  // Used to connect to Snowflake
   private final SnowflakeConnectionService conn;
 
   private final RecordService recordService;
@@ -74,6 +80,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // needs url, username. p8 key, role name
   private final SnowflakeStreamingIngestClient streamingIngestClient;
 
+  // Config set in JSON
   private final Map<String, String> connectorConfig;
 
   private final String taskId;
@@ -81,8 +88,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final String streamingIngestClientName;
 
   /**
-   * Key if formulated in {@link #getNameIndex(String, int)} } value is the Streaming Ingest Channel
-   * implementation
+   * Key is formulated in {@link #getNameIndex(String, int)} }
+   *
+   * <p>value is the Streaming Ingest Channel implementation
    */
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
 
@@ -111,7 +119,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     Properties streamingClientProps = new Properties();
     streamingClientProps.putAll(connectorConfig);
     this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
-    this.streamingIngestClientName = "KC_CLIENT_" + conn.getConnectorName() + "_" + taskId;
+    this.streamingIngestClientName =
+        STREAMING_CLIENT_PREFIX_NAME + conn.getConnectorName() + "_" + taskId;
     this.streamingIngestClient =
         SnowflakeStreamingIngestClientFactory.builder(this.streamingIngestClientName)
             .setProperties(streamingClientProps)
@@ -137,6 +146,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     partitionsToChannel.putIfAbsent(nameIndex, topicPartitionChannel);
   }
 
+  /**
+   * Inserts the given record into buffer and then eventually calls insertRows API if buffer
+   * threshold has reached.
+   *
+   * <p>TODO: SNOW-473896 - Please note we will get away with Buffering logic in future commits.
+   *
+   * @param records record content
+   */
   @Override
   public void insert(Collection<SinkRecord> records) {
     // note that records can be empty
@@ -164,6 +181,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
+  /**
+   * Inserts individual records into buffer. It fetches the TopicPartitionChannel from the map and
+   * then each partition(Streaming channel) calls its respective insertRows API
+   *
+   * @param record record content
+   */
   @Override
   public void insert(SinkRecord record) {
     String nameIndex = getNameIndex(record.topic(), record.kafkaPartition());
