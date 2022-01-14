@@ -18,8 +18,11 @@ package com.snowflake.kafka.connector;
 
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.Logging;
-import com.snowflake.kafka.connector.internal.streaming.IngestionTypeConfig;
-import java.util.*;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
@@ -103,7 +106,7 @@ public class SnowflakeSinkConnectorConfig {
   // for Snowpipe vs Streaming Snowpipe
   public static final String INGESTION_METHOD_OPT = "snowflake.ingestion.method";
   public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
-      IngestionTypeConfig.SNOWPIPE.toString();
+      IngestionMethodConfig.SNOWPIPE.toString();
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
@@ -401,7 +404,7 @@ public class SnowflakeSinkConnectorConfig {
             INGESTION_METHOD_OPT,
             Type.STRING,
             INGESTION_METHOD_DEFAULT_SNOWPIPE,
-            IngestionTypeConfig.VALIDATOR,
+            IngestionMethodConfig.VALIDATOR,
             Importance.LOW,
             "Use 1.0 or 2.0 for Snowpipe or Streaming ingest respectively",
             CONNECTOR_CONFIG,

@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.internal.streaming.IngestionTypeConfig;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Map;
 
@@ -17,7 +17,7 @@ public class SnowflakeSinkServiceFactory {
    */
   public static SnowflakeSinkServiceBuilder builder(
       SnowflakeConnectionService conn,
-      IngestionTypeConfig ingestionType,
+      IngestionMethodConfig ingestionType,
       Map<String, String> connectorConfig) {
     return new SnowflakeSinkServiceBuilder(conn, ingestionType, connectorConfig);
   }
@@ -25,8 +25,8 @@ public class SnowflakeSinkServiceFactory {
   /**
    * Basic builder which internally uses SinkServiceV1 (Snowpipe)
    *
-   * @param conn
-   * @return
+   * @param conn connection instance for connecting to snowflake
+   * @return A wrapper(Builder) having SinkService instance
    */
   public static SnowflakeSinkServiceBuilder builder(SnowflakeConnectionService conn) {
     return new SnowflakeSinkServiceBuilder(conn);
@@ -38,9 +38,9 @@ public class SnowflakeSinkServiceFactory {
 
     private SnowflakeSinkServiceBuilder(
         SnowflakeConnectionService conn,
-        IngestionTypeConfig ingestionType,
+        IngestionMethodConfig ingestionType,
         Map<String, String> connectorConfig) {
-      if (ingestionType == IngestionTypeConfig.SNOWPIPE) {
+      if (ingestionType == IngestionMethodConfig.SNOWPIPE) {
         this.service = new SnowflakeSinkServiceV1(conn);
       } else {
         // Use SinkServiceV2
@@ -48,7 +48,7 @@ public class SnowflakeSinkServiceFactory {
         service = null;
       }
 
-      logInfo("{} created", this.getClass().getName());
+      logInfo("{} created", this.service.getClass().getName());
     }
 
     private SnowflakeSinkServiceBuilder(SnowflakeConnectionService conn) {
