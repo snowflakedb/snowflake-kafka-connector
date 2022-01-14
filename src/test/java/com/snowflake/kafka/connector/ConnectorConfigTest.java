@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Test;
@@ -293,12 +294,33 @@ public class ConnectorConfigTest {
   }
 
   @Test
-  public void testIngestionTypeConfig_valid_value() {
+  public void testIngestionTypeConfig_valid_value_snowpipe() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, "SNOWPIPE");
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE.toString());
     Utils.validateConfig(config);
+  }
 
-    config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, "SNOWPIPE_STREAMING");
+  @Test
+  public void testIngestionTypeConfig_valid_value_snowpipe_streaming() {
+    Map<String, String> config = getConfig();
+
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testIngestionTypeConfig_invalid_snowpipe_streaming() {
+    Map<String, String> config = getConfig();
+
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "");
     Utils.validateConfig(config);
   }
 

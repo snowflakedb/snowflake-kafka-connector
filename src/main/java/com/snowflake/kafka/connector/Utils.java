@@ -22,6 +22,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVER
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
+import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
@@ -61,6 +62,11 @@ public class Utils {
   public static final String SF_SSL = "sfssl"; // for test only
   public static final String SF_WAREHOUSE = "sfwarehouse"; // for test only
   public static final String PRIVATE_KEY_PASSPHRASE = "snowflake.private.key" + ".passphrase";
+
+  /**
+   * This value should be present if ingestion method is {@link
+   * IngestionMethodConfig#SNOWPIPE_STREAMING}
+   */
   public static final String SF_ROLE = "snowflake.role.name";
 
   // constants strings
@@ -523,6 +529,20 @@ public class Utils {
         // This throws an exception if config value is invalid.
         IngestionMethodConfig.VALIDATOR.ensureValid(
             INGESTION_METHOD_OPT, config.get(INGESTION_METHOD_OPT));
+        // If ingestion method is streaming_snowpipe, validate if snowflake role is present
+        if (config
+            .get(INGESTION_METHOD_OPT)
+            .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE_STREAMING.toString())) {
+          if (!config.containsKey(Utils.SF_ROLE)
+              || Strings.isNullOrEmpty(config.get(Utils.SF_ROLE))) {
+            LOGGER.error(
+                Logging.logMessage(
+                    "Config:{} should be present if ingestionMethod is:{}",
+                    Utils.SF_ROLE,
+                    config.get(INGESTION_METHOD_OPT)));
+            configIsValid = false;
+          }
+        }
       } catch (ConfigException exception) {
         LOGGER.error(
             Logging.logMessage(
