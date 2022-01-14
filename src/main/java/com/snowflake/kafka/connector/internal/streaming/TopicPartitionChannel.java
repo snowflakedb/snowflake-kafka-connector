@@ -4,15 +4,18 @@ import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -91,7 +94,6 @@ public class TopicPartitionChannel {
 
   // inserts the record into buffer
   public void insertRecordToBuffer(SinkRecord record) {
-    // init pipe
     if (!hasChannelInitialized) {
       // This will only be called once at the beginning when an offset arrives for first time
       // after connector starts/rebalance
@@ -117,8 +119,7 @@ public class TopicPartitionChannel {
         // lag telemetry, note that sink record timestamp might be null
         if (snowflakeRecord.timestamp() != null
             && snowflakeRecord.timestampType() != NO_TIMESTAMP_TYPE) {
-          //                    pipeStatus.updateKafkaLag(System.currentTimeMillis() -
-          // snowflakeRecord.timestamp());
+          // TODO:SNOW-529751 telemetry
         }
 
         // acquire the lock before writing the record into buffer
@@ -133,26 +134,12 @@ public class TopicPartitionChannel {
     }
   }
 
+  /* TODO: SNOW-529753 Deal with rebalances and restarts */
   private void init(long recordOffset) {
-    //    createTableIfNotExists();
-
     try {
       startCleaner(recordOffset);
     } catch (Exception e) {
       LOGGER.error("Cleaner and Flusher threads shut down before initialization");
-    }
-  }
-
-  private void createTableIfNotExists() {
-    if (snowflakeConnectionService.tableExist(this.tableName)) {
-      if (snowflakeConnectionService.isTableCompatible(this.tableName)) {
-        LOGGER.info("Using existing table {}.", this.tableName);
-      } else {
-        throw SnowflakeErrors.ERROR_5003.getException("table name: " + this.tableName);
-      }
-    } else {
-      LOGGER.info("Creating new table {}.", tableName);
-      snowflakeConnectionService.createTable(tableName);
     }
   }
 
@@ -256,9 +243,10 @@ public class TopicPartitionChannel {
   }
 
   // should we rely on precommits frequency to give us the last committed offset token?
-  // or should we have a BG thread polling on every channel to updae the Atomic long and simply
+  // or should we have a BG thread polling on every channel to update the Atomic long and simply
   // return the atomic long's current value
   // For now we will rely on preCommit API to fetch the inserted offsets into Snowflake
+  // TODO: SNOW-529755 POLL committed offsets in backgraound thread
   public long getCommittedOffset() {
     LOGGER.info(
         "Fetching last committed offset for partition channel:{}",
@@ -279,12 +267,13 @@ public class TopicPartitionChannel {
   public void closeChannel() {
     try {
       this.channel.close().get(1000, TimeUnit.MILLISECONDS);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    } catch (ExecutionException e) {
-      e.printStackTrace();
-    } catch (TimeoutException e) {
-      e.printStackTrace();
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      LOGGER.error(
+          Logging.logMessage(
+              "Failure closing Streaming Channel name:{} msg:{}, cause:{}",
+              this.getChannelName(),
+              e.getMessage(),
+              Arrays.toString(e.getCause().getStackTrace())));
     }
   }
 
