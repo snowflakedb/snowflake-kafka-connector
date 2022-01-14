@@ -25,7 +25,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import com.snowflake.kafka.connector.internal.streaming.IngestionTypeConfig;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
@@ -521,7 +521,7 @@ public class Utils {
     if (config.containsKey(INGESTION_METHOD_OPT)) {
       try {
         // This throws an exception if config value is invalid.
-        IngestionTypeConfig.VALIDATOR.ensureValid(
+        IngestionMethodConfig.VALIDATOR.ensureValid(
             INGESTION_METHOD_OPT, config.get(INGESTION_METHOD_OPT));
       } catch (ConfigException exception) {
         LOGGER.error(

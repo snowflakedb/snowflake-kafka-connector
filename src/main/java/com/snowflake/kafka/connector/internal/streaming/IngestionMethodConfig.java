@@ -3,7 +3,11 @@ package com.snowflake.kafka.connector.internal.streaming;
 import java.util.Locale;
 import org.apache.kafka.common.config.ConfigDef;
 
-public enum IngestionTypeConfig {
+/**
+ * Enum representing the allowed values for config {@link
+ * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#INGESTION_METHOD_OPT}
+ */
+public enum IngestionMethodConfig {
 
   /* Default Way of ingestion */
   SNOWPIPE,
@@ -16,7 +20,7 @@ public enum IngestionTypeConfig {
   public static final ConfigDef.Validator VALIDATOR =
       new ConfigDef.Validator() {
         private final ConfigDef.ValidString validator =
-            ConfigDef.ValidString.in(IngestionTypeConfig.allIngestionTypes());
+            ConfigDef.ValidString.in(IngestionMethodConfig.allIngestionTypes());
 
         @Override
         public void ensureValid(String name, Object value) {
@@ -35,7 +39,7 @@ public enum IngestionTypeConfig {
 
   // All valid enum values
   public static String[] allIngestionTypes() {
-    IngestionTypeConfig[] configs = values();
+    IngestionMethodConfig[] configs = values();
     String[] result = new String[configs.length];
 
     for (int i = 0; i < configs.length; i++) {
