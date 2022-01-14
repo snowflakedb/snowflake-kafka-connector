@@ -86,9 +86,9 @@ public class RecordService extends Logging {
    * process given SinkRecord, only support snowflake converters
    *
    * @param record SinkRecord
-   * @return a record string, already to output
+   * @return a Row wrapper which contains both actual content(payload) and metadata
    */
-  private SnowflakeTableColumns processRecord(SinkRecord record) {
+  private SnowflakeTableRow processRecord(SinkRecord record) {
     if (record.value() == null || record.valueSchema() == null) {
       throw SnowflakeErrors.ERROR_5016.getException();
     }
@@ -128,7 +128,7 @@ public class RecordService extends Logging {
       meta.set(HEADERS, parseHeaders(record.headers()));
     }
 
-    return new SnowflakeTableColumns(valueContent, meta);
+    return new SnowflakeTableRow(valueContent, meta);
   }
 
   /**
@@ -141,7 +141,7 @@ public class RecordService extends Logging {
    * @return Json String with metadata and actual Payload from Kafka Record
    */
   public String getProcessedRecordForSnowpipe(SinkRecord record) {
-    SnowflakeTableColumns row = processRecord(record);
+    SnowflakeTableRow row = processRecord(record);
     StringBuilder buffer = new StringBuilder();
     for (JsonNode node : row.content.getData()) {
       ObjectNode data = MAPPER.createObjectNode();
@@ -155,12 +155,12 @@ public class RecordService extends Logging {
   }
 
   /** For now there are two columns one is content and other is metadata. Both are Json */
-  private class SnowflakeTableColumns {
+  private static class SnowflakeTableRow {
     // This can be a JsonNode but we will keep this as is.
     private final SnowflakeRecordContent content;
     private final JsonNode metadata;
 
-    public SnowflakeTableColumns(SnowflakeRecordContent content, JsonNode metadata) {
+    public SnowflakeTableRow(SnowflakeRecordContent content, JsonNode metadata) {
       this.content = content;
       this.metadata = metadata;
     }
