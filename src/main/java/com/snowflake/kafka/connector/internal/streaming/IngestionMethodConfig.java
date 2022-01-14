@@ -16,7 +16,7 @@ public enum IngestionMethodConfig {
   SNOWPIPE_STREAMING,
   ;
 
-  /* Validator to validate behavior.on.null.values which says whether kafka should keep null value records or ignore them while ingesting into snowflake table. */
+  /* Validator to validate snowflake.ingestion.method values */
   public static final ConfigDef.Validator VALIDATOR =
       new ConfigDef.Validator() {
         private final ConfigDef.ValidString validator =
@@ -30,7 +30,6 @@ public enum IngestionMethodConfig {
           validator.ensureValid(name, value);
         }
 
-        // Overridden here so that ConfigDef.toEnrichedRst shows possible values correctly
         @Override
         public String toString() {
           return validator.toString();
