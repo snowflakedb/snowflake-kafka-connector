@@ -14,7 +14,7 @@
     "snowflake.private.key": "<p8-key>",
     "snowflake.database.name": "DB_STREAMINGINGEST",
     "snowflake.schema.name": "PUBLIC",
-    "snowflake.ingestion.version": "2.0",
+    "snowflake.ingestion.method": "SNOWPIPE_STREAMING",
     "key.converter":"org.apache.kafka.connect.storage.StringConverter",
     "value.converter":"org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable":"false",

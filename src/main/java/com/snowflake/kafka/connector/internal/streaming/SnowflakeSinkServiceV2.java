@@ -4,12 +4,14 @@ import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -60,7 +62,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final SnowflakeConnectionService conn;
 
   private final RecordService recordService;
-  private boolean isStopped;
   private final SnowflakeTelemetryService telemetryService;
   private Map<String, String> topic2TableMap;
 
@@ -88,9 +89,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final String streamingIngestClientName;
 
   /**
-   * Key is formulated in {@link #getNameIndex(String, int)} }
+   * Key is formulated in {@link #partitionChannelKey(String, int)} }
    *
-   * <p>value is the Streaming Ingest Channel implementation
+   * <p>value is the Streaming Ingest Channel implementation (Wrapped around TopicPartitionChannel)
    */
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
 
@@ -105,7 +106,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.flushTime = SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT;
     this.conn = conn;
     this.recordService = new RecordService();
-    isStopped = false;
     this.telemetryService = conn.getTelemetryClient();
     this.topic2TableMap = new HashMap<>();
 
@@ -130,20 +130,20 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void startTask(String tableName, String topic, int partition) {
-    String nameIndex = getNameIndex(topic, partition);
+    String partitionChannelKey = partitionChannelKey(topic, partition);
     LOGGER.info(
         "Opening a channel with name:{} for table name:{}, topic:{}, partition:{}",
-        nameIndex,
+        partitionChannelKey,
         tableName,
         topic,
         partition);
     // the table should be present before opening a channel so lets do a table existence check here
     createTableIfNotExists(tableName);
     SnowflakeStreamingIngestChannel partitionChannel =
-        streamingIngestClient.openChannel(getOpenChannelRequest(nameIndex, tableName));
+        streamingIngestClient.openChannel(getOpenChannelRequest(partitionChannelKey, tableName));
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(partitionChannel, this.conn, tableName);
-    partitionsToChannel.putIfAbsent(nameIndex, topicPartitionChannel);
+    partitionsToChannel.putIfAbsent(partitionChannelKey, topicPartitionChannel);
   }
 
   /**
@@ -189,9 +189,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void insert(SinkRecord record) {
-    String nameIndex = getNameIndex(record.topic(), record.kafkaPartition());
+    String partitionChannelKey = partitionChannelKey(record.topic(), record.kafkaPartition());
     // init a new topic partition
-    if (!partitionsToChannel.containsKey(nameIndex)) {
+    if (!partitionsToChannel.containsKey(partitionChannelKey)) {
       LOGGER.warn(
           "Topic: {} Partition: {} hasn't been initialized by OPEN " + "function",
           record.topic(),
@@ -202,7 +202,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           record.kafkaPartition());
     }
 
-    TopicPartitionChannel channelPartition = partitionsToChannel.get(nameIndex);
+    TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
     channelPartition.insertRecordToBuffer(record);
 
     // # of records or size based flushing
@@ -218,9 +218,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public long getOffset(TopicPartition topicPartition) {
-    String name = getNameIndex(topicPartition.topic(), topicPartition.partition());
-    if (partitionsToChannel.containsKey(name)) {
-      return partitionsToChannel.get(name).getCommittedOffset();
+    String partitionChannelKey =
+        partitionChannelKey(topicPartition.topic(), topicPartition.partition());
+    if (partitionsToChannel.containsKey(partitionChannelKey)) {
+      return partitionsToChannel.get(partitionChannelKey).getCommittedOffset();
     } else {
       LOGGER.warn(
           "Topic: {} Partition: {} hasn't been initialized to get offset",
@@ -242,34 +243,32 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void closeAll() {
-    // undefined
+    partitionsToChannel.forEach(
+        (partitionChannelKey, topicPartitionChannel) -> {
+          LOGGER.info("Closing partition channel:{}", partitionChannelKey);
+          topicPartitionChannel.closeChannel();
+        });
+
+    closeStreamingClient();
   }
 
   @Override
   public void close(Collection<TopicPartition> partitions) {
-    // undefined
     partitions.forEach(
         topicPartition -> {
-          String name = getNameIndex(topicPartition.topic(), topicPartition.partition());
-          LOGGER.info("Closing partition channel:{}", name);
-          partitionsToChannel.get(name).closeChannel();
+          String partitionChannelKey =
+              partitionChannelKey(topicPartition.topic(), topicPartition.partition());
+          LOGGER.info("Closing partition channel:{}", partitionChannelKey);
+          partitionsToChannel.get(partitionChannelKey).closeChannel();
         });
 
-    // do we need to close the client? If I close, I will have to re init the client upon rebalance
-    // in open()
-    LOGGER.info("Closing Client:{}", this.streamingIngestClientName);
-    try {
-      streamingIngestClient.close().get();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    } catch (ExecutionException e) {
-      e.printStackTrace();
-    }
+    closeStreamingClient();
   }
 
   @Override
   public void setIsStoppedToTrue() {}
 
+  /* Undefined */
   @Override
   public boolean isClosed() {
     return false;
@@ -286,9 +285,27 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
-  // Assume this is buffer size in bytes, since this is streaming ingestion
+  /**
+   * Assume this is buffer size in bytes, since this is streaming ingestion
+   *
+   * <p>Copying this from SinkServiceV1 and we will get away from this in future
+   *
+   * @param size a non negative long number represents data size limitation
+   */
   @Override
-  public void setFileSize(long size) {}
+  public void setFileSize(long size) {
+    if (size < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN) {
+      LOGGER.error(
+          "Buffer size is {} bytes, it is smaller than the minimum buffer "
+              + "size {} bytes, reset to the default file size",
+          size,
+          SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT);
+      this.fileSize = SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
+    } else {
+      this.fileSize = size;
+      LOGGER.info("set buffer size limitation to {} bytes", size);
+    }
+  }
 
   @Override
   public void setTopic2TableMap(Map<String, String> topic2TableMap) {
@@ -357,8 +374,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     return Optional.empty();
   }
 
+  /**
+   * Gets a unique identifier consisting of topic name and partition number.
+   *
+   * @param topic topic name
+   * @param partition partition number
+   * @return combinartion of topic and partition
+   */
   @VisibleForTesting
-  protected static String getNameIndex(String topic, int partition) {
+  protected static String partitionChannelKey(String topic, int partition) {
     return topic + "_" + partition;
   }
 
@@ -370,6 +394,21 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         .setSchemaName(this.connectorConfig.get("snowflake.schema.name"))
         .setTableName(tableName)
         .build();
+  }
+
+  private void closeStreamingClient() {
+    // do we need to close the client? If I close, I will have to re init the client upon rebalance
+    // in open()
+    LOGGER.info("Closing Streaming Client:{}", this.streamingIngestClientName);
+    try {
+      streamingIngestClient.close().get();
+    } catch (InterruptedException | ExecutionException e) {
+      LOGGER.error(
+          Logging.logMessage(
+              "Failure closing Streaming client msg:{}, cause:{}",
+              e.getMessage(),
+              Arrays.toString(e.getCause().getStackTrace())));
+    }
   }
 
   private void createTableIfNotExists(final String tableName) {
