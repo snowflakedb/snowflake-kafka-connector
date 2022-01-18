@@ -224,11 +224,11 @@ public class SnowflakeSinkConnectorConfig {
             null,
             nonEmptyStringValidator,
             Importance.LOW,
-            "Snowflake user name",
+            "Snowflake role: snowflake.role.name",
             SNOWFLAKE_LOGIN_INFO,
             6,
             ConfigDef.Width.NONE,
-            SNOWFLAKE_USER)
+            SNOWFLAKE_ROLE)
         // proxy
         .define(
             JVM_PROXY_HOST,
@@ -406,7 +406,7 @@ public class SnowflakeSinkConnectorConfig {
             INGESTION_METHOD_DEFAULT_SNOWPIPE,
             IngestionMethodConfig.VALIDATOR,
             Importance.LOW,
-            "Use 1.0 or 2.0 for Snowpipe or Streaming ingest respectively",
+            "Acceptable values for Ingestion: SNOWPIPE or Streaming ingest respectively",
             CONNECTOR_CONFIG,
             5,
             ConfigDef.Width.NONE,
