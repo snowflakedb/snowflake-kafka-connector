@@ -128,7 +128,7 @@ public class RecordContentTest {
 
     SinkRecord record =
         new SinkRecord(topic, partition, null, null, Schema.STRING_SCHEMA, null, partition);
-    service.processRecord(record);
+    service.getProcessedRecordForSnowpipe(record);
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
@@ -138,7 +138,7 @@ public class RecordContentTest {
     RecordService service = new RecordService();
 
     SinkRecord record = new SinkRecord(topic, partition, null, null, null, content, partition);
-    service.processRecord(record);
+    service.getProcessedRecordForSnowpipe(record);
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
@@ -158,7 +158,7 @@ public class RecordContentTest {
             partition);
     // TODO: SNOW-215915 Fix this after stability push, if schema does not have a name
     // There is OOM error in this test.
-    service.processRecord(record);
+    service.getProcessedRecordForSnowpipe(record);
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
@@ -168,7 +168,7 @@ public class RecordContentTest {
     SinkRecord record =
         new SinkRecord(
             topic, partition, null, null, new SnowflakeJsonSchema(), "string", partition);
-    service.processRecord(record);
+    service.getProcessedRecordForSnowpipe(record);
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)

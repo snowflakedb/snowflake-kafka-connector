@@ -33,7 +33,7 @@ public class HeaderTest {
     // empty headers
     SinkRecord record = createTestRecord(headers);
     RecordService service = new RecordService();
-    JsonNode node = MAPPER.readTree(service.processRecord(record));
+    JsonNode node = MAPPER.readTree(service.getProcessedRecordForSnowpipe(record));
     assert !node.get("meta").has("headers");
 
     // primitive types
@@ -86,7 +86,7 @@ public class HeaderTest {
     headers.addTimestamp(timestampName, timestampData);
 
     record = createTestRecord(headers);
-    node = MAPPER.readTree(service.processRecord(record));
+    node = MAPPER.readTree(service.getProcessedRecordForSnowpipe(record));
 
     assert node.get("meta").has("headers");
     JsonNode headerNode = node.get("meta").get("headers");
@@ -131,7 +131,7 @@ public class HeaderTest {
     array.add(2);
     headers.addList(arrayName, array, SchemaBuilder.array(Schema.INT32_SCHEMA).build());
     record = createTestRecord(headers);
-    node = MAPPER.readTree(service.processRecord(record));
+    node = MAPPER.readTree(service.getProcessedRecordForSnowpipe(record));
     assert node.get("meta").has("headers");
     headerNode = node.get("meta").get("headers");
     assert headerNode.has(arrayName);
@@ -154,7 +154,7 @@ public class HeaderTest {
     map.put(mapKey2, mapValue2);
     headers.addMap(mapName, map, SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.BOOLEAN_SCHEMA));
     record = createTestRecord(headers);
-    node = MAPPER.readTree(service.processRecord(record));
+    node = MAPPER.readTree(service.getProcessedRecordForSnowpipe(record));
     assert node.get("meta").has("headers");
     headerNode = node.get("meta").get("headers");
     assert headerNode.has(mapName);
@@ -187,7 +187,7 @@ public class HeaderTest {
     struct.put(key2, value2);
     headers.addStruct(structName, struct);
     record = createTestRecord(headers);
-    node = MAPPER.readTree(service.processRecord(record));
+    node = MAPPER.readTree(service.getProcessedRecordForSnowpipe(record));
     assert node.get("meta").has("headers");
     headerNode = node.get("meta").get("headers");
     assert headerNode.has(structName);

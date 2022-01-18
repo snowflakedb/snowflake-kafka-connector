@@ -132,7 +132,7 @@ public interface SnowflakeSinkService {
   /**
    * set the delivery guarantee, giving user the option to enable exactly once semantic
    *
-   * @param ingestionDeliveryGuarantee
+   * @param ingestionDeliveryGuarantee ingestion guarantee given inside Config
    */
   void setDeliveryGuarantee(
       SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee);
