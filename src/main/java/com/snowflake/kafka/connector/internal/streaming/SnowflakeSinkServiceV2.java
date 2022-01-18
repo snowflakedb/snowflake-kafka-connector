@@ -390,9 +390,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private OpenChannelRequest getOpenChannelRequest(
       final String channelName, final String tableName) {
     return OpenChannelRequest.builder(channelName)
-        .setDBName(this.connectorConfig.get("snowflake.database.name"))
-        .setSchemaName(this.connectorConfig.get("snowflake.schema.name"))
+        .setDBName(this.connectorConfig.get(Utils.SF_DATABASE))
+        .setSchemaName(this.connectorConfig.get(Utils.SF_SCHEMA))
         .setTableName(tableName)
+        .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
         .build();
   }
 
