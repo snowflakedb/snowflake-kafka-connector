@@ -17,8 +17,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -197,6 +195,10 @@ public class TopicPartitionChannel {
         record.headers());
   }
 
+  /**
+   * Invokes insertRows API using the offsets buffered for this partition. TODO: SNOW-530369 Retry
+   * handling mechanisms
+   */
   public void insertBufferedRows() {
     PartitionBuffer intermediateBuffer = null;
     bufferLock.lock();
@@ -247,6 +249,12 @@ public class TopicPartitionChannel {
   // return the atomic long's current value
   // For now we will rely on preCommit API to fetch the inserted offsets into Snowflake
   // TODO: SNOW-529755 POLL committed offsets in backgraound thread
+  /**
+   * Get committed offset from Snowflake. It does an HTTP call internally to find out what was the
+   * last offset inserted.
+   *
+   * @return offsetToken present in Snowflake. If it was the first call, we return default value(0)
+   */
   public long getCommittedOffset() {
     LOGGER.info(
         "Fetching last committed offset for partition channel:{}",
@@ -264,10 +272,11 @@ public class TopicPartitionChannel {
     }
   }
 
+  /* Close channel associated to this partition */
   public void closeChannel() {
     try {
-      this.channel.close().get(1000, TimeUnit.MILLISECONDS);
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      this.channel.close().get();
+    } catch (InterruptedException | ExecutionException e) {
       LOGGER.error(
           Logging.logMessage(
               "Failure closing Streaming Channel name:{} msg:{}, cause:{}",
