@@ -52,7 +52,7 @@ public class SnowflakeSinkServiceFactory {
     }
 
     private SnowflakeSinkServiceBuilder(SnowflakeConnectionService conn) {
-      this.service = new SnowflakeSinkServiceV1(conn);
+      this(conn, IngestionMethodConfig.SNOWPIPE, null /* Not required for V1 */);
     }
 
     public SnowflakeSinkServiceBuilder addTask(String tableName, String topic, int partition) {
