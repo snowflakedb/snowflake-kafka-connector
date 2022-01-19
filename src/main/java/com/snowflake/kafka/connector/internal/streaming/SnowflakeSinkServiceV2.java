@@ -50,9 +50,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   // Assume next three values are a threshold after which we will call insertRows API
   // Set in config (Time based flush) in seconds
-  private long flushTime;
+  private long flushTimeSeconds;
   // Set in config (buffer size based flush) in bytes
-  private long fileSize;
+  private long fileSizeBytes;
 
   // Set in config (Threshold before we call insertRows API) corresponds to # of
   // records in kafka
@@ -63,7 +63,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private final RecordService recordService;
   private final SnowflakeTelemetryService telemetryService;
-  private Map<String, String> topic2TableMap;
+  private Map<String, String> topicToTableMap;
 
   // Behavior to be set at the start of connector start. (For tombstone records)
   private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues;
@@ -101,13 +101,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       throw SnowflakeErrors.ERROR_5010.getException();
     }
 
-    this.fileSize = SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
+    this.fileSizeBytes = SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
     this.recordNum = SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
-    this.flushTime = SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT;
+    this.flushTimeSeconds = SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT;
     this.conn = conn;
     this.recordService = new RecordService();
     this.telemetryService = conn.getTelemetryClient();
-    this.topic2TableMap = new HashMap<>();
+    this.topicToTableMap = new HashMap<>();
 
     // Setting the default value in constructor
     // meaning it will not ignore the null values (Tombstone records wont be ignored/filtered)
@@ -197,7 +197,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           record.topic(),
           record.kafkaPartition());
       startTask(
-          Utils.tableName(record.topic(), this.topic2TableMap),
+          Utils.tableName(record.topic(), this.topicToTableMap),
           record.topic(),
           record.kafkaPartition());
     }
@@ -300,16 +300,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               + "size {} bytes, reset to the default file size",
           size,
           SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT);
-      this.fileSize = SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
+      this.fileSizeBytes = SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
     } else {
-      this.fileSize = size;
+      this.fileSizeBytes = size;
       LOGGER.info("set buffer size limitation to {} bytes", size);
     }
   }
 
   @Override
-  public void setTopic2TableMap(Map<String, String> topic2TableMap) {
-    this.topic2TableMap = topic2TableMap;
+  public void setTopic2TableMap(Map<String, String> topicToTableMap) {
+    this.topicToTableMap = topicToTableMap;
   }
 
   @Override
@@ -320,9 +320,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               + "flush time {} seconds, reset to the minimum flush time",
           time,
           SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN);
-      this.flushTime = SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN;
+      this.flushTimeSeconds = SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN;
     } else {
-      this.flushTime = time;
+      this.flushTimeSeconds = time;
       LOGGER.info("set flush time to {} seconds", time);
     }
   }
@@ -339,12 +339,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public long getFlushTime() {
-    return this.flushTime;
+    return this.flushTimeSeconds;
   }
 
   @Override
   public long getFileSize() {
-    return this.fileSize;
+    return this.fileSizeBytes;
   }
 
   @Override
