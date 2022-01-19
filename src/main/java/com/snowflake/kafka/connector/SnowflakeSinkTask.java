@@ -18,7 +18,13 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 
-import com.snowflake.kafka.connector.internal.*;
+import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
+import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
 import java.util.HashMap;
@@ -163,6 +169,15 @@ public class SnowflakeSinkTask extends SinkTask {
 
     enableRebalancing =
         Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.REBALANCING));
+
+    // default to snowpipe
+    IngestionMethodConfig ingestionType = IngestionMethodConfig.SNOWPIPE;
+    if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
+      ingestionType =
+          IngestionMethodConfig.valueOf(
+              parsedConfig.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).toLowerCase());
+    }
+
     conn =
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(parsedConfig)
@@ -173,7 +188,7 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.closeAll();
     }
     this.sink =
-        SnowflakeSinkServiceFactory.builder(getConnection())
+        SnowflakeSinkServiceFactory.builder(getConnection(), ingestionType, parsedConfig)
             .setFileSize(bufferSizeBytes)
             .setRecordNumber(bufferCountRecords)
             .setFlushTime(bufferFlushTime)
