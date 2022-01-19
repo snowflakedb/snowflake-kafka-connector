@@ -18,6 +18,7 @@ package com.snowflake.kafka.connector;
 
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -67,6 +68,9 @@ public class SnowflakeSinkConnectorConfig {
   static final String SNOWFLAKE_SCHEMA = Utils.SF_SCHEMA;
   static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
 
+  // For streaming ingest client
+  static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
+
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
   public static final String JVM_PROXY_HOST = "jvm.proxy.host";
@@ -98,6 +102,11 @@ public class SnowflakeSinkConnectorConfig {
   // metrics
   public static final String JMX_OPT = "jmx";
   public static final boolean JMX_OPT_DEFAULT = true;
+
+  // for Snowpipe vs Streaming Snowpipe
+  public static final String INGESTION_METHOD_OPT = "snowflake.ingestion.method";
+  public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
+      IngestionMethodConfig.SNOWPIPE.toString();
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
@@ -209,6 +218,17 @@ public class SnowflakeSinkConnectorConfig {
             5,
             ConfigDef.Width.NONE,
             SNOWFLAKE_SCHEMA)
+        .define(
+            SNOWFLAKE_ROLE,
+            Type.STRING,
+            null,
+            nonEmptyStringValidator,
+            Importance.LOW,
+            "Snowflake role: snowflake.role.name",
+            SNOWFLAKE_LOGIN_INFO,
+            6,
+            ConfigDef.Width.NONE,
+            SNOWFLAKE_ROLE)
         // proxy
         .define(
             JVM_PROXY_HOST,
@@ -379,7 +399,18 @@ public class SnowflakeSinkConnectorConfig {
             REBALANCING_DEFAULT,
             Importance.LOW,
             "Whether to trigger a rebalancing by exceeding the max poll interval (Used only in"
-                + " testing)");
+                + " testing)")
+        .define(
+            INGESTION_METHOD_OPT,
+            Type.STRING,
+            INGESTION_METHOD_DEFAULT_SNOWPIPE,
+            IngestionMethodConfig.VALIDATOR,
+            Importance.LOW,
+            "Acceptable values for Ingestion: SNOWPIPE or Streaming ingest respectively",
+            CONNECTOR_CONFIG,
+            5,
+            ConfigDef.Width.NONE,
+            INGESTION_METHOD_OPT);
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {
