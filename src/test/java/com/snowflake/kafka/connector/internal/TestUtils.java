@@ -53,7 +53,7 @@ public class TestUtils {
   // profile path
   private static final String PROFILE_PATH = "profile.json";
 
-  private static final String PROFILE_PATH_STREAMING_INGEST = "profile_streaming_temptest.json";
+  private static final String PROFILE_PATH_STREAMING_INGEST = "profile_streaming_qa1.json";
 
   private static final ObjectMapper mapper = new ObjectMapper();
 
