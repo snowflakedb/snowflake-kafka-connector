@@ -63,12 +63,9 @@ public class TopicPartitionChannel {
 
   private final String tableName;
 
-  // Kafka record properties
-  // For which
-  private final AtomicLong committedOffset; // loaded offset + 1
-
-  // assume this offset as an offset for which we called insertRows API
-  private final AtomicLong flushedOffset; // flushed offset (file on stage)
+  // ------- Kafka record related properties ------- //
+  // Offset number we would want to commit back to kafka
+  private final AtomicLong committedOffset;
 
   // added to buffer before calling insertRows
   private final AtomicLong processedOffset; // processed offset
@@ -86,8 +83,7 @@ public class TopicPartitionChannel {
 
     this.streamingBuffer = new StreamingBuffer();
     this.processedOffset = new AtomicLong(-1);
-    this.flushedOffset = new AtomicLong(-1);
-    this.committedOffset = new AtomicLong(0);
+    this.committedOffset = new AtomicLong(-1);
   }
 
   // inserts the record into buffer
@@ -253,10 +249,19 @@ public class TopicPartitionChannel {
    * Get committed offset from Snowflake. It does an HTTP call internally to find out what was the
    * last offset inserted.
    *
-   * @return offsetToken present in Snowflake. If it was the first call, we return default value(0)
+   * <p>If committedOffset fetched from Snowflake is null, we would return -1(default value of
+   * committedOffset) back to original call. (-1) would return an empty Map of partition and offset
+   * back to kafka. (We)
+   *
+   * <p>Check {@link com.snowflake.kafka.connector.SnowflakeSinkTask#preCommit(Map)}
+   *
+   * <p>Else, we will convert this offset and return the offset which is safe to commit inside
+   * Kafka.
+   *
+   * @return offsetToken present in Snowflake, else -1
    */
   public long getCommittedOffset() {
-    LOGGER.info(
+    LOGGER.debug(
         "Fetching last committed offset for partition channel:{}",
         this.channel.getFullyQualifiedName());
     String lastOffsetCommitted = channel.getLatestCommittedOffsetToken();
