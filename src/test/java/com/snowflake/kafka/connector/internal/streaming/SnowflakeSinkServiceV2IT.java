@@ -16,6 +16,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class SnowflakeSinkServiceV2IT {
@@ -26,38 +27,12 @@ public class SnowflakeSinkServiceV2IT {
   private String topic = "test";
   private static ObjectMapper MAPPER = new ObjectMapper();
 
-  private static final String jsonWithSchema =
-      ""
-          + "{\n"
-          + "  \"schema\": {\n"
-          + "    \"type\": \"struct\",\n"
-          + "    \"fields\": [\n"
-          + "      {\n"
-          + "        \"type\": \"string\",\n"
-          + "        \"optional\": false,\n"
-          + "        \"field\": \"regionid\"\n"
-          + "      },\n"
-          + "      {\n"
-          + "        \"type\": \"string\",\n"
-          + "        \"optional\": false,\n"
-          + "        \"field\": \"gender\"\n"
-          + "      }\n"
-          + "    ],\n"
-          + "    \"optional\": false,\n"
-          + "    \"name\": \"ksql.users\"\n"
-          + "  },\n"
-          + "  \"payload\": {\n"
-          + "    \"regionid\": \"Region_5\",\n"
-          + "    \"gender\": \"MALE\"\n"
-          + "  }\n"
-          + "}";
-  private static final String jsonWithoutSchema = "{\"userid\": \"User_1\"}";
-
   @After
   public void afterEach() {
-    //        TestUtils.dropTableStreaming(table);
+    TestUtils.dropTableStreaming(table);
   }
 
+  @Ignore
   @Test
   public void testSinkServiceV2Builder() {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -87,6 +62,7 @@ public class SnowflakeSinkServiceV2IT {
         });
   }
 
+  @Ignore
   @Test
   public void testStreamingIngestion() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -111,11 +87,17 @@ public class SnowflakeSinkServiceV2IT {
 
     service.insert(record1);
 
-    long committedOffset = service.getOffset(new TopicPartition(topic, partition));
-    System.out.println(committedOffset);
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 10, 10);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 0, 10, 5);
 
-    //        service.closeAll();
+    // insert another offset and check what we committed
+    SinkRecord record2 =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "test2", input.schema(), input.value(), offset + 1);
+    service.insert(record2);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 10, 5);
+
+    service.closeAll();
   }
 }
