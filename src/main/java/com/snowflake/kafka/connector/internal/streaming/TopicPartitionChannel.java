@@ -108,7 +108,7 @@ public class TopicPartitionChannel {
 
       // broken record
       if (isRecordBroken(snowflakeRecord)) {
-        // write it to DLQ
+        // write it to DLQ SNOW-451197
       } else {
         // lag telemetry, note that sink record timestamp might be null
         if (snowflakeRecord.timestamp() != null
