@@ -83,20 +83,33 @@ public class SnowflakeSinkServiceV2IT {
 
     SinkRecord record1 =
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test_key" + offset,
+            input.schema(),
+            input.value(),
+            offset);
 
     service.insert(record1);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 0, 10, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 0, 20, 5);
 
     // insert another offset and check what we committed
+    offset += 1;
     SinkRecord record2 =
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "test2", input.schema(), input.value(), offset + 1);
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test_key" + offset,
+            input.schema(),
+            input.value(),
+            offset);
     service.insert(record2);
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 10, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
 
     service.closeAll();
   }
