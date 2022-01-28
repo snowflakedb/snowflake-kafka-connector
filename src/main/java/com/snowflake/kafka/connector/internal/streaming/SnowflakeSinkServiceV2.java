@@ -79,7 +79,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   // ------ Streaming Ingest ------ //
   // needs url, username. p8 key, role name
-  private final SnowflakeStreamingIngestClient streamingIngestClient;
+  private SnowflakeStreamingIngestClient streamingIngestClient;
 
   // Config set in JSON
   private final Map<String, String> connectorConfig;
@@ -114,17 +114,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.behaviorOnNullValues = SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
 
     this.connectorConfig = connectorConfig;
-    // Streaming ingest requires a properties.
-    // TODO request a builder pattern for SI Client.
-    Properties streamingClientProps = new Properties();
-    streamingClientProps.putAll(connectorConfig);
     this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
     this.streamingIngestClientName =
         STREAMING_CLIENT_PREFIX_NAME + conn.getConnectorName() + "_" + taskId;
-    this.streamingIngestClient =
-        SnowflakeStreamingIngestClientFactory.builder(this.streamingIngestClientName)
-            .setProperties(streamingClientProps)
-            .build();
+    initStreamingClient();
     this.partitionsToChannel = new HashMap<>();
   }
 
@@ -140,7 +133,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // the table should be present before opening a channel so lets do a table existence check here
     createTableIfNotExists(tableName);
     SnowflakeStreamingIngestChannel partitionChannel =
-        streamingIngestClient.openChannel(getOpenChannelRequest(partitionChannelKey, tableName));
+        openChannelForTable(partitionChannelKey, tableName);
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(partitionChannel, this.conn, tableName);
     partitionsToChannel.putIfAbsent(partitionChannelKey, topicPartitionChannel);
@@ -248,7 +241,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           LOGGER.info("Closing partition channel:{}", partitionChannelKey);
           topicPartitionChannel.closeChannel();
         });
-
+    partitionsToChannel.clear();
     closeStreamingClient();
   }
 
@@ -260,6 +253,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               partitionChannelKey(topicPartition.topic(), topicPartition.partition());
           LOGGER.info("Closing partition channel:{}", partitionChannelKey);
           partitionsToChannel.get(partitionChannelKey).closeChannel();
+          partitionsToChannel.remove(partitionChannelKey);
         });
 
     closeStreamingClient();
@@ -387,14 +381,34 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   // ------ Streaming Ingest Related Functions ------ //
-  private OpenChannelRequest getOpenChannelRequest(
+
+  /* Open a channel for Table with given channel name and tableName */
+  private SnowflakeStreamingIngestChannel openChannelForTable(
       final String channelName, final String tableName) {
-    return OpenChannelRequest.builder(channelName)
-        .setDBName(this.connectorConfig.get(Utils.SF_DATABASE))
-        .setSchemaName(this.connectorConfig.get(Utils.SF_SCHEMA))
-        .setTableName(tableName)
-        .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
-        .build();
+    OpenChannelRequest channelRequest =
+        OpenChannelRequest.builder(channelName)
+            .setDBName(this.connectorConfig.get(Utils.SF_DATABASE))
+            .setSchemaName(this.connectorConfig.get(Utils.SF_SCHEMA))
+            .setTableName(tableName)
+            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
+            .build();
+    if (streamingIngestClient.isClosed()) {
+      initStreamingClient();
+    }
+    return streamingIngestClient.openChannel(channelRequest);
+  }
+
+  /* Init Streaming client. If is also used to re-init the client if client was closed before. */
+  private void initStreamingClient() {
+    Properties streamingClientProps = new Properties();
+    streamingClientProps.putAll(connectorConfig);
+    if (this.streamingIngestClient == null || this.streamingIngestClient.isClosed()) {
+
+      this.streamingIngestClient =
+          SnowflakeStreamingIngestClientFactory.builder(this.streamingIngestClientName)
+              .setProperties(streamingClientProps)
+              .build();
+    }
   }
 
   private void closeStreamingClient() {
