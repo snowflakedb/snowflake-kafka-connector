@@ -11,9 +11,12 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -95,6 +98,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
 
+  /**
+   * Public ctor used from SnowflakeSinkTask
+   *
+   * @param conn Used for Connecting to Snowflake (JDBC)
+   * @param connectorConfig all user defined properties
+   */
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
     if (conn == null || conn.isClosed()) {
@@ -124,12 +133,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void startTask(String tableName, String topic, int partition) {
     String partitionChannelKey = partitionChannelKey(topic, partition);
-    LOGGER.info(
-        "Opening a channel with name:{} for table name:{}, topic:{}, partition:{}",
-        partitionChannelKey,
-        tableName,
-        topic,
-        partition);
     // the table should be present before opening a channel so lets do a table existence check here
     createTableIfNotExists(tableName);
     SnowflakeStreamingIngestChannel partitionChannel =
@@ -139,14 +142,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     partitionsToChannel.putIfAbsent(partitionChannelKey, topicPartitionChannel);
   }
 
-  /**
-   * Inserts the given record into buffer and then eventually calls insertRows API if buffer
-   * threshold has reached.
-   *
-   * <p>TODO: SNOW-473896 - Please note we will get away with Buffering logic in future commits.
-   *
-   * @param records record content
-   */
+  /** @param records record content */
   @Override
   public void insert(Collection<SinkRecord> records) {
     Map<String, List<SinkRecord>> topicPartitionsToRecords = new HashMap<>();
@@ -167,48 +163,28 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // topicPartitions, we will start processing those records
 
     // once they are processed, we will immediately call insertRows API and not buffer
-    // TODO:: Optimize processing and calling insertRows in its own thread
-    // Take a look at https://github.com/confluentinc/kafka-connect-bigquery/blob/master/kcbq-connector/src/main/java/com/wepay/kafka/connect/bigquery/write/batch/GCSBatchTableWriter.java
+    // TODO: SNOW-536611 Optimize processing and calling insertRows in its own thread
+    // Take a look at
+    // https://github.com/confluentinc/kafka-connect-bigquery/blob/master/kcbq-connector/src/main/java/com/wepay/kafka/connect/bigquery/write/batch/GCSBatchTableWriter.java
     // they do similar thing and run it in multiple threads as runnable task
     topicPartitionsToRecords.forEach(
         (topicPartitionChannelName, sinkRecords) -> {
           TopicPartitionChannel partitionChannel =
               partitionsToChannel.get(topicPartitionChannelName);
-          // sets the received records in put API in TopicPartitionChannel
-          //          partitionChannel.setSinkRecordsFromKafka(sinkRecords);
-
-          // Step1: We will process each record (Convert the SinkRecord to snowflake
-          // record/JSON-ify)
-          // Step2: Buffer them and immediately call insertRows API after we have processed all
-          // records for this partition
           partitionChannel.processAndInsertSinkRecords(sinkRecords);
         });
   }
 
-  public String getOrInitTopicPartitionChannelName(SinkRecord record) {
-    String nameIndex = getNameIndex(record.topic(), record.kafkaPartition());
-    // init a new topic partition
-    if (!partitionsToChannel.containsKey(nameIndex)) {
-      LOGGER.warn(
-          "Topic: {} Partition: {} hasn't been initialized by OPEN " + "function",
-          record.topic(),
-          record.kafkaPartition());
-      startTask(
-          Utils.tableName(record.topic(), this.topic2TableMap),
-          record.topic(),
-          record.kafkaPartition());
-    }
-    return nameIndex;
-  }
-
   /**
-   * Inserts individual records into buffer. It fetches the TopicPartitionChannel from the map and
-   * then each partition(Streaming channel) calls its respective insertRows API
+   * Return a unique string consisting topic and partition number and insert it into a
+   * partitionsToChannel Map if that key was not present before.
    *
-   * @param record record content
+   * If unique key is not present in {@link #partitionsToChannel} map, start the task too.
+   *
+   * @param record record to fetch Topic name and partition no.
+   * @return unique
    */
-  @Override
-  public void insert(SinkRecord record) {
+  private String getOrInitTopicPartitionChannelName(SinkRecord record) {
     String partitionChannelKey = partitionChannelKey(record.topic(), record.kafkaPartition());
     // init a new topic partition
     if (!partitionsToChannel.containsKey(partitionChannelKey)) {
@@ -221,19 +197,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           record.topic(),
           record.kafkaPartition());
     }
+    return partitionChannelKey;
+  }
 
-    TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
-    channelPartition.insertRecordToBuffer(record);
-
-    // # of records or size based flushing
-    if (channelPartition.getStreamingBuffer().getBufferSize() >= getFileSize()
-        || (getRecordNumber() != 0
-            && channelPartition.getStreamingBuffer().getNumOfRecord() >= getRecordNumber())) {
-      LOGGER.info(
-          "Either a record based flush or a size based flush(insertRow) for channel:{}",
-          channelPartition.getChannelName());
-      channelPartition.insertBufferedRows();
-    }
+  /**
+   * We use {@link #insert(Collection)} in production. So this single record internally calls
+   * mentioned function wrapped around a list.
+   *
+   * @param record record content
+   */
+  @Override
+  public void insert(SinkRecord record) {
+    insert(Collections.singletonList(record));
   }
 
   @Override
@@ -422,6 +397,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     if (streamingIngestClient.isClosed()) {
       initStreamingClient();
     }
+    LOGGER.info("Opening a channel with name:{} for table name:{}", channelName, tableName);
     return streamingIngestClient.openChannel(channelRequest);
   }
 
@@ -430,7 +406,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     Properties streamingClientProps = new Properties();
     streamingClientProps.putAll(connectorConfig);
     if (this.streamingIngestClient == null || this.streamingIngestClient.isClosed()) {
-
+      LOGGER.debug("Initializing Streaming Client. ClientName:{}", this.streamingIngestClientName);
       this.streamingIngestClient =
           SnowflakeStreamingIngestClientFactory.builder(this.streamingIngestClientName)
               .setProperties(streamingClientProps)

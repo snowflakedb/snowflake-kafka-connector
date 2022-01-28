@@ -21,8 +21,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
-import net.snowflake.ingest.streaming.InsertValidationResponse;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>The number of TopicPartitionChannel objects can scale in proportion to the number of
  * partitions of a topic.
-
+ *
  * <p>Please note: No two tasks can work on a same partition
  *
  * <p>@see <a
@@ -55,14 +55,12 @@ public class TopicPartitionChannel {
    * We will use this buffer only for storing temporary records which are converted into Snowflake
    * understood table format.
    *
-   * Records will be buffered after they are being processed. (Key and
-   * values are converted to Json format since there is only format table in Snowflake for a
-   * kafka topic at the moment)
+   * <p>Records will be buffered after they are being processed. (Key and values are converted to
+   * Json format since there is only format table in Snowflake for a kafka topic at the moment)
    *
-   * The data from this buffer will then be used to call insertRows
-   * API
+   * <p>The data from this buffer will then be used to call insertRows API
    *
-   * Hence, buffer here is just transient and doesnt live long enough.
+   * <p>Hence, buffer here is just transient and doesnt live long enough.
    */
   private PartitionBuffer streamingBuffer;
 
@@ -116,12 +114,20 @@ public class TopicPartitionChannel {
     this.committedOffset = new AtomicLong(0);
   }
 
+  /**
+   * Step1: We will process each record (Convert the SinkRecord to JSON)
+   *
+   * <p>Step2: Store them in memory and immediately call insertRows API after we have processed all
+   * records for this partition.
+   *
+   * @param recordsFromPut API in which kafka sends us records to ingest.
+   */
   public void processAndInsertSinkRecords(final List<SinkRecord> recordsFromPut) {
     LOGGER.debug(
         "Processing {} records from Kafka. TopicPartitionChannelInfo:{}",
         recordsFromPut.size(),
         this);
-    recordsFromPut.forEach(this::insertRecordToBuffer);
+    recordsFromPut.forEach(this::insertRecordToTransientBuffer);
 
     LOGGER.debug(
         "Successfully Processed/buffered {} records from Kafka for TopicPartitionChannelInfo:{}",
@@ -131,7 +137,7 @@ public class TopicPartitionChannel {
   }
 
   // inserts the record into buffer
-  public void insertRecordToBuffer(SinkRecord record) {
+  public void insertRecordToTransientBuffer(SinkRecord record) {
     if (!hasChannelInitialized) {
       // This will only be called once at the beginning when an offset arrives for first time
       // after connector starts/rebalance
