@@ -26,6 +26,7 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class SnowflakeSinkServiceV2IT {
@@ -69,7 +70,7 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.dropTableStreaming(table);
   }
 
-  //  @Ignore
+  @Ignore
   @Test
   public void testSinkServiceV2Builder() {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -99,7 +100,50 @@ public class SnowflakeSinkServiceV2IT {
         });
   }
 
-  //  @Ignore
+  @Ignore
+  @Test
+  public void testChannelCloseIngestion() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    conn.createTable(table);
+
+    // opens a channel for partition 0, table and topic
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .addTask(table, topic, partition) // Internally calls startTask
+            .build();
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input =
+        converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+    long offset = 0;
+
+    SinkRecord record1 =
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test_key" + offset,
+            input.schema(),
+            input.value(),
+            offset);
+
+    // Lets close the service
+    // Closing a partition == closing a channel
+    service.close(Collections.singletonList(new TopicPartition(topic, partition)));
+
+    // Lets insert a record when partition was closed.
+    // It should auto create the channel
+    service.insert(record1);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 0, 20, 5);
+
+    service.closeAll();
+  }
+
+  @Ignore
   @Test
   public void testStreamingIngestion() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -144,14 +188,25 @@ public class SnowflakeSinkServiceV2IT {
             input.schema(),
             input.value(),
             offset);
-    service.insert(record2);
+    offset += 1;
+    SinkRecord record3 =
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test_key" + offset,
+            input.schema(),
+            input.value(),
+            offset);
+
+    service.insert(Arrays.asList(record2, record3));
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 2, 20, 5);
 
     service.closeAll();
   }
 
-  //  @Ignore
+  @Ignore
   @Test
   public void testNativeJsonInputIngestion() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -247,7 +302,7 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  //  @Ignore
+  @Ignore
   @Test
   public void testNativeAvroInputIngestion() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -408,7 +463,7 @@ public class SnowflakeSinkServiceV2IT {
   }
 
   // TODO: Check content in DLQ if records are broken SNOW-451197
-  //  @Ignore
+  @Ignore
   @Test
   public void testBrokenIngestion() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -464,7 +519,7 @@ public class SnowflakeSinkServiceV2IT {
         () -> service.getOffset(new TopicPartition(topic, partition)) == -1, 20, 5);
   }
 
-  //  @Ignore
+  @Ignore
   @Test
   public void testBrokenRecordIngestionFollowedUpByValidRecord() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
