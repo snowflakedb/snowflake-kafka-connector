@@ -65,6 +65,9 @@ public class TopicPartitionChannel {
 
   // ------- Kafka record related properties ------- //
   // Offset number we would want to commit back to kafka
+  // This value is + 1 of what we find in snowflake.
+  // It tells kafka to start sending offsets from this offset because earlier ones have been
+  // ingested. (Hence it +1)
   private final AtomicLong committedOffset;
 
   // added to buffer before calling insertRows
@@ -83,7 +86,7 @@ public class TopicPartitionChannel {
 
     this.streamingBuffer = new StreamingBuffer();
     this.processedOffset = new AtomicLong(-1);
-    this.committedOffset = new AtomicLong(-1);
+    this.committedOffset = new AtomicLong(0);
   }
 
   // inserts the record into buffer
@@ -129,6 +132,7 @@ public class TopicPartitionChannel {
   }
 
   /* TODO: SNOW-529753 Deal with rebalances and restarts */
+  /* TODO: SNOW-536429 For EOS, also fetch the offset from snowflake during rebalance/restart */
   private void init(long recordOffset) {
     try {
       startCleaner(recordOffset);
@@ -273,7 +277,10 @@ public class TopicPartitionChannel {
         || lastOffsetCommitted.equalsIgnoreCase("null")) {
       return committedOffset.get();
     } else {
-      return committedOffset.updateAndGet(operand -> Long.parseLong(lastOffsetCommitted));
+      // Return an offset which is + 1 of what was present in snowflake.
+      // Idea of sending + 1 back to Kafka is that it should start sending offsets after task
+      // restart from this offset
+      return committedOffset.updateAndGet(operand -> Long.parseLong(lastOffsetCommitted) + 1);
     }
   }
 

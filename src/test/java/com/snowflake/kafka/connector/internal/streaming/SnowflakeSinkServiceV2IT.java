@@ -138,7 +138,7 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(record1);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 0, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
 
     service.closeAll();
   }
@@ -175,7 +175,7 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(record1);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 0, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
 
     // insert another offset and check what we committed
     offset += 1;
@@ -201,7 +201,7 @@ public class SnowflakeSinkServiceV2IT {
 
     service.insert(Arrays.asList(record2, record3));
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 2, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 3, 20, 5);
 
     service.closeAll();
   }
@@ -297,7 +297,7 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(schemaRecordKey);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
 
     service.closeAll();
   }
@@ -457,7 +457,7 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(avroRecordKeyValue);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
 
     service.closeAll();
   }
@@ -516,7 +516,7 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(brokenKeyValue);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == -1, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 0, 20, 5);
   }
 
   @Ignore
@@ -555,7 +555,7 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(correctValue);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 2, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 3, 20, 5);
 
     service.closeAll();
   }
