@@ -121,7 +121,7 @@ public class SnowflakeSinkConnectorConfig {
   private static final ConfigDef.Validator DELIVERY_GUARANTEE_VALIDATOR =
       new DeliveryGuaranteeValidator();
 
-  static void setDefaultValues(Map<String, String> config) {
+  public static void setDefaultValues(Map<String, String> config) {
     setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);
 
     setFieldToDefaultValues(config, BUFFER_SIZE_BYTES, BUFFER_SIZE_BYTES_DEFAULT);

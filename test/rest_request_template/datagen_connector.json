@@ -1,0 +1,14 @@
+{
+  "name": "datagen-stocktrades_kc",
+  "config": {
+    "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
+    "kafka.topic": "SNOWFLAKESINK_JP_KC",
+    "quickstart": "Stock_Trades",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "max.interval": 10,
+    "iterations": 100000,
+    "tasks.max": "1"
+  }
+}
