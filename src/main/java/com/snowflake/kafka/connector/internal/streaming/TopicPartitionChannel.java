@@ -273,8 +273,7 @@ public class TopicPartitionChannel {
         "Last committed offset for partition channel:{} is :{}",
         this.channel.getFullyQualifiedName(),
         lastOffsetCommitted);
-    if (Strings.isNullOrEmpty(lastOffsetCommitted)
-        || lastOffsetCommitted.equalsIgnoreCase("null")) {
+    if (Strings.isNullOrEmpty(lastOffsetCommitted)) {
       return committedOffset.get();
     } else {
       // Return an offset which is + 1 of what was present in snowflake.

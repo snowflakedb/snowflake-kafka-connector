@@ -44,7 +44,7 @@ public class SnowflakeSinkServiceFactory {
       if (ingestionType == IngestionMethodConfig.SNOWPIPE) {
         this.service = new SnowflakeSinkServiceV1(conn);
       } else {
-        service = new SnowflakeSinkServiceV2(conn, connectorConfig);
+        this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
       }
 
       logInfo("{} created", this.service.getClass().getName());
