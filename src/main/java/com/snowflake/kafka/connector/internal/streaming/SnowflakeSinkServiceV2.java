@@ -440,9 +440,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
-  /**
-   * Closes the streaming client.
-   */
+  /** Closes the streaming client. */
   private void closeStreamingClient() {
     LOGGER.info("Closing Streaming Client:{}", this.streamingIngestClientName);
     try {

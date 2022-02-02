@@ -2,14 +2,12 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
-
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,7 +16,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -28,6 +25,7 @@ import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -80,7 +78,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 1, 20, 5);
 
     TestUtils.assertWithRetry(
-            () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(0)).offset() == 1, 20, 5);
+        () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(0)).offset() == 1, 20, 5);
 
     sinkTask.close(topicPartitions);
     sinkTask.stop();
@@ -113,12 +111,13 @@ public class SnowflakeSinkTaskForStreamingIT {
     final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
     offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(lastOffsetNo));
 
-
     TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 1, 20, 5);
 
     // precommit is one more than offset last inserted
     TestUtils.assertWithRetry(
-            () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(0)).offset() == noOfRecords, 20, 5);
+        () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(0)).offset() == noOfRecords,
+        20,
+        5);
 
     sinkTask.close(topicPartitions);
 
@@ -130,7 +129,8 @@ public class SnowflakeSinkTaskForStreamingIT {
     // trying to put same records
     sinkTask.put(records);
 
-    List<SinkRecord> recordsWithAnotherPartition = createJsonStringSinkRecords(noOfRecords, topicName, partition + 1);
+    List<SinkRecord> recordsWithAnotherPartition =
+        createJsonStringSinkRecords(noOfRecords, topicName, partition + 1);
     sinkTask.put(recordsWithAnotherPartition);
 
     // Adding to offsetMap so that this gets into precommit
@@ -139,10 +139,10 @@ public class SnowflakeSinkTaskForStreamingIT {
     TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 2, 20, 5);
 
     TestUtils.assertWithRetry(
-            () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(0)).offset() == 1, 20, 5);
+        () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(0)).offset() == 1, 20, 5);
 
     TestUtils.assertWithRetry(
-            () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(1)).offset() == 1, 20, 5);
+        () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(1)).offset() == 1, 20, 5);
 
     sinkTask.close(topicPartitions);
 
@@ -162,21 +162,22 @@ public class SnowflakeSinkTaskForStreamingIT {
     ObjectMapper mapper = new ObjectMapper();
 
     Set<Long> partitionsInTable = new HashSet<>();
-    metadataResult.forEach(s -> {
-      try {
-        JsonNode metadata = mapper.readTree(s);
-        metadata.get("offset").asText().equals("0");
-        partitionsInTable.add(metadata.get("partition").asLong());
-      } catch (JsonProcessingException e) {
-        e.printStackTrace();
-      }
-    });
+    metadataResult.forEach(
+        s -> {
+          try {
+            JsonNode metadata = mapper.readTree(s);
+            metadata.get("offset").asText().equals("0");
+            partitionsInTable.add(metadata.get("partition").asLong());
+          } catch (JsonProcessingException e) {
+            Assert.fail();
+          }
+        });
 
     assert partitionsInTable.size() == 2;
-
   }
 
-  private List<SinkRecord> createJsonStringSinkRecords(final long noOfRecords, final String topicName, final int partitionNo) throws Exception {
+  private List<SinkRecord> createJsonStringSinkRecords(
+      final long noOfRecords, final String topicName, final int partitionNo) throws Exception {
     ArrayList<SinkRecord> records = new ArrayList<>();
     String json = "{ \"f1\" : \"v1\" } ";
     ObjectMapper objectMapper = new ObjectMapper();
@@ -184,16 +185,16 @@ public class SnowflakeSinkTaskForStreamingIT {
     SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
     for (int i = 0; i < noOfRecords; ++i) {
       records.add(
-              new SinkRecord(
-                      topicName,
-                      partitionNo,
-                      snowflakeSchema,
-                      content,
-                      snowflakeSchema,
-                      content,
-                      i,
-                      System.currentTimeMillis(),
-                      TimestampType.CREATE_TIME));
+          new SinkRecord(
+              topicName,
+              partitionNo,
+              snowflakeSchema,
+              content,
+              snowflakeSchema,
+              content,
+              i,
+              System.currentTimeMillis(),
+              TimestampType.CREATE_TIME));
     }
     return records;
   }
