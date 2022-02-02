@@ -548,6 +548,14 @@ public class Utils {
                     config.get(INGESTION_METHOD_OPT)));
             configIsValid = false;
           }
+          // setting delivery guarantee to EOS.
+          // It is fine for customer to not set this value if Streaming SNOWPIPE is used.
+          deliveryGuarantee =
+              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
+                  config.getOrDefault(
+                      DELIVERY_GUARANTEE,
+                      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.name()));
+
           if (deliveryGuarantee.equals(
               SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE)) {
             LOGGER.error(

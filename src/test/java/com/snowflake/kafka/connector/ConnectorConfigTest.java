@@ -356,4 +356,14 @@ public class ConnectorConfigTest {
         SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.name());
     Utils.validateConfig(config);
   }
+
+  @Test
+  public void testIngestionTypeConfig_streaming_default_delivery_guarantee() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+  }
 }
