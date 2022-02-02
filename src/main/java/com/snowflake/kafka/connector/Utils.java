@@ -512,11 +512,15 @@ public class Utils {
       }
     }
 
+    // This is default for SNOWPIPE based KC because that is GA.
+    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee deliveryGuarantee =
+        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE;
     try {
-      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
-          config.getOrDefault(
-              DELIVERY_GUARANTEE,
-              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
+      deliveryGuarantee =
+          SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
+              config.getOrDefault(
+                  DELIVERY_GUARANTEE,
+                  SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
     } catch (IllegalArgumentException exception) {
       LOGGER.error(
           Logging.logMessage(
@@ -524,6 +528,8 @@ public class Utils {
       configIsValid = false;
     }
 
+    // For snowpipe_streaming, role should be non empty and delivery guarantee should be exactly
+    // once. (Which is default)
     if (config.containsKey(INGESTION_METHOD_OPT)) {
       try {
         // This throws an exception if config value is invalid.
@@ -541,6 +547,15 @@ public class Utils {
                     Utils.SF_ROLE,
                     config.get(INGESTION_METHOD_OPT)));
             configIsValid = false;
+          }
+          if (deliveryGuarantee.equals(
+              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE)) {
+            LOGGER.error(
+                Logging.logMessage(
+                    "Config:{} should be:{}",
+                    DELIVERY_GUARANTEE,
+                    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE
+                        .toString()));
           }
         }
       } catch (ConfigException exception) {
