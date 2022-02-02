@@ -259,10 +259,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * This function is called during rebalance. Please ensure we dont wipe of state when we are
    * invoking this function.
    *
-   * <p>The channel is not closed since we would need to reiniate the channel.
+   * <p>The channel is not closed since we would need to re-initiate the channel.
    *
-   * <p>Also, wiping off partitionsToChannel map would mean we would will need to reinitialise and
-   * we will lose processedOffset information.
+   * <p>Also, wiping off partitionsToChannel map would mean we would need to reinitialise and we
+   * will lose processedOffset information.
+   *
+   * <p>We will only close the client.
    *
    * @param partitions a list of topic partition
    */
@@ -424,6 +426,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     streamingClientProps.putAll(streamingPropertiesMap);
     if (this.streamingIngestClient == null || this.streamingIngestClient.isClosed()) {
       try {
+        LOGGER.info("Initializing Streaming Client. ClientName:{}", this.streamingIngestClientName);
         this.streamingIngestClient =
             SnowflakeStreamingIngestClientFactory.builder(this.streamingIngestClientName)
                 .setProperties(streamingClientProps)
@@ -437,9 +440,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
+  /**
+   * Closes the streaming client.
+   */
   private void closeStreamingClient() {
-    // do we need to close the client? If I close, I will have to re init the client upon rebalance
-    // in open()
     LOGGER.info("Closing Streaming Client:{}", this.streamingIngestClientName);
     try {
       streamingIngestClient.close();

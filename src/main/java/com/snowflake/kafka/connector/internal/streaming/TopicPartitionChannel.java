@@ -41,8 +41,8 @@ public class TopicPartitionChannel {
   private long previousFlushTimeStampMs;
 
   /**
-   * States whether this channel has had any data before.
-   * If this is false, the topicPartitionChannel has recently been initialised and didnt receive any records before
+   * States whether this channel has had any data before. If this is false, the
+   * topicPartitionChannel has recently been initialised and didnt receive any records before
    */
   private boolean hasChannelInitialized = false;
 
@@ -72,8 +72,7 @@ public class TopicPartitionChannel {
   private final AtomicLong processedOffset; // processed offset
 
   // Ctor
-  public TopicPartitionChannel(
-      SnowflakeStreamingIngestChannel channel) {
+  public TopicPartitionChannel(SnowflakeStreamingIngestChannel channel) {
     this.channel = channel;
     this.recordService = new RecordService();
     this.previousFlushTimeStampMs = System.currentTimeMillis();
@@ -110,10 +109,6 @@ public class TopicPartitionChannel {
 
       // broken record
       if (isRecordBroken(snowflakeRecord)) {
-        LOGGER.info(
-            "Inserting broken record for topic:{}, offset:{}",
-            snowflakeRecord.topic(),
-            snowflakeRecord.kafkaOffset());
         // write it to DLQ SNOW-451197
       } else {
         // lag telemetry, note that sink record timestamp might be null
