@@ -137,7 +137,7 @@ public class TopicPartitionChannel {
     }
   }
 
-  /* For EOS, fetch the offset from snowflake during only during first time the connector starts. */
+  /* For EOS, fetch the offset from snowflake during only during first time after connector starts and record is received in Kafka Connector */
   private void fetchLastCommittedOffsetToken() {
     String offsetToken = this.channel.getLatestCommittedOffsetToken();
     try {
