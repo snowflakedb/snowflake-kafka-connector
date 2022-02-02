@@ -552,10 +552,11 @@ public class Utils {
               SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE)) {
             LOGGER.error(
                 Logging.logMessage(
-                    "Config:{} should be:{}",
+                    "Config:{} should be:{} if ingestion method is:{}",
                     DELIVERY_GUARANTEE,
-                    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE
-                        .toString()));
+                    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.toString(),
+                    IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+            configIsValid = false;
           }
         }
       } catch (ConfigException exception) {

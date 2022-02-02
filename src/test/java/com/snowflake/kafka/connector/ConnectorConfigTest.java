@@ -330,4 +330,30 @@ public class ConnectorConfigTest {
     config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, "INVALID_VALUE");
     Utils.validateConfig(config);
   }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testIngestionTypeConfig_streaming_invalid_delivery_guarantee() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    config.put(
+        SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE,
+        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name());
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testIngestionTypeConfig_streaming_valid_delivery_guarantee() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    config.put(
+        SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE,
+        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.name());
+    Utils.validateConfig(config);
+  }
 }
