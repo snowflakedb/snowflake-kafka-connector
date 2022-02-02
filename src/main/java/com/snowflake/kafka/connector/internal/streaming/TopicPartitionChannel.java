@@ -2,11 +2,9 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -38,11 +36,14 @@ import org.slf4j.LoggerFactory;
  */
 public class TopicPartitionChannel {
   private static final Logger LOGGER = LoggerFactory.getLogger(TopicPartitionChannel.class);
-  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   // more of previousInsertRowTsMs
   private long previousFlushTimeStampMs;
 
+  /**
+   * States whether this channel has had any data before.
+   * If this is false, the topicPartitionChannel has recently been initialised and didnt receive any records before
+   */
   private boolean hasChannelInitialized = false;
 
   /* Buffer to hold JSON converted incoming SinkRecords */
@@ -51,17 +52,14 @@ public class TopicPartitionChannel {
 
   final Lock bufferLock = new ReentrantLock(true);
 
-  // -------- private final fields -------- //
-
   // used to communicate to the streaming ingest's insertRows API
-  private final SnowflakeStreamingIngestChannel channel;
+  // This channel is not everlasting
+  private SnowflakeStreamingIngestChannel channel;
 
-  private final SnowflakeConnectionService snowflakeConnectionService;
+  // -------- private final fields -------- //
 
   /* Responsible for converting records to Json */
   private final RecordService recordService;
-
-  private final String tableName;
 
   // ------- Kafka record related properties ------- //
   // Offset number we would want to commit back to kafka
@@ -75,18 +73,19 @@ public class TopicPartitionChannel {
 
   // Ctor
   public TopicPartitionChannel(
-      SnowflakeStreamingIngestChannel channel,
-      SnowflakeConnectionService connectionService,
-      final String tableName) {
+      SnowflakeStreamingIngestChannel channel) {
     this.channel = channel;
-    this.snowflakeConnectionService = connectionService;
     this.recordService = new RecordService();
-    this.tableName = tableName;
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
     this.streamingBuffer = new StreamingBuffer();
     this.processedOffset = new AtomicLong(-1);
     this.committedOffset = new AtomicLong(0);
+  }
+
+  /* Update the channel */
+  protected void updateStreamingIngestChannel(SnowflakeStreamingIngestChannel updatedChannel) {
+    this.channel = updatedChannel;
   }
 
   // inserts the record into buffer
@@ -111,6 +110,10 @@ public class TopicPartitionChannel {
 
       // broken record
       if (isRecordBroken(snowflakeRecord)) {
+        LOGGER.info(
+            "Inserting broken record for topic:{}, offset:{}",
+            snowflakeRecord.topic(),
+            snowflakeRecord.kafkaOffset());
         // write it to DLQ SNOW-451197
       } else {
         // lag telemetry, note that sink record timestamp might be null
@@ -215,6 +218,12 @@ public class TopicPartitionChannel {
       this.previousFlushTimeStampMs = System.currentTimeMillis();
       return;
     }
+    LOGGER.debug(
+        "Invoking insertRows API for channel:{}, noOfRecords:{}, startOffset:{}, endOffset:{}",
+        this,
+        intermediateBuffer.getNumOfRecord(),
+        intermediateBuffer.getFirstOffset(),
+        intermediateBuffer.getLastOffset());
     InsertValidationResponse response =
         channel.insertRows(
             (Iterable<Map<String, Object>>) intermediateBuffer.getData(),
@@ -297,6 +306,11 @@ public class TopicPartitionChannel {
     }
   }
 
+  /* Return true is channel is closed. Caller should handle the logic for reopening the channel if it is closed. */
+  public boolean isChannelClosed() {
+    return this.channel.isClosed();
+  }
+
   // ------ GETTERS ------ //
 
   public PartitionBuffer getStreamingBuffer() {
@@ -308,7 +322,14 @@ public class TopicPartitionChannel {
   }
 
   public String getChannelName() {
-    return this.channel.getFullyQualifiedTableName();
+    return this.channel.getFullyQualifiedName();
+  }
+
+  public String toString() {
+    return "StreamingChannelName:"
+        + getChannelName()
+        + ", FullyQualifiedTableName:{}"
+        + this.channel.getFullyQualifiedTableName();
   }
 
   // ------ INNER CLASS ------ //
