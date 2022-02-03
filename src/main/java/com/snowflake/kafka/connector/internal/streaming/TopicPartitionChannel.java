@@ -39,6 +39,8 @@ import org.slf4j.LoggerFactory;
 public class TopicPartitionChannel {
   private static final Logger LOGGER = LoggerFactory.getLogger(TopicPartitionChannel.class);
 
+  private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
+
   // more of previousInsertRowTsMs
   private long previousFlushTimeStampMs;
 
@@ -60,6 +62,11 @@ public class TopicPartitionChannel {
   // This channel is not everlasting
   private SnowflakeStreamingIngestChannel channel;
 
+  // This offset is updated when Snowflake has received offset from insertRows API
+  // We will update this value after calling offsetToken API for this channel
+  // We will only update it during start of the channel initialization
+  private long offsetPersistedInSnowflake = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+
   // -------- private final fields -------- //
 
   /* Responsible for converting records to Json */
@@ -74,10 +81,6 @@ public class TopicPartitionChannel {
 
   // added to buffer before calling insertRows
   private final AtomicLong processedOffset; // processed offset
-
-  // This offset is updated when Snowflake has received offset from insertRows API
-  // We will update this value after calling offsetToken API for this channel
-  private final AtomicLong offsetPersistedInSnowflake = new AtomicLong(-1);
 
   // Ctor
   public TopicPartitionChannel(SnowflakeStreamingIngestChannel channel) {
@@ -113,7 +116,7 @@ public class TopicPartitionChannel {
 
     // discard the record if the record offset is smaller or equal to server side offset, or if
     // record is smaller than any other record offset we received before
-    if (record.kafkaOffset() > this.offsetPersistedInSnowflake.get()
+    if (record.kafkaOffset() > this.offsetPersistedInSnowflake
         && record.kafkaOffset() > processedOffset.get()) {
       SinkRecord snowflakeRecord = record;
       if (shouldConvertContent(snowflakeRecord.value())) {
@@ -151,13 +154,13 @@ public class TopicPartitionChannel {
     String offsetToken = this.channel.getLatestCommittedOffsetToken();
     try {
       if (offsetToken == null) {
-        this.offsetPersistedInSnowflake.set(-1);
+        this.offsetPersistedInSnowflake = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
       } else {
-        this.offsetPersistedInSnowflake.set(Long.parseLong(offsetToken));
+        this.offsetPersistedInSnowflake = Long.parseLong(offsetToken);
       }
       LOGGER.info(
           "Fetched offsetToken:{} for channelName:{} during channel initialization.",
-          this.offsetPersistedInSnowflake.get(),
+          this.offsetPersistedInSnowflake,
           this.getChannelName());
     } catch (NumberFormatException e) {
       final String errorMsg =
@@ -366,7 +369,7 @@ public class TopicPartitionChannel {
 
   /* For testing */
   protected long getOffsetPersistedInSnowflake() {
-    return this.offsetPersistedInSnowflake.get();
+    return this.offsetPersistedInSnowflake;
   }
 
   // ------ INNER CLASS ------ //
