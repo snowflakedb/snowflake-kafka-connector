@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
@@ -21,6 +22,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -96,6 +98,12 @@ public class TopicPartitionChannel {
   // inserts the record into buffer
   public void insertRecordToBuffer(SinkRecord record) {
     if (!hasChannelReceivedAnyRecordsBefore) {
+      LOGGER.info(
+          "Received offset:{} for topic:{} as the first offset for this partition:{} after"
+              + " start/restart",
+          record.kafkaOffset(),
+          record.topic(),
+          record.kafkaPartition());
       // This will only be called once at the beginning when an offset arrives for first time
       // after connector starts
       fetchLastCommittedOffsetToken();
@@ -138,7 +146,8 @@ public class TopicPartitionChannel {
   }
 
   /* For EOS, fetch the offset from snowflake during only during first time after connector starts and record is received in Kafka Connector */
-  private void fetchLastCommittedOffsetToken() {
+  @VisibleForTesting
+  protected void fetchLastCommittedOffsetToken() {
     String offsetToken = this.channel.getLatestCommittedOffsetToken();
     try {
       if (offsetToken == null) {
@@ -151,11 +160,13 @@ public class TopicPartitionChannel {
           this.offsetPersistedInSnowflake.get(),
           this.getChannelName());
     } catch (NumberFormatException e) {
-      LOGGER.error(
-          "The offsetToken string does not contain a parsable long:{},"
-              + "offsetTokenLastRetrieved:{}. ",
-          this.getChannelName(),
-          this.offsetPersistedInSnowflake.get());
+      final String errorMsg =
+          String.format(
+              "The offsetToken string does not contain a parsable long: %s,"
+                  + " offsetTokenLastRetrieved: %s. ",
+              this.getChannelName(), offsetToken);
+      LOGGER.error(errorMsg);
+      throw new ConnectException(errorMsg, e);
     }
   }
 
@@ -351,6 +362,11 @@ public class TopicPartitionChannel {
         + ", processedOffset="
         + processedOffset
         + '}';
+  }
+
+  /* For testing */
+  protected long getOffsetPersistedInSnowflake() {
+    return this.offsetPersistedInSnowflake.get();
   }
 
   // ------ INNER CLASS ------ //
