@@ -17,7 +17,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
@@ -416,8 +415,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // in open()
     LOGGER.info("Closing Streaming Client:{}", this.streamingIngestClientName);
     try {
-      streamingIngestClient.close().get();
-    } catch (InterruptedException | ExecutionException e) {
+      streamingIngestClient.close();
+    } catch (Exception e) {
       LOGGER.error(
           Logging.logMessage(
               "Failure closing Streaming client msg:{}, cause:{}",
