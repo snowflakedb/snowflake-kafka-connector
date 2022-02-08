@@ -16,6 +16,10 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
+
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.math.BigDecimal;
@@ -23,8 +27,10 @@ import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayNode;
@@ -32,6 +38,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.JsonNo
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.*;
+import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -84,9 +91,9 @@ public class RecordService extends Logging {
    * process given SinkRecord, only support snowflake converters
    *
    * @param record SinkRecord
-   * @return a record string, already to output
+   * @return a Row wrapper which contains both actual content(payload) and metadata
    */
-  public String processRecord(SinkRecord record) {
+  private SnowflakeTableRow processRecord(SinkRecord record) {
     if (record.value() == null || record.valueSchema() == null) {
       throw SnowflakeErrors.ERROR_5016.getException();
     }
@@ -126,16 +133,72 @@ public class RecordService extends Logging {
       meta.set(HEADERS, parseHeaders(record.headers()));
     }
 
+    return new SnowflakeTableRow(valueContent, meta);
+  }
+
+  /**
+   * Given a single Record from put API, process it and convert it into a Json String.
+   *
+   * <p>Remember, Snowflake table has two columns, both of them are VARIANT columns whose contents
+   * are in JSON
+   *
+   * @param record record from Kafka
+   * @return Json String with metadata and actual Payload from Kafka Record
+   */
+  public String getProcessedRecordForSnowpipe(SinkRecord record) {
+    SnowflakeTableRow row = processRecord(record);
     StringBuilder buffer = new StringBuilder();
-    for (JsonNode node : valueContent.getData()) {
+    for (JsonNode node : row.content.getData()) {
       ObjectNode data = MAPPER.createObjectNode();
       data.set(CONTENT, node);
       if (metadataConfig.allFlag) {
-        data.set(META, meta);
+        data.set(META, row.metadata);
       }
       buffer.append(data.toString());
     }
     return buffer.toString();
+  }
+
+  /**
+   * Given a single Record from put API, process it and convert it into Map of String and Object.
+   *
+   * <p>This map contains two Keys and its corresponding values
+   *
+   * <p>Two keys are the column names and values are its contents.
+   *
+   * <p>Remember, Snowflake table has two columns, both of them are VARIANT columns whose contents
+   * are in JSON
+   *
+   * @param record record from Kafka Broker
+   * @return Json String with metadata and actual Payload from Kafka Record
+   */
+  public Map<String, Object> getProcessedRecordForStreamingIngest(SinkRecord record) {
+    SnowflakeTableRow row = processRecord(record);
+    final Map<String, Object> streamingIngestRow = new HashMap<>();
+    for (JsonNode node : row.content.getData()) {
+      try {
+        streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));
+        if (metadataConfig.allFlag) {
+          streamingIngestRow.put(TABLE_COLUMN_METADATA, MAPPER.writeValueAsString(row.metadata));
+        }
+      } catch (JsonProcessingException e) {
+        // return an exception and propagate upwards
+        e.printStackTrace();
+      }
+    }
+    return streamingIngestRow;
+  }
+
+  /** For now there are two columns one is content and other is metadata. Both are Json */
+  private static class SnowflakeTableRow {
+    // This can be a JsonNode but we will keep this as is.
+    private final SnowflakeRecordContent content;
+    private final JsonNode metadata;
+
+    public SnowflakeTableRow(SnowflakeRecordContent content, JsonNode metadata) {
+      this.content = content;
+      this.metadata = metadata;
+    }
   }
 
   void putKey(SinkRecord record, ObjectNode meta) {
@@ -345,5 +408,71 @@ public class RecordService extends Logging {
       throw SnowflakeErrors.ERROR_5015.getException(
           "Invalid type for " + schema.type() + ": " + value.getClass());
     }
+  }
+
+  /**
+   * Returns true if we want to skip this record since the value is null or it is an empty json
+   * string.
+   *
+   * <p>Remember, we need to check what is the value schema. Depending on the value schema, we need
+   * to find out if the value is null or empty JSON. It can be empty JSON string in case of custom
+   * snowflake converters.
+   *
+   * <p>If the value is an empty JSON node, we could assume the value passed was null.
+   *
+   * @see com.snowflake.kafka.connector.records.SnowflakeJsonConverter#toConnectData when bytes ==
+   *     null case
+   * @param record record sent from Kafka to KC
+   * @param behaviorOnNullValues behavior passed inside KC
+   * @return true if we would skip adding it to buffer
+   */
+  public boolean shouldSkipNullValue(
+      SinkRecord record,
+      final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues) {
+    if (behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+      return false;
+    } else {
+      boolean isRecordValueNull = false;
+      // get valueSchema
+      Schema valueSchema = record.valueSchema();
+      if (valueSchema instanceof SnowflakeJsonSchema) {
+        // we can conclude this is a custom/KC defined converter.
+        // i.e one of SFJson, SFAvro and SFAvroWithSchemaRegistry Converter
+        if (record.value() instanceof SnowflakeRecordContent) {
+          SnowflakeRecordContent recordValueContent = (SnowflakeRecordContent) record.value();
+          if (recordValueContent.isRecordContentValueNull()) {
+            logDebug(
+                "Record value schema is:{} and value is Empty Json Node for topic {}, partition {}"
+                    + " and offset {}",
+                valueSchema.getClass().getName(),
+                record.topic(),
+                record.kafkaPartition(),
+                record.kafkaOffset());
+            isRecordValueNull = true;
+          }
+        }
+      } else {
+        // Else, it is one of the community converters.
+        // Tombstone handler SMT can be used but we need to check here if value is null if SMT is
+        // not used
+        if (record.value() == null) {
+          logDebug(
+              "Record value is null for topic {}, partition {} and offset {}",
+              record.topic(),
+              record.kafkaPartition(),
+              record.kafkaOffset());
+          isRecordValueNull = true;
+        }
+      }
+      if (isRecordValueNull) {
+        logDebug(
+            "Null valued record from topic '{}', partition {} and offset {} was skipped.",
+            record.topic(),
+            record.kafkaPartition(),
+            record.kafkaOffset());
+        return true;
+      }
+    }
+    return false;
   }
 }

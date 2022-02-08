@@ -48,7 +48,7 @@ public class ProcessRecordTest {
             testCase.value.value(),
             partition);
 
-    String got = service.processRecord(record);
+    String got = service.getProcessedRecordForSnowpipe(record);
 
     assertEquals(testCase.expected, mapper.readTree(got));
   }
