@@ -1,16 +1,33 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Map;
 
 /** A factory to create {@link SnowflakeSinkService} */
 public class SnowflakeSinkServiceFactory {
   /**
-   * create service builder
+   * create service builder. To be used when Snowpipe streaming is the method of ingestion.
    *
    * @param conn snowflake connection service
+   * @param ingestionType ingestion Type based on config
+   * @param connectorConfig KC config map
    * @return a builder instance
+   */
+  public static SnowflakeSinkServiceBuilder builder(
+      SnowflakeConnectionService conn,
+      IngestionMethodConfig ingestionType,
+      Map<String, String> connectorConfig) {
+    return new SnowflakeSinkServiceBuilder(conn, ingestionType, connectorConfig);
+  }
+
+  /**
+   * Basic builder which internally uses SinkServiceV1 (Snowpipe)
+   *
+   * @param conn connection instance for connecting to snowflake
+   * @return A wrapper(Builder) having SinkService instance
    */
   public static SnowflakeSinkServiceBuilder builder(SnowflakeConnectionService conn) {
     return new SnowflakeSinkServiceBuilder(conn);
@@ -20,9 +37,21 @@ public class SnowflakeSinkServiceFactory {
   public static class SnowflakeSinkServiceBuilder extends Logging {
     private final SnowflakeSinkService service;
 
+    private SnowflakeSinkServiceBuilder(
+        SnowflakeConnectionService conn,
+        IngestionMethodConfig ingestionType,
+        Map<String, String> connectorConfig) {
+      if (ingestionType == IngestionMethodConfig.SNOWPIPE) {
+        this.service = new SnowflakeSinkServiceV1(conn);
+      } else {
+        this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
+      }
+
+      logInfo("{} created", this.service.getClass().getName());
+    }
+
     private SnowflakeSinkServiceBuilder(SnowflakeConnectionService conn) {
-      this.service = new SnowflakeSinkServiceV1(conn);
-      logInfo("{} created", this.getClass().getName());
+      this(conn, IngestionMethodConfig.SNOWPIPE, null /* Not required for V1 */);
     }
 
     public SnowflakeSinkServiceBuilder addTask(String tableName, String topic, int partition) {

@@ -73,7 +73,7 @@ public class MetaColumnTest {
             timestamp,
             TimestampType.NO_TIMESTAMP_TYPE);
 
-    String output = service.processRecord(record);
+    String output = service.getProcessedRecordForSnowpipe(record);
 
     JsonNode result = mapper.readTree(output);
 
@@ -107,7 +107,7 @@ public class MetaColumnTest {
     // test metadata configuration -- remove topic
     SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig(topicConfig);
     service.setMetadataConfig(metadataConfig);
-    JsonNode result = mapper.readTree(service.processRecord(record));
+    JsonNode result = mapper.readTree(service.getProcessedRecordForSnowpipe(record));
     assert result.has(META);
     assert !result.get(META).has(RecordService.TOPIC);
     assert result.get(META).has(RecordService.OFFSET);
@@ -117,7 +117,7 @@ public class MetaColumnTest {
     // test metadata configuration -- remove offset and partition
     metadataConfig = new SnowflakeMetadataConfig(offsetAndPartitionConfig);
     service.setMetadataConfig(metadataConfig);
-    result = mapper.readTree(service.processRecord(record));
+    result = mapper.readTree(service.getProcessedRecordForSnowpipe(record));
     assert result.has(META);
     assert !result.get(META).has(RecordService.OFFSET);
     assert !result.get(META).has(RecordService.PARTITION);
@@ -127,7 +127,7 @@ public class MetaColumnTest {
     // test metadata configuration -- remove time stamp
     metadataConfig = new SnowflakeMetadataConfig(createTimeConfig);
     service.setMetadataConfig(metadataConfig);
-    result = mapper.readTree(service.processRecord(record));
+    result = mapper.readTree(service.getProcessedRecordForSnowpipe(record));
     assert result.has(META);
     assert !result.get(META).has(record.timestampType().name);
     assert result.get(META).has(RecordService.TOPIC);
@@ -137,7 +137,7 @@ public class MetaColumnTest {
     // test metadata configuration -- remove all
     metadataConfig = new SnowflakeMetadataConfig(allConfig);
     service.setMetadataConfig(metadataConfig);
-    result = mapper.readTree(service.processRecord(record));
+    result = mapper.readTree(service.getProcessedRecordForSnowpipe(record));
     assert !result.has(META);
 
     System.out.println("Config test success");
@@ -165,7 +165,7 @@ public class MetaColumnTest {
             timestamp,
             TimestampType.NO_TIMESTAMP_TYPE);
 
-    String output = service.processRecord(record);
+    String output = service.getProcessedRecordForSnowpipe(record);
 
     JsonNode result = mapper.readTree(output);
 
@@ -185,7 +185,7 @@ public class MetaColumnTest {
             timestamp,
             TimestampType.CREATE_TIME);
 
-    output = service.processRecord(record);
+    output = service.getProcessedRecordForSnowpipe(record);
     result = mapper.readTree(output);
 
     assert result.get(META).has(TimestampType.CREATE_TIME.name);
@@ -204,7 +204,7 @@ public class MetaColumnTest {
             timestamp,
             TimestampType.LOG_APPEND_TIME);
 
-    output = service.processRecord(record);
+    output = service.getProcessedRecordForSnowpipe(record);
     result = mapper.readTree(output);
 
     assert result.get(META).has(TimestampType.LOG_APPEND_TIME.name);
