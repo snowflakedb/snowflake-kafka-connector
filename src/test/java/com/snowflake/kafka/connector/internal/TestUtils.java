@@ -39,6 +39,7 @@ public class TestUtils {
   private static final String DATABASE = "database";
   private static final String SCHEMA = "schema";
   private static final String HOST = "host";
+  private static final String ROLE = "role";
   private static final String WAREHOUSE = "warehouse";
   private static final String PRIVATE_KEY = "private_key";
   private static final String ENCRYPTED_PRIVATE_KEY = "encrypted_private_key";
@@ -52,50 +53,76 @@ public class TestUtils {
   // profile path
   private static final String PROFILE_PATH = "profile.json";
 
+  private static final String PROFILE_PATH_STREAMING_INGEST = "profile_streaming_qa1.json";
+
   private static final ObjectMapper mapper = new ObjectMapper();
 
   private static Connection conn = null;
 
+  private static Connection connForStreamingIngestTests = null;
+
   private static Map<String, String> conf = null;
+
+  private static Map<String, String> confForStreaming = null;
 
   private static SnowflakeURL url = null;
 
   private static JsonNode profile = null;
 
-  private static JsonNode getProfile() {
-    if (profile == null) {
-      try {
-        profile = mapper.readTree(new File(PROFILE_PATH));
-      } catch (IOException e) {
-        throw new RuntimeException(e);
+  private static JsonNode profileForStreaming = null;
+
+  private static JsonNode getProfile(final String profileFilePath) {
+    if (profileFilePath.equalsIgnoreCase(PROFILE_PATH)) {
+      if (profile == null) {
+        try {
+          profile = mapper.readTree(new File(profileFilePath));
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
       }
+      return profile;
+    } else {
+      if (profileForStreaming == null) {
+        try {
+          profileForStreaming = mapper.readTree(new File(profileFilePath));
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      }
+      return profileForStreaming;
     }
-    return profile;
   }
 
-  /** load all login info from profile */
-  private static void init() {
-    conf = new HashMap<>();
+  /** load all login info a Map from profile file */
+  private static Map<String, String> getPropertiesMapFromProfile(final String profileFileName) {
+    Map<String, String> configuration = new HashMap<>();
 
-    conf.put(Utils.SF_USER, getProfile().get(USER).asText());
-    conf.put(Utils.SF_DATABASE, getProfile().get(DATABASE).asText());
-    conf.put(Utils.SF_SCHEMA, getProfile().get(SCHEMA).asText());
-    conf.put(Utils.SF_URL, getProfile().get(HOST).asText());
-    conf.put(Utils.SF_WAREHOUSE, getProfile().get(WAREHOUSE).asText());
-    conf.put(Utils.SF_PRIVATE_KEY, getProfile().get(PRIVATE_KEY).asText());
+    configuration.put(Utils.SF_USER, getProfile(profileFileName).get(USER).asText());
+    configuration.put(Utils.SF_DATABASE, getProfile(profileFileName).get(DATABASE).asText());
+    configuration.put(Utils.SF_SCHEMA, getProfile(profileFileName).get(SCHEMA).asText());
+    configuration.put(Utils.SF_URL, getProfile(profileFileName).get(HOST).asText());
+    configuration.put(Utils.SF_WAREHOUSE, getProfile(profileFileName).get(WAREHOUSE).asText());
+    configuration.put(Utils.SF_PRIVATE_KEY, getProfile(profileFileName).get(PRIVATE_KEY).asText());
 
-    conf.put(Utils.NAME, TEST_CONNECTOR_NAME);
+    configuration.put(Utils.NAME, TEST_CONNECTOR_NAME);
 
     // enable test query mark
-    conf.put(Utils.TASK_ID, "");
+    configuration.put(Utils.TASK_ID, "");
+
+    if (profileFileName.equalsIgnoreCase(PROFILE_PATH_STREAMING_INGEST)) {
+      configuration.put(Utils.SF_ROLE, getProfile(profileFileName).get(ROLE).asText());
+      configuration.put(Utils.TASK_ID, "0");
+    }
+
+    return configuration;
   }
 
   static String getEncryptedPrivateKey() {
-    return getProfile().get(ENCRYPTED_PRIVATE_KEY).asText();
+    return getProfile(PROFILE_PATH).get(ENCRYPTED_PRIVATE_KEY).asText();
   }
 
   static String getPrivateKeyPassphrase() {
-    return getProfile().get(PRIVATE_KEY_PASSPHRASE).asText();
+    return getProfile(PROFILE_PATH).get(PRIVATE_KEY_PASSPHRASE).asText();
   }
 
   /**
@@ -122,13 +149,37 @@ public class TestUtils {
       return conn;
     }
 
-    SnowflakeURL url = new SnowflakeURL(getConf().get(Utils.SF_URL));
+    return generateConnectionToSnowflake(PROFILE_PATH);
+  }
 
-    Properties properties = InternalUtils.createProperties(getConf(), url.sslEnabled());
+  /**
+   * Create snowflake jdbc connection for streaming ingest.
+   *
+   * <p>Please note, snowflake streaming ingest is not yet available in prod accounts, hence we will
+   * have test against a test deployment.
+   *
+   * @return jdbc connection
+   * @throws Exception when error is met
+   */
+  private static Connection getConnectionForStreamingIngest() throws Exception {
+    if (connForStreamingIngestTests != null) {
+      return connForStreamingIngestTests;
+    }
 
-    conn = new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
+    return generateConnectionToSnowflake(PROFILE_PATH_STREAMING_INGEST);
+  }
 
-    return conn;
+  /** Given a profile file path name, generate a connection by constructing a snowflake driver. */
+  private static Connection generateConnectionToSnowflake(final String profileFileName)
+      throws Exception {
+    SnowflakeURL url = new SnowflakeURL(getConfFromFileName(profileFileName).get(Utils.SF_URL));
+
+    Properties properties =
+        InternalUtils.createProperties(getConfFromFileName(profileFileName), url.sslEnabled());
+
+    Connection connToSnowflake = new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
+
+    return connToSnowflake;
   }
 
   /**
@@ -136,17 +187,34 @@ public class TestUtils {
    *
    * @return a map of parameters
    */
-  public static Map<String, String> getConf() {
-    if (conf == null) {
-      init();
+  public static Map<String, String> getConfFromFileName(final String profileFileName) {
+    if (profileFileName.equalsIgnoreCase(PROFILE_PATH)) {
+      if (conf == null) {
+        conf = getPropertiesMapFromProfile(profileFileName);
+      }
+      return new HashMap<>(conf);
+    } else {
+      if (confForStreaming == null) {
+        confForStreaming = getPropertiesMapFromProfile(profileFileName);
+      }
+      return new HashMap<>(confForStreaming);
     }
-    return new HashMap<>(conf);
+  }
+
+  /* Get configuration map from profile path. Used against prod deployment of Snowflake */
+  public static Map<String, String> getConf() {
+    return getConfFromFileName(PROFILE_PATH);
+  }
+
+  /* Get configuration map from profile path. Used against prod deployment of Snowflake */
+  public static Map<String, String> getConfForStreaming() {
+    return getConfFromFileName(PROFILE_PATH_STREAMING_INGEST);
   }
 
   /** @return JDBC config with encrypted private key */
   static Map<String, String> getConfWithEncryptedKey() {
     if (conf == null) {
-      init();
+      getPropertiesMapFromProfile(PROFILE_PATH);
     }
     Map<String, String> config = new HashMap<>(conf);
 
@@ -174,6 +242,17 @@ public class TestUtils {
     }
   }
 
+  static ResultSet executeQueryForStreaming(String query) {
+    try {
+      Statement statement = getConnectionForStreamingIngest().createStatement();
+      return statement.executeQuery(query);
+    }
+    // if ANY exceptions occur, an illegal state has been reached
+    catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
   /**
    * drop a table
    *
@@ -185,6 +264,17 @@ public class TestUtils {
     executeQuery(query);
   }
 
+  /**
+   * drop a table
+   *
+   * @param tableName table name
+   */
+  public static void dropTableStreaming(String tableName) {
+    String query = "drop table if exists " + tableName;
+
+    executeQueryForStreaming(query);
+  }
+
   /** Select * from table */
   static ResultSet showTable(String tableName) {
     String query = "select * from " + tableName;
@@ -193,7 +283,7 @@ public class TestUtils {
   }
 
   static String getDesRsaKey() {
-    return getProfile().get(DES_RSA_KEY).asText();
+    return getProfile(PROFILE_PATH).get(DES_RSA_KEY).asText();
   }
 
   /**
@@ -229,7 +319,7 @@ public class TestUtils {
    * @param name property name
    * @return property value
    */
-  private static String get(String name) {
+  private static String getPropertyValueFromKey(String name) {
     Map<String, String> properties = getConf();
 
     return properties.get(name);
@@ -237,7 +327,7 @@ public class TestUtils {
 
   static SnowflakeURL getUrl() {
     if (url == null) {
-      url = new SnowflakeURL(get(Utils.SF_URL));
+      url = new SnowflakeURL(getPropertyValueFromKey(Utils.SF_URL));
     }
     return url;
   }
@@ -261,6 +351,13 @@ public class TestUtils {
   /** @return snowflake connection for test */
   public static SnowflakeConnectionService getConnectionService() {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
+  }
+
+  /* Get connection service instance which connects to test instance of snowflake which has streaming ingest enabled */
+  public static SnowflakeConnectionService getConnectionServiceForStreamingIngest() {
+    return SnowflakeConnectionServiceFactory.builder()
+        .setProperties(getConfFromFileName(PROFILE_PATH_STREAMING_INGEST))
+        .build();
   }
 
   /**
@@ -354,7 +451,7 @@ public class TestUtils {
   }
 
   /** Interface to define the lambda function to be used by assertWithRetry */
-  interface AssertFunction {
+  public interface AssertFunction {
     boolean operate() throws Exception;
   }
 
@@ -365,7 +462,8 @@ public class TestUtils {
    * @param intervalSec retry time interval in seconds
    * @param maxRetry max retry times
    */
-  static void assertWithRetry(AssertFunction func, int intervalSec, int maxRetry) throws Exception {
+  public static void assertWithRetry(AssertFunction func, int intervalSec, int maxRetry)
+      throws Exception {
     int iteration = 1;
     while (!func.operate()) {
       if (iteration > maxRetry) {
