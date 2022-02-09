@@ -320,11 +320,20 @@ public class TopicPartitionChannel {
     return this.channel.getFullyQualifiedName();
   }
 
+  @Override
   public String toString() {
-    return "StreamingChannelName:"
-        + getChannelName()
-        + ", FullyQualifiedTableName:{}"
-        + this.channel.getFullyQualifiedTableName();
+    return "TopicPartitionChannel{"
+        + "previousFlushTimeStampMs="
+        + previousFlushTimeStampMs
+        + ", hasChannelInitialized="
+        + hasChannelInitialized
+        + ", channel="
+        + this.getChannelName()
+        + ", committedOffset="
+        + committedOffset
+        + ", processedOffset="
+        + processedOffset
+        + '}';
   }
 
   // ------ INNER CLASS ------ //
