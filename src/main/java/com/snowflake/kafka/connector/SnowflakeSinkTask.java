@@ -425,7 +425,7 @@ public class SnowflakeSinkTask extends SinkTask {
     }
   }
 
-  /* Useful to report a record back to DLQ if error tolerance is specified */
+  /* Used to report a record back to DLQ if error tolerance is specified */
   private KafkaRecordErrorReporter createKafkaRecordErrorReporter() {
     KafkaRecordErrorReporter result = noOpKafkaRecordErrorReporter();
     if (context != null) {
