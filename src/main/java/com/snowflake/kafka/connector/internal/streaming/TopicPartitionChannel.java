@@ -2,11 +2,9 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -38,12 +36,17 @@ import org.slf4j.LoggerFactory;
  */
 public class TopicPartitionChannel {
   private static final Logger LOGGER = LoggerFactory.getLogger(TopicPartitionChannel.class);
-  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   // more of previousInsertRowTsMs
   private long previousFlushTimeStampMs;
 
-  private boolean hasChannelInitialized = false;
+  /**
+   * States whether this channel has had any data before. If this is false, the
+   * topicPartitionChannel has recently been initialised and didnt receive any records before.
+   *
+   * <p>If the channel is closed, this state remains unchanged.
+   */
+  private boolean hasChannelReceivedAnyRecordsBefore = false;
 
   /* Buffer to hold JSON converted incoming SinkRecords */
   /* Eventually this buffer will only be a transient buffer and wont exist across multiple PUT api calls */
@@ -51,17 +54,14 @@ public class TopicPartitionChannel {
 
   final Lock bufferLock = new ReentrantLock(true);
 
-  // -------- private final fields -------- //
-
   // used to communicate to the streaming ingest's insertRows API
-  private final SnowflakeStreamingIngestChannel channel;
+  // This channel is not everlasting
+  private SnowflakeStreamingIngestChannel channel;
 
-  private final SnowflakeConnectionService snowflakeConnectionService;
+  // -------- private final fields -------- //
 
   /* Responsible for converting records to Json */
   private final RecordService recordService;
-
-  private final String tableName;
 
   // ------- Kafka record related properties ------- //
   // Offset number we would want to commit back to kafka
@@ -74,14 +74,9 @@ public class TopicPartitionChannel {
   private final AtomicLong processedOffset; // processed offset
 
   // Ctor
-  public TopicPartitionChannel(
-      SnowflakeStreamingIngestChannel channel,
-      SnowflakeConnectionService connectionService,
-      final String tableName) {
+  public TopicPartitionChannel(SnowflakeStreamingIngestChannel channel) {
     this.channel = channel;
-    this.snowflakeConnectionService = connectionService;
     this.recordService = new RecordService();
-    this.tableName = tableName;
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
     this.streamingBuffer = new StreamingBuffer();
@@ -89,14 +84,19 @@ public class TopicPartitionChannel {
     this.committedOffset = new AtomicLong(0);
   }
 
+  /* Update the channel */
+  protected void updateStreamingIngestChannel(SnowflakeStreamingIngestChannel updatedChannel) {
+    this.channel = updatedChannel;
+  }
+
   // inserts the record into buffer
   public void insertRecordToBuffer(SinkRecord record) {
-    if (!hasChannelInitialized) {
+    if (!hasChannelReceivedAnyRecordsBefore) {
       // This will only be called once at the beginning when an offset arrives for first time
       // after connector starts/rebalance
       init(record.kafkaOffset());
       //            metricsJmxReporter.start();
-      this.hasChannelInitialized = true;
+      this.hasChannelReceivedAnyRecordsBefore = true;
     }
 
     // ignore ingested files
@@ -215,6 +215,12 @@ public class TopicPartitionChannel {
       this.previousFlushTimeStampMs = System.currentTimeMillis();
       return;
     }
+    LOGGER.debug(
+        "Invoking insertRows API for channel:{}, noOfRecords:{}, startOffset:{}, endOffset:{}",
+        this,
+        intermediateBuffer.getNumOfRecord(),
+        intermediateBuffer.getFirstOffset(),
+        intermediateBuffer.getLastOffset());
     InsertValidationResponse response =
         channel.insertRows(
             (Iterable<Map<String, Object>>) intermediateBuffer.getData(),
@@ -297,6 +303,11 @@ public class TopicPartitionChannel {
     }
   }
 
+  /* Return true is channel is closed. Caller should handle the logic for reopening the channel if it is closed. */
+  public boolean isChannelClosed() {
+    return this.channel.isClosed();
+  }
+
   // ------ GETTERS ------ //
 
   public PartitionBuffer getStreamingBuffer() {
@@ -308,7 +319,23 @@ public class TopicPartitionChannel {
   }
 
   public String getChannelName() {
-    return this.channel.getFullyQualifiedTableName();
+    return this.channel.getFullyQualifiedName();
+  }
+
+  @Override
+  public String toString() {
+    return "TopicPartitionChannel{"
+        + "previousFlushTimeStampMs="
+        + previousFlushTimeStampMs
+        + ", hasChannelInitialized="
+        + hasChannelReceivedAnyRecordsBefore
+        + ", channel="
+        + this.getChannelName()
+        + ", committedOffset="
+        + committedOffset
+        + ", processedOffset="
+        + processedOffset
+        + '}';
   }
 
   // ------ INNER CLASS ------ //
