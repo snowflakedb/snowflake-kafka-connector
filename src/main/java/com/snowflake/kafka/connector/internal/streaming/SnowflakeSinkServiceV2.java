@@ -256,15 +256,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   /**
-   * This function is called during rebalance. Please ensure we dont wipe of state when we are
-   * invoking this function.
+   * This function is called during rebalance. Please ensure we dont wipe off state when we are
+   * invoking this function. i.e after rebalance, we would still want to preserve metadata like
+   * streamingBuffer, processedOffset
    *
-   * <p>The channel is not closed since we would need to re-initiate the channel.
-   *
-   * <p>Also, wiping off partitionsToChannel map would mean we would need to reinitialise and we
-   * will lose processedOffset information.
-   *
-   * <p>We will only close the client.
+   * <p>All the channels are closed. The client is still active. Upon rebalance, (inside {@link
+   * com.snowflake.kafka.connector.SnowflakeSinkTask#open(Collection)} we will reopen the channel.
    *
    * @param partitions a list of topic partition
    */
@@ -272,10 +269,17 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   public void close(Collection<TopicPartition> partitions) {
     partitions.forEach(
         topicPartition -> {
+          final String partitionChannelKey =
+              partitionChannelKey(topicPartition.topic(), topicPartition.partition());
+          TopicPartitionChannel topicPartitionChannel =
+              partitionsToChannel.get(partitionChannelKey);
+          topicPartitionChannel.closeChannel();
           LOGGER.info(
-              "Closing partition {}, topic:{}", topicPartition.topic(), topicPartition.partition());
+              "Closing partitionChannel:{}, partition:{}, topic:{}",
+              topicPartitionChannel.getChannelName(),
+              topicPartition.topic(),
+              topicPartition.partition());
         });
-    closeStreamingClient();
   }
 
   @Override

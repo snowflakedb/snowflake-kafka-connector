@@ -42,9 +42,11 @@ public class TopicPartitionChannel {
 
   /**
    * States whether this channel has had any data before. If this is false, the
-   * topicPartitionChannel has recently been initialised and didnt receive any records before
+   * topicPartitionChannel has recently been initialised and didnt receive any records before.
+   *
+   * <p>If the channel is closed, this state remains unchanged.
    */
-  private boolean hasChannelInitialized = false;
+  private boolean hasChannelReceivedAnyRecordsBefore = false;
 
   /* Buffer to hold JSON converted incoming SinkRecords */
   /* Eventually this buffer will only be a transient buffer and wont exist across multiple PUT api calls */
@@ -89,12 +91,12 @@ public class TopicPartitionChannel {
 
   // inserts the record into buffer
   public void insertRecordToBuffer(SinkRecord record) {
-    if (!hasChannelInitialized) {
+    if (!hasChannelReceivedAnyRecordsBefore) {
       // This will only be called once at the beginning when an offset arrives for first time
       // after connector starts/rebalance
       init(record.kafkaOffset());
       //            metricsJmxReporter.start();
-      this.hasChannelInitialized = true;
+      this.hasChannelReceivedAnyRecordsBefore = true;
     }
 
     // ignore ingested files
@@ -326,7 +328,7 @@ public class TopicPartitionChannel {
         + "previousFlushTimeStampMs="
         + previousFlushTimeStampMs
         + ", hasChannelInitialized="
-        + hasChannelInitialized
+        + hasChannelReceivedAnyRecordsBefore
         + ", channel="
         + this.getChannelName()
         + ", committedOffset="
