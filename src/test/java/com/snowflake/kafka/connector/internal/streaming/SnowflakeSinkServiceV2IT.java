@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -18,11 +19,13 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
@@ -558,5 +561,22 @@ public class SnowflakeSinkServiceV2IT {
         () -> service.getOffset(new TopicPartition(topic, partition)) == 3, 20, 5);
 
     service.closeAll();
+  }
+
+  @Ignore
+  @Test(expected = ConnectException.class)
+  public void testMissingPropertiesForStreamingClient() {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    config.remove(Utils.SF_ROLE);
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    try {
+      SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+          .build();
+    } catch (ConnectException ex) {
+      assert ex.getCause() instanceof SFException;
+      assert ex.getCause().getMessage().contains("Missing role");
+      throw ex;
+    }
   }
 }
