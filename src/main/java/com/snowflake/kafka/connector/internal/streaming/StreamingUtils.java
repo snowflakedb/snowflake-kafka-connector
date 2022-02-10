@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.snowflake.kafka.connector.Utils;
 import java.util.HashMap;
 import java.util.Map;
 import net.snowflake.ingest.utils.Constants;
@@ -11,35 +12,35 @@ public class StreamingUtils {
       Map<String, String> connectorConfig) {
     Map<String, String> streamingPropertiesMap = new HashMap<>();
     connectorConfig.computeIfPresent(
-        com.snowflake.kafka.connector.Utils.SF_URL,
+        Utils.SF_URL,
         (key, value) -> {
           streamingPropertiesMap.put(Constants.ACCOUNT_URL, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
-        com.snowflake.kafka.connector.Utils.SF_ROLE,
+        Utils.SF_ROLE,
         (key, value) -> {
           streamingPropertiesMap.put(Constants.ROLE, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
-        com.snowflake.kafka.connector.Utils.SF_USER,
+        Utils.SF_USER,
         (key, value) -> {
           streamingPropertiesMap.put(Constants.USER, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
-        com.snowflake.kafka.connector.Utils.SF_PRIVATE_KEY,
+        Utils.SF_PRIVATE_KEY,
         (key, value) -> {
           streamingPropertiesMap.put(Constants.PRIVATE_KEY, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
-        com.snowflake.kafka.connector.Utils.PRIVATE_KEY_PASSPHRASE,
+        Utils.PRIVATE_KEY_PASSPHRASE,
         (key, value) -> {
           if (!value.isEmpty()) {
             streamingPropertiesMap.put(Constants.PRIVATE_KEY_PASSPHRASE, value);
