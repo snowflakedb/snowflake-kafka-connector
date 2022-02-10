@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.ingest.utils.SFException;
@@ -578,5 +579,122 @@ public class SnowflakeSinkServiceV2IT {
       assert ex.getCause().getMessage().contains("Missing role");
       throw ex;
     }
+  }
+
+  /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest check data */
+  @Ignore
+  @Test
+  public void testStreamingIngestionWithExactlyOnceSemanticsNoOverlappingOffsets()
+      throws Exception {
+    conn.createTable(table);
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .addTask(table, topic, partition)
+            .build();
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input =
+        converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+
+    long offset = 0;
+    // Create sink record
+    SinkRecord record1 =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
+
+    service.insert(record1);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
+    // wait for ingest
+    TestUtils.assertWithRetry(() -> TestUtils.getTableSizeStreaming(table) == 1, 30, 20);
+
+    service.closeAll();
+
+    // initialize a new sink service
+    SnowflakeSinkService service2 =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setDeliveryGuarantee(
+                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
+            .addTask(table, topic, partition)
+            .build();
+    offset = 1;
+    // Create sink record
+    SinkRecord record2 =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
+
+    service2.insert(record2);
+
+    // wait for ingest
+    TestUtils.assertWithRetry(() -> TestUtils.getTableSizeStreaming(table) == 2, 30, 20);
+
+    assert service2.getOffset(new TopicPartition(topic, partition)) == offset + 1;
+
+    service2.closeAll();
+  }
+
+  /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest check data */
+  @Ignore
+  @Test
+  public void testStreamingIngestionWithExactlyOnceSemanticsOverlappingOffsets() throws Exception {
+    conn.createTable(table);
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .addTask(table, topic, partition)
+            .build();
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input =
+        converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+
+    long offset = 0;
+    final long noOfRecords = 10;
+    // send regular data
+    List<SinkRecord> records =
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, partition);
+
+    service.insert(records);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 20, 5);
+
+    // wait for ingest
+    TestUtils.assertWithRetry(() -> TestUtils.getTableSizeStreaming(table) == 10, 30, 20);
+
+    service.closeAll();
+
+    // initialize a new sink service
+    SnowflakeSinkService service2 =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setDeliveryGuarantee(
+                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
+            .addTask(table, topic, partition)
+            .build();
+
+    final long startOffsetAlreadyInserted = 5;
+    records =
+        TestUtils.createJsonStringSinkRecords(
+            startOffsetAlreadyInserted, noOfRecords, topic, partition);
+
+    service2.insert(records);
+
+    final long totalRecordsExpected = noOfRecords + (noOfRecords - startOffsetAlreadyInserted);
+
+    // wait for ingest
+    TestUtils.assertWithRetry(
+        () -> TestUtils.getTableSizeStreaming(table) == totalRecordsExpected, 30, 20);
+
+    assert service2.getOffset(new TopicPartition(topic, partition)) == totalRecordsExpected;
+
+    service2.closeAll();
   }
 }

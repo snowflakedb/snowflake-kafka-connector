@@ -6,8 +6,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
-import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,8 +19,6 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.record.TimestampType;
-import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
@@ -68,7 +64,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask.open(topicPartitions);
 
     // send regular data
-    List<SinkRecord> records = createJsonStringSinkRecords(1, topicName, partition);
+    List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition);
     sinkTask.put(records);
 
     // commit offset
@@ -104,7 +100,8 @@ public class SnowflakeSinkTaskForStreamingIT {
     final long lastOffsetNo = noOfRecords - 1;
 
     // send regular data
-    List<SinkRecord> records = createJsonStringSinkRecords(noOfRecords, topicName, partition);
+    List<SinkRecord> records =
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topicName, partition);
     sinkTask.put(records);
 
     // commit offset
@@ -130,7 +127,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask.put(records);
 
     List<SinkRecord> recordsWithAnotherPartition =
-        createJsonStringSinkRecords(noOfRecords, topicName, partition + 1);
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topicName, partition + 1);
     sinkTask.put(recordsWithAnotherPartition);
 
     // Adding to offsetMap so that this gets into precommit
@@ -174,28 +171,5 @@ public class SnowflakeSinkTaskForStreamingIT {
         });
 
     assert partitionsInTable.size() == 2;
-  }
-
-  private List<SinkRecord> createJsonStringSinkRecords(
-      final long noOfRecords, final String topicName, final int partitionNo) throws Exception {
-    ArrayList<SinkRecord> records = new ArrayList<>();
-    String json = "{ \"f1\" : \"v1\" } ";
-    ObjectMapper objectMapper = new ObjectMapper();
-    Schema snowflakeSchema = new SnowflakeJsonSchema();
-    SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
-    for (int i = 0; i < noOfRecords; ++i) {
-      records.add(
-          new SinkRecord(
-              topicName,
-              partitionNo,
-              snowflakeSchema,
-              content,
-              snowflakeSchema,
-              content,
-              i,
-              System.currentTimeMillis(),
-              TimestampType.CREATE_TIME));
-    }
-    return records;
   }
 }
