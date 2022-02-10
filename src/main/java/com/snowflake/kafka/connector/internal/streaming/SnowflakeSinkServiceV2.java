@@ -21,7 +21,9 @@ import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
+import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -399,14 +401,22 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   /* Init Streaming client. If is also used to re-init the client if client was closed before. */
   private void initStreamingClient() {
+    Map<String, String> streamingPropertiesMap =
+        StreamingUtils.convertConfigForStreamingClient(new HashMap<>(this.connectorConfig));
     Properties streamingClientProps = new Properties();
-    streamingClientProps.putAll(connectorConfig);
+    streamingClientProps.putAll(streamingPropertiesMap);
     if (this.streamingIngestClient == null || this.streamingIngestClient.isClosed()) {
-
-      this.streamingIngestClient =
-          SnowflakeStreamingIngestClientFactory.builder(this.streamingIngestClientName)
-              .setProperties(streamingClientProps)
-              .build();
+      try {
+        this.streamingIngestClient =
+            SnowflakeStreamingIngestClientFactory.builder(this.streamingIngestClientName)
+                .setProperties(streamingClientProps)
+                .build();
+      } catch (SFException ex) {
+        LOGGER.error(
+            "Exception creating streamingIngestClient with name:{}",
+            this.streamingIngestClientName);
+        throw new ConnectException(ex);
+      }
     }
   }
 
