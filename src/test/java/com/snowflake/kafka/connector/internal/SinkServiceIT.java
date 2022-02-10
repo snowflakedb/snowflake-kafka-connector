@@ -1227,7 +1227,7 @@ public class SinkServiceIT {
     // call snowpipe ingest api
     service2.callAllGetOffset();
     // wait for ingest
-    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 30, 20);
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 2, 30, 20);
     // change cleaner
     TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 0, 30, 20);
     assert service2.getOffset(new TopicPartition(topic, partition)) == offset + 1;

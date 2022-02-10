@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
@@ -21,6 +22,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +38,8 @@ import org.slf4j.LoggerFactory;
  */
 public class TopicPartitionChannel {
   private static final Logger LOGGER = LoggerFactory.getLogger(TopicPartitionChannel.class);
+
+  private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 
   // more of previousInsertRowTsMs
   private long previousFlushTimeStampMs;
@@ -57,6 +61,11 @@ public class TopicPartitionChannel {
   // used to communicate to the streaming ingest's insertRows API
   // This channel is not everlasting
   private SnowflakeStreamingIngestChannel channel;
+
+  // This offset is updated when Snowflake has received offset from insertRows API
+  // We will update this value after calling offsetToken API for this channel
+  // We will only update it during start of the channel initialization
+  private long offsetPersistedInSnowflake = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
   // -------- private final fields -------- //
 
@@ -92,15 +101,23 @@ public class TopicPartitionChannel {
   // inserts the record into buffer
   public void insertRecordToBuffer(SinkRecord record) {
     if (!hasChannelReceivedAnyRecordsBefore) {
+      LOGGER.info(
+          "Received offset:{} for topic:{} as the first offset for this partition:{} after"
+              + " start/restart",
+          record.kafkaOffset(),
+          record.topic(),
+          record.kafkaPartition());
       // This will only be called once at the beginning when an offset arrives for first time
-      // after connector starts/rebalance
-      init(record.kafkaOffset());
-      //            metricsJmxReporter.start();
+      // after connector starts
+      fetchLastCommittedOffsetToken();
+
       this.hasChannelReceivedAnyRecordsBefore = true;
     }
 
-    // ignore ingested files
-    if (record.kafkaOffset() > processedOffset.get()) {
+    // discard the record if the record offset is smaller or equal to server side offset, or if
+    // record is smaller than any other record offset we received before
+    if (record.kafkaOffset() > this.offsetPersistedInSnowflake
+        && record.kafkaOffset() > processedOffset.get()) {
       SinkRecord snowflakeRecord = record;
       if (shouldConvertContent(snowflakeRecord.value())) {
         snowflakeRecord = handleNativeRecord(snowflakeRecord, false);
@@ -131,18 +148,30 @@ public class TopicPartitionChannel {
     }
   }
 
-  /* TODO: SNOW-529753 Deal with rebalances and restarts */
-  /* TODO: SNOW-536429 For EOS, also fetch the offset from snowflake during rebalance/restart */
-  private void init(long recordOffset) {
+  /* For EOS, fetch the offset from snowflake during only during first time after connector starts and record is received in Kafka Connector */
+  @VisibleForTesting
+  protected void fetchLastCommittedOffsetToken() {
+    String offsetToken = this.channel.getLatestCommittedOffsetToken();
     try {
-      startCleaner(recordOffset);
-    } catch (Exception e) {
-      LOGGER.error("Cleaner and Flusher threads shut down before initialization");
+      if (offsetToken == null) {
+        this.offsetPersistedInSnowflake = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+      } else {
+        this.offsetPersistedInSnowflake = Long.parseLong(offsetToken);
+      }
+      LOGGER.info(
+          "Fetched offsetToken:{} for channelName:{} during channel initialization.",
+          this.offsetPersistedInSnowflake,
+          this.getChannelName());
+    } catch (NumberFormatException e) {
+      final String errorMsg =
+          String.format(
+              "The offsetToken string does not contain a parsable long: %s,"
+                  + " offsetTokenLastRetrieved: %s. ",
+              this.getChannelName(), offsetToken);
+      LOGGER.error(errorMsg);
+      throw new ConnectException(errorMsg, e);
     }
   }
-
-  // we will deal with restart/rebalance issues after we get the basics working.
-  void startCleaner(long recordOffset) {}
 
   private boolean shouldConvertContent(final Object content) {
     return content != null && !(content instanceof SnowflakeRecordContent);
@@ -336,6 +365,11 @@ public class TopicPartitionChannel {
         + ", processedOffset="
         + processedOffset
         + '}';
+  }
+
+  /* For testing */
+  protected long getOffsetPersistedInSnowflake() {
+    return this.offsetPersistedInSnowflake;
   }
 
   // ------ INNER CLASS ------ //

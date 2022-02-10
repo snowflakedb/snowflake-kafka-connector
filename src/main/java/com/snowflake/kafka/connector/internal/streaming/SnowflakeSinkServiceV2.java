@@ -73,10 +73,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
 
-  // default is at_least_once semantic (To begin with)
-  // TODO: SNOW-526435
+  // We will make this non configurable if ingestion method is SNOWPIPE_STREAMING
   private SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
-      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE;
+      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE;
 
   // ------ Streaming Ingest ------ //
   // needs url, username. p8 key, role name
@@ -383,6 +382,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void setDeliveryGuarantee(
       SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
+    assert ingestionDeliveryGuarantee
+        == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE;
     this.ingestionDeliveryGuarantee = ingestionDeliveryGuarantee;
   }
 

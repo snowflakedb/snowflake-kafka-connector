@@ -20,6 +20,8 @@ import static com.snowflake.kafka.connector.Utils.*;
 
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
+import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import java.io.File;
 import java.io.IOException;
 import java.security.PrivateKey;
@@ -32,6 +34,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.common.record.TimestampType;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.sink.SinkRecord;
 
 public class TestUtils {
   // test profile properties
@@ -411,6 +416,18 @@ public class TestUtils {
     return 0;
   }
 
+  /* Get size of table (QA1 deployment) */
+  public static int getTableSizeStreaming(String tableName) throws SQLException {
+    String query = "show tables like '" + tableName + "'";
+    ResultSet result = executeQueryForStreaming(query);
+
+    if (result.next()) {
+      return result.getInt("rows");
+    }
+
+    return 0;
+  }
+
   /**
    * verify broken record file name is valid
    *
@@ -478,5 +495,30 @@ public class TestUtils {
       Thread.sleep(intervalSec * 1000);
       iteration += 1;
     }
+  }
+
+  /* Generate (noOfRecords - startOffset) for a given topic and partition. */
+  public static List<SinkRecord> createJsonStringSinkRecords(
+      final long startOffset, final long noOfRecords, final String topicName, final int partitionNo)
+      throws Exception {
+    ArrayList<SinkRecord> records = new ArrayList<>();
+    String json = "{ \"f1\" : \"v1\" } ";
+    ObjectMapper objectMapper = new ObjectMapper();
+    Schema snowflakeSchema = new SnowflakeJsonSchema();
+    SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
+    for (long i = startOffset; i < startOffset + noOfRecords; ++i) {
+      records.add(
+          new SinkRecord(
+              topicName,
+              partitionNo,
+              snowflakeSchema,
+              content,
+              snowflakeSchema,
+              content,
+              i,
+              System.currentTimeMillis(),
+              TimestampType.CREATE_TIME));
+    }
+    return records;
   }
 }
