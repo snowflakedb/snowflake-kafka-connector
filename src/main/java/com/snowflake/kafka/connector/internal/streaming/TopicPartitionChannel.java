@@ -160,7 +160,7 @@ public class TopicPartitionChannel {
    *
    * <p>It is possible the offset token is null. In this case, -1 is set
    *
-   * <p>Note: This code is execute only for the first time when
+   * <p>Note: This code is execute only for the first time when:
    *
    * <ul>
    *   <li>Connector starts
