@@ -4,6 +4,7 @@ import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.records.RecordService;
@@ -23,6 +24,7 @@ import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,6 +74,9 @@ public class TopicPartitionChannel {
   /* Responsible for converting records to Json */
   private final RecordService recordService;
 
+  /* Responsible for returning errors to DLQ if records have failed to be ingested. */
+  private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
+
   // ------- Kafka record related properties ------- //
   // Offset number we would want to commit back to kafka
   // This value is + 1 of what we find in snowflake.
@@ -83,8 +88,10 @@ public class TopicPartitionChannel {
   private final AtomicLong processedOffset; // processed offset
 
   // Ctor
-  public TopicPartitionChannel(SnowflakeStreamingIngestChannel channel) {
+  public TopicPartitionChannel(
+      SnowflakeStreamingIngestChannel channel, KafkaRecordErrorReporter kafkaRecordErrorReporter) {
     this.channel = channel;
+    this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
     this.recordService = new RecordService();
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -128,7 +135,10 @@ public class TopicPartitionChannel {
 
       // broken record
       if (isRecordBroken(snowflakeRecord)) {
-        // write it to DLQ SNOW-451197
+        // check for error tolerance and log tolerance values
+        // errors.log.enable and errors.tolerance
+        LOGGER.debug("Broken record offset:{}, topic:{}", record.kafkaOffset(), record.topic());
+        this.kafkaRecordErrorReporter.reportError(record, new DataException("Broken Record"));
       } else {
         // lag telemetry, note that sink record timestamp might be null
         if (snowflakeRecord.timestamp() != null

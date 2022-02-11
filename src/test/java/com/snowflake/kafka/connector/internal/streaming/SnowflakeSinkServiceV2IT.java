@@ -1,7 +1,10 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static java.util.Collections.unmodifiableList;
+
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -14,6 +17,7 @@ import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -508,10 +512,12 @@ public class SnowflakeSinkServiceV2IT {
             brokenInputValue.schema(),
             brokenInputValue.value(),
             startOffset + 2);
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
+            .setErrorReporter(errorReporter)
             .addTask(table, topic, partition)
             .build();
 
@@ -521,6 +527,11 @@ public class SnowflakeSinkServiceV2IT {
 
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == 0, 20, 5);
+
+    List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedData =
+        errorReporter.getReportedRecords();
+
+    assert reportedData.size() == 3;
   }
 
   @Ignore
@@ -696,5 +707,33 @@ public class SnowflakeSinkServiceV2IT {
     assert service2.getOffset(new TopicPartition(topic, partition)) == totalRecordsExpected;
 
     service2.closeAll();
+  }
+
+  private static final class InMemoryKafkaRecordErrorReporter implements KafkaRecordErrorReporter {
+    private final List<ReportedRecord> reportedRecords = new ArrayList<>();
+
+    @Override
+    public void reportError(final SinkRecord record, final Exception e) {
+      reportedRecords.add(new ReportedRecord(record, e));
+    }
+
+    List<ReportedRecord> getReportedRecords() {
+      return unmodifiableList(reportedRecords);
+    }
+
+    static final class ReportedRecord {
+      private final SinkRecord record;
+      private final Throwable e;
+
+      private ReportedRecord(final SinkRecord record, final Throwable e) {
+        this.record = record;
+        this.e = e;
+      }
+
+      @Override
+      public String toString() {
+        return "ReportedData{" + "record=" + record + ", e=" + e + '}';
+      }
+    }
   }
 }
