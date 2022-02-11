@@ -35,32 +35,35 @@ import org.slf4j.LoggerFactory;
  *
  * <p>The number of TopicPartitionChannel objects can scale in proportion to the number of
  * partitions of a topic.
+ *
+ * <p>Whenever a new instance is created, the cache(Map) in SnowflakeSinkService is also replaced.
+ *
+ * <p>During rebalance, we would lose this state and hence there is a need to invoke
+ * getLatestOffsetToken from Snowflake
  */
 public class TopicPartitionChannel {
   private static final Logger LOGGER = LoggerFactory.getLogger(TopicPartitionChannel.class);
 
   private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 
-  // more of previousInsertRowTsMs
+  // last time we invoked insertRows API
   private long previousFlushTimeStampMs;
 
-  /**
-   * States whether this channel has had any data before. If this is false, the
-   * topicPartitionChannel has recently been initialised and didnt receive any records before.
-   *
-   * <p>If the channel is closed, this state remains unchanged.
-   */
-  private boolean hasChannelReceivedAnyRecordsBefore = false;
-
   /* Buffer to hold JSON converted incoming SinkRecords */
-  /* Eventually this buffer will only be a transient buffer and wont exist across multiple PUT api calls */
   private PartitionBuffer streamingBuffer;
 
   final Lock bufferLock = new ReentrantLock(true);
 
-  // used to communicate to the streaming ingest's insertRows API
-  // This channel is not everlasting
-  private SnowflakeStreamingIngestChannel channel;
+  /**
+   * States whether this channel has received any records before.
+   *
+   * <p>If this is false, the topicPartitionChannel has recently been initialised and didnt receive
+   * any records before or TopicPartitionChannel was recently created.
+   *
+   * <p>If the channel is closed, or if partition reassignment is triggered (Rebalancing), we wipe
+   * off {@link SnowflakeSinkServiceV2#partitionsToChannel}
+   */
+  private boolean hasChannelReceivedAnyRecordsBefore = false;
 
   // This offset is updated when Snowflake has received offset from insertRows API
   // We will update this value after calling offsetToken API for this channel
@@ -68,6 +71,9 @@ public class TopicPartitionChannel {
   private long offsetPersistedInSnowflake = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
   // -------- private final fields -------- //
+
+  // used to communicate to the streaming ingest's insertRows API
+  private final SnowflakeStreamingIngestChannel channel;
 
   /* Responsible for converting records to Json */
   private final RecordService recordService;
@@ -98,11 +104,6 @@ public class TopicPartitionChannel {
     this.offsetSafeToCommitToKafka = new AtomicLong(0);
   }
 
-  /* Update the channel */
-  protected void updateStreamingIngestChannel(SnowflakeStreamingIngestChannel updatedChannel) {
-    this.channel = updatedChannel;
-  }
-
   /**
    * Inserts the record into buffer
    *
@@ -115,7 +116,7 @@ public class TopicPartitionChannel {
    * @param record input record from Kafka
    */
   public void insertRecordToBuffer(SinkRecord record) {
-    initChannel(record);
+    precomputeOffsetTokenForChannel(record);
 
     // discard the record if the record offset is smaller or equal to server side offset, or if
     // record is smaller than any other record offset we received before
@@ -159,18 +160,21 @@ public class TopicPartitionChannel {
    *
    * <p>It is possible the offset token is null. In this case, -1 is set
    *
-   * <p>Note: This code is execute only for the first time connector starts or restarts after task
-   * was killed previously.
+   * <p>Note: This code is execute only for the first time when
    *
-   * <p>This doesnt get invoked on rebalance.
+   * <ul>
+   *   <li>Connector starts
+   *   <li>Connector restarts because task was killed
+   *   <li>Rebalance/Partition reassignment
+   * </ul>
    *
    * @param record record this partition received.
    */
-  private void initChannel(final SinkRecord record) {
+  private void precomputeOffsetTokenForChannel(final SinkRecord record) {
     if (!hasChannelReceivedAnyRecordsBefore) {
       LOGGER.info(
           "Received offset:{} for topic:{} as the first offset for this partition:{} after"
-              + " start/restart",
+              + " start/restart/rebalance",
           record.kafkaOffset(),
           record.topic(),
           record.kafkaPartition());

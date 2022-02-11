@@ -78,7 +78,7 @@ public class TopicPartitionChannelTest {
   }
 
   @Test
-  public void testFirstRecordForInitChannel() {
+  public void testFirstRecordForChannel() {
     mockStreamingChannel =
         new MockStreamingIngestChannel(() -> new InsertValidationResponse(), () -> null);
 
@@ -117,10 +117,6 @@ public class TopicPartitionChannelTest {
 
     mockStreamingChannel =
         new MockStreamingIngestChannel(() -> new InsertValidationResponse(), () -> "0");
-
-    topicPartitionChannel.updateStreamingIngestChannel(mockStreamingChannel);
-
-    Assert.assertEquals(0, topicPartitionChannel.fetchLatestCommittedOffsetFromSnowflake());
   }
 
   @Test
