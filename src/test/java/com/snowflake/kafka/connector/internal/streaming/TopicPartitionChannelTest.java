@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -10,10 +11,13 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class TopicPartitionChannelTest {
+
+  @Mock private KafkaRecordErrorReporter mockKafkaRecordErrorReporter;
 
   private SnowflakeStreamingIngestChannel mockStreamingChannel;
 
@@ -32,7 +36,8 @@ public class TopicPartitionChannelTest {
 
     mockStreamingChannel = new MockStreamingIngestChannel(() -> null);
 
-    TopicPartitionChannel topicPartitionChannel = new TopicPartitionChannel(mockStreamingChannel);
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(mockStreamingChannel, mockKafkaRecordErrorReporter);
 
     topicPartitionChannel.fetchLastCommittedOffsetToken();
 
@@ -44,7 +49,8 @@ public class TopicPartitionChannelTest {
 
     mockStreamingChannel = new MockStreamingIngestChannel(() -> "100");
 
-    TopicPartitionChannel topicPartitionChannel = new TopicPartitionChannel(mockStreamingChannel);
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(mockStreamingChannel, mockKafkaRecordErrorReporter);
 
     topicPartitionChannel.fetchLastCommittedOffsetToken();
 
@@ -56,7 +62,8 @@ public class TopicPartitionChannelTest {
 
     mockStreamingChannel = new MockStreamingIngestChannel(() -> "invalidNo");
 
-    TopicPartitionChannel topicPartitionChannel = new TopicPartitionChannel(mockStreamingChannel);
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(mockStreamingChannel, mockKafkaRecordErrorReporter);
 
     try {
       topicPartitionChannel.fetchLastCommittedOffsetToken();

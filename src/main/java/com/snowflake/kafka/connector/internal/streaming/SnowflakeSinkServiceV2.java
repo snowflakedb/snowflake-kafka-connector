@@ -4,6 +4,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -77,6 +78,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
       SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE;
 
+  /**
+   * Fetching this from {@link org.apache.kafka.connect.sink.SinkTaskContext}'s {@link
+   * org.apache.kafka.connect.sink.ErrantRecordReporter}
+   */
+  private KafkaRecordErrorReporter kafkaRecordErrorReporter;
+
   // ------ Streaming Ingest ------ //
   // needs url, username. p8 key, role name
   private SnowflakeStreamingIngestClient streamingIngestClient;
@@ -142,7 +149,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       partitionsToChannel.get(partitionChannelKey).updateStreamingIngestChannel(partitionChannel);
     } else {
       // Add channel and related metadata to partitionsToChannel map
-      TopicPartitionChannel topicPartitionChannel = new TopicPartitionChannel(partitionChannel);
+      TopicPartitionChannel topicPartitionChannel =
+          new TopicPartitionChannel(partitionChannel, this.kafkaRecordErrorReporter);
       partitionsToChannel.put(partitionChannelKey, topicPartitionChannel);
     }
   }
@@ -385,6 +393,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     assert ingestionDeliveryGuarantee
         == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE;
     this.ingestionDeliveryGuarantee = ingestionDeliveryGuarantee;
+  }
+
+  /* Set this to send records to DLQ. */
+  @Override
+  public void setErrorReporter(KafkaRecordErrorReporter kafkaRecordErrorReporter) {
+    this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
   }
 
   @Override

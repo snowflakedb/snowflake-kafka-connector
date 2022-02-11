@@ -18,6 +18,8 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
@@ -30,11 +32,14 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
+import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
@@ -170,6 +175,8 @@ public class SnowflakeSinkTask extends SinkTask {
     enableRebalancing =
         Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.REBALANCING));
 
+    KafkaRecordErrorReporter kafkaRecordErrorReporter = noOpKafkaRecordErrorReporter();
+
     // default to snowpipe
     // If it is snowpipe_streaming, set delivery guarantee to exactly once.
     IngestionMethodConfig ingestionType = IngestionMethodConfig.SNOWPIPE;
@@ -180,6 +187,7 @@ public class SnowflakeSinkTask extends SinkTask {
       if (ingestionType.equals(IngestionMethodConfig.SNOWPIPE_STREAMING)) {
         ingestionDeliveryGuarantee =
             SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE;
+        kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
       }
     }
 
@@ -202,6 +210,7 @@ public class SnowflakeSinkTask extends SinkTask {
             .setBehaviorOnNullValuesConfig(behavior)
             .setCustomJMXMetrics(enableCustomJMXMonitoring)
             .setDeliveryGuarantee(ingestionDeliveryGuarantee)
+            .setErrorReporter(kafkaRecordErrorReporter)
             .build();
 
     LOGGER.info(
@@ -414,5 +423,47 @@ public class SnowflakeSinkTask extends SinkTask {
         e.printStackTrace();
       }
     }
+  }
+
+  /* Used to report a record back to DLQ if error tolerance is specified */
+  private KafkaRecordErrorReporter createKafkaRecordErrorReporter() {
+    KafkaRecordErrorReporter result = noOpKafkaRecordErrorReporter();
+    if (context != null) {
+      try {
+        ErrantRecordReporter errantRecordReporter = context.errantRecordReporter();
+        if (errantRecordReporter != null) {
+          result =
+              (record, error) -> {
+                try {
+                  // Blocking this until record is delivered to DLQ
+                  errantRecordReporter.report(record, error).get();
+                } catch (InterruptedException | ExecutionException e) {
+                  final String errMsg = "ERROR reporting records to ErrantRecordReporter";
+                  LOGGER.error(errMsg, e);
+                  throw new ConnectException(errMsg, e);
+                }
+              };
+        } else {
+          LOGGER.info("Errant record reporter is not configured.");
+        }
+      } catch (NoClassDefFoundError | NoSuchMethodError e) {
+        // Will occur in Connect runtimes earlier than 2.6
+        LOGGER.info("Kafka versions prior to 2.6 do not support the errant record reporter.");
+      }
+    }
+    return result;
+  }
+
+  /**
+   * For versions older than 2.6
+   *
+   * @see <a
+   *     href="https://javadoc.io/doc/org.apache.kafka/connect-api/2.6.0/org/apache/kafka/connect/sink/ErrantRecordReporter.html">
+   *     link </a>
+   * @return
+   */
+  @VisibleForTesting
+  static KafkaRecordErrorReporter noOpKafkaRecordErrorReporter() {
+    return (record, e) -> {};
   }
 }

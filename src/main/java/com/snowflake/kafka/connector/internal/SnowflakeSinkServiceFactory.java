@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
@@ -116,6 +117,12 @@ public class SnowflakeSinkServiceFactory {
         SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
       this.service.setDeliveryGuarantee(ingestionDeliveryGuarantee);
       logInfo("Config Delivery Guarantee type {}.", ingestionDeliveryGuarantee.toString());
+      return this;
+    }
+
+    public SnowflakeSinkServiceBuilder setErrorReporter(
+        KafkaRecordErrorReporter kafkaRecordErrorReporter) {
+      this.service.setErrorReporter(kafkaRecordErrorReporter);
       return this;
     }
 
