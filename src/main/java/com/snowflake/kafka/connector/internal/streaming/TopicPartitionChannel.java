@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
@@ -19,7 +20,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
+import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
@@ -61,7 +65,7 @@ public class TopicPartitionChannel {
    * any records before or TopicPartitionChannel was recently created.
    *
    * <p>If the channel is closed, or if partition reassignment is triggered (Rebalancing), we wipe
-   * off {@link SnowflakeSinkServiceV2#partitionsToChannel}
+   * off partitionsToChannel cache in {@link SnowflakeSinkServiceV2}
    */
   private boolean hasChannelReceivedAnyRecordsBefore = false;
 
@@ -72,8 +76,18 @@ public class TopicPartitionChannel {
 
   // -------- private final fields -------- //
 
+  private final SnowflakeStreamingIngestClient streamingIngestClient;
+
   // used to communicate to the streaming ingest's insertRows API
   private final SnowflakeStreamingIngestChannel channel;
+
+  /* Channel Name is computed from topic and partition */
+  private final String channelName;
+
+  /* DB, schema, table are required for opening the channel */
+  private final String databaseName;
+  private final String schemaName;
+  private final String tableName;
 
   /* Responsible for converting records to Json */
   private final RecordService recordService;
@@ -91,11 +105,29 @@ public class TopicPartitionChannel {
   // added to buffer before calling insertRows
   private final AtomicLong processedOffset; // processed offset
 
-  // Ctor
+  /**
+   * @param streamingIngestClient client created specifically for this task
+   * @param channelName channel Name which is deterministic for topic and partition
+   * @param databaseName database in snowflake
+   * @param schemaName schema in snowflake
+   * @param tableName table to ingest in snowflake
+   * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
+   */
   public TopicPartitionChannel(
-      SnowflakeStreamingIngestChannel channel, KafkaRecordErrorReporter kafkaRecordErrorReporter) {
-    this.channel = channel;
-    this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
+      SnowflakeStreamingIngestClient streamingIngestClient,
+      final String channelName,
+      final String databaseName,
+      final String schemaName,
+      final String tableName,
+      KafkaRecordErrorReporter kafkaRecordErrorReporter) {
+    this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
+    Preconditions.checkState(!streamingIngestClient.isClosed());
+    this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
+    this.channelName = Preconditions.checkNotNull(channelName);
+    this.databaseName = Preconditions.checkNotNull(databaseName);
+    this.schemaName = Preconditions.checkNotNull(schemaName);
+    this.tableName = Preconditions.checkNotNull(tableName);
+    this.channel = Preconditions.checkNotNull(openChannelForTable());
     this.recordService = new RecordService();
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -323,35 +355,64 @@ public class TopicPartitionChannel {
     }
   }
 
-  /* Returns the offset Token persisted into snowflake */
+  /**
+   * Returns the offset Token persisted into snowflake.
+   *
+   * <p>If the API returns {@link SFException}, we will reopen the channel.
+   *
+   * @return -1 if no offset is found in snowflake, else the long value of committedOffset in
+   *     snowflake.
+   */
   @VisibleForTesting
   protected long fetchLatestCommittedOffsetFromSnowflake() {
     long latestCommittedOffsetInSnowflake;
     LOGGER.debug(
         "Fetching last committed offset for partition channel:{}",
         this.channel.getFullyQualifiedName());
-    String offsetToken = this.channel.getLatestCommittedOffsetToken();
-    if (offsetToken == null) {
-      LOGGER.info("OffsetToken not present for channelName:{}", this.getChannelName());
-      return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
-    } else {
-      try {
+    String offsetToken = null;
+    try {
+      offsetToken = this.channel.getLatestCommittedOffsetToken();
+      if (offsetToken == null) {
+        LOGGER.info("OffsetToken not present for channelName:{}", this.getChannelName());
+        return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+      } else {
         latestCommittedOffsetInSnowflake = Long.parseLong(offsetToken);
         LOGGER.info(
             "Fetched offsetToken:{} for channelName:{}",
             latestCommittedOffsetInSnowflake,
             this.getChannelName());
         return latestCommittedOffsetInSnowflake;
-      } catch (NumberFormatException e) {
-        final String errorMsg =
-            String.format(
-                "The offsetToken string does not contain a parsable long: %s,"
-                    + " offsetTokenLastRetrieved: %s. ",
-                this.getChannelName(), offsetToken);
-        LOGGER.error(errorMsg);
-        throw new ConnectException(errorMsg, e);
       }
+    } catch (SFException ex) {
+      LOGGER.warn(
+          "SFException in getLatestCommittedOffsetToken for channel:{}, code:{}. "
+              + "Reopening the channel",
+          this.getChannelName(),
+          ex.getVendorCode(),
+          ex);
+      openChannelForTable();
+    } catch (NumberFormatException ex) {
+      LOGGER.error(
+          "The offsetToken string does not contain a parsable long:{} for channel:{}",
+          offsetToken,
+          this.getChannelName());
+      throw new ConnectException(ex);
     }
+    return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+  }
+
+  /* Open a channel for Table with given channel name and tableName */
+  private SnowflakeStreamingIngestChannel openChannelForTable() {
+    OpenChannelRequest channelRequest =
+        OpenChannelRequest.builder(channelName)
+            .setDBName(this.databaseName)
+            .setSchemaName(this.schemaName)
+            .setTableName(this.tableName)
+            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
+            .build();
+    LOGGER.info(
+        "Opening a channel with name:{} for table name:{}", this.channelName, this.tableName);
+    return streamingIngestClient.openChannel(channelRequest);
   }
 
   /**
