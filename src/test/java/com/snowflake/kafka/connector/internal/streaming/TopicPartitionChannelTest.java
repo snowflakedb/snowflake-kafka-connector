@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
+
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -48,6 +50,7 @@ public class TopicPartitionChannelTest {
     Mockito.when(mockStreamingClient.isClosed()).thenReturn(false);
     Mockito.when(mockStreamingClient.openChannel(ArgumentMatchers.any(OpenChannelRequest.class)))
         .thenReturn(mockStreamingChannel);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
   }
 
   @Test(expected = IllegalStateException.class)
@@ -64,7 +67,7 @@ public class TopicPartitionChannelTest {
   }
 
   @Test
-  public void testFetchLastCommittedOffsetToken_null() {
+  public void testFetchOffsetTokenWithRetry_null() {
     Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenReturn(null);
 
     TopicPartitionChannel topicPartitionChannel =
@@ -76,11 +79,11 @@ public class TopicPartitionChannelTest {
             TEST_TABLE_NAME,
             mockKafkaRecordErrorReporter);
 
-    Assert.assertEquals(-1L, topicPartitionChannel.fetchLatestCommittedOffsetFromSnowflake());
+    Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
 
   @Test
-  public void testFetchLastCommittedOffsetToken_validLong() {
+  public void testFetchOffsetTokenWithRetry_validLong() {
 
     Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenReturn("100");
 
@@ -93,30 +96,7 @@ public class TopicPartitionChannelTest {
             TEST_TABLE_NAME,
             mockKafkaRecordErrorReporter);
 
-    Assert.assertEquals(100L, topicPartitionChannel.fetchLatestCommittedOffsetFromSnowflake());
-  }
-
-  @Test(expected = ConnectException.class)
-  public void testFetchLastCommittedOffsetToken_InvalidNumber() {
-
-    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenReturn("invalidNo");
-
-    TopicPartitionChannel topicPartitionChannel =
-        new TopicPartitionChannel(
-            mockStreamingClient,
-            TEST_CHANNEL_NAME,
-            TEST_DB,
-            TEST_SC,
-            TEST_TABLE_NAME,
-            mockKafkaRecordErrorReporter);
-
-    try {
-      topicPartitionChannel.fetchLatestCommittedOffsetFromSnowflake();
-      Assert.fail("Should throw exception");
-    } catch (ConnectException exception) {
-      Assert.assertTrue(exception.getMessage().contains("invalidNo"));
-      throw exception;
-    }
+    Assert.assertEquals(100L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
 
   @Test
@@ -187,8 +167,9 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.closeChannel();
   }
 
-  @Test
-  public void testFetchLatestCommittedOffsetFromSnowflake_SFException() {
+  /* Only SFExceptions are retried and goes into fallback. */
+  @Test(expected = SFException.class)
+  public void testFetchOffsetTokenWithRetry_SFException() {
     SFException exception = new SFException(ErrorCode.INVALID_CHANNEL, "INVALID_CHANNEL");
     Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenThrow(exception);
 
@@ -201,8 +182,93 @@ public class TopicPartitionChannelTest {
             TEST_TABLE_NAME,
             mockKafkaRecordErrorReporter);
 
-    Assert.assertEquals(-1L, topicPartitionChannel.fetchLatestCommittedOffsetFromSnowflake());
+    try {
+      Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
+    } catch (SFException ex) {
+      Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
+      Mockito.verify(
+              topicPartitionChannel.getChannel(), Mockito.times(MAX_GET_OFFSET_TOKEN_RETRIES + 1))
+          .getLatestCommittedOffsetToken();
+      throw ex;
+    }
+  }
 
-    Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
+  /* No retries are since it throws NumberFormatException */
+  @Test(expected = ConnectException.class)
+  public void testFetchOffsetTokenWithRetry_InvalidNumber() {
+
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenReturn("invalidNo");
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            TEST_CHANNEL_NAME,
+            TEST_DB,
+            TEST_SC,
+            TEST_TABLE_NAME,
+            mockKafkaRecordErrorReporter);
+
+    try {
+      topicPartitionChannel.fetchOffsetTokenWithRetry();
+      Assert.fail("Should throw exception");
+    } catch (ConnectException exception) {
+      // Open channel is not called again.
+      Mockito.verify(mockStreamingClient, Mockito.times(1)).openChannel(ArgumentMatchers.any());
+
+      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
+          .getLatestCommittedOffsetToken();
+      Assert.assertTrue(exception.getMessage().contains("invalidNo"));
+      throw exception;
+    }
+  }
+
+  /* No reteries and fallback here too since it throws an unknown NPE. */
+  @Test(expected = NullPointerException.class)
+  public void testFetchOffsetTokenWithRetry_NullPointerException() {
+    NullPointerException exception = new NullPointerException("NPE");
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenThrow(exception);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            TEST_CHANNEL_NAME,
+            TEST_DB,
+            TEST_SC,
+            TEST_TABLE_NAME,
+            mockKafkaRecordErrorReporter);
+
+    try {
+      Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
+    } catch (NullPointerException ex) {
+      Mockito.verify(mockStreamingClient, Mockito.times(1)).openChannel(ArgumentMatchers.any());
+      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
+          .getLatestCommittedOffsetToken();
+      throw ex;
+    }
+  }
+
+  /* No reteries and fallback here too since it throws an unknown NPE. */
+  @Test(expected = RuntimeException.class)
+  public void testFetchOffsetTokenWithRetry_RuntimeException() {
+    RuntimeException exception = new RuntimeException("runtime exception");
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenThrow(exception);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            TEST_CHANNEL_NAME,
+            TEST_DB,
+            TEST_SC,
+            TEST_TABLE_NAME,
+            mockKafkaRecordErrorReporter);
+
+    try {
+      Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
+    } catch (RuntimeException ex) {
+      Mockito.verify(mockStreamingClient, Mockito.times(1)).openChannel(ArgumentMatchers.any());
+      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
+          .getLatestCommittedOffsetToken();
+      throw ex;
+    }
   }
 }

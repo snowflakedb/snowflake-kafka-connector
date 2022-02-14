@@ -144,16 +144,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   private void createStreamingChannelForTopicPartition(
       final String partitionChannelKey, final String tableName) {
-    // This will always open the channel.
-    TopicPartitionChannel topicPartitionChannel =
+    // Create new instance of TopicPartitionChannel which will always open the channel.
+    partitionsToChannel.put(
+        partitionChannelKey,
         new TopicPartitionChannel(
             this.streamingIngestClient,
             partitionChannelKey,
             this.connectorConfig.get(Utils.SF_DATABASE),
             this.connectorConfig.get(Utils.SF_DATABASE),
             tableName,
-            this.kafkaRecordErrorReporter);
-    partitionsToChannel.put(partitionChannelKey, topicPartitionChannel);
+            this.kafkaRecordErrorReporter));
   }
 
   /**

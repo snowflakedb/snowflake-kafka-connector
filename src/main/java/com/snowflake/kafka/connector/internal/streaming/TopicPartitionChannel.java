@@ -1,5 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -10,6 +13,9 @@ import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
+import dev.failsafe.Failsafe;
+import dev.failsafe.Fallback;
+import dev.failsafe.RetryPolicy;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
@@ -212,7 +218,7 @@ public class TopicPartitionChannel {
           record.kafkaPartition());
       // This will only be called once at the beginning when an offset arrives for first time
       // after connector starts
-      final long lastCommittedOffsetToken = fetchLatestCommittedOffsetFromSnowflake();
+      final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
       this.offsetPersistedInSnowflake =
           (lastCommittedOffsetToken == -1L)
               ? NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
@@ -341,10 +347,15 @@ public class TopicPartitionChannel {
    *
    * <p>Check {@link com.snowflake.kafka.connector.SnowflakeSinkTask#preCommit(Map)}
    *
+   * <p>Note:
+   *
+   * <p>If we cannot fetch offsetToken from snowflake even after retries and reopening the channel,
+   * we will throw app
+   *
    * @return (offsetToken present in Snowflake + 1), else -1
    */
   public long getOffsetSafeToCommitToKafka() {
-    final long committedOffsetInSnowflake = fetchLatestCommittedOffsetFromSnowflake();
+    final long committedOffsetInSnowflake = fetchOffsetTokenWithRetry();
     if (committedOffsetInSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       return offsetSafeToCommitToKafka.get();
     } else {
@@ -356,16 +367,99 @@ public class TopicPartitionChannel {
   }
 
   /**
+   * Fetches the offset token from Snowflake.
+   *
+   * <p>It uses <a href="https://github.com/failsafe-lib/failsafe">Failsafe library </a> which
+   * implements retries, fallbacks and circuit breaker.
+   *
+   * <p>Here is how Failsafe is implemented.
+   *
+   * <p>Fetches offsetToken from Snowflake (Streaming API)
+   *
+   * <p>If it returns a valid offset number, that number is returned back to caller.
+   *
+   * <p>If {@link net.snowflake.ingest.utils.SFException} is thrown, we will retry for max 3 times.
+   * (Including the original try)
+   *
+   * <p>Upon reaching the limit of maxRetries, we will {@link Fallback} to opening a channel and
+   * fetching offsetToken again.
+   *
+   * <p>Please note, upon executing fallback, we might throw an exception too. However, in that case
+   * we will not retry.
+   *
+   * @return long offset token present in snowflake for this channel/partition.
+   */
+  @VisibleForTesting
+  protected long fetchOffsetTokenWithRetry() {
+    final RetryPolicy<Long> offsetTokenRetryPolicy =
+        RetryPolicy.<Long>builder()
+            .handle(SFException.class)
+            .withDelay(DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY)
+            .withMaxAttempts(MAX_GET_OFFSET_TOKEN_RETRIES)
+            .onRetry(
+                event ->
+                    LOGGER.warn(
+                        "[RetryPolicy] retry for getLatestCommittedOffsetToken. Retry no:{}",
+                        event.getAttemptCount()))
+            .build();
+
+    // Read it from reverse order. Fetch offsetToken, apply retry policy and then fallback.
+    return Failsafe.with(getFallbackForGetOffsetTokenFailure())
+        .compose(offsetTokenRetryPolicy)
+        .onFailure(
+            event ->
+                LOGGER.error(
+                    "[Failsafe] Failure to fetch offsetToken even after retry and fallback from"
+                        + " snowflake for channel:{}, elapsedTimeSeconds:{}",
+                    this.getChannelName(),
+                    event.getElapsedTime().get(SECONDS),
+                    event.getException()))
+        .get(this::fetchLatestCommittedOffsetFromSnowflake);
+  }
+
+  /**
+   * Fallback function to execute when retries for fetching getOffsetToken for channel fails.
+   *
+   * <p>Fallback function is to re-open the channel and fetch the latestOffsetToken one more time
+   * after reopen is successful.
+   *
+   * <p>Fallback is only attempted on SFException
+   *
+   * @return the fallback function to execute when all retries from getOffsetToken have exhausted.
+   */
+  private Fallback<Long> getFallbackForGetOffsetTokenFailure() {
+    return Fallback.builder(
+            () -> {
+              openChannelForTable();
+              return fetchLatestCommittedOffsetFromSnowflake();
+            })
+        .handle(SFException.class)
+        .onFailedAttempt(
+            event ->
+                LOGGER.warn(
+                    "[FALLBACK] Failed fetching offsetToken for channel:{}",
+                    this.getChannelName(),
+                    event.getLastException()))
+        .onFailure(
+            event ->
+                LOGGER.warn(
+                    "[FALLBACK] Failed to open Channel/fetch offsetToken for channel:{}",
+                    this.getChannelName(),
+                    event.getException()))
+        .build();
+  }
+
+  /**
    * Returns the offset Token persisted into snowflake.
    *
-   * <p>If the API returns {@link SFException}, we will reopen the channel.
+   * <p>OffsetToken from Snowflake returns a String and we will convert it into long.
+   *
+   * <p>If it is not long parsable, we will throw {@link ConnectException}
    *
    * @return -1 if no offset is found in snowflake, else the long value of committedOffset in
    *     snowflake.
    */
-  @VisibleForTesting
-  protected long fetchLatestCommittedOffsetFromSnowflake() {
-    long latestCommittedOffsetInSnowflake;
+  private long fetchLatestCommittedOffsetFromSnowflake() {
     LOGGER.debug(
         "Fetching last committed offset for partition channel:{}",
         this.channel.getFullyQualifiedName());
@@ -376,21 +470,13 @@ public class TopicPartitionChannel {
         LOGGER.info("OffsetToken not present for channelName:{}", this.getChannelName());
         return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
       } else {
-        latestCommittedOffsetInSnowflake = Long.parseLong(offsetToken);
+        long latestCommittedOffsetInSnowflake = Long.parseLong(offsetToken);
         LOGGER.info(
             "Fetched offsetToken:{} for channelName:{}",
             latestCommittedOffsetInSnowflake,
-            this.getChannelName());
+            this.channel.getFullyQualifiedName());
         return latestCommittedOffsetInSnowflake;
       }
-    } catch (SFException ex) {
-      LOGGER.warn(
-          "SFException in getLatestCommittedOffsetToken for channel:{}, code:{}. "
-              + "Reopening the channel",
-          this.getChannelName(),
-          ex.getVendorCode(),
-          ex);
-      openChannelForTable();
     } catch (NumberFormatException ex) {
       LOGGER.error(
           "The offsetToken string does not contain a parsable long:{} for channel:{}",
@@ -398,7 +484,6 @@ public class TopicPartitionChannel {
           this.getChannelName());
       throw new ConnectException(ex);
     }
-    return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
   }
 
   /* Open a channel for Table with given channel name and tableName */
@@ -475,6 +560,11 @@ public class TopicPartitionChannel {
   /* For testing */
   protected boolean isPartitionBufferEmpty() {
     return streamingBuffer.isEmpty();
+  }
+
+  /* For testing */
+  protected SnowflakeStreamingIngestChannel getChannel() {
+    return this.channel;
   }
 
   // ------ INNER CLASS ------ //
