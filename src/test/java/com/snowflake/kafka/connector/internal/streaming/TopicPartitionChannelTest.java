@@ -1,17 +1,24 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -39,9 +46,7 @@ public class TopicPartitionChannelTest {
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(mockStreamingChannel, mockKafkaRecordErrorReporter);
 
-    topicPartitionChannel.fetchLastCommittedOffsetToken();
-
-    Assert.assertEquals(-1L, topicPartitionChannel.getOffsetPersistedInSnowflake());
+    Assert.assertEquals(-1L, topicPartitionChannel.fetchLatestCommittedOffsetFromSnowflake());
   }
 
   @Test
@@ -52,9 +57,7 @@ public class TopicPartitionChannelTest {
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(mockStreamingChannel, mockKafkaRecordErrorReporter);
 
-    topicPartitionChannel.fetchLastCommittedOffsetToken();
-
-    Assert.assertEquals(100L, topicPartitionChannel.getOffsetPersistedInSnowflake());
+    Assert.assertEquals(100L, topicPartitionChannel.fetchLatestCommittedOffsetFromSnowflake());
   }
 
   @Test(expected = ConnectException.class)
@@ -66,7 +69,7 @@ public class TopicPartitionChannelTest {
         new TopicPartitionChannel(mockStreamingChannel, mockKafkaRecordErrorReporter);
 
     try {
-      topicPartitionChannel.fetchLastCommittedOffsetToken();
+      topicPartitionChannel.fetchLatestCommittedOffsetFromSnowflake();
       Assert.fail("Should throw exception");
     } catch (ConnectException exception) {
       Assert.assertTrue(exception.getMessage().contains("invalidNo"));
@@ -74,11 +77,77 @@ public class TopicPartitionChannelTest {
     }
   }
 
+  @Test
+  public void testFirstRecordForChannel() {
+    mockStreamingChannel =
+        new MockStreamingIngestChannel(() -> new InsertValidationResponse(), () -> null);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(mockStreamingChannel, mockKafkaRecordErrorReporter);
+    JsonConverter converter = new JsonConverter();
+    HashMap<String, String> converterConfig = new HashMap<String, String>();
+    converterConfig.put("schemas.enable", "false");
+    converter.configure(converterConfig, true);
+    SchemaAndValue input =
+        converter.toConnectData("test", "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+    long offset = 0;
+
+    SinkRecord record1 =
+        new SinkRecord(
+            "test",
+            0,
+            Schema.STRING_SCHEMA,
+            "test_key" + offset,
+            input.schema(),
+            input.value(),
+            offset);
+
+    topicPartitionChannel.insertRecordToBuffer(record1);
+
+    Assert.assertEquals(-1l, topicPartitionChannel.getOffsetPersistedInSnowflake());
+
+    Assert.assertFalse(topicPartitionChannel.isPartitionBufferEmpty());
+
+    // insert buffered rows by calling insertRows API. (Which we will mock)
+    topicPartitionChannel.insertBufferedRows();
+
+    Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
+
+    // After insertRows API is called, the offsetToken would return 0
+
+    mockStreamingChannel =
+        new MockStreamingIngestChannel(() -> new InsertValidationResponse(), () -> "0");
+  }
+
+  @Test
+  public void testCloseChannelException() throws Exception {
+    SnowflakeStreamingIngestChannel mockChannel =
+        Mockito.mock(SnowflakeStreamingIngestChannel.class);
+    CompletableFuture mockFuture = Mockito.mock(CompletableFuture.class);
+
+    Mockito.when(mockChannel.close()).thenReturn(mockFuture);
+
+    Mockito.when(mockFuture.get()).thenThrow(new InterruptedException("Interrupted Exception"));
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(mockChannel, mockKafkaRecordErrorReporter);
+
+    topicPartitionChannel.closeChannel();
+  }
+
   private class MockStreamingIngestChannel implements SnowflakeStreamingIngestChannel {
+
+    Supplier<InsertValidationResponse> insertRowValidationResponseSupplier;
 
     Supplier<String> getOffsetTokenSupplier;
 
     MockStreamingIngestChannel(Supplier<String> getOffsetTokenSupplier) {
+      this(null, getOffsetTokenSupplier);
+    }
+
+    MockStreamingIngestChannel(
+        Supplier<InsertValidationResponse> insertRowValidationResponseSupplier,
+        Supplier<String> getOffsetTokenSupplier) {
+      this.insertRowValidationResponseSupplier = insertRowValidationResponseSupplier;
       this.getOffsetTokenSupplier = getOffsetTokenSupplier;
     }
 
@@ -129,13 +198,13 @@ public class TopicPartitionChannelTest {
 
     @Override
     public InsertValidationResponse insertRow(Map<String, Object> map, @Nullable String s) {
-      return null;
+      return insertRowValidationResponseSupplier.get();
     }
 
     @Override
     public InsertValidationResponse insertRows(
         Iterable<Map<String, Object>> iterable, @Nullable String s) {
-      return null;
+      return insertRowValidationResponseSupplier.get();
     }
 
     @Override

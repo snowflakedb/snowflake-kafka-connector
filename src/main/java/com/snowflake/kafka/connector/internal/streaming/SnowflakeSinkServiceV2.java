@@ -135,24 +135,23 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // the table should be present before opening a channel so lets do a table existence check here
     createTableIfNotExists(tableName);
 
-    createOrUpdatePartitionsToChannelCache(partitionChannelKey, tableName);
+    createStreamingChannelForTopicPartition(partitionChannelKey, tableName);
   }
 
-  /* We will always open a new channel. This will either update the TopicPartitionChannel's streamingChannel or will create a new instance of TopicPartitionChannel. */
-  private void createOrUpdatePartitionsToChannelCache(
+  /**
+   * Always opens a new channel and creates a new instance of TopicPartitionChannel.
+   *
+   * <p>This is essentially a blind write to partitionsToChannel. i.e we dont check if it is present
+   * or not.
+   */
+  private void createStreamingChannelForTopicPartition(
       final String partitionChannelKey, final String tableName) {
     // Always open a new channel.
     SnowflakeStreamingIngestChannel partitionChannel =
         openChannelForTable(partitionChannelKey, tableName);
-    if (partitionsToChannel.containsKey(partitionChannelKey)) {
-      // we just update the channel instance for this partition
-      partitionsToChannel.get(partitionChannelKey).updateStreamingIngestChannel(partitionChannel);
-    } else {
-      // Add channel and related metadata to partitionsToChannel map
-      TopicPartitionChannel topicPartitionChannel =
-          new TopicPartitionChannel(partitionChannel, this.kafkaRecordErrorReporter);
-      partitionsToChannel.put(partitionChannelKey, topicPartitionChannel);
-    }
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(partitionChannel, this.kafkaRecordErrorReporter);
+    partitionsToChannel.put(partitionChannelKey, topicPartitionChannel);
   }
 
   /**
@@ -203,7 +202,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     if (!partitionsToChannel.containsKey(partitionChannelKey)
         || partitionsToChannel.get(partitionChannelKey).isChannelClosed()) {
       LOGGER.warn(
-          "Topic: {} Partition: {} hasn't been initialized by OPEN " + "function",
+          "Topic: {} Partition: {} hasn't been initialized by OPEN function",
           record.topic(),
           record.kafkaPartition());
       startTask(
@@ -231,7 +230,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     String partitionChannelKey =
         partitionChannelKey(topicPartition.topic(), topicPartition.partition());
     if (partitionsToChannel.containsKey(partitionChannelKey)) {
-      return partitionsToChannel.get(partitionChannelKey).getCommittedOffset();
+      return partitionsToChannel.get(partitionChannelKey).getOffsetSafeToCommitToKafka();
     } else {
       LOGGER.warn(
           "Topic: {} Partition: {} hasn't been initialized to get offset",
@@ -263,12 +262,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   /**
-   * This function is called during rebalance. Please ensure we dont wipe off state when we are
-   * invoking this function. i.e after rebalance, we would still want to preserve metadata like
-   * streamingBuffer, processedOffset
+   * This function is called during rebalance.
    *
    * <p>All the channels are closed. The client is still active. Upon rebalance, (inside {@link
    * com.snowflake.kafka.connector.SnowflakeSinkTask#open(Collection)} we will reopen the channel.
+   *
+   * <p>We will wipe the cache partitionsToChannel so that in {@link
+   * com.snowflake.kafka.connector.SnowflakeSinkTask#open(Collection)} we reinstantiate and fetch
+   * offsetToken
    *
    * @param partitions a list of topic partition
    */
@@ -287,6 +288,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               topicPartition.topic(),
               topicPartition.partition());
         });
+    partitionsToChannel.clear();
   }
 
   @Override
