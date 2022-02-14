@@ -171,7 +171,11 @@ public class TopicPartitionChannelTest {
   @Test(expected = SFException.class)
   public void testFetchOffsetTokenWithRetry_SFException() {
     SFException exception = new SFException(ErrorCode.INVALID_CHANNEL, "INVALID_CHANNEL");
-    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenThrow(exception);
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
+        .thenThrow(exception)
+        .thenThrow(exception)
+        .thenThrow(exception)
+        .thenThrow(exception);
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
@@ -191,6 +195,36 @@ public class TopicPartitionChannelTest {
           .getLatestCommittedOffsetToken();
       throw ex;
     }
+  }
+
+  /* SFExceptions are retried and goes into fallback where it will reopen the channel and return a 0 offsetToken */
+  @Test
+  public void testFetchOffsetTokenWithRetry_validOffsetTokenAfterThreeSFExceptions() {
+    SFException exception = new SFException(ErrorCode.INVALID_CHANNEL, "INVALID_CHANNEL");
+    final String offsetTokenAfterMaxAttempts = "0";
+
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
+        .thenThrow(exception)
+        .thenThrow(exception)
+        .thenThrow(exception)
+        .thenReturn(offsetTokenAfterMaxAttempts);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            TEST_CHANNEL_NAME,
+            TEST_DB,
+            TEST_SC,
+            TEST_TABLE_NAME,
+            mockKafkaRecordErrorReporter);
+
+    Assert.assertEquals(
+        Long.parseLong(offsetTokenAfterMaxAttempts),
+        topicPartitionChannel.fetchOffsetTokenWithRetry());
+    Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
+    Mockito.verify(
+            topicPartitionChannel.getChannel(), Mockito.times(MAX_GET_OFFSET_TOKEN_RETRIES + 1))
+        .getLatestCommittedOffsetToken();
   }
 
   /* No retries are since it throws NumberFormatException */

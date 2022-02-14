@@ -405,7 +405,6 @@ public class TopicPartitionChannel {
 
     // Read it from reverse order. Fetch offsetToken, apply retry policy and then fallback.
     return Failsafe.with(getFallbackForGetOffsetTokenFailure())
-        .compose(offsetTokenRetryPolicy)
         .onFailure(
             event ->
                 LOGGER.error(
@@ -414,6 +413,7 @@ public class TopicPartitionChannel {
                     this.getChannelName(),
                     event.getElapsedTime().get(SECONDS),
                     event.getException()))
+        .compose(offsetTokenRetryPolicy)
         .get(this::fetchLatestCommittedOffsetFromSnowflake);
   }
 
@@ -434,18 +434,19 @@ public class TopicPartitionChannel {
               return fetchLatestCommittedOffsetFromSnowflake();
             })
         .handle(SFException.class)
-        .onFailedAttempt(
-            event ->
-                LOGGER.warn(
-                    "[FALLBACK] Failed fetching offsetToken for channel:{}",
-                    this.getChannelName(),
-                    event.getLastException()))
         .onFailure(
             event ->
                 LOGGER.warn(
                     "[FALLBACK] Failed to open Channel/fetch offsetToken for channel:{}",
                     this.getChannelName(),
                     event.getException()))
+        .onSuccess(
+            event ->
+                LOGGER.info(
+                    "[FALLBACK] Successfully opened a channel and fetched the offsetToken for"
+                        + " Channel:{}, offsetToken:{}",
+                    this.getChannelName(),
+                    event.getResult()))
         .build();
   }
 
