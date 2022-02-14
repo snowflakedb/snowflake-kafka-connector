@@ -153,6 +153,50 @@ public class SnowflakeSinkServiceV2IT {
 
   @Ignore
   @Test
+  public void testRebalanceOpenCloseIngestion() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    conn.createTable(table);
+
+    // opens a channel for partition 0, table and topic
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .addTask(table, topic, partition) // Internally calls startTask
+            .build();
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input =
+        converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+    long offset = 0;
+
+    SinkRecord record1 =
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test_key" + offset,
+            input.schema(),
+            input.value(),
+            offset);
+
+    service.insert(record1);
+
+    // Lets close the service
+    // Closing a partition == closing a channel
+    service.close(Collections.singletonList(new TopicPartition(topic, partition)));
+
+    // it should skip this record1 since it will fetch offset token 0 from Snowflake
+    service.insert(record1);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
+
+    service.closeAll();
+  }
+
+  @Ignore
+  @Test
   public void testStreamingIngestion() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
@@ -470,7 +514,6 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  // TODO: Check content in DLQ if records are broken SNOW-451197
   @Ignore
   @Test
   public void testBrokenIngestion() throws Exception {
@@ -559,8 +602,11 @@ public class SnowflakeSinkServiceV2IT {
         new SinkRecord(
             topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(), 2);
 
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
+
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setErrorReporter(errorReporter)
             .setRecordNumber(recordCount)
             .addTask(table, topic, partition)
             .build();
@@ -571,6 +617,11 @@ public class SnowflakeSinkServiceV2IT {
 
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == 3, 20, 5);
+
+    List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedData =
+        errorReporter.getReportedRecords();
+
+    assert reportedData.size() == 2;
 
     service.closeAll();
   }
