@@ -6,6 +6,7 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Map;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 
 /** A factory to create {@link SnowflakeSinkService} */
 public class SnowflakeSinkServiceFactory {
@@ -123,6 +124,11 @@ public class SnowflakeSinkServiceFactory {
     public SnowflakeSinkServiceBuilder setErrorReporter(
         KafkaRecordErrorReporter kafkaRecordErrorReporter) {
       this.service.setErrorReporter(kafkaRecordErrorReporter);
+      return this;
+    }
+
+    public SnowflakeSinkServiceBuilder setSinkTaskContext(SinkTaskContext sinkTaskContext) {
+      this.service.setSinkTaskContext(sinkTaskContext);
       return this;
     }
 

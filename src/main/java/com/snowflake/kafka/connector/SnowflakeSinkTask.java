@@ -211,6 +211,7 @@ public class SnowflakeSinkTask extends SinkTask {
             .setCustomJMXMetrics(enableCustomJMXMonitoring)
             .setDeliveryGuarantee(ingestionDeliveryGuarantee)
             .setErrorReporter(kafkaRecordErrorReporter)
+            .setSinkTaskContext(this.context)
             .build();
 
     LOGGER.info(

@@ -34,6 +34,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -102,6 +103,12 @@ public class TopicPartitionChannel {
   /* Responsible for returning errors to DLQ if records have failed to be ingested. */
   private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
 
+  /**
+   * Available from {@link org.apache.kafka.connect.sink.SinkTask} which has access to various
+   * utility methods.
+   */
+  private final SinkTaskContext sinkTaskContext;
+
   // ------- Kafka record related properties ------- //
   // Offset number we would want to commit back to kafka
   // This value is + 1 of what we find in snowflake.
@@ -119,6 +126,7 @@ public class TopicPartitionChannel {
    * @param schemaName schema in snowflake
    * @param tableName table to ingest in snowflake
    * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
+   * @param sinkTaskContext context on Kafka Connect's runtime
    */
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
@@ -126,7 +134,8 @@ public class TopicPartitionChannel {
       final String databaseName,
       final String schemaName,
       final String tableName,
-      KafkaRecordErrorReporter kafkaRecordErrorReporter) {
+      KafkaRecordErrorReporter kafkaRecordErrorReporter,
+      SinkTaskContext sinkTaskContext) {
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
     Preconditions.checkState(!streamingIngestClient.isClosed());
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
@@ -135,6 +144,7 @@ public class TopicPartitionChannel {
     this.schemaName = Preconditions.checkNotNull(schemaName);
     this.tableName = Preconditions.checkNotNull(tableName);
     this.channel = Preconditions.checkNotNull(openChannelForTable());
+    this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.recordService = new RecordService();
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -433,8 +443,30 @@ public class TopicPartitionChannel {
   private Fallback<Long> getFallbackForGetOffsetTokenFailure() {
     return Fallback.builder(
             () -> {
-              this.channel = openChannelForTable();
-              return fetchLatestCommittedOffsetFromSnowflake();
+              LOGGER.warn("[FALLBACK] Opening channel:{}", this.getChannelName());
+              openChannelForTable();
+              LOGGER.warn(
+                  "[FALLBACK] Fetching offsetToken after opening the channel:{}",
+                  this.getChannelName());
+              final long offsetRecoveredFromSnowflake = fetchLatestCommittedOffsetFromSnowflake();
+              if (offsetRecoveredFromSnowflake >= 0) {
+                LOGGER.info(
+                    "Resetting offset for {} to {}",
+                    this.getChannelName(),
+                    offsetRecoveredFromSnowflake);
+                //                sinkTaskContext.offset(topicPartition, offset);
+                return offsetRecoveredFromSnowflake;
+              } else {
+                // The offset was not found, so rather than forcibly set the offset to 0 we let the
+                // consumer decide where to start based upon standard consumer offsets (if
+                // available)
+                // or the consumer's `auto.offset.reset` configuration
+                LOGGER.debug(
+                    "Resetting offset for {} based upon existing consumer group offsets or, if "
+                        + "there are none, the consumer's 'auto.offset.reset' value.",
+                    this.getChannelName());
+              }
+              return 0L;
             })
         .handle(SFException.class)
         .onFailure(

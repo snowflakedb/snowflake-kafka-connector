@@ -24,6 +24,7 @@ import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,6 +82,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * org.apache.kafka.connect.sink.ErrantRecordReporter}
    */
   private KafkaRecordErrorReporter kafkaRecordErrorReporter;
+
+  /* SinkTaskContext has access to all methods/APIs available to talk to Kafka Connect runtime*/
+  private SinkTaskContext sinkTaskContext;
 
   // ------ Streaming Ingest ------ //
   // needs url, username. p8 key, role name
@@ -153,7 +157,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.connectorConfig.get(Utils.SF_DATABASE),
             this.connectorConfig.get(Utils.SF_SCHEMA),
             tableName,
-            this.kafkaRecordErrorReporter));
+            this.kafkaRecordErrorReporter,
+            this.sinkTaskContext));
   }
 
   /**
@@ -403,6 +408,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void setErrorReporter(KafkaRecordErrorReporter kafkaRecordErrorReporter) {
     this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
+  }
+
+  /*   */
+  @Override
+  public void setSinkTaskContext(SinkTaskContext sinkTaskContext) {
+    this.sinkTaskContext = sinkTaskContext;
   }
 
   @Override
