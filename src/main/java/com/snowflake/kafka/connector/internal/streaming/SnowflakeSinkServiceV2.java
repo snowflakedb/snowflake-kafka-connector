@@ -130,14 +130,21 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.partitionsToChannel = new HashMap<>();
   }
 
+  /**
+   * Creates a table if it doesnt exist in Snowflake.
+   *
+   * <p>Initializes the Channel and partitionsToChannel map with new instance of {@link
+   * TopicPartitionChannel}
+   *
+   * @param tableName destination table name
+   * @param topicPartition TopicPartition passed from Kafka
+   */
   @Override
-  public void startTask(String tableName, String topic, int partition) {
-    String partitionChannelKey = partitionChannelKey(topic, partition);
-
+  public void startTask(String tableName, TopicPartition topicPartition) {
     // the table should be present before opening a channel so lets do a table existence check here
     createTableIfNotExists(tableName);
 
-    createStreamingChannelForTopicPartition(partitionChannelKey, tableName);
+    createStreamingChannelForTopicPartition(tableName, topicPartition);
   }
 
   /**
@@ -147,13 +154,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * or not.
    */
   private void createStreamingChannelForTopicPartition(
-      final String partitionChannelKey, final String tableName) {
+      final String tableName, final TopicPartition topicPartition) {
+    final String partitionChannelKey =
+        partitionChannelKey(topicPartition.topic(), topicPartition.partition());
     // Create new instance of TopicPartitionChannel which will always open the channel.
     partitionsToChannel.put(
         partitionChannelKey,
         new TopicPartitionChannel(
             this.streamingIngestClient,
-            partitionChannelKey,
+            topicPartition,
+            partitionChannelKey, // Streaming channel name
             this.connectorConfig.get(Utils.SF_DATABASE),
             this.connectorConfig.get(Utils.SF_SCHEMA),
             tableName,
@@ -214,8 +224,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           record.kafkaPartition());
       startTask(
           Utils.tableName(record.topic(), this.topicToTableMap),
-          record.topic(),
-          record.kafkaPartition());
+          new TopicPartition(record.topic(), record.kafkaPartition()));
     }
 
     TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);

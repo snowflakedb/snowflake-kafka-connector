@@ -6,6 +6,7 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Map;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
 /** A factory to create {@link SnowflakeSinkService} */
@@ -56,14 +57,13 @@ public class SnowflakeSinkServiceFactory {
       this(conn, IngestionMethodConfig.SNOWPIPE, null /* Not required for V1 */);
     }
 
-    public SnowflakeSinkServiceBuilder addTask(String tableName, String topic, int partition) {
-      this.service.startTask(tableName, topic, partition);
+    public SnowflakeSinkServiceBuilder addTask(String tableName, TopicPartition topicPartition) {
+      this.service.startTask(tableName, topicPartition);
       logInfo(
-          "create new task in {} - table: {}, topic: {}, partition: {}",
+          "create new task in {} - table: {}, topicPartition: {}",
           SnowflakeSinkService.class.getName(),
           tableName,
-          topic,
-          partition);
+          topicPartition);
       return this;
     }
 

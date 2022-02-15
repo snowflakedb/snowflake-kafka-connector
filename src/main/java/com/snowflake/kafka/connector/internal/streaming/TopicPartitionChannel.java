@@ -30,6 +30,7 @@ import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.SFException;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
@@ -89,6 +90,9 @@ public class TopicPartitionChannel {
 
   private final SnowflakeStreamingIngestClient streamingIngestClient;
 
+  // Topic partition Object from connect consisting of topic and partition
+  private final TopicPartition topicPartition;
+
   /* Channel Name is computed from topic and partition */
   private final String channelName;
 
@@ -121,6 +125,8 @@ public class TopicPartitionChannel {
 
   /**
    * @param streamingIngestClient client created specifically for this task
+   * @param topicPartition topic partition corresponding to this Streaming Channel
+   *     (TopicPartitionChannel)
    * @param channelName channel Name which is deterministic for topic and partition
    * @param databaseName database in snowflake
    * @param schemaName schema in snowflake
@@ -130,6 +136,7 @@ public class TopicPartitionChannel {
    */
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
+      TopicPartition topicPartition,
       final String channelName,
       final String databaseName,
       final String schemaName,
@@ -138,13 +145,15 @@ public class TopicPartitionChannel {
       SinkTaskContext sinkTaskContext) {
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
     Preconditions.checkState(!streamingIngestClient.isClosed());
-    this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
+    this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelName = Preconditions.checkNotNull(channelName);
     this.databaseName = Preconditions.checkNotNull(databaseName);
     this.schemaName = Preconditions.checkNotNull(schemaName);
     this.tableName = Preconditions.checkNotNull(tableName);
     this.channel = Preconditions.checkNotNull(openChannelForTable());
+    this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
+
     this.recordService = new RecordService();
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -454,7 +463,7 @@ public class TopicPartitionChannel {
                     "Resetting offset for {} to {}",
                     this.getChannelName(),
                     offsetRecoveredFromSnowflake);
-                //                sinkTaskContext.offset(topicPartition, offset);
+                sinkTaskContext.offset(topicPartition, offsetRecoveredFromSnowflake);
                 return offsetRecoveredFromSnowflake;
               } else {
                 // The offset was not found, so rather than forcibly set the offset to 0 we let the
@@ -476,13 +485,6 @@ public class TopicPartitionChannel {
                         + " offsetToken for channel:{}",
                     this.getChannelName(),
                     event.getException()))
-        .onSuccess(
-            event ->
-                LOGGER.info(
-                    "[FALLBACK_FOR_GET_OFFSET_TOKEN_FAILURE] Successfully opened a channel and"
-                        + " fetched the offsetToken for Channel:{}, offsetToken:{}",
-                    this.getChannelName(),
-                    event.getResult()))
         .build();
   }
 
@@ -526,7 +528,7 @@ public class TopicPartitionChannel {
   /* Open a channel for Table with given channel name and tableName */
   private SnowflakeStreamingIngestChannel openChannelForTable() {
     OpenChannelRequest channelRequest =
-        OpenChannelRequest.builder(channelName)
+        OpenChannelRequest.builder(this.channelName)
             .setDBName(this.databaseName)
             .setSchemaName(this.schemaName)
             .setTableName(this.tableName)

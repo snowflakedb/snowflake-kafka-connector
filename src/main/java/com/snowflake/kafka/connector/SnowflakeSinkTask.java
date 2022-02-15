@@ -247,9 +247,9 @@ public class SnowflakeSinkTask extends SinkTask {
             this.id,
             partitions.size()));
     partitions.forEach(
-        tp ->
+        topicPartition ->
             this.sink.startTask(
-                Utils.tableName(tp.topic(), this.topic2table), tp.topic(), tp.partition()));
+                Utils.tableName(topicPartition.topic(), this.topic2table), topicPartition));
 
     LOGGER.info(
         Logging.logMessage(

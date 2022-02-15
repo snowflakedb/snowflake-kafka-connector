@@ -15,14 +15,12 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
 /** Background service of data sink, responsible to create/drop pipe and ingest/purge files */
 public interface SnowflakeSinkService {
   /**
-   * Create new ingestion task from existing table and stage, try to reused existing pipe and
-   * recovery previous task, otherwise, create a new pipe.
+   * Start the Task. This should handle any configuration parsing and one-time setup of the task.
    *
    * @param tableName destination table name
-   * @param topic topic name
-   * @param partition partition index
+   * @param topicPartition TopicPartition passed from Kafka
    */
-  void startTask(String tableName, String topic, int partition);
+  void startTask(String tableName, TopicPartition topicPartition);
 
   /**
    * call pipe to insert a collections of JSON records will trigger time based flush
