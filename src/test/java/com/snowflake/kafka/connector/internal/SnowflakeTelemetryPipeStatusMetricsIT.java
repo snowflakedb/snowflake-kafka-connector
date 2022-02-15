@@ -11,6 +11,7 @@ import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -43,7 +44,7 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
     // This means that default is true.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
-            .addTask(tableName, topic, partition)
+            .addTask(tableName, new TopicPartition(topic, partition))
             .setRecordNumber(1)
             .build();
 
@@ -182,7 +183,7 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setCustomJMXMetrics(false)
-            .addTask(tableName, topic, partition)
+            .addTask(tableName, new TopicPartition(topic, partition))
             .setRecordNumber(1)
             .build();
 

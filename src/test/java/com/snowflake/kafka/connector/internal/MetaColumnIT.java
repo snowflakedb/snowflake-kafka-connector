@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -36,7 +37,7 @@ public class MetaColumnIT {
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
-            .addTask(tableName, topic, partition)
+            .addTask(tableName, new TopicPartition(topic, partition))
             .setRecordNumber(3)
             .build();
 
