@@ -25,6 +25,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+
+import dev.failsafe.function.CheckedSupplier;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -425,8 +427,23 @@ public class TopicPartitionChannel {
                         event.getLastException().getMessage()))
             .build();
 
+    /**
+     * The fallback function to execute when all retries from getOffsetToken have exhausted.
+     * Fallback is only attempted on SFException
+     */
+    Fallback<Long> offsetTokenFallbackExecutor =
+        Fallback.builder(this::offsetTokenFallbackSupplier)
+            .handle(SFException.class)
+            .onFailure(
+                event ->
+                    LOGGER.error(
+                        "[FALLBACK] Failed to open Channel/fetch offsetToken for channel:{}",
+                        this.getChannelName(),
+                        event.getException()))
+            .build();
+
     // Read it from reverse order. Fetch offsetToken, apply retry policy and then fallback.
-    return Failsafe.with(getFallbackForGetOffsetTokenFailure())
+    return Failsafe.with(offsetTokenFallbackExecutor)
         .onFailure(
             event ->
                 LOGGER.error(
@@ -440,52 +457,41 @@ public class TopicPartitionChannel {
   }
 
   /**
-   * Fallback function to execute when retries for fetching getOffsetToken for channel fails.
+   * If a valid offset is found from snowflake, we will reset the topicPartition with
+   * (offsetReturnedFromSnowflake + 1).
    *
-   * <p>Fallback function is to re-open the channel and fetch the latestOffsetToken one more time
-   * after reopen is successful.
+   * <p>Please note, this is done only after a failure in fetching offset. Idea behind resetting
+   * offset (1 more than what we found in snowflake) is that Kafka should send offsets from this
+   * offset number so as to not miss any data.
    *
-   * <p>Fallback is only attempted on SFException
-   *
-   * @return the fallback function to execute when all retries from getOffsetToken have exhausted.
+   * @return offset which was last present in Snowflake
    */
-  private Fallback<Long> getFallbackForGetOffsetTokenFailure() {
-    return Fallback.builder(
-            () -> {
-              LOGGER.warn("[FALLBACK] Opening channel:{}", this.getChannelName());
-              openChannelForTable();
-              LOGGER.warn(
-                  "[FALLBACK] Fetching offsetToken after opening the channel:{}",
-                  this.getChannelName());
-              final long offsetRecoveredFromSnowflake = fetchLatestCommittedOffsetFromSnowflake();
-              if (offsetRecoveredFromSnowflake >= 0) {
-                LOGGER.info(
-                    "Resetting offset for {} to {}",
-                    this.getChannelName(),
-                    offsetRecoveredFromSnowflake);
-                sinkTaskContext.offset(topicPartition, offsetRecoveredFromSnowflake);
-                return offsetRecoveredFromSnowflake;
-              } else {
-                // The offset was not found, so rather than forcibly set the offset to 0 we let the
-                // consumer decide where to start based upon standard consumer offsets (if
-                // available)
-                // or the consumer's `auto.offset.reset` configuration
-                LOGGER.debug(
-                    "Resetting offset for {} based upon existing consumer group offsets or, if "
-                        + "there are none, the consumer's 'auto.offset.reset' value.",
-                    this.getChannelName());
-              }
-              return 0L;
-            })
-        .handle(SFException.class)
-        .onFailure(
-            event ->
-                LOGGER.warn(
-                    "[FALLBACK_FOR_GET_OFFSET_TOKEN_FAILURE] Failed to open Channel/fetch"
-                        + " offsetToken for channel:{}",
-                    this.getChannelName(),
-                    event.getException()))
-        .build();
+  private long offsetTokenFallbackSupplier() {
+    final long offsetRecoveredFromSnowflake = getRecoveredOffsetFromSnowflake();
+    final long offsetToResetInKafka = offsetRecoveredFromSnowflake + 1L;
+    sinkTaskContext.offset(topicPartition, offsetToResetInKafka);
+    LOGGER.info(
+        "Channel:{}, OffsetRecoveredFromSnowflake:{}, Reset kafka offset to:{}",
+        this.getChannelName(),
+        offsetRecoveredFromSnowflake,
+        offsetToResetInKafka);
+    return offsetRecoveredFromSnowflake;
+  }
+
+  /**
+   * {@link Fallback} executes below code if retries have failed on {@link SFException}.
+   *
+   * <p>It re-opens the channel and fetches the latestOffsetToken one more time after reopen was
+   * successful.
+   *
+   * @return offset which was last present in Snowflake
+   */
+  private long getRecoveredOffsetFromSnowflake() {
+    LOGGER.warn("[FALLBACK] Re-opening channel:{}", this.getChannelName());
+    openChannelForTable();
+    LOGGER.warn(
+        "[FALLBACK] Fetching offsetToken after re-opening the channel:{}", this.getChannelName());
+    return fetchLatestCommittedOffsetFromSnowflake();
   }
 
   /**
