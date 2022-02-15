@@ -140,6 +140,7 @@ public interface SnowflakeSinkService {
   /* Set Error reporter which can be used to send records to DLQ (Dead Letter Queue) */
   default void setErrorReporter(KafkaRecordErrorReporter kafkaRecordErrorReporter) {}
 
+  /* Set the SinkTaskContext object available from SinkTask. It contains utility methods to from Kafka Connect Runtime. */
   default void setSinkTaskContext(SinkTaskContext sinkTaskContext) {}
 
   /* Get metric registry of an associated pipe */

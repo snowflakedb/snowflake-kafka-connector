@@ -419,7 +419,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
   }
 
-  /*   */
   @Override
   public void setSinkTaskContext(SinkTaskContext sinkTaskContext) {
     this.sinkTaskContext = sinkTaskContext;
