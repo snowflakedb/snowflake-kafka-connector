@@ -40,13 +40,13 @@ import org.slf4j.LoggerFactory;
 public class SnowflakeSinkConnectorConfig {
 
   static final String NAME = Utils.NAME;
-  static final String TOPICS = "topics";
+  public static final String TOPICS = "topics";
 
   // Connector config
   private static final String CONNECTOR_CONFIG = "Connector Config";
-  static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
+  public static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
   public static final long BUFFER_COUNT_RECORDS_DEFAULT = 10000;
-  static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
+  public static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
   public static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
   public static final long BUFFER_SIZE_BYTES_MIN = 1;
   static final String TOPICS_TABLES_MAP = "snowflake.topic2table.map";
@@ -57,7 +57,7 @@ public class SnowflakeSinkConnectorConfig {
   // Time in seconds
   public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
   public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 120;
-  static final String BUFFER_FLUSH_TIME_SEC = "buffer.flush.time";
+  public static final String BUFFER_FLUSH_TIME_SEC = "buffer.flush.time";
 
   // Snowflake connection and database config
   private static final String SNOWFLAKE_LOGIN_INFO = "Snowflake Login Info";
@@ -120,6 +120,34 @@ public class SnowflakeSinkConnectorConfig {
   private static final ConfigDef.Validator KAFKA_PROVIDER_VALIDATOR = new KafkaProviderValidator();
   private static final ConfigDef.Validator DELIVERY_GUARANTEE_VALIDATOR =
       new DeliveryGuaranteeValidator();
+
+  // For error handling
+  public static final String ERROR_GROUP = "ERRORS";
+  public static final String ERRORS_TOLERANCE_CONFIG = "errors.tolerance";
+  public static final String ERRORS_TOLERANCE_DISPLAY = "Error Tolerance";
+  public static final ErrorTolerance ERRORS_TOLERANCE_DEFAULT = ErrorTolerance.NONE;
+  public static final String ERRORS_TOLERANCE_DOC =
+      "Behavior for tolerating errors during Sink connector's operation. 'NONE' is set as default"
+          + " and denotes that it will be fail fast. i.e any error will result in an immediate task"
+          + " failure. 'ALL'  skips over problematic records.";
+
+  public static final String ERRORS_LOG_ENABLE_CONFIG = "errors.log.enable";
+  public static final String ERRORS_LOG_ENABLE_DISPLAY = "Log Errors";
+  public static final boolean ERRORS_LOG_ENABLE_DEFAULT = false;
+  public static final String ERRORS_LOG_ENABLE_DOC =
+      "If true, write/log each error along with details of the failed operation and record"
+          + " properties to the Connect log. Default is 'false', so that only errors that are not"
+          + " tolerated are reported.";
+
+  public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG =
+      "errors.deadletterqueue.topic.name";
+  public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DISPLAY =
+      "Send error records to the dead letter queue(DLQ)";
+  public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DEFAULT = "";
+  public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DOC =
+      "Whether to output conversion errors to the dead letter queue "
+          + "By default messages are not outputted to the dead letter queue. "
+          + "Requires property `errors.tolerance=all`.";
 
   public static void setDefaultValues(Map<String, String> config) {
     setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);
@@ -410,7 +438,38 @@ public class SnowflakeSinkConnectorConfig {
             CONNECTOR_CONFIG,
             5,
             ConfigDef.Width.NONE,
-            INGESTION_METHOD_OPT);
+            INGESTION_METHOD_OPT)
+        .define(
+            ERRORS_TOLERANCE_CONFIG,
+            Type.STRING,
+            ERRORS_TOLERANCE_DEFAULT.value(),
+            ErrorTolerance.VALIDATOR,
+            Importance.MEDIUM,
+            ERRORS_TOLERANCE_DOC,
+            ERROR_GROUP,
+            0,
+            ConfigDef.Width.NONE,
+            ERRORS_TOLERANCE_DISPLAY)
+        .define(
+            ERRORS_LOG_ENABLE_CONFIG,
+            Type.BOOLEAN,
+            ERRORS_LOG_ENABLE_DEFAULT,
+            Importance.MEDIUM,
+            ERRORS_LOG_ENABLE_DOC,
+            ERROR_GROUP,
+            1,
+            ConfigDef.Width.NONE,
+            ERRORS_LOG_ENABLE_DISPLAY)
+        .define(
+            ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
+            Type.STRING,
+            ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DEFAULT,
+            Importance.MEDIUM,
+            ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DOC,
+            ERROR_GROUP,
+            2,
+            ConfigDef.Width.NONE,
+            ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DISPLAY);
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {
@@ -609,6 +668,52 @@ public class SnowflakeSinkConnectorConfig {
     @Override
     public String toString() {
       return name().toLowerCase(Locale.ROOT);
+    }
+  }
+
+  /* https://www.confluent.io/blog/kafka-connect-deep-dive-error-handling-dead-letter-queues/ */
+  public enum ErrorTolerance {
+
+    /** Tolerate no errors. */
+    NONE,
+
+    /** Tolerate all errors. */
+    ALL;
+
+    public String value() {
+      return name().toLowerCase(Locale.ROOT);
+    }
+
+    /* Validator to validate behavior.on.null.values which says whether kafka should keep null value records or ignore them while ingesting into snowflake table. */
+    public static final ConfigDef.Validator VALIDATOR =
+        new ConfigDef.Validator() {
+          private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names());
+
+          @Override
+          public void ensureValid(String name, Object value) {
+            if (value instanceof String) {
+              value = ((String) value).toLowerCase(Locale.ROOT);
+            }
+            validator.ensureValid(name, value);
+          }
+
+          // Overridden here so that ConfigDef.toEnrichedRst shows possible values correctly
+          @Override
+          public String toString() {
+            return validator.toString();
+          }
+        };
+
+    // All valid enum values
+    public static String[] names() {
+      ErrorTolerance[] errorTolerances = values();
+      String[] result = new String[errorTolerances.length];
+
+      for (int i = 0; i < errorTolerances.length; i++) {
+        result[i] = errorTolerances[i].toString();
+      }
+
+      return result;
     }
   }
 }
