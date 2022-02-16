@@ -80,12 +80,13 @@ public class TopicPartitionChannel {
   // We will only update it during start of the channel initialization
   private long offsetPersistedInSnowflake = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
+  // used to communicate to the streaming ingest's insertRows API
+  // This is non final because we might decide to get the new instance of Channel
+  private SnowflakeStreamingIngestChannel channel;
+
   // -------- private final fields -------- //
 
   private final SnowflakeStreamingIngestClient streamingIngestClient;
-
-  // used to communicate to the streaming ingest's insertRows API
-  private final SnowflakeStreamingIngestChannel channel;
 
   /* Channel Name is computed from topic and partition */
   private final String channelName;
@@ -399,8 +400,10 @@ public class TopicPartitionChannel {
             .onRetry(
                 event ->
                     LOGGER.warn(
-                        "[RetryPolicy] retry for getLatestCommittedOffsetToken. Retry no:{}",
-                        event.getAttemptCount()))
+                        "[OFFSET_TOKEN_RETRY_POLICY] retry for getLatestCommittedOffsetToken. Retry"
+                            + " no:{}, message:{}",
+                        event.getAttemptCount(),
+                        event.getLastException().getMessage()))
             .build();
 
     // Read it from reverse order. Fetch offsetToken, apply retry policy and then fallback.
@@ -408,8 +411,8 @@ public class TopicPartitionChannel {
         .onFailure(
             event ->
                 LOGGER.error(
-                    "[Failsafe] Failure to fetch offsetToken even after retry and fallback from"
-                        + " snowflake for channel:{}, elapsedTimeSeconds:{}",
+                    "[OFFSET_TOKEN_RETRY_FAILSAFE] Failure to fetch offsetToken even after retry"
+                        + " and fallback from snowflake for channel:{}, elapsedTimeSeconds:{}",
                     this.getChannelName(),
                     event.getElapsedTime().get(SECONDS),
                     event.getException()))
@@ -430,21 +433,22 @@ public class TopicPartitionChannel {
   private Fallback<Long> getFallbackForGetOffsetTokenFailure() {
     return Fallback.builder(
             () -> {
-              openChannelForTable();
+              this.channel = openChannelForTable();
               return fetchLatestCommittedOffsetFromSnowflake();
             })
         .handle(SFException.class)
         .onFailure(
             event ->
                 LOGGER.warn(
-                    "[FALLBACK] Failed to open Channel/fetch offsetToken for channel:{}",
+                    "[FALLBACK_FOR_GET_OFFSET_TOKEN_FAILURE] Failed to open Channel/fetch"
+                        + " offsetToken for channel:{}",
                     this.getChannelName(),
                     event.getException()))
         .onSuccess(
             event ->
                 LOGGER.info(
-                    "[FALLBACK] Successfully opened a channel and fetched the offsetToken for"
-                        + " Channel:{}, offsetToken:{}",
+                    "[FALLBACK_FOR_GET_OFFSET_TOKEN_FAILURE] Successfully opened a channel and"
+                        + " fetched the offsetToken for Channel:{}, offsetToken:{}",
                     this.getChannelName(),
                     event.getResult()))
         .build();
