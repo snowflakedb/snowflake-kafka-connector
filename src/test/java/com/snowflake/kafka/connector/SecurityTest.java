@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
+
 import com.snowflake.kafka.connector.internal.EncryptionUtils;
 import com.snowflake.kafka.connector.internal.FIPSTest;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -17,7 +19,7 @@ public class SecurityTest {
   public void testRSAPasswordOutput() throws IOException, OperatorCreationException {
     String testPasswd = "TestPassword1234!";
     String testKey = FIPSTest.generateAESKey(TestUtils.getPrivateKey(), testPasswd.toCharArray());
-    Map<String, String> testConf = ConnectorConfigTest.getConfig();
+    Map<String, String> testConf = getConfig();
     testConf.remove(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY);
     testConf.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, testKey);
     testConf.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, testPasswd);

@@ -1,8 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
-import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
-
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -29,7 +26,7 @@ public class TopicPartitionChannelIT {
   private String topic;
   private TopicPartition topicPartition;
 
-  private String testChannelName, testDb, testSc;
+  private String testChannelName;
 
   @Before
   public void beforeEach() {
@@ -50,8 +47,6 @@ public class TopicPartitionChannelIT {
   public void testAutoChannelReopenOnSFException() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    testDb = config.get(SF_DATABASE);
-    testSc = config.get(SF_SCHEMA);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
@@ -84,9 +79,8 @@ public class TopicPartitionChannelIT {
             snowflakeSinkServiceV2.getStreamingIngestClient(),
             topicPartition,
             testChannelName,
-            testDb,
-            testSc,
             testTableName,
+            config,
             new InMemoryKafkaRecordErrorReporter(),
             new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
 
@@ -106,8 +100,6 @@ public class TopicPartitionChannelIT {
   public void testInsertRowsOnChannelClosed() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    testDb = config.get(SF_DATABASE);
-    testSc = config.get(SF_SCHEMA);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
