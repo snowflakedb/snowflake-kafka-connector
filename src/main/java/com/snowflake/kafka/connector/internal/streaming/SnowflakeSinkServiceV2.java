@@ -18,8 +18,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import net.snowflake.ingest.streaming.OpenChannelRequest;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
@@ -146,12 +144,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   private void createStreamingChannelForTopicPartition(
       final String partitionChannelKey, final String tableName) {
-    // Always open a new channel.
-    SnowflakeStreamingIngestChannel partitionChannel =
-        openChannelForTable(partitionChannelKey, tableName);
-    TopicPartitionChannel topicPartitionChannel =
-        new TopicPartitionChannel(partitionChannel, this.kafkaRecordErrorReporter);
-    partitionsToChannel.put(partitionChannelKey, topicPartitionChannel);
+    // Create new instance of TopicPartitionChannel which will always open the channel.
+    partitionsToChannel.put(
+        partitionChannelKey,
+        new TopicPartitionChannel(
+            this.streamingIngestClient,
+            partitionChannelKey,
+            this.connectorConfig.get(Utils.SF_DATABASE),
+            this.connectorConfig.get(Utils.SF_SCHEMA),
+            tableName,
+            this.kafkaRecordErrorReporter));
   }
 
   /**
@@ -421,23 +423,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   // ------ Streaming Ingest Related Functions ------ //
-
-  /* Open a channel for Table with given channel name and tableName */
-  private SnowflakeStreamingIngestChannel openChannelForTable(
-      final String channelName, final String tableName) {
-    OpenChannelRequest channelRequest =
-        OpenChannelRequest.builder(channelName)
-            .setDBName(this.connectorConfig.get(Utils.SF_DATABASE))
-            .setSchemaName(this.connectorConfig.get(Utils.SF_SCHEMA))
-            .setTableName(tableName)
-            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
-            .build();
-    if (streamingIngestClient.isClosed()) {
-      initStreamingClient();
-    }
-    LOGGER.info("Opening a channel with name:{} for table name:{}", channelName, tableName);
-    return streamingIngestClient.openChannel(channelRequest);
-  }
 
   /* Init Streaming client. If is also used to re-init the client if client was closed before. */
   private void initStreamingClient() {
