@@ -25,8 +25,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-
-import dev.failsafe.function.CheckedSupplier;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -488,7 +486,7 @@ public class TopicPartitionChannel {
    */
   private long getRecoveredOffsetFromSnowflake() {
     LOGGER.warn("[FALLBACK] Re-opening channel:{}", this.getChannelName());
-    openChannelForTable();
+    this.channel = Preconditions.checkNotNull(openChannelForTable());
     LOGGER.warn(
         "[FALLBACK] Fetching offsetToken after re-opening the channel:{}", this.getChannelName());
     return fetchLatestCommittedOffsetFromSnowflake();

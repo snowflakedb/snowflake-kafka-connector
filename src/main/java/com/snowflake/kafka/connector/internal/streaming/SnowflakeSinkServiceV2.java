@@ -441,6 +441,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     return topic + "_" + partition;
   }
 
+  /* Used for testing */
+  SnowflakeStreamingIngestClient getStreamingIngestClient() {
+    return this.streamingIngestClient;
+  }
+
   // ------ Streaming Ingest Related Functions ------ //
 
   /* Init Streaming client. If is also used to re-init the client if client was closed before. */
