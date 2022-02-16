@@ -803,6 +803,7 @@ public class SinkServiceIT {
             .setRecordNumber(numLimit)
             .setFlushTime(30)
             .addTask(table, new TopicPartition(topic, partition))
+            .addTask(table, new TopicPartition(topic, partition1))
             .build();
 
     insert(service, partition, numOfRecord);

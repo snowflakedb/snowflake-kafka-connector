@@ -446,6 +446,19 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     return this.streamingIngestClient;
   }
 
+  /**
+   * Used for testing Only
+   *
+   * @param topicPartitionChannelKey look {@link #partitionChannelKey(String, int)} for key format
+   * @return TopicPartitionChannel if present in partitionsToChannel Map else null
+   */
+  /*  */
+  protected Optional<TopicPartitionChannel> getTopicPartitionChannelFromCacheKey(
+      final String topicPartitionChannelKey) {
+    return Optional.ofNullable(
+        this.partitionsToChannel.getOrDefault(topicPartitionChannelKey, null));
+  }
+
   // ------ Streaming Ingest Related Functions ------ //
 
   /* Init Streaming client. If is also used to re-init the client if client was closed before. */
