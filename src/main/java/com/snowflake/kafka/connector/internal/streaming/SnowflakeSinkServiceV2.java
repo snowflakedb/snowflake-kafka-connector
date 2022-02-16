@@ -164,9 +164,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.streamingIngestClient,
             topicPartition,
             partitionChannelKey, // Streaming channel name
-            this.connectorConfig.get(Utils.SF_DATABASE),
-            this.connectorConfig.get(Utils.SF_SCHEMA),
             tableName,
+            this.connectorConfig,
             this.kafkaRecordErrorReporter,
             this.sinkTaskContext));
   }

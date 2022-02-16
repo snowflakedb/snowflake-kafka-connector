@@ -1147,6 +1147,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
         pipeStatus.totalNumberOfRecord.addAndGet(getNumOfRecords());
         return result;
       }
+
+      @Override
+      public List<SinkRecord> getSinkRecords() {
+        throw new UnsupportedOperationException(
+            "SnowflakeSinkServiceV1 doesnt support getSinkRecords method");
+      }
     }
   }
 
