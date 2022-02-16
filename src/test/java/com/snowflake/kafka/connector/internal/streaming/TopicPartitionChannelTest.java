@@ -3,8 +3,10 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.TestUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
@@ -45,11 +47,11 @@ public class TopicPartitionChannelTest {
 
   private static final String TEST_CHANNEL_NAME =
       SnowflakeSinkServiceV2.partitionChannelKey(TOPIC, PARTITION);
-  private static final String TEST_DB = "TEST_DB";
-  private static final String TEST_SC = "TEST_SC";
   private static final String TEST_TABLE_NAME = "TEST_TABLE";
 
   private TopicPartition topicPartition;
+
+  private Map<String, String> sfConnectorConfig;
 
   @Before
   public void setupEachTest() {
@@ -58,6 +60,7 @@ public class TopicPartitionChannelTest {
         .thenReturn(mockStreamingChannel);
     Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
     topicPartition = new TopicPartition(TOPIC, PARTITION);
+    sfConnectorConfig = TestUtils.getConfig();
   }
 
   @Test(expected = IllegalStateException.class)
@@ -68,9 +71,8 @@ public class TopicPartitionChannelTest {
             mockStreamingClient,
             topicPartition,
             TEST_CHANNEL_NAME,
-            TEST_DB,
-            TEST_SC,
             TEST_TABLE_NAME,
+            sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
   }
@@ -84,9 +86,8 @@ public class TopicPartitionChannelTest {
             mockStreamingClient,
             topicPartition,
             TEST_CHANNEL_NAME,
-            TEST_DB,
-            TEST_SC,
             TEST_TABLE_NAME,
+            sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
 
@@ -103,9 +104,8 @@ public class TopicPartitionChannelTest {
             mockStreamingClient,
             topicPartition,
             TEST_CHANNEL_NAME,
-            TEST_DB,
-            TEST_SC,
             TEST_TABLE_NAME,
+            sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
 
@@ -126,9 +126,8 @@ public class TopicPartitionChannelTest {
             mockStreamingClient,
             topicPartition,
             TEST_CHANNEL_NAME,
-            TEST_DB,
-            TEST_SC,
             TEST_TABLE_NAME,
+            sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
 
@@ -175,9 +174,8 @@ public class TopicPartitionChannelTest {
             mockStreamingClient,
             topicPartition,
             TEST_CHANNEL_NAME,
-            TEST_DB,
-            TEST_SC,
             TEST_TABLE_NAME,
+            sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
 
@@ -199,9 +197,8 @@ public class TopicPartitionChannelTest {
             mockStreamingClient,
             topicPartition,
             TEST_CHANNEL_NAME,
-            TEST_DB,
-            TEST_SC,
             TEST_TABLE_NAME,
+            sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
 
@@ -233,9 +230,8 @@ public class TopicPartitionChannelTest {
             mockStreamingClient,
             topicPartition,
             TEST_CHANNEL_NAME,
-            TEST_DB,
-            TEST_SC,
             TEST_TABLE_NAME,
+            sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
 
@@ -259,9 +255,8 @@ public class TopicPartitionChannelTest {
             mockStreamingClient,
             topicPartition,
             TEST_CHANNEL_NAME,
-            TEST_DB,
-            TEST_SC,
             TEST_TABLE_NAME,
+            sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
 
@@ -290,9 +285,8 @@ public class TopicPartitionChannelTest {
             mockStreamingClient,
             topicPartition,
             TEST_CHANNEL_NAME,
-            TEST_DB,
-            TEST_SC,
             TEST_TABLE_NAME,
+            sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
 
@@ -317,9 +311,8 @@ public class TopicPartitionChannelTest {
             mockStreamingClient,
             topicPartition,
             TEST_CHANNEL_NAME,
-            TEST_DB,
-            TEST_SC,
             TEST_TABLE_NAME,
+            sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
 
