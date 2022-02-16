@@ -472,6 +472,13 @@
             <version>31.0.1-jre</version>
         </dependency>
 
+        <!-- https://github.com/failsafe-lib/failsafe-->
+        <dependency>
+            <groupId>dev.failsafe</groupId>
+            <artifactId>failsafe</artifactId>
+            <version>3.2.1</version>
+        </dependency>
+
         <!--junit for unit test-->
         <dependency>
             <groupId>junit</groupId>
