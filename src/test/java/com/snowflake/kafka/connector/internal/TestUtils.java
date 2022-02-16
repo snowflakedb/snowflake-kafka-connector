@@ -303,7 +303,7 @@ public class TestUtils {
    * @param objectName e.g. table, stage, pipe
    * @return kafka_connector_test_objectName_randomNum
    */
-  public static String randomName(String objectName) {
+  private static String randomName(String objectName) {
     long num = random.nextLong();
     num = num < 0 ? (num + 1) * (-1) : num;
     return "kafka_connector_test_" + objectName + "_" + num;

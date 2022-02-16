@@ -435,7 +435,8 @@ public class TopicPartitionChannel {
             .onFailure(
                 event ->
                     LOGGER.error(
-                        "[FALLBACK] Failed to open Channel/fetch offsetToken for channel:{}",
+                        "[OFFSET_TOKEN_FALLBACK] Failed to open Channel/fetch offsetToken for"
+                            + " channel:{}",
                         this.getChannelName(),
                         event.getException()))
             .build();
@@ -485,10 +486,11 @@ public class TopicPartitionChannel {
    * @return offset which was last present in Snowflake
    */
   private long getRecoveredOffsetFromSnowflake() {
-    LOGGER.warn("[FALLBACK] Re-opening channel:{}", this.getChannelName());
+    LOGGER.warn("[OFFSET_TOKEN_FALLBACK] Re-opening channel:{}", this.getChannelName());
     this.channel = Preconditions.checkNotNull(openChannelForTable());
     LOGGER.warn(
-        "[FALLBACK] Fetching offsetToken after re-opening the channel:{}", this.getChannelName());
+        "[OFFSET_TOKEN_FALLBACK] Fetching offsetToken after re-opening the channel:{}",
+        this.getChannelName());
     return fetchLatestCommittedOffsetFromSnowflake();
   }
 
