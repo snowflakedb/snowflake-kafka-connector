@@ -128,7 +128,7 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(1)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
@@ -181,7 +181,7 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(1)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     // Verifying it here to see if it fallbacks to default behavior - which is to ingest empty json
@@ -248,7 +248,7 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(1)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE)
             .build();
 
@@ -297,7 +297,7 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(1)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE)
             .build();
 
@@ -421,7 +421,7 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(recordCount)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     service.insert(noSchemaRecordValue);
@@ -609,7 +609,7 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(recordCount)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     service.insert(avroRecordValue);
@@ -692,7 +692,7 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(recordCount)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     service.insert(brokenValue);
@@ -732,7 +732,7 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(recordCount)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     service.insert(brokenValue);
@@ -784,7 +784,7 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(recordCount)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     service.insert(brokenValue);
@@ -802,8 +802,8 @@ public class SinkServiceIT {
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(numLimit)
             .setFlushTime(30)
-            .addTask(table, topic, partition)
-            .addTask(table, topic, partition1)
+            .addTask(table, new TopicPartition(topic, partition))
+            .addTask(table, new TopicPartition(topic, partition1))
             .build();
 
     insert(service, partition, numOfRecord);
@@ -849,7 +849,7 @@ public class SinkServiceIT {
         SnowflakeSinkServiceFactory.builder(conn)
             .setFileSize(size)
             .setFlushTime(10)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     insert(service, partition, numOfRecord);
@@ -880,7 +880,7 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setFlushTime(flushTime)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     insert(service, partition, numOfRecord);
@@ -914,7 +914,7 @@ public class SinkServiceIT {
     SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
     service.insert(new SinkRecord(topic, partition, null, null, input.schema(), input.value(), 0));
-    service.startTask(table, topic, partition);
+    service.startTask(table, new TopicPartition(topic, partition));
   }
 
   @Test
@@ -952,7 +952,7 @@ public class SinkServiceIT {
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .setRecordNumber(1) // immediate flush
             .build();
 
@@ -1000,7 +1000,9 @@ public class SinkServiceIT {
             offset);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn).addTask(table, topic, partition).build();
+        SnowflakeSinkServiceFactory.builder(conn)
+            .addTask(table, new TopicPartition(topic, partition))
+            .build();
 
     service.insert(record);
 
@@ -1033,7 +1035,7 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(spyConn)
             .setRecordNumber(1)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
@@ -1100,7 +1102,7 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(spyConn)
             .setRecordNumber(1)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
@@ -1158,7 +1160,7 @@ public class SinkServiceIT {
             .setRecordNumber(1)
             .setDeliveryGuarantee(
                 SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
@@ -1205,7 +1207,7 @@ public class SinkServiceIT {
             .setRecordNumber(1)
             .setDeliveryGuarantee(
                 SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
     offset = 1;
     // Create sink record
@@ -1250,7 +1252,7 @@ public class SinkServiceIT {
             .setRecordNumber(1)
             .setDeliveryGuarantee(
                 SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
@@ -1293,7 +1295,7 @@ public class SinkServiceIT {
             .setRecordNumber(1)
             .setDeliveryGuarantee(
                 SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
     offset = 0;
     // Create sink record with same offset
@@ -1318,7 +1320,7 @@ public class SinkServiceIT {
             .setCustomJMXMetrics(false)
             .setDeliveryGuarantee(
                 SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
@@ -1356,7 +1358,7 @@ public class SinkServiceIT {
             .setRecordNumber(1)
             .setDeliveryGuarantee(
                 SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
     offset = 0;
     // Create sink record with same offset

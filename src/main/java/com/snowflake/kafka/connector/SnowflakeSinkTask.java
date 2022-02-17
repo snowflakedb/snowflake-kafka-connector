@@ -211,6 +211,7 @@ public class SnowflakeSinkTask extends SinkTask {
             .setCustomJMXMetrics(enableCustomJMXMonitoring)
             .setDeliveryGuarantee(ingestionDeliveryGuarantee)
             .setErrorReporter(kafkaRecordErrorReporter)
+            .setSinkTaskContext(this.context)
             .build();
 
     LOGGER.info(
@@ -246,9 +247,7 @@ public class SnowflakeSinkTask extends SinkTask {
             this.id,
             partitions.size()));
     partitions.forEach(
-        tp ->
-            this.sink.startTask(
-                Utils.tableName(tp.topic(), this.topic2table), tp.topic(), tp.partition()));
+        tp -> this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp));
 
     LOGGER.info(
         Logging.logMessage(

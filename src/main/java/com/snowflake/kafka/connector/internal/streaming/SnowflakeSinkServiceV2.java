@@ -24,6 +24,7 @@ import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,6 +83,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   private KafkaRecordErrorReporter kafkaRecordErrorReporter;
 
+  /* SinkTaskContext has access to all methods/APIs available to talk to Kafka Connect runtime*/
+  private SinkTaskContext sinkTaskContext;
+
   // ------ Streaming Ingest ------ //
   // needs url, username. p8 key, role name
   private SnowflakeStreamingIngestClient streamingIngestClient;
@@ -126,14 +130,21 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.partitionsToChannel = new HashMap<>();
   }
 
+  /**
+   * Creates a table if it doesnt exist in Snowflake.
+   *
+   * <p>Initializes the Channel and partitionsToChannel map with new instance of {@link
+   * TopicPartitionChannel}
+   *
+   * @param tableName destination table name
+   * @param topicPartition TopicPartition passed from Kafka
+   */
   @Override
-  public void startTask(String tableName, String topic, int partition) {
-    String partitionChannelKey = partitionChannelKey(topic, partition);
-
+  public void startTask(String tableName, TopicPartition topicPartition) {
     // the table should be present before opening a channel so lets do a table existence check here
     createTableIfNotExists(tableName);
 
-    createStreamingChannelForTopicPartition(partitionChannelKey, tableName);
+    createStreamingChannelForTopicPartition(tableName, topicPartition);
   }
 
   /**
@@ -143,17 +154,21 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * or not.
    */
   private void createStreamingChannelForTopicPartition(
-      final String partitionChannelKey, final String tableName) {
+      final String tableName, final TopicPartition topicPartition) {
+    final String partitionChannelKey =
+        partitionChannelKey(topicPartition.topic(), topicPartition.partition());
     // Create new instance of TopicPartitionChannel which will always open the channel.
     partitionsToChannel.put(
         partitionChannelKey,
         new TopicPartitionChannel(
             this.streamingIngestClient,
-            partitionChannelKey,
+            topicPartition,
+            partitionChannelKey, // Streaming channel name
             this.connectorConfig.get(Utils.SF_DATABASE),
             this.connectorConfig.get(Utils.SF_SCHEMA),
             tableName,
-            this.kafkaRecordErrorReporter));
+            this.kafkaRecordErrorReporter,
+            this.sinkTaskContext));
   }
 
   /**
@@ -209,8 +224,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           record.kafkaPartition());
       startTask(
           Utils.tableName(record.topic(), this.topicToTableMap),
-          record.topic(),
-          record.kafkaPartition());
+          new TopicPartition(record.topic(), record.kafkaPartition()));
     }
 
     TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
@@ -406,6 +420,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   @Override
+  public void setSinkTaskContext(SinkTaskContext sinkTaskContext) {
+    this.sinkTaskContext = sinkTaskContext;
+  }
+
+  @Override
   public Optional<MetricRegistry> getMetricRegistry(String pipeName) {
     return Optional.empty();
   }
@@ -420,6 +439,25 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @VisibleForTesting
   protected static String partitionChannelKey(String topic, int partition) {
     return topic + "_" + partition;
+  }
+
+  /* Used for testing */
+  @VisibleForTesting
+  SnowflakeStreamingIngestClient getStreamingIngestClient() {
+    return this.streamingIngestClient;
+  }
+
+  /**
+   * Used for testing Only
+   *
+   * @param topicPartitionChannelKey look {@link #partitionChannelKey(String, int)} for key format
+   * @return TopicPartitionChannel if present in partitionsToChannel Map else null
+   */
+  @VisibleForTesting
+  protected Optional<TopicPartitionChannel> getTopicPartitionChannelFromCacheKey(
+      final String topicPartitionChannelKey) {
+    return Optional.ofNullable(
+        this.partitionsToChannel.getOrDefault(topicPartitionChannelKey, null));
   }
 
   // ------ Streaming Ingest Related Functions ------ //

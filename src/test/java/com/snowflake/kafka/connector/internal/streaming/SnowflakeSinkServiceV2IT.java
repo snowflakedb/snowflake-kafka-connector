@@ -1,10 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static java.util.Collections.unmodifiableList;
-
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -17,7 +15,6 @@ import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -43,6 +40,7 @@ public class SnowflakeSinkServiceV2IT {
   private String table = TestUtils.randomTableName();
   private int partition = 0;
   private String topic = "test";
+  private TopicPartition topicPartition = new TopicPartition(topic, partition);
   private static ObjectMapper MAPPER = new ObjectMapper();
 
   private static final String JSON_WITHOUT_SCHEMA = "{\"userid\": \"User_1\"}";
@@ -119,7 +117,9 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
-            .addTask(table, topic, partition) // Internally calls startTask
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
@@ -162,7 +162,9 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
-            .addTask(table, topic, partition) // Internally calls startTask
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
@@ -206,7 +208,9 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
-            .addTask(table, topic, partition) // Internally calls startTask
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
@@ -339,7 +343,9 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
-            .addTask(table, topic, partition) // Internally calls startTask
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .build();
 
     service.insert(noSchemaRecordValue);
@@ -501,7 +507,9 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
-            .addTask(table, topic, partition)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     service.insert(avroRecordValue);
@@ -561,7 +569,8 @@ public class SnowflakeSinkServiceV2IT {
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
             .setErrorReporter(errorReporter)
-            .addTask(table, topic, partition)
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     service.insert(brokenValue);
@@ -608,7 +617,7 @@ public class SnowflakeSinkServiceV2IT {
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setErrorReporter(errorReporter)
             .setRecordNumber(recordCount)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     service.insert(brokenValue);
@@ -654,7 +663,9 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
-            .addTask(table, topic, partition)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
@@ -680,9 +691,11 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service2 =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .setDeliveryGuarantee(
                 SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
     offset = 1;
     // Create sink record
@@ -710,7 +723,9 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
-            .addTask(table, topic, partition)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
@@ -737,9 +752,11 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service2 =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .setDeliveryGuarantee(
                 SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
-            .addTask(table, topic, partition)
+            .addTask(table, new TopicPartition(topic, partition))
             .build();
 
     final long startOffsetAlreadyInserted = 5;
@@ -758,33 +775,5 @@ public class SnowflakeSinkServiceV2IT {
     assert service2.getOffset(new TopicPartition(topic, partition)) == totalRecordsExpected;
 
     service2.closeAll();
-  }
-
-  private static final class InMemoryKafkaRecordErrorReporter implements KafkaRecordErrorReporter {
-    private final List<ReportedRecord> reportedRecords = new ArrayList<>();
-
-    @Override
-    public void reportError(final SinkRecord record, final Exception e) {
-      reportedRecords.add(new ReportedRecord(record, e));
-    }
-
-    List<ReportedRecord> getReportedRecords() {
-      return unmodifiableList(reportedRecords);
-    }
-
-    static final class ReportedRecord {
-      private final SinkRecord record;
-      private final Throwable e;
-
-      private ReportedRecord(final SinkRecord record, final Throwable e) {
-        this.record = record;
-        this.e = e;
-      }
-
-      @Override
-      public String toString() {
-        return "ReportedData{" + "record=" + record + ", e=" + e + '}';
-      }
-    }
   }
 }

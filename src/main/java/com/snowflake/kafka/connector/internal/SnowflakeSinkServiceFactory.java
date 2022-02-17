@@ -6,6 +6,8 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Map;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 
 /** A factory to create {@link SnowflakeSinkService} */
 public class SnowflakeSinkServiceFactory {
@@ -55,14 +57,21 @@ public class SnowflakeSinkServiceFactory {
       this(conn, IngestionMethodConfig.SNOWPIPE, null /* Not required for V1 */);
     }
 
-    public SnowflakeSinkServiceBuilder addTask(String tableName, String topic, int partition) {
-      this.service.startTask(tableName, topic, partition);
+    /**
+     * Add task for table and TopicPartition. Mostly used only for testing. When connector starts,
+     * startTask is directly called.
+     *
+     * @param tableName tableName in Snowflake
+     * @param topicPartition topicPartition containing topic and partition number
+     * @return Builder instance
+     */
+    public SnowflakeSinkServiceBuilder addTask(String tableName, TopicPartition topicPartition) {
+      this.service.startTask(tableName, topicPartition);
       logInfo(
-          "create new task in {} - table: {}, topic: {}, partition: {}",
+          "create new task in {} - table: {}, topicPartition: {}",
           SnowflakeSinkService.class.getName(),
           tableName,
-          topic,
-          partition);
+          topicPartition);
       return this;
     }
 
@@ -123,6 +132,17 @@ public class SnowflakeSinkServiceFactory {
     public SnowflakeSinkServiceBuilder setErrorReporter(
         KafkaRecordErrorReporter kafkaRecordErrorReporter) {
       this.service.setErrorReporter(kafkaRecordErrorReporter);
+      return this;
+    }
+
+    /**
+     * Set SinkTaskContext for the respective SnowflakeSinkService instance at runtime.
+     *
+     * @param sinkTaskContext obtained from {@link org.apache.kafka.connect.sink.SinkTask}
+     * @return Builder
+     */
+    public SnowflakeSinkServiceBuilder setSinkTaskContext(SinkTaskContext sinkTaskContext) {
+      this.service.setSinkTaskContext(sinkTaskContext);
       return this;
     }
 

@@ -102,16 +102,26 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     this.behaviorOnNullValues = SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
   }
 
+  /**
+   * Create new ingestion task from existing table and stage, tries to reuse existing pipe and
+   * recover previous task, otherwise, create a new pipe.
+   *
+   * @param tableName destination table name in Snowflake
+   * @param topicPartition TopicPartition passed from Kafka
+   */
   @Override
-  public void startTask(final String tableName, final String topic, final int partition) {
+  public void startTask(final String tableName, final TopicPartition topicPartition) {
     String stageName = Utils.stageName(conn.getConnectorName(), tableName);
-    String nameIndex = getNameIndex(topic, partition);
+    String nameIndex = getNameIndex(topicPartition.topic(), topicPartition.partition());
     if (pipes.containsKey(nameIndex)) {
       logError("task is already registered, name: {}", nameIndex);
     } else {
-      String pipeName = Utils.pipeName(conn.getConnectorName(), tableName, partition);
+      String pipeName =
+          Utils.pipeName(conn.getConnectorName(), tableName, topicPartition.partition());
 
-      pipes.put(nameIndex, new ServiceContext(tableName, stageName, pipeName, conn, partition));
+      pipes.put(
+          nameIndex,
+          new ServiceContext(tableName, stageName, pipeName, conn, topicPartition.partition()));
     }
   }
 
@@ -146,8 +156,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
           record.kafkaPartition());
       startTask(
           Utils.tableName(record.topic(), this.topic2TableMap),
-          record.topic(),
-          record.kafkaPartition());
+          new TopicPartition(record.topic(), record.kafkaPartition()));
     }
     pipes.get(nameIndex).insert(record);
   }
