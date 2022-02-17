@@ -12,11 +12,13 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.ErrorCode;
 import net.snowflake.ingest.utils.SFException;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -35,6 +37,8 @@ public class TopicPartitionChannelTest {
 
   @Mock private SnowflakeStreamingIngestChannel mockStreamingChannel;
 
+  @Mock private SinkTaskContext mockSinkTaskContext;
+
   private static final String TOPIC = "TEST";
 
   private static final int PARTITION = 0;
@@ -45,12 +49,15 @@ public class TopicPartitionChannelTest {
   private static final String TEST_SC = "TEST_SC";
   private static final String TEST_TABLE_NAME = "TEST_TABLE";
 
+  private TopicPartition topicPartition;
+
   @Before
   public void setupEachTest() {
     Mockito.when(mockStreamingClient.isClosed()).thenReturn(false);
     Mockito.when(mockStreamingClient.openChannel(ArgumentMatchers.any(OpenChannelRequest.class)))
         .thenReturn(mockStreamingChannel);
     Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+    topicPartition = new TopicPartition(TOPIC, PARTITION);
   }
 
   @Test(expected = IllegalStateException.class)
@@ -59,11 +66,13 @@ public class TopicPartitionChannelTest {
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
             mockStreamingClient,
+            topicPartition,
             TEST_CHANNEL_NAME,
             TEST_DB,
             TEST_SC,
             TEST_TABLE_NAME,
-            mockKafkaRecordErrorReporter);
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
   }
 
   @Test
@@ -73,11 +82,13 @@ public class TopicPartitionChannelTest {
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
             mockStreamingClient,
+            topicPartition,
             TEST_CHANNEL_NAME,
             TEST_DB,
             TEST_SC,
             TEST_TABLE_NAME,
-            mockKafkaRecordErrorReporter);
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
 
     Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
@@ -90,11 +101,13 @@ public class TopicPartitionChannelTest {
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
             mockStreamingClient,
+            topicPartition,
             TEST_CHANNEL_NAME,
             TEST_DB,
             TEST_SC,
             TEST_TABLE_NAME,
-            mockKafkaRecordErrorReporter);
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
 
     Assert.assertEquals(100L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
@@ -111,11 +124,13 @@ public class TopicPartitionChannelTest {
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
             mockStreamingClient,
+            topicPartition,
             TEST_CHANNEL_NAME,
             TEST_DB,
             TEST_SC,
             TEST_TABLE_NAME,
-            mockKafkaRecordErrorReporter);
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
 
     JsonConverter converter = new JsonConverter();
     HashMap<String, String> converterConfig = new HashMap<String, String>();
@@ -158,11 +173,13 @@ public class TopicPartitionChannelTest {
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
             mockStreamingClient,
+            topicPartition,
             TEST_CHANNEL_NAME,
             TEST_DB,
             TEST_SC,
             TEST_TABLE_NAME,
-            mockKafkaRecordErrorReporter);
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
 
     topicPartitionChannel.closeChannel();
   }
@@ -180,11 +197,13 @@ public class TopicPartitionChannelTest {
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
             mockStreamingClient,
+            topicPartition,
             TEST_CHANNEL_NAME,
             TEST_DB,
             TEST_SC,
             TEST_TABLE_NAME,
-            mockKafkaRecordErrorReporter);
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
 
     try {
       Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
@@ -212,11 +231,13 @@ public class TopicPartitionChannelTest {
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
             mockStreamingClient,
+            topicPartition,
             TEST_CHANNEL_NAME,
             TEST_DB,
             TEST_SC,
             TEST_TABLE_NAME,
-            mockKafkaRecordErrorReporter);
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
 
     Assert.assertEquals(
         Long.parseLong(offsetTokenAfterMaxAttempts),
@@ -236,11 +257,13 @@ public class TopicPartitionChannelTest {
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
             mockStreamingClient,
+            topicPartition,
             TEST_CHANNEL_NAME,
             TEST_DB,
             TEST_SC,
             TEST_TABLE_NAME,
-            mockKafkaRecordErrorReporter);
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
 
     try {
       topicPartitionChannel.fetchOffsetTokenWithRetry();
@@ -265,11 +288,13 @@ public class TopicPartitionChannelTest {
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
             mockStreamingClient,
+            topicPartition,
             TEST_CHANNEL_NAME,
             TEST_DB,
             TEST_SC,
             TEST_TABLE_NAME,
-            mockKafkaRecordErrorReporter);
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
 
     try {
       Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
@@ -290,11 +315,13 @@ public class TopicPartitionChannelTest {
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
             mockStreamingClient,
+            topicPartition,
             TEST_CHANNEL_NAME,
             TEST_DB,
             TEST_SC,
             TEST_TABLE_NAME,
-            mockKafkaRecordErrorReporter);
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
 
     try {
       Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());

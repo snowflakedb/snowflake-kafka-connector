@@ -30,10 +30,12 @@ import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.SFException;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,6 +90,9 @@ public class TopicPartitionChannel {
 
   private final SnowflakeStreamingIngestClient streamingIngestClient;
 
+  // Topic partition Object from connect consisting of topic and partition
+  private final TopicPartition topicPartition;
+
   /* Channel Name is computed from topic and partition */
   private final String channelName;
 
@@ -102,6 +107,12 @@ public class TopicPartitionChannel {
   /* Responsible for returning errors to DLQ if records have failed to be ingested. */
   private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
 
+  /**
+   * Available from {@link org.apache.kafka.connect.sink.SinkTask} which has access to various
+   * utility methods.
+   */
+  private final SinkTaskContext sinkTaskContext;
+
   // ------- Kafka record related properties ------- //
   // Offset number we would want to commit back to kafka
   // This value is + 1 of what we find in snowflake.
@@ -114,27 +125,35 @@ public class TopicPartitionChannel {
 
   /**
    * @param streamingIngestClient client created specifically for this task
+   * @param topicPartition topic partition corresponding to this Streaming Channel
+   *     (TopicPartitionChannel)
    * @param channelName channel Name which is deterministic for topic and partition
    * @param databaseName database in snowflake
    * @param schemaName schema in snowflake
    * @param tableName table to ingest in snowflake
    * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
+   * @param sinkTaskContext context on Kafka Connect's runtime
    */
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
+      TopicPartition topicPartition,
       final String channelName,
       final String databaseName,
       final String schemaName,
       final String tableName,
-      KafkaRecordErrorReporter kafkaRecordErrorReporter) {
+      KafkaRecordErrorReporter kafkaRecordErrorReporter,
+      SinkTaskContext sinkTaskContext) {
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
     Preconditions.checkState(!streamingIngestClient.isClosed());
-    this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
+    this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelName = Preconditions.checkNotNull(channelName);
     this.databaseName = Preconditions.checkNotNull(databaseName);
     this.schemaName = Preconditions.checkNotNull(schemaName);
     this.tableName = Preconditions.checkNotNull(tableName);
     this.channel = Preconditions.checkNotNull(openChannelForTable());
+    this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
+    this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
+
     this.recordService = new RecordService();
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -406,8 +425,24 @@ public class TopicPartitionChannel {
                         event.getLastException().getMessage()))
             .build();
 
+    /**
+     * The fallback function to execute when all retries from getOffsetToken have exhausted.
+     * Fallback is only attempted on SFException
+     */
+    Fallback<Long> offsetTokenFallbackExecutor =
+        Fallback.builder(this::offsetTokenFallbackSupplier)
+            .handle(SFException.class)
+            .onFailure(
+                event ->
+                    LOGGER.error(
+                        "[OFFSET_TOKEN_FALLBACK] Failed to open Channel/fetch offsetToken for"
+                            + " channel:{}",
+                        this.getChannelName(),
+                        event.getException()))
+            .build();
+
     // Read it from reverse order. Fetch offsetToken, apply retry policy and then fallback.
-    return Failsafe.with(getFallbackForGetOffsetTokenFailure())
+    return Failsafe.with(offsetTokenFallbackExecutor)
         .onFailure(
             event ->
                 LOGGER.error(
@@ -421,37 +456,42 @@ public class TopicPartitionChannel {
   }
 
   /**
-   * Fallback function to execute when retries for fetching getOffsetToken for channel fails.
+   * If a valid offset is found from snowflake, we will reset the topicPartition with
+   * (offsetReturnedFromSnowflake + 1).
    *
-   * <p>Fallback function is to re-open the channel and fetch the latestOffsetToken one more time
-   * after reopen is successful.
+   * <p>Please note, this is done only after a failure in fetching offset. Idea behind resetting
+   * offset (1 more than what we found in snowflake) is that Kafka should send offsets from this
+   * offset number so as to not miss any data.
    *
-   * <p>Fallback is only attempted on SFException
-   *
-   * @return the fallback function to execute when all retries from getOffsetToken have exhausted.
+   * @return offset which was last present in Snowflake
    */
-  private Fallback<Long> getFallbackForGetOffsetTokenFailure() {
-    return Fallback.builder(
-            () -> {
-              this.channel = openChannelForTable();
-              return fetchLatestCommittedOffsetFromSnowflake();
-            })
-        .handle(SFException.class)
-        .onFailure(
-            event ->
-                LOGGER.warn(
-                    "[FALLBACK_FOR_GET_OFFSET_TOKEN_FAILURE] Failed to open Channel/fetch"
-                        + " offsetToken for channel:{}",
-                    this.getChannelName(),
-                    event.getException()))
-        .onSuccess(
-            event ->
-                LOGGER.info(
-                    "[FALLBACK_FOR_GET_OFFSET_TOKEN_FAILURE] Successfully opened a channel and"
-                        + " fetched the offsetToken for Channel:{}, offsetToken:{}",
-                    this.getChannelName(),
-                    event.getResult()))
-        .build();
+  private long offsetTokenFallbackSupplier() {
+    final long offsetRecoveredFromSnowflake = getRecoveredOffsetFromSnowflake();
+    final long offsetToResetInKafka = offsetRecoveredFromSnowflake + 1L;
+    sinkTaskContext.offset(topicPartition, offsetToResetInKafka);
+    LOGGER.info(
+        "Channel:{}, OffsetRecoveredFromSnowflake:{}, Reset kafka offset to:{}",
+        this.getChannelName(),
+        offsetRecoveredFromSnowflake,
+        offsetToResetInKafka);
+    return offsetRecoveredFromSnowflake;
+  }
+
+  /**
+   * {@link Fallback} executes below code if retries have failed on {@link SFException}.
+   *
+   * <p>It re-opens the channel and fetches the latestOffsetToken one more time after reopen was
+   * successful.
+   *
+   * @return offset which was last present in Snowflake
+   */
+  private long getRecoveredOffsetFromSnowflake() {
+    LOGGER.warn("[OFFSET_TOKEN_FALLBACK] Re-opening channel:{}", this.getChannelName());
+    this.channel = Preconditions.checkNotNull(openChannelForTable());
+    LOGGER.warn(
+        "[OFFSET_TOKEN_FALLBACK] Fetching offsetToken after re-opening the channel:{}",
+        this.getChannelName());
+    return fetchLatestCommittedOffsetFromSnowflake();
   }
 
   /**
@@ -491,10 +531,22 @@ public class TopicPartitionChannel {
     }
   }
 
-  /* Open a channel for Table with given channel name and tableName */
+  /**
+   * Open a channel for Table with given channel name and tableName.
+   *
+   * <p>Open channels happens at:
+   *
+   * <p>Constructor of TopicPartitionChannel -> which means we will wipe of all states and it will
+   * call precomputeOffsetTokenForChannel
+   *
+   * <p>Failure handling which will call reopen, replace instance variable with new channel and call
+   * offsetToken/insertRows.
+   *
+   * @return new channel which was fetched after open/reopen
+   */
   private SnowflakeStreamingIngestChannel openChannelForTable() {
     OpenChannelRequest channelRequest =
-        OpenChannelRequest.builder(channelName)
+        OpenChannelRequest.builder(this.channelName)
             .setDBName(this.databaseName)
             .setSchemaName(this.schemaName)
             .setTableName(this.tableName)
