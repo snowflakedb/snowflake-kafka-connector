@@ -149,7 +149,7 @@ public class TopicPartitionChannelIT {
 
   @Ignore
   @Test
-  public void testAutoChannelReopenOn_InsertRowsSFException() throws Exception {
+  public void testAutoChannelReopen_InsertRowsSFException() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
