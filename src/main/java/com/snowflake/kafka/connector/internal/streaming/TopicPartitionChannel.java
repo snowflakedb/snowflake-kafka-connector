@@ -445,6 +445,8 @@ public class TopicPartitionChannel {
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
       } else {
         for (int i = 0; i < insertErrors.size(); i++) {
+          // Write now I am assuming each error maps to its original row which is incorrect.
+          // TODO: SNOW-545729 would handle mapping errors with original SinkRecord.
           this.kafkaRecordErrorReporter.reportError(
               insertedRecordsToBuffer.get(i), insertErrors.get(i).getException());
         }
