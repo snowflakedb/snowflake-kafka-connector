@@ -6,6 +6,7 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
@@ -324,5 +325,71 @@ public class TopicPartitionChannelTest {
           .getLatestCommittedOffsetToken();
       throw ex;
     }
+  }
+
+  /* Only SFExceptions are retried and goes into fallback. */
+  @Test(expected = SFException.class)
+  public void testInsertRows_SFException() throws Exception {
+    SFException exception = new SFException(ErrorCode.INVALID_CHANNEL, "INVALID_CHANNEL");
+    Mockito.when(
+            mockStreamingChannel.insertRows(
+                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+        .thenThrow(exception)
+        .thenThrow(exception);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            sfConnectorConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
+
+    List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
+
+    try {
+      topicPartitionChannel.insertRecordToBuffer(records.get(0));
+      topicPartitionChannel.insertBufferedRows();
+    } catch (SFException ex) {
+      Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
+      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(2))
+          .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+      throw ex;
+    }
+  }
+
+  /* SFExceptions is thrown in first attempt and hence it goes into fallback and reopens the channel. Upon retrying, insert retried and goes into fallback. */
+  @Test
+  public void testInsertRows_ValidInsertRowsAfterReopenChannelOnSFException() throws Exception {
+    SFException exception = new SFException(ErrorCode.INVALID_CHANNEL, "INVALID_CHANNEL");
+    InsertValidationResponse validationResponse = new InsertValidationResponse();
+    Mockito.when(
+            mockStreamingChannel.insertRows(
+                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+        .thenThrow(exception)
+        .thenReturn(validationResponse);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            sfConnectorConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
+
+    List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
+
+    topicPartitionChannel.insertRecordToBuffer(records.get(0));
+    InsertValidationResponse response = topicPartitionChannel.insertBufferedRows();
+
+    assert !response.hasErrors();
+
+    Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(2))
+        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
   }
 }

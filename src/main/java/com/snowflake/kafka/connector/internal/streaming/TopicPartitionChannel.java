@@ -8,6 +8,7 @@ import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.Logging;
@@ -17,10 +18,7 @@ import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import dev.failsafe.Failsafe;
 import dev.failsafe.Fallback;
-import dev.failsafe.FallbackBuilder;
 import dev.failsafe.RetryPolicy;
-import dev.failsafe.event.ExecutionAttemptedEvent;
-import dev.failsafe.function.CheckedConsumer;
 import dev.failsafe.function.CheckedSupplier;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
@@ -31,7 +29,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import jdk.internal.joptsimple.internal.Strings;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -321,7 +318,7 @@ public class TopicPartitionChannel {
   }
 
   /** Invokes insertRows API using the offsets buffered for this partition. */
-  public void insertBufferedRows() {
+  public InsertValidationResponse insertBufferedRows() {
     PartitionBuffer intermediateBuffer = null;
     bufferLock.lock();
     try {
@@ -335,7 +332,7 @@ public class TopicPartitionChannel {
     if (intermediateBuffer.isEmpty()) {
       LOGGER.info("No Rows Buffered, returning;");
       this.previousFlushTimeStampMs = System.currentTimeMillis();
-      return;
+      return null;
     }
 
     InsertValidationResponse response =
@@ -343,9 +340,18 @@ public class TopicPartitionChannel {
     // Updates the flush time (last time we called insertRows API)
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
+    LOGGER.info(
+        "[INSERT_ROWS] Successfully called insertRows for channel:{}, noOfRecords:{},"
+            + " startOffset:{}, endOffset:{}, hasErrors:{}",
+        this.getChannelName(),
+        intermediateBuffer.getNumOfRecord(),
+        intermediateBuffer.getFirstOffset(),
+        intermediateBuffer.getLastOffset(),
+        response.hasErrors());
     if (response.hasErrors()) {
       handleInsertRowsFailures(response.getInsertErrors(), intermediateBuffer.getSinkRecords());
     }
+    return response;
   }
 
   /**
@@ -361,42 +367,20 @@ public class TopicPartitionChannel {
    * @return InsertValidationResponse object sent from insertRows API.
    */
   private InsertValidationResponse insertRowsWithFallback(StreamingBuffer buffer) {
-    Fallback<InsertValidationResponse> handleInsertRowsWithErrorResponse =
-        Fallback.builder(
-                (CheckedConsumer<ExecutionAttemptedEvent<? extends InsertValidationResponse>>)
-                    executionAttemptedEvent ->
-                        handleInsertRowsFailures(
-                            executionAttemptedEvent.getLastResult().getInsertErrors(),
-                            buffer.getSinkRecords()))
-            .handleResultIf(InsertValidationResponse::hasErrors)
-            .build();
-
     Fallback<InsertValidationResponse> reopenChannelFallbackExecutorForInsertRows =
-        Fallback.builder(insertRowsFallbackSupplier(buffer))
+        Fallback.builder(() -> insertRowsFallbackSupplier(buffer))
             .handle(SFException.class)
             .onFailure(
                 event ->
                     LOGGER.error(
-                        "[INSERT_ROWS_FALLBACK] Failed to open Channel :{}",
+                        "[INSERT_ROWS_FALLBACK] Failed to open Channel or insert Rows:{}",
                         this.getChannelName(),
                         event.getException()))
             .build();
 
     InsertValidationResponse response =
-        Failsafe.with(handleInsertRowsWithErrorResponse, reopenChannelFallbackExecutorForInsertRows)
-            .onFailure(
-                event ->
-                    LOGGER.error(
-                        "[INSERT_ROWS_FAILSAFE] Failure to insert Rows even after fallback from"
-                            + " snowflake for channel:{}, elapsedTimeSeconds:{}",
-                        this.getChannelName(),
-                        event.getElapsedTime().get(SECONDS),
-                        event.getException()))
+        Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
             .get(new InsertRowsApiResponseSupplier(this.channel, buffer));
-
-    if (response.hasErrors()) {
-      handleInsertRowsFailures(response.getInsertErrors(), buffer.getSinkRecords());
-    }
     return response;
   }
 
@@ -427,7 +411,8 @@ public class TopicPartitionChannel {
     }
   }
 
-  private InsertValidationResponse insertRowsFallbackSupplier(StreamingBuffer streamingBuffer) {
+  private InsertValidationResponse insertRowsFallbackSupplier(StreamingBuffer streamingBuffer)
+      throws Throwable {
     LOGGER.warn("[INSERT_ROWS_FALLBACK] Re-opening channel:{}", this.getChannelName());
     this.channel = Preconditions.checkNotNull(openChannelForTable());
     LOGGER.warn(
@@ -437,8 +422,7 @@ public class TopicPartitionChannel {
         streamingBuffer.getNumOfRecords(),
         streamingBuffer.getFirstOffset(),
         streamingBuffer.getLastOffset());
-    return this.channel.insertRows(
-        streamingBuffer.getData(), Long.toString(streamingBuffer.getLastOffset()));
+    return new InsertRowsApiResponseSupplier(this.channel, streamingBuffer).get();
   }
 
   /**
@@ -797,7 +781,7 @@ public class TopicPartitionChannel {
     /* Get all rows which are present in this list. Each map corresponds to one row whose keys are column names. */
     @Override
     public List<Map<String, Object>> getData() {
-      LOGGER.info(
+      LOGGER.debug(
           "Get rows for streaming ingest. {} records, {} bytes, offset {} - {}",
           getNumOfRecords(),
           getBufferSizeBytes(),

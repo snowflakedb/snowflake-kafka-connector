@@ -543,4 +543,43 @@ public class TestUtils {
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT + "");
     return config;
   }
+
+  /**
+   * retrieve client Sequencer for passed channel name associated with table
+   *
+   * @param tableName table name
+   * @param channelName name of channel
+   * @throws SQLException if meet connection issue
+   */
+  public static long getClientSequencerForChannelAndTable(
+      String tableName, final String channelName) throws SQLException {
+    String query = "show channels in table " + tableName;
+    ResultSet result = executeQueryForStreaming(query);
+
+    if (result.next()) {
+      if (result.getString("name").equalsIgnoreCase(channelName)) {
+        return result.getInt("client_sequencer");
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * retrieve offset_token for passed channel name associated with table
+   *
+   * @param tableName table name * @param channelName name of channel * @throws SQLException if meet
+   *     connection issue
+   */
+  public static long getOffsetTokenForChannelAndTable(String tableName, final String channelName)
+      throws SQLException {
+    String query = "show channels in table " + tableName;
+    ResultSet result = executeQueryForStreaming(query);
+
+    if (result.next()) {
+      if (result.getString("name").equalsIgnoreCase(channelName)) {
+        return result.getInt("client_sequencer");
+      }
+    }
+    return -1;
+  }
 }
