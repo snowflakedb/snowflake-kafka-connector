@@ -6,7 +6,12 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.kafka.connect.sink.SinkRecord;
 
-/* In memory implementation of KafkaRecordErrorReporter which mimics sending records to DLQ. Here we simply insert records into an ArrayList*/
+/**
+ * In memory implementation of KafkaRecordErrorReporter which mimics sending records to DLQ. Here we
+ * simply insert records into an ArrayList
+ *
+ * <p>Used for testing.
+ */
 public final class InMemoryKafkaRecordErrorReporter implements KafkaRecordErrorReporter {
   private final List<ReportedRecord> reportedRecords = new ArrayList<>();
 

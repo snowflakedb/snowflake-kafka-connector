@@ -531,7 +531,19 @@ public class TopicPartitionChannel {
     }
   }
 
-  /* Open a channel for Table with given channel name and tableName */
+  /**
+   * Open a channel for Table with given channel name and tableName.
+   *
+   * <p>Open channels happens at:
+   *
+   * <p>Constructor of TopicPartitionChannel -> which means we will wipe of all states and it will
+   * call precomputeOffsetTokenForChannel
+   *
+   * <p>Failure handling which will call reopen, replace instance variable with new channel and call
+   * offsetToken/insertRows.
+   *
+   * @return new channel which was fetched after open/reopen
+   */
   private SnowflakeStreamingIngestChannel openChannelForTable() {
     OpenChannelRequest channelRequest =
         OpenChannelRequest.builder(this.channelName)
