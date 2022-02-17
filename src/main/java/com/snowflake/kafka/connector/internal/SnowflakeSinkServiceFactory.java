@@ -57,7 +57,14 @@ public class SnowflakeSinkServiceFactory {
       this(conn, IngestionMethodConfig.SNOWPIPE, null /* Not required for V1 */);
     }
 
-    /* Add task for table and TopicPartition. Mostly used only for testing. When connector starts, startTask is directly called. */
+    /**
+     * Add task for table and TopicPartition. Mostly used only for testing. When connector starts,
+     * startTask is directly called.
+     *
+     * @param tableName tableName in Snowflake
+     * @param topicPartition topicPartition containing topic and partition number
+     * @return Builder instance
+     */
     public SnowflakeSinkServiceBuilder addTask(String tableName, TopicPartition topicPartition) {
       this.service.startTask(tableName, topicPartition);
       logInfo(
@@ -128,7 +135,12 @@ public class SnowflakeSinkServiceFactory {
       return this;
     }
 
-    /* Set SinkTaskContext for the respective SnowflakeSinkService instance at runtime. */
+    /**
+     * Set SinkTaskContext for the respective SnowflakeSinkService instance at runtime.
+     *
+     * @param sinkTaskContext obtained from {@link org.apache.kafka.connect.sink.SinkTask}
+     * @return Builder
+     */
     public SnowflakeSinkServiceBuilder setSinkTaskContext(SinkTaskContext sinkTaskContext) {
       this.service.setSinkTaskContext(sinkTaskContext);
       return this;

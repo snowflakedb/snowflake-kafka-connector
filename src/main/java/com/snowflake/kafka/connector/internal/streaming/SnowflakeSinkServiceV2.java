@@ -442,6 +442,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   /* Used for testing */
+  @VisibleForTesting
   SnowflakeStreamingIngestClient getStreamingIngestClient() {
     return this.streamingIngestClient;
   }
@@ -452,7 +453,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * @param topicPartitionChannelKey look {@link #partitionChannelKey(String, int)} for key format
    * @return TopicPartitionChannel if present in partitionsToChannel Map else null
    */
-  /*  */
+  @VisibleForTesting
   protected Optional<TopicPartitionChannel> getTopicPartitionChannelFromCacheKey(
       final String topicPartitionChannelKey) {
     return Optional.ofNullable(
