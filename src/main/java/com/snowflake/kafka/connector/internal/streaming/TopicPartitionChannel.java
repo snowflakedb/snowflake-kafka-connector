@@ -434,10 +434,7 @@ public class TopicPartitionChannel {
       List<SinkRecord> insertedRecordsToBuffer) {
     if (logErrors) {
       for (InsertValidationResponse.InsertError insertError : insertErrors) {
-        LOGGER.error(
-            "Insert row Error message:{}, with ex:{}",
-            insertError.getMessage(),
-            insertError.getException().getMessage());
+        LOGGER.error("Insert Row Error message", insertError.getException());
       }
     }
     if (errorTolerance) {
