@@ -357,11 +357,15 @@ public class TopicPartitionChannel {
   /**
    * Uses {@link Fallback} API to reopen the channel if insertRows throws {@link SFException}.
    *
-   * <p>We have deliberately not performed retried on insertRows because it might slow down overall
+   * <p>We have deliberately not performed retries on insertRows because it might slow down overall
    * ingestion and introduce lags in committing offsets to Kafka.
    *
    * <p>Note that insertRows API does perform channel validation which might throw SFException if
    * channel is invalidated.
+   *
+   * <p>It can also send errors {@link
+   * net.snowflake.ingest.streaming.InsertValidationResponse.InsertError} in form of response inside
+   * {@link InsertValidationResponse}
    *
    * @param buffer buffer to insert into snowflake
    * @return InsertValidationResponse object sent from insertRows API.
@@ -378,13 +382,11 @@ public class TopicPartitionChannel {
                         event.getException()))
             .build();
 
-    InsertValidationResponse response =
-        Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
-            .get(new InsertRowsApiResponseSupplier(this.channel, buffer));
-    return response;
+    return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
+        .get(new InsertRowsApiResponseSupplier(this.channel, buffer));
   }
 
-  /* Invokes the API given the channel  */
+  /** Invokes the API given the channel and streaming Buffer. */
   private static class InsertRowsApiResponseSupplier
       implements CheckedSupplier<InsertValidationResponse> {
 
@@ -411,6 +413,7 @@ public class TopicPartitionChannel {
     }
   }
 
+  /** We will reopen the channel on {@link SFException} and call insert rows API again. */
   private InsertValidationResponse insertRowsFallbackSupplier(StreamingBuffer streamingBuffer)
       throws Throwable {
     LOGGER.warn("[INSERT_ROWS_FALLBACK] Re-opening channel:{}", this.getChannelName());
@@ -426,8 +429,13 @@ public class TopicPartitionChannel {
   }
 
   /**
-   * @param insertErrors
-   * @param insertedRecordsToBuffer
+   * Invoked only when {@link InsertValidationResponse} has errors.
+   *
+   * <p>This function checks if we need to log errors, send it to DLQ or just ignore and throw
+   * exception.
+   *
+   * @param insertErrors errors from validation response. (Only if it has errors)
+   * @param insertedRecordsToBuffer to map {@link SinkRecord} with insertErrors
    */
   private void handleInsertRowsFailures(
       List<InsertValidationResponse.InsertError> insertErrors,
