@@ -63,7 +63,7 @@ public class StreamingUtils {
   /* Returns true if sf connector config has error.tolerance = ALL */
   public static boolean tolerateErrors(Map<String, String> sfConnectorConfig) {
     String errorsTolerance =
-        sfConnectorConfig.getOrDefault(ERRORS_TOLERANCE_CONFIG, ErrorTolerance.NONE.value());
+        sfConnectorConfig.getOrDefault(ERRORS_TOLERANCE_CONFIG, ErrorTolerance.NONE.toString());
 
     return ErrorTolerance.valueOf(errorsTolerance.toUpperCase()).equals(ErrorTolerance.ALL);
   }
