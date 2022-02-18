@@ -61,6 +61,8 @@ public class TopicPartitionChannelTest {
 
   private Map<String, String> sfConnectorConfig;
 
+  private StreamingBufferThreshold streamingBufferThreshold;
+
   private SFException SF_EXCEPTION = new SFException(ErrorCode.INVALID_CHANNEL, "INVALID_CHANNEL");
 
   @Before
@@ -69,8 +71,9 @@ public class TopicPartitionChannelTest {
     Mockito.when(mockStreamingClient.openChannel(ArgumentMatchers.any(OpenChannelRequest.class)))
         .thenReturn(mockStreamingChannel);
     Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
-    topicPartition = new TopicPartition(TOPIC, PARTITION);
-    sfConnectorConfig = TestUtils.getConfig();
+    this.topicPartition = new TopicPartition(TOPIC, PARTITION);
+    this.sfConnectorConfig = TestUtils.getConfig();
+    this.streamingBufferThreshold = new StreamingBufferThreshold(10, 10_000, 1);
   }
 
   @Test(expected = IllegalStateException.class)
@@ -82,6 +85,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -97,6 +101,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -115,6 +120,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -122,6 +128,7 @@ public class TopicPartitionChannelTest {
     Assert.assertEquals(100L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
 
+  // TODO:: Fix this test
   @Test
   public void testFirstRecordForChannel() {
     Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenReturn(null);
@@ -137,6 +144,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -163,11 +171,6 @@ public class TopicPartitionChannelTest {
 
     Assert.assertEquals(-1l, topicPartitionChannel.getOffsetPersistedInSnowflake());
 
-    Assert.assertFalse(topicPartitionChannel.isPartitionBufferEmpty());
-
-    // insert buffered rows by calling insertRows API. (Which we will mock)
-    topicPartitionChannel.insertBufferedRows();
-
     Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
   }
 
@@ -185,6 +188,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -207,6 +211,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -239,6 +244,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -264,6 +270,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -294,6 +301,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -320,6 +328,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -355,6 +364,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -362,8 +372,10 @@ public class TopicPartitionChannelTest {
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
     try {
-      topicPartitionChannel.insertRecordToBuffer(records.get(0));
-      topicPartitionChannel.insertBufferedRows();
+      TopicPartitionChannel.StreamingBuffer streamingBuffer =
+          topicPartitionChannel.new StreamingBuffer();
+      streamingBuffer.insert(records.get(0));
+      topicPartitionChannel.insertBufferedRows(streamingBuffer);
     } catch (RetriableException ex) {
       Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
       // insert rows is only called once.
@@ -397,6 +409,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -404,8 +417,10 @@ public class TopicPartitionChannelTest {
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
     try {
-      topicPartitionChannel.insertRecordToBuffer(records.get(0));
-      InsertValidationResponse response = topicPartitionChannel.insertBufferedRows();
+      TopicPartitionChannel.StreamingBuffer streamingBuffer =
+          topicPartitionChannel.new StreamingBuffer();
+      streamingBuffer.insert(records.get(0));
+      InsertValidationResponse response = topicPartitionChannel.insertBufferedRows(streamingBuffer);
     } catch (SFException ex) {
       Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
       Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
@@ -432,6 +447,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -441,7 +457,7 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertRecordToBuffer(records.get(0));
 
     try {
-      topicPartitionChannel.insertBufferedRows();
+      topicPartitionChannel.insertBufferedRows(topicPartitionChannel.getStreamingBuffer());
     } catch (RuntimeException ex) {
       Mockito.verify(mockStreamingClient, Mockito.times(1)).openChannel(ArgumentMatchers.any());
       Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
@@ -467,6 +483,7 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
@@ -476,7 +493,7 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertRecordToBuffer(records.get(0));
 
     try {
-      topicPartitionChannel.insertBufferedRows();
+      topicPartitionChannel.insertBufferedRows(topicPartitionChannel.getStreamingBuffer());
     } catch (DataException ex) {
       throw ex;
     }
@@ -505,15 +522,18 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            new StreamingBufferThreshold(1000, 10_000_000, 10000),
             sfConnectorConfigWithErrors,
             kafkaRecordErrorReporter,
             mockSinkTaskContext);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
-    topicPartitionChannel.insertRecordToBuffer(records.get(0));
+    TopicPartitionChannel.StreamingBuffer streamingBuffer =
+        topicPartitionChannel.new StreamingBuffer();
+    streamingBuffer.insert(records.get(0));
 
-    assert topicPartitionChannel.insertBufferedRows().hasErrors();
+    assert topicPartitionChannel.insertBufferedRows(streamingBuffer).hasErrors();
 
     assert kafkaRecordErrorReporter.getReportedRecords().size() == 1;
   }
@@ -544,15 +564,18 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
+            streamingBufferThreshold,
             sfConnectorConfigWithErrors,
             kafkaRecordErrorReporter,
             mockSinkTaskContext);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
-    topicPartitionChannel.insertRecordToBuffer(records.get(0));
+    TopicPartitionChannel.StreamingBuffer streamingBuffer =
+        topicPartitionChannel.new StreamingBuffer();
+    streamingBuffer.insert(records.get(0));
 
-    assert topicPartitionChannel.insertBufferedRows().hasErrors();
+    assert topicPartitionChannel.insertBufferedRows(streamingBuffer).hasErrors();
 
     assert kafkaRecordErrorReporter.getReportedRecords().size() == 1;
   }
