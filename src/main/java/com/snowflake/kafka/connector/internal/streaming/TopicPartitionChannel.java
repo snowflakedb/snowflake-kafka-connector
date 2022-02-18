@@ -67,7 +67,7 @@ public class TopicPartitionChannel {
   private long previousFlushTimeStampMs;
 
   /* Buffer to hold JSON converted incoming SinkRecords */
-  private PartitionBuffer streamingBuffer;
+  private StreamingBuffer streamingBuffer;
 
   final Lock bufferLock = new ReentrantLock(true);
 
@@ -90,17 +90,6 @@ public class TopicPartitionChannel {
   // used to communicate to the streaming ingest's insertRows API
   // This is non final because we might decide to get the new instance of Channel
   private SnowflakeStreamingIngestChannel channel;
-
-  /* Error related properties */
-
-  // If set to true, we will send records to DLQ provided DLQ name is valid.
-  private boolean errorTolerance;
-
-  // Whether to log errors to log file.
-  private boolean logErrors;
-
-  // Set to false if DLQ topic is null or empty. True if it is a valid string in config
-  private boolean isDLQTopicSet;
 
   // -------- private final fields -------- //
 
@@ -140,12 +129,27 @@ public class TopicPartitionChannel {
   // added to buffer before calling insertRows
   private final AtomicLong processedOffset; // processed offset
 
+  /* Error related properties */
+
+  // If set to true, we will send records to DLQ provided DLQ name is valid.
+  private final boolean errorTolerance;
+
+  // Whether to log errors to log file.
+  private final boolean logErrors;
+
+  // Set to false if DLQ topic is null or empty. True if it is a valid string in config
+  private final boolean isDLQTopicSet;
+
+  // Used to identify when to flush (Time, bytes or number of records)
+  private final StreamingBufferThreshold streamingBufferThreshold;
+
   /**
    * @param streamingIngestClient client created specifically for this task
    * @param topicPartition topic partition corresponding to this Streaming Channel
    *     (TopicPartitionChannel)
    * @param channelName channel Name which is deterministic for topic and partition
    * @param tableName table to ingest in snowflake
+   * @param streamingBufferThreshold bytes, count of records and flush time thresholds.
    * @param sfConnectorConfig configuration set for snowflake connector
    * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
    * @param sinkTaskContext context on Kafka Connect's runtime
@@ -155,6 +159,7 @@ public class TopicPartitionChannel {
       TopicPartition topicPartition,
       final String channelName,
       final String tableName,
+      final StreamingBufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext) {
@@ -163,6 +168,7 @@ public class TopicPartitionChannel {
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelName = Preconditions.checkNotNull(channelName);
     this.tableName = Preconditions.checkNotNull(tableName);
+    this.streamingBufferThreshold = Preconditions.checkNotNull(streamingBufferThreshold);
     this.sfConnectorConfig = Preconditions.checkNotNull(sfConnectorConfig);
     this.channel = Preconditions.checkNotNull(openChannelForTable());
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
@@ -220,14 +226,34 @@ public class TopicPartitionChannel {
             && snowflakeRecord.timestampType() != NO_TIMESTAMP_TYPE) {
           // TODO:SNOW-529751 telemetry
         }
-
-        // acquire the lock before writing the record into buffer
+        StreamingBuffer copiedStreamingBuffer = null;
+        // acquire the lock before writing the record into buffer or copying it over to new buffer.
         bufferLock.lock();
         try {
           streamingBuffer.insert(snowflakeRecord);
           processedOffset.set(snowflakeRecord.kafkaOffset());
+          // # of records or size based flushing
+          if (this.streamingBufferThreshold.isFlushBufferedBytesBased(
+                  streamingBuffer.getBufferSizeBytes())
+              || this.streamingBufferThreshold.isFlushBufferedRecordCountBased(
+                  streamingBuffer.getNumOfRecords())) {
+            copiedStreamingBuffer = streamingBuffer;
+            this.streamingBuffer = new StreamingBuffer();
+            LOGGER.debug(
+                "Flush based on buffered bytes or buffered number of records for channel:{},"
+                    + "currentBufferSizeInBytes:{}, currentBufferedRecordCount:{}",
+                this.getChannelName(),
+                copiedStreamingBuffer.getBufferSizeBytes(),
+                copiedStreamingBuffer.getSinkRecords());
+          }
         } finally {
           bufferLock.unlock();
+        }
+
+        // If we found reaching buffer size threshold or count based threshold, we will immediately
+        // flush (Insert them)
+        if (copiedStreamingBuffer != null) {
+          insertBufferedRows(copiedStreamingBuffer);
         }
       }
     }
@@ -318,26 +344,54 @@ public class TopicPartitionChannel {
         record.headers());
   }
 
-  /** Invokes insertRows API using the offsets buffered for this partition. */
-  public InsertValidationResponse insertBufferedRows() {
-    PartitionBuffer intermediateBuffer = null;
-    bufferLock.lock();
-    try {
-      intermediateBuffer = streamingBuffer;
-      streamingBuffer = new StreamingBuffer();
-    } finally {
-      // release lock
-      bufferLock.unlock();
+  // --------------- BUFFER FLUSHING LOGIC --------------- //
+  /**
+   * If difference between current time and previous flush time is more than threshold, insert the
+   * buffered Rows.
+   *
+   * <p>Note: We acquire buffer lock since we copy the buffer.
+   *
+   * <p>Threshold is config parameter: {@link
+   * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
+   *
+   * <p>Previous flush time here means last time we called insertRows API with rows present in
+   */
+  protected void insertBufferedRowsIfFlushTimeThresholdReached() {
+    if (this.streamingBufferThreshold.isFlushTimeBased(this.previousFlushTimeStampMs)) {
+      LOGGER.debug(
+          "Time based flush for channel:{}, CurrentTimeMs:{}, previousFlushTimeMs:{},"
+              + " bufferThresholdMs:{}",
+          this.getChannelName(),
+          System.currentTimeMillis(),
+          this.previousFlushTimeStampMs,
+          this.streamingBufferThreshold.getFlushTimeThresholdSeconds());
+      StreamingBuffer copiedStreamingBuffer;
+      bufferLock.lock();
+      try {
+        copiedStreamingBuffer = this.streamingBuffer;
+        this.streamingBuffer = new StreamingBuffer();
+      } finally {
+        bufferLock.unlock();
+      }
+      insertBufferedRows(copiedStreamingBuffer);
     }
+  }
+
+  /**
+   * Invokes insertRows API using the provided offsets which were initially buffered for this
+   * partition. This buffer is decided based on the flush time threshold, buffered bytes or number
+   * of records
+   */
+  InsertValidationResponse insertBufferedRows(StreamingBuffer streamingBufferToInsert) {
+
     // intermediate buffer can be empty here if time interval reached but kafka produced no records.
-    if (intermediateBuffer.isEmpty()) {
-      LOGGER.info("No Rows Buffered, returning;");
+    if (streamingBufferToInsert.isEmpty()) {
+      LOGGER.debug("No Rows Buffered, returning;");
       this.previousFlushTimeStampMs = System.currentTimeMillis();
       return null;
     }
 
-    InsertValidationResponse response =
-        insertRowsWithFallback((StreamingBuffer) intermediateBuffer);
+    InsertValidationResponse response = insertRowsWithFallback(streamingBufferToInsert);
     // Updates the flush time (last time we called insertRows API)
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -345,12 +399,13 @@ public class TopicPartitionChannel {
         "[INSERT_ROWS] Successfully called insertRows for channel:{}, noOfRecords:{},"
             + " startOffset:{}, endOffset:{}, hasErrors:{}",
         this.getChannelName(),
-        intermediateBuffer.getNumOfRecords(),
-        intermediateBuffer.getFirstOffset(),
-        intermediateBuffer.getLastOffset(),
+        streamingBufferToInsert.getNumOfRecords(),
+        streamingBufferToInsert.getFirstOffset(),
+        streamingBufferToInsert.getLastOffset(),
         response.hasErrors());
     if (response.hasErrors()) {
-      handleInsertRowsFailures(response.getInsertErrors(), intermediateBuffer.getSinkRecords());
+      handleInsertRowsFailures(
+          response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
     }
     return response;
   }
@@ -719,7 +774,7 @@ public class TopicPartitionChannel {
 
   // ------ GETTERS ------ //
 
-  public PartitionBuffer getStreamingBuffer() {
+  public StreamingBuffer getStreamingBuffer() {
     return streamingBuffer;
   }
 
@@ -771,7 +826,8 @@ public class TopicPartitionChannel {
    *
    * <p>We would remove this long lived buffer logic in separate commit. SNOW-473896
    */
-  private class StreamingBuffer extends PartitionBuffer<List<Map<String, Object>>> {
+  @VisibleForTesting
+  protected class StreamingBuffer extends PartitionBuffer<List<Map<String, Object>>> {
     // Used to buffer rows per channel
     // Map has key of column name and Object is its value
     // For KC, it will be metadata and content columns.
@@ -780,7 +836,7 @@ public class TopicPartitionChannel {
 
     private final List<SinkRecord> sinkRecords;
 
-    private StreamingBuffer() {
+    StreamingBuffer() {
       super();
       tableRows = new ArrayList<>();
       sinkRecords = new ArrayList<>();

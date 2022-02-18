@@ -82,6 +82,7 @@ public class TopicPartitionChannelIT {
             topicPartition,
             testChannelName,
             testTableName,
+            new StreamingBufferThreshold(10, 10_000, 1),
             config,
             new InMemoryKafkaRecordErrorReporter(),
             new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
@@ -194,12 +195,14 @@ public class TopicPartitionChannelIT {
     // send offset 1
     records = TestUtils.createJsonStringSinkRecords(1, noOfRecords, topic, PARTITION);
 
-    topicPartitionChannel.insertRecordToBuffer(records.get(0));
+    TopicPartitionChannel.StreamingBuffer streamingBuffer =
+        topicPartitionChannel.new StreamingBuffer();
+    streamingBuffer.insert(records.get(0));
+
     try {
-      topicPartitionChannel.insertBufferedRows();
+      topicPartitionChannel.insertBufferedRows(streamingBuffer);
     } catch (RetriableException ex) {
-      topicPartitionChannel.insertRecordToBuffer(records.get(0));
-      InsertValidationResponse response = topicPartitionChannel.insertBufferedRows();
+      InsertValidationResponse response = topicPartitionChannel.insertBufferedRows(streamingBuffer);
       assert !response.hasErrors();
       TestUtils.assertWithRetry(
           () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);

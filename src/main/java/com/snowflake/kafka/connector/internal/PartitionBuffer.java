@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal;
 
-import java.util.Collection;
 import java.util.List;
 import org.apache.kafka.connect.sink.SinkRecord;
 
