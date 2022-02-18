@@ -125,7 +125,7 @@ public class SnowflakeSinkConnectorConfig {
   public static final String ERROR_GROUP = "ERRORS";
   public static final String ERRORS_TOLERANCE_CONFIG = "errors.tolerance";
   public static final String ERRORS_TOLERANCE_DISPLAY = "Error Tolerance";
-  public static final ErrorTolerance ERRORS_TOLERANCE_DEFAULT = ErrorTolerance.NONE;
+  public static final String ERRORS_TOLERANCE_DEFAULT = ErrorTolerance.NONE.toString();
   public static final String ERRORS_TOLERANCE_DOC =
       "Behavior for tolerating errors during Sink connector's operation. 'NONE' is set as default"
           + " and denotes that it will be fail fast. i.e any error will result in an immediate task"
@@ -142,11 +142,11 @@ public class SnowflakeSinkConnectorConfig {
   public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG =
       "errors.deadletterqueue.topic.name";
   public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DISPLAY =
-      "Send error records to the dead letter queue(DLQ)";
+      "Send error records to the Dead Letter Queue (DLQ)";
   public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DEFAULT = "";
   public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DOC =
       "Whether to output conversion errors to the dead letter queue "
-          + "By default messages are not outputted to the dead letter queue. "
+          + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
 
   public static void setDefaultValues(Map<String, String> config) {
@@ -442,9 +442,9 @@ public class SnowflakeSinkConnectorConfig {
         .define(
             ERRORS_TOLERANCE_CONFIG,
             Type.STRING,
-            ERRORS_TOLERANCE_DEFAULT.value(),
+            ERRORS_TOLERANCE_DEFAULT,
             ErrorTolerance.VALIDATOR,
-            Importance.MEDIUM,
+            Importance.LOW,
             ERRORS_TOLERANCE_DOC,
             ERROR_GROUP,
             0,
@@ -454,7 +454,7 @@ public class SnowflakeSinkConnectorConfig {
             ERRORS_LOG_ENABLE_CONFIG,
             Type.BOOLEAN,
             ERRORS_LOG_ENABLE_DEFAULT,
-            Importance.MEDIUM,
+            Importance.LOW,
             ERRORS_LOG_ENABLE_DOC,
             ERROR_GROUP,
             1,
@@ -464,7 +464,7 @@ public class SnowflakeSinkConnectorConfig {
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
             Type.STRING,
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DEFAULT,
-            Importance.MEDIUM,
+            Importance.LOW,
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DOC,
             ERROR_GROUP,
             2,
@@ -680,14 +680,11 @@ public class SnowflakeSinkConnectorConfig {
     /** Tolerate all errors. */
     ALL;
 
-    public String value() {
-      return name().toLowerCase(Locale.ROOT);
-    }
-
     /* Validator to validate behavior.on.null.values which says whether kafka should keep null value records or ignore them while ingesting into snowflake table. */
     public static final ConfigDef.Validator VALIDATOR =
         new ConfigDef.Validator() {
-          private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names());
+          private final ConfigDef.ValidString validator =
+              ConfigDef.ValidString.in(ErrorTolerance.names());
 
           @Override
           public void ensureValid(String name, Object value) {
@@ -697,7 +694,6 @@ public class SnowflakeSinkConnectorConfig {
             validator.ensureValid(name, value);
           }
 
-          // Overridden here so that ConfigDef.toEnrichedRst shows possible values correctly
           @Override
           public String toString() {
             return validator.toString();
@@ -715,5 +711,30 @@ public class SnowflakeSinkConnectorConfig {
 
       return result;
     }
+
+    @Override
+    public String toString() {
+      return name().toLowerCase(Locale.ROOT);
+    }
   }
+
+  /**
+   * Boolean Validator of passed booleans in configurations (TRUE or FALSE). This validator is case
+   * insensitive
+   */
+  public static final ConfigDef.Validator BOOLEAN_VALIDATOR =
+      new ConfigDef.Validator() {
+        private final ConfigDef.ValidString validator =
+            ConfigDef.ValidString.in(
+                Boolean.TRUE.toString().toLowerCase(Locale.ROOT),
+                Boolean.FALSE.toString().toLowerCase(Locale.ROOT));
+
+        @Override
+        public void ensureValid(String name, Object value) {
+          if (value instanceof String) {
+            value = ((String) value).toLowerCase(Locale.ROOT);
+          }
+          this.validator.ensureValid(name, value);
+        }
+      };
 }

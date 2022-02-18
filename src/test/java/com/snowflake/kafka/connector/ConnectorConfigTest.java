@@ -1,9 +1,12 @@
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import java.util.Locale;
 import java.util.Map;
 import org.junit.Test;
 
@@ -329,7 +332,7 @@ public class ConnectorConfigTest {
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString().toUpperCase(Locale.ROOT));
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     config.put(
         SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE,
@@ -340,6 +343,64 @@ public class ConnectorConfigTest {
   @Test
   public void testIngestionTypeConfig_streaming_default_delivery_guarantee() {
     Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+  }
+
+  /** These error tests are not going to enforce errors if they are not passed as configs. */
+  @Test
+  public void testErrorTolerance_AllowedValues() {
+    Map<String, String> config = getConfig();
+    config.put(ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+
+    config.put(
+        ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.NONE.toString());
+    Utils.validateConfig(config);
+
+    config.put(ERRORS_TOLERANCE_CONFIG, "all");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testErrorTolerance_DisallowedValues() {
+    Map<String, String> config = getConfig();
+    config.put(ERRORS_TOLERANCE_CONFIG, "INVALID");
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testErrorLog_AllowedValues() {
+    Map<String, String> config = getConfig();
+    config.put(ERRORS_LOG_ENABLE_CONFIG, "true");
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+
+    config.put(ERRORS_LOG_ENABLE_CONFIG, "FALSE");
+    Utils.validateConfig(config);
+
+    config.put(ERRORS_LOG_ENABLE_CONFIG, "TRUE");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testErrorLog_DisallowedValues() {
+    Map<String, String> config = getConfig();
+    config.put(ERRORS_LOG_ENABLE_CONFIG, "INVALID");
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());

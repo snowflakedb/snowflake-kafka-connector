@@ -473,7 +473,7 @@ public class TopicPartitionChannelTest {
 
     Map<String, String> sfConnectorConfigWithErrors = new HashMap<>(sfConnectorConfig);
     sfConnectorConfigWithErrors.put(
-        ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.value());
+        ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
     sfConnectorConfigWithErrors.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
     InMemoryKafkaRecordErrorReporter kafkaRecordErrorReporter =
         new InMemoryKafkaRecordErrorReporter();
@@ -509,7 +509,7 @@ public class TopicPartitionChannelTest {
 
     Map<String, String> sfConnectorConfigWithErrors = new HashMap<>(sfConnectorConfig);
     sfConnectorConfigWithErrors.put(
-        ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.value());
+        ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
     sfConnectorConfigWithErrors.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
     sfConnectorConfigWithErrors.put(ERRORS_LOG_ENABLE_CONFIG, "true");
 
