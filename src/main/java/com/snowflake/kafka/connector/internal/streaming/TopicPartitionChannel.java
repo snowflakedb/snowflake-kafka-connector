@@ -11,6 +11,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.records.RecordService;
@@ -141,7 +142,7 @@ public class TopicPartitionChannel {
   private final boolean isDLQTopicSet;
 
   // Used to identify when to flush (Time, bytes or number of records)
-  private final StreamingBufferThreshold streamingBufferThreshold;
+  private final BufferThreshold streamingBufferThreshold;
 
   /**
    * @param streamingIngestClient client created specifically for this task
@@ -159,7 +160,7 @@ public class TopicPartitionChannel {
       TopicPartition topicPartition,
       final String channelName,
       final String tableName,
-      final StreamingBufferThreshold streamingBufferThreshold,
+      final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext) {

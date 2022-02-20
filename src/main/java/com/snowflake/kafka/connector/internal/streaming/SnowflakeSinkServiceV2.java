@@ -94,9 +94,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // needs url, username. p8 key, role name
   private SnowflakeStreamingIngestClient streamingIngestClient;
 
-  // This cant be private final since we have setters for various fields.
-  private StreamingBufferThreshold streamingBufferThreshold;
-
   // Config set in JSON
   private final Map<String, String> connectorConfig;
 
@@ -118,8 +115,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     this.fileSizeBytes = StreamingUtils.STREAMING_BUFFER_BYTES_DEFAULT;
-    this.recordNum = STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
-    this.flushTimeSeconds = STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
+    this.recordNum = StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
+    this.flushTimeSeconds = StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
     this.conn = conn;
     this.recordService = new RecordService();
     this.telemetryService = conn.getTelemetryClient();

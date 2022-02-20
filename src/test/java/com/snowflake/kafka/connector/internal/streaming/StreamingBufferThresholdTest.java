@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.snowflake.kafka.connector.internal.BufferThreshold;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -9,7 +10,7 @@ public class StreamingBufferThresholdTest {
 
     final long bytesThresholdForBuffer = 10_000;
 
-    StreamingBufferThreshold streamingBufferThreshold =
+    BufferThreshold streamingBufferThreshold =
         new StreamingBufferThreshold(10, bytesThresholdForBuffer, 100);
 
     Assert.assertTrue(streamingBufferThreshold.isFlushBufferedBytesBased(bytesThresholdForBuffer));
