@@ -12,7 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Helper class Associated to runtime of Kafka Connect which can help to identify if there is a need
+ * Helper class associated to runtime of Kafka Connect which can help to identify if there is a need
  * to flush the buffered records.
  */
 public abstract class BufferThreshold {
@@ -22,8 +22,6 @@ public abstract class BufferThreshold {
   // What ingestion method is defined in connector.
   private final IngestionMethodConfig ingestionMethodConfig;
 
-  // Buffer flush thresholds set in connector
-  // Set in config (Time based flush) in seconds
   /**
    * Set in config (Time based flush) in seconds
    *
@@ -50,6 +48,15 @@ public abstract class BufferThreshold {
 
   private final long SECOND_TO_MILLIS = TimeUnit.SECONDS.toMillis(1);
 
+  /**
+   * Public constructor
+   *
+   * @param ingestionMethodConfig enum accepting ingestion method (selected in config json)
+   * @param flushTimeThresholdSeconds flush time threshold in seconds given in connector config
+   * @param bufferSizeThresholdBytes buffer size threshold in bytes given in connector config
+   * @param bufferKafkaRecordCountThreshold buffer size threshold in # of kafka records given in
+   *     connector config
+   */
   public BufferThreshold(
       IngestionMethodConfig ingestionMethodConfig,
       long flushTimeThresholdSeconds,
@@ -109,104 +116,125 @@ public abstract class BufferThreshold {
   }
 
   /**
-   * Check if provided snowflake kafka connector buffer properties are within permissible values
+   * Check if provided snowflake kafka connector buffer properties are within permissible values.
+   *
+   * <p>This method invokes three verifiers - Time based threshold, buffer size and buffer count
+   * threshold.
    *
    * @param providedSFConnectorConfig provided by customer
-   * @return true if valid.
+   * @param ingestionMethodConfig ingestion method used. Check {@link IngestionMethodConfig}
+   * @return true if all thresholds are valid.
    */
   public static boolean validateBufferThreshold(
+      Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
+    return verifyBufferFlushTimeThreshold(providedSFConnectorConfig, ingestionMethodConfig)
+        && verifyBufferCountThreshold(providedSFConnectorConfig)
+        && verifyBufferBytesThreshold(providedSFConnectorConfig);
+  }
+
+  private static boolean verifyBufferFlushTimeThreshold(
       Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
     if (!providedSFConnectorConfig.containsKey(
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC)) {
       LOGGER.error(
-          Logging.logMessage("{} is empty", SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
+          Logging.logMessage(
+              "Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
       return false;
     } else {
+      String providedFlushTimeSecondsInStr =
+          providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
       try {
-        long time =
-            Long.parseLong(
-                providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
-        if (ingestionMethodConfig.equals(IngestionMethodConfig.SNOWPIPE)) {
-          if (time < BUFFER_FLUSH_TIME_SEC_MIN) {
-            LOGGER.error(
-                (Logging.logMessage(
-                    "{} is {}, it should be greater than {}",
-                    SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-                    time,
-                    BUFFER_FLUSH_TIME_SEC_MIN)));
-            return false;
-          }
-        } else {
-          if (time < STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC) {
-            LOGGER.error(
-                (Logging.logMessage(
-                    "{} is {}, it should be greater than {}",
-                    SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-                    time,
-                    STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC)));
-            return false;
-          }
-        }
-      } catch (Exception e) {
-        LOGGER.error(
-            Logging.logMessage(
-                "{} should be an integer", SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
-        return false;
-      }
-    }
+        long providedFlushTimeSecondsInConfig = Long.parseLong(providedFlushTimeSecondsInStr);
 
-    // verify buffer.count.records
-    if (!providedSFConnectorConfig.containsKey(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS)) {
-      LOGGER.error(
-          Logging.logMessage("{} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
-      return false;
-    } else {
-      try {
-        long num =
-            Long.parseLong(
-                providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
-        if (num < 0) {
+        // select appropriate threshold based on ingestion method.
+        long thresholdTimeToCompare =
+            ingestionMethodConfig.equals(IngestionMethodConfig.SNOWPIPE)
+                ? BUFFER_FLUSH_TIME_SEC_MIN
+                : STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC;
+        if (providedFlushTimeSecondsInConfig < thresholdTimeToCompare) {
           LOGGER.error(
-              Logging.logMessage(
-                  "{} is {}, it should not be negative",
-                  SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-                  num));
+              (Logging.logMessage(
+                  "{} is {}, it should be greater than {}",
+                  SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+                  providedFlushTimeSecondsInConfig,
+                  thresholdTimeToCompare)));
           return false;
         }
-      } catch (Exception e) {
+      } catch (NumberFormatException e) {
         LOGGER.error(
             Logging.logMessage(
-                "{} should be an integer", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
+                "{} should be an integer. Invalid integer was provided:{}",
+                SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+                providedFlushTimeSecondsInStr));
         return false;
       }
     }
+    return true;
+  }
 
+  private static boolean verifyBufferBytesThreshold(Map<String, String> providedSFConnectorConfig) {
     // verify buffer.size.bytes
-    if (providedSFConnectorConfig.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES)) {
+    if (!providedSFConnectorConfig.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES)) {
+      LOGGER.error(
+          Logging.logMessage(
+              "Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
+      return false;
+    } else {
+      final String providedBufferSizeBytesStr =
+          providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
       try {
-        long bsb =
-            Long.parseLong(
-                providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
-        if (bsb < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN) // 1 byte
+        long providedBufferSizeBytesConfig = Long.parseLong(providedBufferSizeBytesStr);
+        if (providedBufferSizeBytesConfig
+            < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN) // 1 byte
         {
           LOGGER.error(
               Logging.logMessage(
                   "{} is too low at {}. It must be {} or greater.",
                   SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-                  bsb,
+                  providedBufferSizeBytesConfig,
                   SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN));
           return false;
         }
-      } catch (Exception e) {
+      } catch (NumberFormatException e) {
         LOGGER.error(
             Logging.logMessage(
-                "{} should be an integer", SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
+                "Config {} should be an integer. Provided:{}",
+                SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+                providedBufferSizeBytesStr));
         return false;
       }
-    } else {
+    }
+    return true;
+  }
+
+  private static boolean verifyBufferCountThreshold(Map<String, String> providedSFConnectorConfig) {
+    // verify buffer.count.records
+    if (!providedSFConnectorConfig.containsKey(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS)) {
       LOGGER.error(
-          Logging.logMessage("{} is empty", SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
+          Logging.logMessage(
+              "Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
       return false;
+    } else {
+      final String providedBufferCountRecordsStr =
+          providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
+      try {
+        long providedBufferCountRecords = Long.parseLong(providedBufferCountRecordsStr);
+        if (providedBufferCountRecords <= 0) {
+          LOGGER.error(
+              Logging.logMessage(
+                  "Config {} is {}, it should at least 1",
+                  SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+                  providedBufferCountRecords));
+          return false;
+        }
+      } catch (NumberFormatException e) {
+        LOGGER.error(
+            Logging.logMessage(
+                "Config {} should be a positive integer. Provided:{}",
+                SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+                providedBufferCountRecordsStr));
+        return false;
+      }
     }
     return true;
   }
