@@ -231,9 +231,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     channelPartition.insertRecordToBuffer(record);
 
     // # of records or size based flushing
-    if (channelPartition.getStreamingBuffer().getBufferSize() >= getFileSize()
+    if (channelPartition.getStreamingBuffer().getBufferSizeBytes() >= getFileSize()
         || (getRecordNumber() != 0
-            && channelPartition.getStreamingBuffer().getNumOfRecord() >= getRecordNumber())) {
+            && channelPartition.getStreamingBuffer().getNumOfRecords() >= getRecordNumber())) {
       LOGGER.info(
           "Either a record based flush or a size based flush(insertRow) for channel:{}",
           channelPartition.getChannelName());
