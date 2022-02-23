@@ -684,8 +684,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
             processedOffset.set(snowflakeRecord.kafkaOffset());
             pipeStatus.processedOffset.set(snowflakeRecord.kafkaOffset());
             buffer.insert(snowflakeRecord);
-            if (buffer.getBufferSize() >= getFileSize()
-                || (getRecordNumber() != 0 && buffer.getNumOfRecord() >= getRecordNumber())) {
+            if (buffer.getBufferSizeBytes() >= getFileSize()
+                || (getRecordNumber() != 0 && buffer.getNumOfRecords() >= getRecordNumber())) {
               tmpBuff = buffer;
               this.buffer = new SnowpipeBuffer();
             }
@@ -1081,8 +1081,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
      */
     private void computeBufferMetrics(final SnowpipeBuffer buffer) {
       if (enableCustomJMXMonitoring) {
-        partitionBufferSizeBytesHistogram.update(buffer.getBufferSize());
-        partitionBufferCountHistogram.update(buffer.getNumOfRecord());
+        partitionBufferSizeBytesHistogram.update(buffer.getBufferSizeBytes());
+        partitionBufferCountHistogram.update(buffer.getNumOfRecords());
       }
     }
 
@@ -1124,27 +1124,27 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       @Override
       public void insert(SinkRecord record) {
         String data = recordService.getProcessedRecordForSnowpipe(record);
-        if (getBufferSize() == 0) {
+        if (getBufferSizeBytes() == 0L) {
           setFirstOffset(record.kafkaOffset());
         }
 
         stringBuilder.append(data);
-        setNumOfRecord(getNumOfRecord() + 1);
-        setBufferSize(getBufferSize() + data.length() * 2); // 1 char = 2 bytes
+        setNumOfRecords(getNumOfRecords() + 1);
+        setBufferSizeBytes(getBufferSizeBytes() + data.length() * 2L); // 1 char = 2 bytes
         setLastOffset(record.kafkaOffset());
-        pipeStatus.memoryUsage.addAndGet(data.length() * 2);
+        pipeStatus.memoryUsage.addAndGet(data.length() * 2L);
       }
 
       public String getData() {
         String result = stringBuilder.toString();
         logDebug(
             "flush buffer: {} records, {} bytes, offset {} - {}",
-            getNumOfRecord(),
-            getBufferSize(),
+            getNumOfRecords(),
+            getBufferSizeBytes(),
             getFirstOffset(),
             getLastOffset());
-        pipeStatus.totalSizeOfData.addAndGet(getBufferSize());
-        pipeStatus.totalNumberOfRecord.addAndGet(getNumOfRecord());
+        pipeStatus.totalSizeOfData.addAndGet(getBufferSizeBytes());
+        pipeStatus.totalNumberOfRecord.addAndGet(getNumOfRecords());
         return result;
       }
     }
