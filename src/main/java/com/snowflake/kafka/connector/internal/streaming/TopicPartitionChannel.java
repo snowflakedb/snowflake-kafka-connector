@@ -244,7 +244,7 @@ public class TopicPartitionChannel {
                     + "currentBufferSizeInBytes:{}, currentBufferedRecordCount:{}",
                 this.getChannelName(),
                 copiedStreamingBuffer.getBufferSizeBytes(),
-                copiedStreamingBuffer.getSinkRecords());
+                copiedStreamingBuffer.getSinkRecords().size());
           }
         } finally {
           bufferLock.unlock();
