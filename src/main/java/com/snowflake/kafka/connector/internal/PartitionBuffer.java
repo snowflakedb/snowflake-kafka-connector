@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal;
 
-import java.util.Collection;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 /**
@@ -9,72 +8,70 @@ import org.apache.kafka.connect.sink.SinkRecord;
  *
  * <p>The getData() method returns the data specific to the implementation.
  *
- * <p>Buffer stores the converted records to Json format which can be temporary or long lived.
+ * <p>Buffer stores the converted records to Json format.
  *
- * <p>Temporary would mean the partition buffer is emptied when all records from {@link
- * com.snowflake.kafka.connector.SnowflakeSinkTask#put(Collection)} are processed and respective API
- * is called.
- *
- * <p>Long lived would mean the data in partition would stay across two put APIs since the buffer
- * thresholds were not met.
+ * <p>Long lived buffer would mean the data in partition would stay across two put APIs since the
+ * buffer thresholds were not met.
  *
  * <p>Please check respective implementation class for more details.
  *
  * @param <T> Return type of {@link #getData()}
  */
 public abstract class PartitionBuffer<T> {
-  private int numOfRecord;
-  private int bufferSize;
+  private int numOfRecords;
+  private long bufferSizeBytes;
   private long firstOffset;
   private long lastOffset;
 
-  /* Get number of records in this buffer */
-  public int getNumOfRecord() {
-    return numOfRecord;
+  /** @return Number of records in this buffer */
+  public int getNumOfRecords() {
+    return numOfRecords;
   }
 
-  /* Get buffer size */
-  public int getBufferSize() {
-    return bufferSize;
+  /** @return Buffer size in bytes */
+  public long getBufferSizeBytes() {
+    return bufferSizeBytes;
   }
 
-  /* Get first offset number in this buffer */
+  /** @return First offset number in this buffer */
   public long getFirstOffset() {
     return firstOffset;
   }
 
-  /* Get last offset number in this buffer */
+  /** @return Last offset number in this buffer */
   public long getLastOffset() {
     return lastOffset;
   }
 
-  /* Updates number of records (Usually by 1) */
-  public void setNumOfRecord(int numOfRecord) {
-    this.numOfRecord = numOfRecord;
+  /** @param numOfRecords Updates number of records (Usually by 1) */
+  public void setNumOfRecords(int numOfRecords) {
+    this.numOfRecords = numOfRecords;
   }
 
-  /* Updates sum of size of records present in this buffer */
-  public void setBufferSize(int bufferSize) {
-    this.bufferSize = bufferSize;
+  /** @param bufferSizeBytes Updates sum of size of records present in this buffer (Bytes) */
+  public void setBufferSizeBytes(long bufferSizeBytes) {
+    this.bufferSizeBytes = bufferSizeBytes;
   }
 
-  /* Sets first offset no */
+  /** @param firstOffset First offset no to set in this buffer */
   public void setFirstOffset(long firstOffset) {
     this.firstOffset = firstOffset;
   }
 
-  /* Sets last offset no */
+  /** @param lastOffset Last offset no to set in this buffer */
   public void setLastOffset(long lastOffset) {
     this.lastOffset = lastOffset;
   }
 
+  /** @return true if buffer is empty */
   public boolean isEmpty() {
-    return numOfRecord == 0;
+    return numOfRecords == 0;
   }
 
+  /** Public constructor. */
   public PartitionBuffer() {
-    numOfRecord = 0;
-    bufferSize = 0;
+    numOfRecords = 0;
+    bufferSizeBytes = 0;
     firstOffset = -1;
     lastOffset = -1;
   }
@@ -87,6 +84,10 @@ public abstract class PartitionBuffer<T> {
    */
   public abstract void insert(SinkRecord record);
 
-  // return the data that was buffered because buffer threshold might have been reached
+  /**
+   * Return the data that was buffered because buffer threshold might have been reached
+   *
+   * @return respective data type implemented by the class.
+   */
   public abstract T getData();
 }
