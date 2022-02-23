@@ -321,7 +321,7 @@ public class TopicPartitionChannel {
     LOGGER.debug(
         "Invoking insertRows API for channel:{}, noOfRecords:{}, startOffset:{}, endOffset:{}",
         this,
-        intermediateBuffer.getNumOfRecord(),
+        intermediateBuffer.getNumOfRecords(),
         intermediateBuffer.getFirstOffset(),
         intermediateBuffer.getLastOffset());
     InsertValidationResponse response =
@@ -659,12 +659,13 @@ public class TopicPartitionChannel {
 
       // probably do below things in a separate method.
       // call it collect buffer metrics
-      setNumOfRecord(getNumOfRecord() + 1);
+      setNumOfRecords(getNumOfRecords() + 1);
       setLastOffset(record.kafkaOffset());
       // need to loop through the map and get the object node
       tableRow.forEach(
           (key, value) -> {
-            setBufferSize(getBufferSize() + ((String) value).length() * 2); // 1 char = 2 bytes
+            setBufferSizeBytes(
+                getBufferSizeBytes() + ((String) value).length() * 2L); // 1 char = 2 bytes
           });
     }
 
@@ -673,8 +674,8 @@ public class TopicPartitionChannel {
     public List<Map<String, Object>> getData() {
       LOGGER.info(
           "Get rows for streaming ingest. {} records, {} bytes, offset {} - {}",
-          getNumOfRecord(),
-          getBufferSize(),
+          getNumOfRecords(),
+          getBufferSizeBytes(),
           getFirstOffset(),
           getLastOffset());
       return tableRows;
