@@ -680,7 +680,10 @@ public class SnowflakeSinkConnectorConfig {
     /** Tolerate all errors. */
     ALL;
 
-    /* Validator to validate behavior.on.null.values which says whether kafka should keep null value records or ignore them while ingesting into snowflake table. */
+    /**
+     * Validator to validate behavior.on.null.values which says whether kafka should keep null value
+     * records or ignore them while ingesting into snowflake table.
+     */
     public static final ConfigDef.Validator VALIDATOR =
         new ConfigDef.Validator() {
           private final ConfigDef.ValidString validator =
@@ -700,7 +703,7 @@ public class SnowflakeSinkConnectorConfig {
           }
         };
 
-    // All valid enum values
+    /** All valid enum values */
     public static String[] names() {
       ErrorTolerance[] errorTolerances = values();
       String[] result = new String[errorTolerances.length];
