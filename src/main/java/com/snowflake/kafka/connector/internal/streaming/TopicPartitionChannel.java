@@ -38,6 +38,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.slf4j.Logger;
@@ -344,7 +345,7 @@ public class TopicPartitionChannel {
         "[INSERT_ROWS] Successfully called insertRows for channel:{}, noOfRecords:{},"
             + " startOffset:{}, endOffset:{}, hasErrors:{}",
         this.getChannelName(),
-        intermediateBuffer.getNumOfRecord(),
+        intermediateBuffer.getNumOfRecords(),
         intermediateBuffer.getFirstOffset(),
         intermediateBuffer.getLastOffset(),
         response.hasErrors());
@@ -371,14 +372,16 @@ public class TopicPartitionChannel {
    * @return InsertValidationResponse object sent from insertRows API.
    */
   private InsertValidationResponse insertRowsWithFallback(StreamingBuffer buffer) {
-    Fallback<InsertValidationResponse> reopenChannelFallbackExecutorForInsertRows =
+    Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
         Fallback.builder(() -> insertRowsFallbackSupplier(buffer))
             .handle(SFException.class)
             .onFailure(
                 event ->
                     LOGGER.error(
-                        "[INSERT_ROWS_FALLBACK] Failed to open Channel or insert Rows:{}",
-                        this.getChannelName(),
+                        String.format(
+                            "%s Failed to open Channel or fetching offsetToken for channel:%s",
+                            StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
+                            this.getChannelName()),
                         event.getException()))
             .build();
 
@@ -413,19 +416,22 @@ public class TopicPartitionChannel {
     }
   }
 
-  /** We will reopen the channel on {@link SFException} and call insert rows API again. */
-  private InsertValidationResponse insertRowsFallbackSupplier(StreamingBuffer streamingBuffer)
-      throws Throwable {
-    LOGGER.warn("[INSERT_ROWS_FALLBACK] Re-opening channel:{}", this.getChannelName());
-    this.channel = Preconditions.checkNotNull(openChannelForTable());
+  /** We will reopen the channel on {@link SFException} and reset offset in kafka. */
+  private void insertRowsFallbackSupplier(StreamingBuffer streamingBuffer) {
+    final long offsetRecoveredFromSnowflake =
+        streamingApiFallbackSupplier(StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK);
     LOGGER.warn(
-        "[INSERT_ROWS_FALLBACK] Calling insertRows after re-opening the channel:{}, noOfRecords:{},"
-            + " startOffset:{}, endOffset:{}",
-        this.getChannelName(),
-        streamingBuffer.getNumOfRecords(),
-        streamingBuffer.getFirstOffset(),
-        streamingBuffer.getLastOffset());
-    return new InsertRowsApiResponseSupplier(this.channel, streamingBuffer).get();
+        "{} Fetched offsetToken:{} for channel:{}",
+        StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
+        offsetRecoveredFromSnowflake,
+        this.getChannelName());
+    throw new RetriableException(
+        String.format(
+            "%s Failed to insert rows for channel:%s, startOffset:%s, endOffset:%s",
+            StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
+            this.getChannelName(),
+            streamingBuffer.getFirstOffset(),
+            streamingBuffer.getLastOffset()));
   }
 
   /**
@@ -542,7 +548,10 @@ public class TopicPartitionChannel {
      * Fallback is only attempted on SFException
      */
     Fallback<Long> offsetTokenFallbackExecutor =
-        Fallback.builder(this::offsetTokenFallbackSupplier)
+        Fallback.builder(
+                () ->
+                    streamingApiFallbackSupplier(
+                        StreamingApiFallbackInvoker.GET_OFFSET_TOKEN_FALLBACK))
             .handle(SFException.class)
             .onFailure(
                 event ->
@@ -568,21 +577,35 @@ public class TopicPartitionChannel {
   }
 
   /**
-   * If a valid offset is found from snowflake, we will reset the topicPartition with
+   * Fallback function to be executed when either of insertRows API or getOffsetToken sends
+   * SFException.
+   *
+   * <p>Or, in other words, if streaming channel is invalidated, we will reopen the channel and
+   * reset the kafka offset to last committed offset in Snowflake.
+   *
+   * <p>If a valid offset is found from snowflake, we will reset the topicPartition with
    * (offsetReturnedFromSnowflake + 1).
    *
-   * <p>Please note, this is done only after a failure in fetching offset. Idea behind resetting
-   * offset (1 more than what we found in snowflake) is that Kafka should send offsets from this
-   * offset number so as to not miss any data.
+   * <p>Idea behind resetting offset (1 more than what we found in snowflake) is that Kafka should
+   * send offsets from this offset number so as to not miss any data.
    *
+   * @param streamingApiFallbackInvoker Streaming API which is using this fallback function. Used
+   *     for logging mainly.
    * @return offset which was last present in Snowflake
    */
-  private long offsetTokenFallbackSupplier() {
-    final long offsetRecoveredFromSnowflake = getRecoveredOffsetFromSnowflake();
+  private long streamingApiFallbackSupplier(
+      final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
+    final long offsetRecoveredFromSnowflake =
+        getRecoveredOffsetFromSnowflake(streamingApiFallbackInvoker);
     final long offsetToResetInKafka = offsetRecoveredFromSnowflake + 1L;
-    sinkTaskContext.offset(topicPartition, offsetToResetInKafka);
+    this.sinkTaskContext.offset(topicPartition, offsetToResetInKafka);
+    // Need to update the in memory processed offset otherwise if same offset is send again, it
+    // might get rejected.
+    this.processedOffset.set(offsetRecoveredFromSnowflake);
+    this.offsetPersistedInSnowflake = offsetRecoveredFromSnowflake;
     LOGGER.info(
-        "Channel:{}, OffsetRecoveredFromSnowflake:{}, Reset kafka offset to:{}",
+        "{} Channel:{}, OffsetRecoveredFromSnowflake:{}, Reset kafka offset to:{}",
+        streamingApiFallbackInvoker,
         this.getChannelName(),
         offsetRecoveredFromSnowflake,
         offsetToResetInKafka);
@@ -595,13 +618,16 @@ public class TopicPartitionChannel {
    * <p>It re-opens the channel and fetches the latestOffsetToken one more time after reopen was
    * successful.
    *
+   * @param streamingApiFallbackInvoker Streaming API which invoked this function.
    * @return offset which was last present in Snowflake
    */
-  private long getRecoveredOffsetFromSnowflake() {
-    LOGGER.warn("[OFFSET_TOKEN_FALLBACK] Re-opening channel:{}", this.getChannelName());
+  private long getRecoveredOffsetFromSnowflake(
+      final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
+    LOGGER.warn("{} Re-opening channel:{}", streamingApiFallbackInvoker, this.getChannelName());
     this.channel = Preconditions.checkNotNull(openChannelForTable());
     LOGGER.warn(
-        "[OFFSET_TOKEN_FALLBACK] Fetching offsetToken after re-opening the channel:{}",
+        "{} Fetching offsetToken after re-opening the channel:{}",
+        streamingApiFallbackInvoker,
         this.getChannelName());
     return fetchLatestCommittedOffsetFromSnowflake();
   }
@@ -659,8 +685,8 @@ public class TopicPartitionChannel {
   private SnowflakeStreamingIngestChannel openChannelForTable() {
     OpenChannelRequest channelRequest =
         OpenChannelRequest.builder(this.channelName)
-            .setDBName(this.sfConnectorConfig.getOrDefault(Utils.SF_DATABASE, null))
-            .setSchemaName(this.sfConnectorConfig.getOrDefault(Utils.SF_SCHEMA, null))
+            .setDBName(this.sfConnectorConfig.get(Utils.SF_DATABASE))
+            .setSchemaName(this.sfConnectorConfig.get(Utils.SF_SCHEMA))
             .setTableName(this.tableName)
             .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
             .build();
@@ -800,6 +826,34 @@ public class TopicPartitionChannel {
     @Override
     public List<SinkRecord> getSinkRecords() {
       return sinkRecords;
+    }
+  }
+
+  /**
+   * Enum representing which Streaming API is invoking the fallback supplier. ({@link
+   * #streamingApiFallbackSupplier(StreamingApiFallbackInvoker)})
+   *
+   * <p>Fallback supplier is essentially reopening the channel and resetting the kafka offset to
+   * offset found in Snowflake.
+   */
+  private enum StreamingApiFallbackInvoker {
+    /**
+     * Fallback invoked when {@link SnowflakeStreamingIngestChannel#insertRows(Iterable, String)}
+     * has failures.
+     */
+    INSERT_ROWS_FALLBACK,
+
+    /**
+     * Fallback invoked when {@link SnowflakeStreamingIngestChannel#getLatestCommittedOffsetToken()}
+     * has failures.
+     */
+    GET_OFFSET_TOKEN_FALLBACK,
+    ;
+
+    /** @return Used to LOG which API tried to invoke fallback function. */
+    @Override
+    public String toString() {
+      return "[" + this.name() + "]";
     }
   }
 }

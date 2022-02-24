@@ -25,6 +25,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
@@ -334,13 +335,19 @@ public class TopicPartitionChannelTest {
   }
 
   /* Only SFExceptions are retried and goes into fallback. */
-  @Test(expected = SFException.class)
+  @Test(expected = RetriableException.class)
   public void testInsertRows_SFException() throws Exception {
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
         .thenThrow(SF_EXCEPTION)
         .thenThrow(SF_EXCEPTION);
+
+    // get null from snowflake first time it is called and null for second time too since insert
+    // rows was failure
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
+        .thenReturn(null)
+        .thenReturn(null);
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
@@ -357,23 +364,32 @@ public class TopicPartitionChannelTest {
     try {
       topicPartitionChannel.insertRecordToBuffer(records.get(0));
       topicPartitionChannel.insertBufferedRows();
-    } catch (SFException ex) {
+    } catch (RetriableException ex) {
       Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
-      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(2))
+      // insert rows is only called once.
+      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
           .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+      // get offset token is called once for first record and once after channel re-open
+      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(2))
+          .getLatestCommittedOffsetToken();
       throw ex;
     }
   }
 
-  /* SFExceptions is thrown in first attempt and hence it goes into fallback and reopens the channel. Upon retrying, insert retried and goes into fallback. */
-  @Test
-  public void testInsertRows_ValidInsertRowsAfterReopenChannelOnSFException() throws Exception {
+  /* SFExceptions is thrown in first attempt of insert rows. It is also thrown while refetching committed offset from snowflake after reopening the channel */
+  @Test(expected = SFException.class)
+  public void testInsertRows_GetOffsetTokenFailureAfterReopenChannel() throws Exception {
     InsertValidationResponse validationResponse = new InsertValidationResponse();
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
-        .thenThrow(SF_EXCEPTION)
-        .thenReturn(validationResponse);
+        .thenThrow(SF_EXCEPTION);
+
+    // get null from snowflake first time it is called and null for second time too since insert
+    // rows was failure
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
+        .thenReturn(null)
+        .thenThrow(SF_EXCEPTION);
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
@@ -387,14 +403,18 @@ public class TopicPartitionChannelTest {
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
-    topicPartitionChannel.insertRecordToBuffer(records.get(0));
-    InsertValidationResponse response = topicPartitionChannel.insertBufferedRows();
-
-    assert !response.hasErrors();
-
-    Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
-    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(2))
-        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+    try {
+      topicPartitionChannel.insertRecordToBuffer(records.get(0));
+      InsertValidationResponse response = topicPartitionChannel.insertBufferedRows();
+    } catch (SFException ex) {
+      Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
+      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
+          .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+      // get offset token is called once for first record and once after channel re-open
+      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(2))
+          .getLatestCommittedOffsetToken();
+      throw ex;
+    }
   }
 
   /* Runtime exception doesnt perform any fallbacks. */
@@ -434,7 +454,8 @@ public class TopicPartitionChannelTest {
   @Test(expected = DataException.class)
   public void testInsertRows_ValidationResponseHasErrors_NoErrorTolerance() throws Exception {
     InsertValidationResponse validationResponse = new InsertValidationResponse();
-    validationResponse.addError(new InsertValidationResponse.InsertError("CONTENT", SF_EXCEPTION));
+    validationResponse.addError(
+        new InsertValidationResponse.InsertError("CONTENT", SF_EXCEPTION, 0));
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
@@ -465,7 +486,8 @@ public class TopicPartitionChannelTest {
   @Test
   public void testInsertRows_ValidationResponseHasErrors_ErrorTolerance_ALL() throws Exception {
     InsertValidationResponse validationResponse = new InsertValidationResponse();
-    validationResponse.addError(new InsertValidationResponse.InsertError("CONTENT", SF_EXCEPTION));
+    validationResponse.addError(
+        new InsertValidationResponse.InsertError("CONTENT", SF_EXCEPTION, 0));
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
@@ -501,7 +523,8 @@ public class TopicPartitionChannelTest {
   public void testInsertRows_ValidationResponseHasErrors_ErrorTolerance_ALL_LogEnableTrue()
       throws Exception {
     InsertValidationResponse validationResponse = new InsertValidationResponse();
-    validationResponse.addError(new InsertValidationResponse.InsertError("CONTENT", SF_EXCEPTION));
+    validationResponse.addError(
+        new InsertValidationResponse.InsertError("CONTENT", SF_EXCEPTION, 0));
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
