@@ -343,9 +343,9 @@ public class TopicPartitionChannelTest {
     }
   }
 
-  /* Only SFExceptions are retried and goes into fallback. */
+  /* Only SFExceptions are retried and goes into fallback. Please note throwing retriable exception is expected behavior */
   @Test(expected = RetriableException.class)
-  public void testInsertRows_SFException() throws Exception {
+  public void testInsertRows_SuccessAfterReopen() throws Exception {
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
@@ -354,9 +354,7 @@ public class TopicPartitionChannelTest {
 
     // get null from snowflake first time it is called and null for second time too since insert
     // rows was failure
-    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
-        .thenReturn(null)
-        .thenReturn(null);
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenReturn(null);
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
@@ -381,8 +379,8 @@ public class TopicPartitionChannelTest {
       // insert rows is only called once.
       Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
           .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
-      // get offset token is called once for first record and once after channel re-open
-      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(2))
+      // get offset token is called once after channel re-open
+      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
           .getLatestCommittedOffsetToken();
       throw ex;
     }
@@ -397,11 +395,8 @@ public class TopicPartitionChannelTest {
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
         .thenThrow(SF_EXCEPTION);
 
-    // get null from snowflake first time it is called and null for second time too since insert
-    // rows was failure
-    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
-        .thenReturn(null)
-        .thenThrow(SF_EXCEPTION);
+    // Send exception in fallback (i.e after reopen channel)
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenThrow(SF_EXCEPTION);
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
@@ -425,8 +420,8 @@ public class TopicPartitionChannelTest {
       Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
       Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
           .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
-      // get offset token is called once for first record and once after channel re-open
-      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(2))
+      // get offset token is called once after channel re-open
+      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
           .getLatestCommittedOffsetToken();
       throw ex;
     }
