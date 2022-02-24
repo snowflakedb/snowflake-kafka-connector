@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
@@ -194,15 +195,17 @@ public class TopicPartitionChannelIT {
     records = TestUtils.createJsonStringSinkRecords(1, noOfRecords, topic, PARTITION);
 
     topicPartitionChannel.insertRecordToBuffer(records.get(0));
+    try {
+      topicPartitionChannel.insertBufferedRows();
+    } catch (RetriableException ex) {
+      topicPartitionChannel.insertRecordToBuffer(records.get(0));
+      InsertValidationResponse response = topicPartitionChannel.insertBufferedRows();
+      assert !response.hasErrors();
+      TestUtils.assertWithRetry(
+          () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
 
-    InsertValidationResponse response = topicPartitionChannel.insertBufferedRows();
-
-    assert !response.hasErrors();
-
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
-
-    assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
-    assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName) == 1;
+      assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
+      assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName) == 1;
+    }
   }
 }
