@@ -408,9 +408,9 @@ public class TopicPartitionChannel {
       LOGGER.debug(
           "Invoking insertRows API for channel:{}, noOfRecords:{}, startOffset:{}, endOffset:{}",
           this.channel.getFullyQualifiedName(),
-          streamingBuffer.getNumOfRecords(),
-          streamingBuffer.getFirstOffset(),
-          streamingBuffer.getLastOffset());
+          this.streamingBuffer.getNumOfRecords(),
+          this.streamingBuffer.getFirstOffset(),
+          this.streamingBuffer.getLastOffset());
       return this.channel.insertRows(
           streamingBuffer.getData(), Long.toString(streamingBuffer.getLastOffset()));
     }
@@ -458,11 +458,12 @@ public class TopicPartitionChannel {
             ERRORS_TOLERANCE_CONFIG,
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
       } else {
-        for (int i = 0; i < insertErrors.size(); i++) {
-          // Write now I am assuming each error maps to its original row which is incorrect.
-          // TODO: SNOW-545729 would handle mapping errors with original SinkRecord.
+        for (InsertValidationResponse.InsertError insertError : insertErrors) {
+          // Map error row number to index in sinkRecords list.
+          int rowIndexToOriginalSinkRecord = (int) insertError.getRowIndex();
           this.kafkaRecordErrorReporter.reportError(
-              insertedRecordsToBuffer.get(i), insertErrors.get(i).getException());
+              insertedRecordsToBuffer.get(rowIndexToOriginalSinkRecord),
+              insertError.getException());
         }
       }
     } else {

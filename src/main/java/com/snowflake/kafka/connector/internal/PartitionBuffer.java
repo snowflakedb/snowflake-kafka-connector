@@ -92,6 +92,10 @@ public abstract class PartitionBuffer<T> {
    */
   public abstract T getData();
 
-  /* Return the sinkrecords corresponding to this buffer */
+  /**
+   * TODO:SNOW-552576 Avoid extra memory in buffer.
+   *
+   * @return the sinkrecords corresponding to this buffer
+   */
   public abstract List<SinkRecord> getSinkRecords();
 }
