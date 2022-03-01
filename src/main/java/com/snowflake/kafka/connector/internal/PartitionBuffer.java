@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.google.common.base.MoreObjects;
+import java.util.List;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 /**
@@ -90,4 +92,29 @@ public abstract class PartitionBuffer<T> {
    * @return respective data type implemented by the class.
    */
   public abstract T getData();
+
+  /**
+   * TODO:SNOW-552576 Avoid extra memory in buffer.
+   *
+   * @return the sinkrecords corresponding to this buffer
+   */
+  public abstract List<SinkRecord> getSinkRecords();
+
+  /**
+   * @return true if no of buffered records == lastOffsetNumber - firstOffsetNumber + 1
+   *     <p>(+1 because first and last offset are inclusive)
+   */
+  public boolean isBufferCountValid() {
+    return this.getNumOfRecords() == (this.getLastOffset() - this.getFirstOffset() + 1);
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("numOfRecords", this.getNumOfRecords())
+        .add("bufferSizeBytes", this.getBufferSizeBytes())
+        .add("firstOffset", this.getFirstOffset())
+        .add("lastOffset", this.getLastOffset())
+        .toString();
+  }
 }
