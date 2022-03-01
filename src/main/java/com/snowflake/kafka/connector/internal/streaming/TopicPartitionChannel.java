@@ -406,11 +406,15 @@ public class TopicPartitionChannel {
     @Override
     public InsertValidationResponse get() throws Throwable {
       LOGGER.debug(
-          "Invoking insertRows API for channel:{}, noOfRecords:{}, startOffset:{}, endOffset:{}",
+          "Invoking insertRows API for Channel:{}, streamingBuffer:{}",
           this.channel.getFullyQualifiedName(),
-          this.streamingBuffer.getNumOfRecords(),
-          this.streamingBuffer.getFirstOffset(),
-          this.streamingBuffer.getLastOffset());
+          streamingBuffer);
+      Preconditions.checkState(
+          this.streamingBuffer.isBufferCountValid(),
+          String.format(
+              "Number of records in buffer doesn't match with difference of last and first offset"
+                  + " number for channel:%s, buffer:%s",
+              this.channel.getFullyQualifiedName(), streamingBuffer));
       return this.channel.insertRows(
           streamingBuffer.getData(), Long.toString(streamingBuffer.getLastOffset()));
     }
@@ -587,9 +591,6 @@ public class TopicPartitionChannel {
    * <p>If a valid offset is found from snowflake, we will reset the topicPartition with
    * (offsetReturnedFromSnowflake + 1).
    *
-   * <p>Idea behind resetting offset (1 more than what we found in snowflake) is that Kafka should
-   * send offsets from this offset number so as to not miss any data.
-   *
    * @param streamingApiFallbackInvoker Streaming API which is using this fallback function. Used
    *     for logging mainly.
    * @return offset which was last present in Snowflake
@@ -598,19 +599,45 @@ public class TopicPartitionChannel {
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
     final long offsetRecoveredFromSnowflake =
         getRecoveredOffsetFromSnowflake(streamingApiFallbackInvoker);
+    resetChannelMetadataAfterRecovery(streamingApiFallbackInvoker, offsetRecoveredFromSnowflake);
+    return offsetRecoveredFromSnowflake;
+  }
+
+  /**
+   * Resets the offset in kafka, resets metadata related to offsets and clears the buffer.
+   *
+   * <p>Idea behind resetting offset (1 more than what we found in snowflake) is that Kafka should
+   * send offsets from this offset number so as to not miss any data.
+   *
+   * @param streamingApiFallbackInvoker Streaming API which is using this fallback function. Used
+   *     for logging mainly.
+   * @param offsetRecoveredFromSnowflake offset number found in snowflake for this
+   *     channel(partition)
+   */
+  private void resetChannelMetadataAfterRecovery(
+      final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
+      final long offsetRecoveredFromSnowflake) {
     final long offsetToResetInKafka = offsetRecoveredFromSnowflake + 1L;
-    this.sinkTaskContext.offset(topicPartition, offsetToResetInKafka);
+
+    // Reset Offset in kafka for this topic partition.
+    this.sinkTaskContext.offset(this.topicPartition, offsetToResetInKafka);
     // Need to update the in memory processed offset otherwise if same offset is send again, it
     // might get rejected.
     this.processedOffset.set(offsetRecoveredFromSnowflake);
     this.offsetPersistedInSnowflake = offsetRecoveredFromSnowflake;
+    // reset the buffer too
+    this.bufferLock.lock();
+    try {
+      this.streamingBuffer = new StreamingBuffer();
+    } finally {
+      this.bufferLock.unlock();
+    }
     LOGGER.info(
         "{} Channel:{}, OffsetRecoveredFromSnowflake:{}, Reset kafka offset to:{}",
         streamingApiFallbackInvoker,
         this.getChannelName(),
         offsetRecoveredFromSnowflake,
         offsetToResetInKafka);
-    return offsetRecoveredFromSnowflake;
   }
 
   /**
