@@ -360,7 +360,7 @@ public class TopicPartitionChannel {
     if (this.streamingBufferThreshold.isFlushTimeBased(this.previousFlushTimeStampMs)) {
       LOGGER.debug(
           "Time based flush for channel:{}, CurrentTimeMs:{}, previousFlushTimeMs:{},"
-              + " bufferThresholdMs:{}",
+              + " bufferThresholdSeconds:{}",
           this.getChannelName(),
           System.currentTimeMillis(),
           this.previousFlushTimeStampMs,
@@ -373,7 +373,9 @@ public class TopicPartitionChannel {
       } finally {
         bufferLock.unlock();
       }
-      insertBufferedRows(copiedStreamingBuffer);
+      if (copiedStreamingBuffer != null) {
+        insertBufferedRows(copiedStreamingBuffer);
+      }
     }
   }
 
