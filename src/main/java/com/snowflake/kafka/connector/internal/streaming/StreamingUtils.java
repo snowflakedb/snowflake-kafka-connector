@@ -1,5 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+
 import com.snowflake.kafka.connector.Utils;
 import java.time.Duration;
 import java.util.HashMap;
@@ -55,5 +58,23 @@ public class StreamingUtils {
           return value;
         });
     return streamingPropertiesMap;
+  }
+
+  /* Returns true if sf connector config has error.tolerance = ALL */
+  public static boolean tolerateErrors(Map<String, String> sfConnectorConfig) {
+    String errorsTolerance =
+        sfConnectorConfig.getOrDefault(ERRORS_TOLERANCE_CONFIG, ErrorTolerance.NONE.toString());
+
+    return ErrorTolerance.valueOf(errorsTolerance.toUpperCase()).equals(ErrorTolerance.ALL);
+  }
+
+  /* Returns true if connector config has errors.log.enable = true */
+  public static boolean logErrors(Map<String, String> sfConnectorConfig) {
+    return Boolean.parseBoolean(sfConnectorConfig.getOrDefault(ERRORS_LOG_ENABLE_CONFIG, "false"));
+  }
+
+  /* Returns dlq topic name if connector config has errors.deadletterqueue.topic.name set */
+  public static String getDlqTopicName(Map<String, String> sfConnectorConfig) {
+    return sfConnectorConfig.getOrDefault(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "");
   }
 }
