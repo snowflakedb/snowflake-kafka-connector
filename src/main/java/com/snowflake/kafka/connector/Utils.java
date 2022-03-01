@@ -17,8 +17,11 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
@@ -565,6 +568,19 @@ public class Utils {
                     SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.toString(),
                     IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
             configIsValid = false;
+          }
+
+          /**
+           * Only checking in streaming since we are utilizing the values before we send it to
+           * DLQ/output to log file
+           */
+          if (config.containsKey(ERRORS_TOLERANCE_CONFIG)) {
+            SnowflakeSinkConnectorConfig.ErrorTolerance.VALIDATOR.ensureValid(
+                ERRORS_TOLERANCE_CONFIG, config.get(ERRORS_TOLERANCE_CONFIG));
+          }
+          if (config.containsKey(ERRORS_LOG_ENABLE_CONFIG)) {
+            BOOLEAN_VALIDATOR.ensureValid(
+                ERRORS_LOG_ENABLE_CONFIG, config.get(ERRORS_LOG_ENABLE_CONFIG));
           }
         }
       } catch (ConfigException exception) {
