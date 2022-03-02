@@ -26,6 +26,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
@@ -356,79 +357,16 @@ public class Utils {
       configIsValid = false;
     }
 
-    // verify buffer.flush.time
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC)) {
-      LOGGER.error(
-          Logging.logMessage("{} is empty", SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
-      configIsValid = false;
-    } else {
-      try {
-        long time = Long.parseLong(config.get(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
-        if (time < SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN) {
-          LOGGER.error(
-              (Logging.logMessage(
-                  "{} is {}, it should be greater " + "than {}",
-                  SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-                  time,
-                  SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN)));
-          configIsValid = false;
-        }
-      } catch (Exception e) {
-        LOGGER.error(
-            Logging.logMessage(
-                "{} should be an integer", SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
+    // If config doesnt have ingestion method defined, default is snowpipe or if snowpipe is
+    // explicitly passed in as ingestion method
+    // Below checks are just for snowpipe.
+    if (!config.containsKey(INGESTION_METHOD_OPT)
+        || config
+            .get(INGESTION_METHOD_OPT)
+            .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString())) {
+      if (!BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE)) {
         configIsValid = false;
       }
-    }
-
-    // verify buffer.count.records
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS)) {
-      LOGGER.error(
-          Logging.logMessage("{} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
-      configIsValid = false;
-    } else {
-      try {
-        long num = Long.parseLong(config.get(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
-        if (num < 0) {
-          LOGGER.error(
-              Logging.logMessage(
-                  "{} is {}, it should not be negative",
-                  SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-                  num));
-          configIsValid = false;
-        }
-      } catch (Exception e) {
-        LOGGER.error(
-            Logging.logMessage(
-                "{} should be an integer", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
-        configIsValid = false;
-      }
-    }
-
-    // verify buffer.size.bytes
-    if (config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES)) {
-      try {
-        long bsb = Long.parseLong(config.get(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
-        if (bsb < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN) // 1 byte
-        {
-          LOGGER.error(
-              Logging.logMessage(
-                  "{} is too low at {}. It must be " + "{} or greater.",
-                  SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-                  bsb,
-                  SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN));
-          configIsValid = false;
-        }
-      } catch (Exception e) {
-        LOGGER.error(
-            Logging.logMessage(
-                "{} should be an integer", SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
-        configIsValid = false;
-      }
-    } else {
-      LOGGER.error(
-          Logging.logMessage("{} is empty", SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
-      configIsValid = false;
     }
 
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)
@@ -516,8 +454,7 @@ public class Utils {
     }
 
     // This is default for SNOWPIPE based KC because that is GA.
-    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee deliveryGuarantee =
-        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE;
+    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee deliveryGuarantee;
     try {
       deliveryGuarantee =
           SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
@@ -542,6 +479,12 @@ public class Utils {
         if (config
             .get(INGESTION_METHOD_OPT)
             .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE_STREAMING.toString())) {
+          // check if buffer thresholds are within permissible range
+          if (!BufferThreshold.validateBufferThreshold(
+              config, IngestionMethodConfig.SNOWPIPE_STREAMING)) {
+            configIsValid = false;
+          }
+
           if (!config.containsKey(Utils.SF_ROLE)
               || Strings.isNullOrEmpty(config.get(Utils.SF_ROLE))) {
             LOGGER.error(

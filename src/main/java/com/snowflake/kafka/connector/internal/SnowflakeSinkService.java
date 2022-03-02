@@ -85,6 +85,11 @@ public interface SnowflakeSinkService {
    * change data size of buffer to control the flush rate, the minimum file size is controlled by
    * {@link com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES_MIN}
    *
+   * <p>Please note: The buffer size for Streaming and snowpipe doesnt necessarily translate to same
+   * file size in Snowflake.
+   *
+   * <p>There is Java to UTF conversion followed by file compression in gzip.
+   *
    * @param size a non negative long number represents data size limitation
    */
   void setFileSize(long size);
