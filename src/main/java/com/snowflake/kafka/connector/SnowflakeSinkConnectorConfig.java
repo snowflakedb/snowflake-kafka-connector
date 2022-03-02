@@ -19,6 +19,7 @@ package com.snowflake.kafka.connector;
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -339,7 +340,7 @@ public class SnowflakeSinkConnectorConfig {
             BUFFER_FLUSH_TIME_SEC,
             Type.LONG,
             BUFFER_FLUSH_TIME_SEC_DEFAULT,
-            ConfigDef.Range.atLeast(BUFFER_FLUSH_TIME_SEC_MIN),
+            ConfigDef.Range.atLeast(StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC),
             Importance.LOW,
             "The time in seconds to flush cached data",
             CONNECTOR_CONFIG,
