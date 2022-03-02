@@ -90,6 +90,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // needs url, username. p8 key, role name
   private SnowflakeStreamingIngestClient streamingIngestClient;
 
+  // This cant be private final since we have setters for various fields.
+  private StreamingBufferThreshold streamingBufferThreshold;
+
   // Config set in JSON
   private final Map<String, String> connectorConfig;
 
@@ -165,6 +168,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             topicPartition,
             partitionChannelKey, // Streaming channel name
             tableName,
+            new StreamingBufferThreshold(this.flushTimeSeconds, this.fileSizeBytes, this.recordNum),
             this.connectorConfig,
             this.kafkaRecordErrorReporter,
             this.sinkTaskContext));
@@ -186,22 +190,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
         continue;
       }
-      // Might happen a count of record based flushing
+      // While inserting into buffer, we will check for count threshold and buffered bytes
+      // threshold.
       insert(record);
     }
-    // check all sink context to see if they need to be flushed
+    // check all partitions to see if they need to be flushed based on time
     for (TopicPartitionChannel partitionChannel : partitionsToChannel.values()) {
       // Time based flushing
-      if ((System.currentTimeMillis() - partitionChannel.getPreviousFlushTimeStampMs())
-          >= (getFlushTime() * 1000)) {
-        LOGGER.info("Time based flush for channel:{}", partitionChannel.getChannelName());
-        LOGGER.info(
-            "Current:{}, previousFlushTime:{}, threshold:{}",
-            System.currentTimeMillis(),
-            partitionChannel.getPreviousFlushTimeStampMs(),
-            (getFlushTime() * 1000));
-        partitionChannel.insertBufferedRows();
-      }
+      partitionChannel.insertBufferedRowsIfFlushTimeThresholdReached();
     }
   }
 
@@ -228,16 +224,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
     channelPartition.insertRecordToBuffer(record);
-
-    // # of records or size based flushing
-    if (channelPartition.getStreamingBuffer().getBufferSizeBytes() >= getFileSize()
-        || (getRecordNumber() != 0
-            && channelPartition.getStreamingBuffer().getNumOfRecords() >= getRecordNumber())) {
-      LOGGER.info(
-          "Either a record based flush or a size based flush(insertRow) for channel:{}",
-          channelPartition.getChannelName());
-      channelPartition.insertBufferedRows();
-    }
   }
 
   @Override
@@ -383,6 +369,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     return this.flushTimeSeconds;
   }
 
+  /**
+   * This is more of size in bytes of buffered records. This necessarily doesnt translates to files
+   * created by Streaming Ingest since they are compressed. So there is no 1:1 mapping.
+   */
   @Override
   public long getFileSize() {
     return this.fileSizeBytes;
