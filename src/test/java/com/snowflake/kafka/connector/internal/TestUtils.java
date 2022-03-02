@@ -406,7 +406,7 @@ public class TestUtils {
    * @return size of table
    * @throws SQLException if meet connection issue
    */
-  static int tableSize(String tableName) throws SQLException {
+  public static int tableSize(String tableName) throws SQLException {
     String query = "show tables like '" + tableName + "'";
     ResultSet result = executeQuery(query);
 
