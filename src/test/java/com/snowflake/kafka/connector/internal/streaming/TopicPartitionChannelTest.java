@@ -8,6 +8,7 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MA
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -61,7 +62,7 @@ public class TopicPartitionChannelTest {
 
   private Map<String, String> sfConnectorConfig;
 
-  private StreamingBufferThreshold streamingBufferThreshold;
+  private BufferThreshold streamingBufferThreshold;
 
   private SFException SF_EXCEPTION = new SFException(ErrorCode.INVALID_CHANNEL, "INVALID_CHANNEL");
 

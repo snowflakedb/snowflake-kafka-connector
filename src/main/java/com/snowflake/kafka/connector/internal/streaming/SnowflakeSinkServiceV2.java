@@ -1,5 +1,9 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
+
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -90,9 +94,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // needs url, username. p8 key, role name
   private SnowflakeStreamingIngestClient streamingIngestClient;
 
-  // This cant be private final since we have setters for various fields.
-  private StreamingBufferThreshold streamingBufferThreshold;
-
   // Config set in JSON
   private final Map<String, String> connectorConfig;
 
@@ -113,9 +114,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       throw SnowflakeErrors.ERROR_5010.getException();
     }
 
-    this.fileSizeBytes = SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
-    this.recordNum = SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
-    this.flushTimeSeconds = SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT;
+    this.fileSizeBytes = StreamingUtils.STREAMING_BUFFER_BYTES_DEFAULT;
+    this.recordNum = StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
+    this.flushTimeSeconds = StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
     this.conn = conn;
     this.recordService = new RecordService();
     this.telemetryService = conn.getTelemetryClient();
@@ -305,29 +306,28 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   public void setRecordNumber(long num) {
     if (num < 0) {
       LOGGER.error("number of record in each file is {}, it is negative, reset to 0", num);
-      this.recordNum = 0;
+      this.recordNum = STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
     } else {
       this.recordNum = num;
-      LOGGER.info("set number of record limitation to {}", num);
+      LOGGER.info("Set number of records for buffer threshold to {}", num);
     }
   }
 
   /**
    * Assume this is buffer size in bytes, since this is streaming ingestion
    *
-   * <p>Copying this from SinkServiceV1 and we will get away from this in future
-   *
-   * @param size a non negative long number represents data size limitation
+   * @param size in bytes - a non negative long number representing size of internal buffer for
+   *     flush.
    */
   @Override
   public void setFileSize(long size) {
     if (size < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN) {
       LOGGER.error(
           "Buffer size is {} bytes, it is smaller than the minimum buffer "
-              + "size {} bytes, reset to the default file size",
+              + "size {} bytes, reset to the default buffer size",
           size,
-          SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT);
-      this.fileSizeBytes = SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
+          BUFFER_SIZE_BYTES_DEFAULT);
+      this.fileSizeBytes = BUFFER_SIZE_BYTES_DEFAULT;
     } else {
       this.fileSizeBytes = size;
       LOGGER.info("set buffer size limitation to {} bytes", size);
@@ -341,13 +341,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void setFlushTime(long time) {
-    if (time < SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN) {
+    if (time < StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC) {
       LOGGER.error(
           "flush time is {} seconds, it is smaller than the minimum "
-              + "flush time {} seconds, reset to the minimum flush time",
+              + "flush time {} seconds, reset to the default flush time",
           time,
-          SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN);
-      this.flushTimeSeconds = SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN;
+          STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC);
+      this.flushTimeSeconds = STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
     } else {
       this.flushTimeSeconds = time;
       LOGGER.info("set flush time to {} seconds", time);

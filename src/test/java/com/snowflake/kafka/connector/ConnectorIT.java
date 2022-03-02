@@ -76,7 +76,7 @@ public class ConnectorIT {
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE, "");
     config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "0");
     config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, "0");
-    config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "2");
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "-1");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL, "falseee");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC, "falseee");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "falseee");
