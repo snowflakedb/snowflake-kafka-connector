@@ -15,6 +15,7 @@ import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -258,6 +259,44 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(Arrays.asList(record2, record3));
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == 3, 20, 5);
+
+    service.closeAll();
+  }
+
+  @Ignore
+  @Test
+  public void testStreamingIngestion_timeBased() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    conn.createTable(table);
+
+    // opens a channel for partition 0, table and topic
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(100)
+            .setFlushTime(11) // 11 seconds
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
+            .build();
+
+    final long noOfRecords = 123;
+    List<SinkRecord> sinkRecords =
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, partition);
+
+    service.insert(sinkRecords);
+
+    TestUtils.assertWithRetry(
+        () -> {
+          // This is how we will trigger flush. (Mimicking poll API)
+          service.insert(new ArrayList<>()); // trigger time based flush
+          return TestUtils.getTableSizeStreaming(table) == noOfRecords;
+        },
+        10,
+        20);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 20, 5);
 
     service.closeAll();
   }
