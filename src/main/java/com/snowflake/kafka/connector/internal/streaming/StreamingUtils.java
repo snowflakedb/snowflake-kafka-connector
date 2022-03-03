@@ -3,14 +3,23 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 
+import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.BufferThreshold;
+import com.snowflake.kafka.connector.internal.Logging;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import net.snowflake.ingest.utils.Constants;
+import org.apache.kafka.common.config.ConfigException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /* Utility class/Helper methods for streaming related ingestion. */
 public class StreamingUtils {
+  private static final Logger LOGGER = LoggerFactory.getLogger(StreamingUtils.class);
+
   // Streaming Ingest API related fields
 
   protected static final Duration DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY = Duration.ofSeconds(1);
@@ -95,5 +104,78 @@ public class StreamingUtils {
   /* Returns dlq topic name if connector config has errors.deadletterqueue.topic.name set */
   public static String getDlqTopicName(Map<String, String> sfConnectorConfig) {
     return sfConnectorConfig.getOrDefault(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "");
+  }
+
+  public static boolean isStreamingSnowpipeConfigValid(final Map<String, String> inputConfig) {
+
+    boolean configIsValid = true;
+
+    // For snowpipe_streaming, role should be non empty and delivery guarantee should be exactly
+    // once. (Which is default)
+    if (inputConfig.containsKey(INGESTION_METHOD_OPT)) {
+      try {
+        // This throws an exception if config value is invalid.
+        IngestionMethodConfig.VALIDATOR.ensureValid(
+            INGESTION_METHOD_OPT, inputConfig.get(INGESTION_METHOD_OPT));
+        if (inputConfig
+            .get(INGESTION_METHOD_OPT)
+            .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE_STREAMING.toString())) {
+
+          // check if buffer thresholds are within permissible range
+          if (!BufferThreshold.validateBufferThreshold(
+              inputConfig, IngestionMethodConfig.SNOWPIPE_STREAMING)) {
+            configIsValid = false;
+          }
+
+          // Validate if snowflake role is present
+          if (!inputConfig.containsKey(Utils.SF_ROLE)
+              || Strings.isNullOrEmpty(inputConfig.get(Utils.SF_ROLE))) {
+            LOGGER.error(
+                Logging.logMessage(
+                    "Config:{} should be present if ingestionMethod is:{}",
+                    Utils.SF_ROLE,
+                    inputConfig.get(INGESTION_METHOD_OPT)));
+            configIsValid = false;
+          }
+          // setting delivery guarantee to EOS.
+          // It is fine for customer to not set this value if Streaming SNOWPIPE is used.
+          SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee deliveryGuarantee =
+              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
+                  inputConfig.getOrDefault(
+                      DELIVERY_GUARANTEE,
+                      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.name()));
+
+          if (deliveryGuarantee.equals(
+              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE)) {
+            LOGGER.error(
+                Logging.logMessage(
+                    "Config:{} should be:{} if ingestion method is:{}",
+                    DELIVERY_GUARANTEE,
+                    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.toString(),
+                    IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+            configIsValid = false;
+          }
+
+          /**
+           * Only checking in streaming since we are utilizing the values before we send it to
+           * DLQ/output to log file
+           */
+          if (inputConfig.containsKey(ERRORS_TOLERANCE_CONFIG)) {
+            SnowflakeSinkConnectorConfig.ErrorTolerance.VALIDATOR.ensureValid(
+                ERRORS_TOLERANCE_CONFIG, inputConfig.get(ERRORS_TOLERANCE_CONFIG));
+          }
+          if (inputConfig.containsKey(ERRORS_LOG_ENABLE_CONFIG)) {
+            BOOLEAN_VALIDATOR.ensureValid(
+                ERRORS_LOG_ENABLE_CONFIG, inputConfig.get(ERRORS_LOG_ENABLE_CONFIG));
+          }
+        }
+      } catch (ConfigException exception) {
+        LOGGER.error(
+            Logging.logMessage(
+                "Kafka config:{} error:{}", INGESTION_METHOD_OPT, exception.getMessage()));
+        configIsValid = false;
+      }
+    }
+    return configIsValid;
   }
 }
