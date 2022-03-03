@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.Iterables;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
@@ -11,6 +12,7 @@ import com.snowflake.kafka.connector.internal.Logging;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.common.config.ConfigException;
 import org.slf4j.Logger;
@@ -44,6 +46,8 @@ public class StreamingUtils {
    * <p>1 MB is an ideal size for streaming ingestion so 95% if 20MB = 1MB
    */
   protected static final long STREAMING_BUFFER_BYTES_DEFAULT = 20_000_000;
+
+  private static final Set<String> DISALLOWED_CONVERTERS_STREAMING = CUSTOM_SNOWFLAKE_CONVERTERS;
 
   /* Maps streaming client's property keys to what we got from snowflake KC config file. */
   public static Map<String, String> convertConfigForStreamingClient(
@@ -127,6 +131,14 @@ public class StreamingUtils {
             configIsValid = false;
           }
 
+          if (!validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig)) {
+            configIsValid = false;
+          }
+
+          if (!validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig)) {
+            configIsValid = false;
+          }
+
           // Validate if snowflake role is present
           if (!inputConfig.containsKey(Utils.SF_ROLE)
               || Strings.isNullOrEmpty(inputConfig.get(Utils.SF_ROLE))) {
@@ -177,5 +189,30 @@ public class StreamingUtils {
       }
     }
     return configIsValid;
+  }
+
+  /**
+   * Validates if key and value converters are allowed values if {@link
+   * IngestionMethodConfig#SNOWPIPE_STREAMING} is used.
+   *
+   * <p>return true if allowed, false otherwise.
+   */
+  private static boolean validateConfigConverters(
+      final String inputConfigConverterField, Map<String, String> inputConfig) {
+    if (inputConfig.containsKey(inputConfigConverterField)) {
+      if (DISALLOWED_CONVERTERS_STREAMING.contains(inputConfig.get(inputConfigConverterField))) {
+        LOGGER.error(
+            Logging.logMessage(
+                "Config:{} has provided value:{}. If ingestionMethod is:{}, Snowflake Custom"
+                    + " Converters are not allowed. \n"
+                    + "Invalid Converters:{}",
+                inputConfigConverterField,
+                inputConfig.get(inputConfigConverterField),
+                IngestionMethodConfig.SNOWPIPE_STREAMING,
+                Iterables.toString(DISALLOWED_CONVERTERS_STREAMING)));
+        return false;
+      }
+    }
+    return true;
   }
 }
