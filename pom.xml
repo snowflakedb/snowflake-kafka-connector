@@ -152,6 +152,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.22.0</version>
                 <configuration>
+                    <!--  https://stackoverflow.com/questions/50498102/how-to-set-jdk-attach-allowattachself-true-globally-->
+                    <argLine>-Djdk.attach.allowAttachSelf=true </argLine>
                     <excludes>
                         <exclude>**/*IT.java</exclude>
                     </excludes>
@@ -429,6 +431,12 @@
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
             <version>3.2.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
+            <version>0.16</version>
         </dependency>
 
         <!--junit for unit test-->
