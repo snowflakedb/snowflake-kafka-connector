@@ -198,64 +198,42 @@ public class TopicPartitionChannel {
    * <p>Step 2: Decides whether given offset from Kafka needs to be processed and whether it
    * qualifies for being added into buffer.
    *
-   * @param record input record from Kafka
+   * @param kafkaSinkRecord input record from Kafka
    */
-  public void insertRecordToBuffer(SinkRecord record) {
-    precomputeOffsetTokenForChannel(record);
+  public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
+    precomputeOffsetTokenForChannel(kafkaSinkRecord);
 
     // discard the record if the record offset is smaller or equal to server side offset, or if
     // record is smaller than any other record offset we received before
-    if (record.kafkaOffset() > this.offsetPersistedInSnowflake
-        && record.kafkaOffset() > processedOffset.get()) {
-      SinkRecord snowflakeRecord = record;
-      if (shouldConvertContent(snowflakeRecord.value())) {
-        snowflakeRecord = handleNativeRecord(snowflakeRecord, false);
-      }
-      if (shouldConvertContent(snowflakeRecord.key())) {
-        snowflakeRecord = handleNativeRecord(snowflakeRecord, true);
+    if (kafkaSinkRecord.kafkaOffset() > this.offsetPersistedInSnowflake
+        && kafkaSinkRecord.kafkaOffset() > processedOffset.get()) {
+      StreamingBuffer copiedStreamingBuffer = null;
+      bufferLock.lock();
+      try {
+        this.streamingBuffer.insert(kafkaSinkRecord);
+        this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
+        // # of records or size based flushing
+        if (this.streamingBufferThreshold.isFlushBufferedBytesBased(
+                streamingBuffer.getBufferSizeBytes())
+            || this.streamingBufferThreshold.isFlushBufferedRecordCountBased(
+                streamingBuffer.getNumOfRecords())) {
+          copiedStreamingBuffer = streamingBuffer;
+          this.streamingBuffer = new StreamingBuffer();
+          LOGGER.debug(
+              "Flush based on buffered bytes or buffered number of records for channel:{},"
+                  + "currentBufferSizeInBytes:{}, currentBufferedRecordCount:{}",
+              this.getChannelName(),
+              copiedStreamingBuffer.getBufferSizeBytes(),
+              copiedStreamingBuffer.getSinkRecords().size());
+        }
+      } finally {
+        bufferLock.unlock();
       }
 
-      // broken record
-      if (isRecordBroken(snowflakeRecord)) {
-        // check for error tolerance and log tolerance values
-        // errors.log.enable and errors.tolerance
-        LOGGER.debug("Broken record offset:{}, topic:{}", record.kafkaOffset(), record.topic());
-        this.kafkaRecordErrorReporter.reportError(record, new DataException("Broken Record"));
-      } else {
-        // lag telemetry, note that sink record timestamp might be null
-        if (snowflakeRecord.timestamp() != null
-            && snowflakeRecord.timestampType() != NO_TIMESTAMP_TYPE) {
-          // TODO:SNOW-529751 telemetry
-        }
-        StreamingBuffer copiedStreamingBuffer = null;
-        // acquire the lock before writing the record into buffer or copying it over to new buffer.
-        bufferLock.lock();
-        try {
-          streamingBuffer.insert(snowflakeRecord);
-          processedOffset.set(snowflakeRecord.kafkaOffset());
-          // # of records or size based flushing
-          if (this.streamingBufferThreshold.isFlushBufferedBytesBased(
-                  streamingBuffer.getBufferSizeBytes())
-              || this.streamingBufferThreshold.isFlushBufferedRecordCountBased(
-                  streamingBuffer.getNumOfRecords())) {
-            copiedStreamingBuffer = streamingBuffer;
-            this.streamingBuffer = new StreamingBuffer();
-            LOGGER.debug(
-                "Flush based on buffered bytes or buffered number of records for channel:{},"
-                    + "currentBufferSizeInBytes:{}, currentBufferedRecordCount:{}",
-                this.getChannelName(),
-                copiedStreamingBuffer.getBufferSizeBytes(),
-                copiedStreamingBuffer.getSinkRecords().size());
-          }
-        } finally {
-          bufferLock.unlock();
-        }
-
-        // If we found reaching buffer size threshold or count based threshold, we will immediately
-        // flush (Insert them)
-        if (copiedStreamingBuffer != null) {
-          insertBufferedRows(copiedStreamingBuffer);
-        }
+      // If we found reaching buffer size threshold or count based threshold, we will immediately
+      // flush (Insert them)
+      if (copiedStreamingBuffer != null) {
+        insertBufferedRecords(copiedStreamingBuffer);
       }
     }
   }
@@ -357,7 +335,7 @@ public class TopicPartitionChannel {
    *
    * <p>Previous flush time here means last time we called insertRows API with rows present in
    */
-  protected void insertBufferedRowsIfFlushTimeThresholdReached() {
+  protected void insertBufferedRecordsIfFlushTimeThresholdReached() {
     if (this.streamingBufferThreshold.isFlushTimeBased(this.previousFlushTimeStampMs)) {
       LOGGER.debug(
           "Time based flush for channel:{}, CurrentTimeMs:{}, previousFlushTimeMs:{},"
@@ -375,7 +353,7 @@ public class TopicPartitionChannel {
         bufferLock.unlock();
       }
       if (copiedStreamingBuffer != null) {
-        insertBufferedRows(copiedStreamingBuffer);
+        insertBufferedRecords(copiedStreamingBuffer);
       }
     }
   }
@@ -385,7 +363,7 @@ public class TopicPartitionChannel {
    * partition. This buffer is decided based on the flush time threshold, buffered bytes or number
    * of records
    */
-  InsertValidationResponse insertBufferedRows(StreamingBuffer streamingBufferToInsert) {
+  InsertValidationResponse insertBufferedRecords(StreamingBuffer streamingBufferToInsert) {
 
     // intermediate buffer can be empty here if time interval reached but kafka produced no records.
     if (streamingBufferToInsert.isEmpty()) {
@@ -847,61 +825,90 @@ public class TopicPartitionChannel {
    * A buffer which holds the rows before calling insertRows API. It implements the PartitionBuffer
    * class which has all common fields about a buffer.
    *
-   * <p>This Buffer has same buffer threshold as of Snowpipe Buffer.
+   * <p>This buffer is a bit different from Snowpipe Buffer. In StreamingBuffer we buffer incoming
+   * records from Kafka and once threshold has reached, we would call insertRows API to insert into
+   * Snowflake.
    *
-   * <p>We would remove this long lived buffer logic in separate commit. SNOW-473896
+   * <p>We would transform kafka records to Snowflake understood records (In JSON format) just
+   * before calling insertRows API.
    */
   @VisibleForTesting
   protected class StreamingBuffer extends PartitionBuffer<List<Map<String, Object>>> {
-    // Used to buffer rows per channel
-    // Map has key of column name and Object is its value
-    // For KC, it will be metadata and content columns.
-    // Every List element corresponds to one record(offset) of a partition
-    private final List<Map<String, Object>> tableRows;
-
+    // Records coming from Kafka
     private final List<SinkRecord> sinkRecords;
 
     StreamingBuffer() {
       super();
-      tableRows = new ArrayList<>();
       sinkRecords = new ArrayList<>();
     }
 
     @Override
-    public void insert(SinkRecord record) {
+    public void insert(SinkRecord kafkaSinkRecord) {
 
-      // has two keys(two columns), each of the values are JsonNode
-      Map<String, Object> tableRow = recordService.getProcessedRecordForStreamingIngest(record);
-
-      if (tableRows.size() == 0) {
-        setFirstOffset(record.kafkaOffset());
+      if (sinkRecords.isEmpty()) {
+        setFirstOffset(kafkaSinkRecord.kafkaOffset());
       }
-
-      tableRows.add(tableRow);
-      sinkRecords.add(record);
+      sinkRecords.add(kafkaSinkRecord);
 
       // probably do below things in a separate method.
       // call it collect buffer metrics
       setNumOfRecords(getNumOfRecords() + 1);
-      setLastOffset(record.kafkaOffset());
+      setLastOffset(kafkaSinkRecord.kafkaOffset());
       // need to loop through the map and get the object node
-      tableRow.forEach(
-          (key, value) -> {
-            setBufferSizeBytes(
-                getBufferSizeBytes() + ((String) value).length() * 2L); // 1 char = 2 bytes
-          });
+      // update size of buffer
+      setBufferSizeBytes(
+          getBufferSizeBytes() + StreamingUtils.getApproxSizeOfRecordInBytes(kafkaSinkRecord));
     }
 
-    /* Get all rows which are present in this list. Each map corresponds to one row whose keys are column names. */
+    /**
+     * Get all rows which which were buffered into this buffer. Each map corresponds to one row
+     * whose keys are column names and values are corresponding data in that column.
+     *
+     * <p>This goes over through all buffered kafka records and transforms into JsonSchema and
+     * JsonNode Check {@link #handleNativeRecord(SinkRecord, boolean)}
+     *
+     * @return List of Map of String(COLUMN_NAME) and Object
+     */
     @Override
     public List<Map<String, Object>> getData() {
+      final List<Map<String, Object>> snowflakeTableRowsFromSinkRecords = new ArrayList<>();
+      for (SinkRecord kafkaSinkRecord : sinkRecords) {
+        SinkRecord snowflakeRecord = kafkaSinkRecord;
+        if (shouldConvertContent(snowflakeRecord.value())) {
+          snowflakeRecord = handleNativeRecord(snowflakeRecord, false);
+        }
+        if (shouldConvertContent(snowflakeRecord.key())) {
+          snowflakeRecord = handleNativeRecord(snowflakeRecord, true);
+        }
+
+        // broken record
+        if (isRecordBroken(snowflakeRecord)) {
+          // check for error tolerance and log tolerance values
+          // errors.log.enable and errors.tolerance
+          LOGGER.debug(
+              "Broken record offset:{}, topic:{}",
+              kafkaSinkRecord.kafkaOffset(),
+              kafkaSinkRecord.topic());
+          kafkaRecordErrorReporter.reportError(kafkaSinkRecord, new DataException("Broken Record"));
+        } else {
+          // lag telemetry, note that sink record timestamp might be null
+          if (snowflakeRecord.timestamp() != null
+              && snowflakeRecord.timestampType() != NO_TIMESTAMP_TYPE) {
+            // TODO:SNOW-529751 telemetry
+          }
+          // Convert this records into Json Schema which has content and metadata
+          Map<String, Object> tableRow =
+              recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
+          snowflakeTableRowsFromSinkRecords.add(tableRow);
+        }
+      }
       LOGGER.debug(
           "Get rows for streaming ingest. {} records, {} bytes, offset {} - {}",
           getNumOfRecords(),
           getBufferSizeBytes(),
           getFirstOffset(),
           getLastOffset());
-      return tableRows;
+      return snowflakeTableRowsFromSinkRecords;
     }
 
     @Override
