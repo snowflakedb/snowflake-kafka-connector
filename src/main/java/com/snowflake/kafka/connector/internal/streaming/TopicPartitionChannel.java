@@ -220,11 +220,13 @@ public class TopicPartitionChannel {
           copiedStreamingBuffer = streamingBuffer;
           this.streamingBuffer = new StreamingBuffer();
           LOGGER.debug(
-              "Flush based on buffered bytes or buffered number of records for channel:{},"
-                  + "currentBufferSizeInBytes:{}, currentBufferedRecordCount:{}",
+              "Flush based on buffered bytes or buffered number of records for"
+                  + " channel:{},currentBufferSizeInBytes:{}, currentBufferedRecordCount:{},"
+                  + " connectorBufferThresholds:{}",
               this.getChannelName(),
               copiedStreamingBuffer.getBufferSizeBytes(),
-              copiedStreamingBuffer.getSinkRecords().size());
+              copiedStreamingBuffer.getSinkRecords().size(),
+              this.streamingBufferThreshold);
         }
       } finally {
         bufferLock.unlock();
