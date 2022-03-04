@@ -17,6 +17,7 @@
 package com.snowflake.kafka.connector;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
@@ -24,6 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
@@ -149,6 +151,24 @@ public class SnowflakeSinkConnectorConfig {
       "Whether to output conversion errors to the dead letter queue "
           + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
+
+  /**
+   * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked
+   * before actually sending records to Kafka connector.
+   *
+   * @see <a
+   *     href="https://github.com/apache/kafka/blob/trunk/connect/runtime/src/main/java/org/apache/kafka/connect/runtime/WorkerSinkTask.java#L332">Kafka
+   *     Code for Converter</a>
+   */
+  public static final String KEY_CONVERTER_CONFIG_FIELD = "value.converter";
+
+  public static final String VALUE_CONVERTER_CONFIG_FIELD = "key.converter";
+
+  public static final Set<String> CUSTOM_SNOWFLAKE_CONVERTERS =
+      ImmutableSet.of(
+          "com.snowflake.kafka.connector.records.SnowflakeJsonConverter",
+          "com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry",
+          "com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
 
   public static void setDefaultValues(Map<String, String> config) {
     setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);

@@ -17,20 +17,17 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
-import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
@@ -453,14 +450,11 @@ public class Utils {
       }
     }
 
-    // This is default for SNOWPIPE based KC because that is GA.
-    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee deliveryGuarantee;
     try {
-      deliveryGuarantee =
-          SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
-              config.getOrDefault(
-                  DELIVERY_GUARANTEE,
-                  SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
+      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
+          config.getOrDefault(
+              DELIVERY_GUARANTEE,
+              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
     } catch (IllegalArgumentException exception) {
       LOGGER.error(
           Logging.logMessage(
@@ -468,73 +462,10 @@ public class Utils {
       configIsValid = false;
     }
 
-    // For snowpipe_streaming, role should be non empty and delivery guarantee should be exactly
-    // once. (Which is default)
-    if (config.containsKey(INGESTION_METHOD_OPT)) {
-      try {
-        // This throws an exception if config value is invalid.
-        IngestionMethodConfig.VALIDATOR.ensureValid(
-            INGESTION_METHOD_OPT, config.get(INGESTION_METHOD_OPT));
-        // If ingestion method is streaming_snowpipe, validate if snowflake role is present
-        if (config
-            .get(INGESTION_METHOD_OPT)
-            .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE_STREAMING.toString())) {
-          // check if buffer thresholds are within permissible range
-          if (!BufferThreshold.validateBufferThreshold(
-              config, IngestionMethodConfig.SNOWPIPE_STREAMING)) {
-            configIsValid = false;
-          }
+    // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
+    final boolean isStreamingConfigValid = StreamingUtils.isStreamingSnowpipeConfigValid(config);
 
-          if (!config.containsKey(Utils.SF_ROLE)
-              || Strings.isNullOrEmpty(config.get(Utils.SF_ROLE))) {
-            LOGGER.error(
-                Logging.logMessage(
-                    "Config:{} should be present if ingestionMethod is:{}",
-                    Utils.SF_ROLE,
-                    config.get(INGESTION_METHOD_OPT)));
-            configIsValid = false;
-          }
-          // setting delivery guarantee to EOS.
-          // It is fine for customer to not set this value if Streaming SNOWPIPE is used.
-          deliveryGuarantee =
-              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
-                  config.getOrDefault(
-                      DELIVERY_GUARANTEE,
-                      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.name()));
-
-          if (deliveryGuarantee.equals(
-              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE)) {
-            LOGGER.error(
-                Logging.logMessage(
-                    "Config:{} should be:{} if ingestion method is:{}",
-                    DELIVERY_GUARANTEE,
-                    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.toString(),
-                    IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-            configIsValid = false;
-          }
-
-          /**
-           * Only checking in streaming since we are utilizing the values before we send it to
-           * DLQ/output to log file
-           */
-          if (config.containsKey(ERRORS_TOLERANCE_CONFIG)) {
-            SnowflakeSinkConnectorConfig.ErrorTolerance.VALIDATOR.ensureValid(
-                ERRORS_TOLERANCE_CONFIG, config.get(ERRORS_TOLERANCE_CONFIG));
-          }
-          if (config.containsKey(ERRORS_LOG_ENABLE_CONFIG)) {
-            BOOLEAN_VALIDATOR.ensureValid(
-                ERRORS_LOG_ENABLE_CONFIG, config.get(ERRORS_LOG_ENABLE_CONFIG));
-          }
-        }
-      } catch (ConfigException exception) {
-        LOGGER.error(
-            Logging.logMessage(
-                "Kafka config:{} error:{}", INGESTION_METHOD_OPT, exception.getMessage()));
-        configIsValid = false;
-      }
-    }
-
-    if (!configIsValid) {
+    if (!configIsValid || !isStreamingConfigValid) {
       throw SnowflakeErrors.ERROR_0001.getException();
     }
 
