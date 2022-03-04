@@ -54,7 +54,9 @@ public class StreamingUtils {
   private static final Set<String> DISALLOWED_CONVERTERS_STREAMING = CUSTOM_SNOWFLAKE_CONVERTERS;
 
   // excluding key, value and headers: 5 bytes length + 10 bytes timestamp + 5 bytes offset + 1
-  // byte attributes
+  // byte attributes. (This is not for record metadata, this is before we transform to snowflake
+  // understood JSON)
+  // This is overhead size for calculating while buffering Kafka records.
   public static final int MAX_RECORD_OVERHEAD_BYTES = DefaultRecord.MAX_RECORD_OVERHEAD;
 
   /* Maps streaming client's property keys to what we got from snowflake KC config file. */
