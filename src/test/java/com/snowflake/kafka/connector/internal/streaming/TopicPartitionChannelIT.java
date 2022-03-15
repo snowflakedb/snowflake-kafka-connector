@@ -149,7 +149,6 @@ public class TopicPartitionChannelIT {
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
   }
 
-  @Ignore
   @Test
   public void testAutoChannelReopen_InsertRowsSFException() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
