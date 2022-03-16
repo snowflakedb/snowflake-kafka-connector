@@ -100,14 +100,6 @@ public abstract class PartitionBuffer<T> {
    */
   public abstract List<SinkRecord> getSinkRecords();
 
-  /**
-   * @return true if no of buffered records == lastOffsetNumber - firstOffsetNumber + 1
-   *     <p>(+1 because first and last offset are inclusive)
-   */
-  public boolean isBufferCountValid() {
-    return this.getNumOfRecords() == (this.getLastOffset() - this.getFirstOffset() + 1);
-  }
-
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)

@@ -656,6 +656,7 @@ public class SnowflakeSinkServiceV2IT {
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setErrorReporter(errorReporter)
             .setRecordNumber(recordCount)
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -665,6 +666,66 @@ public class SnowflakeSinkServiceV2IT {
 
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == 3, 20, 5);
+
+    List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedData =
+        errorReporter.getReportedRecords();
+
+    assert reportedData.size() == 2;
+
+    service.closeAll();
+  }
+
+  /**
+   * A bit different from above test where we first insert a valid json record, followed by two
+   * broken records (Non valid JSON) followed by another good record with max buffer record size
+   * being 2
+   */
+  @Ignore
+  @Test
+  public void testBrokenRecordIngestionAfterValidRecord() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    conn.createTable(table);
+
+    // Mismatched schema and value
+    SchemaAndValue brokenInputValue = new SchemaAndValue(Schema.INT32_SCHEMA, "error");
+    SchemaAndValue correctInputValue = new SchemaAndValue(Schema.STRING_SCHEMA, "correct");
+
+    long recordCount = 2;
+
+    SinkRecord correctValue =
+        new SinkRecord(
+            topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(), 0);
+
+    SinkRecord brokenValue =
+        new SinkRecord(
+            topic, partition, null, null, brokenInputValue.schema(), brokenInputValue.value(), 1);
+
+    SinkRecord brokenKey =
+        new SinkRecord(
+            topic, partition, brokenInputValue.schema(), brokenInputValue.value(), null, null, 2);
+
+    SinkRecord anotherCorrectValue =
+        new SinkRecord(
+            topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(), 3);
+
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
+
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setErrorReporter(errorReporter)
+            .setRecordNumber(recordCount)
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition))
+            .build();
+
+    service.insert(correctValue);
+    service.insert(brokenValue);
+    service.insert(brokenKey);
+    service.insert(anotherCorrectValue);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 4, 20, 5);
 
     List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedData =
         errorReporter.getReportedRecords();
