@@ -467,12 +467,6 @@ public class TopicPartitionChannel {
           "Invoking insertRows API for Channel:{}, streamingBuffer:{}",
           this.channel.getFullyQualifiedName(),
           streamingBuffer);
-      Preconditions.checkState(
-          this.streamingBuffer.isBufferCountValid(),
-          String.format(
-              "Number of records in buffer doesn't match with difference of last and first offset"
-                  + " number for channel:%s, buffer:%s",
-              this.channel.getFullyQualifiedName(), streamingBuffer));
       return this.channel.insertRows(
           streamingBuffer.getData(), Long.toString(streamingBuffer.getLastOffset()));
     }
