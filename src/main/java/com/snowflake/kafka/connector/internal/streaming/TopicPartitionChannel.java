@@ -278,6 +278,14 @@ public class TopicPartitionChannel {
     return content != null && !(content instanceof SnowflakeRecordContent);
   }
 
+  /**
+   * This would always return false for streaming ingest use case since isBroken field is never set.
+   * isBroken is set only when using Custom snowflake converters and the content was not json
+   * serializable.
+   *
+   * <p>For Community converters, the kafka record will not be sent to Kafka connector if the record
+   * is not serializable.
+   */
   private boolean isRecordBroken(final SinkRecord record) {
     return isContentBroken(record.value()) || isContentBroken(record.key());
   }
@@ -822,6 +830,68 @@ public class TopicPartitionChannel {
     return this.channel;
   }
 
+  /**
+   * Converts the original kafka sink record into a Json Record. i.e key and values are converted
+   * into Json so that it can be used to insert into variant column of Snowflake Table.
+   */
+  private SinkRecord getSnowflakeSinkRecordFromKafkaRecord(final SinkRecord kafkaSinkRecord) {
+    SinkRecord snowflakeRecord = kafkaSinkRecord;
+    if (shouldConvertContent(kafkaSinkRecord.value())) {
+      snowflakeRecord = handleNativeRecord(kafkaSinkRecord, false);
+    }
+    if (shouldConvertContent(kafkaSinkRecord.key())) {
+      snowflakeRecord = handleNativeRecord(snowflakeRecord, true);
+    }
+
+    return snowflakeRecord;
+  }
+
+  /**
+   * Get Approximate size of Sink Record which we get from Kafka. This is useful to find out how
+   * much data(records) we have buffered per channel/partition.
+   *
+   * <p>This is an approximate size since there is no API available to find out size of record.
+   *
+   * <p>We first serialize the incoming kafka record into a Json format and find estimate size.
+   *
+   * <p>Please note, the size we calculate here is not accurate and doesnt match with actual size of
+   * Kafka record which we buffer in memory. (Kafka Sink Record has lot of other metadata
+   * information which is discarded when we calculate the size of Json Record)
+   *
+   * <p>We also do the same processing just before calling insertRows API for the buffered rows.
+   *
+   * <p>Downside of this calculation is we might try to buffer more records but we could be close to
+   * JVM memory getting full
+   *
+   * @param kafkaSinkRecord sink record received as is from Kafka (With connector specific converter
+   *     being invoked)
+   * @return Approximate long size of record in bytes. 0 if record is broken
+   */
+  protected long getApproxSizeOfRecordInBytes(SinkRecord kafkaSinkRecord) {
+    long sinkRecordBufferSizeInBytes = 0l;
+
+    SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
+
+    if (isRecordBroken(snowflakeRecord)) {
+      // we wont be able to find accurate size of serialized record since serialization itself
+      // failed
+      // But this will not happen in streaming ingest since we deprecated custom converters.
+      return 0L;
+    }
+
+    // get the row that we want to insert into Snowflake.
+    Map<String, Object> tableRow =
+        recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
+    // need to loop through the map and get the object node
+    for (Map.Entry<String, Object> entry : tableRow.entrySet()) {
+      sinkRecordBufferSizeInBytes += entry.getKey().length() * 2L;
+      // Can Typecast into string because value is JSON
+      sinkRecordBufferSizeInBytes += ((String) entry.getValue()).length() * 2L; // 1 char = 2 bytes
+    }
+    sinkRecordBufferSizeInBytes += StreamingUtils.MAX_RECORD_OVERHEAD_BYTES;
+    return sinkRecordBufferSizeInBytes;
+  }
+
   // ------ INNER CLASS ------ //
   /**
    * A buffer which holds the rows before calling insertRows API. It implements the PartitionBuffer
@@ -852,14 +922,12 @@ public class TopicPartitionChannel {
       }
       sinkRecords.add(kafkaSinkRecord);
 
-      // probably do below things in a separate method.
-      // call it collect buffer metrics
       setNumOfRecords(getNumOfRecords() + 1);
       setLastOffset(kafkaSinkRecord.kafkaOffset());
-      // need to loop through the map and get the object node
+
+      final long currentKafkaRecordSizeInBytes = getApproxSizeOfRecordInBytes(kafkaSinkRecord);
       // update size of buffer
-      setBufferSizeBytes(
-          getBufferSizeBytes() + StreamingUtils.getApproxSizeOfRecordInBytes(kafkaSinkRecord));
+      setBufferSizeBytes(getBufferSizeBytes() + currentKafkaRecordSizeInBytes);
     }
 
     /**
@@ -875,13 +943,7 @@ public class TopicPartitionChannel {
     public List<Map<String, Object>> getData() {
       final List<Map<String, Object>> snowflakeTableRowsFromSinkRecords = new ArrayList<>();
       for (SinkRecord kafkaSinkRecord : sinkRecords) {
-        SinkRecord snowflakeRecord = kafkaSinkRecord;
-        if (shouldConvertContent(snowflakeRecord.value())) {
-          snowflakeRecord = handleNativeRecord(snowflakeRecord, false);
-        }
-        if (shouldConvertContent(snowflakeRecord.key())) {
-          snowflakeRecord = handleNativeRecord(snowflakeRecord, true);
-        }
+        SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
 
         // broken record
         if (isRecordBroken(snowflakeRecord)) {

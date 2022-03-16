@@ -16,9 +16,6 @@ import java.util.Set;
 import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.record.DefaultRecord;
-import org.apache.kafka.connect.header.Header;
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.openjdk.jol.info.GraphLayout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,8 +118,10 @@ public class StreamingUtils {
   }
 
   /**
-   * Check if Streaming snowpipe related config provided by config(customer's config) has valid and allowed values
-   * @param inputConfig
+   * Check if Streaming snowpipe related config provided by config(customer's config) has valid and
+   * allowed values
+   *
+   * @param inputConfig given in connector json file
    * @return true if valid, also logs error if invalid.
    */
   public static boolean isStreamingSnowpipeConfigValid(final Map<String, String> inputConfig) {
@@ -229,44 +228,5 @@ public class StreamingUtils {
       }
     }
     return true;
-  }
-
-  /**
-   * Get Approximate size of Sink Record which we get from Kafka. This is useful to find out how
-   * much data(records) we have buffered per channel/partition.
-   *
-   * <p>This is an approximate size since there is no API available to find out size of record.
-   *
-   * @param kafkaSinkRecord sink record received as is from Kafka (With connector specific converter
-   *     being invoked)
-   * @return long size of record in bytes.
-   */
-  public static long getApproxSizeOfRecordInBytes(SinkRecord kafkaSinkRecord) {
-    long sinkRecordBufferSizeInBytes = MAX_RECORD_OVERHEAD_BYTES;
-    if (kafkaSinkRecord.keySchema() != null) {
-      sinkRecordBufferSizeInBytes +=
-          GraphLayout.parseInstance(kafkaSinkRecord.keySchema()).totalSize();
-    }
-    if (kafkaSinkRecord.key() != null) {
-      sinkRecordBufferSizeInBytes += GraphLayout.parseInstance(kafkaSinkRecord.key()).totalSize();
-    }
-    if (kafkaSinkRecord.valueSchema() != null) {
-      sinkRecordBufferSizeInBytes +=
-          GraphLayout.parseInstance(kafkaSinkRecord.valueSchema()).totalSize();
-    }
-    if (kafkaSinkRecord.value() != null) {
-      sinkRecordBufferSizeInBytes += GraphLayout.parseInstance(kafkaSinkRecord.value()).totalSize();
-    }
-    if (!kafkaSinkRecord.headers().isEmpty()) {
-      for (Header header : kafkaSinkRecord.headers()) {
-        if (header.key() != null && !header.key().isEmpty()) {
-          sinkRecordBufferSizeInBytes += GraphLayout.parseInstance(header.key()).totalSize();
-        }
-        if (header.value() != null) {
-          sinkRecordBufferSizeInBytes += GraphLayout.parseInstance(header.value()).totalSize();
-        }
-      }
-    }
-    return sinkRecordBufferSizeInBytes;
   }
 }

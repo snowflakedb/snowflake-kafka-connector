@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.internal.TestUtils.createNativeJsonSinkRecords;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -605,10 +606,9 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
 
-    // size of each record == 821 bytes
-    // Sending three records will trigger a buffer bytes based threshold after 2 records have been
-    // added
-    List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 3, TOPIC, PARTITION);
+    // Sending 5 records will trigger a buffer bytes based threshold after 4 records have been
+    // added. Size of each record after serialization to Json is 260 Bytes
+    List<SinkRecord> records = createNativeJsonSinkRecords(0, 5, "test", 0);
 
     records.forEach(topicPartitionChannel::insertRecordToBuffer);
 
