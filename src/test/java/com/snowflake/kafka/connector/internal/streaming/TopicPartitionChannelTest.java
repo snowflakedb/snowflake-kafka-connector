@@ -350,7 +350,6 @@ public class TopicPartitionChannelTest {
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
-        .thenThrow(SF_EXCEPTION)
         .thenThrow(SF_EXCEPTION);
 
     // get null from snowflake first time it is called and null for second time too since insert
