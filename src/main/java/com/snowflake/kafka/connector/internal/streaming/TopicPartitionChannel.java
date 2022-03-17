@@ -433,6 +433,12 @@ public class TopicPartitionChannel {
     Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
         Fallback.builder(() -> insertRowsFallbackSupplier(buffer))
             .handle(SFException.class)
+            .onFailedAttempt(
+                event ->
+                    LOGGER.warn(
+                        String.format(
+                            "Failed Attempt to invoke the insertRows API for buffer:%s", buffer),
+                        event.getLastException()))
             .onFailure(
                 event ->
                     LOGGER.error(
