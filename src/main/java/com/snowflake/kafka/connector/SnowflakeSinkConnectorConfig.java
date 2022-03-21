@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
@@ -356,7 +358,12 @@ public class SnowflakeSinkConnectorConfig {
       String s = (String) value;
       if (s != null && !s.isEmpty()) // this value is optional and can be empty
       {
-        if (Utils.parseTopicToTableMap(s) == null) {
+        try {
+          if (Utils.parseTopicToTableMap(s) == null) {
+            throw new ConfigException(
+                name, value, "Format: <topic-1>:<table-1>,<topic-2>:<table-2>,...");
+          }
+        } catch (SnowflakeKafkaConnectorException e) {
           throw new ConfigException(
               name, value, "Format: <topic-1>:<table-1>,<topic-2>:<table-2>,...");
         }

@@ -173,4 +173,13 @@ public class SinkTaskIT {
 
     sinkTask.logWarningForPutAndPrecommit(System.currentTimeMillis() - 400 * 1000, 1, "put");
   }
+
+  @Test
+  public void testBehaviorOnNull() {
+    Map<String, String> config = TestUtils.getConf();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
+    config.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, "ignore");
+    sinkTask.start(config);
+  }
 }
