@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.record.DefaultRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +49,12 @@ public class StreamingUtils {
   protected static final long STREAMING_BUFFER_BYTES_DEFAULT = 20_000_000;
 
   private static final Set<String> DISALLOWED_CONVERTERS_STREAMING = CUSTOM_SNOWFLAKE_CONVERTERS;
+
+  // excluding key, value and headers: 5 bytes length + 10 bytes timestamp + 5 bytes offset + 1
+  // byte attributes. (This is not for record metadata, this is before we transform to snowflake
+  // understood JSON)
+  // This is overhead size for calculating while buffering Kafka records.
+  public static final int MAX_RECORD_OVERHEAD_BYTES = DefaultRecord.MAX_RECORD_OVERHEAD;
 
   /* Maps streaming client's property keys to what we got from snowflake KC config file. */
   public static Map<String, String> convertConfigForStreamingClient(
@@ -110,6 +117,13 @@ public class StreamingUtils {
     return sfConnectorConfig.getOrDefault(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "");
   }
 
+  /**
+   * Check if Streaming snowpipe related config provided by config(customer's config) has valid and
+   * allowed values
+   *
+   * @param inputConfig given in connector json file
+   * @return true if valid, also logs error if invalid.
+   */
   public static boolean isStreamingSnowpipeConfigValid(final Map<String, String> inputConfig) {
 
     boolean configIsValid = true;

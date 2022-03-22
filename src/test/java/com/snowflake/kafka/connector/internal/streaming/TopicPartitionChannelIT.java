@@ -200,9 +200,10 @@ public class TopicPartitionChannelIT {
     streamingBuffer.insert(records.get(0));
 
     try {
-      topicPartitionChannel.insertBufferedRows(streamingBuffer);
+      topicPartitionChannel.insertBufferedRecords(streamingBuffer);
     } catch (RetriableException ex) {
-      InsertValidationResponse response = topicPartitionChannel.insertBufferedRows(streamingBuffer);
+      InsertValidationResponse response =
+          topicPartitionChannel.insertBufferedRecords(streamingBuffer);
       assert !response.hasErrors();
       TestUtils.assertWithRetry(
           () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
