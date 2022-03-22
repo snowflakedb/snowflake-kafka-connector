@@ -25,6 +25,7 @@ import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -37,6 +38,8 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 public class TestUtils {
@@ -76,6 +79,33 @@ public class TestUtils {
   private static JsonNode profile = null;
 
   private static JsonNode profileForStreaming = null;
+
+  public static final String JSON_WITH_SCHEMA =
+      ""
+          + "{\n"
+          + "  \"schema\": {\n"
+          + "    \"type\": \"struct\",\n"
+          + "    \"fields\": [\n"
+          + "      {\n"
+          + "        \"type\": \"string\",\n"
+          + "        \"optional\": false,\n"
+          + "        \"field\": \"regionid\"\n"
+          + "      },\n"
+          + "      {\n"
+          + "        \"type\": \"string\",\n"
+          + "        \"optional\": false,\n"
+          + "        \"field\": \"gender\"\n"
+          + "      }\n"
+          + "    ],\n"
+          + "    \"optional\": false,\n"
+          + "    \"name\": \"sf.kc.test\"\n"
+          + "  },\n"
+          + "  \"payload\": {\n"
+          + "    \"regionid\": \"Region_5\",\n"
+          + "    \"gender\": \"FEMALE\"\n"
+          + "  }\n"
+          + "}";
+  public static final String JSON_WITHOUT_SCHEMA = "{\"userid\": \"User_1\"}";
 
   private static JsonNode getProfile(final String profileFilePath) {
     if (profileFilePath.equalsIgnoreCase(PROFILE_PATH)) {
@@ -519,6 +549,36 @@ public class TestUtils {
               i,
               System.currentTimeMillis(),
               TimestampType.CREATE_TIME));
+    }
+    return records;
+  }
+
+  /* Generate (noOfRecords - startOffset) for a given topic and partition. */
+  public static List<SinkRecord> createNativeJsonSinkRecords(
+      final long startOffset,
+      final long noOfRecords,
+      final String topicName,
+      final int partitionNo) {
+    ArrayList<SinkRecord> records = new ArrayList<>();
+
+    JsonConverter converter = new JsonConverter();
+    HashMap<String, String> converterConfig = new HashMap<>();
+    converterConfig.put("schemas.enable", "true");
+    converter.configure(converterConfig, false);
+    SchemaAndValue schemaInputValue =
+        converter.toConnectData(
+            "test", TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
+
+    for (long i = startOffset; i < startOffset + noOfRecords; ++i) {
+      records.add(
+          new SinkRecord(
+              topicName,
+              partitionNo,
+              Schema.STRING_SCHEMA,
+              "test",
+              schemaInputValue.schema(),
+              schemaInputValue.value(),
+              i));
     }
     return records;
   }

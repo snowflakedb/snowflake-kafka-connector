@@ -46,7 +46,7 @@ if [[ "$OSTYPE" == "linux-gnu" ]]; then
 
     # install confluent producer and snowflake python driver
     pip3 install --user "confluent-kafka[avro]"
-    pip3 install --user --upgrade snowflake-connector-python
+    pip3 install --user --upgrade snowflake-connector-python==2.7.4
 
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     # Mac OSX

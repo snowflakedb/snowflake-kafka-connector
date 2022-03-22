@@ -169,7 +169,7 @@ public class RecordService extends Logging {
    * <p>Remember, Snowflake table has two columns, both of them are VARIANT columns whose contents
    * are in JSON
    *
-   * @param record record from Kafka Broker
+   * @param record record from Kafka to (Which was serialized in Json)
    * @return Json String with metadata and actual Payload from Kafka Record
    */
   public Map<String, Object> getProcessedRecordForStreamingIngest(SinkRecord record) {
