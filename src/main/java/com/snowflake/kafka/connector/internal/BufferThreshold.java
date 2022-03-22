@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC;
 
+import com.google.common.base.MoreObjects;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.Map;
@@ -110,7 +111,7 @@ public abstract class BufferThreshold {
         >= (this.flushTimeThresholdSeconds * SECOND_TO_MILLIS);
   }
 
-  /** Get flush time threshold in seconds */
+  /** @return Get flush time threshold in seconds */
   public long getFlushTimeThresholdSeconds() {
     return flushTimeThresholdSeconds;
   }
@@ -237,5 +238,14 @@ public abstract class BufferThreshold {
       }
     }
     return true;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("flushTimeThresholdSeconds", this.flushTimeThresholdSeconds)
+        .add("bufferSizeThresholdBytes", this.bufferSizeThresholdBytes)
+        .add("bufferKafkaRecordCountThreshold", this.bufferKafkaRecordCountThreshold)
+        .toString();
   }
 }

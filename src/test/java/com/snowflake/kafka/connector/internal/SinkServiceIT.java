@@ -41,33 +41,6 @@ public class SinkServiceIT {
   private String topic = "test";
   private static ObjectMapper MAPPER = new ObjectMapper();
 
-  private static final String jsonWithSchema =
-      ""
-          + "{\n"
-          + "  \"schema\": {\n"
-          + "    \"type\": \"struct\",\n"
-          + "    \"fields\": [\n"
-          + "      {\n"
-          + "        \"type\": \"string\",\n"
-          + "        \"optional\": false,\n"
-          + "        \"field\": \"regionid\"\n"
-          + "      },\n"
-          + "      {\n"
-          + "        \"type\": \"string\",\n"
-          + "        \"optional\": false,\n"
-          + "        \"field\": \"gender\"\n"
-          + "      }\n"
-          + "    ],\n"
-          + "    \"optional\": false,\n"
-          + "    \"name\": \"ksql.users\"\n"
-          + "  },\n"
-          + "  \"payload\": {\n"
-          + "    \"regionid\": \"Region_5\",\n"
-          + "    \"gender\": \"MALE\"\n"
-          + "  }\n"
-          + "}";
-  private static final String jsonWithoutSchema = "{\"userid\": \"User_1\"}";
-
   @After
   public void afterEach() {
     conn.dropStage(stage);
@@ -352,14 +325,16 @@ public class SinkServiceIT {
     converterConfig.put("schemas.enable", "false");
     converter.configure(converterConfig, false);
     SchemaAndValue noSchemaInputValue =
-        converter.toConnectData(topic, jsonWithoutSchema.getBytes(StandardCharsets.UTF_8));
+        converter.toConnectData(
+            topic, TestUtils.JSON_WITHOUT_SCHEMA.getBytes(StandardCharsets.UTF_8));
 
     converter = new JsonConverter();
     converterConfig = new HashMap<>();
     converterConfig.put("schemas.enable", "false");
     converter.configure(converterConfig, true);
     SchemaAndValue noSchemaInputKey =
-        converter.toConnectData(topic, jsonWithoutSchema.getBytes(StandardCharsets.UTF_8));
+        converter.toConnectData(
+            topic, TestUtils.JSON_WITHOUT_SCHEMA.getBytes(StandardCharsets.UTF_8));
 
     // json with schema
     converter = new JsonConverter();
@@ -367,14 +342,14 @@ public class SinkServiceIT {
     converterConfig.put("schemas.enable", "true");
     converter.configure(converterConfig, false);
     SchemaAndValue schemaInputValue =
-        converter.toConnectData(topic, jsonWithSchema.getBytes(StandardCharsets.UTF_8));
+        converter.toConnectData(topic, TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
 
     converter = new JsonConverter();
     converterConfig = new HashMap<>();
     converterConfig.put("schemas.enable", "true");
     converter.configure(converterConfig, true);
     SchemaAndValue schemaInputKey =
-        converter.toConnectData(topic, jsonWithSchema.getBytes(StandardCharsets.UTF_8));
+        converter.toConnectData(topic, TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
 
     long startOffset = 0;
     long endOffset = 3;
