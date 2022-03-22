@@ -16,13 +16,19 @@
  */
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.Utils.*;
-
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.common.record.TimestampType;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.sink.SinkRecord;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -34,13 +40,8 @@ import java.sql.Statement;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.kafka.common.record.TimestampType;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaAndValue;
-import org.apache.kafka.connect.json.JsonConverter;
-import org.apache.kafka.connect.sink.SinkRecord;
+
+import static com.snowflake.kafka.connector.Utils.*;
 
 public class TestUtils {
   // test profile properties
@@ -49,6 +50,8 @@ public class TestUtils {
   private static final String SCHEMA = "schema";
   private static final String HOST = "host";
   private static final String ROLE = "role";
+  private static final String PASSWORD = "password";
+  private static final String ACCOUNT = "account";
   private static final String WAREHOUSE = "warehouse";
   private static final String PRIVATE_KEY = "private_key";
   private static final String ENCRYPTED_PRIVATE_KEY = "encrypted_private_key";
@@ -64,11 +67,15 @@ public class TestUtils {
 
   private static final String PROFILE_PATH_STREAMING_INGEST = "profile_streaming_qa1.json";
 
+  private static final String PROFILE_PATH_PRIVATE_LINK = "profile_pl.json";
+
   private static final ObjectMapper mapper = new ObjectMapper();
 
   private static Connection conn = null;
 
   private static Connection connForStreamingIngestTests = null;
+
+  private static Connection connForPrivateLink = null;
 
   private static Map<String, String> conf = null;
 
@@ -150,6 +157,12 @@ public class TestUtils {
       configuration.put(Utils.TASK_ID, "0");
     }
 
+    if (profileFileName.equalsIgnoreCase(PROFILE_PATH_PRIVATE_LINK)) {
+      configuration.put(Utils.SF_ACCOUNT, getProfile(profileFileName).get(ACCOUNT).asText());
+      configuration.put(Utils.SF_PASSWORD, getProfile(profileFileName).get(PASSWORD).asText());
+      configuration.put(Utils.SF_ROLE, getProfile(profileFileName).get(ROLE).asText());
+    }
+
     return configuration;
   }
 
@@ -205,6 +218,20 @@ public class TestUtils {
     return generateConnectionToSnowflake(PROFILE_PATH_STREAMING_INGEST);
   }
 
+  /**
+   * Create snowflake jdbc connection for private link.
+   *
+   * @return jdbc connection
+   * @throws Exception when error is met
+   */
+  private static Connection getConnectionForPrivateLink() throws Exception {
+    if (connForPrivateLink != null) {
+      return connForPrivateLink;
+    }
+
+    return generateConnectionToSnowflake(PROFILE_PATH_PRIVATE_LINK);
+  }
+
   /** Given a profile file path name, generate a connection by constructing a snowflake driver. */
   private static Connection generateConnectionToSnowflake(final String profileFileName)
       throws Exception {
@@ -216,6 +243,11 @@ public class TestUtils {
     Connection connToSnowflake = new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
 
     return connToSnowflake;
+  }
+
+  /* Get the private link url for the snowflake connection. */
+  static String getSnowflakeAWSPrivateLink() throws Exception {
+    return getConfFromFileName(PROFILE_PATH_PRIVATE_LINK).get(Utils.SF_URL);
   }
 
   /**
@@ -246,6 +278,7 @@ public class TestUtils {
   public static Map<String, String> getConfForStreaming() {
     return getConfFromFileName(PROFILE_PATH_STREAMING_INGEST);
   }
+
 
   /** @return JDBC config with encrypted private key */
   static Map<String, String> getConfWithEncryptedKey() {
@@ -281,6 +314,17 @@ public class TestUtils {
   static ResultSet executeQueryForStreaming(String query) {
     try {
       Statement statement = getConnectionForStreamingIngest().createStatement();
+      return statement.executeQuery(query);
+    }
+    // if ANY exceptions occur, an illegal state has been reached
+    catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  static ResultSet executeQueryForPrivateLink(String query) {
+    try {
+      Statement statement = getConnectionForPrivateLink().createStatement();
       return statement.executeQuery(query);
     }
     // if ANY exceptions occur, an illegal state has been reached
@@ -400,6 +444,13 @@ public class TestUtils {
     return SnowflakeConnectionServiceFactory.builder()
         .setProperties(getConfFromFileName(PROFILE_PATH_STREAMING_INGEST))
         .build();
+  }
+
+  /* Get connection service instance which connects to test instance of snowflake where we can enable private link. */
+  public static SnowflakeConnectionService getConnectionServiceForPrivateLink() {
+    return SnowflakeConnectionServiceFactory.builder()
+            .setProperties(getConfFromFileName(PROFILE_PATH_PRIVATE_LINK))
+            .build();
   }
 
   /**
