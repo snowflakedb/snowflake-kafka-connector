@@ -17,6 +17,7 @@
 package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.*;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
