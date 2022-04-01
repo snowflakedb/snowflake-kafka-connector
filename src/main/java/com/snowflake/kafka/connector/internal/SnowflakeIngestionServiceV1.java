@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.internal.InternalUtils.convertIngestStatus;
 import static com.snowflake.kafka.connector.internal.InternalUtils.timestampToDate;
 
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.security.PrivateKey;
 import java.util.*;
 import net.snowflake.ingest.SimpleIngestManager;

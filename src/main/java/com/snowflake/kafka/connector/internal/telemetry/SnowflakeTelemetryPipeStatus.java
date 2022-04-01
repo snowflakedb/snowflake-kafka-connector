@@ -1,10 +1,28 @@
-package com.snowflake.kafka.connector.internal;
+package com.snowflake.kafka.connector.internal.telemetry;
 
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.*;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_COMMIT_LAG_FILE_COUNT;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_COMMIT_LAG_MS;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_INGESTION_LAG_FILE_COUNT;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_INGESTION_LAG_MS;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_KAFKA_LAG_MS;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_KAFKA_LAG_RECORD_COUNT;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.BYTE_NUMBER;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.CLEANER_RESTART_COUNT;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.END_TIME;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.FILE_COUNT_TABLE_STAGE_INGEST_FAIL;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.MEMORY_USAGE;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PIPE_NAME;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.RECORD_NUMBER;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.STAGE_NAME;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.START_TIME;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TABLE_NAME;
 
 import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
+import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil.EventType;
@@ -14,85 +32,73 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.LongUnaryOperator;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
+/**
+ * Extension of {@link SnowflakeTelemetryBasicInfo} class used to send data to snowflake
+ * periodically.
+ *
+ * <p>Check frequency of {@link
+ * SnowflakeTelemetryService#reportKafkaPartitionUsage(SnowflakeTelemetryBasicInfo, boolean)}
+ *
+ * <p>Most of the data sent to Snowflake is an aggregated data.
+ */
 public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   // ---------- Offset info ----------
 
   // processed offset (offset that is most recent in buffer)
-  AtomicLong processedOffset;
+  private AtomicLong processedOffset;
 
   // flushed offset (files on stage)
-  AtomicLong flushedOffset;
+  private AtomicLong flushedOffset;
 
   // committed offset (files being ingested)
   // NOTE: These offsets are not necessarily the offsets that were ingested into SF table. These are
   // the offsets for which commit API has being called and KC has invoked ingestFiles for those set
   // of offsets.
-  AtomicLong committedOffset;
+  private AtomicLong committedOffset;
 
   // purged offset (files purged or moved to table stage)
-  AtomicLong purgedOffset;
-
-  static final String PROCESSED_OFFSET = "processed_offset";
-  static final String FLUSHED_OFFSET = "flushed_offset";
-  static final String COMMITTED_OFFSET = "committed_offset";
-  static final String PURGED_OFFSET = "purged_offset";
+  private AtomicLong purgedOffset;
 
   // Legacy metrics
-  AtomicLong totalNumberOfRecord; // total number of record
-  AtomicLong totalSizeOfData; // total size of data
-  static final String RECORD_NUMBER = "record_number";
-  static final String BYTE_NUMBER = "byte_number";
+  private AtomicLong totalNumberOfRecord; // total number of record
+  private AtomicLong totalSizeOfData; // total size of data
 
   // File count info
-  AtomicLong fileCountOnStage; // files that are currently on stage
-  AtomicLong fileCountOnIngestion; // files that are being ingested
-  AtomicLong fileCountPurged; // files that are purged
+  private AtomicLong fileCountOnStage; // files that are currently on stage
+  private AtomicLong fileCountOnIngestion; // files that are being ingested
+  private AtomicLong fileCountPurged; // files that are purged
   private final AtomicLong
       fileCountTableStageIngestFail; // files that are moved to table stage due to ingestion failure
   private final AtomicLong
       fileCountTableStageBrokenRecord; // files that are moved to table stage due to broken record
-  static final String FILE_COUNT_ON_STAGE = "file_count_on_stage";
-  static final String FILE_COUNT_ON_INGESTION = "file_count_on_ingestion";
-  static final String FILE_COUNT_PURGED = "file_count_purged";
-  static final String FILE_COUNT_TABLE_STAGE_INGEST_FAIL = "file_count_table_stage_ingest_fail";
-  static final String FILE_COUNT_TABLE_STAGE_BROKEN_RECORD = "file_count_table_stage_broken_record";
 
   // Cleaner restart count
   AtomicLong cleanerRestartCount; // how many times the cleaner restarted
-  static final String CLEANER_RESTART_COUNT = "cleaner_restart_count";
 
   // Memory usage
   AtomicLong memoryUsage; // buffer size of the pipe in Bytes
-  static final String MEMORY_USAGE = "memory_usage";
 
   // ------------ following metrics are not cumulative, reset every time sent ------------//
   // Average lag of Kafka
-  AtomicLong averageKafkaLagMs; // average lag on Kafka side
-  AtomicLong averageKafkaLagRecordCount; // record count
-  static final String AVERAGE_KAFKA_LAG_MS = "average_kafka_lag";
-  static final String AVERAGE_KAFKA_LAG_RECORD_COUNT = "average_kafka_lag_record_count";
+  private AtomicLong averageKafkaLagMs; // average lag on Kafka side
+  private AtomicLong averageKafkaLagRecordCount; // record count
 
   // Average lag of ingestion
-  AtomicLong averageIngestionLagMs; // average lag between file upload and file delete
-  AtomicLong averageIngestionLagFileCount; // file count
-  static final String AVERAGE_INGESTION_LAG_MS = "average_ingestion_lag";
-  static final String AVERAGE_INGESTION_LAG_FILE_COUNT = "average_ingestion_lag_file_count";
+  private AtomicLong averageIngestionLagMs; // average lag between file upload and file delete
+  private AtomicLong averageIngestionLagFileCount; // file count
 
   // Average lag of commit
-  AtomicLong averageCommitLagMs; // average lag between file upload and ingest api calling
-  AtomicLong averageCommitLagFileCount; // file count
-  static final String AVERAGE_COMMIT_LAG_MS = "average_commit_lag";
-  static final String AVERAGE_COMMIT_LAG_FILE_COUNT = "average_commit_lag_file_count";
+  private AtomicLong averageCommitLagMs; // average lag between file upload and ingest api calling
+  private AtomicLong averageCommitLagFileCount; // file count
 
   // Need to update two values atomically when calculating lag, thus
   // a lock is required to protect the access
   private final Lock lagLock;
 
-  AtomicLong startTime; // start time of the status recording period
-  static final String START_TIME = "start_time";
-  static final String END_TIME = "end_time";
+  private AtomicLong startTime; // start time of the status recording period
 
   // JMX Metrics related to Latencies
   private ConcurrentMap<EventType, Timer> eventsByType = Maps.newConcurrentMap();
@@ -101,15 +107,18 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   private final boolean enableCustomJMXConfig;
 
   // May not be set if jmx is set to false
-  Meter fileCountTableStageBrokenRecordMeter, fileCountTableStageIngestFailMeter;
+  private Meter fileCountTableStageBrokenRecordMeter, fileCountTableStageIngestFailMeter;
 
-  SnowflakeTelemetryPipeStatus(
+  private final String pipeName;
+
+  public SnowflakeTelemetryPipeStatus(
       final String tableName,
       final String stageName,
       final String pipeName,
       final boolean enableCustomJMXConfig,
       final MetricsJmxReporter metricsJmxReporter) {
-    super(tableName, stageName, pipeName);
+    super(tableName, stageName);
+    this.pipeName = pipeName;
 
     // Initial value of processed/flushed/committed/purged offset should be set to -1,
     // because the offset stands for the last offset of the record that are at the status.
@@ -144,18 +153,50 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     }
   }
 
-  void updateKafkaLag(final long lag) {
+  /**
+   * Kafka Lag is time between kafka connector sees the record and time record was inserted into
+   * kafka.
+   *
+   * <p>Check the implementation of updateLag on what is done with this lag.
+   *
+   * @param lag
+   */
+  public void updateKafkaLag(final long lag) {
     updateLag(lag, averageKafkaLagRecordCount, averageKafkaLagMs, EventType.KAFKA_LAG);
   }
 
-  void updateIngestionLag(final long lag) {
+  /**
+   * Ingestion Lag is time between kafka connector flushes the file and time file was first found
+   * from insertReport/loadHistory API.
+   *
+   * <p>Check the implementation of updateLag on what is done with this lag.
+   *
+   * @param lag
+   */
+  public void updateIngestionLag(final long lag) {
     updateLag(lag, averageIngestionLagFileCount, averageIngestionLagMs, EventType.INGESTION_LAG);
   }
 
-  void updateCommitLag(final long lag) {
+  /**
+   * Commit Lag is time between kafka connector commits the after calling insertFiles API and time
+   * file was flushed into internal stage.
+   *
+   * <p>Check the implementation of updateLag on what is done with this lag.
+   *
+   * @param lag
+   */
+  public void updateCommitLag(final long lag) {
     updateLag(lag, averageCommitLagFileCount, averageCommitLagMs, EventType.COMMIT_LAG);
   }
 
+  /**
+   * The current lag is just added to the running average to calculate the new average.
+   *
+   * @param lag currentLag/current time difference between two data points
+   * @param averageFileCount current running average's denominator
+   * @param averageLag current running average
+   * @param eventType
+   */
   private void updateLag(
       final long lag, AtomicLong averageFileCount, AtomicLong averageLag, EventType eventType) {
     if (this.enableCustomJMXConfig) {
@@ -196,7 +237,8 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     }
   }
 
-  boolean empty() {
+  @Override
+  public boolean isEmpty() {
     // Check that all properties are still at the default value.
     return this.processedOffset.get() == -1
         && this.flushedOffset.get() == -1
@@ -337,5 +379,100 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());
     }
+  }
+
+  // --------------- Setter for Offset counts --------------- //
+
+  public void setProcessedOffset(long processedOffset) {
+    this.processedOffset.set(processedOffset);
+  }
+
+  public void setFlushedOffset(long flushedOffset) {
+    this.flushedOffset.set(flushedOffset);
+  }
+
+  public void setCommittedOffset(long committedOffset) {
+    this.committedOffset.set(committedOffset);
+  }
+
+  /**
+   * Either keeps the same offset or updates the purgedOffset if a higher value offset is found in
+   * insertReport Snowpipe API
+   *
+   * @param unaryOperator the function to apply on purgedOffset
+   */
+  public void setPurgedOffsetAtomically(LongUnaryOperator unaryOperator) {
+    this.purgedOffset.updateAndGet(unaryOperator);
+  }
+
+  // --------------- File Counts at various stages of ingestion --------------- //
+
+  public void addAndGetFileCountOnStage(long fileCountOnStage) {
+    this.fileCountOnStage.addAndGet(fileCountOnStage);
+  }
+
+  public void addAndGetFileCountOnIngestion(long fileCountOnIngestion) {
+    this.fileCountOnIngestion.addAndGet(fileCountOnIngestion);
+  }
+
+  public void addAndGetFileCountPurged(long fileCountPurged) {
+    this.fileCountPurged.addAndGet(fileCountPurged);
+  }
+
+  public long incrementAndGetCleanerRestartCount() {
+    return this.cleanerRestartCount.incrementAndGet();
+  }
+
+  public void addAndGetTotalNumberOfRecord(long totalNumberOfRecord) {
+    this.totalNumberOfRecord.addAndGet(totalNumberOfRecord);
+  }
+
+  public void addAndGetTotalSizeOfData(long totalSizeOfData) {
+    this.totalSizeOfData.addAndGet(totalSizeOfData);
+  }
+
+  public void addAndGetMemoryUsage(long memoryUsage) {
+    this.memoryUsage.addAndGet(memoryUsage);
+  }
+
+  public void resetMemoryUsage() {
+    this.memoryUsage.set(0l);
+  }
+
+  // --------------- For testing --------------- //
+
+  @VisibleForTesting
+  public void setCleanerRestartCount(long cleanerRestartCount) {
+    this.cleanerRestartCount.set(cleanerRestartCount);
+  }
+
+  @VisibleForTesting
+  public void setAverageKafkaLagMs(long averageKafkaLagMs) {
+    this.averageKafkaLagMs.set(averageKafkaLagMs);
+  }
+
+  @VisibleForTesting
+  public void setAverageKafkaLagRecordCount(long averageKafkaLagRecordCount) {
+    this.averageKafkaLagRecordCount.set(averageKafkaLagRecordCount);
+  }
+
+  @VisibleForTesting
+  public void setAverageIngestionLagMs(long averageIngestionLagMs) {
+    this.averageIngestionLagMs.set(averageIngestionLagMs);
+  }
+
+  @VisibleForTesting
+  public void setAverageIngestionLagFileCount(long averageIngestionLagFileCount) {
+    this.averageIngestionLagFileCount.set(averageIngestionLagFileCount);
+  }
+
+  @VisibleForTesting
+  public void setAverageCommitLagMs(long averageCommitLagMs) {
+    this.averageCommitLagMs.set(averageCommitLagMs);
+  }
+
+  @VisibleForTesting
+  public void setAverageCommitLagFileCount(long averageCommitLagFileCount) {
+    this.averageCommitLagFileCount.set(averageCommitLagFileCount);
   }
 }

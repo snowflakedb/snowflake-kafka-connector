@@ -1,6 +1,7 @@
-package com.snowflake.kafka.connector.internal;
+package com.snowflake.kafka.connector.internal.telemetry;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.Logging;
 import java.sql.Connection;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -86,21 +87,21 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaPipeUsage(
-      final SnowflakeTelemetryPipeStatus pipeStatus, boolean isClosing) {
-    if (pipeStatus.empty()) {
+  public void reportKafkaPartitionUsage(
+      final SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {
+    if (partitionStatus.isEmpty()) {
       return;
     }
     ObjectNode msg = getObjectNode();
 
-    pipeStatus.dumpTo(msg);
+    partitionStatus.dumpTo(msg);
     msg.put(IS_PIPE_CLOSING, isClosing);
 
     send(TelemetryType.KAFKA_PIPE_USAGE, msg);
   }
 
   @Override
-  public void reportKafkaPipeStart(final SnowflakeTelemetryPipeCreation pipeCreation) {
+  public void reportKafkaPartitionStart(final SnowflakeTelemetryBasicInfo pipeCreation) {
     ObjectNode msg = getObjectNode();
 
     pipeCreation.dumpTo(msg);
