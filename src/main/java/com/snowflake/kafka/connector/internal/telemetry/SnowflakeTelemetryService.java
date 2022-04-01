@@ -1,4 +1,4 @@
-package com.snowflake.kafka.connector.internal;
+package com.snowflake.kafka.connector.internal.telemetry;
 
 public interface SnowflakeTelemetryService {
 
@@ -39,17 +39,21 @@ public interface SnowflakeTelemetryService {
   void reportKafkaFatalError(String errorDetail);
 
   /**
-   * report connector pipe status
+   * report connector's partition usage.
    *
-   * @param pipeStatus SnowflakePipeStatus object
-   * @param isClosing is the pipe closing
+   * <p>It depends on the underlying implementation of Kafka connector, i.e weather it is Snowpipe
+   * or Snowpipe Streaming
+   *
+   * @param partitionStatus SnowflakePipeStatus object
+   * @param isClosing is the underlying pipe/channel closing
    */
-  void reportKafkaPipeUsage(final SnowflakeTelemetryPipeStatus pipeStatus, boolean isClosing);
+  void reportKafkaPartitionUsage(
+      final SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing);
 
   /**
-   * report connector pipe start
+   * report connector partition start
    *
    * @param objectCreation SnowflakeObjectCreation object
    */
-  void reportKafkaPipeStart(final SnowflakeTelemetryPipeCreation objectCreation);
+  void reportKafkaPartitionStart(final SnowflakeTelemetryBasicInfo objectCreation);
 }
