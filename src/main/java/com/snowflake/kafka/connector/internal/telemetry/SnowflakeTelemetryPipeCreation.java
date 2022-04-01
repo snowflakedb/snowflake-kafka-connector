@@ -12,8 +12,10 @@ import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstant
 
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
-// This object is send only once when pipe starts
-// No concurrent modification is made on this object, thus no lock is required.
+/**
+ * This object is send only once when pipe starts No concurrent modification is made on this object,
+ * thus no lock is required.
+ */
 public class SnowflakeTelemetryPipeCreation extends SnowflakeTelemetryBasicInfo {
   boolean isReuseTable = false; // is the create reusing existing table
   boolean isReuseStage = false; // is the create reusing existing stage

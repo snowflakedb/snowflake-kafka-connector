@@ -20,6 +20,7 @@ import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstant
 
 import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
@@ -34,6 +35,15 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.LongUnaryOperator;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
+/**
+ * Extension of {@link SnowflakeTelemetryBasicInfo} class used to send data to snowflake
+ * periodically.
+ *
+ * <p>Check frequency of {@link
+ * SnowflakeTelemetryService#reportKafkaPartitionUsage(SnowflakeTelemetryBasicInfo, boolean)}
+ *
+ * <p>Most of the data sent to Snowflake is an aggregated data.
+ */
 public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   // ---------- Offset info ----------
 
@@ -430,30 +440,38 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   }
 
   // --------------- For testing --------------- //
+
+  @VisibleForTesting
   public void setCleanerRestartCount(long cleanerRestartCount) {
     this.cleanerRestartCount.set(cleanerRestartCount);
   }
 
+  @VisibleForTesting
   public void setAverageKafkaLagMs(long averageKafkaLagMs) {
     this.averageKafkaLagMs.set(averageKafkaLagMs);
   }
 
+  @VisibleForTesting
   public void setAverageKafkaLagRecordCount(long averageKafkaLagRecordCount) {
     this.averageKafkaLagRecordCount.set(averageKafkaLagRecordCount);
   }
 
+  @VisibleForTesting
   public void setAverageIngestionLagMs(long averageIngestionLagMs) {
     this.averageIngestionLagMs.set(averageIngestionLagMs);
   }
 
+  @VisibleForTesting
   public void setAverageIngestionLagFileCount(long averageIngestionLagFileCount) {
     this.averageIngestionLagFileCount.set(averageIngestionLagFileCount);
   }
 
+  @VisibleForTesting
   public void setAverageCommitLagMs(long averageCommitLagMs) {
     this.averageCommitLagMs.set(averageCommitLagMs);
   }
 
+  @VisibleForTesting
   public void setAverageCommitLagFileCount(long averageCommitLagFileCount) {
     this.averageCommitLagFileCount.set(averageCommitLagFileCount);
   }

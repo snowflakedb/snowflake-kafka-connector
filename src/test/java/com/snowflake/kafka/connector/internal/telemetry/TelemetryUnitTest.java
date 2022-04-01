@@ -1,8 +1,7 @@
-package com.snowflake.kafka.connector.internal;
+package com.snowflake.kafka.connector.internal.telemetry;
 
 import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeStatus;
 import org.junit.Test;
 
 public class TelemetryUnitTest {
