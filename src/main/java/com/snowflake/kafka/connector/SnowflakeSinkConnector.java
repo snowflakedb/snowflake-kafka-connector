@@ -98,12 +98,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     telemetryClient = conn.getTelemetryClient();
 
-    // maxTasks value isn't visible if the user leaves it at default. So 0
-    // means unknown.
-    int maxTasks =
-        (config.containsKey("tasks.max")) ? Integer.parseInt(config.get("tasks.max")) : 0;
-
-    telemetryClient.reportKafkaStart(connectorStartTime, maxTasks);
+    telemetryClient.reportKafkaConnectStart(connectorStartTime, this.config);
 
     setupComplete = true;
   }
