@@ -23,6 +23,9 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
+import io.confluent.connect.avro.AvroConverter;
+import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -39,6 +42,8 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMappe
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 
@@ -578,6 +583,69 @@ public class TestUtils {
               "test",
               schemaInputValue.schema(),
               schemaInputValue.value(),
+              i));
+    }
+    return records;
+  }
+
+  /* Generate (noOfRecords - startOffset) for a given topic and partition which were essentially avro records */
+  public static List<SinkRecord> createBigAvroRecords(
+      final long startOffset,
+      final long noOfRecords,
+      final String topicName,
+      final int partitionNo) {
+    ArrayList<SinkRecord> records = new ArrayList<>();
+
+    final int outerSegmentLength = 10;
+    final int innerSegmentLength = 10;
+    List<Schema> outerSchemas = new ArrayList<>(outerSegmentLength);
+    for (int outerSegment = 0; outerSegment < outerSegmentLength; outerSegment++) {
+      SchemaBuilder outerSegmentSchema = SchemaBuilder.struct().name("segment" + outerSegment);
+      for (int innerSegment = 0; innerSegment < innerSegmentLength; innerSegment++) {
+        outerSegmentSchema.field(
+            "segment_" + outerSegment + "_" + innerSegment, Schema.STRING_SCHEMA);
+      }
+      outerSchemas.add(outerSegmentSchema.build());
+    }
+
+    List<Struct> items = new ArrayList<>(outerSegmentLength);
+    for (int outerSegment = 0; outerSegment < outerSegmentLength; outerSegment++) {
+      Struct outerItem = new Struct(outerSchemas.get(outerSegment));
+      for (int innerSegment = 0; innerSegment < innerSegmentLength; innerSegment++) {
+        outerItem.put(
+            "segment_" + outerSegment + "_" + innerSegment,
+            "segment_" + outerSegment + "_" + innerSegment);
+      }
+      items.add(outerItem);
+    }
+
+    SchemaBuilder schemaBuilderBigAvroSegment = SchemaBuilder.struct().name("biggestAvro");
+    outerSchemas.forEach(schema -> schemaBuilderBigAvroSegment.field(schema.name(), schema));
+
+    Struct originalBASegment = new Struct(schemaBuilderBigAvroSegment.build());
+
+    for (int i = 0; i < outerSchemas.size(); i++) {
+      originalBASegment.put(outerSchemas.get(i).name(), items.get(i));
+    }
+
+    SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
+    AvroConverter avroConverter = new AvroConverter(schemaRegistry);
+    avroConverter.configure(
+        Collections.singletonMap("schema.registry.url", "http://fake-url"), false);
+    byte[] converted =
+        avroConverter.fromConnectData(
+            topicName, schemaBuilderBigAvroSegment.schema(), originalBASegment);
+    SchemaAndValue avroInputValue = avroConverter.toConnectData(topicName, converted);
+
+    for (long i = startOffset; i < startOffset + noOfRecords; ++i) {
+      records.add(
+          new SinkRecord(
+              topicName,
+              partitionNo,
+              Schema.STRING_SCHEMA,
+              "key" + i,
+              avroInputValue.schema(),
+              avroInputValue.value(),
               i));
     }
     return records;

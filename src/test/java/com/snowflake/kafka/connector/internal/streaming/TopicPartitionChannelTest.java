@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.internal.TestUtils.createBigAvroRecords;
 import static com.snowflake.kafka.connector.internal.TestUtils.createNativeJsonSinkRecords;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 
@@ -624,5 +625,55 @@ public class TopicPartitionChannelTest {
     Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
     Mockito.verify(mockStreamingChannel, Mockito.times(2))
         .insertRows(ArgumentMatchers.any(), ArgumentMatchers.any());
+  }
+
+  @Test
+  public void testBigAvroBufferBytesThreshold() throws Exception {
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
+        .thenReturn(null)
+        .thenReturn("1")
+        .thenReturn("2");
+
+    Mockito.when(
+            mockStreamingChannel.insertRows(
+                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+        .thenReturn(new InsertValidationResponse());
+
+    final long bufferFlushTimeSeconds = 5L;
+    StreamingBufferThreshold bufferThreshold =
+        new StreamingBufferThreshold(bufferFlushTimeSeconds, 10_000 /* < 10 KB */, 10000000L);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            bufferThreshold,
+            sfConnectorConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
+
+    // Sending 3 records will trigger a buffer bytes based threshold after 2 records have been
+    // added. Size of each record after serialization to Json is ~6 KBytes
+    List<SinkRecord> records = createBigAvroRecords(0, 3, "test", 0);
+
+    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+
+    Assert.assertEquals(1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
+
+    // In an ideal world, put API is going to invoke this to check if flush time threshold has
+    // reached.
+    // We are mimicking that call.
+    // Will wait for 10 seconds.
+    Thread.sleep(bufferFlushTimeSeconds * 1000 + 10);
+
+    topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
+
+    Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
+    Mockito.verify(mockStreamingChannel, Mockito.times(2))
+        .insertRows(ArgumentMatchers.any(), ArgumentMatchers.any());
+
+    Assert.assertEquals(2L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
 }
