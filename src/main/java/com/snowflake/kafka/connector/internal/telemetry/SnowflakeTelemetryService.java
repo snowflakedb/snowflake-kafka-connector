@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
+import java.util.Map;
+
 public interface SnowflakeTelemetryService {
 
   /**
@@ -20,23 +22,23 @@ public interface SnowflakeTelemetryService {
    * Event of connector start
    *
    * @param startTime task start time
-   * @param maxTasks max number of tasks
+   * @param userProvidedConfig max number of tasks
    */
-  void reportKafkaStart(long startTime, int maxTasks);
+  void reportKafkaConnectStart(long startTime, Map<String, String> userProvidedConfig);
 
   /**
    * Event of connector stop
    *
    * @param startTime start timestamp
    */
-  void reportKafkaStop(long startTime);
+  void reportKafkaConnectStop(long startTime);
 
   /**
    * Event of a fatal error in the connector
    *
    * @param errorDetail error message
    */
-  void reportKafkaFatalError(String errorDetail);
+  void reportKafkaConnectFatalError(String errorDetail);
 
   /**
    * report connector's partition usage.
