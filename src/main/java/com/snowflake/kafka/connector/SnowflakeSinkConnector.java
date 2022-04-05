@@ -115,7 +115,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   public void stop() {
     setupComplete = false;
     LOGGER.info(Logging.logMessage("SnowflakeSinkConnector:stop"));
-    telemetryClient.reportKafkaStop(connectorStartTime);
+    telemetryClient.reportKafkaConnectStop(connectorStartTime);
   }
 
   // TODO (post GA): override reconfigure(java.util.Map<java.lang.String,java

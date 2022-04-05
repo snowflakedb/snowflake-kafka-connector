@@ -31,14 +31,14 @@ public interface SnowflakeTelemetryService {
    *
    * @param startTime start timestamp
    */
-  void reportKafkaStop(long startTime);
+  void reportKafkaConnectStop(long startTime);
 
   /**
    * Event of a fatal error in the connector
    *
    * @param errorDetail error message
    */
-  void reportKafkaFatalError(String errorDetail);
+  void reportKafkaConnectFatalError(String errorDetail);
 
   /**
    * report connector's partition usage.

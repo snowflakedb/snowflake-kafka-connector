@@ -97,7 +97,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaStop(final long startTime) {
+  public void reportKafkaConnectStop(final long startTime) {
     ObjectNode msg = getObjectNode();
 
     msg.put(START_TIME, startTime);
@@ -107,7 +107,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
   }
 
   @Override
-  public void reportKafkaFatalError(final String errorDetail) {
+  public void reportKafkaConnectFatalError(final String errorDetail) {
     ObjectNode msg = getObjectNode();
 
     msg.put(TIME, System.currentTimeMillis());
@@ -197,13 +197,8 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
    */
   protected void addUserConnectorPropertiesToDataNode(
       final Map<String, String> userProvidedConfig, ObjectNode dataObjectNode) {
-    // maxTasks value isn't visible if the user leaves it at default. So 0
-    // means unknown.
-    int maxTasks =
-        (userProvidedConfig.containsKey("tasks.max"))
-            ? Integer.parseInt(userProvidedConfig.get("tasks.max"))
-            : 0;
-    dataObjectNode.put(MAX_TASKS, maxTasks);
+    // maxTasks value isn't visible if the user leaves it at default. So, null means not set
+    dataObjectNode.put(MAX_TASKS, userProvidedConfig.get("tasks.max"));
 
     dataObjectNode.put(BUFFER_SIZE_BYTES, userProvidedConfig.get(BUFFER_SIZE_BYTES));
     dataObjectNode.put(BUFFER_COUNT_RECORDS, userProvidedConfig.get(BUFFER_COUNT_RECORDS));
