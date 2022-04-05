@@ -574,7 +574,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
                     e.getClass(),
                     e.getMessage(),
                     e.getStackTrace());
-                telemetryService.reportKafkaFatalError(e.getMessage());
+                telemetryService.reportKafkaConnectFatalError(e.getMessage());
                 forceCleanerFileReset = true;
               }
             }
