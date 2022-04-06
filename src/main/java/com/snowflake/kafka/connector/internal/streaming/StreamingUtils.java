@@ -34,7 +34,7 @@ public class StreamingUtils {
       Duration.ofSeconds(1).getSeconds();
 
   public static final long STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC =
-      Duration.ofSeconds(30).getSeconds();
+      Duration.ofSeconds(10).getSeconds();
 
   protected static final long STREAMING_BUFFER_COUNT_RECORDS_DEFAULT = 10_000L;
 
