@@ -309,7 +309,7 @@ public class TopicPartitionChannel {
     } else if (this.isOffsetResetInKafka.get()
         && (kafkaSinkRecord.kafkaOffset() - offsetPersistedInSnowflake.get()) == 1L) {
       LOGGER.debug(
-          "Got the desired offset:{} from Kafka, we can add this to buffer for channel:{}",
+          "Got the desired offset:{} from Kafka, we can add this offset to buffer for channel:{}",
           kafkaSinkRecord.kafkaOffset(),
           this.getChannelName());
       this.isOffsetResetInKafka.set(false);

@@ -43,8 +43,7 @@ public class TopicPartitionChannelIT {
 
   @After
   public void afterEach() {
-
-    //    TestUtils.dropTableStreaming(testTableName);
+    TestUtils.dropTableStreaming(testTableName);
   }
 
   @Ignore
