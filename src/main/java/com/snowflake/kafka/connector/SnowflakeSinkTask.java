@@ -297,33 +297,6 @@ public class SnowflakeSinkTask extends SinkTask {
     long startTime = System.currentTimeMillis();
     LOGGER.debug(
         Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records", this.id, records.size()));
-    if (LOGGER.isDebugEnabled() && !records.isEmpty()) {
-      // not necessarily true that all records will be from same topic and partition, but lets
-      // assume.
-      List<SinkRecord> sinkRecordsFromPutList = new ArrayList<>(records);
-
-      Map<String, SortedSet<SinkRecord>> sinkRecordsFromPutMap = new HashMap<>();
-      sinkRecordsFromPutList.forEach(
-          sinkRecord ->
-              sinkRecordsFromPutMap
-                  .computeIfAbsent(
-                      sinkRecord.topic() + "_" + sinkRecord.kafkaPartition(),
-                      k ->
-                          new TreeSet<>(
-                              (record1, record2) ->
-                                  (int) (record1.kafkaOffset() - record2.kafkaOffset())))
-                  .add(sinkRecord));
-
-      sinkRecordsFromPutMap.forEach(
-          (s, sinkRecords) -> {
-            LOGGER.debug(
-                "Received records from:{} to:{} for topic partition:{}",
-                sinkRecords.first().kafkaOffset(),
-                sinkRecords.last().kafkaOffset(),
-                s);
-          });
-      LOGGER.debug("Time to sort:{} seconds", (System.currentTimeMillis() - startTime) / 1000);
-    }
 
     getSink().insert(records);
 
