@@ -40,6 +40,7 @@ public class SnowflakeSinkServiceV2IT {
   private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreamingIngest();
   private String table = TestUtils.randomTableName();
   private int partition = 0;
+  private int partition2 = 1;
   private String topic = "test";
   private TopicPartition topicPartition = new TopicPartition(topic, partition);
   private static ObjectMapper MAPPER = new ObjectMapper();
@@ -231,6 +232,59 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(Arrays.asList(record2, record3));
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == 3, 20, 5);
+
+    service.closeAll();
+  }
+
+  @Ignore
+  @Test
+  public void testStreamingIngest_multipleChannelPartitions() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    conn.createTable(table);
+
+    // opens a channel for partition 0, table and topic
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(5)
+            .setFlushTime(5)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
+            .addTask(table, new TopicPartition(topic, partition2)) // Internally calls startTask
+            .build();
+
+    final int recordsInPartition1 = 2;
+    final int recordsInPartition2 = 2;
+    List<SinkRecord> recordsPartition1 =
+        TestUtils.createJsonStringSinkRecords(0, recordsInPartition1, topic, partition);
+
+    List<SinkRecord> recordsPartition2 =
+        TestUtils.createJsonStringSinkRecords(0, recordsInPartition2, topic, partition2);
+
+    List<SinkRecord> records = new ArrayList<>(recordsPartition1);
+    records.addAll(recordsPartition2);
+
+    service.insert(records);
+
+    TestUtils.assertWithRetry(
+        () -> {
+          // This is how we will trigger flush. (Mimicking poll API)
+          service.insert(new ArrayList<>()); // trigger time based flush
+          return TestUtils.getTableSizeStreaming(table)
+              == recordsInPartition1 + recordsInPartition2;
+        },
+        10,
+        20);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == recordsInPartition1,
+        20,
+        5);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition2)) == recordsInPartition2,
+        20,
+        5);
 
     service.closeAll();
   }
