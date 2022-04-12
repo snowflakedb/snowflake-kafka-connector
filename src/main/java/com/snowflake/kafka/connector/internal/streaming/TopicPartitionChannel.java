@@ -78,7 +78,7 @@ public class TopicPartitionChannel {
    *
    * <p>If this is false, the topicPartitionChannel has recently been initialised and didnt receive
    * any records before or TopicPartitionChannel was recently created. (Or may be there was some
-   * error in some API and hence we had to fetch it again?)
+   * error in some API and hence we had to fetch it again)
    *
    * <p>If the channel is closed, or if partition reassignment is triggered (Rebalancing), we wipe
    * off partitionsToChannel cache in {@link SnowflakeSinkServiceV2}
@@ -99,14 +99,16 @@ public class TopicPartitionChannel {
    * Offsets are reset in kafka when one of following cases arises in which we rely on source of
    * truth (Which is Snowflake's committed offsetToken)
    *
-   * <p>1. If channel fails to fetch offsetToken in kafka, we reopen the channel and try to fetch
-   * offset from Snowflake again
+   * <ol>
+   *   <li>If channel fails to fetch offsetToken in kafka, we reopen the channel and try to fetch
+   *       offset from Snowflake again
+   *   <li>If channel fails to ingest a buffer(Buffer containing rows/offsets), we reopen the
+   *       channel and try to fetch offset from Snowflake again
+   * </ol>
    *
-   * <p>2. If channel fails to ingest a buffer(Buffer containing rows/offsets), we reopen the
-   * channel and try to fetch offset from Snowflake again
-   *
-   * <p>In both above cases, we ask Kafka to send back offsets after offset already present in
-   * Snowflake.
+   * <p>In both cases above, we ask Kafka to send back offsets, strictly from offset number after
+   * the offset present in Snowflake. i.e of Snowflake has offsetToken = x, we are asking Kafka to
+   * start sending offsets again from x + 1
    *
    * <p>This boolean is used to indicate that we reset offset in kafka and we will only buffer once
    * we see the offset which is one more than an offset present in Snowflake.
@@ -149,11 +151,6 @@ public class TopicPartitionChannel {
   private final AtomicLong offsetSafeToCommitToKafka;
 
   // added to buffer before calling insertRows
-  // Reset to earlier value if we were not successfully able to call insertRows.
-  // Do we even need this processedOffset
-  // Why do we even need to rely on a value which is cached in KC?
-  // Source of truth is only Snowflake.
-  // May be remove this and just rely on this boolean (hasChannelReceivedAnyRecordsBefore)
   private final AtomicLong processedOffset; // processed offset
 
   /* Error related properties */
@@ -282,12 +279,9 @@ public class TopicPartitionChannel {
    * If kafka offset was recently reset, we will skip adding any more records to buffer until we see
    * a desired offset from kafka.
    *
-   * <p>Desired Offset from Kafka = (offset present in snowflake + 1)
+   * <p>Desired Offset from Kafka = (offset persisted in snowflake + 1)
    *
-   * <p>In other words
-   *
-   * <p>Desired Offset from Kafka = Offset which was reset into kafka. (Check {link {@link
-   * TopicPartitionChannel#resetChannelMetadataAfterRecovery\}}
+   * <p>Check {link {@link TopicPartitionChannel#resetChannelMetadataAfterRecovery}} for reset logic
    *
    * @param kafkaSinkRecord Record to check for above condition only in case of failures
    *     (isOffsetResetInKafka = true)
