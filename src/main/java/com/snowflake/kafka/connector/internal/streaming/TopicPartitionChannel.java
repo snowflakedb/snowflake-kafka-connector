@@ -100,8 +100,8 @@ public class TopicPartitionChannel {
    * truth (Which is Snowflake's committed offsetToken)
    *
    * <ol>
-   *   <li>If channel fails to fetch offsetToken in kafka, we reopen the channel and try to fetch
-   *       offset from Snowflake again
+   *   <li>If channel fails to fetch offsetToken from Snowflake, we reopen the channel and try to
+   *       fetch offset from Snowflake again
    *   <li>If channel fails to ingest a buffer(Buffer containing rows/offsets), we reopen the
    *       channel and try to fetch offset from Snowflake again
    * </ol>
@@ -109,6 +109,8 @@ public class TopicPartitionChannel {
    * <p>In both cases above, we ask Kafka to send back offsets, strictly from offset number after
    * the offset present in Snowflake. i.e of Snowflake has offsetToken = x, we are asking Kafka to
    * start sending offsets again from x + 1
+   *
+   * <p>We reset the boolean to false when we see the desired offset from Kafka
    *
    * <p>This boolean is used to indicate that we reset offset in kafka and we will only buffer once
    * we see the offset which is one more than an offset present in Snowflake.
@@ -232,8 +234,10 @@ public class TopicPartitionChannel {
 
     // discard the record if the record offset is smaller or equal to server side offset, or if
     // record is smaller than any other record offset we received before
-    if (kafkaSinkRecord.kafkaOffset() > this.offsetPersistedInSnowflake.get()
-        && kafkaSinkRecord.kafkaOffset() > processedOffset.get()) {
+    final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
+    final long currentProcessedOffset = this.processedOffset.get();
+    if (kafkaSinkRecord.kafkaOffset() > currentOffsetPersistedInSnowflake
+        && kafkaSinkRecord.kafkaOffset() > currentProcessedOffset) {
       StreamingBuffer copiedStreamingBuffer = null;
       bufferLock.lock();
       try {
@@ -270,8 +274,8 @@ public class TopicPartitionChannel {
               + " offsetPersistedInSnowflake:{}, processedOffset:{}",
           kafkaSinkRecord.kafkaOffset(),
           this.getChannelName(),
-          this.offsetPersistedInSnowflake.get(),
-          this.processedOffset.get());
+          currentOffsetPersistedInSnowflake,
+          currentProcessedOffset);
     }
   }
 
@@ -288,26 +292,25 @@ public class TopicPartitionChannel {
    * @return true if this record can be skipped to add into buffer, false otherwise.
    */
   private boolean shouldIgnoreAddingRecordToBuffer(SinkRecord kafkaSinkRecord) {
-    // we should not buffer any record whose value is more than what we reset in kafka in case of
-    // failures
-    if (this.isOffsetResetInKafka.get()
-        && (kafkaSinkRecord.kafkaOffset() - offsetPersistedInSnowflake.get()) != 1L) {
-      // ignore
-      LOGGER.debug(
-          "Skip/Ignore adding offset:{} to buffer for channel:{} because we recently encountered"
-              + " error and reset offset in Kafka. offsetPersistedInSnowflake:{}",
-          kafkaSinkRecord.kafkaOffset(),
-          this.getChannelName(),
-          this.offsetPersistedInSnowflake.get());
-      return true;
-    } else if (this.isOffsetResetInKafka.get()
-        && (kafkaSinkRecord.kafkaOffset() - offsetPersistedInSnowflake.get()) == 1L) {
-      LOGGER.debug(
-          "Got the desired offset:{} from Kafka, we can add this offset to buffer for channel:{}",
-          kafkaSinkRecord.kafkaOffset(),
-          this.getChannelName());
-      this.isOffsetResetInKafka.set(false);
+    if (!this.isOffsetResetInKafka.get()) {
       return false;
+    } else {
+      if ((kafkaSinkRecord.kafkaOffset() - offsetPersistedInSnowflake.get()) != 1L) {
+        // ignore
+        LOGGER.debug(
+            "Ignore adding offset:{} to buffer for channel:{} because we recently encountered"
+                + " error and reset offset in Kafka. offsetPersistedInSnowflake:{}",
+            kafkaSinkRecord.kafkaOffset(),
+            this.getChannelName(),
+            this.offsetPersistedInSnowflake.get());
+        return true;
+      } else if ((kafkaSinkRecord.kafkaOffset() - offsetPersistedInSnowflake.get()) == 1L) {
+        LOGGER.debug(
+            "Got the desired offset:{} from Kafka, we can add this offset to buffer for channel:{}",
+            kafkaSinkRecord.kafkaOffset(),
+            this.getChannelName());
+        this.isOffsetResetInKafka.set(false);
+      }
     }
     return false;
   }
