@@ -292,9 +292,7 @@ public class TopicPartitionChannel {
    * @return true if this record can be skipped to add into buffer, false otherwise.
    */
   private boolean shouldIgnoreAddingRecordToBuffer(SinkRecord kafkaSinkRecord) {
-    if (!this.isOffsetResetInKafka.get()) {
-      return false;
-    } else {
+    if (this.isOffsetResetInKafka.get()) {
       if ((kafkaSinkRecord.kafkaOffset() - offsetPersistedInSnowflake.get()) != 1L) {
         // ignore
         LOGGER.debug(
