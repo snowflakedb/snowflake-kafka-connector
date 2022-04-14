@@ -1,17 +1,21 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import net.snowflake.ingest.streaming.InsertValidationResponse;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import net.snowflake.ingest.streaming.OpenChannelRequest;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
@@ -24,11 +28,10 @@ public class TopicPartitionChannelIT {
   private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreamingIngest();
   private String testTableName;
 
-  private static int PARTITION = 0;
+  private static int PARTITION = 0, PARTITION_2 = 1;
   private String topic;
-  private TopicPartition topicPartition;
-
-  private String testChannelName;
+  private TopicPartition topicPartition, topicPartition2;
+  private String testChannelName, testChannelName2;
 
   @Before
   public void beforeEach() {
@@ -36,7 +39,11 @@ public class TopicPartitionChannelIT {
     topic = testTableName;
     topicPartition = new TopicPartition(topic, PARTITION);
 
+    topicPartition2 = new TopicPartition(topic, PARTITION_2);
+
     testChannelName = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION);
+
+    testChannelName2 = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION_2);
   }
 
   @After
@@ -149,6 +156,14 @@ public class TopicPartitionChannelIT {
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
   }
 
+  /**
+   * Insert data - Success
+   *
+   * <p>Fetch channel object and close the channel.
+   *
+   * <p>Insert New offsets -> The insert operation should automatically create a new channel and
+   * insert data.
+   */
   @Ignore
   @Test
   public void testAutoChannelReopen_InsertRowsSFException() throws Exception {
@@ -192,24 +207,220 @@ public class TopicPartitionChannelIT {
     // verify channel is closed.
     Assert.assertTrue(topicPartitionChannel.isChannelClosed());
 
-    // send offset 1
-    records = TestUtils.createJsonStringSinkRecords(1, noOfRecords, topic, PARTITION);
+    // send offset 1 - 6
+    final long anotherSetOfRecords = 5;
+    records = TestUtils.createJsonStringSinkRecords(1, anotherSetOfRecords, topic, PARTITION);
 
-    TopicPartitionChannel.StreamingBuffer streamingBuffer =
-        topicPartitionChannel.new StreamingBuffer();
-    streamingBuffer.insert(records.get(0));
+    // It will reopen a channel since it was closed (startTask)
+    service.insert(records);
 
-    try {
-      topicPartitionChannel.insertBufferedRecords(streamingBuffer);
-    } catch (RetriableException ex) {
-      InsertValidationResponse response =
-          topicPartitionChannel.insertBufferedRecords(streamingBuffer);
-      assert !response.hasErrors();
-      TestUtils.assertWithRetry(
-          () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+    // Trying to insert same offsets, hoping it would be rejected (Not added to buffer)
+    service.insert(records);
 
-      assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
-      assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName) == 1;
-    }
+    TestUtils.assertWithRetry(
+        () ->
+            service.getOffset(new TopicPartition(topic, PARTITION))
+                == anotherSetOfRecords + noOfRecords,
+        20,
+        5);
+
+    assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
+    assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
+        == (anotherSetOfRecords + noOfRecords - 1);
+  }
+
+  /**
+   * Two partions for a topic Partition 1 -> 10(0-9) records -> Success Partition 2 -> 10(0-9)
+   * records -> Success
+   *
+   * <p>Partition 1 -> Channel 1 -> open with same client Client sequencer for channel 1 - 1
+   *
+   * <p>Partition 1 -> 10(10-19) records -> Failure -> reopen -> fetch offset token Client sequencer
+   * for channel 1 - 2
+   *
+   * <p>Partition 2 -> 10(10-19) records -> Success
+   *
+   * <p>Eventually 40 records should be present in snowflake table
+   */
+  @Ignore
+  @Test
+  public void testAutoChannelReopen_MultiplePartitionsInsertRowsSFException() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    InMemorySinkTaskContext inMemorySinkTaskContext =
+        new InMemorySinkTaskContext(Collections.singleton(topicPartition));
+
+    // This will automatically create a channel for topicPartition.
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(5)
+            .setFlushTime(5)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(inMemorySinkTaskContext)
+            .addTask(testTableName, topicPartition)
+            .addTask(testTableName, topicPartition2)
+            .build();
+
+    final int recordsInPartition1 = 10;
+    final int recordsInPartition2 = 10;
+    List<SinkRecord> recordsPartition1 =
+        TestUtils.createJsonStringSinkRecords(0, recordsInPartition1, topic, PARTITION);
+
+    List<SinkRecord> recordsPartition2 =
+        TestUtils.createJsonStringSinkRecords(0, recordsInPartition2, topic, PARTITION_2);
+
+    List<SinkRecord> records = new ArrayList<>(recordsPartition1);
+    records.addAll(recordsPartition2);
+
+    service.insert(records);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == recordsInPartition1,
+        20,
+        5);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION_2)) == recordsInPartition2,
+        20,
+        5);
+
+    SnowflakeStreamingIngestClient client =
+        ((SnowflakeSinkServiceV2) service).getStreamingIngestClient();
+    OpenChannelRequest channelRequest =
+        OpenChannelRequest.builder(testChannelName)
+            .setDBName(config.get(Utils.SF_DATABASE))
+            .setSchemaName(config.get(Utils.SF_SCHEMA))
+            .setTableName(this.testTableName)
+            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
+            .build();
+
+    // Open a channel with same name will bump up the client sequencer number for this channel
+    client.openChannel(channelRequest);
+
+    assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
+
+    // send offset 10 - 19 -> We should get insertRows failure and hence reopen channel would kick
+    // in
+    final long anotherSetOfRecords = 10;
+    records =
+        TestUtils.createJsonStringSinkRecords(
+            anotherSetOfRecords, anotherSetOfRecords, topic, PARTITION);
+
+    // InsertRows operation should fail since the internal channel object is still linked with
+    // clientSequencer 0 and, we opened a new channel earlier which set the clientSequencer on
+    // server side to 1
+    service.insert(records);
+
+    // Will need to retry which should succeed (Retry is mimicking the reset of kafka offsets, which
+    // will send offsets from 10 since last committed offset in Snowflake is 9)
+    service.insert(records);
+
+    records =
+        TestUtils.createJsonStringSinkRecords(
+            anotherSetOfRecords, anotherSetOfRecords, topic, PARTITION_2);
+
+    // Send records to partition 2 which should not be affected. (Since there were no overlapping
+    // offsets in blob)
+    service.insert(records);
+
+    TestUtils.assertWithRetry(
+        () ->
+            service.getOffset(new TopicPartition(topic, PARTITION))
+                == recordsInPartition1 + anotherSetOfRecords,
+        20,
+        5);
+    TestUtils.assertWithRetry(
+        () ->
+            service.getOffset(new TopicPartition(topic, PARTITION_2))
+                == recordsInPartition2 + anotherSetOfRecords,
+        20,
+        5);
+
+    assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 2;
+    assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
+        == (recordsInPartition1 + anotherSetOfRecords - 1);
+
+    assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName2) == 0;
+    assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName2)
+        == (recordsInPartition2 + anotherSetOfRecords - 1);
+
+    assert TestUtils.getTableSizeStreaming(testTableName)
+        == recordsInPartition1 + anotherSetOfRecords + recordsInPartition2 + anotherSetOfRecords;
+  }
+
+  @Ignore
+  @Test
+  public void testAutoChannelReopen_SinglePartitionsInsertRowsSFException() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    InMemorySinkTaskContext inMemorySinkTaskContext =
+        new InMemorySinkTaskContext(Collections.singleton(topicPartition));
+
+    // This will automatically create a channel for topicPartition.
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(10)
+            .setFlushTime(5)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(inMemorySinkTaskContext)
+            .addTask(testTableName, topicPartition)
+            .build();
+
+    final int recordsInPartition1 = 10;
+    List<SinkRecord> recordsPartition1 =
+        TestUtils.createJsonStringSinkRecords(0, recordsInPartition1, topic, PARTITION);
+
+    List<SinkRecord> records = new ArrayList<>(recordsPartition1);
+
+    service.insert(records);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == recordsInPartition1,
+        20,
+        5);
+
+    ExecutorService executor = Executors.newFixedThreadPool(2);
+
+    //    Future<SnowflakeStreamingIngestChannel> sameChannelFuture = executor.submit(new
+    // OpenChannelForTableTask(testTableName, topic, PARTITION));
+    //    SnowflakeStreamingIngestChannel ingestChannel = sameChannelFuture.get();
+    //    new OpenChannelForTableTask(testTableName, topic, PARTITION).call();
+
+    SnowflakeStreamingIngestClient client =
+        ((SnowflakeSinkServiceV2) service).getStreamingIngestClient();
+    OpenChannelRequest channelRequest =
+        OpenChannelRequest.builder(testChannelName)
+            .setDBName(config.get(Utils.SF_DATABASE))
+            .setSchemaName(config.get(Utils.SF_SCHEMA))
+            .setTableName(this.testTableName)
+            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
+            .build();
+    client.openChannel(channelRequest);
+    Thread.sleep(5_000);
+
+    // send offset 10 - 19
+    final long anotherSetOfRecords = 10;
+    records =
+        TestUtils.createJsonStringSinkRecords(
+            anotherSetOfRecords, anotherSetOfRecords, topic, PARTITION);
+
+    // It will reopen a channel since current channel has been in validated
+    service.insert(records);
+
+    // Will need to retry
+    service.insert(records);
+
+    TestUtils.assertWithRetry(
+        () ->
+            service.getOffset(new TopicPartition(topic, PARTITION))
+                == recordsInPartition1 + anotherSetOfRecords,
+        20,
+        5);
+
+    assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 0;
+    assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
+        == (recordsInPartition1 + anotherSetOfRecords - 1);
   }
 }

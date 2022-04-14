@@ -181,11 +181,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    *
    * <p>TODO: SNOW-473896 - Please note we will get away with Buffering logic in future commits.
    *
-   * @param records record content
+   * @param records records coming from Kafka. Please note, they are not just from single topic and
+   *     partition. It depends on the kafka connect worker node which can consume from multiple
+   *     Topic and multiple Partitions
    */
   @Override
   public void insert(Collection<SinkRecord> records) {
-    // note that records can be empty
+    // note that records can be empty but, we will still need to check for time based flush
     for (SinkRecord record : records) {
       // check if need to handle null value records
       if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
