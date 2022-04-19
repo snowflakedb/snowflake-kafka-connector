@@ -67,8 +67,6 @@ public class TestUtils {
   // profile path
   private static final String PROFILE_PATH = "profile.json";
 
-  private static final String PROFILE_PATH_STREAMING_INGEST = "profile_streaming_qa1.json";
-
   private static final ObjectMapper mapper = new ObjectMapper();
 
   private static Connection conn = null;
@@ -188,23 +186,6 @@ public class TestUtils {
     return generateConnectionToSnowflake(PROFILE_PATH);
   }
 
-  /**
-   * Create snowflake jdbc connection for streaming ingest.
-   *
-   * <p>Please note, snowflake streaming ingest is not yet available in prod accounts, hence we will
-   * have test against a test deployment.
-   *
-   * @return jdbc connection
-   * @throws Exception when error is met
-   */
-  private static Connection getConnectionForStreamingIngest() throws Exception {
-    if (connForStreamingIngestTests != null) {
-      return connForStreamingIngestTests;
-    }
-
-    return generateConnectionToSnowflake(PROFILE_PATH_STREAMING_INGEST);
-  }
-
   /** Given a profile file path name, generate a connection by constructing a snowflake driver. */
   private static Connection generateConnectionToSnowflake(final String profileFileName)
       throws Exception {
@@ -284,17 +265,6 @@ public class TestUtils {
     }
   }
 
-  static ResultSet executeQueryForStreaming(String query) {
-    try {
-      Statement statement = getConnectionForStreamingIngest().createStatement();
-      return statement.executeQuery(query);
-    }
-    // if ANY exceptions occur, an illegal state has been reached
-    catch (Exception e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
   /**
    * drop a table
    *
@@ -306,28 +276,11 @@ public class TestUtils {
     executeQuery(query);
   }
 
-  /**
-   * drop a table
-   *
-   * @param tableName table name
-   */
-  public static void dropTableStreaming(String tableName) {
-    String query = "drop table if exists " + tableName;
-
-    executeQueryForStreaming(query);
-  }
-
   /** Select * from table */
   public static ResultSet showTable(String tableName) {
     String query = "select * from " + tableName;
 
     return executeQuery(query);
-  }
-
-  public static ResultSet showTableForStreaming(String tableName) {
-    String query = "select * from " + tableName;
-
-    return executeQueryForStreaming(query);
   }
 
   static String getDesRsaKey() {
@@ -401,13 +354,6 @@ public class TestUtils {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
   }
 
-  /* Get connection service instance which connects to test instance of snowflake which has streaming ingest enabled */
-  public static SnowflakeConnectionService getConnectionServiceForStreamingIngest() {
-    return SnowflakeConnectionServiceFactory.builder()
-        .setProperties(getConfFromFileName(PROFILE_PATH_STREAMING_INGEST))
-        .build();
-  }
-
   /**
    * @param configuration map of properties required to set while getting the connection
    * @return snowflake connection for given config map
@@ -445,18 +391,6 @@ public class TestUtils {
   public static int tableSize(String tableName) throws SQLException {
     String query = "show tables like '" + tableName + "'";
     ResultSet result = executeQuery(query);
-
-    if (result.next()) {
-      return result.getInt("rows");
-    }
-
-    return 0;
-  }
-
-  /* Get size of table (QA1 deployment) */
-  public static int getTableSizeStreaming(String tableName) throws SQLException {
-    String query = "show tables like '" + tableName + "'";
-    ResultSet result = executeQueryForStreaming(query);
 
     if (result.next()) {
       return result.getInt("rows");
