@@ -11,8 +11,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
@@ -20,12 +18,11 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class TopicPartitionChannelIT {
 
-  private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreamingIngest();
+  private SnowflakeConnectionService conn = TestUtils.getConnectionService();
   private String testTableName;
 
   private static int PARTITION = 0, PARTITION_2 = 1;
@@ -48,10 +45,9 @@ public class TopicPartitionChannelIT {
 
   @After
   public void afterEach() {
-    TestUtils.dropTableStreaming(testTableName);
+    TestUtils.dropTable(testTableName);
   }
 
-  @Ignore
   @Test
   public void testAutoChannelReopenOn_OffsetTokenSFException() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -105,7 +101,6 @@ public class TopicPartitionChannelIT {
   }
 
   /* This will automatically open the channel. */
-  @Ignore
   @Test
   public void testInsertRowsOnChannelClosed() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -164,7 +159,6 @@ public class TopicPartitionChannelIT {
    * <p>Insert New offsets -> The insert operation should automatically create a new channel and
    * insert data.
    */
-  @Ignore
   @Test
   public void testAutoChannelReopen_InsertRowsSFException() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -242,7 +236,6 @@ public class TopicPartitionChannelIT {
    *
    * <p>Eventually 40 records should be present in snowflake table
    */
-  @Ignore
   @Test
   public void testAutoChannelReopen_MultiplePartitionsInsertRowsSFException() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -345,11 +338,10 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName2)
         == (recordsInPartition2 + anotherSetOfRecords - 1);
 
-    assert TestUtils.getTableSizeStreaming(testTableName)
+    assert TestUtils.tableSize(testTableName)
         == recordsInPartition1 + anotherSetOfRecords + recordsInPartition2 + anotherSetOfRecords;
   }
 
-  @Ignore
   @Test
   public void testAutoChannelReopen_SinglePartitionsInsertRowsSFException() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -380,13 +372,6 @@ public class TopicPartitionChannelIT {
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == recordsInPartition1,
         20,
         5);
-
-    ExecutorService executor = Executors.newFixedThreadPool(2);
-
-    //    Future<SnowflakeStreamingIngestChannel> sameChannelFuture = executor.submit(new
-    // OpenChannelForTableTask(testTableName, topic, PARTITION));
-    //    SnowflakeStreamingIngestChannel ingestChannel = sameChannelFuture.get();
-    //    new OpenChannelForTableTask(testTableName, topic, PARTITION).call();
 
     SnowflakeStreamingIngestClient client =
         ((SnowflakeSinkServiceV2) service).getStreamingIngestClient();
@@ -419,7 +404,7 @@ public class TopicPartitionChannelIT {
         20,
         5);
 
-    assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 0;
+    assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 2;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (recordsInPartition1 + anotherSetOfRecords - 1);
   }

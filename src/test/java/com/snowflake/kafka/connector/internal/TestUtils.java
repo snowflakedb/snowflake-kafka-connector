@@ -150,11 +150,6 @@ public class TestUtils {
     // enable test query mark
     configuration.put(Utils.TASK_ID, "");
 
-    if (profileFileName.equalsIgnoreCase(PROFILE_PATH_STREAMING_INGEST)) {
-      configuration.put(Utils.SF_ROLE, getProfile(profileFileName).get(ROLE).asText());
-      configuration.put(Utils.TASK_ID, "0");
-    }
-
     return configuration;
   }
 
@@ -249,7 +244,13 @@ public class TestUtils {
 
   /* Get configuration map from profile path. Used against prod deployment of Snowflake */
   public static Map<String, String> getConfForStreaming() {
-    return getConfFromFileName(PROFILE_PATH_STREAMING_INGEST);
+    Map<String, String> configuration = getConfFromFileName(PROFILE_PATH);
+
+    // On top of existing configurations, add
+    configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
+    configuration.put(Utils.TASK_ID, "0");
+
+    return configuration;
   }
 
   /** @return JDBC config with encrypted private key */
@@ -317,7 +318,7 @@ public class TestUtils {
   }
 
   /** Select * from table */
-  static ResultSet showTable(String tableName) {
+  public static ResultSet showTable(String tableName) {
     String query = "select * from " + tableName;
 
     return executeQuery(query);
@@ -682,7 +683,7 @@ public class TestUtils {
   public static long getClientSequencerForChannelAndTable(
       String tableName, final String channelName) throws SQLException {
     String query = "show channels in table " + tableName;
-    ResultSet result = executeQueryForStreaming(query);
+    ResultSet result = executeQuery(query);
 
     while (result.next()) {
       if (result.getString("name").equalsIgnoreCase(channelName)) {
@@ -701,7 +702,7 @@ public class TestUtils {
   public static long getOffsetTokenForChannelAndTable(String tableName, final String channelName)
       throws SQLException {
     String query = "show channels in table " + tableName;
-    ResultSet result = executeQueryForStreaming(query);
+    ResultSet result = executeQuery(query);
 
     while (result.next()) {
       if (result.getString("name").equalsIgnoreCase(channelName)) {
