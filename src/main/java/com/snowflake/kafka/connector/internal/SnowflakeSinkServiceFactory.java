@@ -90,6 +90,14 @@ public class SnowflakeSinkServiceFactory {
       return this;
     }
 
+    public SnowflakeSinkServiceBuilder setMaxCleanerRetries(
+            int retries
+    ) {
+      this.service.setMaxCleanerRetries(retries);
+      logInfo("set Cleaner Retries to {} \n", retries);
+      return this;
+    }
+
     public SnowflakeSinkService build() {
       logInfo("{} created", SnowflakeSinkService.class.getName());
       return service;
