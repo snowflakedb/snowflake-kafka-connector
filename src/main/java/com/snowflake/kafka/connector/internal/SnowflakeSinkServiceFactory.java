@@ -144,6 +144,14 @@ public class SnowflakeSinkServiceFactory {
     public SnowflakeSinkServiceBuilder setSinkTaskContext(SinkTaskContext sinkTaskContext) {
       this.service.setSinkTaskContext(sinkTaskContext);
       return this;
+      }
+
+    public SnowflakeSinkServiceBuilder setMaxCleanerRetries(
+            int retries
+    ) {
+      this.service.setMaxCleanerRetries(retries);
+      logInfo("set Cleaner Retries to {} \n", retries);
+      return this;
     }
 
     public SnowflakeSinkService build() {
@@ -152,3 +160,4 @@ public class SnowflakeSinkServiceFactory {
     }
   }
 }
+v  

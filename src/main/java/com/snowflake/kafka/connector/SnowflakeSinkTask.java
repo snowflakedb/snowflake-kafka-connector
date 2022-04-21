@@ -158,6 +158,14 @@ public class SnowflakeSinkTask extends SinkTask {
               parsedConfig.get(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG));
     }
 
+    final int maxCleanerRetries =
+            Integer.parseInt(
+                    parsedConfig.getOrDefault(
+                            SnowflakeSinkConnectorConfig.SNOWFLAKE_CLEANER_MAX_RETRIES_CONFIG,
+                            SnowflakeSinkConnectorConfig.SNOWFLAKE_CLEANER_MAX_RETRIES_DEFAULT
+                    )
+            );
+
     // we would have already validated the config inside SFConnector start()
     boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
     if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.JMX_OPT)) {
@@ -212,6 +220,7 @@ public class SnowflakeSinkTask extends SinkTask {
             .setDeliveryGuarantee(ingestionDeliveryGuarantee)
             .setErrorReporter(kafkaRecordErrorReporter)
             .setSinkTaskContext(this.context)
+            .setMaxCleanerRetries(maxCleanerRetries)
             .build();
 
     LOGGER.info(

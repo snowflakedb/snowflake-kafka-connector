@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
@@ -37,6 +38,7 @@ import net.snowflake.ingest.connection.ClientStatusResponse;
 import net.snowflake.ingest.connection.ConfigureClientResponse;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,9 +74,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   private boolean isStopped;
   private final SnowflakeTelemetryService telemetryService;
   private Map<String, String> topic2TableMap;
+  private int maxCleanerRetries;
 
   // Behavior to be set at the start of connector start. (For tombstone records)
   private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues;
+  private AtomicReference<Exception> failedCleanerException;
 
   // default is true unless the configuration provided is false;
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
@@ -103,6 +107,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     // Setting the default value in constructor
     // meaning it will not ignore the null values (Tombstone records wont be ignored/filtered)
     this.behaviorOnNullValues = SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
+    this.failedCleanerException = new AtomicReference<>();
   }
 
   /**
@@ -130,6 +135,16 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
   @Override
   public void insert(final Collection<SinkRecord> records) {
+    Exception potentialEx = failedCleanerException.get();
+    if (potentialEx != null) {
+      for (ServiceContext pipe : pipes.values()) {
+        // flush current buffers
+        pipe.flushBuffer();
+      }
+
+      throw new ConnectException("Cleaner encountered an exception", potentialEx);
+    }
+
     // note that records can be empty
     for (SinkRecord record : records) {
       // check if need to handle null value records
@@ -316,6 +331,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   public void setCustomJMXMetrics(boolean enableJMX) {
     this.enableCustomJMXMonitoring = enableJMX;
   }
+
+  @Override
+  public void setMaxCleanerRetries(int num) {
+    this.maxCleanerRetries = num;
+  }
+
 
   @Override
   public SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig() {
@@ -575,6 +596,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
                     e.getMessage(),
                     e.getStackTrace());
                 telemetryService.reportKafkaConnectFatalError(e.getMessage());
+                if (maxCleanerRetries >= 0 &&  pipeStatus.getCleanerRestartCount() == maxCleanerRetries) {
+                  failedCleanerException.set(e);
+                  break;
+                }
                 forceCleanerFileReset = true;
               }
             }

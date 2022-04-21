@@ -439,6 +439,10 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     this.memoryUsage.set(0l);
   }
 
+  public long getCleanerRestartCount() {
+    return this.cleanerRestartCount.get();
+  }
+
   // --------------- For testing --------------- //
 
   @VisibleForTesting
