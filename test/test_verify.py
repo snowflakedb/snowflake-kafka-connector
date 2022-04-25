@@ -412,7 +412,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
 
     from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
-    from test_suit.test_snowpipe_streaming_string_avro import TestSnowpipeStreamingStringAvro
+    from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
 
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
@@ -434,7 +434,10 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     # Run this test on both confluent and apache kafka
     testSnowpipeStreamingStringJson = TestSnowpipeStreamingStringJson(driver, nameSalt)
-    testSnowpipeStreamingStringAvro = TestSnowpipeStreamingStringAvro(driver, nameSalt)
+
+    # will run this only in confluent cloud since, since in apache kafka e2e tests, we don't start schema registry
+    testSnowpipeStreamingStringAvro = TestSnowpipeStreamingStringAvroSR(driver, nameSalt)
+
 
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
@@ -449,7 +452,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     if testSet == "confluent":
         testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False, True, True]
     elif testSet == "apache":
-        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False, True, True]
+        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False, True, False]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 

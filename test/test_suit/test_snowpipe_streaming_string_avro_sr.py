@@ -2,10 +2,12 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 from time import sleep
 from confluent_kafka import avro
 
-class TestSnowpipeStreamingStringAvro:
+# SR -> Schema Registry
+# Runs only in confluent test suite environment
+class TestSnowpipeStreamingStringAvroSR:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_snowpipe_streaming_string_avro"
+        self.fileName = "travis_correct_snowpipe_streaming_string_avro_sr"
         self.topic = self.fileName + nameSalt
 
         self.topicNum = 1
