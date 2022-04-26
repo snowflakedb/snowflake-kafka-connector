@@ -1,6 +1,6 @@
 from confluent_kafka import Producer
 from confluent_kafka.avro import AvroProducer
-from confluent_kafka.admin import AdminClient, NewTopic
+from confluent_kafka.admin import AdminClient, NewTopic, ConfigResource, NewPartitions
 from time import sleep
 from datetime import datetime
 
@@ -135,6 +135,35 @@ class KafkaTest:
     def createTopics(self, topicName, partitionNum=1, replicationNum=1):
         self.adminClient.create_topics([NewTopic(topicName, partitionNum, replicationNum)])
 
+    def deleteTopic(self, topicName):
+        deleted_topics = self.adminClient.delete_topics([topicName])
+        for topic, f in deleted_topics.items():
+            try:
+                f.result()  # The result itself is None
+                print("Topic deletion successful:{}".format(topic))
+            except Exception as e:
+                print("Failed to delete topic {}: {}".format(topicName, e))
+
+    def describeTopic(self, topicName):
+        configs = self.adminClient.describe_configs(resources=[ConfigResource(restype=ConfigResource.Type.TOPIC, name=topicName)])
+        for config_resource, f in configs.items():
+            try:
+                configs = f.result()
+                print("Topic {} config is as follows:".format(topicName))
+                for key, value in configs.items():
+                    print(key, ':', value)
+            except Exception as e:
+                print("Failed to describe topic {}: {}".format(topicName, e))
+
+    def createPartitions(self, topicName, new_total_partitions):
+        kafka_partitions = self.adminClient.create_partitions(new_partitions=[NewPartitions(topicName, new_total_partitions)])
+        for topic, f in kafka_partitions.items():
+            try:
+                f.result()  # The result itself is None
+                print("Topic {} partitions created".format(topic))
+            except Exception as e:
+                print("Failed to create topic partitions {}: {}".format(topic, e))
+
     def sendBytesData(self, topic, value, key=[], partition=0, headers=[]):
         if len(key) == 0:
             for i, v in enumerate(value):
@@ -251,6 +280,8 @@ class KafkaTest:
             credentialJson = json.load(f)
             testHost = credentialJson["host"]
             testUser = credentialJson["user"]
+            # required for Snowpipe Streaming
+            testRole = credentialJson["role"]
             testDatabase = credentialJson["database"]
             testSchema = credentialJson["schema"]
             pk = credentialJson["private_key"]
@@ -276,7 +307,8 @@ class KafkaTest:
                 .replace("SNOWFLAKE_SCHEMA", testSchema) \
                 .replace("CONFLUENT_SCHEMA_REGISTRY", self.schemaRegistryAddress) \
                 .replace("SNOWFLAKE_TEST_TOPIC", snowflake_connector_name) \
-                .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name)
+                .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name) \
+                .replace("SNOWFLAKE_ROLE", testRole)
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
                 fw.write(fileContent)
 
@@ -379,6 +411,9 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
     from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
 
+    from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
+    from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
+
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
     testStringAvro = TestStringAvro(driver, nameSalt)
@@ -397,19 +432,27 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     testStringJsonProxy = TestStringJsonProxy(driver, nameSalt)
 
+    # Run this test on both confluent and apache kafka
+    testSnowpipeStreamingStringJson = TestSnowpipeStreamingStringJson(driver, nameSalt)
+
+    # will run this only in confluent cloud since, since in apache kafka e2e tests, we don't start schema registry
+    testSnowpipeStreamingStringAvro = TestSnowpipeStreamingStringAvroSR(driver, nameSalt)
+
+
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
     testSuitList1 = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
                      testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
-                     testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf]
+                     testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
+                     testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro]
 
     # Adding StringJsonProxy test at the end
-    testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True]
+    testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True, True, True]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False]
+        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False, True, True]
     elif testSet == "apache":
-        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False]
+        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False, True, False]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
