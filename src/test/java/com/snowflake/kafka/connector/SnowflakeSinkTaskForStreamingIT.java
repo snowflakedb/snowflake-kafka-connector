@@ -3,11 +3,12 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -23,7 +24,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -33,13 +33,13 @@ import org.junit.Test;
 public class SnowflakeSinkTaskForStreamingIT {
 
   private String topicName;
-  private SnowflakeConnectionService snowflakeConnectionService;
   private static int partition = 0;
+  private TopicPartition topicPartition;
 
   @Before
   public void setup() {
     topicName = TestUtils.randomTableName();
-    snowflakeConnectionService = TestUtils.getConnectionServiceForStreamingIngest();
+    topicPartition = new TopicPartition(topicName, partition);
   }
 
   @After
@@ -47,7 +47,6 @@ public class SnowflakeSinkTaskForStreamingIT {
     TestUtils.dropTable(topicName);
   }
 
-  @Ignore
   @Test
   public void testSinkTask() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -58,6 +57,8 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
+    // Inits the sinktaskcontext
+    sinkTask.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
     sinkTask.start(config);
     ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
     topicPartitions.add(new TopicPartition(topicName, partition));
@@ -80,7 +81,6 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask.stop();
   }
 
-  @Ignore
   @Test
   public void testSinkTaskWithMultipleOpenClose() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -90,6 +90,8 @@ public class SnowflakeSinkTaskForStreamingIT {
     config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
+    // Inits the sinktaskcontext
+    sinkTask.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
 
     sinkTask.start(config);
     ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
@@ -145,7 +147,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     sinkTask.stop();
 
-    ResultSet resultSet = TestUtils.showTableForStreaming(topicName);
+    ResultSet resultSet = TestUtils.showTable(topicName);
     LinkedList<String> contentResult = new LinkedList<>();
     LinkedList<String> metadataResult = new LinkedList<>();
 

@@ -3,8 +3,11 @@ package com.snowflake.kafka.connector.internal.streaming;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.ErrantRecordReporter;
+import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
 /* In memory implementation of SinkTaskContext used for testing */
@@ -56,6 +59,11 @@ public class InMemorySinkTaskContext implements SinkTaskContext {
   public void requestCommit() {}
 
   public ErrantRecordReporter errantRecordReporter() {
-    throw new UnsupportedOperationException("ErrantRecordReporter is undefined for this class");
+    return new ErrantRecordReporter() {
+      @Override
+      public Future<Void> report(SinkRecord record, Throwable error) {
+        return Executors.newCachedThreadPool().submit(() -> null);
+      }
+    };
   }
 }
