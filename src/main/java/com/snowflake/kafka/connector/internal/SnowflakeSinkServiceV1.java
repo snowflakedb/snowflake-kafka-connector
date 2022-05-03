@@ -61,7 +61,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   private boolean isStopped;
   private final SnowflakeTelemetryService telemetryService;
   private Map<String, String> topic2TableMap;
-  private int maxCleanerRetries;
+  private long maxCleanerRetries;
 
   // Behavior to be set at the start of connector start. (For tombstone records)
   private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues;
@@ -112,15 +112,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
   @Override
   public void insert(final Collection<SinkRecord> records) {
-    Exception potentialEx = failedCleanerException.get();
-    if (potentialEx != null) {
-      for (ServiceContext pipe : pipes.values()) {
-        // flush current buffers
-        pipe.flushBuffer();
-      }
-
-      throw new ConnectException("Cleaner encountered an exception", potentialEx);
-    }
+    handleCleanerThreadException();
 
     // note that records can be empty
     for (SinkRecord record : records) {
@@ -375,7 +367,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   }
 
   @Override
-  public void setMaxCleanerRetries(int num) {
+  public void setMaxCleanerRetries(long num) {
     this.maxCleanerRetries = num;
   }
 
@@ -638,7 +630,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
                     e.getMessage(),
                     e.getStackTrace());
                 telemetryService.reportKafkaFatalError(e.getMessage());
-                if (maxCleanerRetries >= 0 &&  pipeStatus.cleanerRestartCount.intValue() == maxCleanerRetries) {
+                if (maxCleanerRetries >= 0 &&  pipeStatus.cleanerRestartCount.get() == maxCleanerRetries) {
                   failedCleanerException.set(e);
                   break;
                 }
@@ -1246,5 +1238,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       return pipes.get(pipeName).isBufferEmpty();
     }
     return false;
+  }
+
+  private void handleCleanerThreadException() {
+    Exception potentialEx = failedCleanerException.get();
+    if (potentialEx != null) {
+      throw new ConnectException("Cleaner encountered an exception", potentialEx);
+    }
   }
 }

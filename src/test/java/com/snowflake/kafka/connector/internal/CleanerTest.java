@@ -1,7 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -26,7 +28,7 @@ public class CleanerTest {
 
         // throw error in cleaner thread
         SnowflakeTelemetryService telemetryService = mock(SnowflakeTelemetryService.class);
-        doThrow(new RuntimeException("Error to stop Cleaner thread")).when(telemetryService).reportKafkaPipeUsage(any(), anyBoolean());
+        doThrow(new RuntimeException("Error to stop Cleaner thread")).when(telemetryService).reportKafkaPartitionUsage(any(), anyBoolean());
 
 
         SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
@@ -37,10 +39,11 @@ public class CleanerTest {
         SnowflakeSinkService service =
                 SnowflakeSinkServiceFactory.builder(conn)
                         .setRecordNumber(1)
-                        .addTask(table, topic, partition)
+                        .addTask(table, new TopicPartition(topic, partition))
                         .setMaxCleanerRetries(0)
                         .build();
-        service.startTask(table, topic, partition);
+        service.startTask(table, new TopicPartition(topic, partition));
+
 
         SnowflakeConverter converter = new SnowflakeJsonConverter();
         SchemaAndValue input =
@@ -49,7 +52,9 @@ public class CleanerTest {
         SinkRecord record1 =
                 new SinkRecord(
                         topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
-        // trigger cleaner failure
+
+        // trigger cleaner failure.
+        // The first insert will initialize the cleaner thread which would throw the mocked RuntimeException above
         service.insert(Collections.singletonList(record1));
         SinkRecord record2 =
                 new SinkRecord(

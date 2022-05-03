@@ -387,7 +387,7 @@ public class SnowflakeSinkConnectorConfig {
                 + " testing)")
         .define(
             SNOWFLAKE_CLEANER_MAX_RETRIES_CONFIG,
-            Type.INT,
+            Type.LONG,
             SNOWFLAKE_CLEANER_MAX_RETRIES_DEFAULT,
             Importance.LOW,
             "Number of times to retry a failed cleaner operation. Defaults to unbounded retries.",
