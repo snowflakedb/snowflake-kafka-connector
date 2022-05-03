@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
@@ -59,7 +61,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // Using setupComplete to synchronize
   private boolean setupComplete;
 
-  private int VALIDATION_NETWORK_TIMEOUT = 45000;
+  private static final long VALIDATION_NETWORK_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(45);
 
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeSinkConnector() {
@@ -235,7 +237,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
       testConnection =
           SnowflakeConnectionServiceFactory.builder()
                   .setProperties(connectorConfigs)
-                  .setNetworkTimeout(VALIDATION_NETWORK_TIMEOUT)
+                  .setNetworkTimeout(VALIDATION_NETWORK_TIMEOUT_MS)
                   .build();
 
     } catch (SnowflakeKafkaConnectorException e) {
