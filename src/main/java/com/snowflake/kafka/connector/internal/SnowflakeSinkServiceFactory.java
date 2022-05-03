@@ -146,8 +146,15 @@ public class SnowflakeSinkServiceFactory {
       return this;
       }
 
+
+    /**
+     * Set Max Retries for Cleaner thread for the respective SnowflakeSinkService instance at runtime.
+     *
+     * @param retries maximum cleaner thread retries
+     * @return Builder
+     */
     public SnowflakeSinkServiceBuilder setMaxCleanerRetries(
-            int retries
+            long retries
     ) {
       this.service.setMaxCleanerRetries(retries);
       logInfo("set Cleaner Retries to {} \n", retries);
@@ -160,4 +167,3 @@ public class SnowflakeSinkServiceFactory {
     }
   }
 }
-v  

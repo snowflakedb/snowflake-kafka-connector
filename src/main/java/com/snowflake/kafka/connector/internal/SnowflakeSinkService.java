@@ -131,8 +131,8 @@ public interface SnowflakeSinkService {
   /* Should we emit Custom SF JMX Metrics to Mbean Server? If true (Default), we emit in form of SimpleMbeans */
   void setCustomJMXMetrics(boolean enableJMX);
 
-  /* Set the behavior on what action to perform when this( @see com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BEHAVIOR_ON_NULL_VALUES_CONFIG ) config is set. */
-  void setMaxCleanerRetries(int retries);
+  /* Set the maximum cleaner thread retries upon failure  */
+  void setMaxCleanerRetries(long retries);
 
 
   /* Only used in testing and verifying what was the passed value of this behavior from config to sink service*/

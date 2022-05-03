@@ -158,8 +158,8 @@ public class SnowflakeSinkTask extends SinkTask {
               parsedConfig.get(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG));
     }
 
-    final int maxCleanerRetries =
-            Integer.parseInt(
+    final long maxCleanerRetries =
+            Long.parseLong(
                     parsedConfig.getOrDefault(
                             SnowflakeSinkConnectorConfig.SNOWFLAKE_CLEANER_MAX_RETRIES_CONFIG,
                             SnowflakeSinkConnectorConfig.SNOWFLAKE_CLEANER_MAX_RETRIES_DEFAULT
