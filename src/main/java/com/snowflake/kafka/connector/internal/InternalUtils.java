@@ -112,9 +112,10 @@ class InternalUtils {
    *
    * @param conf a map contains all parameters
    * @param sslEnabled if ssl is enabled
+   * @param networkTimeoutMS timeout for jdbc network calls in ms
    * @return a Properties instance
    */
-  static Properties createProperties(Map<String, String> conf, boolean sslEnabled, int networkTimeout) {
+  static Properties createProperties(Map<String, String> conf, boolean sslEnabled, long networkTimeoutMS) {
     Properties properties = new Properties();
 
     // decrypt rsa key
@@ -162,8 +163,8 @@ class InternalUtils {
       properties.put(JDBC_SSL, "off");
     }
 
-    if (networkTimeout != 0) {
-      properties.put(JDBC_NETWORK_TIMEOUT, networkTimeout);
+    if (networkTimeoutMS != 0) {
+      properties.put(JDBC_NETWORK_TIMEOUT, networkTimeoutMS);
     }
     // put values for optional parameters
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");

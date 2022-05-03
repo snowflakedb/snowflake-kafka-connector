@@ -20,7 +20,7 @@ public class SnowflakeConnectionServiceFactory {
     private String taskID = "-1";
     // 0 specifies no network timeout is set
     // https://docs.snowflake.com/en/user-guide/jdbc-parameters.html#networktimeout
-    private int networkTimeOut = 0;
+    private long networkTimeOut = 0;
 
     // whether kafka is hosted on premise or on confluent cloud.
     // This info is provided in the connector configuration
@@ -53,7 +53,7 @@ public class SnowflakeConnectionServiceFactory {
       return this;
     }
 
-    public SnowflakeConnectionServiceBuilder setNetworkTimeout(int timeout) {
+    public SnowflakeConnectionServiceBuilder setNetworkTimeout(long timeout) {
       this.networkTimeOut = timeout;
       return this;
     }
