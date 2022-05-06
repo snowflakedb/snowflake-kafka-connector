@@ -560,7 +560,11 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
-    logInfo("list stage {} retrieved {} file names", stageName, result.size());
+    logInfo(
+        "list stage {} with prefix:{} retrieved file names size:{}",
+        stageName,
+        prefix,
+        result.size());
     return result;
   }
 
