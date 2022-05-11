@@ -466,6 +466,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     }
 
     private void init(long recordOffset) {
+      final long startTime = System.currentTimeMillis();
       logInfo("init pipe: {}", pipeName);
       SnowflakeTelemetryPipeCreation pipeCreation =
           new SnowflakeTelemetryPipeCreation(tableName, stageName, pipeName);
@@ -481,6 +482,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       } catch (Exception e) {
         logWarn("Cleaner and Flusher threads shut down before initialization");
       }
+      logInfo(
+          "init pipe:{} completed in time:{} ms",
+          pipeName,
+          (System.currentTimeMillis() - startTime));
     }
 
     private boolean resetCleanerFiles() {
@@ -512,6 +517,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     private void startCleaner(long recordOffset, SnowflakeTelemetryPipeCreation pipeCreation) {
       // When cleaner start, scan stage for all files of this pipe.
       // If we know that we are going to reprocess the file, then safely delete the file.
+      LOGGER.info(
+          "Starting cleaner for pipe:{}. First received offset from Kafka:{}",
+          pipeName,
+          recordOffset);
       List<String> currentFilesOnStage = conn.listStage(stageName, prefix);
       List<String> reprocessFiles = new ArrayList<>();
 
@@ -567,8 +576,11 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
               try {
                 Thread.sleep(CLEAN_TIME);
                 logInfo(
-                    "Purging files already present on the stage before start. ReprocessFileSize:{}",
-                    reprocessFiles.size());
+                    "Purging files already present on the stage before start for pipe:{}"
+                        + " ReprocessFileSize:{}, filesToPurge:{}",
+                    pipeName,
+                    reprocessFiles.size(),
+                    Arrays.toString(reprocessFiles.toArray()));
                 purge(reprocessFiles);
               } catch (Exception e) {
                 logError(
