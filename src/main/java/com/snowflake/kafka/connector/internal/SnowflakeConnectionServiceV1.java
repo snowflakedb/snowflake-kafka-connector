@@ -501,8 +501,14 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       // get
       InputStream file;
       try {
+        logInfo(
+            "Downloading file: {} from stage: {} to move to table stage: {}",
+            name,
+            stageName,
+            tableName);
         file = sfconn.downloadStream(stageName, name, true);
       } catch (Exception e) {
+        logError("Failed to download file:{} from Snowflake Internal Stage", name);
         throw SnowflakeErrors.ERROR_2002.getException(e);
       }
       // put
@@ -514,6 +520,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
             FileNameUtils.removePrefixAndGZFromFileName(name),
             true);
       } catch (SQLException e) {
+        logError("Failed to upload file:{} to Table Stage with tableName:{}", name, tableName);
         throw SnowflakeErrors.ERROR_2003.getException(e);
       }
       logInfo("moved file: {} from stage: {} to table stage: {}", name, stageName, tableName);
@@ -558,7 +565,11 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
-    logInfo("list stage {} retrieved {} file names", stageName, result.size());
+    logInfo(
+        "list stage {} with prefix:{} retrieved file names size:{}",
+        stageName,
+        prefix,
+        result.size());
     return result;
   }
 
