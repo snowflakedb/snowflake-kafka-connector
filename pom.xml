@@ -68,6 +68,10 @@
                 <enabled>true</enabled>
             </snapshots>
         </repository>
+        <repository>
+            <id>local-maven-repo</id>
+            <url>file:///Users/japatel/Desktop/Kafka-Connector/snowflake-kafka-connector/local-maven-repo</url>
+        </repository>
     </repositories>
 
     <distributionManagement>
@@ -317,10 +321,16 @@
         </dependency>
 
         <!-- Ingest SDK for copy staged file into snowflake table -->
+<!--        <dependency>-->
+<!--            <groupId>net.snowflake</groupId>-->
+<!--            <artifactId>snowflake-ingest-sdk</artifactId>-->
+<!--            <version>0.10.7</version>-->
+<!--        </dependency>-->
+
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-ingest-sdk</artifactId>
-            <version>0.10.7</version>
+            <version>1.0</version>
         </dependency>
 
         <dependency>
