@@ -912,14 +912,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
             loadedFiles,
             failedFiles);
       }
-      logDebug(
-          "Purging loaded files for pipe:{}, loadedFileCount:{}", pipeName, loadedFiles.size());
       purge(loadedFiles);
 
-      logDebug(
-          "Moving failed files for pipe:{} to tableStage failedFileCount:{}",
-          pipeName,
-          failedFiles.size());
       moveToTableStage(failedFiles);
 
       fileListLock.lock();
@@ -976,13 +970,23 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
     private void purge(List<String> files) {
       if (!files.isEmpty()) {
+        logDebug(
+                "Purging loaded files for pipe:{}, loadedFileCount:{}, loadedFiles:{}",
+                pipeName,
+                files.size(),
+                Arrays.toString(files.toArray()));
         conn.purgeStage(stageName, files);
       }
     }
 
-    private void moveToTableStage(List<String> files) {
-      if (!files.isEmpty()) {
-        conn.moveToTableStage(tableName, stageName, files);
+    private void moveToTableStage(List<String> failedFiles) {
+      if (!failedFiles.isEmpty()) {
+        logDebug(
+                "Moving failed files for pipe:{} to tableStage failedFileCount:{}, failedFiles:{}",
+                pipeName,
+                failedFiles.size(),
+                Arrays.toString(failedFiles.toArray()));
+        conn.moveToTableStage(tableName, stageName, failedFiles);
       }
     }
 
