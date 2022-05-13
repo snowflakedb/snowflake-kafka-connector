@@ -69,7 +69,7 @@ public interface SnowflakeSinkService {
    *
    * <p>Sets the arePartitionsClosed variable to true. (Only after checking if it was false)
    */
-  void setPartitionsClosedToTrue();
+  void setPartitionsClosed(boolean toValue);
 
   /**
    * retrieve sink service status

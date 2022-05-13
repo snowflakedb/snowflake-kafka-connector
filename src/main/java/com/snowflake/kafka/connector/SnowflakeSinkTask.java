@@ -62,7 +62,7 @@ public class SnowflakeSinkTask extends SinkTask {
 
   private SnowflakeConnectionService getConnection() {
     try {
-      waitFor(() -> conn != null);
+      waitFor(() -> conn != null, this.id);
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_5013.getException();
     }
@@ -81,7 +81,7 @@ public class SnowflakeSinkTask extends SinkTask {
 
   private SnowflakeSinkService getSink() {
     try {
-      waitFor(() -> sink != null && !sink.arePartitionsClosed());
+      waitFor(() -> sink != null, this.id);
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_5014.getException();
     }
@@ -174,7 +174,7 @@ public class SnowflakeSinkTask extends SinkTask {
   public void stop() {
     LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:stop", this.id));
     if (this.sink != null) {
-      this.sink.setPartitionsClosedToTrue(); // close cleaner thread
+      this.sink.closeAll(); // close cleaner thread from execution
     }
   }
 
@@ -260,7 +260,7 @@ public class SnowflakeSinkTask extends SinkTask {
         Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit {}", this.id, offsets.size()));
 
     // return an empty map means that offset commitment is not desired
-    if (sink == null || sink.arePartitionsClosed()) {
+    if (sink == null) {
       LOGGER.warn(
           Logging.logMessage(
               "SnowflakeSinkTask[ID:{}]: sink " + "not initialized or closed before preCommit",
@@ -324,12 +324,13 @@ public class SnowflakeSinkTask extends SinkTask {
    *
    * @param func status checker
    */
-  private static void waitFor(Supplier<Boolean> func)
+  private static void waitFor(Supplier<Boolean> func, final String taskId)
       throws InterruptedException, TimeoutException {
     for (int i = 0; i < REPEAT_TIME; i++) {
       if (func.get()) {
         return;
       }
+      LOGGER.info("SnowflakeSinkTask[ID:{}]:Wait For:{} ms in round:{}", taskId, WAIT_TIME, i);
       Thread.sleep(WAIT_TIME);
     }
     throw new TimeoutException();

@@ -49,8 +49,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   private final Map<String, ServiceContext> pipes;
   private final RecordService recordService;
 
-  // Boolean to indicate if partitions were recently closed
-  private volatile boolean arePartitionsClosed;
   private final SnowflakeTelemetryService telemetryService;
   private Map<String, String> topic2TableMap;
 
@@ -72,7 +70,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     this.pipes = new HashMap<>();
     this.conn = conn;
     this.recordService = new RecordService();
-    this.arePartitionsClosed = false;
     this.telemetryService = conn.getTelemetryClient();
     this.topic2TableMap = new HashMap<>();
 
@@ -224,7 +221,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
   @Override
   public void close(Collection<TopicPartition> partitions) {
-    setPartitionsClosedToTrue();
     partitions.forEach(
         tp -> {
           String name = getNameIndex(tp.topic(), tp.partition());
@@ -253,7 +249,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
   @Override
   public void closeAll() {
-    this.arePartitionsClosed = true; // release all cleaner and flusher threads
     pipes.forEach(
         (name, context) -> {
           context.close();
@@ -263,18 +258,13 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   }
 
   @Override
-  public void setPartitionsClosedToTrue() {
-    if (!this.arePartitionsClosed) {
-      LOGGER.info(
-          "Set arePartitionsClosed to true for pipes/partitions:{}",
-          Arrays.toString(this.pipes.entrySet().toArray()));
-      this.arePartitionsClosed = true; // release all cleaner and flusher threads
-    }
+  public void setPartitionsClosed(boolean toValue) {
+    throw new UnsupportedOperationException("setPartitionsClosed is not implemented for:{}" + this.getClass().getName());
   }
 
   @Override
   public boolean arePartitionsClosed() {
-    return this.arePartitionsClosed;
+    throw new UnsupportedOperationException("arePartitionsClosed is not implemented for:{}" + this.getClass().getName());
   }
 
   @Override
@@ -407,6 +397,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     private final Lock bufferLock;
     private final Lock fileListLock;
 
+    // Used to guard against an infinite running cleaner loop in its single thread.
+    private boolean isPartitionClosed;
+
     // telemetry
     private final SnowflakeTelemetryPipeStatus pipeStatus;
     // non null
@@ -455,6 +448,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
       this.cleanerExecutor = Executors.newSingleThreadExecutor();
       this.reprocessCleanerExecutor = Executors.newSingleThreadExecutor();
+      this.isPartitionClosed = false;
 
       if (enableCustomJMXMonitoring) {
         partitionBufferCountHistogram =
@@ -553,7 +547,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       cleanerExecutor.submit(
           () -> {
             logInfo("pipe {}: cleaner started", pipeName);
-            while (!arePartitionsClosed) {
+            while (!isPartitionClosed) {
               try {
                 telemetryService.reportKafkaPipeUsage(pipeStatus, false);
                 Thread.sleep(CLEAN_TIME);
@@ -1010,6 +1004,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
     private void close() {
       try {
+        this.isPartitionClosed = true;
         // Shuts down the thread pools
         stopCleaner();
       } catch (Exception e) {
