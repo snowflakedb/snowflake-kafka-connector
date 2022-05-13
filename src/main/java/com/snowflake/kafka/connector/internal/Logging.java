@@ -88,6 +88,12 @@ public class Logging {
     }
   }
 
+  protected void logError(String message,Throwable ex) {
+    if (log.isErrorEnabled()) {
+      log.error(logMessage(message), ex);
+    }
+  }
+
   // static elements
 
   // log message tag
