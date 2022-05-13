@@ -54,6 +54,7 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
               port,
               userAgentSuffix);
     } catch (Exception e) {
+      logError("Error creating SimpleIngestManager for pipe:" + pipeName, e);
       throw SnowflakeErrors.ERROR_0002.getException(e);
     }
     logInfo("initialized the pipe connector for pipe {}", pipeName);
