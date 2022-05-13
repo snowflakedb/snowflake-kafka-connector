@@ -81,7 +81,7 @@ public class SnowflakeSinkTask extends SinkTask {
 
   private SnowflakeSinkService getSink() {
     try {
-      waitFor(() -> sink != null && !sink.isClosed());
+      waitFor(() -> sink != null && !sink.arePartitionsClosed());
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_5014.getException();
     }
@@ -174,7 +174,7 @@ public class SnowflakeSinkTask extends SinkTask {
   public void stop() {
     LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:stop", this.id));
     if (this.sink != null) {
-      this.sink.setIsStoppedToTrue(); // close cleaner thread
+      this.sink.setPartitionsClosedToTrue(); // close cleaner thread
     }
   }
 
@@ -260,7 +260,7 @@ public class SnowflakeSinkTask extends SinkTask {
         Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit {}", this.id, offsets.size()));
 
     // return an empty map means that offset commitment is not desired
-    if (sink == null || sink.isClosed()) {
+    if (sink == null || sink.arePartitionsClosed()) {
       LOGGER.warn(
           Logging.logMessage(
               "SnowflakeSinkTask[ID:{}]: sink " + "not initialized or closed before preCommit",

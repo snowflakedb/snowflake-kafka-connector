@@ -64,15 +64,19 @@ public interface SnowflakeSinkService {
    */
   void close(Collection<TopicPartition> partitions);
 
-  /** close all cleaner thread but have no effect on sink service context */
-  void setIsStoppedToTrue();
+  /**
+   * Close all cleaner thread but have no effect on sink service context
+   *
+   * <p>Sets the arePartitionsClosed variable to true. (Only after checking if it was false)
+   */
+  void setPartitionsClosedToTrue();
 
   /**
    * retrieve sink service status
    *
    * @return true is closed
    */
-  boolean isClosed();
+  boolean arePartitionsClosed();
 
   /**
    * change maximum number of record cached in buffer to control the flush rate, 0 for unlimited

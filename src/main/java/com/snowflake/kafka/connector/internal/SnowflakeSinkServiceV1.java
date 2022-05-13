@@ -45,9 +45,12 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   // records in kafka
   private long recordNum;
   private final SnowflakeConnectionService conn;
+  // Partitions assigned to this task
   private final Map<String, ServiceContext> pipes;
   private final RecordService recordService;
-  private boolean isStopped;
+
+  // Boolean to indicate if partitions were recently closed
+  private volatile boolean arePartitionsClosed;
   private final SnowflakeTelemetryService telemetryService;
   private Map<String, String> topic2TableMap;
 
@@ -69,7 +72,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     this.pipes = new HashMap<>();
     this.conn = conn;
     this.recordService = new RecordService();
-    isStopped = false;
+    this.arePartitionsClosed = false;
     this.telemetryService = conn.getTelemetryClient();
     this.topic2TableMap = new HashMap<>();
 
@@ -221,6 +224,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
   @Override
   public void close(Collection<TopicPartition> partitions) {
+    setPartitionsClosedToTrue();
     partitions.forEach(
         tp -> {
           String name = getNameIndex(tp.topic(), tp.partition());
@@ -249,7 +253,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
   @Override
   public void closeAll() {
-    this.isStopped = true; // release all cleaner and flusher threads
+    this.arePartitionsClosed = true; // release all cleaner and flusher threads
     pipes.forEach(
         (name, context) -> {
           context.close();
@@ -259,13 +263,18 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
   }
 
   @Override
-  public void setIsStoppedToTrue() {
-    this.isStopped = true; // release all cleaner and flusher threads
+  public void setPartitionsClosedToTrue() {
+    if (!this.arePartitionsClosed) {
+      LOGGER.info(
+          "Set arePartitionsClosed to true for pipes/partitions:{}",
+          Arrays.toString(this.pipes.entrySet().toArray()));
+      this.arePartitionsClosed = true; // release all cleaner and flusher threads
+    }
   }
 
   @Override
-  public boolean isClosed() {
-    return this.isStopped;
+  public boolean arePartitionsClosed() {
+    return this.arePartitionsClosed;
   }
 
   @Override
@@ -544,7 +553,7 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
       cleanerExecutor.submit(
           () -> {
             logInfo("pipe {}: cleaner started", pipeName);
-            while (!isStopped) {
+            while (!arePartitionsClosed) {
               try {
                 telemetryService.reportKafkaPipeUsage(pipeStatus, false);
                 Thread.sleep(CLEAN_TIME);
@@ -1001,9 +1010,10 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
 
     private void close() {
       try {
+        // Shuts down the thread pools
         stopCleaner();
       } catch (Exception e) {
-        logWarn("Failed to terminate Cleaner or Flusher");
+        logWarn("Failed to terminate Cleaner or Flusher", e);
       }
       ingestionService.close();
       telemetryService.reportKafkaPipeUsage(pipeStatus, true);

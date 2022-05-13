@@ -82,6 +82,12 @@ public class Logging {
     }
   }
 
+  protected void logWarn(String message, Throwable ex) {
+    if (log.isWarnEnabled()) {
+      log.warn(message, ex);
+    }
+  }
+
   protected void logError(String format, Object... vars) {
     if (log.isErrorEnabled()) {
       log.error(logMessage(format, vars));
