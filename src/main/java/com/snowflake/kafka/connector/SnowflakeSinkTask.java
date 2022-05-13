@@ -53,6 +53,19 @@ public class SnowflakeSinkTask extends SinkTask {
   private SnowflakeConnectionService conn = null;
   private String id = "-1";
 
+  // Rebalancing Test
+  private boolean enableRebalancing = SnowflakeSinkConnectorConfig.REBALANCING_DEFAULT;
+  // After REBALANCING_THRESHOLD put operations, insert a thread.sleep which will trigger rebalance
+  private int rebalancingCounter = 0;
+
+  // After 5 put operations, we will insert a sleep which will cause a rebalance since heartbeat is
+  // not found
+  private final int REBALANCING_THRESHOLD = 10;
+
+  // This value should be more than max.poll.interval.ms
+  // check connect-distributed.properties file used to start kafka connect
+  private final int rebalancingSleepTime = 370000;
+
   private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkTask.class);
 
   /** default constructor, invoked by kafka connect framework */
@@ -138,6 +151,9 @@ public class SnowflakeSinkTask extends SinkTask {
       enableCustomJMXMonitoring =
           Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.JMX_OPT));
     }
+
+    enableRebalancing =
+            Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.REBALANCING));
 
     conn =
         SnowflakeConnectionServiceFactory.builder()
@@ -233,6 +249,9 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void put(final Collection<SinkRecord> records) {
+    if (enableRebalancing && records.size() > 0) {
+      processRebalancingTest();
+    }
     long startTime = System.currentTimeMillis();
     LOGGER.debug(
         Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records", this.id, records.size()));
@@ -351,6 +370,18 @@ public class SnowflakeSinkTask extends SinkTask {
               apiName,
               size,
               executionTime));
+    }
+  }
+  /** When rebalancing test is enabled, trigger sleep after rebalacing threshold is reached */
+  void processRebalancingTest() {
+    rebalancingCounter++;
+    if (rebalancingCounter == REBALANCING_THRESHOLD) {
+      try {
+        LOGGER.debug("[TEST_ONLY] Sleeping :{} ms to trigger a rebalance", rebalancingSleepTime);
+        Thread.sleep(rebalancingSleepTime);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
     }
   }
 }

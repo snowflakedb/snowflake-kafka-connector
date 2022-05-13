@@ -97,6 +97,10 @@ public class SnowflakeSinkConnectorConfig {
   public static final String JMX_OPT = "jmx";
   public static final boolean JMX_OPT_DEFAULT = true;
 
+  // TESTING
+  public static final String REBALANCING = "snowflake.test.rebalancing";
+  public static final boolean REBALANCING_DEFAULT = false;
+
   private static final Logger LOGGER =
       LoggerFactory.getLogger(SnowflakeSinkConnectorConfig.class.getName());
 
@@ -356,7 +360,14 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Type.BOOLEAN,
             JMX_OPT_DEFAULT,
             ConfigDef.Importance.HIGH,
-            "Whether to enable JMX MBeans for custom SF metrics");
+            "Whether to enable JMX MBeans for custom SF metrics")
+            .define(
+                    REBALANCING,
+                    Type.BOOLEAN,
+                    REBALANCING_DEFAULT,
+                    Importance.LOW,
+                    "Whether to trigger a rebalancing by exceeding the max poll interval (Used only in"
+                            + " testing)");
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {
