@@ -64,7 +64,7 @@ public class SnowflakeSinkTask extends SinkTask {
 
   // This value should be more than max.poll.interval.ms
   // check connect-distributed.properties file used to start kafka connect
-  private final int rebalancingSleepTime = 370000;
+  private final int rebalancingSleepTime = 200_000;
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkTask.class);
 

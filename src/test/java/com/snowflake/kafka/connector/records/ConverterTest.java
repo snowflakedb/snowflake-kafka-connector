@@ -17,6 +17,7 @@
 package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.records.RecordService.ISO_DATE_TIME_FORMAT;
+import static org.junit.Assert.assertEquals;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
@@ -59,9 +60,11 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.data.Values;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.storage.SimpleHeaderConverter;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class ConverterTest {
@@ -342,6 +345,7 @@ public class ConverterTest {
     // assert expected.toString().equals(result.toString());
   }
 
+  @Ignore
   @Test
   public void testConnectSimpleHeaderConverter_MapDateAndOtherTypes()
       throws JsonProcessingException, ParseException {
@@ -433,5 +437,19 @@ public class ConverterTest {
     byte[] converted = avroConverter.fromConnectData("test", original.schema(), original);
     SchemaAndValue result = converter.toConnectData("test", converted);
     assert ((SnowflakeRecordContent) result.value()).isBroken();
+  }
+
+  @Ignore
+  @Test(timeout = 50000)
+  public void shouldNotEncounterInfiniteLoop() {
+    // This byte sequence gets parsed as CharacterIterator.DONE and can cause issues if
+    // comparisons to that character are done to check if the end of a string has been reached.
+    // For more information, see https://issues.apache.org/jira/browse/KAFKA-10574
+    byte[] bytes = new byte[] {-17, -65,  -65};
+    String str = new String(bytes, StandardCharsets.UTF_8);
+    System.out.println(str);
+    SchemaAndValue schemaAndValue = Values.parseString(str);
+    assertEquals(Schema.Type.STRING, schemaAndValue.schema().type());
+    assertEquals(str, schemaAndValue.value());
   }
 }

@@ -85,6 +85,9 @@ case $CONFLUENT_VERSION in
 	5.1.0)
     DOWNLOAD_URL="https://packages.confluent.io/archive/5.1/confluent-community-5.1.0-2.11.tar.gz"
     ;;
+  5.3.5)
+      DOWNLOAD_URL="https://packages.confluent.io/archive/5.3/confluent-community-5.3.5-2.11.tar.gz"
+      ;;
 	5.*.0)
     c_version=${CONFLUENT_VERSION%.0}
     DOWNLOAD_URL="https://packages.confluent.io/archive/$c_version/confluent-community-$c_version.0-2.12.tar.gz"

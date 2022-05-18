@@ -71,6 +71,13 @@ jobs:
         cd test
         ./run_test_apache.sh 2.2.0 ./apache_properties
 
+    - name: End to End Test of Confluent Platform 5.3.5
+      env:
+        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+      run: |
+        cd test
+        ./run_test_confluent.sh 5.3.5 ./apache_properties
+
     - name: End to End Test of Confluent Platform 5.4.0
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
@@ -98,6 +105,13 @@ jobs:
       run: |
         cd test
         ./run_test_apache.sh 2.5.0 ./apache_properties
+
+    - name: End to End Test of Apache Plarform 2.6.1
+      env:
+        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+      run: |
+        cd test
+        ./run_test_apache.sh 2.6.1 ./apache_properties
 
     - name: Code Coverage
       uses: codecov/codecov-action@v1

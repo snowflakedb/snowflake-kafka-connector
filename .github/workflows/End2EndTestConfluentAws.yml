@@ -59,9 +59,9 @@ jobs:
         cd test
         ./build_apache.sh ../../snowflake-kafka-connector package
 
-    - name: End to End Test of Confluent Platform 5.5
+    - name: End to End Test of Confluent Platform 5.3.5
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
       run: |
         cd test
-        ./run_test_confluent.sh 5.5.0 ./apache_properties
+        ./run_test_confluent.sh 5.3.5 ./apache_properties
