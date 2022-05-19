@@ -5,9 +5,9 @@ mkdir -p data
 python3 scripts/download_data.py
 
 #install kafka
-curl https://packages.confluent.io/archive/5.4/confluent-5.4.1-2.12.tar.gz --output confluent.tar.gz
+curl https://packages.confluent.io/archive/5.3/confluent-5.3.5-2.12.tar.gz --output confluent.tar.gz
 tar xzvf confluent.tar.gz > /dev/null
-mv confluent-5.4.1 confluent
+mv confluent-5.3.5 confluent
 
 #plugin path
 mkdir -p confluent/share/confluent-hub-components

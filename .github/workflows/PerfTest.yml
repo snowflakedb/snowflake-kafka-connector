@@ -1,8 +1,10 @@
 name: Kafka Connector Performance Test
 
 on:
-  schedule:
-    - cron:  '0 6 * * *'
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: '**'
 
 jobs:
   build:
