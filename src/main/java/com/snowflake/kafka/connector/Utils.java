@@ -542,6 +542,7 @@ public class Utils {
   }
 
   public static Map<String, String> parseTopicToTableMap(String input) {
+
     Map<String, String> topic2Table = new HashMap<>();
     boolean isInvalid = false;
     for (String str : input.split(",")) {
@@ -576,9 +577,10 @@ public class Utils {
 
       if (topic2Table.containsValue(table)) {
         // todo: support multiple topics map to one table ?
-        LOGGER.error(Logging.logMessage("table name {} is duplicated", table));
-        isInvalid = true;
+//        LOGGER.error(Logging.logMessage("table name {} is duplicated", table));
+//        isInvalid = true;
       }
+
       topic2Table.put(tt[0].trim(), tt[1].trim());
     }
     if (isInvalid) {
