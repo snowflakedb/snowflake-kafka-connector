@@ -13,7 +13,6 @@ import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
@@ -27,7 +26,7 @@ import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
@@ -870,17 +869,8 @@ public class TopicPartitionChannel {
    * Close channel associated to this partition Not rethrowing connect exception because the
    * connector will stop. Channel will eventually be reopened.
    */
-  public void closeChannel() {
-    try {
-      this.channel.close().get();
-    } catch (InterruptedException | ExecutionException e) {
-      LOGGER.error(
-          Logging.logMessage(
-              "Failure closing Streaming Channel name:{} msg:{}",
-              this.getChannelName(),
-              e.getMessage()),
-          e);
-    }
+  public CompletableFuture<Void> closeChannel() {
+    return this.channel.close();
   }
 
   /* Return true is channel is closed. Caller should handle the logic for reopening the channel if it is closed. */

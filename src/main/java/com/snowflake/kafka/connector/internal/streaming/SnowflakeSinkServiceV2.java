@@ -16,12 +16,17 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
@@ -256,13 +261,32 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void closeAll() {
-    partitionsToChannel.forEach(
-        (partitionChannelKey, topicPartitionChannel) -> {
-          LOGGER.info("Closing partition channel:{}", partitionChannelKey);
-          topicPartitionChannel.closeChannel();
-        });
+    LOGGER.info("Closing All partitions:{}", partitionsToChannel.entrySet());
+    closeStreamingIngestChannels(partitionsToChannel.values());
     partitionsToChannel.clear();
     closeStreamingClient();
+  }
+
+  /** Close Streaming Channels associated to each of the TopicPartition Channel Objects. */
+  private void closeStreamingIngestChannels(
+      Collection<TopicPartitionChannel> topicPartitionChannels) {
+    List<CompletableFuture> partitionCloseFutures = new ArrayList<>();
+    topicPartitionChannels.forEach(
+        topicPartitionChannel -> partitionCloseFutures.add(topicPartitionChannel.closeChannel()));
+    try {
+      // waits for all channels to close and finally does a join on result all futures.
+      CompletableFuture.allOf(
+              partitionCloseFutures.toArray(new CompletableFuture[partitionCloseFutures.size()]))
+          .join();
+    } catch (CancellationException cancellationException) {
+      LOGGER.warn(
+          String.format(
+              "Close cancelled for partitions:%s",
+              Arrays.toString(topicPartitionChannels.toArray())),
+          cancellationException);
+    } catch (CompletionException completionException) {
+      LOGGER.warn("Close failed with exception", completionException);
+    }
   }
 
   /**
@@ -279,19 +303,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void close(Collection<TopicPartition> partitions) {
+    LOGGER.info("Closing partitions:{}", Arrays.toString(partitions.toArray()));
+    List<TopicPartitionChannel> topicPartitionChannels = new ArrayList<>();
     partitions.forEach(
         topicPartition -> {
           final String partitionChannelKey =
               partitionChannelKey(topicPartition.topic(), topicPartition.partition());
-          TopicPartitionChannel topicPartitionChannel =
-              partitionsToChannel.get(partitionChannelKey);
-          topicPartitionChannel.closeChannel();
-          LOGGER.info(
-              "Closing partitionChannel:{}, partition:{}, topic:{}",
-              topicPartitionChannel.getChannelName(),
-              topicPartition.topic(),
-              topicPartition.partition());
+          topicPartitionChannels.add(partitionsToChannel.get(partitionChannelKey));
         });
+    closeStreamingIngestChannels(topicPartitionChannels);
     partitionsToChannel.clear();
   }
 
