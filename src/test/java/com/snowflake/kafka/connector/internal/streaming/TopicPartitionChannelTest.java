@@ -16,7 +16,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -174,28 +173,6 @@ public class TopicPartitionChannelTest {
     Assert.assertEquals(-1l, topicPartitionChannel.getOffsetPersistedInSnowflake());
 
     Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
-  }
-
-  @Test
-  public void testCloseChannelException() throws Exception {
-    CompletableFuture mockFuture = Mockito.mock(CompletableFuture.class);
-
-    Mockito.when(mockStreamingChannel.close()).thenReturn(mockFuture);
-    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
-
-    Mockito.when(mockFuture.get()).thenThrow(new InterruptedException("Interrupted Exception"));
-    TopicPartitionChannel topicPartitionChannel =
-        new TopicPartitionChannel(
-            mockStreamingClient,
-            topicPartition,
-            TEST_CHANNEL_NAME,
-            TEST_TABLE_NAME,
-            streamingBufferThreshold,
-            sfConnectorConfig,
-            mockKafkaRecordErrorReporter,
-            mockSinkTaskContext);
-
-    topicPartitionChannel.closeChannel();
   }
 
   /* Only SFExceptions are retried and goes into fallback. */

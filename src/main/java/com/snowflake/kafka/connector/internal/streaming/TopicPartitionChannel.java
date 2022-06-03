@@ -866,8 +866,11 @@ public class TopicPartitionChannel {
   }
 
   /**
-   * Close channel associated to this partition Not rethrowing connect exception because the
-   * connector will stop. Channel will eventually be reopened.
+   * Close channel associated to this partition
+   *
+   * <p>Not rethrowing connect exception because the connector will stop.
+   *
+   * <p>Channel will eventually be reopened.
    */
   public CompletableFuture<Void> closeChannel() {
     return this.channel.close();

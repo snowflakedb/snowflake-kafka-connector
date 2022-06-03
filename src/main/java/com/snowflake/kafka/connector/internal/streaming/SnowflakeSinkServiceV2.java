@@ -261,7 +261,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void closeAll() {
-    LOGGER.info("Closing All partitions:{}", partitionsToChannel.entrySet());
+    LOGGER.info(
+        "Closing All partitions:{}", Arrays.toString(partitionsToChannel.keySet().toArray()));
     closeStreamingIngestChannels(partitionsToChannel.values());
     partitionsToChannel.clear();
     closeStreamingClient();
@@ -274,7 +275,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     topicPartitionChannels.forEach(
         topicPartitionChannel -> partitionCloseFutures.add(topicPartitionChannel.closeChannel()));
     try {
-      // waits for all channels to close and finally does a join on result all futures.
+      // waits for all channels to close and eventually does a join on Future result. (Returned by
+      // allOf)
       CompletableFuture.allOf(
               partitionCloseFutures.toArray(new CompletableFuture[partitionCloseFutures.size()]))
           .join();

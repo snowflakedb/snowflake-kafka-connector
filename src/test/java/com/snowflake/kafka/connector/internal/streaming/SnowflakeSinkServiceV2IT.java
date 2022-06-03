@@ -40,7 +40,7 @@ public class SnowflakeSinkServiceV2IT {
   private String table = TestUtils.randomTableName();
   private int partition = 0;
   private int partition2 = 1;
-  private String topic = "test";
+  private String topic = table;
   private TopicPartition topicPartition = new TopicPartition(topic, partition);
   private static ObjectMapper MAPPER = new ObjectMapper();
 
@@ -163,6 +163,97 @@ public class SnowflakeSinkServiceV2IT {
 
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testRebalanceOpenCloseIngestion_MultiplePartitions() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    conn.createTable(table);
+
+    // opens a channel for partition 0, table and topic
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
+            .addTask(table, new TopicPartition(topic, partition2))
+            .build();
+
+    // json without schema
+    JsonConverter converter = new JsonConverter();
+    HashMap<String, String> converterConfig = new HashMap<String, String>();
+    converterConfig.put("schemas.enable", "false");
+    converter.configure(converterConfig, false);
+    SchemaAndValue noSchemaInputValue =
+        converter.toConnectData(
+            topic, TestUtils.JSON_WITHOUT_SCHEMA.getBytes(StandardCharsets.UTF_8));
+
+    long offset = 0;
+
+    SinkRecord record1 =
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test_key" + offset,
+            noSchemaInputValue.schema(),
+            noSchemaInputValue.value(),
+            offset);
+    SinkRecord record2 =
+        new SinkRecord(
+            topic,
+            partition2,
+            Schema.STRING_SCHEMA,
+            "test_key" + offset,
+            noSchemaInputValue.schema(),
+            noSchemaInputValue.value(),
+            offset);
+
+    service.insert(record1);
+    service.insert(record2);
+
+    // Lets close the service
+    // Closing a partition == closing a channel
+    List<TopicPartition> topicPartitionsToClose = new ArrayList<>();
+    topicPartitionsToClose.add(new TopicPartition(topic, partition));
+    topicPartitionsToClose.add(new TopicPartition(topic, partition2));
+    service.close(topicPartitionsToClose);
+
+    // it should skip this record1 since it will fetch offset token 0 from Snowflake
+    service.insert(record1);
+    service.insert(record2);
+    offset += 1;
+    SinkRecord record3 =
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test_key" + offset,
+            noSchemaInputValue.schema(),
+            noSchemaInputValue.value(),
+            offset);
+    SinkRecord record4 =
+        new SinkRecord(
+            topic,
+            partition2,
+            Schema.STRING_SCHEMA,
+            "test_key" + offset,
+            noSchemaInputValue.schema(),
+            noSchemaInputValue.value(),
+            offset);
+
+    // this is equivalent of open partitions. (It will call startTask)
+    service.insert(record3);
+    service.insert(record4);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 2, 20, 5);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition2)) == 2, 20, 5);
 
     service.closeAll();
   }
