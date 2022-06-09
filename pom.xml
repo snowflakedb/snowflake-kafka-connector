@@ -12,7 +12,7 @@
 
     <groupId>com.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>1.7.2</version>
+    <version>1.7.3</version>
     <packaging>jar</packaging>
     <name>Snowflake Kafka Connector</name>
     <description>Snowflake Kafka Connect Sink Connector</description>
@@ -68,6 +68,12 @@
                 <enabled>true</enabled>
             </snapshots>
         </repository>
+
+        <repository>
+            <id>local-maven-repo</id>
+            <url>file:///Users/japatel/Desktop/Kafka-Connector/snowflake-kafka-connector/local-maven-repo</url>
+        </repository>
+
     </repositories>
 
     <distributionManagement>
@@ -283,7 +289,7 @@
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-fips</artifactId>
             <version>1.0.3</version>
-            <scope>provided</scope>
+<!--            <scope>provided</scope>-->
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.apache.kafka/connect-api -->
@@ -317,10 +323,15 @@
         </dependency>
 
         <!-- Ingest SDK for copy staged file into snowflake table -->
+<!--        <dependency>-->
+<!--            <groupId>net.snowflake</groupId>-->
+<!--            <artifactId>snowflake-ingest-sdk</artifactId>-->
+<!--            <version>0.10.4-beta.2</version>-->
+<!--        </dependency>-->
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-ingest-sdk</artifactId>
-            <version>0.10.4-beta.2</version>
+            <version>1.0</version>
         </dependency>
 
         <dependency>
