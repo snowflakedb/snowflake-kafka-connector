@@ -101,6 +101,7 @@ public enum SnowflakeErrors {
       "0024",
       "Reader schema invalid",
       "A reader schema is provided but can not be parsed as an Avro schema"),
+  ERROR_0025("0025", "Unable to Start Partition", "Unable to Create SimpleIngestManager"),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
