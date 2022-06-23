@@ -507,74 +507,74 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       LOGGER.info("Creating new table {}.", tableName);
       if (connectorConfig.containsKey("value.converter") &&
       connectorConfig.get("value.converter").equals("io.confluent.connect.avro.AvroConverter")) {
-//        Map<String, String> fields = GetSchema(tableName);
-//        this.conn.createTableWithSchema(tableName, fields);
+        Map<String, String> fields = GetSchema(tableName);
+        this.conn.createTableWithSchema(tableName, fields);
       } else {
         this.conn.createTable(tableName);
       }
     }
   }
 
-//  private Map<String, String> GetSchema(final String tableName) {
-//    Map <String, String> srConfig = new HashMap<>();
-//    srConfig.put("schema.registry.url", connectorConfig.get("value.converter.schema.registry.url"));
-//    AvroConverterConfig avroConverterConfig = new AvroConverterConfig(srConfig);
-//    SchemaRegistryClient schemaRegistry = new CachedSchemaRegistryClient(
-//            avroConverterConfig.getSchemaRegistryUrls(),
-//            avroConverterConfig.getMaxSchemasPerSubject(),
-//            Collections.singletonList(new AvroSchemaProvider()),
-//            srConfig,
-//            avroConverterConfig.requestHeaders()
-//    );
-//
-//    Map <String, String> schemaMap = new HashMap<>();
-//    for (Map.Entry<String, String> entry : topicToTableMap.entrySet()) {
-//      if (entry.getValue().equals(tableName)) {
-//        String topicName = entry.getKey();
-//        String subjectName = topicName + "-value";
-//        SchemaMetadata schemaMeta = null;
-//        try {
-//          schemaMeta = schemaRegistry.getLatestSchemaMetadata(subjectName);
-//        } catch (Exception e) {
-//          LOGGER.error(
-//                  Logging.logMessage(
-//                          "Failure getting latest schema"));
-//        }
-//        if (schemaMeta != null) {
-//          AvroSchema schema = new AvroSchema(schemaMeta.getSchema());
-//          for (Schema.Field field : schema.rawSchema().getFields()) {
-//            Schema fieldSchema = field.schema();
-//            if (!schemaMap.containsKey(field.name())) {
-//              switch (fieldSchema.getType()) {
-//                case BOOLEAN:
-//                  schemaMap.put(field.name(), "boolean");
-//                  break;
-//                case BYTES:
-//                  schemaMap.put(field.name(), "binary");
-//                  break;
-//                case DOUBLE:
-//                  schemaMap.put(field.name(), "double");
-//                  break;
-//                case FLOAT:
-//                  schemaMap.put(field.name(), "float");
-//                  break;
-//                case INT:
-//                  schemaMap.put(field.name(), "int");
-//                  break;
-//                case LONG:
-//                  schemaMap.put(field.name(), "number");
-//                  break;
-//                case STRING:
-//                  schemaMap.put(field.name(), "string");
-//                  break;
-//                default:
-//                  schemaMap.put(field.name(), "variant");
-//              }
-//            }
-//          }
-//        }
-//      }
-//    }
-//    return schemaMap;
-//  }
+  private Map<String, String> GetSchema(final String tableName) {
+    Map <String, String> srConfig = new HashMap<>();
+    srConfig.put("schema.registry.url", connectorConfig.get("value.converter.schema.registry.url"));
+    AvroConverterConfig avroConverterConfig = new AvroConverterConfig(srConfig);
+    SchemaRegistryClient schemaRegistry = new CachedSchemaRegistryClient(
+            avroConverterConfig.getSchemaRegistryUrls(),
+            avroConverterConfig.getMaxSchemasPerSubject(),
+            Collections.singletonList(new AvroSchemaProvider()),
+            srConfig,
+            avroConverterConfig.requestHeaders()
+    );
+
+    Map <String, String> schemaMap = new HashMap<>();
+    for (Map.Entry<String, String> entry : topicToTableMap.entrySet()) {
+      if (entry.getValue().equals(tableName)) {
+        String topicName = entry.getKey();
+        String subjectName = topicName + "-value";
+        SchemaMetadata schemaMeta = null;
+        try {
+          schemaMeta = schemaRegistry.getLatestSchemaMetadata(subjectName);
+        } catch (Exception e) {
+          LOGGER.error(
+                  Logging.logMessage(
+                          "Failure getting latest schema"));
+        }
+        if (schemaMeta != null) {
+          AvroSchema schema = new AvroSchema(schemaMeta.getSchema());
+          for (Schema.Field field : schema.rawSchema().getFields()) {
+            Schema fieldSchema = field.schema();
+            if (!schemaMap.containsKey(field.name())) {
+              switch (fieldSchema.getType()) {
+                case BOOLEAN:
+                  schemaMap.put(field.name(), "boolean");
+                  break;
+                case BYTES:
+                  schemaMap.put(field.name(), "binary");
+                  break;
+                case DOUBLE:
+                  schemaMap.put(field.name(), "double");
+                  break;
+                case FLOAT:
+                  schemaMap.put(field.name(), "float");
+                  break;
+                case INT:
+                  schemaMap.put(field.name(), "int");
+                  break;
+                case LONG:
+                  schemaMap.put(field.name(), "number");
+                  break;
+                case STRING:
+                  schemaMap.put(field.name(), "string");
+                  break;
+                default:
+                  schemaMap.put(field.name(), "variant");
+              }
+            }
+          }
+        }
+      }
+    }
+    return schemaMap;
+  }
 }
