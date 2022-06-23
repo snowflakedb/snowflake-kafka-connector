@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export SNOWFLAKE_CREDENTIAL_FILE=/Users/zefan/kafka/snowflake-kafka-connector/profile.json
+
 # exit on error
 set -e
 
@@ -54,7 +56,8 @@ command -v mvn >/dev/null 2>&1 || error_exit "Require mvn but it's not installed
 SNOWFLAKE_PLUGIN_NAME_REGEX="snowflake-kafka-connector-[0-9]*\.[0-9]*\.[0-9]*\.jar$"
 SNOWFLAKE_PLUGIN_PATH="$SNOWFLAKE_CONNECTOR_PATH/target"
 
-KAFKA_CONNECT_PLUGIN_PATH="/usr/local/share/kafka/plugins"
+KAFKA_CONNECT_PLUGIN_DOCKER_PATH="/Users/zefan/kafka/snowflake-kafka-docker/jars"
+KAFKA_CONNECT_PLUGIN_LOCAL_PATH="/usr/local/share/kafka/plugins"
 
 # copy credential to SNOWFLAKE_CONNECTOR_PATH
 cp -rf $SNOWFLAKE_CREDENTIAL_FILE $SNOWFLAKE_CONNECTOR_PATH || true
@@ -84,7 +87,11 @@ SNOWFLAKE_PLUGIN_NAME=$(ls $SNOWFLAKE_PLUGIN_PATH | grep "$SNOWFLAKE_PLUGIN_NAME
 echo -e "\n=== built connector name: $SNOWFLAKE_PLUGIN_NAME ==="
 
 # copy built connector to plugin path
-mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH || \
-sudo mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH 
-cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $KAFKA_CONNECT_PLUGIN_PATH || true
-echo -e "\n=== copied connector to $KAFKA_CONNECT_PLUGIN_PATH ==="
+mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_LOCAL_PATH || \
+sudo mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_LOCAL_PATH
+mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_DOCKER_PATH || \
+sudo mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_DOCKER_PATH
+cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $KAFKA_CONNECT_PLUGIN_LOCAL_PATH || true
+cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $KAFKA_CONNECT_PLUGIN_DOCKER_PATH || true
+echo -e "\n=== copied connector to $KAFKA_CONNECT_PLUGIN_LOCAL_PATH ==="
+echo -e "\n=== copied connector to $KAFKA_CONNECT_PLUGIN_DOCKER_PATH ==="

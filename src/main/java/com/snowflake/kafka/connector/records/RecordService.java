@@ -25,11 +25,8 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TimeZone;
+import java.util.*;
+
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -177,7 +174,14 @@ public class RecordService extends Logging {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.content.getData()) {
       try {
-        streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));
+//        streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));
+        Iterator<String> fieldNames = node.fieldNames();
+        while (fieldNames.hasNext()) {
+          String fieldName = fieldNames.next();
+          JsonNode fieldNode = node.get(fieldName);
+          String filedContent = fieldNode.isTextual() ? fieldNode.textValue() : MAPPER.writeValueAsString(fieldNode);
+          streamingIngestRow.put(fieldName, filedContent);
+        }
         if (metadataConfig.allFlag) {
           streamingIngestRow.put(TABLE_COLUMN_METADATA, MAPPER.writeValueAsString(row.metadata));
         }

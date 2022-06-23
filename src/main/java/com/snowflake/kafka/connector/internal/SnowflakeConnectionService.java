@@ -1,8 +1,11 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import io.confluent.kafka.schemaregistry.avro.AvroSchema;
+
 import java.sql.Connection;
 import java.util.List;
+import java.util.Map;
 
 public interface SnowflakeConnectionService {
   /**
@@ -234,4 +237,6 @@ public interface SnowflakeConnectionService {
 
   /** @return the raw jdbc connection */
   Connection getConnection();
+
+  void createTableWithSchema(String tableName, final Map<String, String> schema);
 }

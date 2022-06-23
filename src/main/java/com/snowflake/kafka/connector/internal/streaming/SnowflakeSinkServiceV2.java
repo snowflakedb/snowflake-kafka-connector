@@ -16,15 +16,22 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
+
+import io.confluent.kafka.schemaregistry.avro.AvroSchema;
+import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
+import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+
+import io.confluent.connect.avro.AvroConverterConfig;
+
+import java.util.*;
+
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
+import org.apache.avro.Schema;
+import org.apache.avro.reflect.AvroIgnore;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -498,7 +505,76 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
     } else {
       LOGGER.info("Creating new table {}.", tableName);
-      this.conn.createTable(tableName);
+      if (connectorConfig.containsKey("value.converter") &&
+      connectorConfig.get("value.converter").equals("io.confluent.connect.avro.AvroConverter")) {
+//        Map<String, String> fields = GetSchema(tableName);
+//        this.conn.createTableWithSchema(tableName, fields);
+      } else {
+        this.conn.createTable(tableName);
+      }
     }
   }
+
+//  private Map<String, String> GetSchema(final String tableName) {
+//    Map <String, String> srConfig = new HashMap<>();
+//    srConfig.put("schema.registry.url", connectorConfig.get("value.converter.schema.registry.url"));
+//    AvroConverterConfig avroConverterConfig = new AvroConverterConfig(srConfig);
+//    SchemaRegistryClient schemaRegistry = new CachedSchemaRegistryClient(
+//            avroConverterConfig.getSchemaRegistryUrls(),
+//            avroConverterConfig.getMaxSchemasPerSubject(),
+//            Collections.singletonList(new AvroSchemaProvider()),
+//            srConfig,
+//            avroConverterConfig.requestHeaders()
+//    );
+//
+//    Map <String, String> schemaMap = new HashMap<>();
+//    for (Map.Entry<String, String> entry : topicToTableMap.entrySet()) {
+//      if (entry.getValue().equals(tableName)) {
+//        String topicName = entry.getKey();
+//        String subjectName = topicName + "-value";
+//        SchemaMetadata schemaMeta = null;
+//        try {
+//          schemaMeta = schemaRegistry.getLatestSchemaMetadata(subjectName);
+//        } catch (Exception e) {
+//          LOGGER.error(
+//                  Logging.logMessage(
+//                          "Failure getting latest schema"));
+//        }
+//        if (schemaMeta != null) {
+//          AvroSchema schema = new AvroSchema(schemaMeta.getSchema());
+//          for (Schema.Field field : schema.rawSchema().getFields()) {
+//            Schema fieldSchema = field.schema();
+//            if (!schemaMap.containsKey(field.name())) {
+//              switch (fieldSchema.getType()) {
+//                case BOOLEAN:
+//                  schemaMap.put(field.name(), "boolean");
+//                  break;
+//                case BYTES:
+//                  schemaMap.put(field.name(), "binary");
+//                  break;
+//                case DOUBLE:
+//                  schemaMap.put(field.name(), "double");
+//                  break;
+//                case FLOAT:
+//                  schemaMap.put(field.name(), "float");
+//                  break;
+//                case INT:
+//                  schemaMap.put(field.name(), "int");
+//                  break;
+//                case LONG:
+//                  schemaMap.put(field.name(), "number");
+//                  break;
+//                case STRING:
+//                  schemaMap.put(field.name(), "string");
+//                  break;
+//                default:
+//                  schemaMap.put(field.name(), "variant");
+//              }
+//            }
+//          }
+//        }
+//      }
+//    }
+//    return schemaMap;
+//  }
 }
