@@ -115,7 +115,8 @@ class InternalUtils {
    * @param networkTimeoutMS timeout for jdbc network calls in ms
    * @return a Properties instance
    */
-  static Properties createProperties(Map<String, String> conf, boolean sslEnabled, long networkTimeoutMS) {
+  static Properties createProperties(
+      Map<String, String> conf, boolean sslEnabled, long networkTimeoutMS) {
     Properties properties = new Properties();
 
     // decrypt rsa key

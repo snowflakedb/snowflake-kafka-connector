@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
@@ -236,9 +235,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
     try {
       testConnection =
           SnowflakeConnectionServiceFactory.builder()
-                  .setProperties(connectorConfigs)
-                  .setNetworkTimeout(VALIDATION_NETWORK_TIMEOUT_MS)
-                  .build();
+              .setProperties(connectorConfigs)
+              .setNetworkTimeout(VALIDATION_NETWORK_TIMEOUT_MS)
+              .build();
 
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error(
