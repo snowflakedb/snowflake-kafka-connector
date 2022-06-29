@@ -100,7 +100,6 @@ public class SnowflakeSinkConnectorConfig {
   public static final String SNOWFLAKE_CLEANER_MAX_RETRIES_DEFAULT = "-1";
   private static final String SNOWFLAKE_CLEANER_MAX_RETRIES_DISPLAY = "Snowflake Cleaner Retries";
 
-
   // Where is Kafka hosted? self, confluent or any other in future.
   // By default it will be None since this is not enforced and only used for monitoring
   public static final String PROVIDER_CONFIG = "provider";

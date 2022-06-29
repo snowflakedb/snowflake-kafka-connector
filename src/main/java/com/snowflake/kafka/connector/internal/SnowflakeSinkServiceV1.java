@@ -329,7 +329,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     this.maxCleanerRetries = num;
   }
 
-
   @Override
   public SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig() {
     return this.behaviorOnNullValues;
