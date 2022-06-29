@@ -108,6 +108,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private final String streamingIngestClientName;
 
+  private boolean enableSchematization = false;
+
   /**
    * Key is formulated in {@link #partitionChannelKey(String, int)} }
    *
@@ -134,6 +136,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.behaviorOnNullValues = SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
 
     this.connectorConfig = connectorConfig;
+    
+    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG)) {
+      this.enableSchematization = Boolean.parseBoolean(connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
+    }
+
+    this.recordService.setSchematizationEnable(this.enableSchematization);
+
     this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
     this.streamingIngestClientName =
         STREAMING_CLIENT_PREFIX_NAME + conn.getConnectorName() + "_" + taskId;
@@ -506,7 +515,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     } else {
       LOGGER.info("Creating new table {}.", tableName);
       if (connectorConfig.containsKey("value.converter") &&
-      connectorConfig.get("value.converter").equals("io.confluent.connect.avro.AvroConverter")) {
+      connectorConfig.get("value.converter").equals("io.confluent.connect.avro.AvroConverter") &&
+      this.enableSchematization) {
         Map<String, String> fields = GetSchema(tableName);
         this.conn.createTableWithSchema(tableName, fields);
       } else {

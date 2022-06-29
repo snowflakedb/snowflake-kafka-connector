@@ -642,7 +642,7 @@ public class TopicPartitionChannelTest {
 
     Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
     // todo: find out what's wrong with changing 2 to 1
-    Mockito.verify(mockStreamingChannel, Mockito.times(1))
+    Mockito.verify(mockStreamingChannel, Mockito.times(2))
         .insertRows(ArgumentMatchers.any(), ArgumentMatchers.any());
   }
 
