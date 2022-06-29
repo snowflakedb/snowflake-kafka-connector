@@ -587,7 +587,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
                     e.getMessage(),
                     e.getStackTrace());
                 telemetryService.reportKafkaConnectFatalError(e.getMessage());
-                if (maxCleanerRetries >= 0 &&  pipeStatus.getCleanerRestartCount() == maxCleanerRetries) {
+                if (maxCleanerRetries >= 0
+                    && pipeStatus.getCleanerRestartCount() == maxCleanerRetries) {
                   failedCleanerException.set(e);
                   break;
                 }

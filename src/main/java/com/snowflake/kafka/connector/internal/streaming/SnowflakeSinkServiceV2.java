@@ -420,6 +420,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     return Optional.empty();
   }
 
+  /** Not supported for Snowflake Sink Service V2 */
+  @Override
+  public void setMaxCleanerRetries(long retries) {}
+
   /**
    * Gets a unique identifier consisting of topic name and partition number.
    *

@@ -144,8 +144,7 @@ public class SnowflakeSinkServiceFactory {
     public SnowflakeSinkServiceBuilder setSinkTaskContext(SinkTaskContext sinkTaskContext) {
       this.service.setSinkTaskContext(sinkTaskContext);
       return this;
-      }
-
+    }
 
     /**
      * Set Max Retries for Cleaner thread for the respective SnowflakeSinkService instance at
