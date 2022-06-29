@@ -18,7 +18,6 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
@@ -154,12 +153,10 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     final long maxCleanerRetries =
-            Long.parseLong(
-                    parsedConfig.getOrDefault(
-                            SnowflakeSinkConnectorConfig.SNOWFLAKE_CLEANER_MAX_RETRIES_CONFIG,
-                            SnowflakeSinkConnectorConfig.SNOWFLAKE_CLEANER_MAX_RETRIES_DEFAULT
-                    )
-            );
+        Long.parseLong(
+            parsedConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.SNOWFLAKE_CLEANER_MAX_RETRIES_CONFIG,
+                SnowflakeSinkConnectorConfig.SNOWFLAKE_CLEANER_MAX_RETRIES_DEFAULT));
 
     // we would have already validated the config inside SFConnector start()
     boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;

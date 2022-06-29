@@ -129,7 +129,6 @@ public interface SnowflakeSinkService {
   /* Set the maximum cleaner thread retries upon failure  */
   void setMaxCleanerRetries(long retries);
 
-
   /* Only used in testing and verifying what was the passed value of this behavior from config to sink service*/
   SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig();
 

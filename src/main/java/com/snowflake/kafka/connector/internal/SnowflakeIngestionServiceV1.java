@@ -343,7 +343,7 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
    * @param fileNameBatch
    * @return Offset number in String format
    */
-  private String  getLastOffsetTokenFromBatch(List<String> fileNameBatch) {
+  private String getLastOffsetTokenFromBatch(List<String> fileNameBatch) {
     Long lastFileEndOffset =
         FileNameUtils.fileNameToEndOffset(fileNameBatch.get(fileNameBatch.size() - 1));
     for (String fileName : fileNameBatch) {

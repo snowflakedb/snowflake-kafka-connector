@@ -371,7 +371,6 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
     this.maxCleanerRetries = num;
   }
 
-
   @Override
   public SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig() {
     return this.behaviorOnNullValues;
@@ -630,7 +629,8 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
                     e.getMessage(),
                     e.getStackTrace());
                 telemetryService.reportKafkaFatalError(e.getMessage());
-                if (maxCleanerRetries >= 0 &&  pipeStatus.cleanerRestartCount.get() == maxCleanerRetries) {
+                if (maxCleanerRetries >= 0
+                    && pipeStatus.cleanerRestartCount.get() == maxCleanerRetries) {
                   failedCleanerException.set(e);
                   break;
                 }
