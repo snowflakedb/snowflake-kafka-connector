@@ -31,7 +31,6 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.avro.Schema;
-import org.apache.avro.reflect.AvroIgnore;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -136,7 +135,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.behaviorOnNullValues = SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
 
     this.connectorConfig = connectorConfig;
-    
+
     if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG)) {
       this.enableSchematization = Boolean.parseBoolean(connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
     }

@@ -294,6 +294,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
 
   @Override
   public boolean isTableCompatible(final String tableName) {
+//    TODO: use info from schema registry to check compatibility
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query = "desc table identifier(?)";
