@@ -292,6 +292,7 @@ class KafkaTest:
         if not os.path.exists(rest_generate_path):
             os.makedirs(rest_generate_path)
         snowflake_connector_name = fileName.split(".")[0] + nameSalt
+        snowflake_topic_name = snowflake_connector_name
 
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
         with open("{}/{}".format(rest_template_path, fileName), 'r') as f:
@@ -299,6 +300,25 @@ class KafkaTest:
             # Template has passphrase, use the encrypted version of P8 Key
             if fileContent.find("snowflake.private.key.passphrase") != -1:
                 pk = pkEncrypted
+
+            if "NUM_TOPICS" in fileContent:
+                prefix = "NUM_TOPICS<"
+                suffix = ">NUM_TOPICS"
+                i0 = fileContent.find(prefix) + len(prefix)
+                i1 = fileContent.find(suffix)
+                numTopics = int(fileContent[i0:i1])
+                mapOrigianlString = prefix + str(numTopics) + suffix
+                mapNewString = ""
+                snowflake_topic_name = ""
+                for i in range(numTopics):
+                    if i != 0:
+                        snowflake_topic_name += ","
+                        mapNewString += ","
+                    temp_topic_name = snowflake_connector_name + str(i)
+                    snowflake_topic_name += temp_topic_name
+                    mapNewString += temp_topic_name + ":" + snowflake_connector_name
+                fileContent = fileContent.replace(mapOrigianlString, mapNewString)
+
             fileContent = fileContent \
                 .replace("SNOWFLAKE_PRIVATE_KEY", pk) \
                 .replace("SNOWFLAKE_HOST", testHost) \
@@ -306,7 +326,7 @@ class KafkaTest:
                 .replace("SNOWFLAKE_DATABASE", testDatabase) \
                 .replace("SNOWFLAKE_SCHEMA", testSchema) \
                 .replace("CONFLUENT_SCHEMA_REGISTRY", self.schemaRegistryAddress) \
-                .replace("SNOWFLAKE_TEST_TOPIC", snowflake_connector_name) \
+                .replace("SNOWFLAKE_TEST_TOPIC", snowflake_topic_name) \
                 .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name) \
                 .replace("SNOWFLAKE_ROLE", testRole)
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:

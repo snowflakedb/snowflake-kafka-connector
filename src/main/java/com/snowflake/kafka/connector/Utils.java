@@ -16,18 +16,18 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
-
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
+import org.apache.kafka.common.config.Config;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.config.ConfigValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
@@ -41,11 +41,9 @@ import java.util.Map;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.kafka.common.config.Config;
-import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.common.config.ConfigValue;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
 
 /** Various arbitrary helper functions */
 public class Utils {
@@ -542,6 +540,7 @@ public class Utils {
   }
 
   public static Map<String, String> parseTopicToTableMap(String input) {
+
     Map<String, String> topic2Table = new HashMap<>();
     boolean isInvalid = false;
     for (String str : input.split(",")) {
@@ -574,11 +573,6 @@ public class Utils {
         isInvalid = true;
       }
 
-      if (topic2Table.containsValue(table)) {
-        // todo: support multiple topics map to one table ?
-        LOGGER.error(Logging.logMessage("table name {} is duplicated", table));
-        isInvalid = true;
-      }
       topic2Table.put(tt[0].trim(), tt[1].trim());
     }
     if (isInvalid) {
