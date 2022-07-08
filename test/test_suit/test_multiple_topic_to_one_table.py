@@ -50,13 +50,13 @@ class TestMultipleTopicToOneTable:
             "SELECT count(*) FROM {}".format(self.tableName)).fetchone()[0]
         print("Count records in table {}={}".format(self.tableName, str(res)))
         if res < (self.recordNum * self.partitionNum * self.topicNum):
-            print("Topic:" + self.topic + " count is less, will retry")
+            print("Topic count is less, will retry")
             raise RetryableError()
         elif res > (self.recordNum * self.partitionNum * self.topicNum):
-            print("Topic:" + self.topic + " count is more, duplicates detected")
+            print("Topic count is more, duplicates detected")
             raise NonRetryableError("Duplication occurred, number of record in table is larger than number of record sent")
         else:
-            print("Table:" + self.topic + " count is exactly " + str(self.recordNum * self.partitionNum * self.topicNum))
+            print("Table count is exactly " + str(self.recordNum * self.partitionNum * self.topicNum))
 
         # for duplicates
         res = self.driver.snowflake_conn.cursor().execute("Select record_metadata:\"offset\"::string as OFFSET_NO,record_metadata:\"partition\"::string as PARTITION_NO from {} group by OFFSET_NO, PARTITION_NO having count(*)>{}".format(self.tableName, str(self.topicNum))).fetchone()
