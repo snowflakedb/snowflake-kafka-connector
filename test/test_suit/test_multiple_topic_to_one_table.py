@@ -1,6 +1,7 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
 from time import sleep
 from confluent_kafka import avro
+import json
 
 # Runs only in confluent test suite environment
 class TestMultipleTopicToOneTable:
