@@ -77,7 +77,7 @@ class TestMultipleTopicToOneTable:
                 if rows[p][0] != self.recordNum or rows[p][1] != p:
                     raise NonRetryableError("Unique offsets for partitions count doesnt match")
 
-        rows = self.driver.snowflake_conn.cursor().execute("Select count(distinct record_metadata:\"topic\"::string as TOPIC_NO, record_metadata:\"partition\"::number as PARTITION_NO from {} group by PARTITION_NO order by PARTITION_NO)".format(self.tableName)).fetchall()
+        rows = self.driver.snowflake_conn.cursor().execute("Select count(distinct record_metadata:\"topic\"::string) as TOPIC_NO, record_metadata:\"partition\"::number as PARTITION_NO from {} group by PARTITION_NO order by PARTITION_NO)".format(self.tableName)).fetchall()
 
         if rows is None:
             raise NonRetryableError("Topics for partitions not found")
