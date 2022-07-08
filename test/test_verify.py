@@ -465,19 +465,30 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
-    testSuitList1 = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
-                     testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
-                     testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
-                     testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
-                     testMultipleTopicToOneTable]
+    testSuitList1 = [
+        testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
+        testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
+        testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
+        testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
+        testMultipleTopicToOneTable
+    ]
 
     # Adding StringJsonProxy test at the end
-    testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True, True, True, True]
+    testCleanEnableList1 = [
+        True, True, True, True, True, True, True, True, True, True, True, True, True, 
+        True
+    ]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False, True, True, True]
+        testSuitEnableList1 = [
+            True, True, True, True, True, True, True, True, True, True, False, True, True, 
+            True
+        ]
     elif testSet == "apache":
-        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False, True, False, True]
+        testSuitEnableList1 = [
+            True, True, True, True, False, False, False, True, True, True, False, True, False, 
+            True
+        ]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
