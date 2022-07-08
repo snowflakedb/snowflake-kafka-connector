@@ -28,11 +28,7 @@ import org.apache.kafka.common.config.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -152,6 +148,8 @@ public class SnowflakeSinkConnectorConfig {
       "Whether to output conversion errors to the dead letter queue "
           + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
+
+  public static final String SCHEMATIZATION_ENABLE_CONFIG = "schematization.enable";
 
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked
@@ -725,7 +723,9 @@ public class SnowflakeSinkConnectorConfig {
           }
         };
 
-    /** @return All valid enum values */
+    /**
+     * @return All valid enum values
+     */
     public static String[] names() {
       ErrorTolerance[] errorTolerances = values();
       String[] result = new String[errorTolerances.length];
