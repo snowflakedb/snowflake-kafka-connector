@@ -543,7 +543,6 @@ public class Utils {
   }
 
   public static Map<String, String> parseTopicToTableMap(String input) {
-
     Map<String, String> topic2Table = new HashMap<>();
     boolean isInvalid = false;
     for (String str : input.split(",")) {
