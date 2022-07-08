@@ -1,9 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
-
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -16,21 +12,28 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
+import io.confluent.connect.avro.AvroConverterConfig;
+import io.confluent.kafka.schemaregistry.avro.AvroSchema;
+import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
+import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
+import org.apache.avro.Schema;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.*;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
 
 /**
  * This is per task configuration. A task can be assigned multiple partitions. Major methods are
@@ -101,6 +104,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private final String streamingIngestClientName;
 
+  private boolean enableSchematization = false;
+
   /**
    * Key is formulated in {@link #partitionChannelKey(String, int)} }
    *
@@ -127,6 +132,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.behaviorOnNullValues = SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
 
     this.connectorConfig = connectorConfig;
+
+    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG)) {
+      this.enableSchematization =
+          Boolean.parseBoolean(
+              connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
+    }
+
+    this.recordService.setSchematizationEnable(this.enableSchematization);
+
     this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
     this.streamingIngestClientName =
         STREAMING_CLIENT_PREFIX_NAME + conn.getConnectorName() + "_" + taskId;
@@ -491,14 +505,88 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
-      if (this.conn.isTableCompatible(tableName)) {
-        LOGGER.info("Using existing table {}.", tableName);
+      if (!this.enableSchematization) {
+        if (this.conn.isTableCompatible(tableName)) {
+          LOGGER.info("Using existing table {}.", tableName);
+        } else {
+          throw SnowflakeErrors.ERROR_5003.getException("table name: " + tableName);
+        }
       } else {
-        throw SnowflakeErrors.ERROR_5003.getException("table name: " + tableName);
+        this.conn.appendMetaColIfNotExist(tableName);
       }
     } else {
       LOGGER.info("Creating new table {}.", tableName);
-      this.conn.createTable(tableName);
+      if (connectorConfig.containsKey("value.converter")
+          && connectorConfig
+              .get("value.converter")
+              .equals("io.confluent.connect.avro.AvroConverter")
+          && this.enableSchematization) {
+        Map<String, String> fields = GetSchema(tableName);
+        this.conn.createTableWithSchema(tableName, fields);
+      } else {
+        this.conn.createTable(tableName);
+      }
     }
+  }
+
+  private Map<String, String> GetSchema(final String tableName) {
+    Map<String, String> srConfig = new HashMap<>();
+    srConfig.put("schema.registry.url", connectorConfig.get("value.converter.schema.registry.url"));
+    AvroConverterConfig avroConverterConfig = new AvroConverterConfig(srConfig);
+    SchemaRegistryClient schemaRegistry =
+        new CachedSchemaRegistryClient(
+            avroConverterConfig.getSchemaRegistryUrls(),
+            avroConverterConfig.getMaxSchemasPerSubject(),
+            Collections.singletonList(new AvroSchemaProvider()),
+            srConfig,
+            avroConverterConfig.requestHeaders());
+
+    Map<String, String> schemaMap = new HashMap<>();
+    for (Map.Entry<String, String> entry : topicToTableMap.entrySet()) {
+      if (entry.getValue().equals(tableName)) {
+        String topicName = entry.getKey();
+        String subjectName = topicName + "-value";
+        SchemaMetadata schemaMeta = null;
+        try {
+          schemaMeta = schemaRegistry.getLatestSchemaMetadata(subjectName);
+        } catch (Exception e) {
+          LOGGER.error(Logging.logMessage("Failure getting latest schema"));
+        }
+        if (schemaMeta != null) {
+          AvroSchema schema = new AvroSchema(schemaMeta.getSchema());
+          for (Schema.Field field : schema.rawSchema().getFields()) {
+            Schema fieldSchema = field.schema();
+            if (!schemaMap.containsKey(field.name())) {
+              switch (fieldSchema.getType()) {
+                case BOOLEAN:
+                  schemaMap.put(field.name(), "boolean");
+                  break;
+                case BYTES:
+                  schemaMap.put(field.name(), "binary");
+                  break;
+                case DOUBLE:
+                  schemaMap.put(field.name(), "double");
+                  break;
+                case FLOAT:
+                  schemaMap.put(field.name(), "float");
+                  break;
+                case INT:
+                  schemaMap.put(field.name(), "int");
+                  break;
+                case LONG:
+                  schemaMap.put(field.name(), "number");
+                  break;
+                case STRING:
+                  schemaMap.put(field.name(), "string");
+                  break;
+                default:
+                  schemaMap.put(field.name(), "variant");
+              }
+            }
+          }
+        }
+      }
+    }
+    return schemaMap;
   }
 }

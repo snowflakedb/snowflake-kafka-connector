@@ -16,20 +16,9 @@
  */
 package com.snowflake.kafka.connector.records;
 
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
-
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import java.math.BigDecimal;
-import java.nio.ByteBuffer;
-import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TimeZone;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -37,11 +26,19 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayN
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.JsonNodeFactory;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.common.record.TimestampType;
-import org.apache.kafka.connect.data.*;
 import org.apache.kafka.connect.data.Date;
+import org.apache.kafka.connect.data.*;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
+
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
+import java.util.*;
+
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 public class RecordService extends Logging {
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -56,6 +53,8 @@ public class RecordService extends Logging {
   static final String SCHEMA_ID = "schema_id";
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
+
+  static boolean schematizationEnable = false;
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
@@ -87,6 +86,9 @@ public class RecordService extends Logging {
     metadataConfig = metadataConfigIn;
   }
 
+  public void setSchematizationEnable(boolean schematizationEnableIn) {
+    schematizationEnable = schematizationEnableIn;
+  }
   /**
    * process given SinkRecord, only support snowflake converters
    *
@@ -177,7 +179,20 @@ public class RecordService extends Logging {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.content.getData()) {
       try {
-        streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));
+        if (schematizationEnable) {
+          Iterator<String> fieldNames = node.fieldNames();
+          while (fieldNames.hasNext()) {
+            String fieldName = fieldNames.next();
+            JsonNode fieldNode = node.get(fieldName);
+            String filedContent =
+                fieldNode.isTextual()
+                    ? fieldNode.textValue()
+                    : MAPPER.writeValueAsString(fieldNode);
+            streamingIngestRow.put(fieldName, filedContent);
+          }
+        } else {
+          streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));
+        }
         if (metadataConfig.allFlag) {
           streamingIngestRow.put(TABLE_COLUMN_METADATA, MAPPER.writeValueAsString(row.metadata));
         }
