@@ -102,6 +102,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private final String streamingIngestClientName;
 
+  private boolean enableSchematization = false;
+
   /**
    * Key is formulated in {@link #partitionChannelKey(String, int)} }
    *
@@ -128,6 +130,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.behaviorOnNullValues = SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
 
     this.connectorConfig = connectorConfig;
+
+    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG)) {
+      this.enableSchematization =
+          Boolean.parseBoolean(
+              connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
+    }
+    this.recordService.setSchematizationEnable(this.enableSchematization);
+
     this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
     this.streamingIngestClientName =
         STREAMING_CLIENT_PREFIX_NAME + conn.getConnectorName() + "_" + taskId;
@@ -492,10 +502,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
-      if (this.conn.isTableCompatible(tableName)) {
-        LOGGER.info("Using existing table {}.", tableName);
-      } else {
-        throw SnowflakeErrors.ERROR_5003.getException("table name: " + tableName);
+      if (!this.enableSchematization) {
+        if (this.conn.isTableCompatible(tableName)) {
+          LOGGER.info("Using existing table {}.", tableName);
+        } else {
+          throw SnowflakeErrors.ERROR_5003.getException("table name: " + tableName);
+        }
       }
     } else {
       LOGGER.info("Creating new table {}.", tableName);
