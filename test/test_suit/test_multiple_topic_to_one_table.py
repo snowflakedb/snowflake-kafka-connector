@@ -90,5 +90,6 @@ class TestMultipleTopicToOneTable:
 
     def clean(self):
         # dropping of stage and pipe doesnt apply for snowpipe streaming. (It executes drop if exists)
-        self.driver.cleanTableStagePipe(self.topic)
+        for topic in self.topics:
+            self.driver.cleanTableStagePipe(topic)
         return
