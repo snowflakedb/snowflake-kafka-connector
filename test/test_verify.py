@@ -242,7 +242,7 @@ class KafkaTest:
             .replace("[", "\\[").replace("]", "\\]").replace("+", "\\+") + "$"
             if re.search(goldRegex, content) is None:
                 raise test_suit.test_utils.NonRetryableError("Record column:\n{}\ndoes not match gold regex "
-                                                             "label:\n{}".format(content, goldRegex))
+                                                             "label:\n{}".format(content, gol))
 
     def updateConnectorConfig(self, fileName, connectorName, configMap):
         with open('./rest_request_generated/' + fileName + '.json') as f:
@@ -475,27 +475,27 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
     testSuitList1 = [
-        # testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
-        # testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
-        # testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
-        # testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
+        testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
+        testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
+        testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
+        testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
         testMultipleTopicToOneTable
     ]
 
     # Adding StringJsonProxy test at the end
     testCleanEnableList1 = [
-        # True, True, True, True, True, True, True, True, True, True, True, True, True, 
+        True, True, True, True, True, True, True, True, True, True, True, True, True, 
         True
     ]
     testSuitEnableList1 = []
     if testSet == "confluent":
         testSuitEnableList1 = [
-            # True, True, True, True, True, True, True, True, True, True, False, True, True, 
+            True, True, True, True, True, True, True, True, True, True, False, True, True, 
             True
         ]
     elif testSet == "apache":
         testSuitEnableList1 = [
-            # True, True, True, True, False, False, False, True, True, True, False, True, False, 
+            True, True, True, True, False, False, False, True, True, True, False, True, False, 
             True
         ]
     elif testSet != "clean":
