@@ -508,6 +508,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         } else {
           throw SnowflakeErrors.ERROR_5003.getException("table name: " + tableName);
         }
+      } else {
+        this.conn.appendMetaColIfNotExist(tableName);
       }
     } else {
       LOGGER.info("Creating new table {}.", tableName);
