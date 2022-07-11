@@ -3,6 +3,10 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
+import net.snowflake.client.jdbc.SnowflakeConnectionV1;
+import net.snowflake.client.jdbc.SnowflakeDriver;
+import net.snowflake.client.jdbc.cloud.storage.StageInfo;
+
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -13,11 +17,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-import net.snowflake.client.jdbc.SnowflakeConnectionV1;
-import net.snowflake.client.jdbc.SnowflakeDriver;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 
 /**
  * Implementation of Snowflake Connection Service interface which includes all handshake between KC
@@ -125,6 +127,28 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   @Override
   public void createTable(final String tableName) {
     createTable(tableName, false);
+  }
+
+  public void createTableWithSchema(final String tableName, final Map<String, String> schema) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "create table if not exists identifier(?)";
+    query += "(record_metadata variant";
+    for (Map.Entry<String, String> field : schema.entrySet()) {
+      query += ", " + field.getKey() + " " + field.getValue();
+    }
+    query += ")";
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
+
+    logInfo("create table {}", tableName);
   }
 
   @Override
@@ -324,6 +348,43 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       }
     }
     return compatible;
+  }
+
+  public void appendMetaColIfNotExist(final String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "desc table identifier(?)";
+    PreparedStatement stmt = null;
+    ResultSet result = null;
+    boolean hasMeta = false;
+    boolean isVariant = false;
+    try {
+      stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      result = stmt.executeQuery();
+      while (result.next()) {
+        if (result.getString(1).equals("RECORD_METADATA")) {
+          hasMeta = true;
+          if (result.getString(2).equals("VARIANT")) {
+            isVariant = true;
+          }
+          break;
+        }
+      }
+      if (!isVariant) {
+        String MetaQuery;
+        if (!hasMeta) {
+          MetaQuery = "alter table identifier(?) add RECORD_METADATA VARIANT";
+        } else {
+          MetaQuery = "alter table identifier(?) alter RECORD_METADATA VARIANT";
+        }
+        stmt = conn.prepareStatement(MetaQuery);
+        stmt.setString(1, tableName);
+        stmt.executeQuery();
+      }
+    } catch (SQLException e) {
+      logDebug("table {} doesn't exist", tableName);
+    }
   }
 
   @Override

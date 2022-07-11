@@ -234,4 +234,6 @@ public interface SnowflakeConnectionService {
 
   /** @return the raw jdbc connection */
   Connection getConnection();
+
+  void appendMetaColIfNotExist(String tableName);
 }
