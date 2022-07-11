@@ -443,7 +443,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
     from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
 
-    from test_suit.test_multiple_topic_to_one_table import TestMultipleTopicToOneTable
+    from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import TestMultipleTopicToOneTableSnowpipeStreaming
+    from test_suit.test_multiple_topic_to_one_table_snowpipe import TestMultipleTopicToOneTableSnowpipe
 
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
@@ -469,7 +470,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     # will run this only in confluent cloud since, since in apache kafka e2e tests, we don't start schema registry
     testSnowpipeStreamingStringAvro = TestSnowpipeStreamingStringAvroSR(driver, nameSalt)
 
-    testMultipleTopicToOneTable = TestMultipleTopicToOneTable(driver, nameSalt)
+    testMultipleTopicToOneTableSnowpipeStreaming = TestMultipleTopicToOneTableSnowpipeStreaming(driver, nameSalt)
+    testMultipleTopicToOneTableSnowpipe = TestMultipleTopicToOneTableSnowpipe(driver, nameSalt)
 
 
     ############################ round 1 ############################
@@ -485,18 +487,18 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     # Adding StringJsonProxy test at the end
     testCleanEnableList1 = [
         True, True, True, True, True, True, True, True, True, True, True, True, True, 
-        True
+        True, True
     ]
     testSuitEnableList1 = []
     if testSet == "confluent":
         testSuitEnableList1 = [
             True, True, True, True, True, True, True, True, True, True, False, True, True, 
-            True
+            True, True
         ]
     elif testSet == "apache":
         testSuitEnableList1 = [
             True, True, True, True, False, False, False, True, True, True, False, True, False, 
-            True
+            True, True
         ]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
