@@ -4,10 +4,10 @@ from confluent_kafka import avro
 import json
 
 # Runs only in confluent test suite environment
-class TestMultipleTopicToOneTable:
+class TestMultipleTopicToOneTableSnowpipe:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_multiple_topic_to_one_table"
+        self.fileName = "travis_correct_multiple_topic_to_one_table_snowpipe"
         self.topics = []
         self.topicNum = 3
         self.partitionNum = 3
@@ -91,6 +91,7 @@ class TestMultipleTopicToOneTable:
 
     def clean(self):
         # dropping of stage and pipe doesnt apply for snowpipe streaming. (It executes drop if exists)
-        for topic in self.topics:
-            self.driver.cleanTableStagePipe(topic)
+        self.driver.cleanTableStagePipe(self.tableName, "", self.partitionNum)
+        # for topic in self.topics:
+        #     self.driver.cleanTableStagePipe(topic)
         return
