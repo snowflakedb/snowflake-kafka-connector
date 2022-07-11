@@ -235,6 +235,15 @@ class KafkaTest:
             raise test_suit.test_utils.NonRetryableError("Record content:\n{}\ndoes not match gold regex "
                                                          "label:\n{}".format(content, goldContentRegex))
 
+    def regexMatchOneLineSchematized(self, res, res_index, gold):
+        for field in res_index:
+            content = res[res_index[field]].replace(" ", "").replace("\n", "")
+            goldRegex = "^" + gold[field].replace("\"", "\\\"").replace("{", "\\{").replace("}", "\\}") \
+            .replace("[", "\\[").replace("]", "\\]").replace("+", "\\+") + "$"
+            if re.search(goldRegex, content) is None:
+                raise test_suit.test_utils.NonRetryableError("Record column:\n{}\ndoes not match gold regex "
+                                                             "label:\n{}".format(content, goldRegex))
+
     def updateConnectorConfig(self, fileName, connectorName, configMap):
         with open('./rest_request_generated/' + fileName + '.json') as f:
             c = json.load(f)
@@ -465,19 +474,30 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
-    testSuitList1 = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
-                     testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
-                     testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
-                     testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
-                     testMultipleTopicToOneTable]
+    testSuitList1 = [
+        # testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
+        # testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
+        # testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
+        # testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
+        testMultipleTopicToOneTable
+    ]
 
     # Adding StringJsonProxy test at the end
-    testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True, True, True, True]
+    testCleanEnableList1 = [
+        # True, True, True, True, True, True, True, True, True, True, True, True, True, 
+        True
+    ]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False, True, True, True]
+        testSuitEnableList1 = [
+            # True, True, True, True, True, True, True, True, True, True, False, True, True, 
+            True
+        ]
     elif testSet == "apache":
-        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False, True, False, True]
+        testSuitEnableList1 = [
+            # True, True, True, True, False, False, False, True, True, True, False, True, False, 
+            True
+        ]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
