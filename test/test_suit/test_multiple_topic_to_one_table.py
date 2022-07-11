@@ -1,6 +1,7 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
 from time import sleep
 from confluent_kafka import avro
+import json
 
 # Runs only in confluent test suite environment
 class TestMultipleTopicToOneTable:
@@ -49,13 +50,13 @@ class TestMultipleTopicToOneTable:
             "SELECT count(*) FROM {}".format(self.tableName)).fetchone()[0]
         print("Count records in table {}={}".format(self.tableName, str(res)))
         if res < (self.recordNum * self.partitionNum * self.topicNum):
-            print("Topic:" + self.topic + " count is less, will retry")
+            print("Topic count is less, will retry")
             raise RetryableError()
         elif res > (self.recordNum * self.partitionNum * self.topicNum):
-            print("Topic:" + self.topic + " count is more, duplicates detected")
+            print("Topic count is more, duplicates detected")
             raise NonRetryableError("Duplication occurred, number of record in table is larger than number of record sent")
         else:
-            print("Table:" + self.topic + " count is exactly " + str(self.recordNum * self.partitionNum * self.topicNum))
+            print("Table count is exactly " + str(self.recordNum * self.partitionNum * self.topicNum))
 
         # for duplicates
         res = self.driver.snowflake_conn.cursor().execute("Select record_metadata:\"offset\"::string as OFFSET_NO,record_metadata:\"partition\"::string as PARTITION_NO from {} group by OFFSET_NO, PARTITION_NO having count(*)>{}".format(self.tableName, str(self.topicNum))).fetchone()
@@ -76,7 +77,7 @@ class TestMultipleTopicToOneTable:
                 if rows[p][0] != self.recordNum or rows[p][1] != p:
                     raise NonRetryableError("Unique offsets for partitions count doesnt match")
 
-        rows = self.driver.snowflake_conn.cursor.execute("Select count(distinct record_metadata:\"topic\"::string as TOPIC_NO, record_metadata:\"partition\"::number as PARTITION_NO from {} group by PARTITION_NO order by PARTITION_NO)".format(self.tableName)).fetchall()
+        rows = self.driver.snowflake_conn.cursor().execute("Select count(distinct record_metadata:\"topic\"::string) as TOPIC_NO, record_metadata:\"partition\"::number as PARTITION_NO from {} group by PARTITION_NO order by PARTITION_NO".format(self.tableName)).fetchall()
 
         if rows is None:
             raise NonRetryableError("Topics for partitions not found")
@@ -90,5 +91,6 @@ class TestMultipleTopicToOneTable:
 
     def clean(self):
         # dropping of stage and pipe doesnt apply for snowpipe streaming. (It executes drop if exists)
-        self.driver.cleanTableStagePipe(self.topic)
+        for topic in self.topics:
+            self.driver.cleanTableStagePipe(topic)
         return
