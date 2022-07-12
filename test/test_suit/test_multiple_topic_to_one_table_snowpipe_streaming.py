@@ -93,4 +93,5 @@ class TestMultipleTopicToOneTableSnowpipeStreaming:
         # dropping of stage and pipe doesnt apply for snowpipe streaming. (It executes drop if exists)
         for topic in self.topics:
             self.driver.cleanTableStagePipe(topic)
+        self.driver.cleanTableStagePipe(self.tableName, "", self.partitionNum)
         return
