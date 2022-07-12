@@ -292,6 +292,7 @@ class KafkaTest:
         if not os.path.exists(rest_generate_path):
             os.makedirs(rest_generate_path)
         snowflake_connector_name = fileName.split(".")[0] + nameSalt
+        snowflake_topic_name = snowflake_connector_name
 
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
         with open("{}/{}".format(rest_template_path, fileName), 'r') as f:
@@ -299,6 +300,7 @@ class KafkaTest:
             # Template has passphrase, use the encrypted version of P8 Key
             if fileContent.find("snowflake.private.key.passphrase") != -1:
                 pk = pkEncrypted
+
             fileContent = fileContent \
                 .replace("SNOWFLAKE_PRIVATE_KEY", pk) \
                 .replace("SNOWFLAKE_HOST", testHost) \
@@ -306,7 +308,7 @@ class KafkaTest:
                 .replace("SNOWFLAKE_DATABASE", testDatabase) \
                 .replace("SNOWFLAKE_SCHEMA", testSchema) \
                 .replace("CONFLUENT_SCHEMA_REGISTRY", self.schemaRegistryAddress) \
-                .replace("SNOWFLAKE_TEST_TOPIC", snowflake_connector_name) \
+                .replace("SNOWFLAKE_TEST_TOPIC", snowflake_topic_name) \
                 .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name) \
                 .replace("SNOWFLAKE_ROLE", testRole)
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
@@ -414,6 +416,9 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
     from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
 
+    from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import TestMultipleTopicToOneTableSnowpipeStreaming
+    from test_suit.test_multiple_topic_to_one_table_snowpipe import TestMultipleTopicToOneTableSnowpipe
+
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
     testStringAvro = TestStringAvro(driver, nameSalt)
@@ -438,21 +443,36 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     # will run this only in confluent cloud since, since in apache kafka e2e tests, we don't start schema registry
     testSnowpipeStreamingStringAvro = TestSnowpipeStreamingStringAvroSR(driver, nameSalt)
 
+    testMultipleTopicToOneTableSnowpipeStreaming = TestMultipleTopicToOneTableSnowpipeStreaming(driver, nameSalt)
+    testMultipleTopicToOneTableSnowpipe = TestMultipleTopicToOneTableSnowpipe(driver, nameSalt)
+
 
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
-    testSuitList1 = [testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
-                     testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
-                     testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
-                     testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro]
+    testSuitList1 = [
+        testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
+        testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
+        testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
+        testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
+        testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe
+    ]
 
     # Adding StringJsonProxy test at the end
-    testCleanEnableList1 = [True, True, True, True, True, True, True, True, True, True, True, True, True]
+    testCleanEnableList1 = [
+        True, True, True, True, True, True, True, True, True, True, True, True, True, 
+        True, True
+    ]
     testSuitEnableList1 = []
     if testSet == "confluent":
-        testSuitEnableList1 = [True, True, True, True, True, True, True, True, True, True, False, True, True]
+        testSuitEnableList1 = [
+            True, True, True, True, True, True, True, True, True, True, False, True, True, 
+            True, True,
+        ]
     elif testSet == "apache":
-        testSuitEnableList1 = [True, True, True, True, False, False, False, True, True, True, False, True, False]
+        testSuitEnableList1 = [
+            True, True, True, True, False, False, False, True, True, True, False, True, False, 
+            True, True
+        ]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
