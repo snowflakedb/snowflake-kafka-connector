@@ -135,6 +135,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       this.enableSchematization =
           Boolean.parseBoolean(
               connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
+    } else {
+      this.enableSchematization = false;
     }
     this.recordService.setSchematizationEnable(this.enableSchematization);
 
