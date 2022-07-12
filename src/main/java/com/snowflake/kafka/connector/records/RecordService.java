@@ -65,7 +65,7 @@ public class RecordService extends Logging {
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
 
-  static boolean schematizationEnable = false;
+  private boolean schematizationEnable = false;
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
