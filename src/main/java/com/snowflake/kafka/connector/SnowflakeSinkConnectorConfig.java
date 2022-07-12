@@ -28,7 +28,11 @@ import org.apache.kafka.common.config.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -156,8 +160,8 @@ public class SnowflakeSinkConnectorConfig {
    * before actually sending records to Kafka connector.
    *
    * @see <a
-   *     href="https://github.com/apache/kafka/blob/trunk/connect/runtime/src/main/java/org/apache/kafka/connect/runtime/WorkerSinkTask.java#L332">Kafka
-   *     Code for Converter</a>
+   * href="https://github.com/apache/kafka/blob/trunk/connect/runtime/src/main/java/org/apache/kafka/connect/runtime/WorkerSinkTask.java#L332">Kafka
+   * Code for Converter</a>
    */
   public static final String KEY_CONVERTER_CONFIG_FIELD = "value.converter";
 
@@ -188,7 +192,7 @@ public class SnowflakeSinkConnectorConfig {
    * Get a property from the config map
    *
    * @param config connector configuration
-   * @param key name of the key to be retrieved
+   * @param key    name of the key to be retrieved
    * @return property value or null
    */
   static String getProperty(final Map<String, String> config, final String key) {
@@ -493,7 +497,8 @@ public class SnowflakeSinkConnectorConfig {
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {
-    public TopicToTableValidator() {}
+    public TopicToTableValidator() {
+    }
 
     public void ensureValid(String name, Object value) {
       String s = (String) value;
@@ -514,7 +519,8 @@ public class SnowflakeSinkConnectorConfig {
 
   /* Validator to validate Kafka Provider values which says where kafka is hosted */
   public static class KafkaProviderValidator implements ConfigDef.Validator {
-    public KafkaProviderValidator() {}
+    public KafkaProviderValidator() {
+    }
 
     // This API is called by framework to ensure the validity when connector is started or when a
     // validate REST API is called
@@ -539,7 +545,8 @@ public class SnowflakeSinkConnectorConfig {
 
   /* Validator to validate Kafka delivery guarantee types    */
   public static class DeliveryGuaranteeValidator implements ConfigDef.Validator {
-    public DeliveryGuaranteeValidator() {}
+    public DeliveryGuaranteeValidator() {
+    }
 
     @Override
     public void ensureValid(String name, Object value) {
@@ -694,10 +701,14 @@ public class SnowflakeSinkConnectorConfig {
   /* https://www.confluent.io/blog/kafka-connect-deep-dive-error-handling-dead-letter-queues/ */
   public enum ErrorTolerance {
 
-    /** Tolerate no errors. */
+    /**
+     * Tolerate no errors.
+     */
     NONE,
 
-    /** Tolerate all errors. */
+    /**
+     * Tolerate all errors.
+     */
     ALL;
 
     /**
