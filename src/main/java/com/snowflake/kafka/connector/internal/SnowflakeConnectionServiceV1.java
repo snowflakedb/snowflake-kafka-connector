@@ -767,7 +767,9 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
         .build();
   }
 
-  /** make sure connection is not closed */
+  /**
+   * make sure connection is not closed
+   */
   private void checkConnection() {
     try {
       if (conn.isClosed()) {
@@ -798,7 +800,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
    * Remove one file from given stage
    *
    * @param stageName stage name
-   * @param fileName file name
+   * @param fileName  file name
    */
   private void removeFile(String stageName, String fileName) {
     InternalUtils.assertNotEmpty("stageName", stageName);

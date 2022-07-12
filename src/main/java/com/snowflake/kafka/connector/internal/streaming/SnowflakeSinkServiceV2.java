@@ -153,7 +153,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * <p>Initializes the Channel and partitionsToChannel map with new instance of {@link
    * TopicPartitionChannel}
    *
-   * @param tableName destination table name
+   * @param tableName      destination table name
    * @param topicPartition TopicPartition passed from Kafka
    */
   @Override
@@ -195,8 +195,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * <p>TODO: SNOW-473896 - Please note we will get away with Buffering logic in future commits.
    *
    * @param records records coming from Kafka. Please note, they are not just from single topic and
-   *     partition. It depends on the kafka connect worker node which can consume from multiple
-   *     Topic and multiple Partitions
+   *                partition. It depends on the kafka connect worker node which can consume from multiple
+   *                Topic and multiple Partitions
    */
   @Override
   public void insert(Collection<SinkRecord> records) {
@@ -309,7 +309,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   @Override
-  public void setIsStoppedToTrue() {}
+  public void setIsStoppedToTrue() {
+  }
 
   /* Undefined */
   @Override
@@ -332,7 +333,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * Assume this is buffer size in bytes, since this is streaming ingestion
    *
    * @param size in bytes - a non negative long number representing size of internal buffer for
-   *     flush.
+   *             flush.
    */
   @Override
   public void setFileSize(long size) {
@@ -436,7 +437,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   /**
    * Gets a unique identifier consisting of topic name and partition number.
    *
-   * @param topic topic name
+   * @param topic     topic name
    * @param partition partition number
    * @return combinartion of topic and partition
    */
@@ -488,7 +489,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
-  /** Closes the streaming client. */
+  /**
+   * Closes the streaming client.
+   */
   private void closeStreamingClient() {
     LOGGER.info("Closing Streaming Client:{}", this.streamingIngestClientName);
     try {
