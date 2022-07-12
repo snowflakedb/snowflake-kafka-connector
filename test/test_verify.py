@@ -235,15 +235,6 @@ class KafkaTest:
             raise test_suit.test_utils.NonRetryableError("Record content:\n{}\ndoes not match gold regex "
                                                          "label:\n{}".format(content, goldContentRegex))
 
-    def regexMatchOneLineSchematized(self, res, res_index, gold):
-        for field in res_index:
-            content = res[res_index[field]].replace(" ", "").replace("\n", "")
-            goldRegex = "^" + gold[field].replace("\"", "\\\"").replace("{", "\\{").replace("}", "\\}") \
-            .replace("[", "\\[").replace("]", "\\]").replace("+", "\\+") + "$"
-            if re.search(goldRegex, content) is None:
-                raise test_suit.test_utils.NonRetryableError("Record column:\n{}\ndoes not match gold regex "
-                                                             "label:\n{}".format(content, gol))
-
     def updateConnectorConfig(self, fileName, connectorName, configMap):
         with open('./rest_request_generated/' + fileName + '.json') as f:
             c = json.load(f)
@@ -309,24 +300,6 @@ class KafkaTest:
             # Template has passphrase, use the encrypted version of P8 Key
             if fileContent.find("snowflake.private.key.passphrase") != -1:
                 pk = pkEncrypted
-
-            if "NUM_TOPICS" in fileContent:
-                prefix = "NUM_TOPICS<"
-                suffix = ">NUM_TOPICS"
-                i0 = fileContent.find(prefix) + len(prefix)
-                i1 = fileContent.find(suffix)
-                numTopics = int(fileContent[i0:i1])
-                mapOrigianlString = prefix + str(numTopics) + suffix
-                mapNewString = ""
-                snowflake_topic_name = ""
-                for i in range(numTopics):
-                    if i != 0:
-                        snowflake_topic_name += ","
-                        mapNewString += ","
-                    temp_topic_name = snowflake_connector_name + str(i)
-                    snowflake_topic_name += temp_topic_name
-                    mapNewString += temp_topic_name + ":" + snowflake_connector_name
-                fileContent = fileContent.replace(mapOrigianlString, mapNewString)
 
             fileContent = fileContent \
                 .replace("SNOWFLAKE_PRIVATE_KEY", pk) \
@@ -446,8 +419,6 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import TestMultipleTopicToOneTableSnowpipeStreaming
     from test_suit.test_multiple_topic_to_one_table_snowpipe import TestMultipleTopicToOneTableSnowpipe
 
-    from test_suit.test_schema_mapping import TestSchemaMapping
-
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
     testStringAvro = TestStringAvro(driver, nameSalt)
@@ -475,8 +446,6 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testMultipleTopicToOneTableSnowpipeStreaming = TestMultipleTopicToOneTableSnowpipeStreaming(driver, nameSalt)
     testMultipleTopicToOneTableSnowpipe = TestMultipleTopicToOneTableSnowpipe(driver, nameSalt)
 
-    testSchemaMapping = TestSchemaMapping(driver, nameSalt)
-
 
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
@@ -485,28 +454,24 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
         testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
         testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
-        testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe,
-        testSchemaMapping
+        testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe
     ]
 
     # Adding StringJsonProxy test at the end
     testCleanEnableList1 = [
         True, True, True, True, True, True, True, True, True, True, True, True, True, 
-        True, True,
-        True
+        True, True
     ]
     testSuitEnableList1 = []
     if testSet == "confluent":
         testSuitEnableList1 = [
             True, True, True, True, True, True, True, True, True, True, False, True, True, 
             True, True,
-            True
         ]
     elif testSet == "apache":
         testSuitEnableList1 = [
             True, True, True, True, False, False, False, True, True, True, False, True, False, 
-            True, True,
-            True
+            True, True
         ]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
