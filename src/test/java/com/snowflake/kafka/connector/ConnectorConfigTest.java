@@ -127,7 +127,7 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testDuplicatedTableName() {
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:table1,topic2:table1");
