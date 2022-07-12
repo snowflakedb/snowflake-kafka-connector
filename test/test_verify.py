@@ -301,24 +301,6 @@ class KafkaTest:
             if fileContent.find("snowflake.private.key.passphrase") != -1:
                 pk = pkEncrypted
 
-            if "NUM_TOPICS" in fileContent:
-                prefix = "NUM_TOPICS<"
-                suffix = ">NUM_TOPICS"
-                i0 = fileContent.find(prefix) + len(prefix)
-                i1 = fileContent.find(suffix)
-                numTopics = int(fileContent[i0:i1])
-                mapOrigianlString = prefix + str(numTopics) + suffix
-                mapNewString = ""
-                snowflake_topic_name = ""
-                for i in range(numTopics):
-                    if i != 0:
-                        snowflake_topic_name += ","
-                        mapNewString += ","
-                    temp_topic_name = snowflake_connector_name + str(i)
-                    snowflake_topic_name += temp_topic_name
-                    mapNewString += temp_topic_name + ":" + snowflake_connector_name
-                fileContent = fileContent.replace(mapOrigianlString, mapNewString)
-
             fileContent = fileContent \
                 .replace("SNOWFLAKE_PRIVATE_KEY", pk) \
                 .replace("SNOWFLAKE_HOST", testHost) \
