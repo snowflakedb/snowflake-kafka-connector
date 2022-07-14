@@ -3,10 +3,6 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
-import net.snowflake.client.jdbc.SnowflakeConnectionV1;
-import net.snowflake.client.jdbc.SnowflakeDriver;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import net.snowflake.client.jdbc.SnowflakeConnectionV1;
+import net.snowflake.client.jdbc.SnowflakeDriver;
+import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 
 /**
  * Implementation of Snowflake Connection Service interface which includes all handshake between KC
@@ -767,9 +766,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
         .build();
   }
 
-  /**
-   * make sure connection is not closed
-   */
+  /** make sure connection is not closed */
   private void checkConnection() {
     try {
       if (conn.isClosed()) {
@@ -800,7 +797,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
    * Remove one file from given stage
    *
    * @param stageName stage name
-   * @param fileName  file name
+   * @param fileName file name
    */
   private void removeFile(String stageName, String fileName) {
     InternalUtils.assertNotEmpty("stageName", stageName);
