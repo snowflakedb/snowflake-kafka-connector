@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
@@ -16,6 +17,16 @@ public class ConnectorConfigTest {
   @Test
   public void testConfig() {
     Map<String, String> config = getConfig();
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testConfig_ConvertedInvalidAppName() {
+    Map<String, String> config = getConfig();
+    config.put(NAME, "testConfig.snowflake-connector");
+
+    Utils.convertAppName(config);
+
     Utils.validateConfig(config);
   }
 
