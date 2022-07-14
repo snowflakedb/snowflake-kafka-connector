@@ -16,9 +16,21 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
+
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.TimeZone;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -37,19 +49,6 @@ import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
-
-import java.math.BigDecimal;
-import java.nio.ByteBuffer;
-import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.TimeZone;
-
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 public class RecordService extends Logging {
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -91,8 +90,7 @@ public class RecordService extends Logging {
    *
    * <p>create a JsonRecordService instance
    */
-  public RecordService() {
-  }
+  public RecordService() {}
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
     metadataConfig = metadataConfigIn;
@@ -217,9 +215,7 @@ public class RecordService extends Logging {
     return streamingIngestRow;
   }
 
-  /**
-   * For now there are two columns one is content and other is metadata. Both are Json
-   */
+  /** For now there are two columns one is content and other is metadata. Both are Json */
   private static class SnowflakeTableRow {
     // This can be a JsonNode but we will keep this as is.
     private final SnowflakeRecordContent content;
@@ -278,7 +274,7 @@ public class RecordService extends Logging {
    * Convert this object, in the org.apache.kafka.connect.data format, into a JSON object, returning
    * the converted object.
    *
-   * @param schema       schema of the object
+   * @param schema schema of the object
    * @param logicalValue object to be converted
    * @return a JsonNode of the object
    */
@@ -376,58 +372,61 @@ public class RecordService extends Logging {
 
           return JsonNodeFactory.instance.binaryNode(valueArr);
 
-        case ARRAY: {
-          Collection collection = (Collection) value;
-          ArrayNode list = JsonNodeFactory.instance.arrayNode();
-          for (Object elem : collection) {
-            Schema valueSchema = schema == null ? null : schema.valueSchema();
-            JsonNode fieldValue = convertToJson(valueSchema, elem);
-            list.add(fieldValue);
-          }
-          return list;
-        }
-        case MAP: {
-          Map<?, ?> map = (Map<?, ?>) value;
-          // If true, using string keys and JSON object; if false, using non-string keys and
-          // Array-encoding
-          boolean objectMode;
-          if (schema == null) {
-            objectMode = true;
-            for (Map.Entry<?, ?> entry : map.entrySet()) {
-              if (!(entry.getKey() instanceof String)) {
-                objectMode = false;
-                break;
-              }
+        case ARRAY:
+          {
+            Collection collection = (Collection) value;
+            ArrayNode list = JsonNodeFactory.instance.arrayNode();
+            for (Object elem : collection) {
+              Schema valueSchema = schema == null ? null : schema.valueSchema();
+              JsonNode fieldValue = convertToJson(valueSchema, elem);
+              list.add(fieldValue);
             }
-          } else {
-            objectMode =
-                (schema.keySchema() != null && schema.keySchema().type() == Schema.Type.STRING);
+            return list;
           }
-          ObjectNode obj = null;
-          ArrayNode list = null;
-          if (objectMode) obj = JsonNodeFactory.instance.objectNode();
-          else list = JsonNodeFactory.instance.arrayNode();
-          for (Map.Entry<?, ?> entry : map.entrySet()) {
-            Schema keySchema = schema == null ? null : schema.keySchema();
-            Schema valueSchema = schema == null ? null : schema.valueSchema();
-            JsonNode mapKey = convertToJson(keySchema, entry.getKey());
-            JsonNode mapValue = convertToJson(valueSchema, entry.getValue());
+        case MAP:
+          {
+            Map<?, ?> map = (Map<?, ?>) value;
+            // If true, using string keys and JSON object; if false, using non-string keys and
+            // Array-encoding
+            boolean objectMode;
+            if (schema == null) {
+              objectMode = true;
+              for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (!(entry.getKey() instanceof String)) {
+                  objectMode = false;
+                  break;
+                }
+              }
+            } else {
+              objectMode =
+                  (schema.keySchema() != null && schema.keySchema().type() == Schema.Type.STRING);
+            }
+            ObjectNode obj = null;
+            ArrayNode list = null;
+            if (objectMode) obj = JsonNodeFactory.instance.objectNode();
+            else list = JsonNodeFactory.instance.arrayNode();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+              Schema keySchema = schema == null ? null : schema.keySchema();
+              Schema valueSchema = schema == null ? null : schema.valueSchema();
+              JsonNode mapKey = convertToJson(keySchema, entry.getKey());
+              JsonNode mapValue = convertToJson(valueSchema, entry.getValue());
 
-            if (objectMode) obj.set(mapKey.asText(), mapValue);
-            else list.add(JsonNodeFactory.instance.arrayNode().add(mapKey).add(mapValue));
+              if (objectMode) obj.set(mapKey.asText(), mapValue);
+              else list.add(JsonNodeFactory.instance.arrayNode().add(mapKey).add(mapValue));
+            }
+            return objectMode ? obj : list;
           }
-          return objectMode ? obj : list;
-        }
-        case STRUCT: {
-          Struct struct = (Struct) value;
-          if (struct.schema() != schema)
-            throw SnowflakeErrors.ERROR_5015.getException("Mismatching schema.");
-          ObjectNode obj = JsonNodeFactory.instance.objectNode();
-          for (Field field : schema.fields()) {
-            obj.set(field.name(), convertToJson(field.schema(), struct.get(field)));
+        case STRUCT:
+          {
+            Struct struct = (Struct) value;
+            if (struct.schema() != schema)
+              throw SnowflakeErrors.ERROR_5015.getException("Mismatching schema.");
+            ObjectNode obj = JsonNodeFactory.instance.objectNode();
+            for (Field field : schema.fields()) {
+              obj.set(field.name(), convertToJson(field.schema(), struct.get(field)));
+            }
+            return obj;
           }
-          return obj;
-        }
       }
 
       throw SnowflakeErrors.ERROR_5015.getException("Couldn't convert " + value + " to JSON.");
@@ -447,11 +446,11 @@ public class RecordService extends Logging {
    *
    * <p>If the value is an empty JSON node, we could assume the value passed was null.
    *
-   * @param record               record sent from Kafka to KC
+   * @param record record sent from Kafka to KC
    * @param behaviorOnNullValues behavior passed inside KC
    * @return true if we would skip adding it to buffer
    * @see com.snowflake.kafka.connector.records.SnowflakeJsonConverter#toConnectData when bytes ==
-   * null case
+   *     null case
    */
   public boolean shouldSkipNullValue(
       SinkRecord record,

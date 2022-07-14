@@ -1,5 +1,9 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
+
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -12,6 +16,12 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
@@ -21,17 +31,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
-
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
 
 /**
  * This is per task configuration. A task can be assigned multiple partitions. Major methods are
@@ -153,7 +152,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * <p>Initializes the Channel and partitionsToChannel map with new instance of {@link
    * TopicPartitionChannel}
    *
-   * @param tableName      destination table name
+   * @param tableName destination table name
    * @param topicPartition TopicPartition passed from Kafka
    */
   @Override
@@ -195,8 +194,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * <p>TODO: SNOW-473896 - Please note we will get away with Buffering logic in future commits.
    *
    * @param records records coming from Kafka. Please note, they are not just from single topic and
-   *                partition. It depends on the kafka connect worker node which can consume from multiple
-   *                Topic and multiple Partitions
+   *     partition. It depends on the kafka connect worker node which can consume from multiple
+   *     Topic and multiple Partitions
    */
   @Override
   public void insert(Collection<SinkRecord> records) {
@@ -210,6 +209,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       // threshold.
       insert(record);
     }
+
     // check all partitions to see if they need to be flushed based on time
     for (TopicPartitionChannel partitionChannel : partitionsToChannel.values()) {
       // Time based flushing
@@ -309,8 +309,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   @Override
-  public void setIsStoppedToTrue() {
-  }
+  public void setIsStoppedToTrue() {}
 
   /* Undefined */
   @Override
@@ -333,7 +332,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * Assume this is buffer size in bytes, since this is streaming ingestion
    *
    * @param size in bytes - a non negative long number representing size of internal buffer for
-   *             flush.
+   *     flush.
    */
   @Override
   public void setFileSize(long size) {
@@ -437,7 +436,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   /**
    * Gets a unique identifier consisting of topic name and partition number.
    *
-   * @param topic     topic name
+   * @param topic topic name
    * @param partition partition number
    * @return combinartion of topic and partition
    */
@@ -489,9 +488,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
-  /**
-   * Closes the streaming client.
-   */
+  /** Closes the streaming client. */
   private void closeStreamingClient() {
     LOGGER.info("Closing Streaming Client:{}", this.streamingIngestClientName);
     try {
