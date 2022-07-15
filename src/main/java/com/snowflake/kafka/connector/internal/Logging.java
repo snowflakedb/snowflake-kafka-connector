@@ -17,9 +17,10 @@
 
 package com.snowflake.kafka.connector.internal;
 
-import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Objects;
 
 /** Base class for all classes enable logging */
 public class Logging {
@@ -110,7 +111,7 @@ public class Logging {
    * @return log message wrapped by snowflake tag
    */
   public static String logMessage(String msg) {
-    return "\n".concat(msg).replaceAll("\n", "\n" + SF_LOG_TAG + " ");
+    return SF_LOG_TAG + " " + msg;
   }
 
   /**

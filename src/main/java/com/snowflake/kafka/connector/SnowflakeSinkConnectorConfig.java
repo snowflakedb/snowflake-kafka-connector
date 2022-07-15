@@ -21,18 +21,19 @@ import com.google.common.collect.ImmutableSet;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * SnowflakeSinkConnectorConfig class is used for specifying the set of expected configurations. For
@@ -160,9 +161,9 @@ public class SnowflakeSinkConnectorConfig {
    *     href="https://github.com/apache/kafka/blob/trunk/connect/runtime/src/main/java/org/apache/kafka/connect/runtime/WorkerSinkTask.java#L332">Kafka
    *     Code for Converter</a>
    */
-  public static final String KEY_CONVERTER_CONFIG_FIELD = "value.converter";
+  public static final String KEY_CONVERTER_CONFIG_FIELD = "key.converter";
 
-  public static final String VALUE_CONVERTER_CONFIG_FIELD = "key.converter";
+  public static final String VALUE_CONVERTER_CONFIG_FIELD = "value.converter";
 
   public static final Set<String> CUSTOM_SNOWFLAKE_CONVERTERS =
       ImmutableSet.of(
