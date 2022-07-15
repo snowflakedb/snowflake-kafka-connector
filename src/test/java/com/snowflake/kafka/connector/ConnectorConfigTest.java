@@ -560,4 +560,26 @@ public class ConnectorConfigTest {
         "org.apache.kafka.connect.storage.StringConverter");
     Utils.validateConfig(config);
   }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testInvalidSchematizationForSnowpipe() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE.toString());
+    config.put(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG, "true");
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testValidSchematizationForStreamingSnowpipe() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG, "true");
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+  }
 }
