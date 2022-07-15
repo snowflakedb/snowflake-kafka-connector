@@ -102,6 +102,11 @@ public enum SnowflakeErrors {
       "0024",
       "Reader schema invalid",
       "A reader schema is provided but can not be parsed as an Avro schema"),
+  ERROR_0025(
+      "0025",
+      "Schematization not available for SnowPipe",
+      "Schematization not available for SnowPipe. Please set the ingestion method to"
+          + " SNOWPIPE_STREAMING if you want to use schematization."),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
@@ -150,6 +155,15 @@ public enum SnowflakeErrors {
       "2011",
       "Failed to upload file with cache",
       "Failed to upload file to Snowflake Stage though credential caching"),
+  ERROR_2012(
+      "2012",
+      "Failed to append metadata column",
+      "Failed to append metadata column due to an existing metadata column with non-VARIANT"
+          + " type."),
+  ERROR_2013(
+      "2013",
+      "Failed to append metadata column",
+      "Failed to append meta data column, please check that you have permission to do so."),
   // Snowpipe related issues 3---
   ERROR_3001("3001", "Failed to ingest file", "Exception reported by Ingest SDK"),
 

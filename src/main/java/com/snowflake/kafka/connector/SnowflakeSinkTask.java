@@ -191,6 +191,17 @@ public class SnowflakeSinkTask extends SinkTask {
       }
     }
 
+    if (ingestionType.equals(IngestionMethodConfig.SNOWPIPE)) {
+      if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG)) {
+        boolean enableSchematization =
+            Boolean.parseBoolean(
+                parsedConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
+        if (enableSchematization) {
+          throw SnowflakeErrors.ERROR_0025.getException();
+        }
+      }
+    }
+
     conn =
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(parsedConfig)
@@ -456,10 +467,10 @@ public class SnowflakeSinkTask extends SinkTask {
   /**
    * For versions older than 2.6
    *
+   * @return
    * @see <a
    *     href="https://javadoc.io/doc/org.apache.kafka/connect-api/2.6.0/org/apache/kafka/connect/sink/ErrantRecordReporter.html">
    *     link </a>
-   * @return
    */
   @VisibleForTesting
   static KafkaRecordErrorReporter noOpKafkaRecordErrorReporter() {
