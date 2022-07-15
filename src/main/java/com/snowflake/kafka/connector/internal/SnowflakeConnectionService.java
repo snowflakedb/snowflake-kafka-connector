@@ -236,5 +236,11 @@ public interface SnowflakeConnectionService {
   /** @return the raw jdbc connection */
   Connection getConnection();
 
+  /**
+   * append a VARIANT type column "RECORD_METADATA" to the table if not present only called when
+   * schematization enabled
+   *
+   * @param tableName table name
+   */
   void appendMetaColIfNotExist(String tableName);
 }
