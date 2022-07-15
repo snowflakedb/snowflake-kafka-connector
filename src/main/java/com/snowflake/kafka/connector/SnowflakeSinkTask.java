@@ -191,17 +191,6 @@ public class SnowflakeSinkTask extends SinkTask {
       }
     }
 
-    if (ingestionType.equals(IngestionMethodConfig.SNOWPIPE)) {
-      if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG)) {
-        boolean enableSchematization =
-            Boolean.parseBoolean(
-                parsedConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
-        if (enableSchematization) {
-          throw SnowflakeErrors.ERROR_0025.getException();
-        }
-      }
-    }
-
     conn =
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(parsedConfig)

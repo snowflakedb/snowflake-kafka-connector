@@ -326,6 +326,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     return compatible;
   }
 
+  @Override
   public void appendMetaColIfNotExist(final String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);

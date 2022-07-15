@@ -96,8 +96,15 @@ public class RecordService extends Logging {
     metadataConfig = metadataConfigIn;
   }
 
-  public void setSchematizationEnable(boolean schematizationEnableIn) {
-    schematizationEnable = schematizationEnableIn;
+  public boolean setSchematizationEnable(final Map<String, String> connectorConfig) {
+    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG)) {
+      schematizationEnable =
+          Boolean.parseBoolean(
+              connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
+    } else {
+      schematizationEnable = false;
+    }
+    return schematizationEnable;
   }
 
   /**

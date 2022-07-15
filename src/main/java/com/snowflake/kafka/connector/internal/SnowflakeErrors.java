@@ -102,11 +102,6 @@ public enum SnowflakeErrors {
       "0024",
       "Reader schema invalid",
       "A reader schema is provided but can not be parsed as an Avro schema"),
-  ERROR_0025(
-      "0025",
-      "Schematization not available for SnowPipe",
-      "Schematization not available for SnowPipe. Please set the ingestion method to"
-          + " SNOWPIPE_STREAMING if you want to use schematization."),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",

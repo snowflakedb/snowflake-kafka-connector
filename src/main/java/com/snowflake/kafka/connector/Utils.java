@@ -364,6 +364,16 @@ public class Utils {
       if (!BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE)) {
         configIsValid = false;
       }
+      if (config.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG)) {
+        boolean enableSchematization =
+            Boolean.parseBoolean(
+                config.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
+        if (enableSchematization) {
+          configIsValid = false;
+          LOGGER.error(
+              Logging.logMessage("Schematization is only available with SNOWPIPE_STREAMING."));
+        }
+      }
     }
 
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)
