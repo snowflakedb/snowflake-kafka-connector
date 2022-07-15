@@ -101,7 +101,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private final String streamingIngestClientName;
 
-  private boolean enableSchematization = false;
+  private boolean enableSchematization;
 
   /**
    * Key is formulated in {@link #partitionChannelKey(String, int)} }
