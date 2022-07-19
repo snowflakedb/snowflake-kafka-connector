@@ -159,6 +159,10 @@ public enum SnowflakeErrors {
       "2013",
       "Failed to append metadata column",
       "Failed to append meta data column, please check that you have permission to do so."),
+  ERROR_2014(
+      "2014",
+      "Failed to append columns",
+      "Failed to append columns, please check that you have permission to do so."),
   // Snowpipe related issues 3---
   ERROR_3001("3001", "Failed to ingest file", "Exception reported by Ingest SDK"),
 

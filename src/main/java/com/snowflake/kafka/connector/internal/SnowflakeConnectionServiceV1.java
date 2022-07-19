@@ -128,6 +128,30 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   }
 
   @Override
+  public void appendColumns(String tableName, List<String> extraColumnNames) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "alter table identifier(?) add column ";
+    boolean first = true;
+    for (String columnName : extraColumnNames) {
+      if (first) {
+        first = false;
+      } else {
+        query += ", add column ";
+      }
+      query += columnName;
+    }
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2014.getException(e);
+    }
+  }
+
+  @Override
   public void createPipe(
       final String tableName,
       final String stageName,

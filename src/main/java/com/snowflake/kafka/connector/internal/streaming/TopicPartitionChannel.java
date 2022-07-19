@@ -15,6 +15,7 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -169,6 +170,11 @@ public class TopicPartitionChannel {
   // Used to identify when to flush (Time, bytes or number of records)
   private final BufferThreshold streamingBufferThreshold;
 
+  //  Whether schematization is enabled
+  private boolean schematizationEnable = false;
+
+  private final SnowflakeConnectionService conn;
+
   /**
    * @param streamingIngestClient client created specifically for this task
    * @param topicPartition topic partition corresponding to this Streaming Channel
@@ -188,7 +194,9 @@ public class TopicPartitionChannel {
       final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
-      SinkTaskContext sinkTaskContext) {
+      SinkTaskContext sinkTaskContext,
+      SnowflakeConnectionService conn) {
+    this.conn = conn;
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
     Preconditions.checkState(!streamingIngestClient.isClosed());
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
@@ -201,7 +209,7 @@ public class TopicPartitionChannel {
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
 
     this.recordService = new RecordService();
-    this.recordService.setSchematizationEnable(sfConnectorConfig);
+    this.schematizationEnable = this.recordService.setSchematizationEnable(sfConnectorConfig);
 
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -468,9 +476,14 @@ public class TopicPartitionChannel {
           this.getChannelName(),
           streamingBufferToInsert,
           response.hasErrors());
+
       if (response.hasErrors()) {
-        handleInsertRowsFailures(
-            response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
+        if (!this.schematizationEnable) {
+          handleInsertRowsFailures(
+              response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
+        } else {
+          retryInsertRows(response, streamingBufferToInsert);
+        }
       }
       return response;
     } catch (TopicPartitionChannelInsertionException ex) {
@@ -609,6 +622,54 @@ public class TopicPartitionChannel {
     } else {
       throw new DataException(
           "Error inserting Records using Streaming API", insertErrors.get(0).getException());
+    }
+  }
+
+  private void retryInsertRows(
+      InsertValidationResponse response, StreamingBuffer streamingBufferToInsert) {
+    // TODO: check permission
+    final int maxRetry = 5;
+    final String EXTRA_COL_S = "Extra column: ";
+    final String EXTRA_COL_E = ". Columns not present in the table shouldn't be specified.";
+    StreamingBuffer oldBuffer = streamingBufferToInsert;
+    while (response.hasErrors()) {
+      boolean extraColumnOnly = true;
+      boolean appendSucceed = false;
+      StreamingBuffer tempBuffer = new StreamingBuffer();
+      List<String> extraColumnNames = new ArrayList<>();
+      for (InsertValidationResponse.InsertError insertError : response.getInsertErrors()) {
+        String errorMessage = insertError.getMessage();
+        if (errorMessage.contains(EXTRA_COL_S)) {
+          int startIndex = errorMessage.indexOf(EXTRA_COL_S) + EXTRA_COL_S.length();
+          int endIndex = errorMessage.indexOf(EXTRA_COL_E);
+          extraColumnNames.add(errorMessage.substring(startIndex, endIndex));
+          tempBuffer.insert(oldBuffer.getSinkRecords().get((int) insertError.getRowIndex()));
+        } else {
+          extraColumnOnly = false;
+          break;
+        }
+      }
+      if (extraColumnOnly) {
+        for (int i = 0; i < maxRetry; ++i) {
+          try {
+            this.conn.appendColumns(this.tableName, extraColumnNames);
+          } catch (Exception e) {
+            LOGGER.debug("Unable to append columns. Will retry.");
+            continue;
+            //        unable to append columns, might be caused by racing condition
+          }
+          appendSucceed = true;
+          break;
+        }
+        if (appendSucceed) {
+          oldBuffer = tempBuffer;
+          response = insertRowsWithFallback(oldBuffer);
+          continue;
+        }
+      }
+      handleInsertRowsFailures(
+          response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
+      break;
     }
   }
 

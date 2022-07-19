@@ -243,4 +243,6 @@ public interface SnowflakeConnectionService {
    * @param tableName table name
    */
   void appendMetaColIfNotExist(String tableName);
+
+  void appendColumns(String tableName, List<String> extraColumnNames);
 }
