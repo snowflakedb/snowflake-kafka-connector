@@ -97,12 +97,16 @@ public class SnowflakeRecordContent {
     this.schemaID = schemaID;
   }
 
-  /** @return true is record is broken */
+  /**
+   * @return true is record is broken
+   */
   public boolean isBroken() {
     return this.isBroken;
   }
 
-  /** @return bytes array represents broken data */
+  /**
+   * @return bytes array represents broken data
+   */
   public byte[] getBrokenData() {
     if (!isBroken) {
       throw SnowflakeErrors.ERROR_5011.getException();
@@ -111,7 +115,9 @@ public class SnowflakeRecordContent {
     return this.brokenData.clone();
   }
 
-  /** @return schema id, -1 if not available */
+  /**
+   * @return schema id, -1 if not available
+   */
   int getSchemaID() {
     return schemaID;
   }

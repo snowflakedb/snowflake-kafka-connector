@@ -1,16 +1,17 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC;
-
 import com.google.common.base.MoreObjects;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC;
 
 /**
  * Helper class associated to runtime of Kafka Connect which can help to identify if there is a need
@@ -111,7 +112,9 @@ public abstract class BufferThreshold {
         >= (this.flushTimeThresholdSeconds * SECOND_TO_MILLIS);
   }
 
-  /** @return Get flush time threshold in seconds */
+  /**
+   * @return Get flush time threshold in seconds
+   */
   public long getFlushTimeThresholdSeconds() {
     return flushTimeThresholdSeconds;
   }

@@ -5,12 +5,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Optional;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
+
+import java.util.Collection;
+import java.util.Map;
+import java.util.Optional;
 
 /** Background service of data sink, responsible to create/drop pipe and ingest/purge files */
 public interface SnowflakeSinkService {
@@ -116,13 +117,19 @@ public interface SnowflakeSinkService {
    */
   void setMetadataConfig(SnowflakeMetadataConfig configMap);
 
-  /** @return current number of record limitation */
+  /**
+   * @return current number of record limitation
+   */
   long getRecordNumber();
 
-  /** @return current flush time in seconds */
+  /**
+   * @return current flush time in seconds
+   */
   long getFlushTime();
 
-  /** @return current file size limitation */
+  /**
+   * @return current file size limitation
+   */
   long getFileSize();
 
   /* Set the behavior on what action to perform when this( @see com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BEHAVIOR_ON_NULL_VALUES_CONFIG ) config is set. */

@@ -2,10 +2,11 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.internal.InternalUtils.IngestedFileStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import java.util.List;
-import java.util.Map;
 import net.snowflake.ingest.connection.ClientStatusResponse;
 import net.snowflake.ingest.connection.ConfigureClientResponse;
+
+import java.util.List;
+import java.util.Map;
 
 /** Ingestion service manages snow pipe */
 public interface SnowflakeIngestionService {
@@ -29,7 +30,9 @@ public interface SnowflakeIngestionService {
    */
   void ingestFiles(List<String> fileNames);
 
-  /** @return corresponding stage name */
+  /**
+   * @return corresponding stage name
+   */
   String getStageName();
 
   /**

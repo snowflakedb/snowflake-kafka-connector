@@ -16,18 +16,23 @@
  */
 package com.snowflake.kafka.connector;
 
-import com.snowflake.kafka.connector.internal.*;
+import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * SnowflakeSinkConnector implements SinkConnector for Kafka Connect framework.
@@ -128,7 +133,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // and
   // cleaning up pipes for partitions that are not in the new configuration.
 
-  /** @return Sink task class */
+  /**
+   * @return Sink task class
+   */
   @Override
   public Class<? extends Task> taskClass() {
     return SnowflakeSinkTask.class;
@@ -172,7 +179,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
     return taskConfigs;
   }
 
-  /** @return ConfigDef with original configuration properties */
+  /**
+   * @return ConfigDef with original configuration properties
+   */
   @Override
   public ConfigDef config() {
     return SnowflakeSinkConnectorConfig.newConfigDef();
@@ -289,7 +298,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
     return result;
   }
 
-  /** @return connector version */
+  /**
+   * @return connector version
+   */
   @Override
   public String version() {
     return Utils.VERSION;

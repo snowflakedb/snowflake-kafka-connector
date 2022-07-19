@@ -16,8 +16,6 @@
  */
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.Utils.*;
-
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -26,17 +24,6 @@ import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.PrivateKey;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.record.TimestampType;
@@ -46,6 +33,39 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.PrivateKey;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_USER;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_HOST;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PASSWORD;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_USER;
+import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
+import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
+import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
+import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
+import static com.snowflake.kafka.connector.Utils.SF_URL;
+import static com.snowflake.kafka.connector.Utils.SF_USER;
 
 public class TestUtils {
   // test profile properties
@@ -234,7 +254,9 @@ public class TestUtils {
     return configuration;
   }
 
-  /** @return JDBC config with encrypted private key */
+  /**
+   * @return JDBC config with encrypted private key
+   */
   static Map<String, String> getConfWithEncryptedKey() {
     if (conf == null) {
       getPropertiesMapFromProfile(PROFILE_PATH);
@@ -299,17 +321,23 @@ public class TestUtils {
     return "kafka_connector_test_" + objectName + "_" + num;
   }
 
-  /** @return a random table name */
+  /**
+   * @return a random table name
+   */
   public static String randomTableName() {
     return randomName("table");
   }
 
-  /** @return a random stage name */
+  /**
+   * @return a random stage name
+   */
   public static String randomStageName() {
     return randomName("stage");
   }
 
-  /** @return a random pipe name */
+  /**
+   * @return a random pipe name
+   */
   public static String randomPipeName() {
     return randomName("pipe");
   }
@@ -349,7 +377,9 @@ public class TestUtils {
     return false;
   }
 
-  /** @return snowflake connection for test */
+  /**
+   * @return snowflake connection for test
+   */
   public static SnowflakeConnectionService getConnectionService() {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
   }
