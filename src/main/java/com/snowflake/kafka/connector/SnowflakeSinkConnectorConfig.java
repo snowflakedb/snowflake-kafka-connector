@@ -162,9 +162,9 @@ public class SnowflakeSinkConnectorConfig {
    *     href="https://github.com/apache/kafka/blob/trunk/connect/runtime/src/main/java/org/apache/kafka/connect/runtime/WorkerSinkTask.java#L332">Kafka
    *     Code for Converter</a>
    */
-  public static final String KEY_CONVERTER_CONFIG_FIELD = "value.converter";
+  public static final String KEY_CONVERTER_CONFIG_FIELD = "key.converter";
 
-  public static final String VALUE_CONVERTER_CONFIG_FIELD = "key.converter";
+  public static final String VALUE_CONVERTER_CONFIG_FIELD = "value.converter";
 
   public static final Set<String> CUSTOM_SNOWFLAKE_CONVERTERS =
       ImmutableSet.of(

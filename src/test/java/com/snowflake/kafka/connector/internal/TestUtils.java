@@ -16,7 +16,20 @@
  */
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.Utils.*;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_USER;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_HOST;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PASSWORD;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_USER;
+import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
+import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
+import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
+import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
+import static com.snowflake.kafka.connector.Utils.SF_URL;
+import static com.snowflake.kafka.connector.Utils.SF_USER;
 
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -34,7 +47,13 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
