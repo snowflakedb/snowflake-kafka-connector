@@ -111,9 +111,7 @@ public abstract class BufferThreshold {
         >= (this.flushTimeThresholdSeconds * SECOND_TO_MILLIS);
   }
 
-  /**
-   * @return Get flush time threshold in seconds
-   */
+  /** @return Get flush time threshold in seconds */
   public long getFlushTimeThresholdSeconds() {
     return flushTimeThresholdSeconds;
   }

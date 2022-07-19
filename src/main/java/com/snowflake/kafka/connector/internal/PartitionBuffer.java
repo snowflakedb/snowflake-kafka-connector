@@ -25,65 +25,47 @@ public abstract class PartitionBuffer<T> {
   private long firstOffset;
   private long lastOffset;
 
-  /**
-   * @return Number of records in this buffer
-   */
+  /** @return Number of records in this buffer */
   public int getNumOfRecords() {
     return numOfRecords;
   }
 
-  /**
-   * @return Buffer size in bytes
-   */
+  /** @return Buffer size in bytes */
   public long getBufferSizeBytes() {
     return bufferSizeBytes;
   }
 
-  /**
-   * @return First offset number in this buffer
-   */
+  /** @return First offset number in this buffer */
   public long getFirstOffset() {
     return firstOffset;
   }
 
-  /**
-   * @return Last offset number in this buffer
-   */
+  /** @return Last offset number in this buffer */
   public long getLastOffset() {
     return lastOffset;
   }
 
-  /**
-   * @param numOfRecords Updates number of records (Usually by 1)
-   */
+  /** @param numOfRecords Updates number of records (Usually by 1) */
   public void setNumOfRecords(int numOfRecords) {
     this.numOfRecords = numOfRecords;
   }
 
-  /**
-   * @param bufferSizeBytes Updates sum of size of records present in this buffer (Bytes)
-   */
+  /** @param bufferSizeBytes Updates sum of size of records present in this buffer (Bytes) */
   public void setBufferSizeBytes(long bufferSizeBytes) {
     this.bufferSizeBytes = bufferSizeBytes;
   }
 
-  /**
-   * @param firstOffset First offset no to set in this buffer
-   */
+  /** @param firstOffset First offset no to set in this buffer */
   public void setFirstOffset(long firstOffset) {
     this.firstOffset = firstOffset;
   }
 
-  /**
-   * @param lastOffset Last offset no to set in this buffer
-   */
+  /** @param lastOffset Last offset no to set in this buffer */
   public void setLastOffset(long lastOffset) {
     this.lastOffset = lastOffset;
   }
 
-  /**
-   * @return true if buffer is empty
-   */
+  /** @return true if buffer is empty */
   public boolean isEmpty() {
     return numOfRecords == 0;
   }

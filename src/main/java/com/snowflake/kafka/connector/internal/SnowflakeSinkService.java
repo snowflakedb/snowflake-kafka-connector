@@ -116,19 +116,13 @@ public interface SnowflakeSinkService {
    */
   void setMetadataConfig(SnowflakeMetadataConfig configMap);
 
-  /**
-   * @return current number of record limitation
-   */
+  /** @return current number of record limitation */
   long getRecordNumber();
 
-  /**
-   * @return current flush time in seconds
-   */
+  /** @return current flush time in seconds */
   long getFlushTime();
 
-  /**
-   * @return current file size limitation
-   */
+  /** @return current file size limitation */
   long getFileSize();
 
   /* Set the behavior on what action to perform when this( @see com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BEHAVIOR_ON_NULL_VALUES_CONFIG ) config is set. */

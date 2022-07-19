@@ -253,9 +253,7 @@ public class TestUtils {
     return configuration;
   }
 
-  /**
-   * @return JDBC config with encrypted private key
-   */
+  /** @return JDBC config with encrypted private key */
   static Map<String, String> getConfWithEncryptedKey() {
     if (conf == null) {
       getPropertiesMapFromProfile(PROFILE_PATH);
@@ -320,23 +318,17 @@ public class TestUtils {
     return "kafka_connector_test_" + objectName + "_" + num;
   }
 
-  /**
-   * @return a random table name
-   */
+  /** @return a random table name */
   public static String randomTableName() {
     return randomName("table");
   }
 
-  /**
-   * @return a random stage name
-   */
+  /** @return a random stage name */
   public static String randomStageName() {
     return randomName("stage");
   }
 
-  /**
-   * @return a random pipe name
-   */
+  /** @return a random pipe name */
   public static String randomPipeName() {
     return randomName("pipe");
   }
@@ -376,9 +368,7 @@ public class TestUtils {
     return false;
   }
 
-  /**
-   * @return snowflake connection for test
-   */
+  /** @return snowflake connection for test */
   public static SnowflakeConnectionService getConnectionService() {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
   }

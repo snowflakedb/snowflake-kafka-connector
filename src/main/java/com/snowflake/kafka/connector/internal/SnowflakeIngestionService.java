@@ -29,9 +29,7 @@ public interface SnowflakeIngestionService {
    */
   void ingestFiles(List<String> fileNames);
 
-  /**
-   * @return corresponding stage name
-   */
+  /** @return corresponding stage name */
   String getStageName();
 
   /**
