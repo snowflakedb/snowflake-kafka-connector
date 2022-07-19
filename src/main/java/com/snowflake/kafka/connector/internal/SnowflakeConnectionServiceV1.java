@@ -127,6 +127,18 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     createTable(tableName, false);
   }
 
+  public boolean hasSchemaEvolutionPermission(String tableName, String role) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "show grants on table identifier(?)";
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2014.getException(e);
+    }
+  }
+
   @Override
   public void appendColumns(String tableName, List<String> extraColumnNames) {
     checkConnection();
