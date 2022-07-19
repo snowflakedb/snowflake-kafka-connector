@@ -5,13 +5,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.apache.kafka.connect.sink.SinkTaskContext;
-
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 
 /** Background service of data sink, responsible to create/drop pipe and ingest/purge files */
 public interface SnowflakeSinkService {

@@ -17,10 +17,9 @@
 
 package com.snowflake.kafka.connector.internal;
 
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Objects;
 
 /** Base class for all classes enable logging */
 public class Logging {

@@ -1,9 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.google.common.base.MoreObjects;
-import org.apache.kafka.connect.sink.SinkRecord;
-
 import java.util.List;
+import org.apache.kafka.connect.sink.SinkRecord;
 
 /**
  * Abstract class which holds buffered data per partition including its start offset, end offset,
