@@ -10,6 +10,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
@@ -627,7 +628,13 @@ public class TopicPartitionChannel {
 
   private void retryInsertRows(
       InsertValidationResponse response, StreamingBuffer streamingBufferToInsert) {
-    // TODO: check permission
+
+    if (!this.conn.hasSchemaEvolutionPermission(
+        this.tableName, this.sfConnectorConfig.get(SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE))) {
+      handleInsertRowsFailures(
+          response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
+      return;
+    }
     final int maxRetry = 5;
     final String EXTRA_COL_S = "Extra column: ";
     final String EXTRA_COL_E = ". Columns not present in the table shouldn't be specified.";

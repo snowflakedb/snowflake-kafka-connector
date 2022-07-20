@@ -245,4 +245,6 @@ public interface SnowflakeConnectionService {
   void appendMetaColIfNotExist(String tableName);
 
   void appendColumns(String tableName, List<String> extraColumnNames);
+
+  boolean hasSchemaEvolutionPermission(String tableName, String s);
 }

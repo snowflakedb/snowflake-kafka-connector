@@ -72,7 +72,7 @@ public class SnowflakeSinkConnectorConfig {
   static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
 
   // For streaming ingest client
-  static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
+  public static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
 
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";

@@ -127,16 +127,33 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     createTable(tableName, false);
   }
 
+  @Override
   public boolean hasSchemaEvolutionPermission(String tableName, String role) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query = "show grants on table identifier(?)";
+    ResultSet result = null;
+    boolean hasRolePriviledge = false;
+    boolean hasTableOptionEnabled = true;
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
+      result = stmt.executeQuery();
+      while (result.next()) {
+        if (!result.getString(6).equals(role)) {
+          continue;
+        }
+        if (result.getString(1).equals("EVOLVE SCHEMA")
+            || result.getString(1).equals("ALL")
+            || result.getString(1).equals("OWNERSHIP")) {
+          hasRolePriviledge = true;
+        }
+      }
+      stmt.close();
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2014.getException(e);
     }
+    return hasRolePriviledge && hasTableOptionEnabled;
   }
 
   @Override
@@ -386,21 +403,22 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       }
     } catch (SQLException e) {
       logError("table {} doesn't exist", tableName);
+      throw SnowflakeErrors.ERROR_2014.getException("table name: " + tableName);
     }
     try {
       if (!isVariant) {
-        String MetaQuery;
+        String metaQuery;
         if (!hasMeta) {
-          MetaQuery = "alter table identifier(?) add RECORD_METADATA VARIANT";
+          metaQuery = "alter table identifier(?) add RECORD_METADATA VARIANT";
         } else {
           throw SnowflakeErrors.ERROR_2012.getException("table name: " + tableName);
         }
-        stmt = conn.prepareStatement(MetaQuery);
+        stmt = conn.prepareStatement(metaQuery);
         stmt.setString(1, tableName);
         stmt.executeQuery();
       }
     } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2013.getException(e);
+      throw SnowflakeErrors.ERROR_2013.getException("table name: " + tableName);
     }
   }
 
