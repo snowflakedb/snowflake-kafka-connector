@@ -152,7 +152,7 @@ public class SnowflakeSinkConnectorConfig {
           + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
 
-  public static final String SCHEMATIZATION_ENABLE_CONFIG = "schematization.enable";
+  public static final String SCHEMATIZATION_ENABLE_CONFIG = "enable.schematization";
 
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked

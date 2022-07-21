@@ -371,7 +371,9 @@ public class Utils {
         if (enableSchematization) {
           configIsValid = false;
           LOGGER.error(
-              Logging.logMessage("Schematization is only available with SNOWPIPE_STREAMING."));
+              Logging.logMessage(
+                  "Schematization is only available with {}.",
+                  IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
         }
       }
     }

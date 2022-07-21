@@ -237,8 +237,9 @@ public interface SnowflakeConnectionService {
   Connection getConnection();
 
   /**
-   * append a VARIANT type column "RECORD_METADATA" to the table if not present only called when
-   * schematization enabled
+   * Append a VARIANT type column "RECORD_METADATA" to the table if it is not present.
+   *
+   * <p>This method is only called when schematization is enabled
    *
    * @param tableName table name
    */
