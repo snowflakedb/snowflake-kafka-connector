@@ -191,8 +191,6 @@ public class RecordService extends Logging {
    *
    * <p>When schematization is enabled, the content of the record is extracted into a map
    *
-   * <p><p
-   *
    * @param record record from Kafka to (Which was serialized in Json)
    * @return Json String with metadata and actual Payload from Kafka Record
    */
