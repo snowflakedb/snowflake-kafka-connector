@@ -191,8 +191,7 @@ public class RecordService extends Logging {
    *
    * <p>When schematization is enabled, the content of the record is extracted into a map
    *
-   * <p>TODO: SNOW-630885 - When schematization is enabled, we should create the map directly from
-   * the SinkRecord instead of first turning it into json
+   * <p><p
    *
    * @param record record from Kafka to (Which was serialized in Json)
    * @return Json String with metadata and actual Payload from Kafka Record

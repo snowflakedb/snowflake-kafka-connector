@@ -369,6 +369,10 @@ public class TopicPartitionChannel {
     return content != null && ((SnowflakeRecordContent) content).isBroken();
   }
 
+  /**
+   * TODO: SNOW-630885 - When schematization is enabled, we should create the map directly from the
+   * SinkRecord instead of first turning it into json
+   */
   private SinkRecord handleNativeRecord(SinkRecord record, boolean isKey) {
     SnowflakeRecordContent newSFContent;
     Schema schema = isKey ? record.keySchema() : record.valueSchema();
