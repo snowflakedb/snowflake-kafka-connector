@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +32,16 @@ public class ConnectorConfigTest {
   @Test
   public void testConfig() {
     Map<String, String> config = getConfig();
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testConfig_ConvertedInvalidAppName() {
+    Map<String, String> config = getConfig();
+    config.put(NAME, "testConfig.snowflake-connector");
+
+    Utils.convertAppName(config);
+
     Utils.validateConfig(config);
   }
 
