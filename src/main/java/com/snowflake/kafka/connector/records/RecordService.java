@@ -28,6 +28,7 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.TimeZone;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
@@ -37,8 +38,14 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayN
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.JsonNodeFactory;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.common.record.TimestampType;
-import org.apache.kafka.connect.data.*;
+import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Date;
+import org.apache.kafka.connect.data.Decimal;
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.data.Time;
+import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -56,6 +63,8 @@ public class RecordService extends Logging {
   static final String SCHEMA_ID = "schema_id";
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
+
+  private boolean schematizationEnable = false;
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
@@ -85,6 +94,17 @@ public class RecordService extends Logging {
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
     metadataConfig = metadataConfigIn;
+  }
+
+  public boolean setSchematizationEnable(final Map<String, String> connectorConfig) {
+    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG)) {
+      schematizationEnable =
+          Boolean.parseBoolean(
+              connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
+    } else {
+      schematizationEnable = false;
+    }
+    return schematizationEnable;
   }
 
   /**
@@ -169,6 +189,8 @@ public class RecordService extends Logging {
    * <p>Remember, Snowflake table has two columns, both of them are VARIANT columns whose contents
    * are in JSON
    *
+   * <p>When schematization is enabled, the content of the record is extracted into a map
+   *
    * @param record record from Kafka to (Which was serialized in Json)
    * @return Json String with metadata and actual Payload from Kafka Record
    */
@@ -177,7 +199,20 @@ public class RecordService extends Logging {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.content.getData()) {
       try {
-        streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));
+        if (schematizationEnable) {
+          Iterator<String> fieldNames = node.fieldNames();
+          while (fieldNames.hasNext()) {
+            String fieldName = fieldNames.next();
+            JsonNode fieldNode = node.get(fieldName);
+            String filedContent =
+                fieldNode.isTextual()
+                    ? fieldNode.textValue()
+                    : MAPPER.writeValueAsString(fieldNode);
+            streamingIngestRow.put(fieldName, filedContent);
+          }
+        } else {
+          streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));
+        }
         if (metadataConfig.allFlag) {
           streamingIngestRow.put(TABLE_COLUMN_METADATA, MAPPER.writeValueAsString(row.metadata));
         }
@@ -420,11 +455,11 @@ public class RecordService extends Logging {
    *
    * <p>If the value is an empty JSON node, we could assume the value passed was null.
    *
-   * @see com.snowflake.kafka.connector.records.SnowflakeJsonConverter#toConnectData when bytes ==
-   *     null case
    * @param record record sent from Kafka to KC
    * @param behaviorOnNullValues behavior passed inside KC
    * @return true if we would skip adding it to buffer
+   * @see com.snowflake.kafka.connector.records.SnowflakeJsonConverter#toConnectData when bytes ==
+   *     null case
    */
   public boolean shouldSkipNullValue(
       SinkRecord record,
