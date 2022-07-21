@@ -202,6 +202,8 @@ public class TopicPartitionChannel {
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
 
     this.recordService = new RecordService();
+    this.recordService.setSchematizationEnable(sfConnectorConfig);
+
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
     this.streamingBuffer = new StreamingBuffer();
@@ -368,6 +370,10 @@ public class TopicPartitionChannel {
     return content != null && ((SnowflakeRecordContent) content).isBroken();
   }
 
+  /**
+   * TODO: SNOW-630885 - When schematization is enabled, we should create the map directly from the
+   * SinkRecord instead of first turning it into json
+   */
   private SinkRecord handleNativeRecord(SinkRecord record, boolean isKey) {
     SnowflakeRecordContent newSFContent;
     Schema schema = isKey ? record.keySchema() : record.valueSchema();
@@ -408,6 +414,7 @@ public class TopicPartitionChannel {
   }
 
   // --------------- BUFFER FLUSHING LOGIC --------------- //
+
   /**
    * If difference between current time and previous flush time is more than threshold, insert the
    * buffered Rows.
@@ -611,6 +618,7 @@ public class TopicPartitionChannel {
   }
 
   // TODO: SNOW-529755 POLL committed offsets in backgraound thread
+
   /**
    * Get committed offset from Snowflake. It does an HTTP call internally to find out what was the
    * last offset inserted.
@@ -998,6 +1006,7 @@ public class TopicPartitionChannel {
   }
 
   // ------ INNER CLASS ------ //
+
   /**
    * A buffer which holds the rows before calling insertRows API. It implements the PartitionBuffer
    * class which has all common fields about a buffer.
