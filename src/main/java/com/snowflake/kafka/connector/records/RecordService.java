@@ -64,7 +64,7 @@ public class RecordService extends Logging {
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
 
-  private boolean schematizationEnable = false;
+  private boolean enableSchematization = false;
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
@@ -96,15 +96,23 @@ public class RecordService extends Logging {
     metadataConfig = metadataConfigIn;
   }
 
-  public boolean setSchematizationEnable(final Map<String, String> connectorConfig) {
+  /**
+   * extract enableSchematization from the connector config and set the value for the recordService
+   *
+   * <p>The extracted boolean is returned for external usage.
+   *
+   * @param connectorConfig the connector config map
+   * @return a boolean indicating whether schematization is enabled
+   */
+  public boolean setEnableSchematization(final Map<String, String> connectorConfig) {
     if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG)) {
-      schematizationEnable =
+      enableSchematization =
           Boolean.parseBoolean(
               connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
     } else {
-      schematizationEnable = false;
+      enableSchematization = false;
     }
-    return schematizationEnable;
+    return enableSchematization;
   }
 
   /**
@@ -199,7 +207,7 @@ public class RecordService extends Logging {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.content.getData()) {
       try {
-        if (schematizationEnable) {
+        if (enableSchematization) {
           Iterator<String> fieldNames = node.fieldNames();
           while (fieldNames.hasNext()) {
             String fieldName = fieldNames.next();
