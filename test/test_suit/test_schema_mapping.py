@@ -1,7 +1,8 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 
-
+# test if each type of data fit into the right column with the right type
+# also test if the metadata column is automatically added
 class TestSchemaMapping:
     def __init__(self, driver, nameSalt):
         self.driver = driver
@@ -9,7 +10,7 @@ class TestSchemaMapping:
         self.topic = self.fileName + nameSalt
 
         self.driver.snowflake_conn.cursor().execute(
-            "Create or replace table {} (PERFORMANCE_STRING STRING, PERFORMANCE_CHAR CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME)".format(self.topic))
+            "Create or replace table {} (PERFORMANCE_STRING STRING, PERFORMANCE_CHAR CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO_ARRAY ARRAY, INFO VARIANT)".format(self.topic))
 
         self.record = {
             'PERFORMANCE_STRING': 'Excellent',
@@ -19,9 +20,14 @@ class TestSchemaMapping:
             'RATING_DOUBLE': 0.99,
             'APPROVAL': 'true',
             'APPROVAL_DATE': '15-Jun-2022',
-            'APPROVAL_TIME': '23:59:59.999999999'
+            'APPROVAL_TIME': '23:59:59.999999999',
+            'INFO_ARRAY': ['HELLO', 'WORLD'],
+            'INFO': {
+                'TREE_1': 'APPLE',
+                'TREE_2': 'PINEAPPLE'
+            }
         }
-        self.record_literal = r"{'PERFORMANCE_STRING': 'Excellent', 'PERFORMANCE_CHAR': 'A','PERFORMANCE_HEX': 'FFFFFFFF','RATING_INT': 100,'RATING_DOUBLE': 0.99,'APPROVAL': 'true','APPROVAL_DATE': '15-Jun-2022','APPROVAL_TIME': '23:59:59.999999999'}"
+        self.record_literal = r"{'PERFORMANCE_STRING': 'Excellent', 'PERFORMANCE_CHAR': 'A','PERFORMANCE_HEX': 'FFFFFFFF','RATING_INT': 100,'RATING_DOUBLE': 0.99,'APPROVAL': 'true','APPROVAL_DATE': '15-Jun-2022','APPROVAL_TIME': '23:59:59.999999999','INFO_ARRAY': ['HELLO', 'WORLD'],'INFO': {'TREE_1': 'APPLE','TREE_2': 'PINEAPPLE'}}"
 
     def getConfigFileName(self):
         return self.fileName + ".json"
@@ -65,8 +71,6 @@ class TestSchemaMapping:
         goldMeta = r'{"key":{"number":"0"},"offset":0,"partition":0}'
         self.record['RECORD_METADATA'] = goldMeta
         self.driver.regexMatchOneLineSchematized(res, res_col, self.record)
-        
-        # self.driver.regexMatchOneLine(res, goldMeta, self.record_literal)
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

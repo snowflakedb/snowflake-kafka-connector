@@ -104,7 +104,7 @@ public class RecordService extends Logging {
    * @param connectorConfig the connector config map
    * @return a boolean indicating whether schematization is enabled
    */
-  public boolean setEnableSchematization(final Map<String, String> connectorConfig) {
+  public boolean setEnableSchematizationFromConfig(final Map<String, String> connectorConfig) {
     if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG)) {
       enableSchematization =
           Boolean.parseBoolean(
@@ -113,6 +113,10 @@ public class RecordService extends Logging {
       enableSchematization = false;
     }
     return enableSchematization;
+  }
+
+  public void setEnableSchematization(final boolean enableSchematizationIn) {
+    this.enableSchematization = enableSchematizationIn;
   }
 
   /**
@@ -208,15 +212,17 @@ public class RecordService extends Logging {
     for (JsonNode node : row.content.getData()) {
       try {
         if (enableSchematization) {
-          Iterator<String> fieldNames = node.fieldNames();
-          while (fieldNames.hasNext()) {
-            String fieldName = fieldNames.next();
-            JsonNode fieldNode = node.get(fieldName);
-            String filedContent =
-                fieldNode.isTextual()
-                    ? fieldNode.textValue()
-                    : MAPPER.writeValueAsString(fieldNode);
-            streamingIngestRow.put(fieldName, filedContent);
+          Iterator<String> columnNames = node.fieldNames();
+          while (columnNames.hasNext()) {
+            String columnName = columnNames.next();
+            JsonNode columnNode = node.get(columnName);
+            String columnValue =
+                columnNode.isTextual()
+                    ? columnNode.textValue()
+                    : MAPPER.writeValueAsString(columnNode);
+            // while the value is always dumped into a string, the Streaming Ingest SDK
+            // will transformed the value according to its type in the table
+            streamingIngestRow.put(columnName, columnValue);
           }
         } else {
           streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));

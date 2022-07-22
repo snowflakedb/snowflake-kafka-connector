@@ -14,6 +14,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.type.TypeRefere
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -229,5 +230,25 @@ public class RecordContentTest {
     ByteBuffer buffer = ByteBuffer.wrap(original.getBytes()).asReadOnlyBuffer();
     Schema schema = SchemaBuilder.bytes().build();
     assert RecordService.convertToJson(schema, buffer).toString().equals(expected);
+  }
+
+  @Test
+  public void testSchematizationStringField() {
+    RecordService service = new RecordService();
+    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
+
+    service.setEnableSchematization(true);
+    String value = "{\"name\":\"sf\",\"answer\":42}";
+    byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
+    SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
+
+    SinkRecord record =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "string", sv.schema(), sv.value(), partition);
+    Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
+    // each field should be dumped into string format
+    // json string should not be enclosed in additional brackets
+    assert got.get("name").equals("sf");
+    assert got.get("answer").equals("42");
   }
 }

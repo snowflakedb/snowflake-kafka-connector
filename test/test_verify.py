@@ -242,7 +242,7 @@ class KafkaTest:
                 .replace("[", "\\[").replace("]", "\\]").replace("+", "\\+") + "$"
             if re.search(goldRegex, content) is None:
                 raise test_suit.test_utils.NonRetryableError("Record column:\n{}\ndoes not match gold regex "
-                                                             "label:\n{}".format(content, gol))
+                                                             "label:\n{}".format(content, goldRegex))
 
     def updateConnectorConfig(self, fileName, connectorName, configMap):
         with open('./rest_request_generated/' + fileName + '.json') as f:
@@ -448,7 +448,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     testStringJsonProxy = TestStringJsonProxy(driver, nameSalt)
 
-    # # Run this test on both confluent and apache kafka
+    # Run this test on both confluent and apache kafka
     testSnowpipeStreamingStringJson = TestSnowpipeStreamingStringJson(driver, nameSalt)
 
     # will run this only in confluent cloud since, since in apache kafka e2e tests, we don't start schema registry
