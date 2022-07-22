@@ -72,6 +72,9 @@ public class TopicPartitionChannel {
   /* Buffer to hold JSON converted incoming SinkRecords */
   private StreamingBuffer streamingBuffer;
 
+  /* Buffer to hold SinkRecords that failed to get inserted and wait for insertion retry */
+  private StreamingBuffer failedRecordBuffer;
+
   final Lock bufferLock = new ReentrantLock(true);
 
   /**
@@ -170,6 +173,8 @@ public class TopicPartitionChannel {
   // Used to identify when to flush (Time, bytes or number of records)
   private final BufferThreshold streamingBufferThreshold;
 
+  private boolean enableSchematization = false;
+
   /**
    * @param streamingIngestClient client created specifically for this task
    * @param topicPartition topic partition corresponding to this Streaming Channel
@@ -202,7 +207,7 @@ public class TopicPartitionChannel {
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
 
     this.recordService = new RecordService();
-    this.recordService.setSchematizationEnable(sfConnectorConfig);
+    this.enableSchematization = this.recordService.setSchematizationEnable(sfConnectorConfig);
 
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -228,17 +233,18 @@ public class TopicPartitionChannel {
    *
    * @param kafkaSinkRecord input record from Kafka
    */
-  public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
+  public InsertValidationResponse insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
     precomputeOffsetTokenForChannel(kafkaSinkRecord);
 
     if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord)) {
-      return;
+      return null;
     }
 
     // discard the record if the record offset is smaller or equal to server side offset, or if
     // record is smaller than any other record offset we received before
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
+    InsertValidationResponse response = null;
     if (kafkaSinkRecord.kafkaOffset() > currentOffsetPersistedInSnowflake
         && kafkaSinkRecord.kafkaOffset() > currentProcessedOffset) {
       StreamingBuffer copiedStreamingBuffer = null;
@@ -269,8 +275,9 @@ public class TopicPartitionChannel {
       // If we found reaching buffer size threshold or count based threshold, we will immediately
       // flush (Insert them)
       if (copiedStreamingBuffer != null) {
-        insertBufferedRecords(copiedStreamingBuffer);
+        response = insertBufferedRecords(copiedStreamingBuffer);
       }
+      return response;
     } else {
       LOGGER.debug(
           "Skip adding offset:{} to buffer for channel:{} because"
@@ -279,6 +286,7 @@ public class TopicPartitionChannel {
           this.getChannelName(),
           currentOffsetPersistedInSnowflake,
           currentProcessedOffset);
+      return null;
     }
   }
 
@@ -474,8 +482,12 @@ public class TopicPartitionChannel {
           streamingBufferToInsert,
           response.hasErrors());
       if (response.hasErrors()) {
-        handleInsertRowsFailures(
-            response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
+        if (this.enableSchematization) {
+          this.failedRecordBuffer = streamingBufferToInsert;
+        } else {
+          handleInsertRowsFailures(
+              response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
+        }
       }
       return response;
     } catch (TopicPartitionChannelInsertionException ex) {
