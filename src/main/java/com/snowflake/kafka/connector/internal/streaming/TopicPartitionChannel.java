@@ -239,11 +239,11 @@ public class TopicPartitionChannel {
    *
    * @param kafkaSinkRecord input record from Kafka
    */
-  public boolean insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
+  public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
     precomputeOffsetTokenForChannel(kafkaSinkRecord);
 
     if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord)) {
-      return false;
+      return;
     }
 
     // discard the record if the record offset is smaller or equal to server side offset, or if
@@ -291,7 +291,7 @@ public class TopicPartitionChannel {
           currentOffsetPersistedInSnowflake,
           currentProcessedOffset);
     }
-    return false;
+    return;
   }
 
   /**
@@ -438,7 +438,7 @@ public class TopicPartitionChannel {
    *
    * <p>Previous flush time here means last time we called insertRows API with rows present in
    */
-  protected InsertValidationResponse insertBufferedRecordsIfFlushTimeThresholdReached() {
+  protected void insertBufferedRecordsIfFlushTimeThresholdReached() {
     if (this.streamingBufferThreshold.isFlushTimeBased(this.previousFlushTimeStampMs)) {
       LOGGER.debug(
           "Time based flush for channel:{}, CurrentTimeMs:{}, previousFlushTimeMs:{},"
@@ -456,10 +456,9 @@ public class TopicPartitionChannel {
         bufferLock.unlock();
       }
       if (copiedStreamingBuffer != null) {
-        return insertBufferedRecords(copiedStreamingBuffer);
+        insertBufferedRecords(copiedStreamingBuffer);
       }
     }
-    return null;
   }
 
   /**
