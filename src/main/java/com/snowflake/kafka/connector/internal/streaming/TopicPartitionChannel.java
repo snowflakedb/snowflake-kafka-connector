@@ -176,6 +176,9 @@ public class TopicPartitionChannel {
   // Whether schematization has been enabled.
   private boolean enableSchematization;
 
+  // A list of extra column names reported by insertErrors
+  private List<String> extraColumnNames;
+
   /**
    * @param streamingIngestClient client created specifically for this task
    * @param topicPartition topic partition corresponding to this Streaming Channel
@@ -222,6 +225,7 @@ public class TopicPartitionChannel {
     this.logErrors = StreamingUtils.logErrors(this.sfConnectorConfig);
     this.isDLQTopicSet =
         !Strings.isNullOrEmpty(StreamingUtils.getDlqTopicName(this.sfConnectorConfig));
+    this.extraColumnNames = new ArrayList<>();
   }
 
   /**
@@ -235,11 +239,11 @@ public class TopicPartitionChannel {
    *
    * @param kafkaSinkRecord input record from Kafka
    */
-  public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
+  public boolean insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
     precomputeOffsetTokenForChannel(kafkaSinkRecord);
 
     if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord)) {
-      return;
+      return false;
     }
 
     // discard the record if the record offset is smaller or equal to server side offset, or if
@@ -287,6 +291,7 @@ public class TopicPartitionChannel {
           currentOffsetPersistedInSnowflake,
           currentProcessedOffset);
     }
+    return false;
   }
 
   /**
@@ -433,7 +438,7 @@ public class TopicPartitionChannel {
    *
    * <p>Previous flush time here means last time we called insertRows API with rows present in
    */
-  protected void insertBufferedRecordsIfFlushTimeThresholdReached() {
+  protected InsertValidationResponse insertBufferedRecordsIfFlushTimeThresholdReached() {
     if (this.streamingBufferThreshold.isFlushTimeBased(this.previousFlushTimeStampMs)) {
       LOGGER.debug(
           "Time based flush for channel:{}, CurrentTimeMs:{}, previousFlushTimeMs:{},"
@@ -451,9 +456,10 @@ public class TopicPartitionChannel {
         bufferLock.unlock();
       }
       if (copiedStreamingBuffer != null) {
-        insertBufferedRecords(copiedStreamingBuffer);
+        return insertBufferedRecords(copiedStreamingBuffer);
       }
     }
+    return null;
   }
 
   /**
@@ -481,6 +487,14 @@ public class TopicPartitionChannel {
           streamingBufferToInsert,
           response.hasErrors());
       if (response.hasErrors()) {
+        if (this.enableSchematization) {
+          if (insertRecordsToFailedBuffer(
+              response.getInsertErrors(), streamingBufferToInsert.getSinkRecords())) {
+            // rows inserted into failed buffer, ready to retry
+            return response;
+          }
+        }
+        // schema evolution cannot be performed; fall back to normal behavior
         handleInsertRowsFailures(
             response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
       }
@@ -594,11 +608,66 @@ public class TopicPartitionChannel {
    *     schematization could be performed)
    */
   private boolean collectExtraColumns(List<InsertValidationResponse.InsertError> insertErrors) {
-    for (InsertValidationResponse.InsertError insertError : insertErrors) {}
+    this.extraColumnNames.clear();
+    final String EXTRA_COL_S = "Extra column: ";
+    final String EXTRA_COL_E = ". Columns not present in the table shouldn't be specified.";
+    for (InsertValidationResponse.InsertError insertError : insertErrors) {
+      String errorMessage = insertError.getMessage();
+      if (errorMessage.contains(EXTRA_COL_S)) {
+        int startIndex = errorMessage.indexOf(EXTRA_COL_S) + EXTRA_COL_S.length();
+        int endIndex = errorMessage.indexOf(EXTRA_COL_E);
+        String columnName = errorMessage.substring(startIndex, endIndex);
+        if (!this.extraColumnNames.contains(columnName)) {
+          this.extraColumnNames.add(columnName);
+        }
+      } else {
+        this.extraColumnNames.clear();
+        return false;
+        // containing other type of error
+      }
+    }
+    return true;
   }
 
-  /** */
-  private void insertRecordsToFailedBuffer() {}
+  /**
+   * Might be rewritten or expanded
+   *
+   * @return if retry is needed
+   */
+  public boolean needRetryInsertion() {
+    return !this.extraColumnNames.isEmpty();
+  }
+
+  /**
+   * Invoked to insert rows with extra column error into the failed buffer to retry insertion
+   *
+   * @param insertErrors errors from validation response. (Only if it has errors)
+   * @param insertedRecordsToBuffer to map {@link SinkRecord} with insertErrors
+   * @return whether the records are successfully inserted into failed buffer (false indicating
+   *     schema-evolution cannot be performed)
+   */
+  private boolean insertRecordsToFailedBuffer(
+      List<InsertValidationResponse.InsertError> insertErrors,
+      List<SinkRecord> insertedRecordsToBuffer) {
+    if (!collectExtraColumns(insertErrors)) {
+      return false;
+    }
+    for (InsertValidationResponse.InsertError insertError : insertErrors) {
+      // Map error row number to index in sinkRecords list.
+      int rowIndexToOriginalSinkRecord = (int) insertError.getRowIndex();
+      failedBuffer.insert(insertedRecordsToBuffer.get(rowIndexToOriginalSinkRecord));
+    }
+    return true;
+  }
+
+  /**
+   * Return the collected extra columns from the insertErrors
+   *
+   * @return the extraColumnNames List
+   */
+  public List<String> getExtraColumnNames() {
+    return this.extraColumnNames;
+  }
 
   /**
    * Invoked only when {@link InsertValidationResponse} has errors.
