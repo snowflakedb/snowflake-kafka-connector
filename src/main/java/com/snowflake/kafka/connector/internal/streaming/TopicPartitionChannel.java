@@ -72,7 +72,10 @@ public class TopicPartitionChannel {
   /* Buffer to hold JSON converted incoming SinkRecords */
   private StreamingBuffer streamingBuffer;
 
-  final Lock bufferLock = new ReentrantLock(true);
+  /* Buffer to hold SinkRecords that failed to get inserted */
+  private StreamingBuffer failedBuffer;
+
+  private final Lock bufferLock = new ReentrantLock(true);
 
   /**
    * States whether this channel has received any records before.
@@ -170,6 +173,9 @@ public class TopicPartitionChannel {
   // Used to identify when to flush (Time, bytes or number of records)
   private final BufferThreshold streamingBufferThreshold;
 
+  // Whether schematization has been enabled.
+  private boolean enableSchematization;
+
   /**
    * @param streamingIngestClient client created specifically for this task
    * @param topicPartition topic partition corresponding to this Streaming Channel
@@ -202,7 +208,8 @@ public class TopicPartitionChannel {
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
 
     this.recordService = new RecordService();
-    this.recordService.setEnableSchematizationFromConfig(sfConnectorConfig);
+    this.enableSchematization =
+        this.recordService.setEnableSchematizationFromConfig(sfConnectorConfig);
 
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -578,6 +585,20 @@ public class TopicPartitionChannel {
             offsetRecoveredFromSnowflake),
         ex);
   }
+
+  /**
+   * Collect the extra columns reported by the insertErrors.
+   *
+   * @param insertErrors errors from validation response. (Only if it has errors)
+   * @return whether the errors in insertErrors are all 'extra columns' error (so that
+   *     schematization could be performed)
+   */
+  private boolean collectExtraColumns(List<InsertValidationResponse.InsertError> insertErrors) {
+    for (InsertValidationResponse.InsertError insertError : insertErrors) {}
+  }
+
+  /** */
+  private void insertRecordsToFailedBuffer() {}
 
   /**
    * Invoked only when {@link InsertValidationResponse} has errors.
