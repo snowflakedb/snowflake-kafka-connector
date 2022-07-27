@@ -234,6 +234,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
     channelPartition.insertRecordToBuffer(record);
+    if (channelPartition.needRetryInsertion()) {
+      channelPartition.retryInsertion(this.conn);
+    }
   }
 
   @Override

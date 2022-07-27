@@ -16,6 +16,7 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -25,6 +26,7 @@ import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -291,7 +293,6 @@ public class TopicPartitionChannel {
           currentOffsetPersistedInSnowflake,
           currentProcessedOffset);
     }
-    return;
   }
 
   /**
@@ -509,6 +510,34 @@ public class TopicPartitionChannel {
     return response;
   }
 
+  public void retryInsertion(SnowflakeConnectionService conn) {
+    InsertValidationResponse response = null;
+    try {
+      response = insertRowsAndAlterTableWithRetry(conn);
+      // Updates the flush time (last time we called insertRows API)
+      this.previousFlushTimeStampMs = System.currentTimeMillis();
+
+      LOGGER.info(
+          "Successfully called retry insertRows for channel:{}, buffer:{},"
+              + " insertResponseHasErrors:{}",
+          this.getChannelName(),
+          this.failedBuffer,
+          response.hasErrors());
+      if (response.hasErrors()) {
+        handleInsertRowsFailures(response.getInsertErrors(), failedBuffer.getSinkRecords());
+      }
+    } catch (TopicPartitionChannelInsertionException ex) {
+      // Suppressing the exception because other channels might still continue to ingest
+      LOGGER.warn(
+          String.format(
+              "[INSERT_BUFFERED_RECORDS] Failure inserting buffer:%s for channel:%s",
+              failedBuffer, this.getChannelName()),
+          ex);
+    }
+    failedBuffer = new StreamingBuffer();
+    // clear the buffer regardless of insertion outcome
+  }
+
   /**
    * Uses {@link Fallback} API to reopen the channel if insertRows throws {@link SFException}.
    *
@@ -552,6 +581,57 @@ public class TopicPartitionChannel {
         .get(new InsertRowsApiResponseSupplier(this.channel, buffer));
   }
 
+  private InsertValidationResponse insertRowsAndAlterTableWithRetry(
+      SnowflakeConnectionService conn) {
+    Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
+        Fallback.builder(
+                executionAttemptedEvent -> {
+                  insertRowsFallbackSupplier(executionAttemptedEvent.getLastException());
+                })
+            .handle(SFException.class)
+            .onFailedAttempt(
+                event ->
+                    LOGGER.warn(
+                        String.format(
+                            "Failed Attempt to invoke the insertRows API for buffer:%s",
+                            this.failedBuffer),
+                        event.getLastException()))
+            .onFailure(
+                event ->
+                    LOGGER.error(
+                        String.format(
+                            "%s Failed to open Channel or fetching offsetToken for channel:%s",
+                            StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
+                            this.getChannelName()),
+                        event.getException()))
+            .build();
+
+    Fallback<Object> logFallbackForAlterTable =
+        Fallback.builder(
+                event -> {
+                  LOGGER.warn(
+                      String.format("Failed Attempt to alter table: %s", this.tableName),
+                      event.getLastException());
+                })
+            .handle(SQLException.class)
+            .build();
+
+    RetryPolicy<Object> reopenChannelRetryExecutorForInsertRows =
+        RetryPolicy.builder()
+            .withMaxAttempts(3)
+            .handle(SFException.class, SQLException.class)
+            .handleResultIf(
+                result ->
+                    result instanceof InsertValidationResponse
+                        && ((InsertValidationResponse) result).hasErrors())
+            .onFailedAttempt(
+                executionAttemptedEvent -> {
+                  insertRowsFallbackSupplier(executionAttemptedEvent.getLastException());
+                })
+            .build();
+    return Failsafe.with(reopenChannelRetryExecutorForInsertRows).get();
+  }
+
   /** Invokes the API given the channel and streaming Buffer. */
   private static class InsertRowsApiResponseSupplier
       implements CheckedSupplier<InsertValidationResponse> {
@@ -573,6 +653,33 @@ public class TopicPartitionChannel {
           "Invoking insertRows API for Channel:{}, streamingBuffer:{}",
           this.channelForInsertRows.getFullyQualifiedName(),
           this.insertRowsStreamingBuffer);
+      return this.channelForInsertRows.insertRows(
+          this.insertRowsStreamingBuffer.getData(),
+          Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
+    }
+  }
+
+  private static class AlterTableAndInsertRowsResponseSupplier
+      implements CheckedSupplier<InsertValidationResponse> {
+
+    private final SnowflakeStreamingIngestChannel channelForInsertRows;
+
+    private final StreamingBuffer insertRowsStreamingBuffer;
+
+    private final SnowflakeConnectionService conn;
+
+    private AlterTableAndInsertRowsResponseSupplier(
+        SnowflakeStreamingIngestChannel channelForInsertRows,
+        StreamingBuffer insertRowsStreamingBuffer,
+        SnowflakeConnectionService conn) {
+      this.channelForInsertRows = channelForInsertRows;
+      this.insertRowsStreamingBuffer = insertRowsStreamingBuffer;
+      this.conn = conn;
+    }
+
+    @Override
+    public InsertValidationResponse get() throws Throwable {
+
       return this.channelForInsertRows.insertRows(
           this.insertRowsStreamingBuffer.getData(),
           Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
