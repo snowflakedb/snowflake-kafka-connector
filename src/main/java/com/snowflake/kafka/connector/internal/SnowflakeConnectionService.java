@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
+import java.util.Map;
 
 public interface SnowflakeConnectionService {
   /**
@@ -89,6 +90,10 @@ public interface SnowflakeConnectionService {
    * @return true if schema is correct, false is schema is incorrect or table does not exist
    */
   boolean isTableCompatible(String tableName);
+
+  boolean hasSchemaEvolutionPermission(String tableName, String role);
+
+  void appendColumns(String tableName, Map<String, String> extraColumnNames);
 
   /**
    * Examine all file names matches our pattern

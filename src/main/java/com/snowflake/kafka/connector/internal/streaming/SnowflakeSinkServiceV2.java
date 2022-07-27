@@ -208,6 +208,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     for (TopicPartitionChannel partitionChannel : partitionsToChannel.values()) {
       // Time based flushing
       partitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
+      if (partitionChannel.needRetryInsertion()) {
+        partitionChannel.retryInsertion(this.conn);
+      }
     }
   }
 

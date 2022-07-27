@@ -13,6 +13,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
@@ -371,6 +372,59 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       }
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2013.getException("table name: " + tableName);
+    }
+  }
+
+  @Override
+  public boolean hasSchemaEvolutionPermission(String tableName, String role) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "show grants on table identifier(?)";
+    ResultSet result = null;
+    boolean hasRolePriviledge = false;
+    boolean hasTableOptionEnabled = true;
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      result = stmt.executeQuery();
+      while (result.next()) {
+        if (!result.getString(6).equals(role)) {
+          continue;
+        }
+        if (result.getString(2).equals("EVOLVE SCHEMA")
+            || result.getString(2).equals("ALL")
+            || result.getString(2).equals("OWNERSHIP")) {
+          hasRolePriviledge = true;
+        }
+      }
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2014.getException(e);
+    }
+    return hasRolePriviledge && hasTableOptionEnabled;
+  }
+
+  @Override
+  public void appendColumns(String tableName, Map<String, String> extraColumnToType) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "alter table identifier(?) add column ";
+    boolean first = true;
+    for (String columnName : extraColumnToType.keySet()) {
+      if (first) {
+        first = false;
+      } else {
+        query += ", add column ";
+      }
+      query += columnName + " " + extraColumnToType.get(columnName);
+    }
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2015.getException(e);
     }
   }
 

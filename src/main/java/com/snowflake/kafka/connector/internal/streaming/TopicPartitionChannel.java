@@ -17,6 +17,7 @@ import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -28,6 +29,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -41,6 +43,7 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
@@ -178,8 +181,8 @@ public class TopicPartitionChannel {
   // Whether schematization has been enabled.
   private boolean enableSchematization;
 
-  // A list of extra column names reported by insertErrors
-  private List<String> extraColumnNames;
+  // A map of extra column names reported by insertErrors
+  private Map<String, String> extraColumnToType;
 
   /**
    * @param streamingIngestClient client created specifically for this task
@@ -219,6 +222,7 @@ public class TopicPartitionChannel {
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
     this.streamingBuffer = new StreamingBuffer();
+    this.failedBuffer = new StreamingBuffer();
     this.processedOffset = new AtomicLong(-1);
     this.offsetSafeToCommitToKafka = new AtomicLong(0);
 
@@ -227,7 +231,7 @@ public class TopicPartitionChannel {
     this.logErrors = StreamingUtils.logErrors(this.sfConnectorConfig);
     this.isDLQTopicSet =
         !Strings.isNullOrEmpty(StreamingUtils.getDlqTopicName(this.sfConnectorConfig));
-    this.extraColumnNames = new ArrayList<>();
+    this.extraColumnToType = new HashMap<>();
   }
 
   /**
@@ -619,17 +623,41 @@ public class TopicPartitionChannel {
     RetryPolicy<Object> reopenChannelRetryExecutorForInsertRows =
         RetryPolicy.builder()
             .withMaxAttempts(3)
-            .handle(SFException.class, SQLException.class)
+            .handle(SFException.class)
             .handleResultIf(
                 result ->
                     result instanceof InsertValidationResponse
                         && ((InsertValidationResponse) result).hasErrors())
             .onFailedAttempt(
                 executionAttemptedEvent -> {
-                  insertRowsFallbackSupplier(executionAttemptedEvent.getLastException());
+                  try {
+                    StreamingBuffer tempBuffer = this.failedBuffer;
+                    this.failedBuffer = new StreamingBuffer();
+                    InsertValidationResponse response =
+                        (InsertValidationResponse) executionAttemptedEvent.getLastResult();
+                    insertRecordsToFailedBuffer(
+                        response.getInsertErrors(), tempBuffer.getSinkRecords());
+                    conn.appendColumns(this.tableName, this.extraColumnToType);
+                    insertRowsFallbackSupplier(executionAttemptedEvent.getLastException());
+                  } catch (TopicPartitionChannelInsertionException e) {
+                    LOGGER.warn(
+                        String.format(
+                            "[INSERT_BUFFERED_RECORDS] Failure inserting buffer:%s for channel:%s",
+                            failedBuffer, this.getChannelName()),
+                        e);
+                  } catch (SnowflakeKafkaConnectorException e) {
+                    LOGGER.warn(
+                        String.format(
+                            "[INSERT_BUFFERED_RECORDS] Failure altering table :%s", this.tableName),
+                        e);
+                  }
                 })
             .build();
-    return Failsafe.with(reopenChannelRetryExecutorForInsertRows).get();
+    // TODO: update failed buffer
+    return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
+        .compose(logFallbackForAlterTable)
+        .compose(reopenChannelRetryExecutorForInsertRows)
+        .get(new InsertRowsApiResponseSupplier(this.channel, this.failedBuffer));
   }
 
   /** Invokes the API given the channel and streaming Buffer. */
@@ -659,33 +687,6 @@ public class TopicPartitionChannel {
     }
   }
 
-  private static class AlterTableAndInsertRowsResponseSupplier
-      implements CheckedSupplier<InsertValidationResponse> {
-
-    private final SnowflakeStreamingIngestChannel channelForInsertRows;
-
-    private final StreamingBuffer insertRowsStreamingBuffer;
-
-    private final SnowflakeConnectionService conn;
-
-    private AlterTableAndInsertRowsResponseSupplier(
-        SnowflakeStreamingIngestChannel channelForInsertRows,
-        StreamingBuffer insertRowsStreamingBuffer,
-        SnowflakeConnectionService conn) {
-      this.channelForInsertRows = channelForInsertRows;
-      this.insertRowsStreamingBuffer = insertRowsStreamingBuffer;
-      this.conn = conn;
-    }
-
-    @Override
-    public InsertValidationResponse get() throws Throwable {
-
-      return this.channelForInsertRows.insertRows(
-          this.insertRowsStreamingBuffer.getData(),
-          Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
-    }
-  }
-
   /**
    * We will reopen the channel on {@link SFException} and reset offset in kafka. But, we will throw
    * a custom exception to show that the streamingBuffer was not added into Snowflake.
@@ -706,6 +707,33 @@ public class TopicPartitionChannel {
         ex);
   }
 
+  private String getType(Object value) {
+    Schema.Type schemaType = ConnectSchema.schemaType(value.getClass());
+    if (schemaType == null) {
+      return "VARIANT";
+    }
+    switch (schemaType) {
+      case INT8:
+      case INT16:
+      case INT32:
+      case INT64:
+        return "NUMBER";
+      case FLOAT32:
+      case FLOAT64:
+        return "FLOAT";
+      case BOOLEAN:
+        return "BOOLEAN";
+      case STRING:
+        return "VARCHAR";
+      case BYTES:
+        return "BINARY";
+      case ARRAY:
+        return "ARRAY";
+      default:
+        return "VARIANT";
+    }
+  }
+
   /**
    * Collect the extra columns reported by the insertErrors.
    *
@@ -713,8 +741,9 @@ public class TopicPartitionChannel {
    * @return whether the errors in insertErrors are all 'extra columns' error (so that
    *     schematization could be performed)
    */
-  private boolean collectExtraColumns(List<InsertValidationResponse.InsertError> insertErrors) {
-    this.extraColumnNames.clear();
+  private boolean collectExtraColumns(
+      List<InsertValidationResponse.InsertError> insertErrors, List<SinkRecord> records) {
+    this.extraColumnToType.clear();
     final String EXTRA_COL_S = "Extra column: ";
     final String EXTRA_COL_E = ". Columns not present in the table shouldn't be specified.";
     for (InsertValidationResponse.InsertError insertError : insertErrors) {
@@ -723,11 +752,21 @@ public class TopicPartitionChannel {
         int startIndex = errorMessage.indexOf(EXTRA_COL_S) + EXTRA_COL_S.length();
         int endIndex = errorMessage.indexOf(EXTRA_COL_E);
         String columnName = errorMessage.substring(startIndex, endIndex);
-        if (!this.extraColumnNames.contains(columnName)) {
-          this.extraColumnNames.add(columnName);
+        if (!this.extraColumnToType.containsKey(columnName)) {
+          Map<String, Object> record =
+              (Map<String, Object>) records.get((int) insertError.getRowIndex()).value();
+          Object value = null;
+          for (String colName : record.keySet()) {
+            if (colName.equalsIgnoreCase(columnName)) {
+              value = record.get(colName);
+              break;
+            }
+          }
+          String type = getType(value);
+          this.extraColumnToType.put(columnName, type);
         }
       } else {
-        this.extraColumnNames.clear();
+        this.extraColumnToType.clear();
         return false;
         // containing other type of error
       }
@@ -741,7 +780,7 @@ public class TopicPartitionChannel {
    * @return if retry is needed
    */
   public boolean needRetryInsertion() {
-    return !this.extraColumnNames.isEmpty();
+    return !this.extraColumnToType.isEmpty();
   }
 
   /**
@@ -755,7 +794,7 @@ public class TopicPartitionChannel {
   private boolean insertRecordsToFailedBuffer(
       List<InsertValidationResponse.InsertError> insertErrors,
       List<SinkRecord> insertedRecordsToBuffer) {
-    if (!collectExtraColumns(insertErrors)) {
+    if (!collectExtraColumns(insertErrors, insertedRecordsToBuffer)) {
       return false;
     }
     for (InsertValidationResponse.InsertError insertError : insertErrors) {
@@ -771,8 +810,8 @@ public class TopicPartitionChannel {
    *
    * @return the extraColumnNames List
    */
-  public List<String> getExtraColumnNames() {
-    return this.extraColumnNames;
+  public Map<String, String> getExtraColumnToType() {
+    return this.extraColumnToType;
   }
 
   /**

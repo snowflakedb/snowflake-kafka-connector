@@ -161,6 +161,7 @@ public enum SnowflakeErrors {
       "Failed to append metadata column, please check that you have permission to do so."),
   ERROR_2014(
       "2014", "Table not exists", "Table not exists. It might have been deleted externally."),
+  ERROR_2015("2015", "Failed to append columns", "Failed to append columns"),
   // Snowpipe related issues 3---
   ERROR_3001("3001", "Failed to ingest file", "Exception reported by Ingest SDK"),
 
