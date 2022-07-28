@@ -364,13 +364,14 @@ public class Utils {
       if (!BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE)) {
         configIsValid = false;
       }
-      if (config.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG) && Boolean.parseBoolean(
-                config.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG))) {
-          configIsValid = false;
-          LOGGER.error(
-              Logging.logMessage(
-                  "Schematization is only available with {}.",
-                  IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      if (config.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG)
+          && Boolean.parseBoolean(
+              config.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG))) {
+        configIsValid = false;
+        LOGGER.error(
+            Logging.logMessage(
+                "Schematization is only available with {}.",
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
     }
 
