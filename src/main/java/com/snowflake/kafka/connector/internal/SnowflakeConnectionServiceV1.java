@@ -354,20 +354,18 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
         }
       }
     } catch (SQLException e) {
-      logError("table {} doesn't exist", tableName);
       throw SnowflakeErrors.ERROR_2014.getException("table name: " + tableName);
     }
     try {
-      if (!isVariant) {
-        String metaQuery;
-        if (!hasMeta) {
-          metaQuery = "alter table identifier(?) add RECORD_METADATA VARIANT";
-        } else {
-          throw SnowflakeErrors.ERROR_2012.getException("table name: " + tableName);
-        }
+      if (!hasMeta) {
+        String metaQuery = "alter table identifier(?) add RECORD_METADATA VARIANT";
         stmt = conn.prepareStatement(metaQuery);
         stmt.setString(1, tableName);
         stmt.executeQuery();
+      } else {
+        if (!isVariant) {
+          throw SnowflakeErrors.ERROR_2012.getException("table name: " + tableName);
+        }
       }
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2013.getException("table name: " + tableName);

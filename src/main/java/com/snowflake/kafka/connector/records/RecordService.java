@@ -109,8 +109,6 @@ public class RecordService extends Logging {
       enableSchematization =
           Boolean.parseBoolean(
               connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
-    } else {
-      enableSchematization = false;
     }
     return enableSchematization;
   }

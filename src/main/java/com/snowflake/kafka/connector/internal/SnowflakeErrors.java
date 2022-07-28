@@ -152,13 +152,13 @@ public enum SnowflakeErrors {
       "Failed to upload file to Snowflake Stage though credential caching"),
   ERROR_2012(
       "2012",
-      "Failed to append metadata column",
-      "Failed to append metadata column due to an existing metadata column with non-VARIANT"
-          + " type."),
+      "Failed to append RECORD_METADATA column",
+      "Failed to append RECORD_METADATA column due to an existing RECORD_METADATA column with"
+          + " non-VARIANT type."),
   ERROR_2013(
       "2013",
-      "Failed to append metadata column",
-      "Failed to append metadata column, please check that you have permission to do so."),
+      "Failed to append RECORD_METADATA column",
+      "Failed to append RECORD_METADATA column, please check that you have permission to do so."),
   ERROR_2014(
       "2014", "Table not exists", "Table not exists. It might have been deleted externally."),
   // Snowpipe related issues 3---
