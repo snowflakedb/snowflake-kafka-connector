@@ -102,6 +102,11 @@ public enum SnowflakeErrors {
       "0024",
       "Reader schema invalid",
       "A reader schema is provided but can not be parsed as an Avro schema"),
+  ERROR_0025(
+      "0025",
+      "Duplicate case-insensitive column names detected",
+      "Duplicate case-insensitive column names detected. Schematization currently does not support"
+          + " this."),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
