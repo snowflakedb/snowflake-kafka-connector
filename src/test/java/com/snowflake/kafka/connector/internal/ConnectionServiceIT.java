@@ -1,18 +1,23 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1.USER_AGENT_SUFFIX_FORMAT;
-
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.*;
-import net.snowflake.ingest.internal.apache.http.Header;
-import net.snowflake.ingest.internal.apache.http.HttpHeaders;
-import net.snowflake.ingest.internal.apache.http.client.methods.HttpPost;
+import net.snowflake.client.jdbc.internal.apache.http.Header;
+import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpPost;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.UUID;
+
+import static com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1.USER_AGENT_SUFFIX_FORMAT;
 
 public class ConnectionServiceIT {
   private final SnowflakeConnectionService conn = TestUtils.getConnectionService();
