@@ -634,4 +634,18 @@ public class Utils {
       }
     }
   }
+
+  public static Map<String, String> GetSchemaFromSchemaRegistry(
+      final String topicName, final String schemaRegistryURL) {
+    Map<String, String> srConfig = new HashMap<>();
+    srConfig.put("schema.registry.url", schemaRegistryURL));
+    AvroConverterConfig avroConverterConfig = new AvroConverterConfig(srConfig);
+    SchemaRegistryClient schemaRegistry =
+        new CachedSchemaRegistryClient(
+            avroConverterConfig.getSchemaRegistryUrls(),
+            avroConverterConfig.getMaxSchemasPerSubject(),
+            Collections.singletonList(new AvroSchemaProvider()),
+            srConfig,
+            avroConverterConfig.requestHeaders());
+  }
 }

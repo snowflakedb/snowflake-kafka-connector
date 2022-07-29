@@ -714,13 +714,17 @@ public class TopicPartitionChannel {
     }
     switch (schemaType) {
       case INT8:
+        return "BYTEINT";
       case INT16:
+        return "SMALLINT";
       case INT32:
+        return "INT";
       case INT64:
-        return "NUMBER";
+        return "BIGINT";
       case FLOAT32:
-      case FLOAT64:
         return "FLOAT";
+      case FLOAT64:
+        return "DOUBLE";
       case BOOLEAN:
         return "BOOLEAN";
       case STRING:

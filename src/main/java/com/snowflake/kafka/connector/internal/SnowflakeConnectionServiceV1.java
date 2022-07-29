@@ -410,13 +410,17 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query = "alter table identifier(?) add column ";
     boolean first = true;
+    String logColumn = "[";
     for (String columnName : extraColumnToType.keySet()) {
       if (first) {
         first = false;
       } else {
         query += ", add column ";
+        logColumn += ",";
       }
       query += columnName + " " + extraColumnToType.get(columnName);
+      query += " comment ''column created by schema evolution''";
+      logColumn += columnName + " (" + extraColumnToType.get(columnName) + ")";
     }
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -426,6 +430,8 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2015.getException(e);
     }
+    logColumn = "Following columns created for table {}:\n" + logColumn + "]";
+    logInfo(logColumn, tableName);
   }
 
   @Override
