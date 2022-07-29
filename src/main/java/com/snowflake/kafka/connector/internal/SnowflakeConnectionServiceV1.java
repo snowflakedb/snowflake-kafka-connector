@@ -13,6 +13,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
@@ -129,6 +130,28 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   @Override
   public void createTable(final String tableName) {
     createTable(tableName, false);
+  }
+
+  public void createTableWithSchema(final String tableName, final Map<String, String> schema) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "create table if not exists identifier(?)";
+    query += "(record_metadata variant";
+    for (Map.Entry<String, String> field : schema.entrySet()) {
+      query += ", " + field.getKey() + " " + field.getValue();
+    }
+    query += ")";
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
+
+    logInfo("create table {}", tableName);
   }
 
   @Override
