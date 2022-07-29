@@ -283,14 +283,14 @@
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-fips</artifactId>
             <version>1.0.3</version>
-            <scope>provided</scope>
+            <!--            <scope>provided</scope>-->
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.apache.kafka/connect-api -->
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>connect-api</artifactId>
-            <version>3.1.0</version>
+            <version>3.2.0</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -326,7 +326,7 @@
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
-            <version>1.9.0</version>
+            <version>1.11.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.fasterxml.jackson.core</groupId>
@@ -359,7 +359,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-registry-client</artifactId>
-            <version>6.2.0</version>
+            <version>7.1.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -379,10 +379,12 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/io.confluent/kafka-connect-avro-data -->
+
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
-            <version>5.5.1</version>
+            <version>7.1.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -394,8 +396,8 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-connect-avro-converter</artifactId>
-            <version>5.5.1</version>
-            <scope>test</scope>
+            <version>7.1.1</version>
+            <!--            <scope>test</scope>-->
         </dependency>
 
         <!--JDBC driver for building connection with Snowflake-->
@@ -477,5 +479,17 @@
             <version>0.9.0.0</version>
             <scope>test</scope>
         </dependency>
+        <!--        <dependency>-->
+        <!--            <groupId>io.confluent</groupId>-->
+        <!--            <artifactId>kafka-connect-avro-converter</artifactId>-->
+        <!--            <version>5.5.1</version>-->
+        <!--            <scope>compile</scope>-->
+        <!--            <exclusions>-->
+        <!--                <exclusion>-->
+        <!--                    <groupId>io.confluent</groupId>-->
+        <!--                    <artifactId>kafka-schema-registry-client</artifactId>-->
+        <!--                </exclusion>-->
+        <!--            </exclusions>-->
+        <!--        </dependency>-->
     </dependencies>
 </project>
