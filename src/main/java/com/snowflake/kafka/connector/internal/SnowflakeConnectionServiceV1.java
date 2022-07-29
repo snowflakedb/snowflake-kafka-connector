@@ -154,6 +154,8 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     logInfo("create table {}", tableName);
   }
 
+  public void createTableWithOnlyMetadataColumn(final String tableName) {}
+
   @Override
   public void createPipe(
       final String tableName,

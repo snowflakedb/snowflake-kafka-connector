@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
+import java.util.Map;
 
 public interface SnowflakeConnectionService {
   /**
@@ -244,4 +245,8 @@ public interface SnowflakeConnectionService {
    * @param tableName table name
    */
   void appendMetaColIfNotExist(String tableName);
+
+  void createTableWithSchema(String tableName, Map<String, String> schemaMap);
+
+  void createTableWithOnlyMetadataColumn(String tableName);
 }

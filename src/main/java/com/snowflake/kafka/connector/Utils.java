@@ -643,12 +643,12 @@ public class Utils {
     }
   }
 
-  public static Map<String, String> GetSchemaFromSchemaRegistry(
+  public static Map<String, String> getSchemaFromSchemaRegistry(
       final String topicName, final String schemaRegistryURL) {
-    return GetSchemaFromSchemaRegistry(topicName, schemaRegistryURL, "value");
+    return getSchemaFromSchemaRegistry(topicName, schemaRegistryURL, "value");
   }
 
-  public static Map<String, String> GetSchemaFromSchemaRegistry(
+  public static Map<String, String> getSchemaFromSchemaRegistry(
       final String topicName, final String schemaRegistryURL, final String type) {
     Map<String, String> srConfig = new HashMap<>();
     srConfig.put("schema.registry.url", schemaRegistryURL);
