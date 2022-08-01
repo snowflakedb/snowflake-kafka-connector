@@ -246,7 +246,23 @@ public interface SnowflakeConnectionService {
    */
   void appendMetaColIfNotExist(String tableName);
 
+  /**
+   * Create a table with name being tableName and columns as defined in schemaMap.
+   *
+   * <p>The key of the schemaMap is the column name and the value is the type of the data
+   *
+   * <p>The RECORD_METADATA column, while not in this map, will be added automatically
+   *
+   * @param tableName table name
+   * @param schemaMap table column description
+   */
   void createTableWithSchema(String tableName, Map<String, String> schemaMap);
 
+  /**
+   * Create a table with only the RECORD_METADATA column. The rest of the columns might be added
+   * through schema evolution
+   *
+   * @param tableName table name
+   */
   void createTableWithOnlyMetadataColumn(String tableName);
 }

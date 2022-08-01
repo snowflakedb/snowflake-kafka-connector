@@ -154,7 +154,22 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     logInfo("create table {}", tableName);
   }
 
-  public void createTableWithOnlyMetadataColumn(final String tableName) {}
+  public void createTableWithOnlyMetadataColumn(final String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "create table if not exists identifier(?) (record_metadata variant)";
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
+
+    logInfo("create table {}", tableName);
+  }
 
   @Override
   public void createPipe(
