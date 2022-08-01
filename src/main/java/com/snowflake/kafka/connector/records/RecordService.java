@@ -28,10 +28,8 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 import java.util.TimeZone;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
@@ -117,24 +115,6 @@ public class RecordService extends Logging {
 
   public void setEnableSchematization(final boolean enableSchematizationIn) {
     this.enableSchematization = enableSchematizationIn;
-  }
-
-  /**
-   * return true if there are case-insensitive duplicate column names
-   *
-   * @param record
-   * @return whether there are case-insensitive duplicate column names
-   */
-  private boolean hasCaseInsensitiveDuplicates(Map<String, Object> record) {
-    Set<String> caseInsensitiveKeySet = new HashSet<>();
-    for (String key : record.keySet()) {
-      if (caseInsensitiveKeySet.contains(key.toUpperCase())) {
-        return true;
-      } else {
-        caseInsensitiveKeySet.add(key.toUpperCase());
-      }
-    }
-    return false;
   }
 
   /**
@@ -234,6 +214,7 @@ public class RecordService extends Logging {
           while (columnNames.hasNext()) {
             String columnName = columnNames.next();
             JsonNode columnNode = node.get(columnName);
+            columnName = formatColumnName(columnName);
             String columnValue =
                 columnNode.isTextual()
                     ? columnNode.textValue()
@@ -254,11 +235,14 @@ public class RecordService extends Logging {
       }
     }
 
-    if (hasCaseInsensitiveDuplicates(streamingIngestRow)) {
-      throw SnowflakeErrors.ERROR_0025.getException();
-    }
-
     return streamingIngestRow;
+  }
+
+  private String formatColumnName(String columnName) {
+    // the columnName has been checked and guaranteed not to be null or empty
+    return (columnName.charAt(0) == '"' && columnName.charAt(columnName.length() - 1) == '"')
+        ? columnName.substring(1, columnName.length() - 1)
+        : columnName.toUpperCase();
   }
 
   /** For now there are two columns one is content and other is metadata. Both are Json */

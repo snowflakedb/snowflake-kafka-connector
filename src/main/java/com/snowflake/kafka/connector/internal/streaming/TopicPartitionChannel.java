@@ -370,10 +370,6 @@ public class TopicPartitionChannel {
     return content != null && ((SnowflakeRecordContent) content).isBroken();
   }
 
-  /**
-   * TODO: SNOW-630885 - When schematization is enabled, we should create the map directly from the
-   * SinkRecord instead of first turning it into json
-   */
   private SinkRecord handleNativeRecord(SinkRecord record, boolean isKey) {
     SnowflakeRecordContent newSFContent;
     Schema schema = isKey ? record.keySchema() : record.valueSchema();
@@ -946,6 +942,9 @@ public class TopicPartitionChannel {
   /**
    * Converts the original kafka sink record into a Json Record. i.e key and values are converted
    * into Json so that it can be used to insert into variant column of Snowflake Table.
+   *
+   * <p>TODO: SNOW-630885 - When schematization is enabled, we should create the map directly from
+   * the SinkRecord instead of first turning it into json
    */
   private SinkRecord getSnowflakeSinkRecordFromKafkaRecord(final SinkRecord kafkaSinkRecord) {
     SinkRecord snowflakeRecord = kafkaSinkRecord;
