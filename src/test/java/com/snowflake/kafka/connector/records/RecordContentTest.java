@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.type.TypeReference;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
@@ -17,6 +18,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Test;
 
@@ -236,6 +238,9 @@ public class RecordContentTest {
   public void testSchematizationStringField() {
     RecordService service = new RecordService();
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
+    Map<String, String> config = new HashMap<>();
+    config.put("schemas.enable", "false");
+    jsonConverter.configure(config, false);
 
     service.setEnableSchematization(true);
     String value = "{\"name\":\"sf\",\"answer\":42}";
@@ -244,7 +249,7 @@ public class RecordContentTest {
 
     SinkRecord record =
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "string", sv.schema(), sv.value(), partition);
+            topic, partition, Schema.STRING_SCHEMA, "string", new Schema(), sv.value(), partition);
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
     // each field should be dumped into string format
     // json string should not be enclosed in additional brackets
@@ -256,9 +261,12 @@ public class RecordContentTest {
   @Test
   public void testColumnNameFormatting() {
     RecordService service = new RecordService();
-    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
-
+    JsonConverter jsonConverter = new JsonConverter();
+    Map<String, String> config = new HashMap<>();
+    config.put("schemas.enable", "false");
+    jsonConverter.configure(config, false);
     service.setEnableSchematization(true);
+
     String value = "{\"\\\"NaMe\\\"\":\"sf\",\"AnSwEr\":42}";
     byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
     SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
