@@ -670,11 +670,18 @@ public class TopicPartitionChannel {
 
                   //
                   // insertRowsFallbackSupplier(executionAttemptedEvent.getLastException());
-                  Thread.sleep(5000);
+                  //                  Thread.sleep(5000);
+
                   LOGGER.warn(
                       "{} Re-opening channel:{}",
                       StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
                       this.getChannelName());
+
+                  //                  conn.describeTable(this.tableName);
+
+                  //                  if (!this.channel.isClosed()) {
+                  //                    this.channel.close();
+                  //                  }
                   this.channel = Preconditions.checkNotNull(openChannelForTable());
                   resetChannelMetadataAfterRecovery(
                       StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
@@ -1161,6 +1168,7 @@ public class TopicPartitionChannel {
             .build();
     LOGGER.info(
         "Opening a channel with name:{} for table name:{}", this.channelName, this.tableName);
+
     return streamingIngestClient.openChannel(channelRequest);
   }
 

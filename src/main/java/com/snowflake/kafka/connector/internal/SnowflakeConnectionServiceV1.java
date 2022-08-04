@@ -332,6 +332,25 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   }
 
   @Override
+  public void describeTable(final String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "desc table identifier(?)";
+    PreparedStatement stmt = null;
+    ResultSet result = null;
+    try {
+      stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      result = stmt.executeQuery();
+      while (result.next()) {
+        System.out.println(result.getString(1) + " (" + result.getString(2) + ")");
+      }
+    } catch (SQLException e) {
+      logDebug("table {} doesn't exist", tableName);
+    }
+  }
+
+  @Override
   public void appendMetaColIfNotExist(final String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);

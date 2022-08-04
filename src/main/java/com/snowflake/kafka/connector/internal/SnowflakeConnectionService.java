@@ -241,6 +241,8 @@ public interface SnowflakeConnectionService {
   /** @return the raw jdbc connection */
   Connection getConnection();
 
+  void describeTable(String tableName);
+
   /**
    * Append a VARIANT type column "RECORD_METADATA" to the table if it is not present.
    *
