@@ -11,9 +11,11 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.type.TypeReference;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.client.jdbc.internal.net.minidev.json.JSONObject;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -235,21 +237,29 @@ public class RecordContentTest {
   }
 
   @Test
-  public void testSchematizationStringField() {
+  public void testSchematizationStringField() throws JsonProcessingException {
     RecordService service = new RecordService();
-    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
+    JsonConverter jsonConverter = new JsonConverter();
     Map<String, String> config = new HashMap<>();
     config.put("schemas.enable", "false");
     jsonConverter.configure(config, false);
 
     service.setEnableSchematization(true);
-    String value = "{\"name\":\"sf\",\"answer\":42}";
-    byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
+    Map<String, Object> value = new HashMap<>();
+    value.put("name", "sf");
+    value.put("answer", 42);
+    byte[] valueContents = jsonConverter.fromConnectData(topic, null, new JSONObject(value));
     SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
 
     SinkRecord record =
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "string", new Schema(), sv.value(), partition);
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "string",
+            new SnowflakeJsonSchema(),
+            new SnowflakeRecordContent(null, sv.value()),
+            partition);
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
     // each field should be dumped into string format
     // json string should not be enclosed in additional brackets
@@ -259,7 +269,7 @@ public class RecordContentTest {
   }
 
   @Test
-  public void testColumnNameFormatting() {
+  public void testColumnNameFormatting() throws JsonProcessingException {
     RecordService service = new RecordService();
     JsonConverter jsonConverter = new JsonConverter();
     Map<String, String> config = new HashMap<>();
@@ -267,13 +277,22 @@ public class RecordContentTest {
     jsonConverter.configure(config, false);
     service.setEnableSchematization(true);
 
-    String value = "{\"\\\"NaMe\\\"\":\"sf\",\"AnSwEr\":42}";
-    byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
+    Map<String, Object> value = new HashMap<>();
+    value.put("\"NaMe\"", "sf");
+    value.put("AnSwEr", 42);
+    byte[] valueContents = jsonConverter.fromConnectData(topic, null, new JSONObject(value));
     SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
 
     SinkRecord record =
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "string", sv.schema(), sv.value(), partition);
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "string",
+            new SnowflakeJsonSchema(),
+            new SnowflakeRecordContent(null, sv.value()),
+            partition);
+
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
 
     assert got.containsKey("NaMe");
