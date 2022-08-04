@@ -27,7 +27,6 @@ import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -262,6 +261,7 @@ public class TopicPartitionChannel {
       bufferLock.lock();
       try {
         this.streamingBuffer.insert(kafkaSinkRecord);
+        LOGGER.debug("Record with offset [{}] inserted into buffer", kafkaSinkRecord.kafkaOffset());
         this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
         // # of records or size based flushing
         if (this.streamingBufferThreshold.isFlushBufferedBytesBased(
@@ -517,7 +517,11 @@ public class TopicPartitionChannel {
   public void retryInsertion(SnowflakeConnectionService conn) {
     InsertValidationResponse response = null;
     try {
+      long lastKafkaOffsetInFailedBuffer = failedBuffer.getLastOffset();
       response = insertRowsAndAlterTableWithRetry(conn);
+
+      // failed Buffer could already be changed by now
+
       // Updates the flush time (last time we called insertRows API)
       this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -530,6 +534,14 @@ public class TopicPartitionChannel {
       if (response.hasErrors()) {
         handleInsertRowsFailures(response.getInsertErrors(), failedBuffer.getSinkRecords());
       }
+      // with the attempts the channel was reopened (several times), the offset needs to be reset to
+      // continue ingest properly
+      // even if the retry does not succeed the reset is necessary to make the behavior consistent
+      // with that without schema evolution
+      resetChannelMetadataAfterRecovery(
+          StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK, lastKafkaOffsetInFailedBuffer);
+      // TODO: last record offset equivalent to snowflake offset?
+      // TODO: How multiple tasks work?
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
       LOGGER.warn(
@@ -538,7 +550,7 @@ public class TopicPartitionChannel {
               failedBuffer, this.getChannelName()),
           ex);
     }
-    failedBuffer = new StreamingBuffer();
+    cleanFailedBuffer();
     // clear the buffer regardless of insertion outcome
   }
 
@@ -587,6 +599,9 @@ public class TopicPartitionChannel {
 
   private InsertValidationResponse insertRowsAndAlterTableWithRetry(
       SnowflakeConnectionService conn) {
+    InsertRowsApiResponseSupplier supplier =
+        new InsertRowsApiResponseSupplier(this.channel, this.failedBuffer);
+
     Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
         Fallback.builder(
                 executionAttemptedEvent -> {
@@ -610,19 +625,20 @@ public class TopicPartitionChannel {
                         event.getException()))
             .build();
 
-    Fallback<Object> logFallbackForAlterTable =
-        Fallback.builder(
-                event -> {
-                  LOGGER.warn(
-                      String.format("Failed Attempt to alter table: %s", this.tableName),
-                      event.getLastException());
-                })
-            .handle(SQLException.class)
-            .build();
+    //    Fallback<Object> logFallbackForAlterTable =
+    //        Fallback.builder(
+    //                event -> {
+    //                  LOGGER.warn(
+    //                      String.format("Failed Attempt to alter table: %s", this.tableName),
+    //                      event.getLastException());
+    //                })
+    //            .handle(SQLException.class)
+    //            .build();
 
     RetryPolicy<Object> reopenChannelRetryExecutorForInsertRows =
         RetryPolicy.builder()
-            .withMaxAttempts(3)
+            .withMaxAttempts(5)
+            //            .withDelay(Duration.ofMillis(1000))
             .handle(SFException.class)
             .handleResultIf(
                 result ->
@@ -630,43 +646,66 @@ public class TopicPartitionChannel {
                         && ((InsertValidationResponse) result).hasErrors())
             .onFailedAttempt(
                 executionAttemptedEvent -> {
+
+                  // TODO: Check if response is null
+                  StreamingBuffer tempBuffer = this.failedBuffer;
+                  this.failedBuffer = new StreamingBuffer();
+                  InsertValidationResponse response =
+                      (InsertValidationResponse) executionAttemptedEvent.getLastResult();
+                  insertRecordsToFailedBuffer(
+                      response.getInsertErrors(), tempBuffer.getSinkRecords());
+                  supplier.updateBuffer(this.failedBuffer);
                   try {
-                    StreamingBuffer tempBuffer = this.failedBuffer;
-                    this.failedBuffer = new StreamingBuffer();
-                    InsertValidationResponse response =
-                        (InsertValidationResponse) executionAttemptedEvent.getLastResult();
-                    insertRecordsToFailedBuffer(
-                        response.getInsertErrors(), tempBuffer.getSinkRecords());
                     conn.appendColumns(this.tableName, this.extraColumnToType);
-                    insertRowsFallbackSupplier(executionAttemptedEvent.getLastException());
-                  } catch (TopicPartitionChannelInsertionException e) {
-                    LOGGER.warn(
-                        String.format(
-                            "[INSERT_BUFFERED_RECORDS] Failure inserting buffer:%s for channel:%s",
-                            failedBuffer, this.getChannelName()),
-                        e);
                   } catch (SnowflakeKafkaConnectorException e) {
                     LOGGER.warn(
                         String.format(
                             "[INSERT_BUFFERED_RECORDS] Failure altering table :%s", this.tableName),
                         e);
                   }
+                  // even if the column failed to be created, the channel needs to be reopened
+                  // because otherwise the connector may never know the up-to-date table info
+
+                  // TODO: if exception thrown here, channel may never get reopened!
+
+                  //
+                  // insertRowsFallbackSupplier(executionAttemptedEvent.getLastException());
+                  Thread.sleep(5000);
+                  LOGGER.warn(
+                      "{} Re-opening channel:{}",
+                      StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
+                      this.getChannelName());
+                  this.channel = Preconditions.checkNotNull(openChannelForTable());
+                  resetChannelMetadataAfterRecovery(
+                      StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
+                      fetchLatestCommittedOffsetFromSnowflake());
+                  supplier.updateChannel(this.channel);
                 })
             .build();
     // TODO: update failed buffer
+
     return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
-        .compose(logFallbackForAlterTable)
+        //        .compose(logFallbackForAlterTable)
         .compose(reopenChannelRetryExecutorForInsertRows)
-        .get(new InsertRowsApiResponseSupplier(this.channel, this.failedBuffer));
+        .get(supplier);
+  }
+
+  private void cleanFailedBuffer() {
+    this.failedBuffer = new StreamingBuffer();
+    this.extraColumnToType.clear();
+  }
+
+  private SnowflakeStreamingIngestChannel getLatestChannel() {
+    return this.channel;
   }
 
   /** Invokes the API given the channel and streaming Buffer. */
   private static class InsertRowsApiResponseSupplier
       implements CheckedSupplier<InsertValidationResponse> {
 
-    private final SnowflakeStreamingIngestChannel channelForInsertRows;
+    private SnowflakeStreamingIngestChannel channelForInsertRows;
 
-    private final StreamingBuffer insertRowsStreamingBuffer;
+    private StreamingBuffer insertRowsStreamingBuffer;
 
     private InsertRowsApiResponseSupplier(
         SnowflakeStreamingIngestChannel channelForInsertRows,
@@ -684,6 +723,14 @@ public class TopicPartitionChannel {
       return this.channelForInsertRows.insertRows(
           this.insertRowsStreamingBuffer.getData(),
           Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
+    }
+
+    public void updateChannel(SnowflakeStreamingIngestChannel newChannel) {
+      this.channelForInsertRows = newChannel;
+    }
+
+    public void updateBuffer(StreamingBuffer newBuffer) {
+      this.insertRowsStreamingBuffer = newBuffer;
     }
   }
 
@@ -708,6 +755,9 @@ public class TopicPartitionChannel {
   }
 
   private String getType(Object value) {
+    if (value == null) {
+      return "VARIANT";
+    }
     Schema.Type schemaType = ConnectSchema.schemaType(value.getClass());
     if (schemaType == null) {
       return "VARIANT";

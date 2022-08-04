@@ -419,7 +419,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
         logColumn += ",";
       }
       query += columnName + " " + extraColumnToType.get(columnName);
-      query += " comment ''column created by schema evolution''";
+      query += " comment 'column created by schema evolution'";
       logColumn += columnName + " (" + extraColumnToType.get(columnName) + ")";
     }
     try {
@@ -430,6 +430,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2015.getException(e);
     }
+
     logColumn = "Following columns created for table {}:\n" + logColumn + "]";
     logInfo(logColumn, tableName);
   }
