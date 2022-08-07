@@ -10,7 +10,7 @@ class TestSchemaMapping:
         self.topic = self.fileName + nameSalt
 
         self.driver.snowflake_conn.cursor().execute(
-            "Create or replace table {} (PERFORMANCE_STRING STRING, PERFORMANCE_CHAR CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO_ARRAY ARRAY, INFO VARIANT)".format(self.topic))
+            "Create or replace table {} (PERFORMANCE_STRING STRING, PERFORMANCE_CHAR CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO_ARRAY ARRAY, INFO VARIANT, RECORD_METADATA VARIANT)".format(self.topic))
 
         self.record = {
             'PERFORMANCE_STRING': 'Excellent',
