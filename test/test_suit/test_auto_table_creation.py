@@ -1,11 +1,13 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
 from time import sleep
 from confluent_kafka import avro
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry import Schema
 
 # SR -> Schema Registry
 # Runs only in confluent test suite environment
 class TestAutoTableCreation:
-    def __init__(self, driver, nameSalt):
+    def __init__(self, driver, nameSalt, schemaRegistryAddress):
         self.driver = driver
         self.fileName = "travis_correct_auto_table_creation"
         self.topic = self.fileName + nameSalt
@@ -13,6 +15,9 @@ class TestAutoTableCreation:
         self.topicNum = 1
         self.recordNum = 100
         self.partitionNum = 1
+        self.schemaRegistryAddress = schemaRegistryAddress
+        conf = {"url": self.schemaRegistryAddress}
+        self.srClient = SchemaRegistryClient(conf)
 
         ValueSchemaStr = """
         {
@@ -52,6 +57,8 @@ class TestAutoTableCreation:
         }
 
         self.valueSchema = avro.loads(ValueSchemaStr)
+        avroSchema = Schema(self.valueSchema, "AVRO")
+        self.srClient.register_schema(self.topic + '-value', avroSchema)
 
         # create topic and partitions in constructor since the post REST api will automatically create topic with only one partition
         self.driver.createTopics(self.topic, partitionNum=self.partitionNum, replicationNum=1)
