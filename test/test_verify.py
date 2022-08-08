@@ -24,6 +24,7 @@ def errorExit(message):
     print(datetime.now().strftime("%H:%M:%S "), message)
     exit(1)
 
+globalSchemaRegistry = 0
 
 class KafkaTest:
     def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, testVersion, enableSSL, snowflakeCloudPlatform, enableDeliveryGuaranteeTests = False):
@@ -53,6 +54,7 @@ class KafkaTest:
 
         self.kafkaConnectAddress = kafkaConnectAddress
         self.schemaRegistryAddress = schemaRegistryAddress
+        globalSchemaRegistry = self.schemaRegistryAddress
         self.kafkaAddress = kafkaAddress
 
         if enableSSL:
@@ -461,7 +463,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     testSchemaMapping = TestSchemaMapping(driver, nameSalt)
 
-    testAutoTableCreation = TestAutoTableCreation(driver, nameSalt)
+    testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, globalSchemaRegistry)
 
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
