@@ -52,7 +52,6 @@ class KafkaTest:
 
         self.kafkaConnectAddress = kafkaConnectAddress
         self.schemaRegistryAddress = schemaRegistryAddress
-        global globalSchemaRegistry = self.schemaRegistryAddress
         self.kafkaAddress = kafkaAddress
 
         if enableSSL:
@@ -461,7 +460,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     # testSchemaMapping = TestSchemaMapping(driver, nameSalt)
 
-    testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, globalSchemaRegistry)
+    testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress)
 
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
@@ -612,6 +611,7 @@ if __name__ == "__main__":
              <test set> <test version> <name salt> <pressure> <enableSSL>===""")
 
     kafkaAddress = sys.argv[1]
+    global schemaRegistryAddress
     schemaRegistryAddress = sys.argv[2]
     kafkaConnectAddress = sys.argv[3]
     testSet = sys.argv[4]
