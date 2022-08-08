@@ -26,15 +26,16 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectReader;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.JsonNodeFactory;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
@@ -218,13 +219,14 @@ public class RecordService extends Logging {
             columnName = formatColumnName(columnName);
             Object columnValue;
             if (columnNode.isArray()) {
-              ObjectReader reader = MAPPER.readerForArrayOf(Object.class);
-              try {
-                columnValue = reader.readValue(columnNode);
-              } catch (IOException e) {
-                // should not happen
-                throw e;
+              List<String> itemList = new ArrayList<>();
+              ArrayNode arrayNode = (ArrayNode) columnNode;
+              Iterator<JsonNode> nodeIterator = arrayNode.iterator();
+              while (nodeIterator.hasNext()) {
+                JsonNode e = nodeIterator.next();
+                itemList.add(e.isTextual() ? e.textValue() : MAPPER.writeValueAsString(e));
               }
+              columnValue = itemList;
             } else if (columnNode.isTextual()) {
               columnValue = columnNode.textValue();
             } else {

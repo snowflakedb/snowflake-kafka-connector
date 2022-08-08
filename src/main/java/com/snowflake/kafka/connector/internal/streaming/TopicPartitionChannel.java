@@ -998,7 +998,15 @@ public class TopicPartitionChannel {
     for (Map.Entry<String, Object> entry : tableRow.entrySet()) {
       sinkRecordBufferSizeInBytes += entry.getKey().length() * 2L;
       // Can Typecast into string because value is JSON
-      sinkRecordBufferSizeInBytes += ((String) entry.getValue()).length() * 2L; // 1 char = 2 bytes
+      Object value = entry.getValue();
+      if (value instanceof String) {
+        sinkRecordBufferSizeInBytes += ((String) value).length() * 2L; // 1 char = 2 bytes
+      } else {
+        // for now it could only be a list of string
+        for (String s : (List<String>) value) {
+          sinkRecordBufferSizeInBytes += s.length() * 2L;
+        }
+      }
     }
     sinkRecordBufferSizeInBytes += StreamingUtils.MAX_RECORD_OVERHEAD_BYTES;
     return sinkRecordBufferSizeInBytes;
