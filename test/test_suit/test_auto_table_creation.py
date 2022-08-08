@@ -96,10 +96,7 @@ class TestAutoTableCreation:
         elif res != 100:
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
-
-
-
-def clean(self):
+    def clean(self):
         # dropping of stage and pipe doesnt apply for snowpipe streaming. (It executes drop if exists)
         self.driver.cleanTableStagePipe(self.topic)
         return
