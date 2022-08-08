@@ -9,6 +9,8 @@ class TestSchemaMapping:
         self.fileName = "travis_correct_schema_mapping"
         self.topic = self.fileName + nameSalt
 
+        print("Initializting" + self.fileName)
+
         self.driver.snowflake_conn.cursor().execute(
             "Create or replace table {} (PERFORMANCE_STRING STRING, PERFORMANCE_CHAR CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO_ARRAY ARRAY, INFO VARIANT)".format(self.topic))
 
@@ -59,6 +61,7 @@ class TestSchemaMapping:
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
         # validate content of line 1
+        print("")
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
         res_col_info = self.driver.snowflake_conn.cursor().execute(
