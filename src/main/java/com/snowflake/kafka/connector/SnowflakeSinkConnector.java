@@ -88,10 +88,10 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
-    Utils.validateConfig(config);
-
     // modify invalid connector name
     Utils.convertAppName(config);
+
+    Utils.validateConfig(config);
 
     // enable proxy
     Utils.enableJVMProxy(config);
