@@ -24,8 +24,6 @@ def errorExit(message):
     print(datetime.now().strftime("%H:%M:%S "), message)
     exit(1)
 
-globalSchemaRegistry = 0
-
 class KafkaTest:
     def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, testVersion, enableSSL, snowflakeCloudPlatform, enableDeliveryGuaranteeTests = False):
         self.testVersion = testVersion
@@ -54,7 +52,7 @@ class KafkaTest:
 
         self.kafkaConnectAddress = kafkaConnectAddress
         self.schemaRegistryAddress = schemaRegistryAddress
-        globalSchemaRegistry = self.schemaRegistryAddress
+        global globalSchemaRegistry = self.schemaRegistryAddress
         self.kafkaAddress = kafkaAddress
 
         if enableSSL:
