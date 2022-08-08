@@ -514,12 +514,21 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             .get("value.converter")
             .equals("io.confluent.connect.avro.AvroConverter")) {
           Map<String, String> schemaMap = new HashMap<>();
-          for (String topic : this.topicToTableMap.keySet()) {
-            Map<String, String> tempMap =
+          if (!this.topicToTableMap.isEmpty()) {
+            for (String topic : this.topicToTableMap.keySet()) {
+              Map<String, String> tempMap =
+                  Utils.getSchemaFromSchemaRegistry(
+                      topic, this.connectorConfig.get("value.converter.schema.registry.url"));
+              schemaMap.putAll(tempMap);
+            }
+          } else {
+            // if topic is not present in topic2table map, the table name must be the same with the
+            // topic
+            schemaMap =
                 Utils.getSchemaFromSchemaRegistry(
-                    topic, this.connectorConfig.get("value.converter.schema.registry.url"));
-            schemaMap.putAll(tempMap);
+                    tableName, this.connectorConfig.get("value.converter.schema.registry.url"));
           }
+
           this.conn.createTableWithSchema(tableName, schemaMap);
         } else {
           this.conn.createTableWithOnlyMetadataColumn(tableName);

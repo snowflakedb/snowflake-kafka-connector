@@ -430,6 +430,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     from test_suit.test_schema_mapping import TestSchemaMapping
 
+    from test_suit.test_auto_table_creation import TestAutoTableCreation
+
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
     testStringAvro = TestStringAvro(driver, nameSalt)
@@ -459,6 +461,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     testSchemaMapping = TestSchemaMapping(driver, nameSalt)
 
+    testAutoTableCreation = TestAutoTableCreation(driver, nameSalt)
 
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
@@ -468,7 +471,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
         testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
         testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe,
-        testSchemaMapping
+        testSchemaMapping,
+        testAutoTableCreation
     ]
 
     # Adding StringJsonProxy test at the end
@@ -476,6 +480,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         True, True, True, True, True, True, True, True, True, True, True,
         True, True,
         True, True,
+        True,
         True
     ]
     testSuitEnableList1 = []
@@ -484,6 +489,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True, True, True, True, True, True, True, True, True, True, False,
             True, True,
             True, True,
+            True,
             True
         ]
     elif testSet == "apache":
@@ -491,6 +497,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True, True, True, True, False, False, False, True, True, True, False,
             True, False,
             True, True,
+            True,
             True
         ]
     elif testSet != "clean":
