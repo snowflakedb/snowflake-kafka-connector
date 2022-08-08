@@ -428,7 +428,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import TestMultipleTopicToOneTableSnowpipeStreaming
     from test_suit.test_multiple_topic_to_one_table_snowpipe import TestMultipleTopicToOneTableSnowpipe
 
-    from test_suit.test_schema_mapping import TestSchemaMapping
+    # from test_suit.test_schema_mapping import TestSchemaMapping
 
     from test_suit.test_auto_table_creation import TestAutoTableCreation
 
@@ -459,7 +459,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testMultipleTopicToOneTableSnowpipeStreaming = TestMultipleTopicToOneTableSnowpipeStreaming(driver, nameSalt)
     testMultipleTopicToOneTableSnowpipe = TestMultipleTopicToOneTableSnowpipe(driver, nameSalt)
 
-    testSchemaMapping = TestSchemaMapping(driver, nameSalt)
+    # testSchemaMapping = TestSchemaMapping(driver, nameSalt)
 
     testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, globalSchemaRegistry)
 
@@ -471,7 +471,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
         testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
         testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe,
-        testSchemaMapping,
+        # testSchemaMapping,
         testAutoTableCreation
     ]
 
@@ -480,7 +480,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         True, True, True, True, True, True, True, True, True, True, True,
         True, True,
         True, True,
-        True,
+        # True,
         True
     ]
     testSuitEnableList1 = []
@@ -489,7 +489,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True, True, True, True, True, True, True, True, True, True, False,
             True, True,
             True, True,
-            True,
+            # True,
             True
         ]
     elif testSet == "apache":
@@ -497,7 +497,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True, True, True, True, False, False, False, True, True, True, False,
             True, False,
             True, True,
-            True,
+            # True,
             True
         ]
     elif testSet != "clean":
