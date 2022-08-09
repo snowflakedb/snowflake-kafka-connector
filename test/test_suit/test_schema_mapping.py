@@ -12,7 +12,8 @@ class TestSchemaMapping:
         print("Initializting" + self.fileName)
 
         self.driver.snowflake_conn.cursor().execute(
-            "Create or replace table {} (PERFORMANCE_STRING STRING, PERFORMANCE_CHAR CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO_ARRAY ARRAY, INFO VARIANT)".format(self.topic))
+            # "Create or replace table {} (PERFORMANCE_STRING STRING, PERFORMANCE_CHAR CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO_ARRAY ARRAY, INFO VARIANT)".format(self.topic))
+            "Create or replace table {} (PERFORMANCE_STRING STRING, PERFORMANCE_CHAR CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO VARIANT)".format(self.topic))
 
         self.record = {
             'PERFORMANCE_STRING': 'Excellent',
@@ -23,13 +24,14 @@ class TestSchemaMapping:
             'APPROVAL': 'true',
             'APPROVAL_DATE': '15-Jun-2022',
             'APPROVAL_TIME': '23:59:59.999999999',
-            'INFO_ARRAY': ['HELLO', 'WORLD'],
+            # 'INFO_ARRAY': ['HELLO', 'WORLD'],
             'INFO': {
                 'TREE_1': 'APPLE',
                 'TREE_2': 'PINEAPPLE'
             }
         }
-        self.record_literal = r"{'PERFORMANCE_STRING': 'Excellent', 'PERFORMANCE_CHAR': 'A','PERFORMANCE_HEX': 'FFFFFFFF','RATING_INT': 100,'RATING_DOUBLE': 0.99,'APPROVAL': 'true','APPROVAL_DATE': '15-Jun-2022','APPROVAL_TIME': '23:59:59.999999999','INFO_ARRAY': ['HELLO', 'WORLD'],'INFO': {'TREE_1': 'APPLE','TREE_2': 'PINEAPPLE'}}"
+        # self.record_literal = r"{'PERFORMANCE_STRING': 'Excellent', 'PERFORMANCE_CHAR': 'A','PERFORMANCE_HEX': 'FFFFFFFF','RATING_INT': 100,'RATING_DOUBLE': 0.99,'APPROVAL': 'true','APPROVAL_DATE': '15-Jun-2022','APPROVAL_TIME': '23:59:59.999999999','INFO_ARRAY': ['HELLO', 'WORLD'],'INFO': {'TREE_1': 'APPLE','TREE_2': 'PINEAPPLE'}}"
+        self.record_literal = r"{'PERFORMANCE_STRING': 'Excellent', 'PERFORMANCE_CHAR': 'A','PERFORMANCE_HEX': 'FFFFFFFF','RATING_INT': 100,'RATING_DOUBLE': 0.99,'APPROVAL': 'true','APPROVAL_DATE': '15-Jun-2022','APPROVAL_TIME': '23:59:59.999999999','INFO': {'TREE_1': 'APPLE','TREE_2': 'PINEAPPLE'}}"
 
     def getConfigFileName(self):
         return self.fileName + ".json"
