@@ -235,15 +235,6 @@ class KafkaTest:
             raise test_suit.test_utils.NonRetryableError("Record content:\n{}\ndoes not match gold regex "
                                                          "label:\n{}".format(content, goldContentRegex))
 
-    def regexMatchOneLineSchematized(self, res, res_index, gold):
-        for field in res_index:
-            content = res[res_index[field]].replace(" ", "").replace("\n", "")
-            goldRegex = "^" + gold[field].replace("\"", "\\\"").replace("{", "\\{").replace("}", "\\}") \
-                .replace("[", "\\[").replace("]", "\\]").replace("+", "\\+") + "$"
-            if re.search(goldRegex, content) is None:
-                raise test_suit.test_utils.NonRetryableError("Record column:\n{}\ndoes not match gold regex "
-                                                             "label:\n{}".format(content, goldRegex))
-
     def updateConnectorConfig(self, fileName, connectorName, configMap):
         with open('./rest_request_generated/' + fileName + '.json') as f:
             c = json.load(f)
