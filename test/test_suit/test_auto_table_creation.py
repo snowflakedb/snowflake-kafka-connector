@@ -88,10 +88,11 @@ class TestAutoTableCreation:
 
         col_set = []
         for col in res_col_info:
-            col_set.append(col)
+            col_set.append(col[3])
             if self.snowflakeSchema[col[3]] != col[7]:
                 raise NonRetryableError("Column {} type mismatch. Desired: {}, but got: {}".format(col[3], self.snowflakeSchema[col[3]], col[7]))
 
+        print('column present:' + str(col_set))
         for key in self.snowflakeSchema:
             if key not in col_set:
                 raise NonRetryableError("Missing column {}".format(key))
