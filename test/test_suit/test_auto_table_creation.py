@@ -57,8 +57,8 @@ class TestAutoTableCreation:
         }
 
         self.valueSchema = avro.loads(ValueSchemaStr)
-        avroSchema = Schema(self.valueSchema, "AVRO")
-        self.srClient.register_schema(self.topic + '-value', avroSchema)
+        # avroSchema = Schema(self.valueSchema, "AVRO")
+        self.srClient.register_schema(self.topic + '-value', self.valueSchema)
 
         # create topic and partitions in constructor since the post REST api will automatically create topic with only one partition
         self.driver.createTopics(self.topic, partitionNum=self.partitionNum, replicationNum=1)
