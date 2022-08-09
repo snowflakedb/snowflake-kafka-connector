@@ -137,10 +137,13 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query = "create table if not exists identifier(?)";
     query += "(record_metadata variant";
+    String logColumn = "[RECORD_METADATA (VARIANT)";
     for (Map.Entry<String, String> field : schema.entrySet()) {
       query += ", " + field.getKey() + " " + field.getValue();
+      logColumn += ", " + field.getKey() + " (" + field.getValue() + ")";
     }
     query += ")";
+    logColumn += "]";
 
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -151,7 +154,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       throw SnowflakeErrors.ERROR_2007.getException(e);
     }
 
-    logInfo("create table {}", tableName);
+    logInfo("create table {} with schema {}", tableName, logColumn);
   }
 
   public void createTableWithOnlyMetadataColumn(final String tableName) {
@@ -168,7 +171,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       throw SnowflakeErrors.ERROR_2007.getException(e);
     }
 
-    logInfo("create table {}", tableName);
+    logInfo("create table {} with only metadata column", tableName);
   }
 
   @Override
