@@ -24,6 +24,21 @@ class TestAutoTableCreation:
         conf = {"url": self.schemaRegistryAddress}
         self.srClient = SchemaRegistryClient(conf)
 
+        # ValueSchemaStr = """
+        # {
+        #     "type":"record",
+        #     "name":"value_schema",
+        #     "fields":[
+        #         {"name":"id","type":"int"},
+        #         {"name":"first_name","type":"string"},
+        #         {"name":"rating","type":"float"},
+        #         {"name":"approval","type":"boolean"},
+        #         {"name":"info_array","type":{"type":"array","items":"string"}},
+        #         {"name":"info_map","type":{"type":"map","values":"string"}}
+        #     ]
+        # }
+        # """
+
         ValueSchemaStr = """
         {
             "type":"record",
@@ -33,7 +48,6 @@ class TestAutoTableCreation:
                 {"name":"first_name","type":"string"},
                 {"name":"rating","type":"float"},
                 {"name":"approval","type":"boolean"},
-                {"name":"info_array","type":{"type":"array","items":"string"}},
                 {"name":"info_map","type":{"type":"map","values":"string"}}
             ]
         }
@@ -44,7 +58,6 @@ class TestAutoTableCreation:
             'FIRST_NAME': 'TEXT',
             'RATING': 'FLOAT',
             'APPROVAL': 'BOOLEAN',
-            'INFO_ARRAY': 'ARRAY',
             'INFO_MAP': 'VARIANT',
             'RECORD_METADATA': 'VARIANT'
         }
@@ -54,7 +67,6 @@ class TestAutoTableCreation:
             'first_name': 'Zekai',
             'rating': 0.99,
             'approval': 'true',
-            'info_array': ['HELLO', 'WORLD'],
             'info_map': {
                 'TREE_1': 'APPLE',
                 'TREE_2': 'PINEAPPLE'
