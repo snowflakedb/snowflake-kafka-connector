@@ -7,7 +7,7 @@ from confluent_kafka.schema_registry import Schema
 # SR -> Schema Registry
 # Runs only in confluent test suite environment
 class TestAutoTableCreation:
-    def __init__(self, driver, nameSalt, schemaRegistryAddress):
+    def __init__(self, driver, nameSalt, schemaRegistryAddress, testSet):
         self.driver = driver
         self.fileName = "travis_correct_auto_table_creation"
         self.topic = self.fileName + nameSalt
@@ -15,6 +15,11 @@ class TestAutoTableCreation:
         self.topicNum = 1
         self.recordNum = 100
         self.partitionNum = 1
+
+        # the schema registry should only be started in confluent test suite environment
+        if testSet == "confluent":
+            return
+
         self.schemaRegistryAddress = schemaRegistryAddress
         conf = {"url": self.schemaRegistryAddress}
         self.srClient = SchemaRegistryClient(conf)

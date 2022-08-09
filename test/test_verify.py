@@ -460,7 +460,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     # testSchemaMapping = TestSchemaMapping(driver, nameSalt)
 
-    testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress)
+    testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet)
 
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
