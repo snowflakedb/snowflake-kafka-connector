@@ -184,6 +184,29 @@ public class TopicPartitionChannel {
   // A map of extra column names reported by insertErrors
   private Map<String, String> extraColumnToType;
 
+  private SnowflakeConnectionService conn;
+
+  public TopicPartitionChannel(
+      SnowflakeStreamingIngestClient streamingIngestClient,
+      TopicPartition topicPartition,
+      final String channelName,
+      final String tableName,
+      final BufferThreshold streamingBufferThreshold,
+      final Map<String, String> sfConnectorConfig,
+      KafkaRecordErrorReporter kafkaRecordErrorReporter,
+      SinkTaskContext sinkTaskContext) {
+    this(
+        streamingIngestClient,
+        topicPartition,
+        channelName,
+        tableName,
+        streamingBufferThreshold,
+        sfConnectorConfig,
+        kafkaRecordErrorReporter,
+        sinkTaskContext,
+        null);
+  }
+
   /**
    * @param streamingIngestClient client created specifically for this task
    * @param topicPartition topic partition corresponding to this Streaming Channel
@@ -203,7 +226,8 @@ public class TopicPartitionChannel {
       final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
-      SinkTaskContext sinkTaskContext) {
+      SinkTaskContext sinkTaskContext,
+      SnowflakeConnectionService conn) {
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
     Preconditions.checkState(!streamingIngestClient.isClosed());
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
@@ -214,6 +238,7 @@ public class TopicPartitionChannel {
     this.channel = Preconditions.checkNotNull(openChannelForTable());
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
+    this.conn = conn;
 
     this.recordService = new RecordService();
     this.enableSchematization =

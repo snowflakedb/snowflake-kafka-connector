@@ -178,7 +178,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             new StreamingBufferThreshold(this.flushTimeSeconds, this.fileSizeBytes, this.recordNum),
             this.connectorConfig,
             this.kafkaRecordErrorReporter,
-            this.sinkTaskContext));
+            this.sinkTaskContext,
+            this.conn));
   }
 
   /**
