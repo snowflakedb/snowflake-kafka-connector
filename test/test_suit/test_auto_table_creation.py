@@ -17,7 +17,7 @@ class TestAutoTableCreation:
         self.partitionNum = 1
 
         # the schema registry should only be started in confluent test suite environment
-        if testSet == "confluent":
+        if testSet != "confluent":
             return
 
         self.schemaRegistryAddress = schemaRegistryAddress
