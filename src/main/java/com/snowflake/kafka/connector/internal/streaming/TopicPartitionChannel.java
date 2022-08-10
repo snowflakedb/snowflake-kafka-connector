@@ -530,9 +530,12 @@ public class TopicPartitionChannel {
   }
 
   public void insertBufferedRecordsWithRetry(StreamingBuffer streamingBufferToInsert) {
+    if (streamingBufferToInsert.isEmpty()) {
+      return;
+    }
     InsertRowsWithRetryResponse response = null;
     try {
-      long lastKafkaOffsetInFailedBuffer = streamingBufferToInsert.getLastOffset();
+      //      long lastKafkaOffsetInFailedBuffer = streamingBufferToInsert.getLastOffset();
       response = insertRowsAndAlterTableWithRetry(streamingBufferToInsert);
 
       // failed Buffer could already be changed by now
@@ -553,10 +556,10 @@ public class TopicPartitionChannel {
       // continue ingest properly
       // even if the retry does not succeed the reset is necessary to make the behavior consistent
       // with that without schema evolution
-      resetChannelMetadataAfterRecovery(
-          StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK, lastKafkaOffsetInFailedBuffer);
-      // TODO: last record offset equivalent to snowflake offset?
-      // TODO: How multiple tasks work?
+      //      resetChannelMetadataAfterRecovery(
+      //          StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK, lastKafkaOffsetInFailedBuffer);
+      //      // TODO: last record offset equivalent to snowflake offset?
+      //      // TODO: How multiple tasks work?
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
       LOGGER.warn(
@@ -652,6 +655,7 @@ public class TopicPartitionChannel {
             Map<String, Object> record =
                 (Map<String, Object>)
                     insertedRecordsToBuffer.get((int) insertError.getRowIndex()).value();
+            // TODO: not verified for avro record
             Object value = null;
             for (String colName : record.keySet()) {
               if (colName.equalsIgnoreCase(columnName)) {
