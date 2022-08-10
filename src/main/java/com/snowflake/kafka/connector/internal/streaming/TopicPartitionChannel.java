@@ -779,7 +779,7 @@ public class TopicPartitionChannel {
                 executionAttemptedEvent -> {
                   InsertValidationResponse response =
                       (InsertValidationResponse) executionAttemptedEvent.getLastResult();
-                  // TODO: ?
+                  // TODO: What is the final thing here?
                   newBuffer.set(
                       retryResponse.CollectRowsWithErrorsAndAlterTable(
                           this.conn, this.tableName, response, newBuffer.get().getSinkRecords()));
