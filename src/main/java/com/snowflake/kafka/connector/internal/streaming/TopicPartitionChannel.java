@@ -610,6 +610,22 @@ public class TopicPartitionChannel {
         .get(new InsertRowsApiResponseSupplier(this.channel, buffer));
   }
 
+  private class insertRowsWithRetryResponse {
+    public List<InsertValidationResponse.InsertError> insertErrors;
+    public List<SinkRecord> recordWithError;
+
+    private SnowflakeConnectionService conn;
+
+    private String tableName;
+
+    private insertRowsWithRetryResponse(SnowflakeConnectionService conn, String tableName) {
+      this.conn = conn;
+      this.tableName = tableName;
+      this.insertErrors = new ArrayList<>();
+      this.recordWithError = new ArrayList<>();
+    }
+  }
+
   private InsertValidationResponse insertRowsAndAlterTableWithRetry(
       SnowflakeConnectionService conn) {
     Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
