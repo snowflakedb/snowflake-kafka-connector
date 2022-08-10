@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
@@ -75,9 +76,6 @@ public class TopicPartitionChannel {
 
   /* Buffer to hold JSON converted incoming SinkRecords */
   private StreamingBuffer streamingBuffer;
-
-  /* Buffer to hold SinkRecords that failed to get inserted */
-  private StreamingBuffer failedBuffer;
 
   private final Lock bufferLock = new ReentrantLock(true);
 
@@ -180,9 +178,6 @@ public class TopicPartitionChannel {
   // Whether schematization has been enabled.
   private boolean enableSchematization;
 
-  // A map of extra column names reported by insertErrors
-  private Map<String, String> extraColumnToType;
-
   private SnowflakeConnectionService conn;
 
   public TopicPartitionChannel(
@@ -246,7 +241,6 @@ public class TopicPartitionChannel {
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
     this.streamingBuffer = new StreamingBuffer();
-    this.failedBuffer = new StreamingBuffer();
     this.processedOffset = new AtomicLong(-1);
     this.offsetSafeToCommitToKafka = new AtomicLong(0);
 
@@ -255,7 +249,6 @@ public class TopicPartitionChannel {
     this.logErrors = StreamingUtils.logErrors(this.sfConnectorConfig);
     this.isDLQTopicSet =
         !Strings.isNullOrEmpty(StreamingUtils.getDlqTopicName(this.sfConnectorConfig));
-    this.extraColumnToType = new HashMap<>();
   }
 
   /**
@@ -573,7 +566,7 @@ public class TopicPartitionChannel {
       LOGGER.warn(
           String.format(
               "[INSERT_BUFFERED_RECORDS] Failure inserting buffer:%s for channel:%s",
-              failedBuffer, this.getChannelName()),
+              streamingBufferToInsert, this.getChannelName()),
           ex);
     }
     // clear the buffer regardless of insertion outcome
@@ -751,8 +744,9 @@ public class TopicPartitionChannel {
 
   private InsertRowsWithRetryResponse insertRowsAndAlterTableWithRetry(StreamingBuffer buffer) {
     InsertRowsApiResponseSupplier supplier =
-        new InsertRowsApiResponseSupplier(this.channel, this.failedBuffer);
+        new InsertRowsApiResponseSupplier(this.channel, buffer);
     InsertRowsWithRetryResponse retryResponse = new InsertRowsWithRetryResponse();
+    AtomicReference<StreamingBuffer> newBuffer = new AtomicReference<>(buffer);
 
     Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
         Fallback.builder(
@@ -764,8 +758,7 @@ public class TopicPartitionChannel {
                 event ->
                     LOGGER.warn(
                         String.format(
-                            "Failed Attempt to invoke the insertRows API for buffer:%s",
-                            this.failedBuffer),
+                            "Failed Attempt to invoke the insertRows API for buffer:%s", buffer),
                         event.getLastException()))
             .onFailure(
                 event ->
@@ -790,10 +783,11 @@ public class TopicPartitionChannel {
                 executionAttemptedEvent -> {
                   InsertValidationResponse response =
                       (InsertValidationResponse) executionAttemptedEvent.getLastResult();
-                  StreamingBuffer newBuffer =
-                      retryResponse.insertRecordsToFailedBuffer(
-                          response.getInsertErrors(), buffer.getSinkRecords());
-                  supplier.updateBuffer(newBuffer);
+                  // TODO: ?
+                  newBuffer.set(
+                      retryResponse.CollectRowsWithErrorsAndAlterTable(
+                          this.conn, this.tableName, response, newBuffer.get().getSinkRecords()));
+                  supplier.updateBuffer(newBuffer.get());
                   // even if the column failed to be added, the channel needs to be reopened
                   // because otherwise the connector may never know the up-to-date table info
 
@@ -820,11 +814,6 @@ public class TopicPartitionChannel {
         .get(supplier);
 
     return retryResponse;
-  }
-
-  private void cleanFailedBuffer() {
-    this.failedBuffer = new StreamingBuffer();
-    this.extraColumnToType.clear();
   }
 
   private SnowflakeStreamingIngestChannel getLatestChannel() {
@@ -884,24 +873,6 @@ public class TopicPartitionChannel {
             this.getChannelName(),
             offsetRecoveredFromSnowflake),
         ex);
-  }
-
-  /**
-   * Might be rewritten or expanded
-   *
-   * @return if retry is needed
-   */
-  public boolean needRetryInsertion() {
-    return !this.extraColumnToType.isEmpty();
-  }
-
-  /**
-   * Return the collected extra columns from the insertErrors
-   *
-   * @return the extraColumnNames List
-   */
-  public Map<String, String> getExtraColumnToType() {
-    return this.extraColumnToType;
   }
 
   /**
