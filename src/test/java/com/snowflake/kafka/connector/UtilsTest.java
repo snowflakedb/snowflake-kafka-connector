@@ -96,6 +96,12 @@ public class UtilsTest {
     config.put(SnowflakeSinkConnectorConfig.NAME, "_aA1-");
     Utils.convertAppName(config);
     assert config.get(SnowflakeSinkConnectorConfig.NAME).equals("_aA1__90688251");
+
+    config.put(SnowflakeSinkConnectorConfig.NAME, "testApp.snowflake-connector");
+    Utils.convertAppName(config);
+    assert config
+        .get(SnowflakeSinkConnectorConfig.NAME)
+        .equals("testApp_snowflake_connector_36242259");
   }
 
   @Test

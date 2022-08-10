@@ -245,10 +245,31 @@ public class RecordContentTest {
     SinkRecord record =
         new SinkRecord(
             topic, partition, Schema.STRING_SCHEMA, "string", sv.schema(), sv.value(), partition);
+
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
     // each field should be dumped into string format
     // json string should not be enclosed in additional brackets
-    assert got.get("name").equals("sf");
-    assert got.get("answer").equals("42");
+    // a non-double-quoted column name will be transformed into uppercase
+    assert got.get("NAME").equals("sf");
+    assert got.get("ANSWER").equals("42");
+  }
+
+  @Test
+  public void testColumnNameFormatting() {
+    RecordService service = new RecordService();
+    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
+
+    service.setEnableSchematization(true);
+    String value = "{\"\\\"NaMe\\\"\":\"sf\",\"AnSwEr\":42}";
+    byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
+    SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
+
+    SinkRecord record =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "string", sv.schema(), sv.value(), partition);
+    Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
+
+    assert got.containsKey("NaMe");
+    assert got.containsKey("ANSWER");
   }
 }

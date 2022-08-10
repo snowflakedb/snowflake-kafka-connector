@@ -22,16 +22,18 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayNode;
@@ -109,8 +111,6 @@ public class RecordService extends Logging {
       enableSchematization =
           Boolean.parseBoolean(
               connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
-    } else {
-      enableSchematization = false;
     }
     return enableSchematization;
   }
@@ -216,12 +216,27 @@ public class RecordService extends Logging {
           while (columnNames.hasNext()) {
             String columnName = columnNames.next();
             JsonNode columnNode = node.get(columnName);
-            String columnValue =
-                columnNode.isTextual()
-                    ? columnNode.textValue()
-                    : MAPPER.writeValueAsString(columnNode);
+            columnName = formatColumnName(columnName);
+            Object columnValue;
+            if (columnNode.isArray()) {
+              List<String> itemList = new ArrayList<>();
+              ArrayNode arrayNode = (ArrayNode) columnNode;
+              Iterator<JsonNode> nodeIterator = arrayNode.iterator();
+              while (nodeIterator.hasNext()) {
+                JsonNode e = nodeIterator.next();
+                itemList.add(e.isTextual() ? e.textValue() : MAPPER.writeValueAsString(e));
+              }
+              columnValue = itemList;
+            } else if (columnNode.isTextual()) {
+              columnValue = columnNode.textValue();
+            } else {
+              columnValue = MAPPER.writeValueAsString(columnNode);
+            }
+
             // while the value is always dumped into a string, the Streaming Ingest SDK
             // will transformed the value according to its type in the table
+            // TODO: SNOW-630885 the record could come directly as a map, and don't have to be
+            //  dumped into a string but the original type could be used.
             streamingIngestRow.put(columnName, columnValue);
           }
         } else {
@@ -230,12 +245,20 @@ public class RecordService extends Logging {
         if (metadataConfig.allFlag) {
           streamingIngestRow.put(TABLE_COLUMN_METADATA, MAPPER.writeValueAsString(row.metadata));
         }
-      } catch (JsonProcessingException e) {
+      } catch (IOException e) {
         // return an exception and propagate upwards
         e.printStackTrace();
       }
     }
+
     return streamingIngestRow;
+  }
+
+  private String formatColumnName(String columnName) {
+    // the columnName has been checked and guaranteed not to be null or empty
+    return (columnName.charAt(0) == '"' && columnName.charAt(columnName.length() - 1) == '"')
+        ? columnName.substring(1, columnName.length() - 1)
+        : columnName.toUpperCase();
   }
 
   /** For now there are two columns one is content and other is metadata. Both are Json */

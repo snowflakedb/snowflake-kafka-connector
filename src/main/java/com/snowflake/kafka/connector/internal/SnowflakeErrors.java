@@ -102,6 +102,11 @@ public enum SnowflakeErrors {
       "0024",
       "Reader schema invalid",
       "A reader schema is provided but can not be parsed as an Avro schema"),
+  ERROR_0025(
+      "0025",
+      "Duplicate case-insensitive column names detected",
+      "Duplicate case-insensitive column names detected. Schematization currently does not support"
+          + " this."),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
@@ -152,13 +157,13 @@ public enum SnowflakeErrors {
       "Failed to upload file to Snowflake Stage though credential caching"),
   ERROR_2012(
       "2012",
-      "Failed to append metadata column",
-      "Failed to append metadata column due to an existing metadata column with non-VARIANT"
-          + " type."),
+      "Failed to append RECORD_METADATA column",
+      "Failed to append RECORD_METADATA column due to an existing RECORD_METADATA column with"
+          + " non-VARIANT type."),
   ERROR_2013(
       "2013",
-      "Failed to append metadata column",
-      "Failed to append metadata column, please check that you have permission to do so."),
+      "Failed to append RECORD_METADATA column",
+      "Failed to append RECORD_METADATA column, please check that you have permission to do so."),
   ERROR_2014(
       "2014", "Table not exists", "Table not exists. It might have been deleted externally."),
   ERROR_2015("2015", "Failed to append columns", "Failed to append columns"),
