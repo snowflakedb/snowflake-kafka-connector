@@ -311,7 +311,11 @@ public class TopicPartitionChannel {
       // If we found reaching buffer size threshold or count based threshold, we will immediately
       // flush (Insert them)
       if (copiedStreamingBuffer != null) {
-        insertBufferedRecords(copiedStreamingBuffer);
+        if (!this.enableSchematization) {
+          insertBufferedRecords(copiedStreamingBuffer);
+        } else {
+          insertBufferedRecordsWithRetry(copiedStreamingBuffer);
+        }
       }
     } else {
       LOGGER.debug(
@@ -486,7 +490,11 @@ public class TopicPartitionChannel {
         bufferLock.unlock();
       }
       if (copiedStreamingBuffer != null) {
-        insertBufferedRecords(copiedStreamingBuffer);
+        if (!this.enableSchematization) {
+          insertBufferedRecords(copiedStreamingBuffer);
+        } else {
+          insertBufferedRecordsWithRetry(copiedStreamingBuffer);
+        }
       }
     }
   }
@@ -516,13 +524,6 @@ public class TopicPartitionChannel {
           streamingBufferToInsert,
           response.hasErrors());
       if (response.hasErrors()) {
-        if (this.enableSchematization) {
-          if (insertRecordsToFailedBuffer(
-              response.getInsertErrors(), streamingBufferToInsert.getSinkRecords())) {
-            // rows inserted into failed buffer, ready to retry
-            return response;
-          }
-        }
         // schema evolution cannot be performed; fall back to normal behavior
         handleInsertRowsFailures(
             response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
@@ -539,11 +540,11 @@ public class TopicPartitionChannel {
     return response;
   }
 
-  public void retryInsertion(SnowflakeConnectionService conn) {
-    InsertValidationResponse response = null;
+  public void insertBufferedRecordsWithRetry(StreamingBuffer streamingBufferToInsert) {
+    InsertRowsWithRetryResponse response = null;
     try {
-      long lastKafkaOffsetInFailedBuffer = failedBuffer.getLastOffset();
-      response = insertRowsAndAlterTableWithRetry(conn);
+      long lastKafkaOffsetInFailedBuffer = streamingBufferToInsert.getLastOffset();
+      response = insertRowsAndAlterTableWithRetry(streamingBufferToInsert);
 
       // failed Buffer could already be changed by now
 
@@ -554,10 +555,10 @@ public class TopicPartitionChannel {
           "Successfully called retry insertRows for channel:{}, buffer:{},"
               + " insertResponseHasErrors:{}",
           this.getChannelName(),
-          this.failedBuffer,
+          streamingBufferToInsert,
           response.hasErrors());
       if (response.hasErrors()) {
-        handleInsertRowsFailures(response.getInsertErrors(), failedBuffer.getSinkRecords());
+        handleInsertRowsWithRetryFailures(response.insertErrors, response.recordWithError);
       }
       // with the attempts the channel was reopened (several times), the offset needs to be reset to
       // continue ingest properly
@@ -575,7 +576,6 @@ public class TopicPartitionChannel {
               failedBuffer, this.getChannelName()),
           ex);
     }
-    cleanFailedBuffer();
     // clear the buffer regardless of insertion outcome
   }
 
@@ -622,26 +622,137 @@ public class TopicPartitionChannel {
         .get(new InsertRowsApiResponseSupplier(this.channel, buffer));
   }
 
-  private class insertRowsWithRetryResponse {
+  private class InsertRowsWithRetryResponse {
     public List<InsertValidationResponse.InsertError> insertErrors;
     public List<SinkRecord> recordWithError;
 
-    private SnowflakeConnectionService conn;
+    private Map<String, String> extraColumnToType;
 
-    private String tableName;
-
-    private insertRowsWithRetryResponse(SnowflakeConnectionService conn, String tableName) {
-      this.conn = conn;
-      this.tableName = tableName;
+    private InsertRowsWithRetryResponse() {
       this.insertErrors = new ArrayList<>();
       this.recordWithError = new ArrayList<>();
     }
+
+    public boolean hasErrors() {
+      return !recordWithError.isEmpty();
+    }
+
+    /**
+     * Invoked to insert rows with extra column error into the failed buffer to retry insertion
+     *
+     * @param insertErrors errors from validation response. (Only if it has errors)
+     * @param insertedRecordsToBuffer to map {@link SinkRecord} with insertErrors
+     * @return whether the records are successfully inserted into failed buffer (false indicating
+     *     schema-evolution cannot be performed)
+     */
+    private StreamingBuffer insertRecordsToFailedBuffer(
+        List<InsertValidationResponse.InsertError> insertErrors,
+        List<SinkRecord> insertedRecordsToBuffer) {
+      StreamingBuffer failedBuffer = new StreamingBuffer();
+
+      extraColumnToType = new HashMap<>();
+      final String EXTRA_COL_S = "Extra column: ";
+      final String EXTRA_COL_E = ". Columns not present in the table shouldn't be specified.";
+      for (InsertValidationResponse.InsertError insertError : insertErrors) {
+        String errorMessage = insertError.getMessage();
+        if (errorMessage.contains(EXTRA_COL_S)) {
+          int startIndex = errorMessage.indexOf(EXTRA_COL_S) + EXTRA_COL_S.length();
+          int endIndex = errorMessage.indexOf(EXTRA_COL_E);
+          String columnName = errorMessage.substring(startIndex, endIndex);
+          if (!extraColumnToType.containsKey(columnName)) {
+            Map<String, Object> record =
+                (Map<String, Object>)
+                    insertedRecordsToBuffer.get((int) insertError.getRowIndex()).value();
+            Object value = null;
+            for (String colName : record.keySet()) {
+              if (colName.equalsIgnoreCase(columnName)) {
+                value = record.get(colName);
+                break;
+              }
+            }
+            String type = getType(value);
+            extraColumnToType.put(columnName, type);
+          }
+
+          failedBuffer.insert(insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
+        } else {
+          // if not extra column, then add it to response body to be returned
+          this.insertErrors.add(insertError);
+          this.recordWithError.add(insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
+          // containing other type of error
+        }
+      }
+
+      return failedBuffer;
+    }
+
+    private String getType(Object value) {
+      if (value == null) {
+        return "VARIANT";
+      }
+      Schema.Type schemaType = ConnectSchema.schemaType(value.getClass());
+      if (schemaType == null) {
+        return "VARIANT";
+      }
+      switch (schemaType) {
+        case INT8:
+          return "BYTEINT";
+        case INT16:
+          return "SMALLINT";
+        case INT32:
+          return "INT";
+        case INT64:
+          return "BIGINT";
+        case FLOAT32:
+          return "FLOAT";
+        case FLOAT64:
+          return "DOUBLE";
+        case BOOLEAN:
+          return "BOOLEAN";
+        case STRING:
+          return "VARCHAR";
+        case BYTES:
+          return "BINARY";
+        case ARRAY:
+          return "ARRAY";
+        default:
+          return "VARIANT";
+      }
+    }
+
+    /**
+     * From the response collect rows with error and append those with unretryable errors to
+     * recordWithError. Insert the rest into a StreamingBuffer waiting for retry insertion, and
+     * collect the column to be added at the same time. After that the table is altered.
+     *
+     * @param conn
+     * @param tableName
+     * @param response
+     * @return
+     */
+    public StreamingBuffer CollectRowsWithErrorsAndAlterTable(
+        SnowflakeConnectionService conn,
+        String tableName,
+        InsertValidationResponse response,
+        List<SinkRecord> records) {
+      StreamingBuffer newBufferToInsert =
+          insertRecordsToFailedBuffer(response.getInsertErrors(), records);
+      if (!this.extraColumnToType.isEmpty()) {
+        try {
+          conn.appendColumns(tableName, this.extraColumnToType);
+        } catch (SnowflakeKafkaConnectorException e) {
+          LOGGER.warn(
+              String.format("[INSERT_BUFFERED_RECORDS] Failure altering table :%s", tableName), e);
+        }
+      }
+      return newBufferToInsert;
+    }
   }
 
-  private InsertValidationResponse insertRowsAndAlterTableWithRetry(
-      SnowflakeConnectionService conn) {
+  private InsertRowsWithRetryResponse insertRowsAndAlterTableWithRetry(StreamingBuffer buffer) {
     InsertRowsApiResponseSupplier supplier =
         new InsertRowsApiResponseSupplier(this.channel, this.failedBuffer);
+    InsertRowsWithRetryResponse retryResponse = new InsertRowsWithRetryResponse();
 
     Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
         Fallback.builder(
@@ -666,16 +777,6 @@ public class TopicPartitionChannel {
                         event.getException()))
             .build();
 
-    //    Fallback<Object> logFallbackForAlterTable =
-    //        Fallback.builder(
-    //                event -> {
-    //                  LOGGER.warn(
-    //                      String.format("Failed Attempt to alter table: %s", this.tableName),
-    //                      event.getLastException());
-    //                })
-    //            .handle(SQLException.class)
-    //            .build();
-
     RetryPolicy<Object> reopenChannelRetryExecutorForInsertRows =
         RetryPolicy.builder()
             .withMaxAttempts(5)
@@ -687,42 +788,25 @@ public class TopicPartitionChannel {
                         && ((InsertValidationResponse) result).hasErrors())
             .onFailedAttempt(
                 executionAttemptedEvent -> {
-
-                  // TODO: Check if response is null
-                  StreamingBuffer tempBuffer = this.failedBuffer;
-                  this.failedBuffer = new StreamingBuffer();
                   InsertValidationResponse response =
                       (InsertValidationResponse) executionAttemptedEvent.getLastResult();
-                  insertRecordsToFailedBuffer(
-                      response.getInsertErrors(), tempBuffer.getSinkRecords());
-                  supplier.updateBuffer(this.failedBuffer);
-                  try {
-                    conn.appendColumns(this.tableName, this.extraColumnToType);
-                  } catch (SnowflakeKafkaConnectorException e) {
-                    LOGGER.warn(
-                        String.format(
-                            "[INSERT_BUFFERED_RECORDS] Failure altering table :%s", this.tableName),
-                        e);
-                  }
-                  // even if the column failed to be created, the channel needs to be reopened
+                  StreamingBuffer newBuffer =
+                      retryResponse.insertRecordsToFailedBuffer(
+                          response.getInsertErrors(), buffer.getSinkRecords());
+                  supplier.updateBuffer(newBuffer);
+                  // even if the column failed to be added, the channel needs to be reopened
                   // because otherwise the connector may never know the up-to-date table info
 
                   // TODO: if exception thrown here, channel may never get reopened!
 
-                  //
-                  // insertRowsFallbackSupplier(executionAttemptedEvent.getLastException());
-                  //                  Thread.sleep(5000);
-
+                  // Thread.sleep(5000);
                   LOGGER.warn(
                       "{} Re-opening channel:{}",
                       StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
                       this.getChannelName());
 
-                  //                  conn.describeTable(this.tableName);
+                  // conn.describeTable(this.tableName);
 
-                  //                  if (!this.channel.isClosed()) {
-                  //                    this.channel.close();
-                  //                  }
                   this.channel = Preconditions.checkNotNull(openChannelForTable());
                   resetChannelMetadataAfterRecovery(
                       StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
@@ -730,12 +814,12 @@ public class TopicPartitionChannel {
                   supplier.updateChannel(this.channel);
                 })
             .build();
-    // TODO: update failed buffer
 
-    return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
-        //        .compose(logFallbackForAlterTable)
+    Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
         .compose(reopenChannelRetryExecutorForInsertRows)
         .get(supplier);
+
+    return retryResponse;
   }
 
   private void cleanFailedBuffer() {
@@ -802,80 +886,6 @@ public class TopicPartitionChannel {
         ex);
   }
 
-  private String getType(Object value) {
-    if (value == null) {
-      return "VARIANT";
-    }
-    Schema.Type schemaType = ConnectSchema.schemaType(value.getClass());
-    if (schemaType == null) {
-      return "VARIANT";
-    }
-    switch (schemaType) {
-      case INT8:
-        return "BYTEINT";
-      case INT16:
-        return "SMALLINT";
-      case INT32:
-        return "INT";
-      case INT64:
-        return "BIGINT";
-      case FLOAT32:
-        return "FLOAT";
-      case FLOAT64:
-        return "DOUBLE";
-      case BOOLEAN:
-        return "BOOLEAN";
-      case STRING:
-        return "VARCHAR";
-      case BYTES:
-        return "BINARY";
-      case ARRAY:
-        return "ARRAY";
-      default:
-        return "VARIANT";
-    }
-  }
-
-  /**
-   * Collect the extra columns reported by the insertErrors.
-   *
-   * @param insertErrors errors from validation response. (Only if it has errors)
-   * @return whether the errors in insertErrors are all 'extra columns' error (so that
-   *     schematization could be performed)
-   */
-  private boolean collectExtraColumns(
-      List<InsertValidationResponse.InsertError> insertErrors, List<SinkRecord> records) {
-    this.extraColumnToType.clear();
-    final String EXTRA_COL_S = "Extra column: ";
-    final String EXTRA_COL_E = ". Columns not present in the table shouldn't be specified.";
-    for (InsertValidationResponse.InsertError insertError : insertErrors) {
-      String errorMessage = insertError.getMessage();
-      if (errorMessage.contains(EXTRA_COL_S)) {
-        int startIndex = errorMessage.indexOf(EXTRA_COL_S) + EXTRA_COL_S.length();
-        int endIndex = errorMessage.indexOf(EXTRA_COL_E);
-        String columnName = errorMessage.substring(startIndex, endIndex);
-        if (!this.extraColumnToType.containsKey(columnName)) {
-          Map<String, Object> record =
-              (Map<String, Object>) records.get((int) insertError.getRowIndex()).value();
-          Object value = null;
-          for (String colName : record.keySet()) {
-            if (colName.equalsIgnoreCase(columnName)) {
-              value = record.get(colName);
-              break;
-            }
-          }
-          String type = getType(value);
-          this.extraColumnToType.put(columnName, type);
-        }
-      } else {
-        this.extraColumnToType.clear();
-        return false;
-        // containing other type of error
-      }
-    }
-    return true;
-  }
-
   /**
    * Might be rewritten or expanded
    *
@@ -883,28 +893,6 @@ public class TopicPartitionChannel {
    */
   public boolean needRetryInsertion() {
     return !this.extraColumnToType.isEmpty();
-  }
-
-  /**
-   * Invoked to insert rows with extra column error into the failed buffer to retry insertion
-   *
-   * @param insertErrors errors from validation response. (Only if it has errors)
-   * @param insertedRecordsToBuffer to map {@link SinkRecord} with insertErrors
-   * @return whether the records are successfully inserted into failed buffer (false indicating
-   *     schema-evolution cannot be performed)
-   */
-  private boolean insertRecordsToFailedBuffer(
-      List<InsertValidationResponse.InsertError> insertErrors,
-      List<SinkRecord> insertedRecordsToBuffer) {
-    if (!collectExtraColumns(insertErrors, insertedRecordsToBuffer)) {
-      return false;
-    }
-    for (InsertValidationResponse.InsertError insertError : insertErrors) {
-      // Map error row number to index in sinkRecords list.
-      int rowIndexToOriginalSinkRecord = (int) insertError.getRowIndex();
-      failedBuffer.insert(insertedRecordsToBuffer.get(rowIndexToOriginalSinkRecord));
-    }
-    return true;
   }
 
   /**
@@ -946,6 +934,34 @@ public class TopicPartitionChannel {
           this.kafkaRecordErrorReporter.reportError(
               insertedRecordsToBuffer.get(rowIndexToOriginalSinkRecord),
               insertError.getException());
+        }
+      }
+    } else {
+      throw new DataException(
+          "Error inserting Records using Streaming API", insertErrors.get(0).getException());
+    }
+  }
+
+  private void handleInsertRowsWithRetryFailures(
+      List<InsertValidationResponse.InsertError> insertErrors,
+      List<SinkRecord> insertedRecordsToBuffer) {
+    if (logErrors) {
+      for (InsertValidationResponse.InsertError insertError : insertErrors) {
+        LOGGER.error("Insert Row Error message", insertError.getException());
+      }
+    }
+    if (errorTolerance) {
+      if (!isDLQTopicSet) {
+        LOGGER.warn(
+            "Although config:{} is set, Dead Letter Queue topic:{} is not set.",
+            ERRORS_TOLERANCE_CONFIG,
+            ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
+      } else {
+        int index = 0;
+        for (InsertValidationResponse.InsertError insertError : insertErrors) {
+          // Map error row number to index in sinkRecords list.
+          this.kafkaRecordErrorReporter.reportError(
+              insertedRecordsToBuffer.get(index++), insertError.getException());
         }
       }
     } else {
