@@ -117,6 +117,7 @@ class TestAutoTableCreation:
             if key not in col_set:
                 raise NonRetryableError("Missing column {}".format(key))
 
+
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:
