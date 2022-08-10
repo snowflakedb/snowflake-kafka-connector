@@ -28,6 +28,12 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
+import io.confluent.connect.avro.AvroConverterConfig;
+import io.confluent.kafka.schemaregistry.avro.AvroSchema;
+import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
+import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
@@ -36,11 +42,13 @@ import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.avro.Schema;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.ConfigValue;
@@ -633,5 +641,69 @@ public class Utils {
         v.addErrorMessage(key + msg);
       }
     }
+  }
+
+  public static Map<String, String> getSchemaFromSchemaRegistry(
+      final String topicName, final String schemaRegistryURL) {
+    return getSchemaFromSchemaRegistry(topicName, schemaRegistryURL, "value");
+  }
+
+  public static Map<String, String> getSchemaFromSchemaRegistry(
+      final String topicName, final String schemaRegistryURL, final String type) {
+    Map<String, String> srConfig = new HashMap<>();
+    srConfig.put("schema.registry.url", schemaRegistryURL);
+    AvroConverterConfig avroConverterConfig = new AvroConverterConfig(srConfig);
+    SchemaRegistryClient schemaRegistry =
+        new CachedSchemaRegistryClient(
+            avroConverterConfig.getSchemaRegistryUrls(),
+            avroConverterConfig.getMaxSchemasPerSubject(),
+            Collections.singletonList(new AvroSchemaProvider()),
+            srConfig,
+            avroConverterConfig.requestHeaders());
+    String subjectName = topicName + "-" + type;
+    SchemaMetadata schemaMetadata;
+    try {
+      schemaMetadata = schemaRegistry.getLatestSchemaMetadata(subjectName);
+    } catch (Exception e) {
+      throw SnowflakeErrors.ERROR_0012.getException();
+    }
+    Map<String, String> schemaMap = new HashMap<>();
+    if (schemaMetadata != null) {
+      AvroSchema schema = new AvroSchema(schemaMetadata.getSchema());
+      for (Schema.Field field : schema.rawSchema().getFields()) {
+        Schema fieldSchema = field.schema();
+        if (!schemaMap.containsKey(field.name())) {
+          switch (fieldSchema.getType()) {
+            case BOOLEAN:
+              schemaMap.put(field.name(), "boolean");
+              break;
+            case BYTES:
+              schemaMap.put(field.name(), "binary");
+              break;
+            case DOUBLE:
+              schemaMap.put(field.name(), "double");
+              break;
+            case FLOAT:
+              schemaMap.put(field.name(), "float");
+              break;
+            case INT:
+              schemaMap.put(field.name(), "int");
+              break;
+            case LONG:
+              schemaMap.put(field.name(), "number");
+              break;
+            case STRING:
+              schemaMap.put(field.name(), "string");
+              break;
+            case ARRAY:
+              schemaMap.put(field.name(), "array");
+              break;
+            default:
+              schemaMap.put(field.name(), "variant");
+          }
+        }
+      }
+    }
+    return schemaMap;
   }
 }
