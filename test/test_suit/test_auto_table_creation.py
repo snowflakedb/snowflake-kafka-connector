@@ -53,9 +53,9 @@ class TestAutoTableCreation:
         }
         """
 
-        self.snowflakeSchema = {
+        self.goldSchema = {
             'ID': 'NUMBER',
-            'FIRST_NAME': 'TEXT',
+            'FIRST_NAME': 'VARCHAR',
             'RATING': 'FLOAT',
             'APPROVAL': 'BOOLEAN',
             'INFO_MAP': 'VARIANT',
@@ -101,16 +101,19 @@ class TestAutoTableCreation:
 
     def verify(self, round):
         res_col_info = self.driver.snowflake_conn.cursor().execute(
-            "Select * from INFORMATION_SCHEMA.COLUMNS where TABLE_NAME = '{}'".format(self.topic)).fetchall();
+            "desc table {}".format(self.topic)).fetchall()
 
         col_set = []
         for col in res_col_info:
-            col_set.append(col[3])
-            if self.snowflakeSchema[col[3]] != col[7]:
-                raise NonRetryableError("Column {} type mismatch. Desired: {}, but got: {}".format(col[3], self.snowflakeSchema[col[3]], col[7]))
+            col_set.append(col[0])
+            typeInSF = col[1]
+            if '(' in typeInSF:
+                typeInSF = typeInSF[:typeInSF.find('(')]
+            if self.goldSchema[col[0]] != typeInSF:
+                raise NonRetryableError("Column {} type mismatch. Desired: {}, but got: {}".format(col[0], self.goldSchema[col[0]], typeInSF))
 
         print('column present:' + str(col_set))
-        for key in self.snowflakeSchema:
+        for key in self.goldSchema:
             if key not in col_set:
                 raise NonRetryableError("Missing column {}".format(key))
 
