@@ -131,7 +131,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.connectorConfig = connectorConfig;
 
     this.enableSchematization =
-        this.recordService.setEnableSchematizationFromConfig(this.connectorConfig);
+        this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
 
     this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
     this.streamingIngestClientName =

@@ -34,11 +34,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.JsonNodeFactory;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
+import net.snowflake.ingest.internal.apache.arrow.util.VisibleForTesting;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Date;
@@ -106,15 +108,24 @@ public class RecordService extends Logging {
    * @param connectorConfig the connector config map
    * @return a boolean indicating whether schematization is enabled
    */
-  public boolean setEnableSchematizationFromConfig(final Map<String, String> connectorConfig) {
-    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG)) {
-      enableSchematization =
+  public boolean setAndGetEnableSchematizationFromConfig(
+      final Map<String, String> connectorConfig) {
+    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)) {
+      this.enableSchematization =
           Boolean.parseBoolean(
-              connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_ENABLE_CONFIG));
+              connectorConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
     }
-    return enableSchematization;
+    return this.enableSchematization;
   }
 
+  /**
+   * Directly set the enableSchematization through param
+   *
+   * <p>This Method is only for testing
+   *
+   * @param enableSchematizationIn
+   */
+  @VisibleForTesting
   public void setEnableSchematization(final boolean enableSchematizationIn) {
     this.enableSchematization = enableSchematizationIn;
   }
@@ -212,33 +223,7 @@ public class RecordService extends Logging {
     for (JsonNode node : row.content.getData()) {
       try {
         if (enableSchematization) {
-          Iterator<String> columnNames = node.fieldNames();
-          while (columnNames.hasNext()) {
-            String columnName = columnNames.next();
-            JsonNode columnNode = node.get(columnName);
-            columnName = formatColumnName(columnName);
-            Object columnValue;
-            if (columnNode.isArray()) {
-              List<String> itemList = new ArrayList<>();
-              ArrayNode arrayNode = (ArrayNode) columnNode;
-              Iterator<JsonNode> nodeIterator = arrayNode.iterator();
-              while (nodeIterator.hasNext()) {
-                JsonNode e = nodeIterator.next();
-                itemList.add(e.isTextual() ? e.textValue() : MAPPER.writeValueAsString(e));
-              }
-              columnValue = itemList;
-            } else if (columnNode.isTextual()) {
-              columnValue = columnNode.textValue();
-            } else {
-              columnValue = MAPPER.writeValueAsString(columnNode);
-            }
-
-            // while the value is always dumped into a string, the Streaming Ingest SDK
-            // will transformed the value according to its type in the table
-            // TODO: SNOW-630885 the record could come directly as a map, and don't have to be
-            //  dumped into a string but the original type could be used.
-            streamingIngestRow.put(columnName, columnValue);
-          }
+          streamingIngestRow.putAll(getMapFromJsonNodeForStreamingIngest(node));
         } else {
           streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));
         }
@@ -254,6 +239,48 @@ public class RecordService extends Logging {
     return streamingIngestRow;
   }
 
+  private Map<String, Object> getMapFromJsonNodeForStreamingIngest(JsonNode node)
+      throws JsonProcessingException {
+    final Map<String, Object> streamingIngestRow = new HashMap<>();
+    Iterator<String> columnNames = node.fieldNames();
+    while (columnNames.hasNext()) {
+      String columnName = columnNames.next();
+      JsonNode columnNode = node.get(columnName);
+      columnName = formatColumnName(columnName);
+      Object columnValue;
+      if (columnNode.isArray()) {
+        List<String> itemList = new ArrayList<>();
+        ArrayNode arrayNode = (ArrayNode) columnNode;
+        Iterator<JsonNode> nodeIterator = arrayNode.iterator();
+        while (nodeIterator.hasNext()) {
+          JsonNode e = nodeIterator.next();
+          itemList.add(e.isTextual() ? e.textValue() : MAPPER.writeValueAsString(e));
+        }
+        columnValue = itemList;
+      } else if (columnNode.isTextual()) {
+        columnValue = columnNode.textValue();
+      } else {
+        columnValue = MAPPER.writeValueAsString(columnNode);
+      }
+      // while the value is always dumped into a string, the Streaming Ingest SDK
+      // will transformed the value according to its type in the table
+      // TODO: SNOW-630885 the record could come directly as a map, and don't have to be
+      //  dumped into a string but the original type could be used.
+      streamingIngestRow.put(columnName, columnValue);
+    }
+    return streamingIngestRow;
+  }
+
+  /**
+   * Transform the columnName to uppercase unless it is enclosed in double quotes
+   *
+   * <p>In that case, drop the quotes and leave it as it is.
+   *
+   * <p>This transformation exist to mimic the behavior of the Ingest SDK.
+   *
+   * @param columnName
+   * @return Transformed columnName
+   */
   private String formatColumnName(String columnName) {
     // the columnName has been checked and guaranteed not to be null or empty
     return (columnName.charAt(0) == '"' && columnName.charAt(columnName.length() - 1) == '"')
