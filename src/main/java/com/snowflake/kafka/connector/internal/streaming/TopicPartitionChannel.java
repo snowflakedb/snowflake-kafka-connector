@@ -642,6 +642,16 @@ public class TopicPartitionChannel {
         List<SinkRecord> insertedRecordsToBuffer) {
       StreamingBuffer failedBuffer = new StreamingBuffer();
 
+      Map<String, String> schemaMap = new HashMap<>();
+      if (sfConnectorConfig
+          .get("value.converter")
+          .equals("io.confluent.connect.avro.AvroConverter")) {
+        schemaMap =
+            Utils.getSchemaFromSchemaRegistry(
+                topicPartition.topic(),
+                sfConnectorConfig.get("value.converter.schema.registry.url"));
+      }
+
       extraColumnToType = new HashMap<>();
       final String EXTRA_COL_S = "Extra column: ";
       final String EXTRA_COL_E = ". Columns not present in the table shouldn't be specified.";
@@ -651,19 +661,26 @@ public class TopicPartitionChannel {
           int startIndex = errorMessage.indexOf(EXTRA_COL_S) + EXTRA_COL_S.length();
           int endIndex = errorMessage.indexOf(EXTRA_COL_E);
           String columnName = errorMessage.substring(startIndex, endIndex);
+          // columnName is expected to be an uppercase string when there were no quotes before
           if (!extraColumnToType.containsKey(columnName)) {
-            Map<String, Object> record =
-                (Map<String, Object>)
-                    insertedRecordsToBuffer.get((int) insertError.getRowIndex()).value();
-            // TODO: not verified for avro record
-            Object value = null;
-            for (String colName : record.keySet()) {
-              if (colName.equalsIgnoreCase(columnName)) {
-                value = record.get(colName);
-                break;
+            String type;
+            if (schemaMap.isEmpty()) {
+              // no schema from schema registry
+              Map<String, Object> record =
+                  (Map<String, Object>)
+                      insertedRecordsToBuffer.get((int) insertError.getRowIndex()).value();
+              // TODO: not verified for avro record
+              Object value = null;
+              for (String colName : record.keySet()) {
+                if (colName.equalsIgnoreCase(columnName)) {
+                  value = record.get(colName);
+                  break;
+                }
               }
+              type = getType(value);
+            } else {
+              type = schemaMap.get(columnName);
             }
-            String type = getType(value);
             extraColumnToType.put(columnName, type);
           }
 

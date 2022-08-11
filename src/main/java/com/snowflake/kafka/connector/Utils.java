@@ -670,33 +670,38 @@ public class Utils {
       for (Schema.Field field : schema.rawSchema().getFields()) {
         Schema fieldSchema = field.schema();
         if (!schemaMap.containsKey(field.name())) {
+          String key = field.name().toUpperCase();
+          // always change the columnName to uppercase since columnName from avro will not contain
+          // double quotes
+          // this also makes it easier for schema evolution, since SDK will change it to uppercase
+          // anyway
           switch (fieldSchema.getType()) {
             case BOOLEAN:
-              schemaMap.put(field.name(), "boolean");
+              schemaMap.put(key, "boolean");
               break;
             case BYTES:
-              schemaMap.put(field.name(), "binary");
+              schemaMap.put(key, "binary");
               break;
             case DOUBLE:
-              schemaMap.put(field.name(), "double");
+              schemaMap.put(key, "double");
               break;
             case FLOAT:
-              schemaMap.put(field.name(), "float");
+              schemaMap.put(key, "float");
               break;
             case INT:
-              schemaMap.put(field.name(), "int");
+              schemaMap.put(key, "int");
               break;
             case LONG:
-              schemaMap.put(field.name(), "number");
+              schemaMap.put(key, "number");
               break;
             case STRING:
-              schemaMap.put(field.name(), "string");
+              schemaMap.put(key, "string");
               break;
             case ARRAY:
-              schemaMap.put(field.name(), "array");
+              schemaMap.put(key, "array");
               break;
             default:
-              schemaMap.put(field.name(), "variant");
+              schemaMap.put(key, "variant");
           }
         }
       }
