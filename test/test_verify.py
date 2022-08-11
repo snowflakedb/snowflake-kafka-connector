@@ -80,7 +80,7 @@ class KafkaTest:
         account = re.findall(reg, testHost)
         if len(account) != 1 or len(account[0]) < 20:
             print(datetime.now().strftime("%H:%M:%S "),
-                "Format error in 'host' field at profile.json, expecting account.snowflakecomputing.com:443")
+                  "Format error in 'host' field at profile.json, expecting account.snowflakecomputing.com:443")
 
         pkb = parsePrivateKey(pk, pk_passphrase)
         self.snowflake_conn = snowflake.connector.connect(
@@ -419,6 +419,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import TestMultipleTopicToOneTableSnowpipeStreaming
     from test_suit.test_multiple_topic_to_one_table_snowpipe import TestMultipleTopicToOneTableSnowpipe
 
+    from test_suit.test_schema_mapping import TestSchemaMapping
+
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
     testStringAvro = TestStringAvro(driver, nameSalt)
@@ -446,6 +448,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testMultipleTopicToOneTableSnowpipeStreaming = TestMultipleTopicToOneTableSnowpipeStreaming(driver, nameSalt)
     testMultipleTopicToOneTableSnowpipe = TestMultipleTopicToOneTableSnowpipe(driver, nameSalt)
 
+    testSchemaMapping = TestSchemaMapping(driver, nameSalt)
+
 
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
@@ -454,24 +458,31 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
         testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
         testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
-        testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe
+        testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe,
+        testSchemaMapping
     ]
 
     # Adding StringJsonProxy test at the end
     testCleanEnableList1 = [
-        True, True, True, True, True, True, True, True, True, True, True, True, True, 
-        True, True
+        True, True, True, True, True, True, True, True, True, True, True,
+        True, True,
+        True, True,
+        True
     ]
     testSuitEnableList1 = []
     if testSet == "confluent":
         testSuitEnableList1 = [
-            True, True, True, True, True, True, True, True, True, True, False, True, True, 
+            True, True, True, True, True, True, True, True, True, True, False,
             True, True,
+            True, True,
+            True
         ]
     elif testSet == "apache":
         testSuitEnableList1 = [
-            True, True, True, True, False, False, False, True, True, True, False, True, False, 
-            True, True
+            True, True, True, True, False, False, False, True, True, True, False,
+            True, False,
+            True, True,
+            True
         ]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))

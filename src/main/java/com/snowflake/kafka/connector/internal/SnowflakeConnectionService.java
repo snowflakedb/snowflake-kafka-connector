@@ -211,6 +211,7 @@ public interface SnowflakeConnectionService {
    * @param content file content
    */
   void putToTableStage(String tableName, String fileName, byte[] content);
+
   /** @return telemetry client */
   SnowflakeTelemetryService getTelemetryClient();
 
@@ -234,4 +235,13 @@ public interface SnowflakeConnectionService {
 
   /** @return the raw jdbc connection */
   Connection getConnection();
+
+  /**
+   * Append a VARIANT type column "RECORD_METADATA" to the table if it is not present.
+   *
+   * <p>This method is only called when schematization is enabled
+   *
+   * @param tableName table name
+   */
+  void appendMetaColIfNotExist(String tableName);
 }

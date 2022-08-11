@@ -202,6 +202,8 @@ public class TopicPartitionChannel {
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
 
     this.recordService = new RecordService();
+    this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
+
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
     this.streamingBuffer = new StreamingBuffer();
@@ -408,6 +410,7 @@ public class TopicPartitionChannel {
   }
 
   // --------------- BUFFER FLUSHING LOGIC --------------- //
+
   /**
    * If difference between current time and previous flush time is more than threshold, insert the
    * buffered Rows.
@@ -611,6 +614,7 @@ public class TopicPartitionChannel {
   }
 
   // TODO: SNOW-529755 POLL committed offsets in backgraound thread
+
   /**
    * Get committed offset from Snowflake. It does an HTTP call internally to find out what was the
    * last offset inserted.
@@ -938,6 +942,9 @@ public class TopicPartitionChannel {
   /**
    * Converts the original kafka sink record into a Json Record. i.e key and values are converted
    * into Json so that it can be used to insert into variant column of Snowflake Table.
+   *
+   * <p>TODO: SNOW-630885 - When schematization is enabled, we should create the map directly from
+   * the SinkRecord instead of first turning it into json
    */
   private SinkRecord getSnowflakeSinkRecordFromKafkaRecord(final SinkRecord kafkaSinkRecord) {
     SinkRecord snowflakeRecord = kafkaSinkRecord;
@@ -991,13 +998,22 @@ public class TopicPartitionChannel {
     for (Map.Entry<String, Object> entry : tableRow.entrySet()) {
       sinkRecordBufferSizeInBytes += entry.getKey().length() * 2L;
       // Can Typecast into string because value is JSON
-      sinkRecordBufferSizeInBytes += ((String) entry.getValue()).length() * 2L; // 1 char = 2 bytes
+      Object value = entry.getValue();
+      if (value instanceof String) {
+        sinkRecordBufferSizeInBytes += ((String) value).length() * 2L; // 1 char = 2 bytes
+      } else {
+        // for now it could only be a list of string
+        for (String s : (List<String>) value) {
+          sinkRecordBufferSizeInBytes += s.length() * 2L;
+        }
+      }
     }
     sinkRecordBufferSizeInBytes += StreamingUtils.MAX_RECORD_OVERHEAD_BYTES;
     return sinkRecordBufferSizeInBytes;
   }
 
   // ------ INNER CLASS ------ //
+
   /**
    * A buffer which holds the rows before calling insertRows API. It implements the PartitionBuffer
    * class which has all common fields about a buffer.

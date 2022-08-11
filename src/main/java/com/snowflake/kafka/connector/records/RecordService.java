@@ -22,12 +22,16 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
@@ -36,9 +40,16 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMappe
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.JsonNodeFactory;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
+import net.snowflake.ingest.internal.apache.arrow.util.VisibleForTesting;
 import org.apache.kafka.common.record.TimestampType;
-import org.apache.kafka.connect.data.*;
+import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Date;
+import org.apache.kafka.connect.data.Decimal;
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.data.Time;
+import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -56,6 +67,8 @@ public class RecordService extends Logging {
   static final String SCHEMA_ID = "schema_id";
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
+
+  private boolean enableSchematization = false;
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
@@ -85,6 +98,36 @@ public class RecordService extends Logging {
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
     metadataConfig = metadataConfigIn;
+  }
+
+  /**
+   * extract enableSchematization from the connector config and set the value for the recordService
+   *
+   * <p>The extracted boolean is returned for external usage.
+   *
+   * @param connectorConfig the connector config map
+   * @return a boolean indicating whether schematization is enabled
+   */
+  public boolean setAndGetEnableSchematizationFromConfig(
+      final Map<String, String> connectorConfig) {
+    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)) {
+      this.enableSchematization =
+          Boolean.parseBoolean(
+              connectorConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
+    }
+    return this.enableSchematization;
+  }
+
+  /**
+   * Directly set the enableSchematization through param
+   *
+   * <p>This Method is only for testing
+   *
+   * @param enableSchematizationIn
+   */
+  @VisibleForTesting
+  public void setEnableSchematization(final boolean enableSchematizationIn) {
+    this.enableSchematization = enableSchematizationIn;
   }
 
   /**
@@ -169,6 +212,8 @@ public class RecordService extends Logging {
    * <p>Remember, Snowflake table has two columns, both of them are VARIANT columns whose contents
    * are in JSON
    *
+   * <p>When schematization is enabled, the content of the record is extracted into a map
+   *
    * @param record record from Kafka to (Which was serialized in Json)
    * @return Json String with metadata and actual Payload from Kafka Record
    */
@@ -177,16 +222,70 @@ public class RecordService extends Logging {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.content.getData()) {
       try {
-        streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));
+        if (enableSchematization) {
+          streamingIngestRow.putAll(getMapFromJsonNodeForStreamingIngest(node));
+        } else {
+          streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));
+        }
         if (metadataConfig.allFlag) {
           streamingIngestRow.put(TABLE_COLUMN_METADATA, MAPPER.writeValueAsString(row.metadata));
         }
-      } catch (JsonProcessingException e) {
+      } catch (IOException e) {
         // return an exception and propagate upwards
         e.printStackTrace();
       }
     }
+
     return streamingIngestRow;
+  }
+
+  private Map<String, Object> getMapFromJsonNodeForStreamingIngest(JsonNode node)
+      throws JsonProcessingException {
+    final Map<String, Object> streamingIngestRow = new HashMap<>();
+    Iterator<String> columnNames = node.fieldNames();
+    while (columnNames.hasNext()) {
+      String columnName = columnNames.next();
+      JsonNode columnNode = node.get(columnName);
+      columnName = formatColumnName(columnName);
+      Object columnValue;
+      if (columnNode.isArray()) {
+        List<String> itemList = new ArrayList<>();
+        ArrayNode arrayNode = (ArrayNode) columnNode;
+        Iterator<JsonNode> nodeIterator = arrayNode.iterator();
+        while (nodeIterator.hasNext()) {
+          JsonNode e = nodeIterator.next();
+          itemList.add(e.isTextual() ? e.textValue() : MAPPER.writeValueAsString(e));
+        }
+        columnValue = itemList;
+      } else if (columnNode.isTextual()) {
+        columnValue = columnNode.textValue();
+      } else {
+        columnValue = MAPPER.writeValueAsString(columnNode);
+      }
+      // while the value is always dumped into a string, the Streaming Ingest SDK
+      // will transformed the value according to its type in the table
+      // TODO: SNOW-630885 the record could come directly as a map, and don't have to be
+      //  dumped into a string but the original type could be used.
+      streamingIngestRow.put(columnName, columnValue);
+    }
+    return streamingIngestRow;
+  }
+
+  /**
+   * Transform the columnName to uppercase unless it is enclosed in double quotes
+   *
+   * <p>In that case, drop the quotes and leave it as it is.
+   *
+   * <p>This transformation exist to mimic the behavior of the Ingest SDK.
+   *
+   * @param columnName
+   * @return Transformed columnName
+   */
+  private String formatColumnName(String columnName) {
+    // the columnName has been checked and guaranteed not to be null or empty
+    return (columnName.charAt(0) == '"' && columnName.charAt(columnName.length() - 1) == '"')
+        ? columnName.substring(1, columnName.length() - 1)
+        : columnName.toUpperCase();
   }
 
   /** For now there are two columns one is content and other is metadata. Both are Json */
@@ -420,11 +519,11 @@ public class RecordService extends Logging {
    *
    * <p>If the value is an empty JSON node, we could assume the value passed was null.
    *
-   * @see com.snowflake.kafka.connector.records.SnowflakeJsonConverter#toConnectData when bytes ==
-   *     null case
    * @param record record sent from Kafka to KC
    * @param behaviorOnNullValues behavior passed inside KC
    * @return true if we would skip adding it to buffer
+   * @see com.snowflake.kafka.connector.records.SnowflakeJsonConverter#toConnectData when bytes ==
+   *     null case
    */
   public boolean shouldSkipNullValue(
       SinkRecord record,

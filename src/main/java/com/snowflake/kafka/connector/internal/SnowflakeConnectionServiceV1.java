@@ -46,6 +46,10 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   // User agent suffix we want to pass in to ingest service
   public static final String USER_AGENT_SUFFIX_FORMAT = "SFKafkaConnector/%s provider/%s";
 
+  private static final String METADATA_COLUMN = "RECORD_METADATA";
+
+  private static final String CONTENT_COLUMN = "RECORD_CONTENT";
+
   SnowflakeConnectionServiceV1(
       Properties prop,
       SnowflakeURL url,
@@ -286,12 +290,12 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       boolean allNullable = true;
       while (result.next()) {
         switch (result.getString(1)) {
-          case "RECORD_METADATA":
+          case METADATA_COLUMN:
             if (result.getString(2).equals("VARIANT")) {
               hasMeta = true;
             }
             break;
-          case "RECORD_CONTENT":
+          case CONTENT_COLUMN:
             if (result.getString(2).equals("VARIANT")) {
               hasContent = true;
             }
@@ -324,6 +328,48 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       }
     }
     return compatible;
+  }
+
+  @Override
+  public void appendMetaColIfNotExist(final String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "desc table identifier(?)";
+    PreparedStatement stmt = null;
+    ResultSet result = null;
+    boolean hasMeta = false;
+    boolean isVariant = false;
+    try {
+      stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      result = stmt.executeQuery();
+      while (result.next()) {
+        // The result schema is row idx | column name | data type | kind | null? | ...
+        if (result.getString(1).equals(METADATA_COLUMN)) {
+          hasMeta = true;
+          if (result.getString(2).equals("VARIANT")) {
+            isVariant = true;
+          }
+          break;
+        }
+      }
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2014.getException("table name: " + tableName);
+    }
+    try {
+      if (!hasMeta) {
+        String metaQuery = "alter table identifier(?) add RECORD_METADATA VARIANT";
+        stmt = conn.prepareStatement(metaQuery);
+        stmt.setString(1, tableName);
+        stmt.executeQuery();
+      } else {
+        if (!isVariant) {
+          throw SnowflakeErrors.ERROR_2012.getException("table name: " + tableName);
+        }
+      }
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2013.getException("table name: " + tableName);
+    }
   }
 
   @Override
