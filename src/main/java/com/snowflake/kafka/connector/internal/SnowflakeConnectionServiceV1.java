@@ -139,15 +139,35 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     }
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-    String createTableQuery = "create table if not exists identifier(?)";
-    createTableQuery += "(record_metadata variant";
-    String logColumn = "[RECORD_METADATA (VARIANT)";
+    StringBuilder createTableQuery = new StringBuilder("create table if not exists identifier(?)");
+    StringBuilder logColumn = new StringBuilder("[RECORD_METADATA (VARIANT)");
+    createTableQuery = createTableQuery.append("(record_metadata variant");
     for (Map.Entry<String, String> field : schema.entrySet()) {
-      createTableQuery += ", " + field.getKey() + " " + field.getValue();
-      logColumn += ", " + field.getKey() + " (" + field.getValue() + ")";
+      createTableQuery =
+          createTableQuery.append(", ").append(field.getKey()).append(" ").append(field.getValue());
+      logColumn =
+          logColumn.append(", ").append(field.getKey()).append(" ").append(field.getValue());
     }
-    createTableQuery += ")";
-    logColumn += "]";
+    createTableQuery = createTableQuery.append(")");
+    logColumn = logColumn.append("]");
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(createTableQuery.toString());
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      logInfo("Failed to create table {} with schema {}", tableName, logColumn.toString());
+      throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
+
+    logInfo("Created table {} with schema {}", tableName, logColumn.toString());
+  }
+
+  public void createTableWithOnlyMetadataColumn(final String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String createTableQuery = "create table if not exists identifier(?) (record_metadata variant)";
 
     try {
       PreparedStatement stmt = conn.prepareStatement(createTableQuery);
@@ -155,28 +175,10 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       stmt.execute();
       stmt.close();
     } catch (SQLException e) {
-      logInfo("failed to create table {} with schema {}", tableName, logColumn);
       throw SnowflakeErrors.ERROR_2007.getException(e);
     }
 
-    logInfo("created table {} with schema {}", tableName, logColumn);
-  }
-
-  public void createTableWithOnlyMetadataColumn(final String tableName) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    String query = "create table if not exists identifier(?) (record_metadata variant)";
-
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2007.getException(e);
-    }
-
-    logInfo("created table {} with only RECORD_METADATA column", tableName);
+    logInfo("Created table {} with only RECORD_METADATA column", tableName);
   }
 
   @Override

@@ -496,7 +496,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
-  @VisibleForTesting
   private void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
       if (!this.enableSchematization) {
@@ -514,7 +513,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         if (Utils.usesAvroValueConverter(connectorConfig)) {
           // if we could read schema from schema registry
           this.conn.createTableWithSchema(
-              tableName, Utils.getSchemaMap(this.topicToTableMap, this.connectorConfig));
+              tableName,
+              Utils.getSchemaMapForTable(
+                  tableName,
+                  this.topicToTableMap,
+                  this.connectorConfig.get(
+                      SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD)));
         } else {
           this.conn.createTableWithOnlyMetadataColumn(tableName);
         }

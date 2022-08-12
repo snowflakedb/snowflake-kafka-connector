@@ -35,8 +35,10 @@ import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.Authenticator;
@@ -673,7 +675,7 @@ public class Utils {
   /**
    * get schema with its subject being [topicName]-[type]
    *
-   * @param topicName
+   * @param topicName the name of the topic
    * @param schemaRegistry the schema registry client
    * @param type can only be "value" or "key", indicating we get the value schema or the key schema
    * @return the mapping from columnName to their data type
@@ -685,43 +687,41 @@ public class Utils {
     SchemaMetadata schemaMetadata;
     try {
       schemaMetadata = schemaRegistry.getLatestSchemaMetadata(subjectName);
-    } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_0012.getException();
+    } catch (IOException | RestClientException e) {
+      throw SnowflakeErrors.ERROR_0012.getException(e);
     }
     Map<String, String> schemaMap = new HashMap<>();
     if (schemaMetadata != null) {
       AvroSchema schema = new AvroSchema(schemaMetadata.getSchema());
       for (Schema.Field field : schema.rawSchema().getFields()) {
         Schema fieldSchema = field.schema();
-        if (!schemaMap.containsKey(field.name())) {
-          switch (fieldSchema.getType()) {
-            case BOOLEAN:
-              schemaMap.put(field.name(), "boolean");
-              break;
-            case BYTES:
-              schemaMap.put(field.name(), "binary");
-              break;
-            case DOUBLE:
-              schemaMap.put(field.name(), "double");
-              break;
-            case FLOAT:
-              schemaMap.put(field.name(), "float");
-              break;
-            case INT:
-              schemaMap.put(field.name(), "int");
-              break;
-            case LONG:
-              schemaMap.put(field.name(), "number");
-              break;
-            case STRING:
-              schemaMap.put(field.name(), "string");
-              break;
-            case ARRAY:
-              schemaMap.put(field.name(), "array");
-              break;
-            default:
-              schemaMap.put(field.name(), "variant");
-          }
+        switch (fieldSchema.getType()) {
+          case BOOLEAN:
+            schemaMap.put(field.name(), "boolean");
+            break;
+          case BYTES:
+            schemaMap.put(field.name(), "binary");
+            break;
+          case DOUBLE:
+            schemaMap.put(field.name(), "double");
+            break;
+          case FLOAT:
+            schemaMap.put(field.name(), "float");
+            break;
+          case INT:
+            schemaMap.put(field.name(), "int");
+            break;
+          case LONG:
+            schemaMap.put(field.name(), "number");
+            break;
+          case STRING:
+            schemaMap.put(field.name(), "string");
+            break;
+          case ARRAY:
+            schemaMap.put(field.name(), "array");
+            break;
+          default:
+            schemaMap.put(field.name(), "variant");
         }
       }
     }
@@ -736,7 +736,7 @@ public class Utils {
    */
   public static boolean usesAvroValueConverter(final Map<String, String> connectorConfig) {
     List<String> validAvroConverter = new ArrayList<>();
-    validAvroConverter.add("io.confluent.connect.avro.AvroConverter");
+    validAvroConverter.add(SnowflakeSinkConnectorConfig.CONFLUENT_AVRO_CONVERTER);
     if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD)) {
       String valueConverter =
           connectorConfig.get(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
@@ -747,30 +747,33 @@ public class Utils {
   }
 
   /**
-   * From get the schemaMap for the table from topics. Topics will be collected from topicToTableMap
-   * or connectorConfig
+   * Get the schema for the table from topics.
    *
-   * @param topicToTableMap
-   * @param connectorConfig
+   * <p>Topics will be collected from topicToTableMap. When topicToTableMap is empty the topic
+   * should be the same as the tableName
+   *
+   * @param tableName the name of the table
+   * @param topicToTableMap the mapping from topic to table, might be empty
+   * @param schemaRegistryURL the URL to the schema registry
    * @return the map from the columnName to their type
    */
-  public static Map<String, String> getSchemaMap(
-      final Map<String, String> topicToTableMap, final Map<String, String> connectorConfig) {
+  public static Map<String, String> getSchemaMapForTable(
+      final String tableName,
+      final Map<String, String> topicToTableMap,
+      final String schemaRegistryURL) {
     Map<String, String> schemaMap = new HashMap<>();
     if (!topicToTableMap.isEmpty()) {
       for (String topic : topicToTableMap.keySet()) {
-        Map<String, String> tempMap =
-            Utils.getValueSchemaFromSchemaRegistryURL(
-                topic, connectorConfig.get("value.converter.schema.registry.url"));
-        schemaMap.putAll(tempMap);
+        if (topicToTableMap.get(topic).equals(tableName)) {
+          Map<String, String> tempMap =
+              Utils.getValueSchemaFromSchemaRegistryURL(topic, schemaRegistryURL);
+          schemaMap.putAll(tempMap);
+        }
       }
     } else {
       // if topic is not present in topic2table map, the table name must be the same with the
       // topic
-      schemaMap =
-          Utils.getValueSchemaFromSchemaRegistryURL(
-              connectorConfig.get("topics"),
-              connectorConfig.get("value.converter.schema.registry.url"));
+      schemaMap = Utils.getValueSchemaFromSchemaRegistryURL(tableName, schemaRegistryURL);
     }
     return schemaMap;
   }
