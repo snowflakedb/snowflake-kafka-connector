@@ -809,15 +809,11 @@ public class TopicPartitionChannel {
                   // even if the column failed to be added, the channel needs to be reopened
                   // because otherwise the connector may never know the up-to-date table info
 
-                  // TODO: if exception thrown here, channel may never get reopened!
-
                   // Thread.sleep(5000);
                   LOGGER.warn(
                       "{} Re-opening channel:{}",
                       StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
                       this.getChannelName());
-
-                  // conn.describeTable(this.tableName);
 
                   this.channel = Preconditions.checkNotNull(openChannelForTable());
                   resetChannelMetadataAfterRecovery(
