@@ -517,7 +517,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           if (!this.topicToTableMap.isEmpty()) {
             for (String topic : this.topicToTableMap.keySet()) {
               Map<String, String> tempMap =
-                  Utils.getSchemaFromSchemaRegistry(
+                  Utils.getValueSchemaFromSchemaRegistry(
                       topic, this.connectorConfig.get("value.converter.schema.registry.url"));
               schemaMap.putAll(tempMap);
             }
@@ -525,7 +525,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             // if topic is not present in topic2table map, the table name must be the same with the
             // topic
             schemaMap =
-                Utils.getSchemaFromSchemaRegistry(
+                Utils.getValueSchemaFromSchemaRegistry(
                     tableName, this.connectorConfig.get("value.converter.schema.registry.url"));
           }
 

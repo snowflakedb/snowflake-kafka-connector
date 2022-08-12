@@ -641,12 +641,19 @@ public class Utils {
     }
   }
 
-  public static Map<String, String> getSchemaFromSchemaRegistry(
+  /**
+   * get schema with its subject being [topicName]-value
+   *
+   * @param topicName
+   * @param schemaRegistryURL
+   * @return
+   */
+  public static Map<String, String> getValueSchemaFromSchemaRegistry(
       final String topicName, final String schemaRegistryURL) {
     return getSchemaFromSchemaRegistry(topicName, schemaRegistryURL, "value");
   }
 
-  public static Map<String, String> getSchemaFromSchemaRegistry(
+  private static Map<String, String> getSchemaFromSchemaRegistry(
       final String topicName, final String schemaRegistryURL, final String type) {
     Map<String, String> srConfig = new HashMap<>();
     srConfig.put("schema.registry.url", schemaRegistryURL);
