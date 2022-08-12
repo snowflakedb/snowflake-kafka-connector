@@ -11,6 +11,8 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
+import io.confluent.kafka.schemaregistry.ParsedSchema;
+import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.nio.ByteBuffer;
@@ -583,110 +585,49 @@ public class SnowflakeSinkServiceV2IT {
   public void testTableCreationAndNativeAvroInputIngestionWithSchematization() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,"io.confluent.connect.avro.AvroConverter");
+    config.put("value.converter.schema.registry.url", "http://fake-url");
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     // avro
     SchemaBuilder schemaBuilder =
         SchemaBuilder.struct()
-            .field("int8", SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
-            .field("int16", Schema.INT16_SCHEMA)
-            .field("int32", Schema.INT32_SCHEMA)
-            .field("int64", Schema.INT64_SCHEMA)
-            .field("float32", Schema.FLOAT32_SCHEMA)
-            .field("float64", Schema.FLOAT64_SCHEMA)
-            .field("int8Min", SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
-            .field("int16Min", Schema.INT16_SCHEMA)
-            .field("int32Min", Schema.INT32_SCHEMA)
-            .field("int64Min", Schema.INT64_SCHEMA)
-            .field("float32Min", Schema.FLOAT32_SCHEMA)
-            .field("float64Min", Schema.FLOAT64_SCHEMA)
-            .field("int8Max", SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
-            .field("int16Max", Schema.INT16_SCHEMA)
-            .field("int32Max", Schema.INT32_SCHEMA)
-            .field("int64Max", Schema.INT64_SCHEMA)
-            .field("float32Max", Schema.FLOAT32_SCHEMA)
-            .field("float64Max", Schema.FLOAT64_SCHEMA)
-            .field("float64HighPrecision", Schema.FLOAT64_SCHEMA)
-            .field("float64TenDigits", Schema.FLOAT64_SCHEMA)
-            .field("float64BigDigits", Schema.FLOAT64_SCHEMA)
-            .field("boolean", Schema.BOOLEAN_SCHEMA)
-            .field("string", Schema.STRING_SCHEMA)
-            .field("bytes", Schema.BYTES_SCHEMA)
-            .field("bytesReadOnly", Schema.BYTES_SCHEMA)
-            .field("int16Optional", Schema.OPTIONAL_INT16_SCHEMA)
-            .field("int32Optional", Schema.OPTIONAL_INT32_SCHEMA)
-            .field("int64Optional", Schema.OPTIONAL_INT64_SCHEMA)
-            .field("float32Optional", Schema.OPTIONAL_FLOAT32_SCHEMA)
-            .field("float64Optional", Schema.OPTIONAL_FLOAT64_SCHEMA)
-            .field("booleanOptional", Schema.OPTIONAL_BOOLEAN_SCHEMA)
-            .field("stringOptional", Schema.OPTIONAL_STRING_SCHEMA)
-            .field("bytesOptional", Schema.OPTIONAL_BYTES_SCHEMA)
-            .field("array", SchemaBuilder.array(Schema.STRING_SCHEMA).build())
-            .field("map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build())
-            .field(
-                "int8Optional",
-                SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
-            .field(
-                "mapNonStringKeys",
-                SchemaBuilder.map(Schema.INT32_SCHEMA, Schema.INT32_SCHEMA).build())
-            .field(
-                "mapArrayMapInt",
-                SchemaBuilder.map(
-                        Schema.STRING_SCHEMA,
-                        SchemaBuilder.array(
-                                SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA)
-                                    .build())
-                            .build())
-                    .build());
+            .field("id", Schema.INT32_SCHEMA)
+            .field("first_name", Schema.STRING_SCHEMA)
+            .field("rating", Schema.FLOAT32_SCHEMA)
+            .field("approval", Schema.BOOLEAN_SCHEMA)
+            .field("info_map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build());
     Struct original =
         new Struct(schemaBuilder.build())
-            .put("int8", (byte) 12)
-            .put("int16", (short) 12)
-            .put("int32", 12)
-            .put("int64", 12L)
-            .put("float32", 12.2f)
-            .put("float64", 12.2)
-            .put("int8Min", Byte.MIN_VALUE)
-            .put("int16Min", Short.MIN_VALUE)
-            .put("int32Min", Integer.MIN_VALUE)
-            .put("int64Min", Long.MIN_VALUE)
-            .put("float32Min", Float.MIN_VALUE)
-            .put("float64Min", Double.MIN_VALUE)
-            .put("int8Max", Byte.MAX_VALUE)
-            .put("int16Max", Short.MAX_VALUE)
-            .put("int32Max", Integer.MAX_VALUE)
-            .put("int64Max", Long.MAX_VALUE)
-            .put("float32Max", Float.MAX_VALUE)
-            .put("float64Max", Double.MAX_VALUE)
-            .put("float64HighPrecision", 2312.4200000000001d)
-            .put("float64TenDigits", 1.0d / 3.0d)
-            .put("float64BigDigits", 2312.42321432655123456d)
-            .put("boolean", true)
-            .put("string", "foo")
-            .put("bytes", ByteBuffer.wrap("foo".getBytes()))
-            .put("bytesReadOnly", ByteBuffer.wrap("foo".getBytes()).asReadOnlyBuffer())
-            .put("array", Arrays.asList("a", "b", "c"))
-            .put("map", Collections.singletonMap("field", 1))
-            .put("mapNonStringKeys", Collections.singletonMap(1, 1))
-            .put(
-                "mapArrayMapInt",
-                Collections.singletonMap(
-                    "field",
-                    Arrays.asList(
-                        Collections.singletonMap("field", 1),
-                        Collections.singletonMap("field", 1))));
+            .put("id", 42)
+            .put("first_name", "zekai")
+            .put("rating", 0.99f)
+            .put("approval", true)
+            .put("info_map", Collections.singletonMap("field", 3));
+
+    String schemaString = "{\n" +
+            "            \"type\":\"record\",\n" +
+            "            \"name\":\"value_schema\",\n" +
+            "            \"fields\":[\n" +
+            "                {\"name\":\"id\",\"type\":\"int\"},\n" +
+            "                {\"name\":\"first_name\",\"type\":\"string\"},\n" +
+            "                {\"name\":\"rating\",\"type\":\"float\"},\n" +
+            "                {\"name\":\"approval\",\"type\":\"boolean\"},\n" +
+            "                {\"name\":\"info_map\",\"type\":{\"type\":\"map\",\"values\":\"string\"}}\n" +
+            "            ]\n" +
+            "        }";
 
     SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
     AvroConverter avroConverter = new AvroConverter(schemaRegistry);
     avroConverter.configure(
         Collections.singletonMap("schema.registry.url", "http://fake-url"), false);
     byte[] converted = avroConverter.fromConnectData(topic, original.schema(), original);
-    SchemaAndValue avroInputValue = avroConverter.toConnectData(topic, converted);
+    ParsedSchema schema = new AvroSchema(schemaString);
+    schemaRegistry.register(topic + "-value", schema);
+    Map<String, String> schemaMap = Utils.getSchemaFromSchemaRegistryClient(topic, schemaRegistry, "value");
+    conn.createTableWithSchema(
+            table, schemaMap);
 
-    avroConverter = new AvroConverter(schemaRegistry);
-    avroConverter.configure(
-        Collections.singletonMap("schema.registry.url", "http://fake-url"), true);
-    converted = avroConverter.fromConnectData(topic, original.schema(), original);
-    SchemaAndValue avroInputKey = avroConverter.toConnectData(topic, converted);
+    SchemaAndValue avroInputValue = avroConverter.toConnectData(topic, converted);
 
     long startOffset = 0;
     long endOffset = 0;

@@ -22,6 +22,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVER
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -650,23 +651,26 @@ public class Utils {
    * @param schemaRegistryURL
    * @return
    */
-  public static Map<String, String> getValueSchemaFromSchemaRegistry(
+  public static Map<String, String> getValueSchemaFromSchemaRegistryURL(
       final String topicName, final String schemaRegistryURL) {
-    return getSchemaFromSchemaRegistry(topicName, schemaRegistryURL, "value");
+    return getSchemaFromSchemaRegistryClient(topicName, getSchemaRegistryClientFromURL(schemaRegistryURL), "value");
   }
 
-  private static Map<String, String> getSchemaFromSchemaRegistry(
-      final String topicName, final String schemaRegistryURL, final String type) {
+  private static SchemaRegistryClient getSchemaRegistryClientFromURL(final String schemaRegistryURL) {
     Map<String, String> srConfig = new HashMap<>();
     srConfig.put("schema.registry.url", schemaRegistryURL);
     AvroConverterConfig avroConverterConfig = new AvroConverterConfig(srConfig);
-    SchemaRegistryClient schemaRegistry =
-        new CachedSchemaRegistryClient(
-            avroConverterConfig.getSchemaRegistryUrls(),
-            avroConverterConfig.getMaxSchemasPerSubject(),
-            Collections.singletonList(new AvroSchemaProvider()),
-            srConfig,
-            avroConverterConfig.requestHeaders());
+    return new CachedSchemaRegistryClient(
+                    avroConverterConfig.getSchemaRegistryUrls(),
+                    avroConverterConfig.getMaxSchemasPerSubject(),
+                    Collections.singletonList(new AvroSchemaProvider()),
+                    srConfig,
+                    avroConverterConfig.requestHeaders());
+  }
+
+  @VisibleForTesting
+  public static Map<String, String> getSchemaFromSchemaRegistryClient(
+      final String topicName, final SchemaRegistryClient schemaRegistry, final String type) {
     String subjectName = topicName + "-" + type;
     SchemaMetadata schemaMetadata;
     try {
@@ -749,7 +753,7 @@ public class Utils {
     if (!topicToTableMap.isEmpty()) {
       for (String topic : topicToTableMap.keySet()) {
         Map<String, String> tempMap =
-            Utils.getValueSchemaFromSchemaRegistry(
+            Utils.getValueSchemaFromSchemaRegistryURL(
                 topic, connectorConfig.get("value.converter.schema.registry.url"));
         schemaMap.putAll(tempMap);
       }
@@ -757,7 +761,7 @@ public class Utils {
       // if topic is not present in topic2table map, the table name must be the same with the
       // topic
       schemaMap =
-          Utils.getValueSchemaFromSchemaRegistry(
+          Utils.getValueSchemaFromSchemaRegistryURL(
               connectorConfig.get("topics"),
               connectorConfig.get("value.converter.schema.registry.url"));
     }

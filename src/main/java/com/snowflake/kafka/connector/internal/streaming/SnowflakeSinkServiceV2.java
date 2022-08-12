@@ -496,6 +496,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
+  @VisibleForTesting
   private void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
       if (!this.enableSchematization) {
