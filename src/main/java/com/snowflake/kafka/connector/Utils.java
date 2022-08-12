@@ -649,7 +649,7 @@ public class Utils {
    *
    * @param topicName
    * @param schemaRegistryURL
-   * @return
+   * @return the mapping from columnName to their data type
    */
   public static Map<String, String> getValueSchemaFromSchemaRegistryURL(
       final String topicName, final String schemaRegistryURL) {
@@ -670,6 +670,14 @@ public class Utils {
         avroConverterConfig.requestHeaders());
   }
 
+  /**
+   * get schema with its subject being [topicName]-[type]
+   *
+   * @param topicName
+   * @param schemaRegistry the schema registry client
+   * @param type can only be "value" or "key", indicating we get the value schema or the key schema
+   * @return the mapping from columnName to their data type
+   */
   @VisibleForTesting
   public static Map<String, String> getSchemaFromSchemaRegistryClient(
       final String topicName, final SchemaRegistryClient schemaRegistry, final String type) {
@@ -729,9 +737,6 @@ public class Utils {
   public static boolean usesAvroValueConverter(final Map<String, String> connectorConfig) {
     List<String> validAvroConverter = new ArrayList<>();
     validAvroConverter.add("io.confluent.connect.avro.AvroConverter");
-    validAvroConverter.add("com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
-    validAvroConverter.add("io.confluent.encryption.connect.SecuredAvroConverter");
-    // the last one in doubt
     if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD)) {
       String valueConverter =
           connectorConfig.get(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
