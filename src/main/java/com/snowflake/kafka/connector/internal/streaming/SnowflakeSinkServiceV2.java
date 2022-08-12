@@ -511,6 +511,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       LOGGER.info("Creating new table {}.", tableName);
       if (this.enableSchematization) {
         if (Utils.usesAvroValueConverter(connectorConfig)) {
+          // if we could read schema from schema registry
           this.conn.createTableWithSchema(
               tableName, Utils.getSchemaMap(this.topicToTableMap, this.connectorConfig));
         } else {

@@ -133,6 +133,10 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   }
 
   public void createTableWithSchema(final String tableName, final Map<String, String> schema) {
+    if (schema.isEmpty()) {
+      createTableWithOnlyMetadataColumn(tableName);
+      return;
+    }
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query = "create table if not exists identifier(?)";
