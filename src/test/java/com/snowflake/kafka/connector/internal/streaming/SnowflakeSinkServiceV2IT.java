@@ -580,6 +580,145 @@ public class SnowflakeSinkServiceV2IT {
   }
 
   @Test
+  public void testTableCreationAndNativeAvroInputIngestionWithSchematization() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    // avro
+    SchemaBuilder schemaBuilder =
+        SchemaBuilder.struct()
+            .field("int8", SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
+            .field("int16", Schema.INT16_SCHEMA)
+            .field("int32", Schema.INT32_SCHEMA)
+            .field("int64", Schema.INT64_SCHEMA)
+            .field("float32", Schema.FLOAT32_SCHEMA)
+            .field("float64", Schema.FLOAT64_SCHEMA)
+            .field("int8Min", SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
+            .field("int16Min", Schema.INT16_SCHEMA)
+            .field("int32Min", Schema.INT32_SCHEMA)
+            .field("int64Min", Schema.INT64_SCHEMA)
+            .field("float32Min", Schema.FLOAT32_SCHEMA)
+            .field("float64Min", Schema.FLOAT64_SCHEMA)
+            .field("int8Max", SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
+            .field("int16Max", Schema.INT16_SCHEMA)
+            .field("int32Max", Schema.INT32_SCHEMA)
+            .field("int64Max", Schema.INT64_SCHEMA)
+            .field("float32Max", Schema.FLOAT32_SCHEMA)
+            .field("float64Max", Schema.FLOAT64_SCHEMA)
+            .field("float64HighPrecision", Schema.FLOAT64_SCHEMA)
+            .field("float64TenDigits", Schema.FLOAT64_SCHEMA)
+            .field("float64BigDigits", Schema.FLOAT64_SCHEMA)
+            .field("boolean", Schema.BOOLEAN_SCHEMA)
+            .field("string", Schema.STRING_SCHEMA)
+            .field("bytes", Schema.BYTES_SCHEMA)
+            .field("bytesReadOnly", Schema.BYTES_SCHEMA)
+            .field("int16Optional", Schema.OPTIONAL_INT16_SCHEMA)
+            .field("int32Optional", Schema.OPTIONAL_INT32_SCHEMA)
+            .field("int64Optional", Schema.OPTIONAL_INT64_SCHEMA)
+            .field("float32Optional", Schema.OPTIONAL_FLOAT32_SCHEMA)
+            .field("float64Optional", Schema.OPTIONAL_FLOAT64_SCHEMA)
+            .field("booleanOptional", Schema.OPTIONAL_BOOLEAN_SCHEMA)
+            .field("stringOptional", Schema.OPTIONAL_STRING_SCHEMA)
+            .field("bytesOptional", Schema.OPTIONAL_BYTES_SCHEMA)
+            .field("array", SchemaBuilder.array(Schema.STRING_SCHEMA).build())
+            .field("map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build())
+            .field(
+                "int8Optional",
+                SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
+            .field(
+                "mapNonStringKeys",
+                SchemaBuilder.map(Schema.INT32_SCHEMA, Schema.INT32_SCHEMA).build())
+            .field(
+                "mapArrayMapInt",
+                SchemaBuilder.map(
+                        Schema.STRING_SCHEMA,
+                        SchemaBuilder.array(
+                                SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA)
+                                    .build())
+                            .build())
+                    .build());
+    Struct original =
+        new Struct(schemaBuilder.build())
+            .put("int8", (byte) 12)
+            .put("int16", (short) 12)
+            .put("int32", 12)
+            .put("int64", 12L)
+            .put("float32", 12.2f)
+            .put("float64", 12.2)
+            .put("int8Min", Byte.MIN_VALUE)
+            .put("int16Min", Short.MIN_VALUE)
+            .put("int32Min", Integer.MIN_VALUE)
+            .put("int64Min", Long.MIN_VALUE)
+            .put("float32Min", Float.MIN_VALUE)
+            .put("float64Min", Double.MIN_VALUE)
+            .put("int8Max", Byte.MAX_VALUE)
+            .put("int16Max", Short.MAX_VALUE)
+            .put("int32Max", Integer.MAX_VALUE)
+            .put("int64Max", Long.MAX_VALUE)
+            .put("float32Max", Float.MAX_VALUE)
+            .put("float64Max", Double.MAX_VALUE)
+            .put("float64HighPrecision", 2312.4200000000001d)
+            .put("float64TenDigits", 1.0d / 3.0d)
+            .put("float64BigDigits", 2312.42321432655123456d)
+            .put("boolean", true)
+            .put("string", "foo")
+            .put("bytes", ByteBuffer.wrap("foo".getBytes()))
+            .put("bytesReadOnly", ByteBuffer.wrap("foo".getBytes()).asReadOnlyBuffer())
+            .put("array", Arrays.asList("a", "b", "c"))
+            .put("map", Collections.singletonMap("field", 1))
+            .put("mapNonStringKeys", Collections.singletonMap(1, 1))
+            .put(
+                "mapArrayMapInt",
+                Collections.singletonMap(
+                    "field",
+                    Arrays.asList(
+                        Collections.singletonMap("field", 1),
+                        Collections.singletonMap("field", 1))));
+
+    SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
+    AvroConverter avroConverter = new AvroConverter(schemaRegistry);
+    avroConverter.configure(
+        Collections.singletonMap("schema.registry.url", "http://fake-url"), false);
+    byte[] converted = avroConverter.fromConnectData(topic, original.schema(), original);
+    SchemaAndValue avroInputValue = avroConverter.toConnectData(topic, converted);
+
+    avroConverter = new AvroConverter(schemaRegistry);
+    avroConverter.configure(
+        Collections.singletonMap("schema.registry.url", "http://fake-url"), true);
+    converted = avroConverter.fromConnectData(topic, original.schema(), original);
+    SchemaAndValue avroInputKey = avroConverter.toConnectData(topic, converted);
+
+    long startOffset = 0;
+    long endOffset = 0;
+
+    SinkRecord avroRecordValue =
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test",
+            avroInputValue.schema(),
+            avroInputValue.value(),
+            startOffset);
+
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition))
+            .build();
+    // Table should be created at the start of the task
+
+    service.insert(avroRecordValue);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
+
+    service.closeAll();
+  }
+
+  @Test
   public void testBrokenIngestion() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);

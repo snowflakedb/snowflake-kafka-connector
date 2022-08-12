@@ -42,8 +42,10 @@ import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.regex.Matcher;
@@ -708,6 +710,56 @@ public class Utils {
           }
         }
       }
+    }
+    return schemaMap;
+  }
+
+  /**
+   * From the connector config extract whether the avro value converter is used
+   *
+   * @param connectorConfig
+   * @return whether the avro value converter is used
+   */
+  public static boolean usesAvroValueConverter(final Map<String, String> connectorConfig) {
+    List<String> validAvroConverter = new ArrayList<>();
+    validAvroConverter.add("io.confluent.connect.avro.AvroConverter");
+    validAvroConverter.add("com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
+    validAvroConverter.add("io.confluent.encryption.connect.SecuredAvroConverter");
+    // the last one in doubt
+    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD)) {
+      String valueConverter =
+          connectorConfig.get(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
+      return validAvroConverter.contains(valueConverter);
+    } else {
+      return false;
+    }
+  }
+
+  /**
+   * From get the schemaMap for the table from topics. Topics will be collected from topicToTableMap
+   * or connectorConfig
+   *
+   * @param topicToTableMap
+   * @param connectorConfig
+   * @return the map from the columnName to their type
+   */
+  public static Map<String, String> getSchemaMap(
+      final Map<String, String> topicToTableMap, final Map<String, String> connectorConfig) {
+    Map<String, String> schemaMap = new HashMap<>();
+    if (!topicToTableMap.isEmpty()) {
+      for (String topic : topicToTableMap.keySet()) {
+        Map<String, String> tempMap =
+            Utils.getValueSchemaFromSchemaRegistry(
+                topic, connectorConfig.get("value.converter.schema.registry.url"));
+        schemaMap.putAll(tempMap);
+      }
+    } else {
+      // if topic is not present in topic2table map, the table name must be the same with the
+      // topic
+      schemaMap =
+          Utils.getValueSchemaFromSchemaRegistry(
+              connectorConfig.get("topics"),
+              connectorConfig.get("value.converter.schema.registry.url"));
     }
     return schemaMap;
   }

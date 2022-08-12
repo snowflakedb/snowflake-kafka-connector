@@ -510,26 +510,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     } else {
       LOGGER.info("Creating new table {}.", tableName);
       if (this.enableSchematization) {
-        if (connectorConfig
-            .get("value.converter")
-            .equals("io.confluent.connect.avro.AvroConverter")) {
-          Map<String, String> schemaMap = new HashMap<>();
-          if (!this.topicToTableMap.isEmpty()) {
-            for (String topic : this.topicToTableMap.keySet()) {
-              Map<String, String> tempMap =
-                  Utils.getValueSchemaFromSchemaRegistry(
-                      topic, this.connectorConfig.get("value.converter.schema.registry.url"));
-              schemaMap.putAll(tempMap);
-            }
-          } else {
-            // if topic is not present in topic2table map, the table name must be the same with the
-            // topic
-            schemaMap =
-                Utils.getValueSchemaFromSchemaRegistry(
-                    tableName, this.connectorConfig.get("value.converter.schema.registry.url"));
-          }
-
-          this.conn.createTableWithSchema(tableName, schemaMap);
+        if (Utils.usesAvroValueConverter(connectorConfig)) {
+          this.conn.createTableWithSchema(
+              tableName, Utils.getSchemaMap(this.topicToTableMap, this.connectorConfig));
         } else {
           this.conn.createTableWithOnlyMetadataColumn(tableName);
         }
