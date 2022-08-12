@@ -653,19 +653,21 @@ public class Utils {
    */
   public static Map<String, String> getValueSchemaFromSchemaRegistryURL(
       final String topicName, final String schemaRegistryURL) {
-    return getSchemaFromSchemaRegistryClient(topicName, getSchemaRegistryClientFromURL(schemaRegistryURL), "value");
+    return getSchemaFromSchemaRegistryClient(
+        topicName, getSchemaRegistryClientFromURL(schemaRegistryURL), "value");
   }
 
-  private static SchemaRegistryClient getSchemaRegistryClientFromURL(final String schemaRegistryURL) {
+  private static SchemaRegistryClient getSchemaRegistryClientFromURL(
+      final String schemaRegistryURL) {
     Map<String, String> srConfig = new HashMap<>();
     srConfig.put("schema.registry.url", schemaRegistryURL);
     AvroConverterConfig avroConverterConfig = new AvroConverterConfig(srConfig);
     return new CachedSchemaRegistryClient(
-                    avroConverterConfig.getSchemaRegistryUrls(),
-                    avroConverterConfig.getMaxSchemasPerSubject(),
-                    Collections.singletonList(new AvroSchemaProvider()),
-                    srConfig,
-                    avroConverterConfig.requestHeaders());
+        avroConverterConfig.getSchemaRegistryUrls(),
+        avroConverterConfig.getMaxSchemasPerSubject(),
+        Collections.singletonList(new AvroSchemaProvider()),
+        srConfig,
+        avroConverterConfig.requestHeaders());
   }
 
   @VisibleForTesting

@@ -585,7 +585,9 @@ public class SnowflakeSinkServiceV2IT {
   public void testTableCreationAndNativeAvroInputIngestionWithSchematization() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
-    config.put(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,"io.confluent.connect.avro.AvroConverter");
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+        "io.confluent.connect.avro.AvroConverter");
     config.put("value.converter.schema.registry.url", "http://fake-url");
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     // avro
@@ -595,7 +597,8 @@ public class SnowflakeSinkServiceV2IT {
             .field("first_name", Schema.STRING_SCHEMA)
             .field("rating", Schema.FLOAT32_SCHEMA)
             .field("approval", Schema.BOOLEAN_SCHEMA)
-            .field("info_map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build());
+            .field(
+                "info_map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build());
     Struct original =
         new Struct(schemaBuilder.build())
             .put("id", 42)
@@ -604,17 +607,19 @@ public class SnowflakeSinkServiceV2IT {
             .put("approval", true)
             .put("info_map", Collections.singletonMap("field", 3));
 
-    String schemaString = "{\n" +
-            "            \"type\":\"record\",\n" +
-            "            \"name\":\"value_schema\",\n" +
-            "            \"fields\":[\n" +
-            "                {\"name\":\"id\",\"type\":\"int\"},\n" +
-            "                {\"name\":\"first_name\",\"type\":\"string\"},\n" +
-            "                {\"name\":\"rating\",\"type\":\"float\"},\n" +
-            "                {\"name\":\"approval\",\"type\":\"boolean\"},\n" +
-            "                {\"name\":\"info_map\",\"type\":{\"type\":\"map\",\"values\":\"string\"}}\n" +
-            "            ]\n" +
-            "        }";
+    String schemaString =
+        "{\n"
+            + "            \"type\":\"record\",\n"
+            + "            \"name\":\"value_schema\",\n"
+            + "            \"fields\":[\n"
+            + "                {\"name\":\"id\",\"type\":\"int\"},\n"
+            + "                {\"name\":\"first_name\",\"type\":\"string\"},\n"
+            + "                {\"name\":\"rating\",\"type\":\"float\"},\n"
+            + "                {\"name\":\"approval\",\"type\":\"boolean\"},\n"
+            + "               "
+            + " {\"name\":\"info_map\",\"type\":{\"type\":\"map\",\"values\":\"string\"}}\n"
+            + "            ]\n"
+            + "        }";
 
     SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
     AvroConverter avroConverter = new AvroConverter(schemaRegistry);
@@ -623,9 +628,9 @@ public class SnowflakeSinkServiceV2IT {
     byte[] converted = avroConverter.fromConnectData(topic, original.schema(), original);
     ParsedSchema schema = new AvroSchema(schemaString);
     schemaRegistry.register(topic + "-value", schema);
-    Map<String, String> schemaMap = Utils.getSchemaFromSchemaRegistryClient(topic, schemaRegistry, "value");
-    conn.createTableWithSchema(
-            table, schemaMap);
+    Map<String, String> schemaMap =
+        Utils.getSchemaFromSchemaRegistryClient(topic, schemaRegistry, "value");
+    conn.createTableWithSchema(table, schemaMap);
 
     SchemaAndValue avroInputValue = avroConverter.toConnectData(topic, converted);
 
