@@ -27,6 +27,7 @@ import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -790,7 +791,7 @@ public class TopicPartitionChannel {
     RetryPolicy<Object> reopenChannelRetryExecutorForInsertRows =
         RetryPolicy.builder()
             .withMaxAttempts(5)
-            //            .withDelay(Duration.ofMillis(1000))
+            .withDelay(Duration.ofMillis(5000))
             .handle(SFException.class)
             .handleResultIf(
                 result ->
