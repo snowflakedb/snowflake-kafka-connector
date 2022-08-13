@@ -646,20 +646,7 @@ public class Utils {
     }
   }
 
-  /**
-   * get schema with its subject being [topicName]-value
-   *
-   * @param topicName
-   * @param schemaRegistryURL
-   * @return the mapping from columnName to their data type
-   */
-  public static Map<String, String> getValueSchemaFromSchemaRegistryURL(
-      final String topicName, final String schemaRegistryURL) {
-    return getSchemaFromSchemaRegistryClient(
-        topicName, getSchemaRegistryClientFromURL(schemaRegistryURL), "value");
-  }
-
-  private static SchemaRegistryClient getSchemaRegistryClientFromURL(
+  private static SchemaRegistryClient getAvroSchemaRegistryClientFromURL(
       final String schemaRegistryURL) {
     Map<String, String> srConfig = new HashMap<>();
     srConfig.put("schema.registry.url", schemaRegistryURL);
@@ -675,13 +662,20 @@ public class Utils {
   /**
    * get schema with its subject being [topicName]-[type]
    *
+   * <p>Schema is stored in the schema registry in terms of subject, in our case the subject name
+   * could either be "-value" or "-key". These names are set by the producer (or schema registry
+   * client) automatically.
+   *
+   * <p>Only the value of the record is schematized, so when using the method we mostly want to
+   * retrieve the schema stored as [topicName]-value
+   *
    * @param topicName the name of the topic
    * @param schemaRegistry the schema registry client
    * @param type can only be "value" or "key", indicating we get the value schema or the key schema
-   * @return the mapping from columnName to their data type
+   * @return the mapping from columnName to their data type, the column
    */
   @VisibleForTesting
-  public static Map<String, String> getSchemaFromSchemaRegistryClient(
+  public static Map<String, String> getAvroSchemaFromSchemaRegistryClient(
       final String topicName, final SchemaRegistryClient schemaRegistry, final String type) {
     String subjectName = topicName + "-" + type;
     SchemaMetadata schemaMetadata;
@@ -695,33 +689,36 @@ public class Utils {
       AvroSchema schema = new AvroSchema(schemaMetadata.getSchema());
       for (Schema.Field field : schema.rawSchema().getFields()) {
         Schema fieldSchema = field.schema();
+        String columnName = field.name().toUpperCase();
+        // avro does not support double quotes so the columnName will be in uppercase anyway
+        // doing conversion here would save the trouble for other components
         switch (fieldSchema.getType()) {
           case BOOLEAN:
-            schemaMap.put(field.name(), "boolean");
+            schemaMap.put(columnName, "boolean");
             break;
           case BYTES:
-            schemaMap.put(field.name(), "binary");
+            schemaMap.put(columnName, "binary");
             break;
           case DOUBLE:
-            schemaMap.put(field.name(), "double");
+            schemaMap.put(columnName, "double");
             break;
           case FLOAT:
-            schemaMap.put(field.name(), "float");
+            schemaMap.put(columnName, "float");
             break;
           case INT:
-            schemaMap.put(field.name(), "int");
+            schemaMap.put(columnName, "int");
             break;
           case LONG:
-            schemaMap.put(field.name(), "number");
+            schemaMap.put(columnName, "number");
             break;
           case STRING:
-            schemaMap.put(field.name(), "string");
+            schemaMap.put(columnName, "string");
             break;
           case ARRAY:
-            schemaMap.put(field.name(), "array");
+            schemaMap.put(columnName, "array");
             break;
           default:
-            schemaMap.put(field.name(), "variant");
+            schemaMap.put(columnName, "variant");
         }
       }
     }
@@ -761,19 +758,27 @@ public class Utils {
       final String tableName,
       final Map<String, String> topicToTableMap,
       final String schemaRegistryURL) {
+    return getSchemaMapForTableWithSchemaRegistryClient(
+        tableName, topicToTableMap, getAvroSchemaRegistryClientFromURL(schemaRegistryURL));
+  }
+
+  public static Map<String, String> getSchemaMapForTableWithSchemaRegistryClient(
+      final String tableName,
+      final Map<String, String> topicToTableMap,
+      final SchemaRegistryClient schemaRegistry) {
     Map<String, String> schemaMap = new HashMap<>();
     if (!topicToTableMap.isEmpty()) {
       for (String topic : topicToTableMap.keySet()) {
         if (topicToTableMap.get(topic).equals(tableName)) {
           Map<String, String> tempMap =
-              Utils.getValueSchemaFromSchemaRegistryURL(topic, schemaRegistryURL);
+              Utils.getAvroSchemaFromSchemaRegistryClient(topic, schemaRegistry, "value");
           schemaMap.putAll(tempMap);
         }
       }
     } else {
       // if topic is not present in topic2table map, the table name must be the same with the
       // topic
-      schemaMap = Utils.getValueSchemaFromSchemaRegistryURL(tableName, schemaRegistryURL);
+      schemaMap = Utils.getAvroSchemaFromSchemaRegistryClient(tableName, schemaRegistry, "value");
     }
     return schemaMap;
   }

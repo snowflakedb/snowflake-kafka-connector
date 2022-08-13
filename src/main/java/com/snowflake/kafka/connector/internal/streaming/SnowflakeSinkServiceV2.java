@@ -520,7 +520,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                   this.connectorConfig.get(
                       SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD)));
         } else {
-          this.conn.createTableWithOnlyMetadataColumn(tableName);
+          throw SnowflakeErrors.ERROR_5021.getException();
         }
       } else {
         this.conn.createTable(tableName);

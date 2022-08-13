@@ -456,7 +456,6 @@ public class SnowflakeSinkTask extends SinkTask {
   /**
    * For versions older than 2.6
    *
-   * @return
    * @see <a
    *     href="https://javadoc.io/doc/org.apache.kafka/connect-api/2.6.0/org/apache/kafka/connect/sink/ErrantRecordReporter.html">
    *     link </a>

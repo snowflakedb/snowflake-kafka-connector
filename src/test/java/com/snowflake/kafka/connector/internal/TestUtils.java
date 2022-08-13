@@ -129,6 +129,64 @@ public class TestUtils {
           + "}";
   public static final String JSON_WITHOUT_SCHEMA = "{\"userid\": \"User_1\"}";
 
+  public static final String AVRO_SCHEMA_FOR_TABLE_CREATION =
+      "{\n"
+          + " \"type\":\"record\",\n"
+          + " \"name\":\"value_schema\",\n"
+          + " \"fields\":[\n"
+          + "   {\"name\":\"id\",\"type\":\"int\"},\n"
+          + "   {\"name\":\"first_name\",\"type\":\"string\"},\n"
+          + "   {\"name\":\"rating\",\"type\":\"float\"},\n"
+          + "   {\"name\":\"approval\",\"type\":\"boolean\"},\n"
+          + "   {\"name\":\"info_map\",\"type\":{\"type\":\"map\",\"values\":\"int\"}}\n"
+          + " ]\n"
+          + "}";
+
+  public static final Map<String, String> SF_SCHEMA_FOR_TABLE_CREATION;
+
+  static {
+    SF_SCHEMA_FOR_TABLE_CREATION = new HashMap<>();
+    SF_SCHEMA_FOR_TABLE_CREATION.put("ID", "NUMBER");
+    SF_SCHEMA_FOR_TABLE_CREATION.put("FIRST_NAME", "VARCHAR");
+    SF_SCHEMA_FOR_TABLE_CREATION.put("RATING", "FLOAT");
+    SF_SCHEMA_FOR_TABLE_CREATION.put("APPROVAL", "BOOLEAN");
+    SF_SCHEMA_FOR_TABLE_CREATION.put("INFO_MAP", "VARIANT");
+    SF_SCHEMA_FOR_TABLE_CREATION.put("RECORD_METADATA", "VARIANT");
+  }
+
+  public static final Map<String, Object> CONTENT_FOR_TABLE_CREATION;
+
+  static {
+    CONTENT_FOR_TABLE_CREATION = new HashMap<>();
+    CONTENT_FOR_TABLE_CREATION.put("ID", (long) 42);
+    CONTENT_FOR_TABLE_CREATION.put("FIRST_NAME", "zekai");
+    CONTENT_FOR_TABLE_CREATION.put("RATING", 0.99);
+    CONTENT_FOR_TABLE_CREATION.put("APPROVAL", true);
+    CONTENT_FOR_TABLE_CREATION.put("INFO_MAP", "{\"field\":3}");
+    CONTENT_FOR_TABLE_CREATION.put("RECORD_METADATA", "RECORD_METADATA_PLACE_HOLDER");
+  }
+  // the difference from the content we sent is caused by the type conversion in sf
+
+  public static final String AVRO_SCHEMA_FOR_SCHEMA_COLLECTION_0 =
+      "{\n"
+          + " \"type\":\"record\",\n"
+          + " \"name\":\"value_schema_0\",\n"
+          + " \"fields\":[\n"
+          + "   {\"name\":\"id\",\"type\":\"int\"},\n"
+          + "   {\"name\":\"first_name\",\"type\":\"string\"}\n"
+          + " ]\n"
+          + "}";
+
+  public static final String AVRO_SCHEMA_FOR_SCHEMA_COLLECTION_1 =
+      "{\n"
+          + " \"type\":\"record\",\n"
+          + " \"name\":\"value_schema_1\",\n"
+          + " \"fields\":[\n"
+          + "   {\"name\":\"id\",\"type\":\"int\"},\n"
+          + "   {\"name\":\"last_name\",\"type\":\"string\"}\n"
+          + " ]\n"
+          + "}";
+
   private static JsonNode getProfile(final String profileFilePath) {
     if (profileFilePath.equalsIgnoreCase(PROFILE_PATH)) {
       if (profile == null) {
@@ -663,5 +721,57 @@ public class TestUtils {
       }
     }
     return -1;
+  }
+
+  /**
+   * Check if the schema of the table matches the provided schema.
+   *
+   * @param tableName the name of the table
+   * @param schemaMap the provided schema
+   */
+  public static void checkTableSchema(String tableName, Map<String, String> schemaMap)
+      throws SQLException {
+    // the table should be checked to exist beforehand
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String describeTableQuery = "desc table " + tableName;
+    ResultSet result = executeQuery(describeTableQuery);
+    int numberOfColumnExpected = schemaMap.size();
+    int numberOfColumnInTable = 0;
+    while (result.next()) {
+      assert result.getString(2).startsWith(schemaMap.get(result.getString(1)));
+      // see if the type of the column in sf is the same as expected (ignoring scale)
+      numberOfColumnInTable++;
+    }
+    assert numberOfColumnExpected == numberOfColumnInTable;
+  }
+
+  /**
+   * Check if one row retrieved from the table matches the provided content
+   *
+   * <p>The assumption is that the rows in the table are the same.
+   *
+   * @param tableName the name of the table
+   * @param contentMap the provided content map from columnName to their value
+   */
+  public static void checkTableContentOneRow(String tableName, Map<String, Object> contentMap)
+      throws SQLException {
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String getRowQuery = "select * from " + tableName + " limit 1";
+    ResultSet result = executeQuery(getRowQuery);
+    result.next();
+    assert result.getMetaData().getColumnCount() == contentMap.size();
+    for (int i = 0; i < contentMap.size(); ++i) {
+      String columnName = result.getMetaData().getColumnName(i + 1);
+      Object value = result.getObject(i + 1);
+      if (value instanceof String && ((String) value).startsWith("{")) {
+        // is a map
+        value = ((String) value).replace(" ", "").replace("\n", "");
+        // get rid of the formatting added by snowflake
+      }
+      if (contentMap.get(columnName).equals("RECORD_METADATA_PLACE_HOLDER")) {
+        continue;
+      }
+      assert value.equals(contentMap.get(columnName));
+    }
   }
 }

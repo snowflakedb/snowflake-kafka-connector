@@ -587,8 +587,9 @@ public class SnowflakeSinkServiceV2IT {
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
-        "io.confluent.connect.avro.AvroConverter");
-    config.put("value.converter.schema.registry.url", "http://fake-url");
+        SnowflakeSinkConnectorConfig.CONFLUENT_AVRO_CONVERTER);
+    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
+    // get rid of these at the end
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     // avro
     SchemaBuilder schemaBuilder =
@@ -607,19 +608,7 @@ public class SnowflakeSinkServiceV2IT {
             .put("approval", true)
             .put("info_map", Collections.singletonMap("field", 3));
 
-    String schemaString =
-        "{\n"
-            + "            \"type\":\"record\",\n"
-            + "            \"name\":\"value_schema\",\n"
-            + "            \"fields\":[\n"
-            + "                {\"name\":\"id\",\"type\":\"int\"},\n"
-            + "                {\"name\":\"first_name\",\"type\":\"string\"},\n"
-            + "                {\"name\":\"rating\",\"type\":\"float\"},\n"
-            + "                {\"name\":\"approval\",\"type\":\"boolean\"},\n"
-            + "               "
-            + " {\"name\":\"info_map\",\"type\":{\"type\":\"map\",\"values\":\"string\"}}\n"
-            + "            ]\n"
-            + "        }";
+    String schemaString = TestUtils.AVRO_SCHEMA_FOR_TABLE_CREATION;
 
     SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
     AvroConverter avroConverter = new AvroConverter(schemaRegistry);
@@ -629,7 +618,7 @@ public class SnowflakeSinkServiceV2IT {
     ParsedSchema schema = new AvroSchema(schemaString);
     schemaRegistry.register(topic + "-value", schema);
     Map<String, String> schemaMap =
-        Utils.getSchemaFromSchemaRegistryClient(topic, schemaRegistry, "value");
+        Utils.getAvroSchemaFromSchemaRegistryClient(topic, schemaRegistry, "value");
     conn.createTableWithSchema(table, schemaMap);
 
     SchemaAndValue avroInputValue = avroConverter.toConnectData(topic, converted);
@@ -660,6 +649,10 @@ public class SnowflakeSinkServiceV2IT {
 
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
+
+    TestUtils.checkTableSchema(table, TestUtils.SF_SCHEMA_FOR_TABLE_CREATION);
+
+    TestUtils.checkTableContentOneRow(table, TestUtils.CONTENT_FOR_TABLE_CREATION);
 
     service.closeAll();
   }

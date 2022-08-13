@@ -254,7 +254,12 @@ public enum SnowflakeErrors {
       "5017", "Invalid api call to cached put", "Cached put only support AWS, Azure and GCS."),
   ERROR_5018("5018", "Failed to execute cached put", "Error in cached put command"),
   ERROR_5019("5019", "Failed to get stage storage type", "Error in get storage type"),
-  ERROR_5020("5020", "Failed to register MBean in MbeanServer", "Object Name is invalid");
+  ERROR_5020("5020", "Failed to register MBean in MbeanServer", "Object Name is invalid"),
+
+  ERROR_5021(
+      "5021",
+      "Failed to create table",
+      "Failed to create table from schema because no schema can be retrieved from schema registry");
 
   // properties
 
