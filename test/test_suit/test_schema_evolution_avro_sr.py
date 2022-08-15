@@ -87,7 +87,7 @@ class TestSchemaEvolutionAvroSR:
             value = []
             for _ in range(self.recordNum):
                 value.append(self.records[i])
-            self.driver.sendAvroSRData(topic, value, self.valueSchema[i], key=[], key_schema="", partition=p)
+            self.driver.sendAvroSRData(topic, value, self.valueSchema[i], key=[], key_schema="", partition=0)
 
     def verify(self, round):
         rows = self.driver.snowflake_conn.cursor().execute(
