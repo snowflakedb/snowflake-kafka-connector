@@ -1,6 +1,9 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 import datetime
+from confluent_kafka import avro
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry import Schema
 
 # test if the table is updated with the correct column
 # add test if all the records from different topics safely land in the table
