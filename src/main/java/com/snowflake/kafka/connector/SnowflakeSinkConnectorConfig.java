@@ -154,6 +154,12 @@ public class SnowflakeSinkConnectorConfig {
 
   public static final String ENABLE_SCHEMATIZATION_CONFIG = "enable.schematization";
 
+  // the amount of waiting before next insertion of buffered records is retried for schema evolution
+  public static final long RETRY_INSERTION_TIME_SEC_DEFAULT = 5;
+
+  // the number of retries before the insertion is treated as a failure
+  public static final int RETRY_INSERTION_ATTEMPT_MAX_COUNT_DEFAULT = 5;
+
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked
    * before actually sending records to Kafka connector.

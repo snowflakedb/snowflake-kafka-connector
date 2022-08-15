@@ -800,8 +800,9 @@ public class TopicPartitionChannel {
 
     RetryPolicy<Object> reopenChannelRetryExecutorForInsertRows =
         RetryPolicy.builder()
-            .withMaxAttempts(5)
-            .withDelay(Duration.ofMillis(5000))
+            .withMaxAttempts(SnowflakeSinkConnectorConfig.RETRY_INSERTION_ATTEMPT_MAX_COUNT_DEFAULT)
+            .withDelay(
+                Duration.ofSeconds(SnowflakeSinkConnectorConfig.RETRY_INSERTION_TIME_SEC_DEFAULT))
             .handle(SFException.class)
             .handleResultIf(
                 result ->
@@ -819,7 +820,6 @@ public class TopicPartitionChannel {
                   // even if the column failed to be added, the channel needs to be reopened
                   // because otherwise the connector may never know the up-to-date table info
 
-                  // Thread.sleep(5000);
                   LOGGER.warn(
                       "{} Re-opening channel:{}",
                       StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
@@ -838,10 +838,6 @@ public class TopicPartitionChannel {
         .get(supplier);
 
     return retryResponse;
-  }
-
-  private SnowflakeStreamingIngestChannel getLatestChannel() {
-    return this.channel;
   }
 
   /** Invokes the API given the channel and streaming Buffer. */
