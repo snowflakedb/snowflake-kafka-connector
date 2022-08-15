@@ -152,7 +152,7 @@ public class SnowflakeSinkConnectorConfig {
           + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
 
-  public static final String SCHEMATIZATION_ENABLE_CONFIG = "enable.schematization";
+  public static final String ENABLE_SCHEMATIZATION_CONFIG = "enable.schematization";
 
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked
@@ -166,11 +166,16 @@ public class SnowflakeSinkConnectorConfig {
 
   public static final String VALUE_CONVERTER_CONFIG_FIELD = "value.converter";
 
+  public static final String VALUE_SCHEMA_REGISTRY_CONFIG_FIELD =
+      "value.converter.schema.registry.url";
+
   public static final Set<String> CUSTOM_SNOWFLAKE_CONVERTERS =
       ImmutableSet.of(
           "com.snowflake.kafka.connector.records.SnowflakeJsonConverter",
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry",
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
+
+  public static final String CONFLUENT_AVRO_CONVERTER = "io.confluent.connect.avro.AvroConverter";
 
   public static void setDefaultValues(Map<String, String> config) {
     setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);
