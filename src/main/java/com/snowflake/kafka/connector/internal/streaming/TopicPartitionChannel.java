@@ -28,7 +28,6 @@ import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -654,6 +653,16 @@ public class TopicPartitionChannel {
       return !recordWithError.isEmpty();
     }
 
+    /** Add rows with their errors to the response */
+    public void addRecordsWithErrorsToResponse(
+        List<InsertValidationResponse.InsertError> insertErrors,
+        List<SinkRecord> insertedRecordsToBuffer) {
+      for (InsertValidationResponse.InsertError insertError : insertErrors) {
+        this.insertErrors.add(insertError);
+        this.recordWithError.add(insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
+      }
+    }
+
     /**
      * Invoked to insert rows with extra column error into the failed buffer to retry insertion
      *
@@ -707,6 +716,9 @@ public class TopicPartitionChannel {
               type = getType(value);
             } else {
               type = schemaMap.get(columnName);
+              if (type == null) {
+                type = "VARIANT";
+              }
             }
             extraColumnToType.put(columnName, type);
           }
@@ -817,14 +829,12 @@ public class TopicPartitionChannel {
     RetryPolicy<Object> reopenChannelRetryExecutorForInsertRows =
         RetryPolicy.builder()
             .withMaxAttempts(SnowflakeSinkConnectorConfig.RETRY_INSERTION_ATTEMPT_MAX_COUNT_DEFAULT)
-            .withDelay(
-                Duration.ofSeconds(SnowflakeSinkConnectorConfig.RETRY_INSERTION_TIME_SEC_DEFAULT))
             .handle(SFException.class)
             .handleResultIf(
                 result ->
                     result instanceof InsertValidationResponse
                         && ((InsertValidationResponse) result).hasErrors())
-            .onFailedAttempt(
+            .onRetry(
                 executionAttemptedEvent -> {
                   InsertValidationResponse response =
                       (InsertValidationResponse) executionAttemptedEvent.getLastResult();
@@ -836,6 +846,10 @@ public class TopicPartitionChannel {
                   // even if the column failed to be added, the channel needs to be reopened
                   // because otherwise the connector may never know the up-to-date table info
 
+                  Thread.sleep(
+                      SnowflakeSinkConnectorConfig.RETRY_INSERTION_TIME_SEC_DEFAULT * 1000);
+                  // TODO: SNOW-646227 Remove waiting when the server cache issue is addressed
+
                   LOGGER.warn(
                       "{} Re-opening channel:{}",
                       StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
@@ -846,6 +860,14 @@ public class TopicPartitionChannel {
                       StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
                       fetchLatestCommittedOffsetFromSnowflake());
                   supplier.updateChannel(this.channel);
+                })
+            .onFailure(
+                executionAttemptedEvent -> {
+                  InsertValidationResponse response =
+                      (InsertValidationResponse) executionAttemptedEvent.getResult();
+                  retryResponse.addRecordsWithErrorsToResponse(
+                      response.getInsertErrors(), newBuffer.get().getSinkRecords());
+                  // all retries failed. add everything left to the response
                 })
             .build();
 
