@@ -131,7 +131,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.connectorConfig = connectorConfig;
 
     this.enableSchematization =
-        this.recordService.setEnableSchematizationFromConfig(this.connectorConfig);
+        this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
 
     this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
     this.streamingIngestClientName =
@@ -510,7 +510,22 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
     } else {
       LOGGER.info("Creating new table {}.", tableName);
-      this.conn.createTable(tableName);
+      if (this.enableSchematization) {
+        if (Utils.usesAvroValueConverter(connectorConfig)) {
+          // if we could read schema from schema registry
+          this.conn.createTableWithSchema(
+              tableName,
+              Utils.getSchemaMapForTable(
+                  tableName,
+                  this.topicToTableMap,
+                  this.connectorConfig.get(
+                      SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD)));
+        } else {
+          throw SnowflakeErrors.ERROR_5021.getException();
+        }
+      } else {
+        this.conn.createTable(tableName);
+      }
     }
   }
 }

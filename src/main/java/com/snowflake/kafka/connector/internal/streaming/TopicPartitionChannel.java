@@ -237,7 +237,7 @@ public class TopicPartitionChannel {
 
     this.recordService = new RecordService();
     this.enableSchematization =
-        this.recordService.setEnableSchematizationFromConfig(sfConnectorConfig);
+        this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
 
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
