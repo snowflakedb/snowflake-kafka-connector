@@ -81,8 +81,6 @@ class TestSchemaEvolutionAvroSR:
         return self.fileName + ".json"
 
     def send(self):
-        key = []
-        value = []
         for i, topic in enumerate(self.topics):
             value = []
             for _ in range(self.recordNum):

@@ -11,6 +11,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
@@ -179,6 +180,8 @@ public class TopicPartitionChannel {
   // Whether schematization has been enabled.
   private boolean enableSchematization;
 
+  private boolean enableSchemaEvolution = false;
+
   private SnowflakeConnectionService conn;
 
   public TopicPartitionChannel(
@@ -234,6 +237,12 @@ public class TopicPartitionChannel {
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.conn = conn;
+    if (conn != null) {
+      this.enableSchemaEvolution =
+          this.conn.hasSchemaEvolutionPermission(
+              this.tableName,
+              this.sfConnectorConfig.get(SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE));
+    }
 
     this.recordService = new RecordService();
     this.enableSchematization =
@@ -305,10 +314,10 @@ public class TopicPartitionChannel {
       // If we found reaching buffer size threshold or count based threshold, we will immediately
       // flush (Insert them)
       if (copiedStreamingBuffer != null) {
-        if (!this.enableSchematization) {
-          insertBufferedRecords(copiedStreamingBuffer);
-        } else {
+        if (this.enableSchematization && this.enableSchemaEvolution) {
           insertBufferedRecordsWithRetry(copiedStreamingBuffer);
+        } else {
+          insertBufferedRecords(copiedStreamingBuffer);
         }
       }
     } else {
@@ -480,10 +489,10 @@ public class TopicPartitionChannel {
         bufferLock.unlock();
       }
       if (copiedStreamingBuffer != null) {
-        if (!this.enableSchematization) {
-          insertBufferedRecords(copiedStreamingBuffer);
-        } else {
+        if (this.enableSchematization && this.enableSchemaEvolution) {
           insertBufferedRecordsWithRetry(copiedStreamingBuffer);
+        } else {
+          insertBufferedRecords(copiedStreamingBuffer);
         }
       }
     }

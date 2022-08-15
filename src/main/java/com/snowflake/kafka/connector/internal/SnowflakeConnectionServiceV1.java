@@ -441,14 +441,23 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     }
   }
 
+  /**
+   * Check whether the user has the role privilge to do schema evolution and whether the schema
+   * evolution option is enabled on the table
+   *
+   * @param tableName the name of the table
+   * @param role the role of the user
+   * @return whether schema evolution has the required permission to be performed
+   */
   @Override
   public boolean hasSchemaEvolutionPermission(String tableName, String role) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query = "show grants on table identifier(?)";
     ResultSet result = null;
-    boolean hasRolePriviledge = false;
+    boolean hasRolePrivilege = false;
     boolean hasTableOptionEnabled = true;
+    // the schema evolution permission is still in PrPr, so it is left as true here
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
@@ -460,14 +469,16 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
         if (result.getString(2).equals("EVOLVE SCHEMA")
             || result.getString(2).equals("ALL")
             || result.getString(2).equals("OWNERSHIP")) {
-          hasRolePriviledge = true;
+          hasRolePrivilege = true;
         }
       }
       stmt.close();
     } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2014.getException(e);
+      hasRolePrivilege = true;
+      // if the table doesn't exist, we will create it, and thus we will have the privilege
+      // throw SnowflakeErrors.ERROR_2014.getException(e);
     }
-    return hasRolePriviledge && hasTableOptionEnabled;
+    return hasRolePrivilege && hasTableOptionEnabled;
   }
 
   @Override

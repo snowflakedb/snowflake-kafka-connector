@@ -47,9 +47,9 @@ class TestSchemaEvolutionJson:
         return self.fileName + ".json"
 
     def send(self):
-        key = []
-        value = []
         for i, topic in enumerate(self.topics):
+            key = []
+            value = []
             for e in range(self.recordNum):
                 key.append(json.dumps({'number': str(e)}).encode('utf-8'))
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
