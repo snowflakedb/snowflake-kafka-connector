@@ -531,15 +531,16 @@ public class TopicPartitionChannel {
   }
 
   public void insertBufferedRecordsWithRetry(StreamingBuffer streamingBufferToInsert) {
+    // intermediate buffer can be empty here if time interval reached but kafka produced no records.
     if (streamingBufferToInsert.isEmpty()) {
+      LOGGER.debug("No Rows Buffered for channel:{}, returning", this.getChannelName());
+      this.previousFlushTimeStampMs = System.currentTimeMillis();
       return;
     }
     InsertRowsWithRetryResponse response = null;
     try {
-      //      long lastKafkaOffsetInFailedBuffer = streamingBufferToInsert.getLastOffset();
+      long lastKafkaOffsetInFailedBuffer = streamingBufferToInsert.getLastOffset();
       response = insertRowsAndAlterTableWithRetry(streamingBufferToInsert);
-
-      // failed Buffer could already be changed by now
 
       // Updates the flush time (last time we called insertRows API)
       this.previousFlushTimeStampMs = System.currentTimeMillis();
@@ -557,10 +558,10 @@ public class TopicPartitionChannel {
       // continue ingest properly
       // even if the retry does not succeed the reset is necessary to make the behavior consistent
       // with that without schema evolution
-      //      resetChannelMetadataAfterRecovery(
-      //          StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK, lastKafkaOffsetInFailedBuffer);
-      //      // TODO: last record offset equivalent to snowflake offset?
-      //      // TODO: How multiple tasks work?
+      resetChannelMetadataAfterRecovery(
+          StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK, lastKafkaOffsetInFailedBuffer);
+      // TODO: last record offset equivalent to snowflake offset?
+      // TODO: How multiple tasks work?
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
       LOGGER.warn(

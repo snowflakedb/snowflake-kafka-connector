@@ -772,7 +772,7 @@ public class Utils {
    */
   public static Map<String, String> getSchemaMapForTopic(
       final String topic, final String schemaRegistryURL) {
-    Utils.getAvroSchemaFromSchemaRegistryClient(
+    return Utils.getAvroSchemaFromSchemaRegistryClient(
         topic, getAvroSchemaRegistryClientFromURL(schemaRegistryURL), "value");
   }
 
