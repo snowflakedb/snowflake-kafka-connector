@@ -242,6 +242,8 @@ public class TopicPartitionChannel {
           this.conn.hasSchemaEvolutionPermission(
               this.tableName,
               this.sfConnectorConfig.get(SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE));
+      LOGGER.debug(
+          String.format("Has Schema Evolution Permission: %s", this.enableSchemaEvolution));
     }
 
     this.recordService = new RecordService();
@@ -539,6 +541,18 @@ public class TopicPartitionChannel {
     return response;
   }
 
+  /**
+   * Invokes insertRows API using the provided offsets which were initially buffered for this
+   * partition. This buffer is decided based on the flush time threshold, buffered bytes or number
+   * of records
+   *
+   * <p>When the response contains any extra column error, we will attempt to alter the table
+   * accordinly, reopen the channel and reinsert the records
+   *
+   * <p>Rows with error other than that will be added to DLQ if enabled
+   *
+   * @param streamingBufferToInsert the record buffer
+   */
   public void insertBufferedRecordsWithRetry(StreamingBuffer streamingBufferToInsert) {
     // intermediate buffer can be empty here if time interval reached but kafka produced no records.
     if (streamingBufferToInsert.isEmpty()) {
@@ -643,10 +657,12 @@ public class TopicPartitionChannel {
     /**
      * Invoked to insert rows with extra column error into the failed buffer to retry insertion
      *
+     * <p>Records that cannot be reinserted will be added to this response, and will be added to DLQ
+     * later on
+     *
      * @param insertErrors errors from validation response. (Only if it has errors)
      * @param insertedRecordsToBuffer to map {@link SinkRecord} with insertErrors
-     * @return whether the records are successfully inserted into failed buffer (false indicating
-     *     schema-evolution cannot be performed)
+     * @return the failed buffer, a buffer of records to be reinserted
      */
     private StreamingBuffer insertRecordsToFailedBuffer(
         List<InsertValidationResponse.InsertError> insertErrors,

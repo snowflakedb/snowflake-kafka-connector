@@ -457,13 +457,15 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     ResultSet result = null;
     boolean hasRolePrivilege = false;
     boolean hasTableOptionEnabled = true;
+    String myRole = formatRoleName(role);
     // the schema evolution permission is still in PrPr, so it is left as true here
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
       result = stmt.executeQuery();
       while (result.next()) {
-        if (!result.getString(6).equals(role)) {
+        logInfo(String.format("Role: %s, Privilege: %s", result.getString(6), result.getString(2)));
+        if (!result.getString(6).equals(myRole)) {
           continue;
         }
         if (result.getString(2).equals("EVOLVE SCHEMA")
@@ -481,23 +483,43 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     return hasRolePrivilege && hasTableOptionEnabled;
   }
 
+  /**
+   * Transform the columnName to uppercase unless it is enclosed in double quotes
+   *
+   * <p>In that case, drop the quotes and leave it as it is.
+   *
+   * @param roleName
+   * @return Transformed roleName
+   */
+  private String formatRoleName(String roleName) {
+    return (roleName.charAt(0) == '"' && roleName.charAt(roleName.length() - 1) == '"')
+        ? roleName.substring(1, roleName.length() - 1)
+        : roleName.toUpperCase();
+  }
+
+  /**
+   * Alter table to add columns according to a map from columnNames to their types
+   *
+   * @param tableName the name of the table
+   * @param ColumnToType the mapping from the columnNames to their types
+   */
   @Override
-  public void appendColumns(String tableName, Map<String, String> extraColumnToType) {
+  public void appendColumns(String tableName, Map<String, String> ColumnToType) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query = "alter table identifier(?) add column ";
     boolean first = true;
     String logColumn = "[";
-    for (String columnName : extraColumnToType.keySet()) {
+    for (String columnName : ColumnToType.keySet()) {
       if (first) {
         first = false;
       } else {
         query += ", add column ";
         logColumn += ",";
       }
-      query += columnName + " " + extraColumnToType.get(columnName);
+      query += columnName + " " + ColumnToType.get(columnName);
       query += " comment 'column created by schema evolution'";
-      logColumn += columnName + " (" + extraColumnToType.get(columnName) + ")";
+      logColumn += columnName + " (" + ColumnToType.get(columnName) + ")";
     }
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
