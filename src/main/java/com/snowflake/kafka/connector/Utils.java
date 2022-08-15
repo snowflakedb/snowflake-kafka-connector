@@ -763,6 +763,19 @@ public class Utils {
         tableName, topicToTableMap, getAvroSchemaRegistryClientFromURL(schemaRegistryURL));
   }
 
+  /**
+   * Get the schema for a specific topics.
+   *
+   * @param topic the name of the topic
+   * @param schemaRegistryURL the URL to the schema registry
+   * @return the map from the columnName to their type
+   */
+  public static Map<String, String> getSchemaMapForTopic(
+      final String topic, final String schemaRegistryURL) {
+    Utils.getAvroSchemaFromSchemaRegistryClient(
+        topic, getAvroSchemaRegistryClientFromURL(schemaRegistryURL), "value");
+  }
+
   public static Map<String, String> getSchemaMapForTableWithSchemaRegistryClient(
       final String tableName,
       final Map<String, String> topicToTableMap,

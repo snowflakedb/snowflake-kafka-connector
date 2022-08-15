@@ -648,7 +648,7 @@ public class TopicPartitionChannel {
           .get("value.converter")
           .equals("io.confluent.connect.avro.AvroConverter")) {
         schemaMap =
-            Utils.getSchemaFromSchemaRegistry(
+            Utils.getSchemaMapForTopic(
                 topicPartition.topic(),
                 sfConnectorConfig.get("value.converter.schema.registry.url"));
       }
