@@ -422,6 +422,9 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     from test_suit.test_auto_table_creation import TestAutoTableCreation
 
+    from test_suit.test_schema_evolution_json import TestSchemaEvolutionJson
+    from test_suit.test_schema_evolution_avro_sr import TestSchemaEvolutionAvroSR
+
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
     testStringAvro = TestStringAvro(driver, nameSalt)
@@ -453,6 +456,9 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet)
 
+    testSchemaEvolutionJson = TestSchemaEvolutionJson(driver, nameSalt)
+    testSchemaEvolutionAvroSR = TestSchemaEvolutionAvroSR(driver, nameSalt)
+
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
     testSuitList1 = [
@@ -462,7 +468,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
         testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe,
         testSchemaMapping,
-        testAutoTableCreation
+        testAutoTableCreation,
+        testSchemaEvolutionJson, testSchemaEvolutionAvroSR
     ]
 
     # Adding StringJsonProxy test at the end
@@ -471,7 +478,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         True, True,
         True, True,
         True,
-        True
+        True,
+        True, True
     ]
     testSuitEnableList1 = []
     if testSet == "confluent":
@@ -480,7 +488,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True, True,
             True, True,
             True,
-            True
+            True,
+            True, True
         ]
     elif testSet == "apache":
         testSuitEnableList1 = [
@@ -488,7 +497,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True, False,
             True, True,
             True,
-            False
+            False,
+            True, False
         ]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
