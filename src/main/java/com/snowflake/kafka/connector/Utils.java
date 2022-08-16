@@ -661,7 +661,7 @@ public class Utils {
   }
 
   /**
-   * get schema with its subject being [topicName]-[type]
+   * Get schema with its subject being [topicName]-[type]
    *
    * <p>Schema is stored in the schema registry in terms of subject, in our case the subject name
    * could either be "-value" or "-key". These names are set by the producer (or schema registry
