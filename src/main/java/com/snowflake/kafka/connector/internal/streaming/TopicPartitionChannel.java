@@ -576,8 +576,9 @@ public class TopicPartitionChannel {
       if (response.hasErrors()) {
         handleInsertRowsWithRetryFailures(response.insertErrors, response.recordWithError);
       }
-      // with the attempts the channel was reopened (several times), the offset needs to be reset to
-      // continue ingest properly
+      // with the attempts the channel was reopened (several times), and the channel offset was
+      // reset to be before the current buffer. The offset needs to be reset to be the end of the
+      // buffer to continue ingestion properly
       // even if the retry does not succeed the reset is necessary to make the behavior consistent
       // with that without schema evolution
       resetChannelMetadataAfterRecovery(
