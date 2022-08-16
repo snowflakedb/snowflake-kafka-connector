@@ -36,6 +36,7 @@ import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -649,7 +650,7 @@ public class Utils {
   private static SchemaRegistryClient getAvroSchemaRegistryClientFromURL(
       final String schemaRegistryURL) {
     Map<String, String> srConfig = new HashMap<>();
-    srConfig.put("schema.registry.url", schemaRegistryURL);
+    srConfig.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryURL);
     AvroConverterConfig avroConverterConfig = new AvroConverterConfig(srConfig);
     return new CachedSchemaRegistryClient(
         avroConverterConfig.getSchemaRegistryUrls(),
