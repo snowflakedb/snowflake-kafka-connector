@@ -692,6 +692,9 @@ public class Utils {
         String columnName = field.name().toUpperCase();
         // avro does not support double quotes so the columnName will be in uppercase anyway
         // doing conversion here would save the trouble for other components
+        if (schemaMap.containsKey(columnName)) {
+          throw SnowflakeErrors.ERROR_0025.getException();
+        }
         switch (fieldSchema.getType()) {
           case BOOLEAN:
             schemaMap.put(columnName, "boolean");
@@ -722,6 +725,8 @@ public class Utils {
         }
       }
     }
+    // when no schema is retrieved we will get an empty map, and we will error out when try to use
+    // it to create the table
     return schemaMap;
   }
 
@@ -738,9 +743,8 @@ public class Utils {
       String valueConverter =
           connectorConfig.get(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
       return validAvroConverter.contains(valueConverter);
-    } else {
-      return false;
     }
+    throw SnowflakeErrors.ERROR_5021.getException();
   }
 
   /**
@@ -762,6 +766,17 @@ public class Utils {
         tableName, topicToTableMap, getAvroSchemaRegistryClientFromURL(schemaRegistryURL));
   }
 
+  /**
+   * Get the schema for the table from topics.
+   *
+   * <p>Topics will be collected from topicToTableMap. When topicToTableMap is empty the topic
+   * should be the same as the tableName
+   *
+   * @param tableName the name of the table
+   * @param topicToTableMap the mapping from topic to table, might be empty
+   * @param schemaRegistry the schema registry client
+   * @return the map from the columnName to their type
+   */
   public static Map<String, String> getSchemaMapForTableWithSchemaRegistryClient(
       final String tableName,
       final Map<String, String> topicToTableMap,

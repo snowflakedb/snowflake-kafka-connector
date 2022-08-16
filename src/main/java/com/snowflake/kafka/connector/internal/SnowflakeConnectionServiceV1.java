@@ -134,22 +134,19 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
 
   public void createTableWithSchema(final String tableName, final Map<String, String> schema) {
     if (schema.isEmpty()) {
-      createTableWithOnlyMetadataColumn(tableName);
-      return;
+      throw SnowflakeErrors.ERROR_5021.getException();
     }
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     StringBuilder createTableQuery = new StringBuilder("create table if not exists identifier(?)");
     StringBuilder logColumn = new StringBuilder("[RECORD_METADATA (VARIANT)");
-    createTableQuery = createTableQuery.append("(record_metadata variant");
+    createTableQuery.append("(record_metadata variant");
     for (Map.Entry<String, String> field : schema.entrySet()) {
-      createTableQuery =
-          createTableQuery.append(", ").append(field.getKey()).append(" ").append(field.getValue());
-      logColumn =
-          logColumn.append(", ").append(field.getKey()).append(" ").append(field.getValue());
+      createTableQuery.append(", ").append(field.getKey()).append(" ").append(field.getValue());
+      logColumn.append(", ").append(field.getKey()).append(" ").append(field.getValue());
     }
-    createTableQuery = createTableQuery.append(")");
-    logColumn = logColumn.append("]");
+    createTableQuery.append(")");
+    logColumn.append("]");
 
     try {
       PreparedStatement stmt = conn.prepareStatement(createTableQuery.toString());
@@ -162,23 +159,6 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     }
 
     logInfo("Created table {} with schema {}", tableName, logColumn.toString());
-  }
-
-  public void createTableWithOnlyMetadataColumn(final String tableName) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    String createTableQuery = "create table if not exists identifier(?) (record_metadata variant)";
-
-    try {
-      PreparedStatement stmt = conn.prepareStatement(createTableQuery);
-      stmt.setString(1, tableName);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2007.getException(e);
-    }
-
-    logInfo("Created table {} with only RECORD_METADATA column", tableName);
   }
 
   @Override

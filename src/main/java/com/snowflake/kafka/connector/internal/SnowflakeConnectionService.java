@@ -257,12 +257,4 @@ public interface SnowflakeConnectionService {
    * @param schemaMap table column description
    */
   void createTableWithSchema(String tableName, Map<String, String> schemaMap);
-
-  /**
-   * Create a table with only the RECORD_METADATA column. The rest of the columns might be added
-   * through schema evolution
-   *
-   * @param tableName table name
-   */
-  void createTableWithOnlyMetadataColumn(String tableName);
 }
