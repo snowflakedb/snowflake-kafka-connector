@@ -260,7 +260,12 @@ public enum SnowflakeErrors {
   ERROR_5021(
       "5021",
       "Failed to create table",
-      "Failed to create table from schema because no schema can be retrieved from schema registry");
+      "Failed to create table from schema because no schema can be retrieved from schema registry"),
+  ERROR_5022(
+      "5022",
+      "Failed to create table",
+      "Failed to create table because schema evolution could not be done due to the lack of"
+          + " permission");
 
   // properties
 

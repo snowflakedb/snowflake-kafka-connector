@@ -99,7 +99,16 @@ public interface SnowflakeConnectionService {
    * @param role the role of the user
    * @return whether schema evolution has the required permission to be performed
    */
-  boolean hasSchemaEvolutionPermission(String tableName, String role);
+  boolean hasSchemaEvolutionPermissionForRole(String tableName, String role);
+
+  /**
+   * Check if the role used by the connector has the permission to do schema evolution on the table
+   * through a cached map
+   *
+   * @param tableName the name of the table
+   * @return whether we have the permission to do schema evolution on the table
+   */
+  boolean getSchemaEvolutionPermission(String tableName);
 
   void appendColumns(String tableName, Map<String, String> extraColumnNames);
 
@@ -273,6 +282,9 @@ public interface SnowflakeConnectionService {
   /**
    * Create a table with only the RECORD_METADATA column. The rest of the columns might be added
    * through schema evolution
+   *
+   * <p>In the beginning of the function we will check if we have the permission to do schema
+   * evolution, and we will error out if we don't
    *
    * @param tableName table name
    */

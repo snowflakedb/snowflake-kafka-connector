@@ -11,6 +11,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +52,9 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
 
   private static final String CONTENT_COLUMN = "RECORD_CONTENT";
 
+  // A map from the names of tables to whether we have permission to do schema evolution on them
+  private Map<String, Boolean> schemaEvolutionPermissionForTables;
+
   SnowflakeConnectionServiceV1(
       Properties prop,
       SnowflakeURL url,
@@ -65,6 +69,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     this.stageType = null;
     this.proxyProperties = proxyProperties;
     this.kafkaProvider = kafkaProvider;
+    this.schemaEvolutionPermissionForTables = new HashMap<>();
     try {
       if (proxyProperties != null && !proxyProperties.isEmpty()) {
         Properties combinedProperties =
@@ -166,6 +171,9 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
 
   public void createTableWithOnlyMetadataColumn(final String tableName) {
     checkConnection();
+    if (!getSchemaEvolutionPermission(tableName)) {
+      throw SnowflakeErrors.ERROR_5021.getException();
+    }
     InternalUtils.assertNotEmpty("tableName", tableName);
     String createTableQuery = "create table if not exists identifier(?) (record_metadata variant)";
 
@@ -426,12 +434,14 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
    * Check whether the user has the role privilge to do schema evolution and whether the schema
    * evolution option is enabled on the table
    *
+   * <p>The permission will be stored in schemaEvolutionPermissionForTables
+   *
    * @param tableName the name of the table
    * @param role the role of the user
    * @return whether schema evolution has the required permission to be performed
    */
   @Override
-  public boolean hasSchemaEvolutionPermission(String tableName, String role) {
+  public boolean hasSchemaEvolutionPermissionForRole(String tableName, String role) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query = "show grants on table identifier(?)";
@@ -460,7 +470,21 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       hasRolePrivilege = true;
       // if the table doesn't exist, we will create it, and thus we will have the privilege
     }
+    this.schemaEvolutionPermissionForTables.put(
+        tableName, hasRolePrivilege && hasTableOptionEnabled);
     return hasRolePrivilege && hasTableOptionEnabled;
+  }
+
+  /**
+   * Check if the role used by the connector has the permission to do schema evolution on the table
+   * through a cached map
+   *
+   * @param tableName the name of the table
+   * @return whether we have the permission to do schema evolution on the table
+   */
+  @Override
+  public boolean getSchemaEvolutionPermission(String tableName) {
+    return this.schemaEvolutionPermissionForTables.get(tableName);
   }
 
   /**

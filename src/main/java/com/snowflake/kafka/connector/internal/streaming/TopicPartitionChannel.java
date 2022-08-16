@@ -237,10 +237,7 @@ public class TopicPartitionChannel {
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.conn = conn;
     if (conn != null) {
-      this.enableSchemaEvolution =
-          this.conn.hasSchemaEvolutionPermission(
-              this.tableName,
-              this.sfConnectorConfig.get(SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE));
+      this.enableSchemaEvolution = this.conn.getSchemaEvolutionPermission(this.tableName);
       LOGGER.debug(
           String.format("Has Schema Evolution Permission: %s", this.enableSchemaEvolution));
     }

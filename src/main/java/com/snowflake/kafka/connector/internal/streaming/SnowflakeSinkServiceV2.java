@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
 
@@ -151,6 +152,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void startTask(String tableName, TopicPartition topicPartition) {
+    // check if we have the schema evolution permission and register it
+    this.conn.hasSchemaEvolutionPermissionForRole(
+        tableName, this.connectorConfig.get(SNOWFLAKE_ROLE));
     // the table should be present before opening a channel so lets do a table existence check here
     createTableIfNotExists(tableName);
 
@@ -521,7 +525,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                   this.connectorConfig.get(
                       SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD)));
         } else {
-          throw SnowflakeErrors.ERROR_5021.getException();
+          this.conn.createTableWithOnlyMetadataColumn(tableName);
         }
       } else {
         this.conn.createTable(tableName);
