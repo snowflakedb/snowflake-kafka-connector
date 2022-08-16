@@ -381,25 +381,6 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   }
 
   @Override
-  public void describeTable(final String tableName) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    String query = "desc table identifier(?)";
-    PreparedStatement stmt = null;
-    ResultSet result = null;
-    try {
-      stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
-      result = stmt.executeQuery();
-      while (result.next()) {
-        System.out.println(result.getString(1) + " (" + result.getString(2) + ")");
-      }
-    } catch (SQLException e) {
-      logDebug("table {} doesn't exist", tableName);
-    }
-  }
-
-  @Override
   public void appendMetaColIfNotExist(final String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
@@ -478,13 +459,12 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (SQLException e) {
       hasRolePrivilege = true;
       // if the table doesn't exist, we will create it, and thus we will have the privilege
-      // throw SnowflakeErrors.ERROR_2014.getException(e);
     }
     return hasRolePrivilege && hasTableOptionEnabled;
   }
 
   /**
-   * Transform the columnName to uppercase unless it is enclosed in double quotes
+   * Transform the roleName to uppercase unless it is enclosed in double quotes
    *
    * <p>In that case, drop the quotes and leave it as it is.
    *

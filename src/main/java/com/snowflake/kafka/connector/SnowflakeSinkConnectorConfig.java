@@ -155,6 +155,7 @@ public class SnowflakeSinkConnectorConfig {
   public static final String ENABLE_SCHEMATIZATION_CONFIG = "enable.schematization";
 
   // the amount of waiting before next insertion of buffered records is retried for schema evolution
+  // TODO: SNOW-646227 Remove waiting when the server cache issue is addressed
   public static final long RETRY_INSERTION_TIME_SEC_DEFAULT = 5;
 
   // the number of retries before the insertion is treated as a failure
