@@ -507,7 +507,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True, True,
             True,
             False,
-            True, False
+            True, False,
             True, False
         ]
     elif testSet != "clean":
