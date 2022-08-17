@@ -421,6 +421,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_schema_mapping import TestSchemaMapping
 
     from test_suit.test_auto_table_creation import TestAutoTableCreation
+    from test_suit.test_auto_table_creation_topic2table import TestAutoTableCreationTopic2Table
 
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
@@ -452,6 +453,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testSchemaMapping = TestSchemaMapping(driver, nameSalt)
 
     testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet)
+    testAutoTableCreationTopic2Table = TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress, testSet)
 
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
@@ -462,7 +464,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
         testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe,
         testSchemaMapping,
-        testAutoTableCreation
+        testAutoTableCreation, testAutoTableCreationTopic2Table
     ]
 
     # Adding StringJsonProxy test at the end
@@ -471,7 +473,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         True, True,
         True, True,
         True,
-        True
+        True, True
     ]
     testSuitEnableList1 = []
     if testSet == "confluent":
@@ -480,7 +482,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True, True,
             True, True,
             True,
-            True
+            True, True
         ]
     elif testSet == "apache":
         testSuitEnableList1 = [
@@ -488,7 +490,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True, False,
             True, True,
             True,
-            False
+            False, False
         ]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
