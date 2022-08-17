@@ -139,7 +139,8 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
 
   public void createTableWithSchema(final String tableName, final Map<String, String> schema) {
     if (schema.isEmpty()) {
-      throw SnowflakeErrors.ERROR_5021.getException();
+      createTableWithOnlyMetadataColumn(tableName);
+      return;
     }
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);

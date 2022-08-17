@@ -55,7 +55,8 @@ public class SchematizationUtils {
     try {
       schemaMetadata = schemaRegistry.getLatestSchemaMetadata(subjectName);
     } catch (IOException | RestClientException e) {
-      throw SnowflakeErrors.ERROR_0012.getException(e);
+      // suppress the excpetion and return empty map to indicate a failure in fetching schemas
+      return new HashMap<>();
     }
     Map<String, String> schemaMap = new HashMap<>();
     if (schemaMetadata != null) {
@@ -137,6 +138,19 @@ public class SchematizationUtils {
       final String schemaRegistryURL) {
     return getSchemaMapForTableWithSchemaRegistryClient(
         tableName, topicToTableMap, getAvroSchemaRegistryClientFromURL(schemaRegistryURL));
+  }
+
+  /**
+   * Get the schema for a specific topics.
+   *
+   * @param topic the name of the topic
+   * @param schemaRegistryURL the URL to the schema registry
+   * @return the map from the columnName to their type
+   */
+  public static Map<String, String> getSchemaMapForTopic(
+      final String topic, final String schemaRegistryURL) {
+    return SchematizationUtils.getAvroSchemaFromSchemaRegistryClient(
+        topic, getAvroSchemaRegistryClientFromURL(schemaRegistryURL), "value");
   }
 
   /**

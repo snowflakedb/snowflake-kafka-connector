@@ -11,6 +11,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.SchematizationUtils;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -681,7 +682,7 @@ public class TopicPartitionChannel {
           .get("value.converter")
           .equals("io.confluent.connect.avro.AvroConverter")) {
         schemaMap =
-            Utils.getSchemaMapForTopic(
+            SchematizationUtils.getSchemaMapForTopic(
                 topicPartition.topic(),
                 sfConnectorConfig.get("value.converter.schema.registry.url"));
       }
