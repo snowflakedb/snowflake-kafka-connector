@@ -202,6 +202,7 @@ public class TopicPartitionChannel {
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
 
     this.recordService = new RecordService();
+
     this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
 
     this.previousFlushTimeStampMs = System.currentTimeMillis();

@@ -364,6 +364,7 @@ public class Utils {
       if (!BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE)) {
         configIsValid = false;
       }
+
       if (config.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
           && Boolean.parseBoolean(
               config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG))) {

@@ -24,7 +24,6 @@ def errorExit(message):
     print(datetime.now().strftime("%H:%M:%S "), message)
     exit(1)
 
-
 class KafkaTest:
     def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, testVersion, enableSSL, snowflakeCloudPlatform, enableDeliveryGuaranteeTests = False):
         self.testVersion = testVersion
@@ -421,6 +420,9 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     from test_suit.test_schema_mapping import TestSchemaMapping
 
+    from test_suit.test_auto_table_creation import TestAutoTableCreation
+    from test_suit.test_auto_table_creation_topic2table import TestAutoTableCreationTopic2Table
+
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
     testStringAvro = TestStringAvro(driver, nameSalt)
@@ -450,6 +452,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     testSchemaMapping = TestSchemaMapping(driver, nameSalt)
 
+    testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet)
+    testAutoTableCreationTopic2Table = TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress, testSet)
 
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
@@ -459,7 +463,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
         testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
         testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe,
-        testSchemaMapping
+        testSchemaMapping,
+        testAutoTableCreation, testAutoTableCreationTopic2Table
     ]
 
     # Adding StringJsonProxy test at the end
@@ -467,7 +472,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         True, True, True, True, True, True, True, True, True, True, True,
         True, True,
         True, True,
-        True
+        True,
+        True, True
     ]
     testSuitEnableList1 = []
     if testSet == "confluent":
@@ -475,14 +481,16 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True, True, True, True, True, True, True, True, True, True, False,
             True, True,
             True, True,
-            True
+            True,
+            True, True
         ]
     elif testSet == "apache":
         testSuitEnableList1 = [
             True, True, True, True, False, False, False, True, True, True, False,
             True, False,
             True, True,
-            True
+            True,
+            False, False
         ]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
@@ -596,6 +604,7 @@ if __name__ == "__main__":
              <test set> <test version> <name salt> <pressure> <enableSSL>===""")
 
     kafkaAddress = sys.argv[1]
+    global schemaRegistryAddress
     schemaRegistryAddress = sys.argv[2]
     kafkaConnectAddress = sys.argv[3]
     testSet = sys.argv[4]

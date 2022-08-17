@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
+import java.util.Map;
 
 public interface SnowflakeConnectionService {
   /**
@@ -244,4 +245,16 @@ public interface SnowflakeConnectionService {
    * @param tableName table name
    */
   void appendMetaColIfNotExist(String tableName);
+
+  /**
+   * Create a table with name being tableName and columns as defined in schemaMap.
+   *
+   * <p>The key of the schemaMap is the column name and the value is the type of the data
+   *
+   * <p>The RECORD_METADATA column, while not in this map, will be added automatically
+   *
+   * @param tableName table name
+   * @param schemaMap table column description
+   */
+  void createTableWithSchema(String tableName, Map<String, String> schemaMap);
 }

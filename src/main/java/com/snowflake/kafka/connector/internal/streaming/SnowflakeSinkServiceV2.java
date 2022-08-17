@@ -6,6 +6,7 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.ST
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.kafka.connector.SchematizationUtils;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -509,7 +510,22 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
     } else {
       LOGGER.info("Creating new table {}.", tableName);
-      this.conn.createTable(tableName);
+      if (this.enableSchematization) {
+        if (SchematizationUtils.usesAvroValueConverter(connectorConfig)) {
+          // if we could read schema from schema registry
+          this.conn.createTableWithSchema(
+              tableName,
+              SchematizationUtils.getSchemaMapForTable(
+                  tableName,
+                  this.topicToTableMap,
+                  this.connectorConfig.get(
+                      SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD)));
+        } else {
+          throw SnowflakeErrors.ERROR_5021.getException();
+        }
+      } else {
+        this.conn.createTable(tableName);
+      }
     }
   }
 }

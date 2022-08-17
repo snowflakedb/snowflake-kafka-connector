@@ -1,8 +1,10 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.snowflake.kafka.connector.SchematizationUtils;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -11,6 +13,8 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
+import io.confluent.kafka.schemaregistry.ParsedSchema;
+import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.nio.ByteBuffer;
@@ -575,6 +579,82 @@ public class SnowflakeSinkServiceV2IT {
 
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testTableCreationAndNativeAvroInputIngestionWithSchematization() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+        SnowflakeSinkConnectorConfig.CONFLUENT_AVRO_CONVERTER);
+    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
+    // get rid of these at the end
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    // avro
+    SchemaBuilder schemaBuilder =
+        SchemaBuilder.struct()
+            .field("id", Schema.INT32_SCHEMA)
+            .field("first_name", Schema.STRING_SCHEMA)
+            .field("rating", Schema.FLOAT32_SCHEMA)
+            .field("approval", Schema.BOOLEAN_SCHEMA)
+            .field(
+                "info_map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build());
+    Struct original =
+        new Struct(schemaBuilder.build())
+            .put("id", 42)
+            .put("first_name", "zekai")
+            .put("rating", 0.99f)
+            .put("approval", true)
+            .put("info_map", Collections.singletonMap("field", 3));
+
+    String schemaString = SchematizationTestUtils.AVRO_SCHEMA_FOR_TABLE_CREATION;
+
+    SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
+    AvroConverter avroConverter = new AvroConverter(schemaRegistry);
+    avroConverter.configure(
+        Collections.singletonMap("schema.registry.url", "http://fake-url"), false);
+    byte[] converted = avroConverter.fromConnectData(topic, original.schema(), original);
+    ParsedSchema schema = new AvroSchema(schemaString);
+    schemaRegistry.register(topic + "-value", schema);
+    Map<String, String> schemaMap =
+        SchematizationUtils.getAvroSchemaFromSchemaRegistryClient(topic, schemaRegistry, "value");
+    conn.createTableWithSchema(table, schemaMap);
+
+    SchemaAndValue avroInputValue = avroConverter.toConnectData(topic, converted);
+
+    long startOffset = 0;
+    long endOffset = 0;
+
+    SinkRecord avroRecordValue =
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test",
+            avroInputValue.schema(),
+            avroInputValue.value(),
+            startOffset);
+
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition))
+            .build();
+    // Table should be created at the start of the task
+
+    service.insert(avroRecordValue);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
+
+    TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_SCHEMA_FOR_TABLE_CREATION);
+
+    TestUtils.checkTableContentOneRow(table, SchematizationTestUtils.CONTENT_FOR_TABLE_CREATION);
 
     service.closeAll();
   }
