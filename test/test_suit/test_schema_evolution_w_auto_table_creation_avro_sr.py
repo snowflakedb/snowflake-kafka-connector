@@ -41,8 +41,8 @@ class TestSchemaEvolutionWithAutoTableCreationAvroSR:
             "type":"record",
             "name":"value_schema_0",
             "fields":[
-                {"name":"PERFORMANCE_CHAR","type":"string"},
                 {"name":"PERFORMANCE_STRING","type":"string"},
+                {"name":"PERFORMANCE_CHAR","type":"string"},
                 {"name":"RATING_INT","type":"int"}
             ]
         }
@@ -53,8 +53,8 @@ class TestSchemaEvolutionWithAutoTableCreationAvroSR:
             "type":"record",
             "name":"value_schema_1",
             "fields":[
-                {"name":"RATING_DOUBLE","type":"float"},
                 {"name":"PERFORMANCE_STRING","type":"string"},
+                {"name":"RATING_DOUBLE","type":"float"},
                 {"name":"APPROVAL","type":"boolean"}
             ]
         }

@@ -421,6 +421,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_schema_mapping import TestSchemaMapping
 
     from test_suit.test_auto_table_creation import TestAutoTableCreation
+    from test_suit.test_auto_table_creation_topic2table import TestAutoTableCreationTopic2Table
 
     from test_suit.test_schema_evolution_json import TestSchemaEvolutionJson
     from test_suit.test_schema_evolution_avro_sr import TestSchemaEvolutionAvroSR
@@ -458,6 +459,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testSchemaMapping = TestSchemaMapping(driver, nameSalt)
 
     testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet)
+    testAutoTableCreationTopic2Table = TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress, testSet)
 
     testSchemaEvolutionJson = TestSchemaEvolutionJson(driver, nameSalt)
     testSchemaEvolutionAvroSR = TestSchemaEvolutionAvroSR(driver, nameSalt)
@@ -474,7 +476,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
         testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe,
         testSchemaMapping,
-        testAutoTableCreation,
+        testAutoTableCreation, testAutoTableCreationTopic2Table,
         testSchemaEvolutionJson, testSchemaEvolutionAvroSR,
         testSchemaEvolutionWithAutoTableCreationJson, testSchemaEvolutionWithAutoTableCreationAvroSR
     ]
@@ -485,9 +487,9 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         True, True,
         True, True,
         True,
-        True,
         True, True,
         True, True,
+        True, True
     ]
     testSuitEnableList1 = []
     if testSet == "confluent":
@@ -496,7 +498,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True, True,
             True, True,
             True,
-            True,
+            True, True,
             True, True,
             True, True
         ]
@@ -506,7 +508,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True, False,
             True, True,
             True,
-            False,
+            False, False,
             True, False,
             True, False
         ]
