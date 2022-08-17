@@ -704,10 +704,11 @@ public class TopicPartitionChannel {
               Map<String, Object> record =
                   (Map<String, Object>)
                       insertedRecordsToBuffer.get((int) insertError.getRowIndex()).value();
-              // TODO: not verified for avro record
               Object value = null;
               for (String colName : record.keySet()) {
                 if (colName.equalsIgnoreCase(columnName)) {
+                  // TODO: after SDK updates colName and columName should both be before formatting
+                  // (no toUpperCase, no quotes dropping)
                   value = record.get(colName);
                   break;
                 }
