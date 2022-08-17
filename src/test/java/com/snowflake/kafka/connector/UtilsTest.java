@@ -158,4 +158,19 @@ public class UtilsTest {
     assert schemaMap.get("FIRST_NAME").equals("string");
     assert schemaMap.get("LAST_NAME").equals("string");
   }
+
+  @Test
+  public void testValidAvroValueConverter() {
+    Map<String, String> config = new HashMap<>();
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+        SnowflakeSinkConnectorConfig.CONFLUENT_AVRO_CONVERTER);
+    assert SchematizationUtils.usesAvroValueConverter(config);
+
+    config = new HashMap<>();
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+        "com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
+    assert !SchematizationUtils.usesAvroValueConverter(config);
+  }
 }

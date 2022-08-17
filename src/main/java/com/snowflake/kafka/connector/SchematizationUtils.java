@@ -117,7 +117,7 @@ public class SchematizationUtils {
           connectorConfig.get(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
       return validAvroConverter.contains(valueConverter);
     }
-    throw SnowflakeErrors.ERROR_5021.getException();
+    return false;
   }
 
   /**
