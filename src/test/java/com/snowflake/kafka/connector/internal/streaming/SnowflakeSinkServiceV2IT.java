@@ -1,8 +1,10 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.snowflake.kafka.connector.SchematizationUtils;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -608,7 +610,7 @@ public class SnowflakeSinkServiceV2IT {
             .put("approval", true)
             .put("info_map", Collections.singletonMap("field", 3));
 
-    String schemaString = TestUtils.AVRO_SCHEMA_FOR_TABLE_CREATION;
+    String schemaString = SchematizationTestUtils.AVRO_SCHEMA_FOR_TABLE_CREATION;
 
     SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
     AvroConverter avroConverter = new AvroConverter(schemaRegistry);
@@ -618,7 +620,7 @@ public class SnowflakeSinkServiceV2IT {
     ParsedSchema schema = new AvroSchema(schemaString);
     schemaRegistry.register(topic + "-value", schema);
     Map<String, String> schemaMap =
-        Utils.getAvroSchemaFromSchemaRegistryClient(topic, schemaRegistry, "value");
+        SchematizationUtils.getAvroSchemaFromSchemaRegistryClient(topic, schemaRegistry, "value");
     conn.createTableWithSchema(table, schemaMap);
 
     SchemaAndValue avroInputValue = avroConverter.toConnectData(topic, converted);
@@ -650,9 +652,9 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
 
-    TestUtils.checkTableSchema(table, TestUtils.SF_SCHEMA_FOR_TABLE_CREATION);
+    TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_SCHEMA_FOR_TABLE_CREATION);
 
-    TestUtils.checkTableContentOneRow(table, TestUtils.CONTENT_FOR_TABLE_CREATION);
+    TestUtils.checkTableContentOneRow(table, SchematizationTestUtils.CONTENT_FOR_TABLE_CREATION);
 
     service.closeAll();
   }
