@@ -786,6 +786,12 @@ public class Utils {
         if (topicToTableMap.get(topic).equals(tableName)) {
           Map<String, String> tempMap =
               Utils.getAvroSchemaFromSchemaRegistryClient(topic, schemaRegistry, "value");
+          LOGGER.info(Logging.logMessage("Schema fetched from topic: {}", topic));
+          for (String columnName : tempMap.keySet()) {
+            LOGGER.info(
+                Logging.logMessage(
+                    "ColumnName: {}, Type: {}", columnName, tempMap.get(columnName)));
+          }
           schemaMap.putAll(tempMap);
         }
       }
@@ -793,6 +799,11 @@ public class Utils {
       // if topic is not present in topic2table map, the table name must be the same with the
       // topic
       schemaMap = Utils.getAvroSchemaFromSchemaRegistryClient(tableName, schemaRegistry, "value");
+      LOGGER.info(Logging.logMessage("Schema fetched from topic: {}", tableName));
+      for (String columnName : schemaMap.keySet()) {
+        LOGGER.info(
+            Logging.logMessage("ColumnName: {}, Type: {}", columnName, schemaMap.get(columnName)));
+      }
     }
     return schemaMap;
   }
