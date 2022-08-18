@@ -45,7 +45,6 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
@@ -643,6 +642,8 @@ public class TopicPartitionChannel {
 
     private Map<String, String> extraColumnToType;
 
+    private List<String> nonNullableColumns;
+
     private InsertRowsWithRetryResponse() {
       this.insertErrors = new ArrayList<>();
       this.recordWithError = new ArrayList<>();
@@ -679,94 +680,41 @@ public class TopicPartitionChannel {
 
       Map<String, String> schemaMap = new HashMap<>();
       if (sfConnectorConfig
-          .get("value.converter")
-          .equals("io.confluent.connect.avro.AvroConverter")) {
+          .get(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD)
+          .equals(SnowflakeSinkConnectorConfig.CONFLUENT_AVRO_CONVERTER)) {
         schemaMap =
             SchematizationUtils.getSchemaMapForTopic(
                 topicPartition.topic(),
-                sfConnectorConfig.get("value.converter.schema.registry.url"));
+                sfConnectorConfig.get(
+                    SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD));
       }
 
       extraColumnToType = new HashMap<>();
-      final String EXTRA_COL_S = "Extra column: ";
-      final String EXTRA_COL_E = ". Columns not present in the table shouldn't be specified.";
-      for (InsertValidationResponse.InsertError insertError : insertErrors) {
-        String errorMessage = insertError.getMessage();
-        if (errorMessage.contains(EXTRA_COL_S)) {
-          int startIndex = errorMessage.indexOf(EXTRA_COL_S) + EXTRA_COL_S.length();
-          int endIndex = errorMessage.indexOf(EXTRA_COL_E);
-          String columnName = errorMessage.substring(startIndex, endIndex);
-          // columnName is expected to be an uppercase string when there were no quotes before
-          if (!extraColumnToType.containsKey(columnName)) {
-            String type;
-            if (schemaMap.isEmpty()) {
-              // no schema from schema registry
-              Map<String, Object> record =
-                  (Map<String, Object>)
-                      insertedRecordsToBuffer.get((int) insertError.getRowIndex()).value();
-              Object value = null;
-              for (String colName : record.keySet()) {
-                if (colName.equalsIgnoreCase(columnName)) {
-                  // TODO: after SDK updates colName and columName should both be before formatting
-                  // (no toUpperCase, no quotes dropping)
-                  value = record.get(colName);
-                  break;
-                }
-              }
-              type = getType(value);
-            } else {
-              type = schemaMap.get(columnName);
-              if (type == null) {
-                type = "VARIANT";
-              }
-            }
-            extraColumnToType.put(columnName, type);
-          }
+      nonNullableColumns = new ArrayList<>();
 
-          failedBuffer.insert(insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
-        } else {
-          // if not extra column, then add it to response body to be returned
+      for (InsertValidationResponse.InsertError insertError : insertErrors) {
+        Map<String, Object> recordMap =
+            (Map<String, Object>)
+                insertedRecordsToBuffer.get((int) insertError.getRowIndex()).value();
+        Map<String, String> tempExtraColumnToType =
+            SchematizationUtils.collectExtraColumnToType(
+                recordMap, insertError.getMessage(), schemaMap);
+        List<String> tempNonNullableColumns =
+            SchematizationUtils.collectNonNullableColumns(recordMap, insertError.getMessage());
+        if (tempExtraColumnToType.isEmpty() && tempNonNullableColumns.isEmpty()) {
+          // if not extra column and no non-nullable columns, then add it to response body to be
+          // returned
           this.insertErrors.add(insertError);
           this.recordWithError.add(insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
           // containing other type of error
+        } else {
+          extraColumnToType.putAll(tempExtraColumnToType);
+          nonNullableColumns.addAll(tempNonNullableColumns);
+          failedBuffer.insert(insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
         }
       }
 
       return failedBuffer;
-    }
-
-    private String getType(Object value) {
-      if (value == null) {
-        return "VARIANT";
-      }
-      Schema.Type schemaType = ConnectSchema.schemaType(value.getClass());
-      if (schemaType == null) {
-        return "VARIANT";
-      }
-      switch (schemaType) {
-        case INT8:
-          return "BYTEINT";
-        case INT16:
-          return "SMALLINT";
-        case INT32:
-          return "INT";
-        case INT64:
-          return "BIGINT";
-        case FLOAT32:
-          return "FLOAT";
-        case FLOAT64:
-          return "DOUBLE";
-        case BOOLEAN:
-          return "BOOLEAN";
-        case STRING:
-          return "VARCHAR";
-        case BYTES:
-          return "BINARY";
-        case ARRAY:
-          return "ARRAY";
-        default:
-          return "VARIANT";
-      }
     }
 
     /**
@@ -789,6 +737,14 @@ public class TopicPartitionChannel {
       if (!this.extraColumnToType.isEmpty()) {
         try {
           conn.appendColumns(tableName, this.extraColumnToType);
+        } catch (SnowflakeKafkaConnectorException e) {
+          LOGGER.warn(
+              String.format("[INSERT_BUFFERED_RECORDS] Failure altering table :%s", tableName), e);
+        }
+      }
+      if (!this.nonNullableColumns.isEmpty()) {
+        try {
+          conn.alterNonNullableColumns(tableName, this.nonNullableColumns);
         } catch (SnowflakeKafkaConnectorException e) {
           LOGGER.warn(
               String.format("[INSERT_BUFFERED_RECORDS] Failure altering table :%s", tableName), e);

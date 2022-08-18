@@ -246,7 +246,9 @@ public class RecordService extends Logging {
     while (columnNames.hasNext()) {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
-      columnName = formatColumnName(columnName);
+      // column should be passed without processing
+      // TODO: uncomment the casesensitive line in test_schema_mapping.py when new SDK version
+      // releases.\
       Object columnValue;
       if (columnNode.isArray()) {
         List<String> itemList = new ArrayList<>();
@@ -269,23 +271,6 @@ public class RecordService extends Logging {
       streamingIngestRow.put(columnName, columnValue);
     }
     return streamingIngestRow;
-  }
-
-  /**
-   * Transform the columnName to uppercase unless it is enclosed in double quotes
-   *
-   * <p>In that case, drop the quotes and leave it as it is.
-   *
-   * <p>This transformation exist to mimic the behavior of the Ingest SDK.
-   *
-   * @param columnName
-   * @return Transformed columnName
-   */
-  private String formatColumnName(String columnName) {
-    // the columnName has been checked and guaranteed not to be null or empty
-    return (columnName.charAt(0) == '"' && columnName.charAt(columnName.length() - 1) == '"')
-        ? columnName.substring(1, columnName.length() - 1)
-        : columnName.toUpperCase();
   }
 
   /** For now there are two columns one is content and other is metadata. Both are Json */

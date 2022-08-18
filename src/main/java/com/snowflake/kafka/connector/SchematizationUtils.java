@@ -17,8 +17,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.avro.Schema;
+import org.apache.kafka.connect.data.ConnectSchema;
 
+/** This is a class containing the helper functions related to schematization */
 public class SchematizationUtils {
+  static final String EXTRA_COLUMNS_PREFIX = "Extra columns: ";
+
+  static final String DEPRECATED_EXTRA_COLUMNS_PREFIX = "Extra column: ";
+  static final String EXTRA_COLUMNS_SUFFIX =
+      ". Columns not present in the table shouldn't be specified.";
+
+  static final String NONNULLABLE_COLUMNS_PREFIX = "Missing columns: ";
+
+  static final String DEPRECATED_NONNULLABLE_COLUMNS_PREFIX = "Missing column: ";
+
+  static final String NONNULLABLE_COLUMNS_SUFFIX =
+      ". Values for all non-nullable columns must be specified.";
+
   private static SchemaRegistryClient getAvroSchemaRegistryClientFromURL(
       final String schemaRegistryURL) {
     Map<String, String> srConfig = new HashMap<>();
@@ -107,7 +122,7 @@ public class SchematizationUtils {
   /**
    * From the connector config extract whether the avro value converter is used
    *
-   * @param connectorConfig
+   * @param connectorConfig the connnector configuration
    * @return whether the avro value converter is used
    */
   public static boolean usesAvroValueConverter(final Map<String, String> connectorConfig) {
@@ -186,5 +201,213 @@ public class SchematizationUtils {
               tableName, schemaRegistry, "value");
     }
     return schemaMap;
+  }
+
+  /**
+   * Collect the extra column from the error message and their types from either the record or from
+   * schema fetched from schema registry
+   *
+   * @param recordMap the record body
+   * @param message the error message in the response
+   * @param schemaMap the schema map from schema registry, could be empty
+   * @return the map from columnNames to their types
+   */
+  public static Map<String, String> collectExtraColumnToType(
+      Map<String, Object> recordMap, String message, Map<String, String> schemaMap) {
+    Map<String, String> extraColumnToType = new HashMap<>();
+    List<String> columnNames = new ArrayList<>();
+    boolean deprecated_behavior = false;
+    if (message.contains(EXTRA_COLUMNS_PREFIX)) {
+      int startIndex = message.indexOf(EXTRA_COLUMNS_PREFIX) + EXTRA_COLUMNS_PREFIX.length();
+      int endIndex = message.indexOf(EXTRA_COLUMNS_SUFFIX);
+      columnNames = getColumnNamesFromMessage(message.substring(startIndex, endIndex));
+    } else if (message.contains(DEPRECATED_EXTRA_COLUMNS_PREFIX)) {
+      // TODO: remove deprecated behavior once new SDK version is released
+      int startIndex =
+          message.indexOf(DEPRECATED_EXTRA_COLUMNS_PREFIX)
+              + DEPRECATED_EXTRA_COLUMNS_PREFIX.length();
+      int endIndex = message.indexOf(EXTRA_COLUMNS_SUFFIX);
+      columnNames.add(message.substring(startIndex, endIndex));
+      // columnName extracted from message is AFTER formatColumnName in the deprecated version of
+      // SDK
+      deprecated_behavior = true;
+    } else {
+      // return empty map
+      return extraColumnToType;
+    }
+
+    for (String columnName : columnNames) {
+      if (!extraColumnToType.containsKey(columnName)) {
+        String type;
+        if (schemaMap.isEmpty()) {
+          // no schema from schema registry
+          if (!deprecated_behavior) {
+            type = getTypeFromJsonObject(recordMap.get(columnName));
+          } else {
+            Object value = null;
+            for (String colName : recordMap.keySet()) {
+              if (formatColumnName(colName).equals(columnName)) {
+                value = recordMap.get(colName);
+                break;
+              }
+            }
+            type = getTypeFromJsonObject(value);
+          }
+
+        } else {
+          type = schemaMap.get(columnName);
+          if (type == null) {
+            type = "VARIANT";
+          }
+        }
+        extraColumnToType.put(columnName, type);
+      }
+    }
+    return extraColumnToType;
+  }
+
+  /**
+   * Collect the non-nullable columns from error message
+   *
+   * <p>We only use the recordMap to find the columnName before formatColumnName
+   *
+   * @param recordMap map from columnName to value
+   * @param message error message
+   * @return a list of columnNames of non-nullable columns
+   */
+  public static List<String> collectNonNullableColumns(
+      Map<String, Object> recordMap, String message) {
+    List<String> nonNullableColumns = new ArrayList<>();
+    if (message.contains(NONNULLABLE_COLUMNS_PREFIX)) {
+      int startIndex =
+          message.indexOf(NONNULLABLE_COLUMNS_PREFIX) + NONNULLABLE_COLUMNS_PREFIX.length();
+      int endIndex = message.indexOf(NONNULLABLE_COLUMNS_SUFFIX);
+      nonNullableColumns = getColumnNamesFromMessage(message.substring(startIndex, endIndex));
+    } else if (message.contains(DEPRECATED_NONNULLABLE_COLUMNS_PREFIX)) {
+      // TODO: remove deprecated behavior once new SDK version is released
+      //  The recordMap arg should also be removed since it's only used here
+      int startIndex =
+          message.indexOf(DEPRECATED_NONNULLABLE_COLUMNS_PREFIX)
+              + DEPRECATED_NONNULLABLE_COLUMNS_PREFIX.length();
+      int endIndex = message.indexOf(NONNULLABLE_COLUMNS_SUFFIX);
+      String columnName = message.substring(startIndex, endIndex);
+      // find the columnName before formatColumnName
+      for (String colName : recordMap.keySet()) {
+        if (formatColumnName(colName).equals(columnName)) {
+          nonNullableColumns.add(colName);
+          break;
+        }
+      }
+    }
+    return nonNullableColumns;
+  }
+
+  /**
+   * extra a list of columnNames from their string representation
+   *
+   * <p>input: "["a", B]", output: [""a"", "B"]
+   *
+   * @param message part of the error message that contains a list of columnNames
+   * @return the list of columnNames
+   */
+  private static List<String> getColumnNamesFromMessage(String message) {
+    List<String> columnNamesFromMessage = new ArrayList<>();
+    String originalMessage = message;
+    message = message.substring(1, message.length() - 2);
+    // drop the square brackets
+    while (message.contains(",")) {
+      if (message.startsWith("\"")) {
+        int nextQuoteIndex = message.substring(1).indexOf("\"") + 1;
+        if (nextQuoteIndex == 0) {
+          throw SnowflakeErrors.ERROR_5023.getException(
+              String.format("ColumnNames String: %s", originalMessage));
+        }
+        // find the next quote rather than the next comma
+        // because comma could be contained in the columnName
+        String columnName = message.substring(0, nextQuoteIndex + 1);
+        columnNamesFromMessage.add(columnName);
+        message = message.substring(nextQuoteIndex + 3);
+        // skip the quote, the comma and the space
+      } else {
+        // in this case the columnName must be separated by comma
+        int nextCommaIndex = message.indexOf(",");
+        if (nextCommaIndex == -1) {
+          throw SnowflakeErrors.ERROR_5023.getException(
+              String.format("ColumnNames String: %s", originalMessage));
+        }
+        String columnName = message.substring(0, nextCommaIndex);
+        columnNamesFromMessage.add(columnName);
+        message = message.substring(nextCommaIndex + 2);
+        // skip the comma and the space
+      }
+    }
+    columnNamesFromMessage.add(message);
+    return columnNamesFromMessage;
+  }
+
+  private static String getTypeFromJsonObject(Object value) {
+    if (value == null) {
+      return "VARIANT";
+    }
+    org.apache.kafka.connect.data.Schema.Type schemaType =
+        ConnectSchema.schemaType(value.getClass());
+    if (schemaType == null) {
+      return "VARIANT";
+    }
+    switch (schemaType) {
+      case INT8:
+        return "BYTEINT";
+      case INT16:
+        return "SMALLINT";
+      case INT32:
+        return "INT";
+      case INT64:
+        return "BIGINT";
+      case FLOAT32:
+        return "FLOAT";
+      case FLOAT64:
+        return "DOUBLE";
+      case BOOLEAN:
+        return "BOOLEAN";
+      case STRING:
+        return "VARCHAR";
+      case BYTES:
+        return "BINARY";
+      case ARRAY:
+        return "ARRAY";
+      default:
+        return "VARIANT";
+    }
+  }
+
+  /**
+   * Transform the columnName to uppercase unless it is enclosed in double quotes
+   *
+   * <p>In that case, drop the quotes and leave it as it is.
+   *
+   * <p>This transformation exist to mimic the behavior of the Ingest SDK.
+   *
+   * @param columnName the original name of the column
+   * @return Transformed columnName
+   */
+  public static String formatColumnName(String columnName) {
+    // the columnName has been checked and guaranteed not to be null or empty
+    return (columnName.charAt(0) == '"' && columnName.charAt(columnName.length() - 1) == '"')
+        ? columnName.substring(1, columnName.length() - 1)
+        : columnName.toUpperCase();
+  }
+
+  /**
+   * Transform the roleName to uppercase unless it is enclosed in double quotes
+   *
+   * <p>In that case, drop the quotes and leave it as it is.
+   *
+   * @param roleName name of the role
+   * @return Transformed roleName
+   */
+  public static String formatRoleName(String roleName) {
+    return (roleName.charAt(0) == '"' && roleName.charAt(roleName.length() - 1) == '"')
+        ? roleName.substring(1, roleName.length() - 1)
+        : roleName.toUpperCase();
   }
 }

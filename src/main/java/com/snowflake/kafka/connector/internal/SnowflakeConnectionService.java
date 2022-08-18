@@ -110,7 +110,21 @@ public interface SnowflakeConnectionService {
    */
   boolean getSchemaEvolutionPermission(String tableName);
 
-  void appendColumns(String tableName, Map<String, String> extraColumnNames);
+  /**
+   * Alter table to add columns according to a map from columnNames to their types
+   *
+   * @param tableName the name of the table
+   * @param columnToType the mapping from the columnNames to their types
+   */
+  void appendColumns(String tableName, Map<String, String> columnToType);
+
+  /**
+   * Alter table to drop non-nullability of a list of columns
+   *
+   * @param tableName the name of the table
+   * @param columnNames the list of columnNames
+   */
+  void alterNonNullableColumns(String tableName, List<String> columnNames);
 
   /**
    * Examine all file names matches our pattern

@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.SchematizationUtils;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
@@ -53,7 +54,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   private static final String CONTENT_COLUMN = "RECORD_CONTENT";
 
   // A map from the names of tables to whether we have permission to do schema evolution on them
-  private Map<String, Boolean> schemaEvolutionPermissionForTables;
+  private final Map<String, Boolean> schemaEvolutionPermissionForTables;
 
   SnowflakeConnectionServiceV1(
       Properties prop,
@@ -446,7 +447,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     ResultSet result = null;
     boolean hasRolePrivilege = false;
     boolean hasTableOptionEnabled = true;
-    String myRole = formatRoleName(role);
+    String myRole = SchematizationUtils.formatRoleName(role);
     // the schema evolution permission is still in PrPr, so it is left as true here
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -486,45 +487,34 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   }
 
   /**
-   * Transform the roleName to uppercase unless it is enclosed in double quotes
-   *
-   * <p>In that case, drop the quotes and leave it as it is.
-   *
-   * @param roleName
-   * @return Transformed roleName
-   */
-  private String formatRoleName(String roleName) {
-    return (roleName.charAt(0) == '"' && roleName.charAt(roleName.length() - 1) == '"')
-        ? roleName.substring(1, roleName.length() - 1)
-        : roleName.toUpperCase();
-  }
-
-  /**
    * Alter table to add columns according to a map from columnNames to their types
    *
    * @param tableName the name of the table
-   * @param ColumnToType the mapping from the columnNames to their types
+   * @param columnToType the mapping from the columnNames to their types
    */
   @Override
-  public void appendColumns(String tableName, Map<String, String> ColumnToType) {
+  public void appendColumns(String tableName, Map<String, String> columnToType) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-    String query = "alter table identifier(?) add column ";
+    StringBuilder query = new StringBuilder("alter table identifier(?) add column ");
     boolean first = true;
-    String logColumn = "[";
-    for (String columnName : ColumnToType.keySet()) {
+    StringBuilder logColumn = new StringBuilder("[");
+    for (String columnName : columnToType.keySet()) {
       if (first) {
         first = false;
       } else {
-        query += ", add column ";
-        logColumn += ",";
+        query.append(", add column ");
+        logColumn.append(",");
       }
-      query += columnName + " " + ColumnToType.get(columnName);
-      query += " comment 'column created by schema evolution'";
-      logColumn += columnName + " (" + ColumnToType.get(columnName) + ")";
+      query
+          .append(columnName)
+          .append(" ")
+          .append(columnToType.get(columnName))
+          .append(" comment 'column created by schema evolution'");
+      logColumn.append(columnName).append(" (").append(columnToType.get(columnName)).append(")");
     }
     try {
-      PreparedStatement stmt = conn.prepareStatement(query);
+      PreparedStatement stmt = conn.prepareStatement(query.toString());
       stmt.setString(1, tableName);
       stmt.execute();
       stmt.close();
@@ -532,8 +522,50 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       throw SnowflakeErrors.ERROR_2015.getException(e);
     }
 
-    logColumn = "Following columns created for table {}:\n" + logColumn + "]";
-    logInfo(logColumn, tableName);
+    logColumn.insert(0, "Following columns created for table {}:\n").append("]");
+    logInfo(logColumn.toString(), tableName);
+  }
+
+  /**
+   * Alter table to drop non-nullability of a list of columns
+   *
+   * @param tableName the name of the table
+   * @param columnNames the list of columnNames
+   */
+  @Override
+  public void alterNonNullableColumns(String tableName, List<String> columnNames) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    StringBuilder query = new StringBuilder("alter table identifier(?) alter ");
+    boolean first = true;
+    StringBuilder logColumn = new StringBuilder("[");
+    for (String columnName : columnNames) {
+      if (first) {
+        first = false;
+      } else {
+        query.append(", ");
+        logColumn.append(", ");
+      }
+      query
+          .append(columnName)
+          .append(" drop not null, ")
+          .append(columnName)
+          .append(" comment 'column created by schema evolution'");
+      logColumn.append(columnName);
+    }
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query.toString());
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2016.getException(e);
+    }
+
+    logColumn
+        .insert(0, "Following columns' non-nullabilty was dropped for table {}:\n")
+        .append("]");
+    logInfo(logColumn.toString(), tableName);
   }
 
   @Override

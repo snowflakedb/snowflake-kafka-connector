@@ -167,6 +167,7 @@ public enum SnowflakeErrors {
   ERROR_2014(
       "2014", "Table not exists", "Table not exists. It might have been deleted externally."),
   ERROR_2015("2015", "Failed to append columns", "Failed to append columns"),
+  ERROR_2016("2016", "Failed to drop nullability", "Failed to drop nullability"),
   // Snowpipe related issues 3---
   ERROR_3001("3001", "Failed to ingest file", "Exception reported by Ingest SDK"),
 
@@ -265,7 +266,11 @@ public enum SnowflakeErrors {
       "5022",
       "Failed to create table",
       "Failed to create table because schema evolution could not be done due to the lack of"
-          + " permission");
+          + " permission"),
+  ERROR_5023(
+      "5023",
+      "Failed parsing columnNames from response error message",
+      "Failed parsing columnNames from response error message");
 
   // properties
 
