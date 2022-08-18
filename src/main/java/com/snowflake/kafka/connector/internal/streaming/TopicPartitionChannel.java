@@ -693,9 +693,7 @@ public class TopicPartitionChannel {
       nonNullableColumns = new ArrayList<>();
 
       for (InsertValidationResponse.InsertError insertError : insertErrors) {
-        Map<String, Object> recordMap =
-            (Map<String, Object>)
-                insertedRecordsToBuffer.get((int) insertError.getRowIndex()).value();
+        Map<String, Object> recordMap = (Map<String, Object>) insertError.getRowContent();
         Map<String, String> tempExtraColumnToType =
             SchematizationUtils.collectExtraColumnToType(
                 recordMap, insertError.getMessage(), schemaMap);
