@@ -550,7 +550,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
           .append(columnName)
           .append(" drop not null, ")
           .append(columnName)
-          .append(" comment 'column created by schema evolution'");
+          .append(" comment 'column altered to be nullable by schema evolution'");
       logColumn.append(columnName);
     }
     try {

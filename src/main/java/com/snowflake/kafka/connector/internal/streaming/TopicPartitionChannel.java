@@ -693,12 +693,20 @@ public class TopicPartitionChannel {
       nonNullableColumns = new ArrayList<>();
 
       for (InsertValidationResponse.InsertError insertError : insertErrors) {
-        Map<String, Object> recordMap = (Map<String, Object>) insertError.getRowContent();
+        Map<String, Object> recordMap;
+        try {
+          recordMap =
+              (Map<String, Object>)
+                  insertedRecordsToBuffer.get((int) insertError.getRowIndex()).value();
+        } catch (Exception e) {
+          recordMap = new HashMap<>();
+        }
+        // For Avro this is a Struct, not a map
         Map<String, String> tempExtraColumnToType =
             SchematizationUtils.collectExtraColumnToType(
                 recordMap, insertError.getMessage(), schemaMap);
         List<String> tempNonNullableColumns =
-            SchematizationUtils.collectNonNullableColumns(recordMap, insertError.getMessage());
+            SchematizationUtils.collectNonNullableColumns(insertError.getMessage());
         if (tempExtraColumnToType.isEmpty() && tempNonNullableColumns.isEmpty()) {
           // if not extra column and no non-nullable columns, then add it to response body to be
           // returned

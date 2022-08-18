@@ -269,14 +269,10 @@ public class SchematizationUtils {
   /**
    * Collect the non-nullable columns from error message
    *
-   * <p>We only use the recordMap to find the columnName before formatColumnName
-   *
-   * @param recordMap map from columnName to value
    * @param message error message
    * @return a list of columnNames of non-nullable columns
    */
-  public static List<String> collectNonNullableColumns(
-      Map<String, Object> recordMap, String message) {
+  public static List<String> collectNonNullableColumns(String message) {
     List<String> nonNullableColumns = new ArrayList<>();
     if (message.contains(NONNULLABLE_COLUMNS_PREFIX)) {
       int startIndex =
@@ -291,13 +287,9 @@ public class SchematizationUtils {
               + DEPRECATED_NONNULLABLE_COLUMNS_PREFIX.length();
       int endIndex = message.indexOf(NONNULLABLE_COLUMNS_SUFFIX);
       String columnName = message.substring(startIndex, endIndex);
-      // find the columnName before formatColumnName
-      for (String colName : recordMap.keySet()) {
-        if (formatColumnName(colName).equals(columnName)) {
-          nonNullableColumns.add(colName);
-          break;
-        }
-      }
+      // need to find the columnName before formatColumnName
+      // this is wrong when the columnName was enclosed in double quotes
+      nonNullableColumns.add(columnName);
     }
     return nonNullableColumns;
   }
