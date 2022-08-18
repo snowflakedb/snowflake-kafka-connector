@@ -79,14 +79,8 @@ echo -e "=== Name Salt: $NAME_SALT ==="
 
 # start apache kafka cluster
 case $CONFLUENT_VERSION in
-	5.0.0)
-    DOWNLOAD_URL="https://packages.confluent.io/archive/5.0/confluent-oss-5.0.0-2.11.tar.gz"
-		;;
-	5.1.0)
-    DOWNLOAD_URL="https://packages.confluent.io/archive/5.1/confluent-community-5.1.0-2.11.tar.gz"
-    ;;
 	5.5.*)
-    DOWNLOAD_URL="https://packages.confluent.io/archive/5.5/confluent-community-$c_version-2.12.tar.gz"
+    DOWNLOAD_URL="https://packages.confluent.io/archive/5.5/confluent-community-$CONFLUENT_VERSION-2.12.tar.gz"
     ;;
 	6.2.*)
     DOWNLOAD_URL="https://packages.confluent.io/archive/6.2/confluent-community-$CONFLUENT_VERSION.tar.gz"

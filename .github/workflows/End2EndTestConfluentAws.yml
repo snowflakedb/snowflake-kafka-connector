@@ -62,11 +62,13 @@ jobs:
         cd test
         ./build_apache.sh ../../snowflake-kafka-connector package
 
-    - name: End to End Test of Confluent Platform Version {{ matrix.confluent_version }}
+    - name: End to End Test of Confluent Platform Version ${{ matrix.confluent_version }}
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SF_CLOUD_PLATFORM: "AWS"
         ENABLE_DELIVERY_GUARANTEE_TESTS: "True"
+        CONFLUENT_VERSION: ${{ matrix.confluent_version }}
+      continue-on-error: true
       run: |
         cd test
-        ./run_test_confluent.sh {{ matrix.confluent_version }} ./apache_properties
+        ./run_test_confluent.sh ${{ matrix.confluent_version }} ./apache_properties
