@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        confluent_version: [ '5.5.11', '6.2.6', '7.2.1' ]
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2
@@ -59,11 +62,11 @@ jobs:
         cd test
         ./build_apache.sh ../../snowflake-kafka-connector package
 
-    - name: End to End Test of Confluent Platform 5.5
+    - name: End to End Test of Confluent Platform Version {{ matrix.confluent_version }}
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SF_CLOUD_PLATFORM: "AWS"
         ENABLE_DELIVERY_GUARANTEE_TESTS: "True"
       run: |
         cd test
-        ./run_test_confluent.sh 5.5.0 ./apache_properties
+        ./run_test_confluent.sh {{ matrix.confluent_version }} ./apache_properties

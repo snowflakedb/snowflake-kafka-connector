@@ -85,17 +85,14 @@ case $CONFLUENT_VERSION in
 	5.1.0)
     DOWNLOAD_URL="https://packages.confluent.io/archive/5.1/confluent-community-5.1.0-2.11.tar.gz"
     ;;
-	5.*.0)
-    c_version=${CONFLUENT_VERSION%.0}
-    DOWNLOAD_URL="https://packages.confluent.io/archive/$c_version/confluent-community-$c_version.0-2.12.tar.gz"
+	5.5.*)
+    DOWNLOAD_URL="https://packages.confluent.io/archive/5.5/confluent-community-$c_version-2.12.tar.gz"
     ;;
-	5.*.2)
-    c_version=${CONFLUENT_VERSION%.2}
-    DOWNLOAD_URL="https://packages.confluent.io/archive/$c_version/confluent-community-$c_version.2-2.12.tar.gz"
+	6.2.*)
+    DOWNLOAD_URL="https://packages.confluent.io/archive/6.2/confluent-community-$CONFLUENT_VERSION.tar.gz"
     ;;
-	6.*.0)
-    c_version=${CONFLUENT_VERSION%.0}
-    DOWNLOAD_URL="https://packages.confluent.io/archive/$c_version/confluent-$CONFLUENT_VERSION.tar.gz"
+  7.2.*)
+    DOWNLOAD_URL="https://packages.confluent.io/archive/7.2/confluent-community-$CONFLUENT_VERSION.tar.gz"
     ;;
   *)
     error_exit "Usage: ./run_test.sh <version> <path to apache config folder>. Unknown version $CONFLUENT_VERSION Aborting."
@@ -106,6 +103,7 @@ CONFLUENT_FOLDER_NAME="./confluent-$CONFLUENT_VERSION"
 rm -rf $CONFLUENT_FOLDER_NAME || true
 rm apache.tgz || true
 
+echo "Downloading CONFLUENT VERSION using URL: $DOWNLOAD_URL"
 curl $DOWNLOAD_URL --output apache.tgz
 tar xzvf apache.tgz > /dev/null 2>&1
 
