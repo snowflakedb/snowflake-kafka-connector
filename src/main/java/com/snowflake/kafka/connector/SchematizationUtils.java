@@ -253,9 +253,18 @@ public class SchematizationUtils {
             }
             type = getTypeFromJsonObject(value);
           }
-
         } else {
-          type = schemaMap.get(columnName);
+          type = null;
+          if (!deprecated_behavior) {
+            type = schemaMap.get(columnName);
+          } else {
+            for (String colName : schemaMap.keySet()) {
+              if (formatColumnName(colName).equals(columnName)) {
+                type = schemaMap.get(colName);
+                break;
+              }
+            }
+          }
           if (type == null) {
             type = "VARIANT";
           }
@@ -302,12 +311,14 @@ public class SchematizationUtils {
    * @param message part of the error message that contains a list of columnNames
    * @return the list of columnNames
    */
-  private static List<String> getColumnNamesFromMessage(String message) {
+  @VisibleForTesting
+  public static List<String> getColumnNamesFromMessage(String message) {
     List<String> columnNamesFromMessage = new ArrayList<>();
     String originalMessage = message;
-    message = message.substring(1, message.length() - 2);
+    message = message.substring(1, message.length() - 1);
     // drop the square brackets
     while (message.contains(",")) {
+      int newIndex;
       if (message.startsWith("\"")) {
         int nextQuoteIndex = message.substring(1).indexOf("\"") + 1;
         if (nextQuoteIndex == 0) {
@@ -318,7 +329,7 @@ public class SchematizationUtils {
         // because comma could be contained in the columnName
         String columnName = message.substring(0, nextQuoteIndex + 1);
         columnNamesFromMessage.add(columnName);
-        message = message.substring(nextQuoteIndex + 3);
+        newIndex = nextQuoteIndex + 3;
         // skip the quote, the comma and the space
       } else {
         // in this case the columnName must be separated by comma
@@ -329,8 +340,15 @@ public class SchematizationUtils {
         }
         String columnName = message.substring(0, nextCommaIndex);
         columnNamesFromMessage.add(columnName);
-        message = message.substring(nextCommaIndex + 2);
+        newIndex = nextCommaIndex + 2;
         // skip the comma and the space
+      }
+      if (newIndex >= message.length()) {
+        // parse finished early
+        // can be caused by comma in the columnName
+        return columnNamesFromMessage;
+      } else {
+        message = message.substring(newIndex);
       }
     }
     columnNamesFromMessage.add(message);

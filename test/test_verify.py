@@ -429,6 +429,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     from test_suit.test_schema_evolution_w_auto_table_creation_json import TestSchemaEvolutionWithAutoTableCreationJson
     from test_suit.test_schema_evolution_w_auto_table_creation_avro_sr import TestSchemaEvolutionWithAutoTableCreationAvroSR
 
+    from test_suit.test_schema_evolution_nonnullable_json import TestSchemaEvolutionNonNullableJson
+
     testStringJson = TestStringJson(driver, nameSalt)
     testJsonJson = TestJsonJson(driver, nameSalt)
     testStringAvro = TestStringAvro(driver, nameSalt)
@@ -467,6 +469,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     testSchemaEvolutionWithAutoTableCreationJson = TestSchemaEvolutionWithAutoTableCreationJson(driver, nameSalt)
     testSchemaEvolutionWithAutoTableCreationAvroSR = TestSchemaEvolutionWithAutoTableCreationAvroSR(driver, nameSalt)
 
+    testSchemaEvolutionNonNullableJson = TestSchemaEvolutionNonNullableJson(driver, nameSalt)
+
     ############################ round 1 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
     testSuitList1 = [
@@ -478,7 +482,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         testSchemaMapping,
         testAutoTableCreation, testAutoTableCreationTopic2Table,
         testSchemaEvolutionJson, testSchemaEvolutionAvroSR,
-        testSchemaEvolutionWithAutoTableCreationJson, testSchemaEvolutionWithAutoTableCreationAvroSR
+        testSchemaEvolutionWithAutoTableCreationJson, testSchemaEvolutionWithAutoTableCreationAvroSR,
+        testSchemaEvolutionNonNullableJson
     ]
 
     # Adding StringJsonProxy test at the end
@@ -489,7 +494,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         True,
         True, True,
         True, True,
-        True, True
+        True, True,
+        True
     ]
     testSuitEnableList1 = []
     if testSet == "confluent":
@@ -500,7 +506,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True,
             True, True,
             True, True,
-            True, True
+            True, True,
+            True
         ]
     elif testSet == "apache":
         testSuitEnableList1 = [
@@ -510,7 +517,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
             True,
             False, False,
             True, False,
-            True, False
+            True, False,
+            True
         ]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
