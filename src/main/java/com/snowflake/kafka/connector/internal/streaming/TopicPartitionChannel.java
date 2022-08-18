@@ -313,7 +313,9 @@ public class TopicPartitionChannel {
       // flush (Insert them)
       if (copiedStreamingBuffer != null) {
         if (this.enableSchematization && this.enableSchemaEvolution) {
-          insertBufferedRecordsWithRetry(copiedStreamingBuffer);
+          insertBufferedRecordsWithRetry(
+              copiedStreamingBuffer,
+              SnowflakeSinkConnectorConfig.RETRY_INSERTION_ATTEMPT_MAX_COUNT_DEFAULT);
         } else {
           insertBufferedRecords(copiedStreamingBuffer);
         }
@@ -488,7 +490,9 @@ public class TopicPartitionChannel {
       }
       if (copiedStreamingBuffer != null) {
         if (this.enableSchematization && this.enableSchemaEvolution) {
-          insertBufferedRecordsWithRetry(copiedStreamingBuffer);
+          insertBufferedRecordsWithRetry(
+              copiedStreamingBuffer,
+              SnowflakeSinkConnectorConfig.RETRY_INSERTION_ATTEMPT_MAX_COUNT_DEFAULT);
         } else {
           insertBufferedRecords(copiedStreamingBuffer);
         }
@@ -501,40 +505,8 @@ public class TopicPartitionChannel {
    * partition. This buffer is decided based on the flush time threshold, buffered bytes or number
    * of records
    */
-  InsertValidationResponse insertBufferedRecords(StreamingBuffer streamingBufferToInsert) {
-
-    // intermediate buffer can be empty here if time interval reached but kafka produced no records.
-    if (streamingBufferToInsert.isEmpty()) {
-      LOGGER.debug("No Rows Buffered for channel:{}, returning", this.getChannelName());
-      this.previousFlushTimeStampMs = System.currentTimeMillis();
-      return null;
-    }
-    InsertValidationResponse response = null;
-    try {
-      response = insertRowsWithFallback(streamingBufferToInsert);
-      // Updates the flush time (last time we called insertRows API)
-      this.previousFlushTimeStampMs = System.currentTimeMillis();
-
-      LOGGER.info(
-          "Successfully called insertRows for channel:{}, buffer:{}, insertResponseHasErrors:{}",
-          this.getChannelName(),
-          streamingBufferToInsert,
-          response.hasErrors());
-      if (response.hasErrors()) {
-        // schema evolution cannot be performed; fall back to normal behavior
-        handleInsertRowsFailures(
-            response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
-      }
-      return response;
-    } catch (TopicPartitionChannelInsertionException ex) {
-      // Suppressing the exception because other channels might still continue to ingest
-      LOGGER.warn(
-          String.format(
-              "[INSERT_BUFFERED_RECORDS] Failure inserting buffer:%s for channel:%s",
-              streamingBufferToInsert, this.getChannelName()),
-          ex);
-    }
-    return response;
+  InsertRowsWithRetryResponse insertBufferedRecords(StreamingBuffer streamingBufferToInsert) {
+    return insertBufferedRecordsWithRetry(streamingBufferToInsert, 1);
   }
 
   /**
@@ -549,17 +521,18 @@ public class TopicPartitionChannel {
    *
    * @param streamingBufferToInsert the record buffer
    */
-  public void insertBufferedRecordsWithRetry(StreamingBuffer streamingBufferToInsert) {
+  public InsertRowsWithRetryResponse insertBufferedRecordsWithRetry(
+      StreamingBuffer streamingBufferToInsert, int maxInsertAttempt) {
     // intermediate buffer can be empty here if time interval reached but kafka produced no records.
     if (streamingBufferToInsert.isEmpty()) {
       LOGGER.debug("No Rows Buffered for channel:{}, returning", this.getChannelName());
       this.previousFlushTimeStampMs = System.currentTimeMillis();
-      return;
+      return new InsertRowsWithRetryResponse();
     }
     InsertRowsWithRetryResponse response = null;
     try {
       long lastKafkaOffsetInFailedBuffer = streamingBufferToInsert.getLastOffset();
-      response = insertRowsAndAlterTableWithRetry(streamingBufferToInsert);
+      response = insertRowsAndAlterTableWithRetry(streamingBufferToInsert, maxInsertAttempt);
 
       // Updates the flush time (last time we called insertRows API)
       this.previousFlushTimeStampMs = System.currentTimeMillis();
@@ -578,10 +551,13 @@ public class TopicPartitionChannel {
       // buffer to continue ingestion properly
       // even if the retry does not succeed the reset is necessary to make the behavior consistent
       // with that without schema evolution
-      resetChannelMetadataAfterRecovery(
-          StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK, lastKafkaOffsetInFailedBuffer);
-      // TODO: last record offset equivalent to snowflake offset?
-      // TODO: How multiple tasks work?
+      if (response.getChannelReopened()) {
+        resetChannelMetadataAfterRecovery(
+            StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK, lastKafkaOffsetInFailedBuffer);
+        // TODO: last record offset equivalent to snowflake offset?
+        // TODO: How multiple tasks work?
+      }
+
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
       LOGGER.warn(
@@ -590,53 +566,10 @@ public class TopicPartitionChannel {
               streamingBufferToInsert, this.getChannelName()),
           ex);
     }
-    // clear the buffer regardless of insertion outcome
+    return response;
   }
 
-  /**
-   * Uses {@link Fallback} API to reopen the channel if insertRows throws {@link SFException}.
-   *
-   * <p>We have deliberately not performed retries on insertRows because it might slow down overall
-   * ingestion and introduce lags in committing offsets to Kafka.
-   *
-   * <p>Note that insertRows API does perform channel validation which might throw SFException if
-   * channel is invalidated.
-   *
-   * <p>It can also send errors {@link
-   * net.snowflake.ingest.streaming.InsertValidationResponse.InsertError} in form of response inside
-   * {@link InsertValidationResponse}
-   *
-   * @param buffer buffer to insert into snowflake
-   * @return InsertValidationResponse object sent from insertRows API.
-   */
-  private InsertValidationResponse insertRowsWithFallback(StreamingBuffer buffer) {
-    Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
-        Fallback.builder(
-                executionAttemptedEvent -> {
-                  insertRowsFallbackSupplier(executionAttemptedEvent.getLastException());
-                })
-            .handle(SFException.class)
-            .onFailedAttempt(
-                event ->
-                    LOGGER.warn(
-                        String.format(
-                            "Failed Attempt to invoke the insertRows API for buffer:%s", buffer),
-                        event.getLastException()))
-            .onFailure(
-                event ->
-                    LOGGER.error(
-                        String.format(
-                            "%s Failed to open Channel or fetching offsetToken for channel:%s",
-                            StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
-                            this.getChannelName()),
-                        event.getException()))
-            .build();
-
-    return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
-        .get(new InsertRowsApiResponseSupplier(this.channel, buffer));
-  }
-
-  private class InsertRowsWithRetryResponse {
+  public class InsertRowsWithRetryResponse {
     public List<InsertValidationResponse.InsertError> insertErrors;
     public List<SinkRecord> recordWithError;
 
@@ -644,13 +577,24 @@ public class TopicPartitionChannel {
 
     private List<String> nonNullableColumns;
 
+    private boolean isChannelReopened;
+
     private InsertRowsWithRetryResponse() {
       this.insertErrors = new ArrayList<>();
       this.recordWithError = new ArrayList<>();
+      this.isChannelReopened = false;
     }
 
     public boolean hasErrors() {
       return !recordWithError.isEmpty();
+    }
+
+    public void setChannelReopened() {
+      this.isChannelReopened = true;
+    }
+
+    public boolean getChannelReopened() {
+      return this.isChannelReopened;
     }
 
     /** Add rows with their errors to the response */
@@ -760,7 +704,8 @@ public class TopicPartitionChannel {
     }
   }
 
-  private InsertRowsWithRetryResponse insertRowsAndAlterTableWithRetry(StreamingBuffer buffer) {
+  private InsertRowsWithRetryResponse insertRowsAndAlterTableWithRetry(
+      StreamingBuffer buffer, int maxInsertAttempt) {
     InsertRowsApiResponseSupplier supplier =
         new InsertRowsApiResponseSupplier(this.channel, buffer);
     InsertRowsWithRetryResponse retryResponse = new InsertRowsWithRetryResponse();
@@ -790,13 +735,15 @@ public class TopicPartitionChannel {
 
     RetryPolicy<Object> reopenChannelRetryExecutorForInsertRows =
         RetryPolicy.builder()
-            .withMaxAttempts(SnowflakeSinkConnectorConfig.RETRY_INSERTION_ATTEMPT_MAX_COUNT_DEFAULT)
+            .withMaxAttempts(maxInsertAttempt)
             .handle(SFException.class)
             .handleResultIf(
                 result ->
                     result instanceof InsertValidationResponse
                         && ((InsertValidationResponse) result).hasErrors())
             .onRetry(
+                // when schematization is not enabled, maxInsertAttempt will be 0 and this block
+                // will never be executed. Instead it will go to onFailure immediately
                 executionAttemptedEvent -> {
                   InsertValidationResponse response =
                       (InsertValidationResponse) executionAttemptedEvent.getLastResult();
@@ -816,6 +763,7 @@ public class TopicPartitionChannel {
                       "{} Re-opening channel:{}",
                       StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
                       this.getChannelName());
+                  retryResponse.setChannelReopened();
 
                   this.channel = Preconditions.checkNotNull(openChannelForTable());
                   resetChannelMetadataAfterRecovery(
@@ -896,7 +844,7 @@ public class TopicPartitionChannel {
   }
 
   /**
-   * Invoked only when {@link InsertValidationResponse} has errors.
+   * Invoked only when InsertRowsWithRetryResponse has errors.
    *
    * <p>This function checks if we need to log errors, send it to DLQ or just ignore and throw
    * exception.
@@ -904,35 +852,6 @@ public class TopicPartitionChannel {
    * @param insertErrors errors from validation response. (Only if it has errors)
    * @param insertedRecordsToBuffer to map {@link SinkRecord} with insertErrors
    */
-  private void handleInsertRowsFailures(
-      List<InsertValidationResponse.InsertError> insertErrors,
-      List<SinkRecord> insertedRecordsToBuffer) {
-    if (logErrors) {
-      for (InsertValidationResponse.InsertError insertError : insertErrors) {
-        LOGGER.error("Insert Row Error message", insertError.getException());
-      }
-    }
-    if (errorTolerance) {
-      if (!isDLQTopicSet) {
-        LOGGER.warn(
-            "Although config:{} is set, Dead Letter Queue topic:{} is not set.",
-            ERRORS_TOLERANCE_CONFIG,
-            ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
-      } else {
-        for (InsertValidationResponse.InsertError insertError : insertErrors) {
-          // Map error row number to index in sinkRecords list.
-          int rowIndexToOriginalSinkRecord = (int) insertError.getRowIndex();
-          this.kafkaRecordErrorReporter.reportError(
-              insertedRecordsToBuffer.get(rowIndexToOriginalSinkRecord),
-              insertError.getException());
-        }
-      }
-    } else {
-      throw new DataException(
-          "Error inserting Records using Streaming API", insertErrors.get(0).getException());
-    }
-  }
-
   private void handleInsertRowsWithRetryFailures(
       List<InsertValidationResponse.InsertError> insertErrors,
       List<SinkRecord> insertedRecordsToBuffer) {
