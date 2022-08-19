@@ -12,6 +12,7 @@ jobs:
     strategy:
       matrix:
         apache_kafka_version: [ '2.5.1', '2.8.1', '3.2.0' ]
+        snowflake_cloud: [ 'AWS', 'AZURE', 'GCS' ]
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2
@@ -24,8 +25,8 @@ jobs:
       with:
         python-version: '3.6'
         architecture: 'x64'
-    - name: Decrypt profile.json
-      run: ./.github/scripts/decrypt_secret.sh 'aws'
+    - name: Decrypt profile.json in Snowflake Cloud ${{ matrix.snowflake_cloud }}
+      run: ./.github/scripts/decrypt_secret.sh ${{ matrix.snowflake_cloud }}
       env:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
     - name: Install Dependency
@@ -62,10 +63,10 @@ jobs:
         cd test
         ./build_apache.sh ../../snowflake-kafka-connector package
 
-    - name: End to End Test of Apache Plarform ${{ matrix.apache_kafka_version }}
+    - name: End to End Test of Apache Plarform ${{ matrix.apache_kafka_version }} against Snowflake Cloud in ${{ matrix.snowflake_cloud }}
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
-        SF_CLOUD_PLATFORM: "AWS"
+        SF_CLOUD_PLATFORM: ${{ matrix.snowflake_cloud }}
         ENABLE_DELIVERY_GUARANTEE_TESTS: "True"
       continue-on-error: true
       run: |
