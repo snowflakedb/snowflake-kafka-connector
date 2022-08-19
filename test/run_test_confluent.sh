@@ -162,7 +162,7 @@ LOCAL_IP="localhost"
 SC_PORT=8081
 KC_PORT=8083
 
-set +e
+set +e -x
 echo -e "\n=== Clean table stage and pipe ==="
 python3 test_verify.py $SNOWFLAKE_KAFKA_ADDRESS http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $CONFLUENT_VERSION $NAME_SALT $PRESSURE $SSL
 
