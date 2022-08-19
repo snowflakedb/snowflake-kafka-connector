@@ -67,7 +67,6 @@ jobs:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SF_CLOUD_PLATFORM: "AWS"
         ENABLE_DELIVERY_GUARANTEE_TESTS: "True"
-        CONFLUENT_VERSION: ${{ matrix.confluent_version }}
       continue-on-error: true
       run: |
         cd test
