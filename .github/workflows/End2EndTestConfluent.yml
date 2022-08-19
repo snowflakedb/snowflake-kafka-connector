@@ -7,7 +7,7 @@ on:
     branches: '**'
 
 jobs:
-  build:
+  build_and_test:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
