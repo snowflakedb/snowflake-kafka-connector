@@ -18,9 +18,13 @@ import java.util.List;
 import java.util.Map;
 import org.apache.avro.Schema;
 import org.apache.kafka.connect.data.ConnectSchema;
+import org.apache.kafka.connect.data.Schema.Type;
 
 /** This is a class containing the helper functions related to schematization */
 public class SchematizationUtils {
+
+  // TODO: SNOW-649753 Directly get a list of columns from the response instead of parsing them from
+  //  a string
   static final String EXTRA_COLUMNS_PREFIX = "Extra columns: ";
 
   static final String DEPRECATED_EXTRA_COLUMNS_PREFIX = "Extra column: ";
@@ -303,6 +307,8 @@ public class SchematizationUtils {
     return nonNullableColumns;
   }
 
+  // TODO: SNOW-649753 Directly get a list of columns from the response instead of parsing them from
+  //  a string
   /**
    * extra a list of columnNames from their string representation
    *
@@ -359,8 +365,7 @@ public class SchematizationUtils {
     if (value == null) {
       return "VARIANT";
     }
-    org.apache.kafka.connect.data.Schema.Type schemaType =
-        ConnectSchema.schemaType(value.getClass());
+    Type schemaType = ConnectSchema.schemaType(value.getClass());
     if (schemaType == null) {
       return "VARIANT";
     }

@@ -143,13 +143,20 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       createTableWithOnlyMetadataColumn(tableName);
       return;
     }
+    String comment = "comment 'created by automatic table creation from Snowflake Kafka connector'";
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     StringBuilder createTableQuery = new StringBuilder("create table if not exists identifier(?)");
     StringBuilder logColumn = new StringBuilder("[RECORD_METADATA (VARIANT)");
-    createTableQuery.append("(record_metadata variant");
+    createTableQuery.append("(record_metadata variant ").append(comment);
     for (Map.Entry<String, String> field : schema.entrySet()) {
-      createTableQuery.append(", ").append(field.getKey()).append(" ").append(field.getValue());
+      createTableQuery
+          .append(", ")
+          .append(field.getKey())
+          .append(" ")
+          .append(field.getValue())
+          .append(" ")
+          .append(comment);
       logColumn.append(", ").append(field.getKey()).append(" ").append(field.getValue());
     }
     createTableQuery.append(")");
@@ -170,11 +177,13 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
 
   public void createTableWithOnlyMetadataColumn(final String tableName) {
     checkConnection();
-    if (!getSchemaEvolutionPermission(tableName)) {
+    if (!hasSchemaEvolutionPermission(tableName)) {
       throw SnowflakeErrors.ERROR_5021.getException();
     }
     InternalUtils.assertNotEmpty("tableName", tableName);
-    String createTableQuery = "create table if not exists identifier(?) (record_metadata variant)";
+    String createTableQuery =
+        "create table if not exists identifier(?) (record_metadata variant comment 'created by"
+            + " automatic table creation from Snowflake Kafka connector')";
 
     try {
       PreparedStatement stmt = conn.prepareStatement(createTableQuery);
@@ -482,7 +491,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
    * @return whether we have the permission to do schema evolution on the table
    */
   @Override
-  public boolean getSchemaEvolutionPermission(String tableName) {
+  public boolean hasSchemaEvolutionPermission(String tableName) {
     return this.schemaEvolutionPermissionForTables.get(tableName);
   }
 
@@ -496,25 +505,25 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   public void appendColumns(String tableName, Map<String, String> columnToType) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-    StringBuilder query = new StringBuilder("alter table identifier(?) add column ");
+    StringBuilder appendColumnQuery = new StringBuilder("alter table identifier(?) add column ");
     boolean first = true;
     StringBuilder logColumn = new StringBuilder("[");
     for (String columnName : columnToType.keySet()) {
       if (first) {
         first = false;
       } else {
-        query.append(", add column ");
+        appendColumnQuery.append(", add column ");
         logColumn.append(",");
       }
-      query
+      appendColumnQuery
           .append(columnName)
           .append(" ")
           .append(columnToType.get(columnName))
-          .append(" comment 'column created by schema evolution'");
+          .append(" comment 'column created by schema evolution from Snowflake Kafka connector'");
       logColumn.append(columnName).append(" (").append(columnToType.get(columnName)).append(")");
     }
     try {
-      PreparedStatement stmt = conn.prepareStatement(query.toString());
+      PreparedStatement stmt = conn.prepareStatement(appendColumnQuery.toString());
       stmt.setString(1, tableName);
       stmt.execute();
       stmt.close();
@@ -550,7 +559,9 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
           .append(columnName)
           .append(" drop not null, ")
           .append(columnName)
-          .append(" comment 'column altered to be nullable by schema evolution'");
+          .append(
+              " comment 'column altered to be nullable by schema evolution from Snowflake Kafka"
+                  + " connector'");
       logColumn.append(columnName);
     }
     try {

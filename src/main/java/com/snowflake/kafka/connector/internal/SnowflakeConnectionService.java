@@ -108,7 +108,7 @@ public interface SnowflakeConnectionService {
    * @param tableName the name of the table
    * @return whether we have the permission to do schema evolution on the table
    */
-  boolean getSchemaEvolutionPermission(String tableName);
+  boolean hasSchemaEvolutionPermission(String tableName);
 
   /**
    * Alter table to add columns according to a map from columnNames to their types

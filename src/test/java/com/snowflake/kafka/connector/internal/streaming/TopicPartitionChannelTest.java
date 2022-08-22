@@ -435,7 +435,7 @@ public class TopicPartitionChannelTest {
       TopicPartitionChannel.StreamingBuffer streamingBuffer =
           topicPartitionChannel.new StreamingBuffer();
       streamingBuffer.insert(records.get(0));
-      topicPartitionChannel.insertBufferedRecords(streamingBuffer);
+      topicPartitionChannel.insertBufferedRecordsWithRetry(streamingBuffer, 1);
     } catch (SFException ex) {
       Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
       Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
@@ -472,7 +472,8 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertRecordToBuffer(records.get(0));
 
     try {
-      topicPartitionChannel.insertBufferedRecords(topicPartitionChannel.getStreamingBuffer());
+      topicPartitionChannel.insertBufferedRecordsWithRetry(
+          topicPartitionChannel.getStreamingBuffer(), 1);
     } catch (RuntimeException ex) {
       Mockito.verify(mockStreamingClient, Mockito.times(1)).openChannel(ArgumentMatchers.any());
       Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
@@ -508,7 +509,8 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertRecordToBuffer(records.get(0));
 
     try {
-      topicPartitionChannel.insertBufferedRecords(topicPartitionChannel.getStreamingBuffer());
+      topicPartitionChannel.insertBufferedRecordsWithRetry(
+          topicPartitionChannel.getStreamingBuffer(), 1);
     } catch (DataException ex) {
       throw ex;
     }
@@ -548,7 +550,7 @@ public class TopicPartitionChannelTest {
         topicPartitionChannel.new StreamingBuffer();
     streamingBuffer.insert(records.get(0));
 
-    assert topicPartitionChannel.insertBufferedRecords(streamingBuffer).hasErrors();
+    assert topicPartitionChannel.insertBufferedRecordsWithRetry(streamingBuffer, 1).hasErrors();
 
     assert kafkaRecordErrorReporter.getReportedRecords().size() == 1;
   }
@@ -590,7 +592,7 @@ public class TopicPartitionChannelTest {
         topicPartitionChannel.new StreamingBuffer();
     streamingBuffer.insert(records.get(0));
 
-    assert topicPartitionChannel.insertBufferedRecords(streamingBuffer).hasErrors();
+    assert topicPartitionChannel.insertBufferedRecordsWithRetry(streamingBuffer, 1).hasErrors();
 
     assert kafkaRecordErrorReporter.getReportedRecords().size() == 1;
   }

@@ -179,10 +179,12 @@ public class TopicPartitionChannel {
   // Whether schematization has been enabled.
   private boolean enableSchematization;
 
+  // Whether schema evolution could be done on this channel
   private boolean enableSchemaEvolution = false;
 
   private SnowflakeConnectionService conn;
 
+  /** Initialize TopicPartitionChannel without the connection service */
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
       TopicPartition topicPartition,
@@ -214,6 +216,7 @@ public class TopicPartitionChannel {
    * @param sfConnectorConfig configuration set for snowflake connector
    * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
    * @param sinkTaskContext context on Kafka Connect's runtime
+   * @param conn the snowflake connection service
    */
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
@@ -237,7 +240,7 @@ public class TopicPartitionChannel {
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.conn = conn;
     if (conn != null) {
-      this.enableSchemaEvolution = this.conn.getSchemaEvolutionPermission(this.tableName);
+      this.enableSchemaEvolution = this.conn.hasSchemaEvolutionPermission(this.tableName);
       LOGGER.debug(
           String.format("Has Schema Evolution Permission: %s", this.enableSchemaEvolution));
     }
@@ -287,7 +290,6 @@ public class TopicPartitionChannel {
       bufferLock.lock();
       try {
         this.streamingBuffer.insert(kafkaSinkRecord);
-        LOGGER.debug("Record with offset [{}] inserted into buffer", kafkaSinkRecord.kafkaOffset());
         this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
         // # of records or size based flushing
         if (this.streamingBufferThreshold.isFlushBufferedBytesBased(
@@ -312,13 +314,11 @@ public class TopicPartitionChannel {
       // If we found reaching buffer size threshold or count based threshold, we will immediately
       // flush (Insert them)
       if (copiedStreamingBuffer != null) {
-        if (this.enableSchematization && this.enableSchemaEvolution) {
-          insertBufferedRecordsWithRetry(
-              copiedStreamingBuffer,
-              SnowflakeSinkConnectorConfig.RETRY_INSERTION_ATTEMPT_MAX_COUNT_DEFAULT);
-        } else {
-          insertBufferedRecords(copiedStreamingBuffer);
-        }
+        insertBufferedRecordsWithRetry(
+            copiedStreamingBuffer,
+            this.enableSchematization && this.enableSchemaEvolution
+                ? SnowflakeSinkConnectorConfig.RETRY_INSERTION_ATTEMPT_MAX_COUNT_DEFAULT
+                : 1);
       }
     } else {
       LOGGER.debug(
@@ -489,24 +489,13 @@ public class TopicPartitionChannel {
         bufferLock.unlock();
       }
       if (copiedStreamingBuffer != null) {
-        if (this.enableSchematization && this.enableSchemaEvolution) {
-          insertBufferedRecordsWithRetry(
-              copiedStreamingBuffer,
-              SnowflakeSinkConnectorConfig.RETRY_INSERTION_ATTEMPT_MAX_COUNT_DEFAULT);
-        } else {
-          insertBufferedRecords(copiedStreamingBuffer);
-        }
+        insertBufferedRecordsWithRetry(
+            copiedStreamingBuffer,
+            this.enableSchematization && this.enableSchemaEvolution
+                ? SnowflakeSinkConnectorConfig.RETRY_INSERTION_ATTEMPT_MAX_COUNT_DEFAULT
+                : 1);
       }
     }
-  }
-
-  /**
-   * Invokes insertRows API using the provided offsets which were initially buffered for this
-   * partition. This buffer is decided based on the flush time threshold, buffered bytes or number
-   * of records
-   */
-  InsertRowsWithRetryResponse insertBufferedRecords(StreamingBuffer streamingBufferToInsert) {
-    return insertBufferedRecordsWithRetry(streamingBufferToInsert, 1);
   }
 
   /**
@@ -597,7 +586,12 @@ public class TopicPartitionChannel {
       return this.isChannelReopened;
     }
 
-    /** Add rows with their errors to the response */
+    /**
+     * Add rows with their errors to the response. The index of the record matches that of the
+     * error.
+     *
+     * <p>Used when all retries failed
+     */
     public void addRecordsWithErrorsToResponse(
         List<InsertValidationResponse.InsertError> insertErrors,
         List<SinkRecord> insertedRecordsToBuffer) {
@@ -672,12 +666,13 @@ public class TopicPartitionChannel {
      * recordWithError. Insert the rest into a StreamingBuffer waiting for retry insertion, and
      * collect the column to be added at the same time. After that the table is altered.
      *
-     * @param conn
-     * @param tableName
-     * @param response
-     * @return
+     * @param conn the snowflake connection service
+     * @param tableName the name of the table
+     * @param response the response from SDK
+     * @param records the list of records being inserted
+     * @return the buffer containing records to be reinserted
      */
-    public StreamingBuffer CollectRowsWithErrorsAndAlterTable(
+    public StreamingBuffer collectRowsWithErrorsAndAlterTable(
         SnowflakeConnectionService conn,
         String tableName,
         InsertValidationResponse response,
@@ -749,7 +744,7 @@ public class TopicPartitionChannel {
                       (InsertValidationResponse) executionAttemptedEvent.getLastResult();
                   // TODO: What is the final thing here?
                   newBuffer.set(
-                      retryResponse.CollectRowsWithErrorsAndAlterTable(
+                      retryResponse.collectRowsWithErrorsAndAlterTable(
                           this.conn, this.tableName, response, newBuffer.get().getSinkRecords()));
                   supplier.updateBuffer(newBuffer.get());
                   // even if the column failed to be added, the channel needs to be reopened
