@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        confluent_version: [ '5.5.11', '6.2.6', '7.2.0' ]
+        confluent_version: [ '5.5.11', '6.2.6', '7.2.1' ]
         snowflake_cloud: [ 'AWS', 'AZURE', 'GCS' ]
     steps:
     - name: Checkout Code
