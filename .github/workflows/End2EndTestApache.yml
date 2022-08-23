@@ -70,7 +70,6 @@ jobs:
         SF_CLOUD_PLATFORM: ${{ matrix.snowflake_cloud }}
         # Will not run delivery guarantee tests in GCS (Check runDeliveryGuaranteeTests in test_verify.py)
         ENABLE_DELIVERY_GUARANTEE_TESTS: "True"
-      continue-on-error: true
       run: |
         cd test
         ./run_test_apache.sh ${{ matrix.apache_kafka_version }} ./apache_properties
