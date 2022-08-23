@@ -17,14 +17,16 @@ class TestPressure:
         for i in range(self.topicNum):
             self.topics.append(self.fileName + str(i) + nameSalt)
 
+        for t in range(self.topicNum):
+            self.driver.createTopics(self.topics[t], self.partitionNum, 1)
+
+        sleep(5)
+
     def getConfigFileName(self):
         return self.fileName + ".json"
 
     def send(self):
         threadPool = ThreadPool(self.threadCount)
-        for t in range(self.topicNum):
-            self.driver.createTopics(self.topics[t], self.partitionNum, 1)
-        sleep(5)
 
         args = []
         for t in range(self.topicNum):
