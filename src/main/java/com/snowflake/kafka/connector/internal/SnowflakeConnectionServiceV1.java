@@ -143,7 +143,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       createTableWithOnlyMetadataColumn(tableName);
       return;
     }
-    String comment = "comment 'created by automatic table creation from Snowflake Kafka connector'";
+    String comment = "comment 'created by automatic table creation from Snowflake Kafka Connector'";
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     StringBuilder createTableQuery = new StringBuilder("create table if not exists identifier(?)");
@@ -183,7 +183,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     InternalUtils.assertNotEmpty("tableName", tableName);
     String createTableQuery =
         "create table if not exists identifier(?) (record_metadata variant comment 'created by"
-            + " automatic table creation from Snowflake Kafka connector')";
+            + " automatic table creation from Snowflake Kafka Connector')";
 
     try {
       PreparedStatement stmt = conn.prepareStatement(createTableQuery);
@@ -461,7 +461,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     // set this to true here
     // TODO: SNOW-650969 once the option enters PuPr we need to enable the check and fetch the
     //  option from the table
-    String myRole = SchematizationUtils.formatRoleName(role);
+    String myRole = SchematizationUtils.formatName(role);
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
@@ -523,7 +523,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
           .append(columnName)
           .append(" ")
           .append(columnToType.get(columnName))
-          .append(" comment 'column created by schema evolution from Snowflake Kafka connector'");
+          .append(" comment 'column created by schema evolution from Snowflake Kafka Connector'");
       logColumn.append(columnName).append(" (").append(columnToType.get(columnName)).append(")");
     }
     try {
@@ -565,7 +565,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
           .append(columnName)
           .append(
               " comment 'column altered to be nullable by schema evolution from Snowflake Kafka"
-                  + " connector'");
+                  + " Connector'");
       logColumn.append(columnName);
     }
     try {

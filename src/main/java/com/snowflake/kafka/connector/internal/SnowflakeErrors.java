@@ -269,8 +269,8 @@ public enum SnowflakeErrors {
           + " permission"),
   ERROR_5023(
       "5023",
-      "Failed parsing columnNames from response error message",
-      "Failed parsing columnNames from response error message");
+      "Failed to get data schema",
+      "Failed to get data schema. Unrecognizable data type in JSON object");
 
   // properties
 

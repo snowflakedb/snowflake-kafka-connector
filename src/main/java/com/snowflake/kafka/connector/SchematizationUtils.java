@@ -19,6 +19,8 @@ import java.util.Map;
 import org.apache.avro.Schema;
 import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Schema.Type;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** This is a class containing the helper functions related to schematization */
 public class SchematizationUtils {
@@ -37,6 +39,8 @@ public class SchematizationUtils {
 
   static final String NONNULLABLE_COLUMNS_SUFFIX =
       ". Values for all non-nullable columns must be specified.";
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(SchematizationUtils.class);
 
   private static SchemaRegistryClient getAvroSchemaRegistryClientFromURL(
       final String schemaRegistryURL) {
@@ -75,6 +79,7 @@ public class SchematizationUtils {
       schemaMetadata = schemaRegistry.getLatestSchemaMetadata(subjectName);
     } catch (IOException | RestClientException e) {
       // suppress the excpetion and return empty map to indicate a failure in fetching schemas
+      LOGGER.debug("Schema with subject '{}' not found in schema registry", subjectName);
       return new HashMap<>();
     }
     Map<String, String> schemaMap = new HashMap<>();
@@ -250,7 +255,7 @@ public class SchematizationUtils {
           } else {
             Object value = null;
             for (String colName : recordMap.keySet()) {
-              if (formatColumnName(colName).equals(columnName)) {
+              if (formatName(colName).equals(columnName)) {
                 value = recordMap.get(colName);
                 break;
               }
@@ -263,7 +268,7 @@ public class SchematizationUtils {
             type = schemaMap.get(columnName);
           } else {
             for (String colName : schemaMap.keySet()) {
-              if (formatColumnName(colName).equals(columnName)) {
+              if (formatName(colName).equals(columnName)) {
                 type = schemaMap.get(colName);
                 break;
               }
@@ -367,7 +372,8 @@ public class SchematizationUtils {
     }
     Type schemaType = ConnectSchema.schemaType(value.getClass());
     if (schemaType == null) {
-      return "VARIANT";
+      // only when the type of the value is unrecognizable for JAVA
+      throw SnowflakeErrors.ERROR_5023.getException();
     }
     switch (schemaType) {
       case INT8:
@@ -396,33 +402,16 @@ public class SchematizationUtils {
   }
 
   /**
-   * Transform the columnName to uppercase unless it is enclosed in double quotes
+   * Transform the objectName to uppercase unless it is enclosed in double quotes
    *
    * <p>In that case, drop the quotes and leave it as it is.
    *
-   * <p>This transformation exist to mimic the behavior of the Ingest SDK.
-   *
-   * @param columnName the original name of the column
-   * @return Transformed columnName
+   * @param objectName name of the snowflake object, could be tableName, columnName, roleName, etc.
+   * @return Transformed objectName
    */
-  public static String formatColumnName(String columnName) {
-    // the columnName has been checked and guaranteed not to be null or empty
-    return (columnName.charAt(0) == '"' && columnName.charAt(columnName.length() - 1) == '"')
-        ? columnName.substring(1, columnName.length() - 1)
-        : columnName.toUpperCase();
-  }
-
-  /**
-   * Transform the roleName to uppercase unless it is enclosed in double quotes
-   *
-   * <p>In that case, drop the quotes and leave it as it is.
-   *
-   * @param roleName name of the role
-   * @return Transformed roleName
-   */
-  public static String formatRoleName(String roleName) {
-    return (roleName.charAt(0) == '"' && roleName.charAt(roleName.length() - 1) == '"')
-        ? roleName.substring(1, roleName.length() - 1)
-        : roleName.toUpperCase();
+  public static String formatName(String objectName) {
+    return (objectName.charAt(0) == '"' && objectName.charAt(objectName.length() - 1) == '"')
+        ? objectName.substring(1, objectName.length() - 1)
+        : objectName.toUpperCase();
   }
 }
