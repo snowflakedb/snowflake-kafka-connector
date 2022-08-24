@@ -47,7 +47,7 @@ class KafkaTest:
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
-        self.MAX_RETRY = 120  # max wait time 120 mins
+        self.MAX_RETRY = 30  # max wait time 30 mins
         self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 10000 data was in the queue
 
         self.kafkaConnectAddress = kafkaConnectAddress
@@ -413,12 +413,12 @@ def runStressTests(driver, testSet, nameSalt):
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Stress Tests Round 1 ===")
     testSuitList = [testPressureRestart]
 
-    testCleanEnableList = [True]
+    testCleanEnableList = [False]
     testSuitEnableList = []
     if testSet == "confluent":
-        testSuitEnableList = [True]
+        testSuitEnableList = [False]
     elif testSet == "apache":
-        testSuitEnableList = [True]
+        testSuitEnableList = [False]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
@@ -438,7 +438,7 @@ def runStressTests(driver, testSet, nameSalt):
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=4)
+    execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=1)
     ############################ Stress Tests Round 2 ############################
 
 def runTestSet(driver, testSet, nameSalt, enable_stress_test):

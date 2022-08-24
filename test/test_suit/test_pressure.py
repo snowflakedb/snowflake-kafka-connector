@@ -7,7 +7,7 @@ class TestPressure:
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.topics = []
-        self.topicNum = 200
+        self.topicNum = 2
         self.partitionNum = 12
         self.recordNum = 10000
         self.curTest = 0
@@ -50,6 +50,7 @@ class TestPressure:
             res = self.driver.snowflake_conn.cursor().execute(
                 "SELECT count(*) FROM {}".format(self.topics[t])).fetchone()[0]
             if res != self.partitionNum * self.recordNum * (round + 1):
+                print("Round", round, "Result", res, "topicNum", t)
                 raise RetryableError()
 
             if self.curTest <= t:
