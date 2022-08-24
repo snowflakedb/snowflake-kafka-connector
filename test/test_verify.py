@@ -486,6 +486,8 @@ def runTestSet(driver, testSet, nameSalt, pressure):
         testSchemaEvolutionNonNullableJson
     ]
 
+    # TODO: SNOW-650983 refactor this into a map
+
     # Adding StringJsonProxy test at the end
     testCleanEnableList1 = [
         True, True, True, True, True, True, True, True, True, True, True,

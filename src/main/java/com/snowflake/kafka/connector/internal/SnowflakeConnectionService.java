@@ -92,12 +92,12 @@ public interface SnowflakeConnectionService {
   boolean isTableCompatible(String tableName);
 
   /**
-   * Check whether the user has the role privilge to do schema evolution and whether the schema
+   * Check whether the user has the role privilege to do schema evolution and whether the schema
    * evolution option is enabled on the table
    *
    * @param tableName the name of the table
    * @param role the role of the user
-   * @return whether schema evolution has the required permission to be performed
+   * @return whether table and role has the required permission to perform schema evolution
    */
   boolean hasSchemaEvolutionPermissionForRole(String tableName, String role);
 
@@ -116,7 +116,7 @@ public interface SnowflakeConnectionService {
    * @param tableName the name of the table
    * @param columnToType the mapping from the columnNames to their types
    */
-  void appendColumns(String tableName, Map<String, String> columnToType);
+  void appendColumnsToTable(String tableName, Map<String, String> columnToType);
 
   /**
    * Alter table to drop non-nullability of a list of columns

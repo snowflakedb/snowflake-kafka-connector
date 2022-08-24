@@ -439,7 +439,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   }
 
   /**
-   * Check whether the user has the role privilge to do schema evolution and whether the schema
+   * Check whether the user has the role privilege to do schema evolution and whether the schema
    * evolution option is enabled on the table
    *
    * <p>The permission will be stored in schemaEvolutionPermissionForTables
@@ -455,9 +455,13 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     String query = "show grants on table identifier(?)";
     ResultSet result = null;
     boolean hasRolePrivilege = false;
+    // whether the role has the privilege to do schema evolution (EVOLVE SCHEMA / ALL / OWNERSHIP)
     boolean hasTableOptionEnabled = true;
+    // whether the table has ENABLE_SCHEMA_EVOLUTION option set to true. This is still in PrPr so we
+    // set this to true here
+    // TODO: SNOW-650969 once the option enters PuPr we need to enable the check and fetch the
+    //  option from the table
     String myRole = SchematizationUtils.formatRoleName(role);
-    // the schema evolution permission is still in PrPr, so it is left as true here
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
@@ -502,7 +506,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
    * @param columnToType the mapping from the columnNames to their types
    */
   @Override
-  public void appendColumns(String tableName, Map<String, String> columnToType) {
+  public void appendColumnsToTable(String tableName, Map<String, String> columnToType) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     StringBuilder appendColumnQuery = new StringBuilder("alter table identifier(?) add column ");
@@ -546,11 +550,11 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     StringBuilder query = new StringBuilder("alter table identifier(?) alter ");
-    boolean first = true;
+    boolean isFirstColumn = true;
     StringBuilder logColumn = new StringBuilder("[");
     for (String columnName : columnNames) {
-      if (first) {
-        first = false;
+      if (isFirstColumn) {
+        isFirstColumn = false;
       } else {
         query.append(", ");
         logColumn.append(", ");

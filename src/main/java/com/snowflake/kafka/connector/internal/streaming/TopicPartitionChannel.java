@@ -681,7 +681,7 @@ public class TopicPartitionChannel {
           insertRecordsToFailedBuffer(response.getInsertErrors(), records);
       if (!this.extraColumnToType.isEmpty()) {
         try {
-          conn.appendColumns(tableName, this.extraColumnToType);
+          conn.appendColumnsToTable(tableName, this.extraColumnToType);
         } catch (SnowflakeKafkaConnectorException e) {
           LOGGER.warn(
               String.format("[INSERT_BUFFERED_RECORDS] Failure altering table :%s", tableName), e);
