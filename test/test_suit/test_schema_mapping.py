@@ -12,12 +12,11 @@ class TestSchemaMapping:
 
         self.driver.snowflake_conn.cursor().execute(
             # "Create or replace table {} (PERFORMANCE_STRING STRING, PERFORMANCE_CHAR CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO_ARRAY ARRAY, INFO VARIANT)".format(self.topic))
-            # 'Create or replace table {} (PERFORMANCE_STRING STRING, "case_sensitive_PERFORMANCE_CHAR" CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO VARIANT)'.format(self.topic))
-            'Create or replace table {} (PERFORMANCE_STRING STRING, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO VARIANT, INFO_OBJECT OBJECT)'.format(self.topic))
+            'Create or replace table {} (PERFORMANCE_STRING STRING, "case_sensitive_PERFORMANCE_CHAR" CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO VARIANT, INFO_OBJECT OBJECT)'.format(self.topic))
 
         self.record = {
             'PERFORMANCE_STRING': 'Excellent',
-            # '"case_sensitive_PERFORMANCE_CHAR"': 'A',
+            '"case_sensitive_PERFORMANCE_CHAR"': 'A',
             'PERFORMANCE_HEX': 'FFFFFFFF',
             'RATING_INT': 100,
             'RATING_DOUBLE': 0.99,
@@ -37,7 +36,7 @@ class TestSchemaMapping:
 
         self.gold = {
             'PERFORMANCE_STRING': 'Excellent',
-            # '"case_sensitive_PERFORMANCE_CHAR"': 'A',
+            'case_sensitive_PERFORMANCE_CHAR': 'A',
             'PERFORMANCE_HEX': b'\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd',
             'RATING_INT': 100,
             'RATING_DOUBLE': 0.99,
