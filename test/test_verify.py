@@ -438,7 +438,7 @@ def runStressTests(driver, testSet, nameSalt):
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=1)
+    execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=2)
     ############################ Stress Tests Round 2 ############################
 
 def runTestSet(driver, testSet, nameSalt, enable_stress_test):
