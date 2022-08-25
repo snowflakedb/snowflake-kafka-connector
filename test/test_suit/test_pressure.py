@@ -7,7 +7,7 @@ class TestPressure:
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.topics = []
-        self.topicNum = 2
+        self.topicNum = 200
         self.partitionNum = 12
         self.recordNum = 10000
         self.curTest = 0
