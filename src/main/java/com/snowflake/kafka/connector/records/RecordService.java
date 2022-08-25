@@ -247,8 +247,6 @@ public class RecordService extends Logging {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
       // column should be passed without processing
-      // TODO: uncomment the casesensitive line in test_schema_mapping.py when new SDK version
-      // releases.
       Object columnValue;
       if (columnNode.isArray()) {
         List<String> itemList = new ArrayList<>();

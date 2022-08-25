@@ -11,8 +11,7 @@ class TestSchemaMapping:
         self.topic = self.fileName + nameSalt
 
         self.driver.snowflake_conn.cursor().execute(
-            # "Create or replace table {} (PERFORMANCE_STRING STRING, PERFORMANCE_CHAR CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO_ARRAY ARRAY, INFO VARIANT)".format(self.topic))
-            'Create or replace table {} (PERFORMANCE_STRING STRING, "case_sensitive_PERFORMANCE_CHAR" CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO VARIANT, INFO_OBJECT OBJECT)'.format(self.topic))
+            'Create or replace table {} (PERFORMANCE_STRING STRING, "case_sensitive_PERFORMANCE_CHAR" CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO_ARRAY ARRAY, INFO VARIANT, INFO_OBJECT OBJECT)'.format(self.topic))
 
         self.record = {
             'PERFORMANCE_STRING': 'Excellent',
@@ -23,7 +22,7 @@ class TestSchemaMapping:
             'APPROVAL': 'true',
             'APPROVAL_DATE': '15-Jun-2022',
             'APPROVAL_TIME': '23:59:59.999999',
-            # 'INFO_ARRAY': ['HELLO', 'WORLD'],
+            'INFO_ARRAY': ['HELLO', 'WORLD'],
             'INFO': {
                 'TREE_1': 'APPLE',
                 'TREE_2': 'PINEAPPLE'
@@ -43,7 +42,7 @@ class TestSchemaMapping:
             'APPROVAL': True,
             'APPROVAL_DATE': datetime.date(2022, 6, 15),
             'APPROVAL_TIME': datetime.time(23, 59, 59, 999999),
-            # 'INFO_ARRAY': ['HELLO', 'WORLD'],
+            'INFO_ARRAY': r'["HELLO","WORLD"]',
             'INFO': r'{"TREE_1":"APPLE","TREE_2":"PINEAPPLE"}',
             'INFO_OBJECT': r'{"TREE_1":"APPLE","TREE_2":"PINEAPPLE"}'
         }
