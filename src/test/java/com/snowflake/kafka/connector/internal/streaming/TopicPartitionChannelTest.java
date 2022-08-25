@@ -486,8 +486,10 @@ public class TopicPartitionChannelTest {
   @Test(expected = DataException.class)
   public void testInsertRows_ValidationResponseHasErrors_NoErrorTolerance() throws Exception {
     InsertValidationResponse validationResponse = new InsertValidationResponse();
-    validationResponse.addError(
-        new InsertValidationResponse.InsertError("CONTENT", SF_EXCEPTION, 0));
+    InsertValidationResponse.InsertError error =
+        new InsertValidationResponse.InsertError("CONTENT", 0);
+    error.setException(SF_EXCEPTION);
+    validationResponse.addError(error);
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
@@ -520,8 +522,10 @@ public class TopicPartitionChannelTest {
   @Test
   public void testInsertRows_ValidationResponseHasErrors_ErrorTolerance_ALL() throws Exception {
     InsertValidationResponse validationResponse = new InsertValidationResponse();
-    validationResponse.addError(
-        new InsertValidationResponse.InsertError("CONTENT", SF_EXCEPTION, 0));
+    InsertValidationResponse.InsertError error =
+        new InsertValidationResponse.InsertError("CONTENT", 0);
+    error.setException(SF_EXCEPTION);
+    validationResponse.addError(error);
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
@@ -560,8 +564,10 @@ public class TopicPartitionChannelTest {
   public void testInsertRows_ValidationResponseHasErrors_ErrorTolerance_ALL_LogEnableTrue()
       throws Exception {
     InsertValidationResponse validationResponse = new InsertValidationResponse();
-    validationResponse.addError(
-        new InsertValidationResponse.InsertError("CONTENT", SF_EXCEPTION, 0));
+    InsertValidationResponse.InsertError error =
+        new InsertValidationResponse.InsertError("CONTENT", 0);
+    error.setException(SF_EXCEPTION);
+    validationResponse.addError(error);
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))

@@ -25,21 +25,6 @@ import org.slf4j.LoggerFactory;
 /** This is a class containing the helper functions related to schematization */
 public class SchematizationUtils {
 
-  // TODO: SNOW-649753 Directly get a list of columns from the response instead of parsing them from
-  //  a string
-  static final String EXTRA_COLUMNS_PREFIX = "Extra columns: ";
-
-  static final String DEPRECATED_EXTRA_COLUMNS_PREFIX = "Extra column: ";
-  static final String EXTRA_COLUMNS_SUFFIX =
-      ". Columns not present in the table shouldn't be specified.";
-
-  static final String NONNULLABLE_COLUMNS_PREFIX = "Missing columns: ";
-
-  static final String DEPRECATED_NONNULLABLE_COLUMNS_PREFIX = "Missing column: ";
-
-  static final String NONNULLABLE_COLUMNS_SUFFIX =
-      ". Values for all non-nullable columns must be specified.";
-
   private static final Logger LOGGER = LoggerFactory.getLogger(SchematizationUtils.class);
 
   private static SchemaRegistryClient getAvroSchemaRegistryClientFromURL(
@@ -217,153 +202,30 @@ public class SchematizationUtils {
    * schema fetched from schema registry
    *
    * @param recordMap the record body
-   * @param message the error message in the response
+   * @param columnNames the names of the extra columns
    * @param schemaMap the schema map from schema registry, could be empty
    * @return the map from columnNames to their types
    */
   public static Map<String, String> collectExtraColumnToType(
-      Map<String, Object> recordMap, String message, Map<String, String> schemaMap) {
-    Map<String, String> extraColumnToType = new HashMap<>();
-    List<String> columnNames = new ArrayList<>();
-    boolean deprecated_behavior = false;
-    if (message.contains(EXTRA_COLUMNS_PREFIX)) {
-      int startIndex = message.indexOf(EXTRA_COLUMNS_PREFIX) + EXTRA_COLUMNS_PREFIX.length();
-      int endIndex = message.indexOf(EXTRA_COLUMNS_SUFFIX);
-      columnNames = getColumnNamesFromMessage(message.substring(startIndex, endIndex));
-    } else if (message.contains(DEPRECATED_EXTRA_COLUMNS_PREFIX)) {
-      // TODO: remove deprecated behavior once new SDK version is released
-      int startIndex =
-          message.indexOf(DEPRECATED_EXTRA_COLUMNS_PREFIX)
-              + DEPRECATED_EXTRA_COLUMNS_PREFIX.length();
-      int endIndex = message.indexOf(EXTRA_COLUMNS_SUFFIX);
-      columnNames.add(message.substring(startIndex, endIndex));
-      // columnName extracted from message is AFTER formatColumnName in the deprecated version of
-      // SDK
-      deprecated_behavior = true;
-    } else {
-      // return empty map
-      return extraColumnToType;
+      Map<String, Object> recordMap, List<String> columnNames, Map<String, String> schemaMap) {
+    if (columnNames == null) {
+      return new HashMap<>();
     }
+    Map<String, String> extraColumnToType = new HashMap<>();
 
     for (String columnName : columnNames) {
       if (!extraColumnToType.containsKey(columnName)) {
         String type;
         if (schemaMap.isEmpty()) {
           // no schema from schema registry
-          if (!deprecated_behavior) {
-            type = getTypeFromJsonObject(recordMap.get(columnName));
-          } else {
-            Object value = null;
-            for (String colName : recordMap.keySet()) {
-              if (formatName(colName).equals(columnName)) {
-                value = recordMap.get(colName);
-                break;
-              }
-            }
-            type = getTypeFromJsonObject(value);
-          }
+          type = getTypeFromJsonObject(recordMap.get(columnName));
         } else {
-          type = null;
-          if (!deprecated_behavior) {
-            type = schemaMap.get(columnName);
-          } else {
-            for (String colName : schemaMap.keySet()) {
-              if (formatName(colName).equals(columnName)) {
-                type = schemaMap.get(colName);
-                break;
-              }
-            }
-          }
-          if (type == null) {
-            type = "VARIANT";
-          }
+          type = schemaMap.get(columnName);
         }
         extraColumnToType.put(columnName, type);
       }
     }
     return extraColumnToType;
-  }
-
-  /**
-   * Collect the non-nullable columns from error message
-   *
-   * @param message error message
-   * @return a list of columnNames of non-nullable columns
-   */
-  public static List<String> collectNonNullableColumns(String message) {
-    List<String> nonNullableColumns = new ArrayList<>();
-    if (message.contains(NONNULLABLE_COLUMNS_PREFIX)) {
-      int startIndex =
-          message.indexOf(NONNULLABLE_COLUMNS_PREFIX) + NONNULLABLE_COLUMNS_PREFIX.length();
-      int endIndex = message.indexOf(NONNULLABLE_COLUMNS_SUFFIX);
-      nonNullableColumns = getColumnNamesFromMessage(message.substring(startIndex, endIndex));
-    } else if (message.contains(DEPRECATED_NONNULLABLE_COLUMNS_PREFIX)) {
-      // TODO: remove deprecated behavior once new SDK version is released
-      //  The recordMap arg should also be removed since it's only used here
-      int startIndex =
-          message.indexOf(DEPRECATED_NONNULLABLE_COLUMNS_PREFIX)
-              + DEPRECATED_NONNULLABLE_COLUMNS_PREFIX.length();
-      int endIndex = message.indexOf(NONNULLABLE_COLUMNS_SUFFIX);
-      String columnName = message.substring(startIndex, endIndex);
-      // need to find the columnName before formatColumnName
-      // this is wrong when the columnName was enclosed in double quotes
-      nonNullableColumns.add(columnName);
-    }
-    return nonNullableColumns;
-  }
-
-  // TODO: SNOW-649753 Directly get a list of columns from the response instead of parsing them from
-  //  a string
-  /**
-   * extra a list of columnNames from their string representation
-   *
-   * <p>input: "["a", B]", output: [""a"", "B"]
-   *
-   * @param message part of the error message that contains a list of columnNames
-   * @return the list of columnNames
-   */
-  @VisibleForTesting
-  public static List<String> getColumnNamesFromMessage(String message) {
-    List<String> columnNamesFromMessage = new ArrayList<>();
-    String originalMessage = message;
-    message = message.substring(1, message.length() - 1);
-    // drop the square brackets
-    while (message.contains(",")) {
-      int newIndex;
-      if (message.startsWith("\"")) {
-        int nextQuoteIndex = message.substring(1).indexOf("\"") + 1;
-        if (nextQuoteIndex == 0) {
-          throw SnowflakeErrors.ERROR_5023.getException(
-              String.format("ColumnNames String: %s", originalMessage));
-        }
-        // find the next quote rather than the next comma
-        // because comma could be contained in the columnName
-        String columnName = message.substring(0, nextQuoteIndex + 1);
-        columnNamesFromMessage.add(columnName);
-        newIndex = nextQuoteIndex + 3;
-        // skip the quote, the comma and the space
-      } else {
-        // in this case the columnName must be separated by comma
-        int nextCommaIndex = message.indexOf(",");
-        if (nextCommaIndex == -1) {
-          throw SnowflakeErrors.ERROR_5023.getException(
-              String.format("ColumnNames String: %s", originalMessage));
-        }
-        String columnName = message.substring(0, nextCommaIndex);
-        columnNamesFromMessage.add(columnName);
-        newIndex = nextCommaIndex + 2;
-        // skip the comma and the space
-      }
-      if (newIndex >= message.length()) {
-        // parse finished early
-        // can be caused by comma in the columnName
-        return columnNamesFromMessage;
-      } else {
-        message = message.substring(newIndex);
-      }
-    }
-    columnNamesFromMessage.add(message);
-    return columnNamesFromMessage;
   }
 
   private static String getTypeFromJsonObject(Object value) {

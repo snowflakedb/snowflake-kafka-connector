@@ -516,7 +516,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       if (first) {
         first = false;
       } else {
-        appendColumnQuery.append(", add column ");
+        appendColumnQuery.append(", ");
         logColumn.append(",");
       }
       appendColumnQuery
@@ -527,6 +527,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       logColumn.append(columnName).append(" (").append(columnToType.get(columnName)).append(")");
     }
     try {
+      logInfo("Trying to run query: {}", appendColumnQuery.toString());
       PreparedStatement stmt = conn.prepareStatement(appendColumnQuery.toString());
       stmt.setString(1, tableName);
       stmt.execute();
@@ -549,17 +550,17 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   public void alterNonNullableColumns(String tableName, List<String> columnNames) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-    StringBuilder query = new StringBuilder("alter table identifier(?) alter ");
+    StringBuilder dropNotNullQuery = new StringBuilder("alter table identifier(?) alter ");
     boolean isFirstColumn = true;
     StringBuilder logColumn = new StringBuilder("[");
     for (String columnName : columnNames) {
       if (isFirstColumn) {
         isFirstColumn = false;
       } else {
-        query.append(", ");
+        dropNotNullQuery.append(", ");
         logColumn.append(", ");
       }
-      query
+      dropNotNullQuery
           .append(columnName)
           .append(" drop not null, ")
           .append(columnName)
@@ -569,7 +570,8 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       logColumn.append(columnName);
     }
     try {
-      PreparedStatement stmt = conn.prepareStatement(query.toString());
+      logInfo("Trying to run query: {}", dropNotNullQuery.toString());
+      PreparedStatement stmt = conn.prepareStatement(dropNotNullQuery.toString());
       stmt.setString(1, tableName);
       stmt.execute();
       stmt.close();
