@@ -504,7 +504,7 @@ public class TopicPartitionChannel {
    * of records
    *
    * <p>When the response contains any extra column error, we will attempt to alter the table
-   * accordinly, reopen the channel and reinsert the records
+   * accordingly, reopen the channel and re-insert the records
    *
    * <p>Rows with error other than that will be added to DLQ if enabled
    *
