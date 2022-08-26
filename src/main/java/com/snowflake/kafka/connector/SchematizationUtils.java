@@ -65,7 +65,7 @@ public class SchematizationUtils {
     } catch (IOException | RestClientException e) {
       // suppress the excpetion and return empty map to indicate a failure in fetching schemas
       LOGGER.info("Schema with subject '{}' not found in schema registry", subjectName);
-      return new HashMap<>();
+      return Collections.emptyMap();
     }
     Map<String, String> schemaMap = new HashMap<>();
     if (schemaMetadata != null) {
@@ -150,7 +150,7 @@ public class SchematizationUtils {
   }
 
   /**
-   * Get the schema for a specific topics.
+   * Get the schema for a specific topic.
    *
    * @param topic the name of the topic
    * @param schemaRegistryURL the URL to the schema registry
