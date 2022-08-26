@@ -64,7 +64,7 @@ public class SchematizationUtils {
       schemaMetadata = schemaRegistry.getLatestSchemaMetadata(subjectName);
     } catch (IOException | RestClientException e) {
       // suppress the excpetion and return empty map to indicate a failure in fetching schemas
-      LOGGER.debug("Schema with subject '{}' not found in schema registry", subjectName);
+      LOGGER.info("Schema with subject '{}' not found in schema registry", subjectName);
       return new HashMap<>();
     }
     Map<String, String> schemaMap = new HashMap<>();
@@ -198,8 +198,8 @@ public class SchematizationUtils {
   }
 
   /**
-   * Collect the extra column from the error message and their types from either the record or from
-   * schema fetched from schema registry
+   * With the list of extra columns, collect their types from either the record or from schema
+   * fetched from schema registry
    *
    * @param recordMap the record body
    * @param columnNames the names of the extra columns

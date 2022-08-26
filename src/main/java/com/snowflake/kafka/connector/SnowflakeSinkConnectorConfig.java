@@ -152,7 +152,7 @@ public class SnowflakeSinkConnectorConfig {
           + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
 
-  public static final String ENABLE_SCHEMATIZATION_CONFIG = "enable.schematization";
+  public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
 
   // the amount of waiting before next insertion of buffered records is retried for schema evolution
   // TODO: SNOW-646227 Remove waiting when the server cache issue is addressed

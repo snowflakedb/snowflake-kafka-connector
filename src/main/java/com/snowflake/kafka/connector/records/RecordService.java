@@ -246,7 +246,6 @@ public class RecordService extends Logging {
     while (columnNames.hasNext()) {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
-      // column should be passed without processing
       Object columnValue;
       if (columnNode.isArray()) {
         List<String> itemList = new ArrayList<>();

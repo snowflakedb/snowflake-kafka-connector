@@ -22,7 +22,7 @@ class TestSchemaEvolutionJson:
 
         self.records.append({
             'PERFORMANCE_STRING': 'Excellent',
-            'PERFORMANCE_CHAR': 'A',
+            '"case_sensitive_PERFORMANCE_CHAR"': 'A',
             'RATING_INT': 100
         })
 
@@ -34,7 +34,7 @@ class TestSchemaEvolutionJson:
 
         self.gold_type = {
             'PERFORMANCE_STRING': 'VARCHAR',
-            'PERFORMANCE_CHAR': 'VARCHAR',
+            'case_sensitive_PERFORMANCE_CHAR': 'VARCHAR',
             'RATING_INT': 'NUMBER',
             'RATING_DOUBLE': 'FLOAT',
             'APPROVAL': 'BOOLEAN',

@@ -17,18 +17,18 @@ class TestSchemaEvolutionNonNullableJson:
             self.topics.append(self.table + str(i))
 
         self.driver.snowflake_conn.cursor().execute(
-            "Create or replace table {} (PERFORMANCE_STRING STRING not null)".format(self.table))
+            'Create or replace table {} ("case_sensitive_PERFORMANCE_STRING" STRING not null)'.format(self.table))
 
         self.records = []
 
         self.records.append({
-            'PERFORMANCE_CHAR': 'A',
+            '"case_sensitive_PERFORMANCE_CHAR"': 'A',
             'RATING_INT': 100
         })
 
         self.gold_type = {
-            'PERFORMANCE_STRING': 'VARCHAR',
-            'PERFORMANCE_CHAR': 'VARCHAR',
+            'case_sensitive_PERFORMANCE_STRING': 'VARCHAR',
+            'case_sensitive_PERFORMANCE_CHAR': 'VARCHAR',
             'RATING_INT': 'NUMBER',
             'RECORD_METADATA': 'VARIANT'
         }
