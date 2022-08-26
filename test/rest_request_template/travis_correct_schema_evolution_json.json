@@ -23,6 +23,6 @@
     "errors.log.enable": true,
     "errors.deadletterqueue.topic.name": "DLQ_TOPIC",
     "errors.deadletterqueue.topic.replication.factor": 1,
-    "enable.schematization": true
+    "snowflake.enable.schematization": true
   }
 }
