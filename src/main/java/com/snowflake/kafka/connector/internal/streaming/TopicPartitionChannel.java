@@ -183,6 +183,8 @@ public class TopicPartitionChannel {
   private boolean enableSchemaEvolution = false;
 
   private SnowflakeConnectionService conn;
+  // TODO: SNOW-652708 Factor out schema related function so that the connection don't need to be
+  // passed in
 
   /** Initialize TopicPartitionChannel without the connection service */
   public TopicPartitionChannel(
@@ -508,6 +510,8 @@ public class TopicPartitionChannel {
    *
    * <p>Rows with error other than that will be added to DLQ if enabled
    *
+   * <p>TODO: SNOW-652669 add tests to see if rows with error are inserted into DLQ
+   *
    * @param streamingBufferToInsert the record buffer
    */
   public InsertRowsWithRetryResponse insertBufferedRecordsWithRetry(
@@ -533,14 +537,14 @@ public class TopicPartitionChannel {
           streamingBufferToInsert,
           response.hasErrors());
       if (response.hasErrors()) {
-        handleInsertRowsWithRetryFailures(response.insertErrors, response.recordWithError);
+        handleInsertRowsWithRetryFailures(response.insertErrors, response.recordsWithError);
       }
       // the channel was reopened (several times, due to a racing condition in altering table or a
       // random failure in reinsert the rows), and the channel offset was
       // reset to be before the current buffer. The offset needs to be reset to be the end of the
       // buffer to continue ingestion properly
       // even if the retry does not succeed the reset is necessary to make the behavior consistent
-      // with that without schema evolution
+      // with the behavior when schema evolution is not enabled.
       if (response.getChannelReopened()) {
         resetChannelMetadataAfterRecovery(
             StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK, lastKafkaOffsetInFailedBuffer);
@@ -559,9 +563,14 @@ public class TopicPartitionChannel {
     return response;
   }
 
+  /**
+   * Contains the records with error and their corresponding insertError
+   *
+   * <p>Deals with altering table and collect the new buffer to insert from the response
+   */
   public class InsertRowsWithRetryResponse {
     public List<InsertValidationResponse.InsertError> insertErrors;
-    public List<SinkRecord> recordWithError;
+    public List<SinkRecord> recordsWithError;
 
     private Map<String, String> extraColumnToType;
 
@@ -571,12 +580,12 @@ public class TopicPartitionChannel {
 
     private InsertRowsWithRetryResponse() {
       this.insertErrors = new ArrayList<>();
-      this.recordWithError = new ArrayList<>();
+      this.recordsWithError = new ArrayList<>();
       this.isChannelReopened = false;
     }
 
     public boolean hasErrors() {
-      return !recordWithError.isEmpty();
+      return !recordsWithError.isEmpty();
     }
 
     public void setChannelReopened() {
@@ -598,7 +607,7 @@ public class TopicPartitionChannel {
         List<SinkRecord> insertedRecordsToBuffer) {
       for (InsertValidationResponse.InsertError insertError : insertErrors) {
         this.insertErrors.add(insertError);
-        this.recordWithError.add(insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
+        this.recordsWithError.add(insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
       }
     }
 
@@ -650,7 +659,7 @@ public class TopicPartitionChannel {
           // if not extra column and no non-nullable columns, then add it to response body to be
           // returned
           this.insertErrors.add(insertError);
-          this.recordWithError.add(insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
+          this.recordsWithError.add(insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
           // containing other type of error
         } else {
           extraColumnToType.putAll(tempExtraColumnToType);
@@ -732,7 +741,6 @@ public class TopicPartitionChannel {
     RetryPolicy<Object> reopenChannelRetryExecutorForInsertRows =
         RetryPolicy.builder()
             .withMaxAttempts(maxInsertAttempt)
-            .handle(SFException.class)
             .handleResultIf(
                 result ->
                     result instanceof InsertValidationResponse
