@@ -413,16 +413,16 @@ def runStressTests(driver, testSet, nameSalt):
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Stress Tests Round 1 ===")
     testSuitList = [testPressureRestart]
 
-    testCleanEnableList = [False]
+    testCleanEnableList = [True]
     testSuitEnableList = []
     if testSet == "confluent":
-        testSuitEnableList = [False]
+        testSuitEnableList = [True]
     elif testSet == "apache":
-        testSuitEnableList = [False]
+        testSuitEnableList = [True]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=2)
+    execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=1)
     ############################ Stress Tests Round 1 ############################
 
     ############################ Stress Tests Round 2 ############################
