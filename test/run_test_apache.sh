@@ -142,12 +142,12 @@ LOCAL_IP="localhost"
 SC_PORT=8081
 KC_PORT=8083
 
+set +e -x
 echo -e "\n=== Clean table stage and pipe ==="
 python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $APACHE_VERSION $NAME_SALT $PRESSURE $SSL
 
 #create_connectors_with_salt $SNOWFLAKE_CREDENTIAL_FILE $NAME_SALT $LOCAL_IP $KC_PORT
 
-set +e
 # Send test data and verify DB result from Python
 python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT $TEST_SET $APACHE_VERSION $NAME_SALT $PRESSURE $SSL
 testError=$?
@@ -158,8 +158,6 @@ if [ $testError -ne 0 ]; then
     RED='\033[0;31m'
     NC='\033[0m' # No Color
     echo -e "${RED} There is error above this line ${NC}"
-#    tail -200 $APACHE_LOG_PATH/zookeeper.log
-#    tail -200 $APACHE_LOG_PATH/kafka.log
-    tail -200 $APACHE_LOG_PATH/kc.log
+    cat $APACHE_LOG_PATH/kc.log
     error_exit "=== test_verify.py failed ==="
 fi

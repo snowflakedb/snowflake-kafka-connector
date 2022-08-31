@@ -121,6 +121,7 @@ class KafkaTest:
                 print(datetime.now().strftime("\n%H:%M:%S "), "=== Non retryable error raised ===\n{}".format(e.msg), flush=True)
                 raise test_suit.test_utils.NonRetryableError()
             except snowflake.connector.errors.ProgrammingError as e:
+                print("Error in VerifyWithRetry" + str(e))
                 if e.errno == 2003:
                     retryNum += 1
                     print(datetime.now().strftime("%H:%M:%S "), "=== Failed, table not created ===", flush=True)
@@ -335,6 +336,7 @@ class KafkaTest:
 
         print("Post HTTP request to Create Connector:{0}".format(post_url))
         r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
+        print("Response Content Json " + json.dumps(r.json()))
         print(datetime.now().strftime("%H:%M:%S "), json.loads(r.content.decode("utf-8"))["name"], r.status_code)
         getConnectorResponse = requests.get(post_url)
         print("Get Connectors status:{0}, response:{1}".format(getConnectorResponse.status_code, getConnectorResponse.content))
@@ -394,7 +396,7 @@ def runDeliveryGuaranteeTests(driver, testSet, nameSalt):
 
     execution(testSet, testSuitList6, testCleanEnableList6, testSuitEnableList6, driver, nameSalt)
 
-def runTestSet(driver, testSet, nameSalt, pressure):
+def runTestSet(driver, testSet, nameSalt, enable_stress_test):
     from test_suit.test_string_json import TestStringJson
     from test_suit.test_string_json_proxy import TestStringJsonProxy
     from test_suit.test_json_json import TestJsonJson
@@ -499,15 +501,16 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     ############################ round 1 ############################
 
     ############################ round 2 ############################
+    # TestPressure and TestPressureRestart will only run when Running StressTests
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 2 ===")
     testSuitList2 = [testPressureRestart]
 
-    testCleanEnableList2 = [True]
+    testCleanEnableList2 = [enable_stress_test]
     testSuitEnableList2 = []
     if testSet == "confluent":
-        testSuitEnableList2 = [True]
+        testSuitEnableList2 = [enable_stress_test]
     elif testSet == "apache":
-        testSuitEnableList2 = [True]
+        testSuitEnableList2 = [enable_stress_test]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
@@ -518,12 +521,12 @@ def runTestSet(driver, testSet, nameSalt, pressure):
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 3 ===")
     testSuitList3 = [testPressure]
 
-    testCleanEnableList3 = [pressure]
+    testCleanEnableList3 = [enable_stress_test]
     testSuitEnableList3 = []
     if testSet == "confluent":
-        testSuitEnableList3 = [pressure]
+        testSuitEnableList3 = [enable_stress_test]
     elif testSet == "apache":
-        testSuitEnableList3 = [pressure]
+        testSuitEnableList3 = [enable_stress_test]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
@@ -532,7 +535,7 @@ def runTestSet(driver, testSet, nameSalt, pressure):
 
     print("Enable Delivery Guarantee tests:" + str(driver.enableDeliveryGuaranteeTests))
     if driver.enableDeliveryGuaranteeTests:
-        # Atleast once and exactly once gurantee tests
+        # At least once and exactly once guarantee tests runs only in AWS and AZURE
         runDeliveryGuaranteeTests(driver, testSet, nameSalt)
 
 
