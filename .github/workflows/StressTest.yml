@@ -1,9 +1,6 @@
 name: Kafka Connector Stress Test
 
 on:
-  schedule:
-    - cron:  '0 8 * * 6' # at 8.00 on Saturday
-  # This is for Testing against this PR, remove it later before pushing
   push:
     branches: [ master ]
   pull_request:
