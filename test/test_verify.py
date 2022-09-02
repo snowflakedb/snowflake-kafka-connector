@@ -47,7 +47,7 @@ class KafkaTest:
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
-        self.MAX_RETRY = 120  # max wait time 120 mins
+        self.MAX_RETRY = 30  # max wait time 30 mins
         self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 10000 data was in the queue
 
         self.kafkaConnectAddress = kafkaConnectAddress
@@ -337,7 +337,7 @@ class KafkaTest:
         print("Post HTTP request to Create Connector:{0}".format(post_url))
         r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
         print("Response Content Json " + json.dumps(r.json()))
-        print(datetime.now().strftime("%H:%M:%S "), json.loads(r.content.decode("utf-8"))["name"], r.status_code)
+        print(datetime.now().strftime("%H:%M:%S "), r.status_code)
         getConnectorResponse = requests.get(post_url)
         print("Get Connectors status:{0}, response:{1}".format(getConnectorResponse.status_code, getConnectorResponse.content))
 
@@ -396,170 +396,181 @@ def runDeliveryGuaranteeTests(driver, testSet, nameSalt):
 
     execution(testSet, testSuitList6, testCleanEnableList6, testSuitEnableList6, driver, nameSalt)
 
-def runTestSet(driver, testSet, nameSalt, enable_stress_test):
-    from test_suit.test_string_json import TestStringJson
-    from test_suit.test_string_json_proxy import TestStringJsonProxy
-    from test_suit.test_json_json import TestJsonJson
-    from test_suit.test_string_avro import TestStringAvro
-    from test_suit.test_avro_avro import TestAvroAvro
-    from test_suit.test_string_avrosr import TestStringAvrosr
-    from test_suit.test_avrosr_avrosr import TestAvrosrAvrosr
 
-    from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
-    from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
-    from test_suit.test_native_complex_smt import TestNativeComplexSmt
+
+# These tests run from StressTest.yml file and not ran while running End-To-End Tests
+def runStressTests(driver, testSet, nameSalt):
     from test_suit.test_pressure import TestPressure
     from test_suit.test_pressure_restart import TestPressureRestart
 
-    from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
-    from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
-
-    from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
-    from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
-
-    from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import TestMultipleTopicToOneTableSnowpipeStreaming
-    from test_suit.test_multiple_topic_to_one_table_snowpipe import TestMultipleTopicToOneTableSnowpipe
-
-    from test_suit.test_schema_mapping import TestSchemaMapping
-
-    from test_suit.test_auto_table_creation import TestAutoTableCreation
-    from test_suit.test_auto_table_creation_topic2table import TestAutoTableCreationTopic2Table
-
-    testStringJson = TestStringJson(driver, nameSalt)
-    testJsonJson = TestJsonJson(driver, nameSalt)
-    testStringAvro = TestStringAvro(driver, nameSalt)
-    testAvroAvro = TestAvroAvro(driver, nameSalt)
-    testStringAvrosr = TestStringAvrosr(driver, nameSalt)
-    testAvrosrAvrosr = TestAvrosrAvrosr(driver, nameSalt)
-
-    testNativeStringAvrosr = TestNativeStringAvrosr(driver, nameSalt)
-    testNativeStringJsonWithoutSchema = TestNativeStringJsonWithoutSchema(driver, nameSalt)
-    testNativeComplexSmt = TestNativeComplexSmt(driver, nameSalt)
     testPressure = TestPressure(driver, nameSalt)
+
+    # This test is more of a chaos test where we pause, delete, restart connectors to verify behavior.
     testPressureRestart = TestPressureRestart(driver, nameSalt)
 
-    testNativeStringProtobuf = TestNativeStringProtobuf(driver, nameSalt)
-    testConfluentProtobufProtobuf = TestConfluentProtobufProtobuf(driver, nameSalt)
+    ############################ Stress Tests Round 1 ############################
+    # TestPressure and TestPressureRestart will only run when Running StressTests
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== Stress Tests Round 1 ===")
+    testSuitList = [testPressureRestart]
 
-    testStringJsonProxy = TestStringJsonProxy(driver, nameSalt)
-
-    # Run this test on both confluent and apache kafka
-    testSnowpipeStreamingStringJson = TestSnowpipeStreamingStringJson(driver, nameSalt)
-
-    # will run this only in confluent cloud since, since in apache kafka e2e tests, we don't start schema registry
-    testSnowpipeStreamingStringAvro = TestSnowpipeStreamingStringAvroSR(driver, nameSalt)
-
-    testMultipleTopicToOneTableSnowpipeStreaming = TestMultipleTopicToOneTableSnowpipeStreaming(driver, nameSalt)
-    testMultipleTopicToOneTableSnowpipe = TestMultipleTopicToOneTableSnowpipe(driver, nameSalt)
-
-    testSchemaMapping = TestSchemaMapping(driver, nameSalt)
-
-    testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet)
-    testAutoTableCreationTopic2Table = TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress, testSet)
-
-    ############################ round 1 ############################
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
-    testSuitList1 = [
-        testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
-        testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
-        testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
-        testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
-        testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe,
-        testSchemaMapping,
-        testAutoTableCreation, testAutoTableCreationTopic2Table
-    ]
-
-    # Adding StringJsonProxy test at the end
-    testCleanEnableList1 = [
-        True, True, True, True, True, True, True, True, True, True, True,
-        True, True,
-        True, True,
-        True,
-        True, True
-    ]
-    testSuitEnableList1 = []
+    testCleanEnableList = [True]
+    testSuitEnableList = []
     if testSet == "confluent":
-        testSuitEnableList1 = [
-            True, True, True, True, True, True, True, True, True, True, False,
+        testSuitEnableList = [True]
+    elif testSet == "apache":
+        testSuitEnableList = [True]
+    elif testSet != "clean":
+        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+
+    execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=1)
+    ############################ Stress Tests Round 1 ############################
+
+    ############################ Stress Tests Round 2 ############################
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== Stress Tests Round 2 ===")
+    testSuitList = [testPressure]
+
+    testCleanEnableList = [True]
+    testSuitEnableList = []
+    if testSet == "confluent":
+        testSuitEnableList = [True]
+    elif testSet == "apache":
+        testSuitEnableList = [True]
+    elif testSet != "clean":
+        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+
+    execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=1)
+    ############################ Stress Tests Round 2 ############################
+
+def runTestSet(driver, testSet, nameSalt, enable_stress_test):
+    if enable_stress_test:
+        runStressTests(driver, testSet, nameSalt)
+    else:
+        from test_suit.test_string_json import TestStringJson
+        from test_suit.test_string_json_proxy import TestStringJsonProxy
+        from test_suit.test_json_json import TestJsonJson
+        from test_suit.test_string_avro import TestStringAvro
+        from test_suit.test_avro_avro import TestAvroAvro
+        from test_suit.test_string_avrosr import TestStringAvrosr
+        from test_suit.test_avrosr_avrosr import TestAvrosrAvrosr
+
+        from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
+        from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
+        from test_suit.test_native_complex_smt import TestNativeComplexSmt
+
+        from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
+        from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
+
+        from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
+        from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
+
+        from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import TestMultipleTopicToOneTableSnowpipeStreaming
+        from test_suit.test_multiple_topic_to_one_table_snowpipe import TestMultipleTopicToOneTableSnowpipe
+
+        from test_suit.test_schema_mapping import TestSchemaMapping
+
+        from test_suit.test_auto_table_creation import TestAutoTableCreation
+        from test_suit.test_auto_table_creation_topic2table import TestAutoTableCreationTopic2Table
+
+        testStringJson = TestStringJson(driver, nameSalt)
+        testJsonJson = TestJsonJson(driver, nameSalt)
+        testStringAvro = TestStringAvro(driver, nameSalt)
+        testAvroAvro = TestAvroAvro(driver, nameSalt)
+        testStringAvrosr = TestStringAvrosr(driver, nameSalt)
+        testAvrosrAvrosr = TestAvrosrAvrosr(driver, nameSalt)
+
+        testNativeStringAvrosr = TestNativeStringAvrosr(driver, nameSalt)
+        testNativeStringJsonWithoutSchema = TestNativeStringJsonWithoutSchema(driver, nameSalt)
+        testNativeComplexSmt = TestNativeComplexSmt(driver, nameSalt)
+
+        testNativeStringProtobuf = TestNativeStringProtobuf(driver, nameSalt)
+        testConfluentProtobufProtobuf = TestConfluentProtobufProtobuf(driver, nameSalt)
+
+        testStringJsonProxy = TestStringJsonProxy(driver, nameSalt)
+
+        # Run this test on both confluent and apache kafka
+        testSnowpipeStreamingStringJson = TestSnowpipeStreamingStringJson(driver, nameSalt)
+
+        # will run this only in confluent cloud since, since in apache kafka e2e tests, we don't start schema registry
+        testSnowpipeStreamingStringAvro = TestSnowpipeStreamingStringAvroSR(driver, nameSalt)
+
+        testMultipleTopicToOneTableSnowpipeStreaming = TestMultipleTopicToOneTableSnowpipeStreaming(driver, nameSalt)
+        testMultipleTopicToOneTableSnowpipe = TestMultipleTopicToOneTableSnowpipe(driver, nameSalt)
+
+        testSchemaMapping = TestSchemaMapping(driver, nameSalt)
+
+        testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet)
+        testAutoTableCreationTopic2Table = TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress, testSet)
+
+        ############################ round 1 ############################
+        print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
+        testSuitList1 = [
+            testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
+            testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
+            testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
+            testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
+            testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe,
+            testSchemaMapping,
+            testAutoTableCreation, testAutoTableCreationTopic2Table
+        ]
+
+        # Adding StringJsonProxy test at the end
+        testCleanEnableList1 = [
+            True, True, True, True, True, True, True, True, True, True, True,
             True, True,
             True, True,
             True,
             True, True
         ]
-    elif testSet == "apache":
-        testSuitEnableList1 = [
-            True, True, True, True, False, False, False, True, True, True, False,
-            True, False,
-            True, True,
-            True,
-            False, False
-        ]
-    elif testSet != "clean":
-        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+        testSuitEnableList1 = []
+        if testSet == "confluent":
+            testSuitEnableList1 = [
+                True, True, True, True, True, True, True, True, True, True, False,
+                True, True,
+                True, True,
+                True,
+                True, True
+            ]
+        elif testSet == "apache":
+            testSuitEnableList1 = [
+                True, True, True, True, False, False, False, True, True, True, False,
+                True, False,
+                True, True,
+                True,
+                False, False
+            ]
+        elif testSet != "clean":
+            errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    execution(testSet, testSuitList1, testCleanEnableList1, testSuitEnableList1, driver, nameSalt)
-    ############################ round 1 ############################
+        execution(testSet, testSuitList1, testCleanEnableList1, testSuitEnableList1, driver, nameSalt)
+        ############################ round 1 ############################
 
-    ############################ round 2 ############################
-    # TestPressure and TestPressureRestart will only run when Running StressTests
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 2 ===")
-    testSuitList2 = [testPressureRestart]
-
-    testCleanEnableList2 = [enable_stress_test]
-    testSuitEnableList2 = []
-    if testSet == "confluent":
-        testSuitEnableList2 = [enable_stress_test]
-    elif testSet == "apache":
-        testSuitEnableList2 = [enable_stress_test]
-    elif testSet != "clean":
-        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-    execution(testSet, testSuitList2, testCleanEnableList2, testSuitEnableList2, driver, nameSalt, 2)
-    ############################ round 2 ############################
-
-    ############################ round 3 ############################
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 3 ===")
-    testSuitList3 = [testPressure]
-
-    testCleanEnableList3 = [enable_stress_test]
-    testSuitEnableList3 = []
-    if testSet == "confluent":
-        testSuitEnableList3 = [enable_stress_test]
-    elif testSet == "apache":
-        testSuitEnableList3 = [enable_stress_test]
-    elif testSet != "clean":
-        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-    execution(testSet, testSuitList3, testCleanEnableList3, testSuitEnableList3, driver, nameSalt, 4)
-    ############################ round 3 ############################
-
-    print("Enable Delivery Guarantee tests:" + str(driver.enableDeliveryGuaranteeTests))
-    if driver.enableDeliveryGuaranteeTests:
-        # At least once and exactly once guarantee tests runs only in AWS and AZURE
-        runDeliveryGuaranteeTests(driver, testSet, nameSalt)
+        print("Enable Delivery Guarantee tests:" + str(driver.enableDeliveryGuaranteeTests))
+        if driver.enableDeliveryGuaranteeTests:
+            # At least once and exactly once guarantee tests runs only in AWS and AZURE
+            runDeliveryGuaranteeTests(driver, testSet, nameSalt)
 
 
-    ############################ Always run Proxy tests in the end ############################
+        ############################ Always run Proxy tests in the end ############################
 
-    ############################ Proxy End To End Test ############################
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
-    print("Proxy Test should be the last test, since it modifies the JVM values")
-    testSuitList4 = [testStringJsonProxy]
+        ############################ Proxy End To End Test ############################
+        print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
+        print("Proxy Test should be the last test, since it modifies the JVM values")
+        testSuitList4 = [testStringJsonProxy]
 
-    # Should we invoke clean before and after the test
-    testCleanEnableList4 = [True]
+        # Should we invoke clean before and after the test
+        testCleanEnableList4 = [True]
 
-    # should we enable this? Set to false to disable
-    testSuitEnableList4 = []
-    if testSet == "confluent":
-        testSuitEnableList4 = [True]
-    elif testSet == "apache":
-        testSuitEnableList4 = [True]
-    elif testSet != "clean":
-        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+        # should we enable this? Set to false to disable
+        testSuitEnableList4 = []
+        if testSet == "confluent":
+            testSuitEnableList4 = [True]
+        elif testSet == "apache":
+            testSuitEnableList4 = [True]
+        elif testSet != "clean":
+            errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
-    ############################ Proxy End To End Test End ############################
+        execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
+        ############################ Proxy End To End Test End ############################
 
 
 def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round = 1):

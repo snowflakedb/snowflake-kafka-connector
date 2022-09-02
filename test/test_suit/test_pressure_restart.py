@@ -1,5 +1,6 @@
 from test_suit.test_utils import RetryableError, NonRetryableError, ResetAndRetry
 import json
+from time import sleep
 
 class TestPressureRestart:
     def __init__(self, driver, nameSalt):
@@ -16,13 +17,15 @@ class TestPressureRestart:
         for i in range(self.topicNum):
             self.topics.append(self.fileName + str(i) + nameSalt)
 
+        for t in range(self.topicNum):
+            self.driver.createTopics(self.topics[t], self.partitionNum, 1)
+
+        sleep(5)
+
     def getConfigFileName(self):
         return self.fileName + ".json"
 
     def send(self):
-        for t in range(self.topicNum):
-            self.driver.createTopics(self.topics[t], self.partitionNum, 1)
-
         for p in range(self.partitionNum):
             for t in range(self.topicNum):
                 value = []
