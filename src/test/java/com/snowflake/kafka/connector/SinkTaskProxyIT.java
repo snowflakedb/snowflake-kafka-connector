@@ -19,7 +19,7 @@ public class SinkTaskProxyIT {
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
   @Ignore
-  public void testSinkTaskProxyConfigMock() {
+  public void testSinkTaskProxyConfigFailure() {
     Map<String, String> config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
@@ -42,9 +42,10 @@ public class SinkTaskProxyIT {
       assert System.getProperty(Utils.HTTPS_PROXY_USER).equals("user");
       assert System.getProperty(Utils.HTTPS_PROXY_PASSWORD).equals("password");
 
+      throw e;
+    } finally {
       // unset the system parameters please.
       TestUtils.resetProxyParametersInJVM();
-      throw e;
     }
   }
 
@@ -104,5 +105,7 @@ public class SinkTaskProxyIT {
     ingestionService.ingestFile(fileName);
     List<String> names = new ArrayList<>(1);
     names.add(fileName);
+
+    TestUtils.resetProxyParametersInJVM();
   }
 }

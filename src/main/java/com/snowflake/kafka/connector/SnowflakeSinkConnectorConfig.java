@@ -80,6 +80,7 @@ public class SnowflakeSinkConnectorConfig {
   public static final String JVM_PROXY_PORT = "jvm.proxy.port";
   public static final String JVM_PROXY_USERNAME = "jvm.proxy.username";
   public static final String JVM_PROXY_PASSWORD = "jvm.proxy.password";
+  public static final String JVM_NON_PROXY_HOSTS = "jvm.non.proxy.hosts";
 
   // JDBC logging directory Info (environment variable)
   static final String SNOWFLAKE_JDBC_LOG_DIR = "JDBC_LOG_DIR";
@@ -326,6 +327,16 @@ public class SnowflakeSinkConnectorConfig {
             3,
             ConfigDef.Width.NONE,
             JVM_PROXY_PASSWORD)
+        .define(
+            JVM_NON_PROXY_HOSTS,
+            Type.STRING,
+            "",
+            Importance.LOW,
+            "JVM non proxy hosts",
+            PROXY_INFO,
+            4,
+            ConfigDef.Width.NONE,
+            JVM_NON_PROXY_HOSTS)
         // Connector Config
         .define(
             TOPICS_TABLES_MAP,

@@ -82,6 +82,7 @@ public class Utils {
   public static final String HTTPS_PROXY_PORT = "https.proxyPort";
   public static final String HTTP_PROXY_HOST = "http.proxyHost";
   public static final String HTTP_PROXY_PORT = "http.proxyPort";
+  public static final String HTTP_NON_PROXY_HOSTS = "http.nonProxyHosts";
 
   public static final String JDK_HTTP_AUTH_TUNNELING = "jdk.http.auth.tunneling.disabledSchemes";
   public static final String HTTPS_PROXY_USER = "https.proxyUser";
@@ -220,6 +221,7 @@ public class Utils {
 
   /**
    * validate whether proxy settings in the config is valid
+   * note: nonproxyhosts have no requirements, so they are not validated here
    *
    * @param config connector configuration
    */
@@ -299,6 +301,17 @@ public class Utils {
         System.setProperty(HTTPS_PROXY_USER, username);
         System.setProperty(HTTPS_PROXY_PASSWORD, password);
       }
+    }
+
+    // enable nonproxyhosts
+    String nonProxyHosts =
+        SnowflakeSinkConnectorConfig.getProperty(
+            config, SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS);
+
+    if (nonProxyHosts != null) {
+      LOGGER.info(Logging.logMessage("enabling nonproxyhosts: {} ...", nonProxyHosts));
+      System.setProperty(HTTP_NON_PROXY_HOSTS, nonProxyHosts);
+      LOGGER.info(Logging.logMessage("enabled nonproxyhosts: {}", nonProxyHosts));
     }
 
     return true;

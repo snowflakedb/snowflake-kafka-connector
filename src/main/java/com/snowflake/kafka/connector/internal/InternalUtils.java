@@ -214,6 +214,13 @@ class InternalUtils {
         proxyProperties.put(SFSessionProperty.PROXY_PASSWORD.getPropertyKey(), password);
       }
     }
+
+    if (conf.get(SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS) != null){
+      proxyProperties.put(
+          SFSessionProperty.NON_PROXY_HOSTS,
+          conf.get(SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS));
+    }
+
     return proxyProperties;
   }
 
