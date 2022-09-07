@@ -64,9 +64,9 @@ services:
       - 5060:5060 # KAFKA_DEBUG port
       - 9876:9876 # JMX port
       - 8085:8085
-    volumes:
-      - ./jars:/etc/kafka-connect/jars/ # if you want your custom jar, put custom jar in ./jars directory
-      - ./prometheus:/opt/jmx-exporter/
+    #volumes:
+    #  - ./jars:/etc/kafka-connect/jars/ # if you want your custom jar, put custom jar in ./jars directory
+    #  - ./prometheus:/opt/jmx-exporter/
     # volumes:
     #   - ./config/connect-log4j.properties:/etc/kafka/connect-log4j.properties
     environment:
@@ -92,7 +92,7 @@ services:
       CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components,/etc/kafka-connect/jars"
       # CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
       JMX_PORT: 9876
-      KAFKA_JMX_OPTS: "-javaagent:/opt/jmx-exporter/jmx_prometheus_javaagent-0.16.0.jar=8085:/opt/jmx-exporter/kafka-connect-pattern.yml -Djava.rmi.server.hostname=0.0.0.0 -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9876 -Dcom.sun.management.jmxremote.rmi.port=9876 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
+      #KAFKA_JMX_OPTS: "-javaagent:/opt/jmx-exporter/jmx_prometheus_javaagent-0.16.0.jar=8085:/opt/jmx-exporter/kafka-connect-pattern.yml -Djava.rmi.server.hostname=0.0.0.0 -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9876 -Dcom.sun.management.jmxremote.rmi.port=9876 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
       CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR,com.snowflake=DEBUG
       KAFKA_DEBUG: true
       JAVA_DEBUG_PORT: 0.0.0.0:5060
@@ -100,10 +100,10 @@ services:
       - bash
       - -c
       - |
-        # echo "Installing Snowflake kafka connector"
+        echo "Installing Snowflake kafka connector"
         # if jar is available on confluent hub, uncomment below line
-        # confluent-hub install --no-prompt snowflakeinc/snowflake-kafka-connector:1.8.0 
-        # echo "Launching Kafka Connect worker"
+        confluent-hub install --no-prompt snowflakeinc/snowflake-kafka-connector:1.8.1
+        echo "Launching Kafka Connect worker"
         /etc/confluent/docker/run
 
 # needed only if you want two kafka connect processes

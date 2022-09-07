@@ -70,8 +70,8 @@ services:
       - 5060:5060 # KAFKA_DEBUG port
       - 9876:9876 # JMX port
       - 8085:8085
-    volumes:
-      - ./jars:/etc/kafka-connect/jars/ # if you want your custom jar, put custom jar in ./jars directory
+    #volumes:
+    #  - ./jars:/etc/kafka-connect/jars/ # if you want your custom jar, put custom jar in ./jars directory
     environment:
       CONNECT_BOOTSTRAP_SERVERS: 'kafka:29092'
       CONNECT_REST_ADVERTISED_HOST_NAME: connect
@@ -99,10 +99,10 @@ services:
       - bash
       - -c
       - |
-        # echo "Installing Snowflake kafka connector"
+        echo "Installing Snowflake kafka connector"
         # if jar is available on confluent hub, uncomment below line
         confluent-hub install --no-prompt snowflakeinc/snowflake-kafka-connector:1.8.0 
-        # echo "Launching Kafka Connect worker"
+        echo "Launching Kafka Connect worker"
         /etc/confluent/docker/run
 
   control-center:
