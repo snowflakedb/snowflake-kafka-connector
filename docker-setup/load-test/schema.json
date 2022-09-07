@@ -1,0 +1,6 @@
+{
+	"messageId":{{SEQUENCE("messageId", 1, 1)}},
+	"messageBody":"{{RANDOM_ALPHA_NUMERIC("abcedefghijklmnopqrwxyzABCDEFGHIJKLMNOPQRWXYZ", 2700)}}",
+	"messageCategory":"{{RANDOM_STRING("Finance", "Insurance", "Healthcare", "Shares")}}",
+	"messageStatus":"{{RANDOM_STRING("Accepted","Pending","Processing","Rejected")}}"
+}

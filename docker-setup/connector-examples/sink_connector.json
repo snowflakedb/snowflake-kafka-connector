@@ -1,0 +1,21 @@
+{
+  "name": "SnowflakeSinkConnector_revi",
+  "config": {
+    "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+    "name": "SnowflakeSinkConnector_revi",
+    "topics": "SnowflakeSink_revi",
+    "tasks.max": "2",
+    "buffer.flush.time":"10",
+    "buffer.count.records":"10",
+    "buffer.size.bytes":"5000000",
+    "snowflake.url.name": "sfctest0.snowflakecomputing.com:443",
+    "snowflake.user.name": "test_kafka",
+    "snowflake.private.key": "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDKXhYMIin7P7lHC0yS1MZ2IGOuwG5DreWFlGQ0uPi5ZjpB4epz9YC9k92L/rywUMqB64iS//niX6l9rqHUPf73/pe6t0239C/LTD9ORDIdOuJx5ORWUhgC5Zvch1+zeag4MoWZi584yTQ0OPUpg8iodZRUtieU6jV0/Qf8eF6E8Nps0jYjKV58lYD4ffqYeouOXVOsD5q6LCGPd4FuCNtrXjPXDsmnDrTU5sCGqR+acRUJutqR3hjFIMN9+ElVAers+sKDvYDoc/ztZtFCHyjV76B4CERge1ykQSXMGI6EdOeaXDyVITvkt8Hf4pUhF9oARhDcfbyJ19NL9hRnV0YXAgMBAAECggEALW5r8rNky2Ql+z4dJcWg/HoPBvdqicUrhw6mZHO2WyEJKStH0FqoWWct0LUStV6d6AbxtVbESb8CNRYUfKqiaBh/BcsLJqYqaLCocbC7s3Y5yioB3SM3Asd7c0ntAUTpsBwfhDYlO8Fn9+VlnLlaPf+Pmmj+f98Iu0fnGBYJ2jw11HZYqXBvNkU87c12wmtLFoJ9mtwP3Lx1UQ4gW3MBo+DuapTp62HnwAA1tnY2tI93P3ZiYnXgiFRsqQVueNyp0rvqYe8di5BbI23tU5aht1XHIoRxi3OBtBJ6oxMmjTsQfVQSqNSyq/FPyY7ckBa7NleT4hJZ4IaeJ1KyCCRRiQKBgQDyu4fUf361XAu5teIyEdpSZpiYqrmdqCgd97Sylhu5UhLxifLYRhlcq4XEpwhNwkrP2OwUlwVJBvkFDa+0JcXJ7JoaIJnd8b4knREjEAgF56nfW4BolR21hte1LdkVv72AfTGHUbtH+DQatFwJBZr/K52RAKgDhTK8k2HeNwcSWwKBgQDVbb4IxBkIQXe/ubgeEHJvp30coM8PRhq8qcd7NgjHkh/Fther2EmpEkFom/Znw1YstfAzWzf4TDBScvYijQ0RizIp/9TF+iywdIHcuwaZ/yQ3mPHs4fMYV13fzylu2BJJIKv4QNoIuP6Rfg7RlbJ+En/9Q3rl13MWg2Qc8dwv9QKBgDzKJGleiMAozjLzTzPU7sVmNl89moDWZT2kFJgJKeZOnLnrH2t0mtNvjW/DmTvIJe5J2E4LyGISofjXBaLrNs6sN6fFdGN2MHWA9JLAaBH6g7uRceY/OhKFM66HTe+5dl8ge2/1Ux7iFUJ+2vHTeo7fQHXZITrId/1sN71sMJQzAoGAEr+SKvj27fe6SjhJSTLOqqo+3k3uAnx5CsurP1KO0OEwM1D8oVbdmaGF52eT7KeHIWRWFlzT/NbMg+GfZ4eWd00P+gqEKWQBmvqREc/IE60LBGtGDTYIAcJi968eB6Opb40ULjmcLZn6mtNE//ozdMmxPpE38YrMjFS8baJ9YiUCgYEAmVyw0yZuXWbRwjyg4B7yWH4wKGNh/Jupa9d6vMGNn10K3h7TCmuSAIjZdsnRIpT8eVpySVg5OJ86e2xe9gSZj50J0Q365OcBBorlYRysHmu+/EAPkIw7nGbtOyC4WhiuMA2u+MZHrnPRSrLLuH5hyoTWgid+xH1dyYjclBofbhg=",
+    "snowflake.database.name": "testdb_kafka",
+    "snowflake.schema.name": "kafka_test",
+    "key.converter":"org.apache.kafka.connect.storage.StringConverter",
+    "value.converter":"org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable":"false",
+    "jmx": "true"
+  }
+}
