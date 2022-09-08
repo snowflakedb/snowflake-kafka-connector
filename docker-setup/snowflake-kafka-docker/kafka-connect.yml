@@ -64,8 +64,8 @@ services:
       - 5060:5060 # KAFKA_DEBUG port
       - 9876:9876 # JMX port
       - 8085:8085
-    #volumes:
-    #  - ./jars:/etc/kafka-connect/jars/ # if you want your custom jar, put custom jar in ./jars directory
+    volumes:
+      - /usr/local/share/kafka/plugins:/etc/kafka-connect/jars/ # if you want your custom jar, put custom jar in ./jars directory
     #  - ./prometheus:/opt/jmx-exporter/
     # volumes:
     #   - ./config/connect-log4j.properties:/etc/kafka/connect-log4j.properties
