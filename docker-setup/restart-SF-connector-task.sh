@@ -26,8 +26,3 @@ else
     done
     exec "$@"
 fi
-
-
-
-
-
