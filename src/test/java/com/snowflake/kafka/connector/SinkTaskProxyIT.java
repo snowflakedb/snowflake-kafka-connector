@@ -65,6 +65,7 @@ public class SinkTaskProxyIT {
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "admin");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "test");
+    config.put(SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS, "host1|host2");
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
     sinkTask.start(config);
@@ -79,6 +80,7 @@ public class SinkTaskProxyIT {
     assert System.getProperty(Utils.HTTP_PROXY_PASSWORD).equals("test");
     assert System.getProperty(Utils.HTTPS_PROXY_USER).equals("admin");
     assert System.getProperty(Utils.HTTPS_PROXY_PASSWORD).equals("test");
+    assert System.getProperty(Utils.HTTP_NON_PROXY_HOSTS).equals("host1|host2");
 
     // get the snowflakeconnection service which was made during sinkTask
 

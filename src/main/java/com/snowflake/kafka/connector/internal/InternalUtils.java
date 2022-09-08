@@ -217,7 +217,7 @@ class InternalUtils {
 
     if (conf.get(SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS) != null){
       proxyProperties.put(
-          SFSessionProperty.NON_PROXY_HOSTS,
+          SFSessionProperty.NON_PROXY_HOSTS.getPropertyKey(),
           conf.get(SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS));
     }
 
