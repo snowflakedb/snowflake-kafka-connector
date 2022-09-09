@@ -142,8 +142,8 @@ public class StreamingUtils {
           invalidConfigParams.addAll(BufferThreshold.validateBufferThreshold(
               inputConfig, IngestionMethodConfig.SNOWPIPE_STREAMING));
 
-          invalidConfigParams.addAll(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
-          invalidConfigParams.addAll(validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig));
+          invalidConfigParams.add(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
+          invalidConfigParams.add(validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig));
 
           // Validate if snowflake role is present
           if (!inputConfig.containsKey(Utils.SF_ROLE)
@@ -197,6 +197,7 @@ public class StreamingUtils {
         invalidConfigParams.add(INGESTION_METHOD_OPT);
       }
     }
+    invalidConfigParams.remove("");
     return invalidConfigParams;
   }
 
@@ -206,7 +207,7 @@ public class StreamingUtils {
    *
    * <p>return true if allowed, false otherwise.
    */
-  private static Set<String> validateConfigConverters(
+  private static String validateConfigConverters(
       final String inputConfigConverterField, Map<String, String> inputConfig) {
     if (inputConfig.containsKey(inputConfigConverterField)) {
       if (DISALLOWED_CONVERTERS_STREAMING.contains(inputConfig.get(inputConfigConverterField))) {
@@ -219,9 +220,9 @@ public class StreamingUtils {
                 inputConfig.get(inputConfigConverterField),
                 IngestionMethodConfig.SNOWPIPE_STREAMING,
                 Iterables.toString(DISALLOWED_CONVERTERS_STREAMING)));
-        return DISALLOWED_CONVERTERS_STREAMING;
+        return inputConfigConverterField;
       }
     }
-    return Collections.emptySet();
+    return "";
   }
 }

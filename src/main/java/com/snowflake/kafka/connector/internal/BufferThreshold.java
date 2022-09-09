@@ -186,8 +186,8 @@ public abstract class BufferThreshold {
     if (!providedSFConnectorConfig.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES)) {
       LOGGER.error(
           Logging.logMessage(
-              "Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
-      return SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
+              "Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
+      return SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
     } else {
       final String providedBufferSizeBytesStr =
           providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
@@ -202,7 +202,7 @@ public abstract class BufferThreshold {
                   SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
                   providedBufferSizeBytesConfig,
                   SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN));
-          return SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
+          return SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
         }
       } catch (NumberFormatException e) {
         LOGGER.error(
@@ -210,7 +210,7 @@ public abstract class BufferThreshold {
                 "Config {} should be an integer. Provided:{}",
                 SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
                 providedBufferSizeBytesStr));
-        return SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
+        return SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
       }
     }
     return "";

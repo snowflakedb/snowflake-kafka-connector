@@ -61,6 +61,7 @@ public class Utils {
   public static final String SF_SSL = "sfssl"; // for test only
   public static final String SF_WAREHOUSE = "sfwarehouse"; // for test only
   public static final String PRIVATE_KEY_PASSPHRASE = "snowflake.private.key" + ".passphrase";
+  public static final String VALIDATION_ERRORMSG_PREFIX = "Invalid configuration parameters are: ";
 
   /**
    * This value should be present if ingestion method is {@link
@@ -221,6 +222,9 @@ public class Utils {
    *
    * @param config connector configuration
    */
+  // TODO @rcheng: question - can i change this exception to also return the invalid configs?
+  //        is there a reason we want the functionality of throwing immediately here instead of collecting params?
+  //        this method is only ever called in a try catch
   static void validateProxySetting(Map<String, String> config) {
     String host =
         SnowflakeSinkConnectorConfig.getProperty(
@@ -228,6 +232,7 @@ public class Utils {
     String port =
         SnowflakeSinkConnectorConfig.getProperty(
             config, SnowflakeSinkConnectorConfig.JVM_PROXY_PORT);
+
     // either both host and port are provided or none of them are provided
     if (host != null ^ port != null) {
       throw SnowflakeErrors.ERROR_0022.getException(
@@ -417,7 +422,7 @@ public class Utils {
       validateProxySetting(config);
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error(Logging.logMessage("Proxy settings error: ", e.getMessage()));
-      invalidConfigParams.add("Proxy settings error");
+      invalidConfigParams.add("Proxy settings error: " + e.getMessage());
     }
 
     // set jdbc logging directory
@@ -473,7 +478,7 @@ public class Utils {
     invalidConfigParams.addAll(StreamingUtils.isStreamingSnowpipeConfigValid(config));
 
     if (!invalidConfigParams.isEmpty()) {
-      String errorMsg = "Invalid configuration parameters are: " + invalidConfigParams;
+      String errorMsg = VALIDATION_ERRORMSG_PREFIX + invalidConfigParams;
       // TODO @rcheng: question - do we want to trust the set.tostring function here?
       throw SnowflakeErrors.ERROR_0001.getException(errorMsg);
     }
@@ -568,6 +573,7 @@ public class Utils {
       String topic = tt[0].trim();
       String table = tt[1].trim();
 
+      // TODO @rcheng: question - why the distinction between isInvalid and returning null?
       if (!isValidSnowflakeTableName(table)) {
         LOGGER.error(
             Logging.logMessage(

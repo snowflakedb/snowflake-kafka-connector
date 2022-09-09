@@ -10,12 +10,15 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 public class ConnectorConfigTest {
+  @Rule
+  public ExpectedException expectedException = ExpectedException.none();
 
   @Test
   public void testConfig() {
@@ -33,15 +36,19 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testEmptyFlushTime() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
+    
     Map<String, String> config = getConfig();
     config.remove(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testFlushTimeSmall() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
+    
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
@@ -49,50 +56,64 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testFlushTimeNotNumber() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "fdas");
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testEmptyName() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.NAME);
+
     Map<String, String> config = getConfig();
     config.remove(SnowflakeSinkConnectorConfig.NAME);
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testURL() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL);
+
     Map<String, String> config = getConfig();
     config.remove(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL);
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testEmptyUser() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER);
+
     Map<String, String> config = getConfig();
     config.remove(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER);
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testEmptyDatabase() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE);
+
     Map<String, String> config = getConfig();
     config.remove(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE);
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testEmptySchema() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA);
+
     Map<String, String> config = getConfig();
     config.remove(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA);
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testEmptyPrivateKey() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY);
+
     Map<String, String> config = getConfig();
     config.remove(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY);
     Utils.validateConfig(config);
@@ -106,36 +127,46 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testEmptyPort() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT);
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "127.0.0.1");
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testEmptyHost() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST);
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testIllegalTopicMap() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP);
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "$@#$#@%^$12312");
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testIllegalTableName() {
+    expectedException.expectMessage("Invalid topic2table map");
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:!@#@!#!@");
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testDuplicatedTopic() {
+    expectedException.expectMessage("Invalid topic2table map");
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:table1,topic1:table2");
     Utils.validateConfig(config);
@@ -156,8 +187,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testBufferSizeRange() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
+
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
@@ -165,36 +198,46 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testBufferSizeValue() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, "afdsa");
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testEmptyBufferSize() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
+
     Map<String, String> config = getConfig();
     config.remove(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testEmptyBufferCount() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
+
     Map<String, String> config = getConfig();
     config.remove(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testEmptyBufferCountNegative() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "-1");
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testBufferCountValue() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "adssadsa");
     Utils.validateConfig(config);
@@ -227,8 +270,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testKafkaProviderConfigValue_invalid_value() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG);
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, "Something_which_is_not_supported");
     Utils.validateConfig(config);
@@ -244,8 +289,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testBehaviorOnNullValuesConfig_invalid_value() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG);
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, "INVALID");
     Utils.validateConfig(config);
@@ -261,8 +308,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testJMX_invalid_value() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.JMX_OPT);
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.JMX_OPT, "INVALID");
     Utils.validateConfig(config);
@@ -284,8 +333,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testDeliveryGuarantee_invalid_value() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE);
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "INVALID");
     Utils.validateConfig(config);
@@ -311,10 +362,11 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testIngestionTypeConfig_invalid_snowpipe_streaming() {
-    Map<String, String> config = getConfig();
+    expectedException.expectMessage(Utils.SF_ROLE);
 
+    Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
@@ -322,15 +374,19 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testIngestionTypeConfig_invalid_value() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT);
+
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, "INVALID_VALUE");
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testIngestionTypeConfig_streaming_invalid_delivery_guarantee() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE);
+
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -384,8 +440,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testErrorTolerance_DisallowedValues() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT);
+
     Map<String, String> config = getConfig();
     config.put(ERRORS_TOLERANCE_CONFIG, "INVALID");
     config.put(
@@ -412,8 +470,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testErrorLog_DisallowedValues() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT);
+
     Map<String, String> config = getConfig();
     config.put(ERRORS_LOG_ENABLE_CONFIG, "INVALID");
     config.put(
@@ -424,8 +484,10 @@ public class ConnectorConfigTest {
   }
 
   // ---------- Streaming Buffer tests ---------- //
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testStreamingEmptyFlushTime() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
+
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -435,8 +497,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testStreamingFlushTimeSmall() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
+
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -448,8 +512,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testStreamingFlushTimeNotNumber() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
+
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -459,8 +525,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testStreamingEmptyBufferSize() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
+
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -470,8 +538,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testStreamingEmptyBufferCount() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
+
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -481,8 +551,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testStreamingBufferCountNegative() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
+
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -492,8 +564,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testStreamingBufferCountValue() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
+
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -541,13 +615,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
-
   @Test
   public void testInvalidKeyConvertersForStreamingSnowpipe() {
-    expectedException.expectMessage("Invalid configuration parameters are: [com.snowflake.kafka.connector.records" +
-      ".SnowflakeAvroConverter, com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry, com.snowflake.kafka.connector.records.SnowflakeJsonConverter]");
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD);
+
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -563,8 +634,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testInvalidValueConvertersForStreamingSnowpipe() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
+
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -580,8 +653,10 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testInvalidSchematizationForSnowpipe() {
+    expectedException.expectMessage(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG);
+
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
