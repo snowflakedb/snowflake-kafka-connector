@@ -61,7 +61,6 @@ public class Utils {
   public static final String SF_SSL = "sfssl"; // for test only
   public static final String SF_WAREHOUSE = "sfwarehouse"; // for test only
   public static final String PRIVATE_KEY_PASSPHRASE = "snowflake.private.key" + ".passphrase";
-  public static final String VALIDATION_ERRORMSG_PREFIX = "Invalid configuration parameters are: ";
 
   /**
    * This value should be present if ingestion method is {@link
