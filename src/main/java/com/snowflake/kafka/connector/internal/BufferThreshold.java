@@ -6,7 +6,10 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.ST
 import com.google.common.base.MoreObjects;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
@@ -126,21 +129,26 @@ public abstract class BufferThreshold {
    * @param ingestionMethodConfig ingestion method used. Check {@link IngestionMethodConfig}
    * @return true if all thresholds are valid.
    */
-  public static boolean validateBufferThreshold(
+  public static Set<String> validateBufferThreshold(
       Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
-    return verifyBufferFlushTimeThreshold(providedSFConnectorConfig, ingestionMethodConfig)
-        && verifyBufferCountThreshold(providedSFConnectorConfig)
-        && verifyBufferBytesThreshold(providedSFConnectorConfig);
+    Set<String> invalidBufferConfigParams = new HashSet<>();
+    invalidBufferConfigParams.add(verifyBufferFlushTimeThreshold(providedSFConnectorConfig, ingestionMethodConfig));
+    invalidBufferConfigParams.add(verifyBufferCountThreshold(providedSFConnectorConfig));
+    invalidBufferConfigParams.add(verifyBufferBytesThreshold(providedSFConnectorConfig));
+    invalidBufferConfigParams.remove(""); // return empty string if valid
+
+    return invalidBufferConfigParams;
   }
 
-  private static boolean verifyBufferFlushTimeThreshold(
+  private static String verifyBufferFlushTimeThreshold(
       Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
+
     if (!providedSFConnectorConfig.containsKey(
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC)) {
       LOGGER.error(
           Logging.logMessage(
               "Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
-      return false;
+      return SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
     } else {
       String providedFlushTimeSecondsInStr =
           providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
@@ -159,7 +167,7 @@ public abstract class BufferThreshold {
                   SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
                   providedFlushTimeSecondsInConfig,
                   thresholdTimeToCompare)));
-          return false;
+          return SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
         }
       } catch (NumberFormatException e) {
         LOGGER.error(
@@ -167,19 +175,19 @@ public abstract class BufferThreshold {
                 "{} should be an integer. Invalid integer was provided:{}",
                 SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
                 providedFlushTimeSecondsInStr));
-        return false;
+        return SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
       }
     }
-    return true;
+    return "";
   }
 
-  private static boolean verifyBufferBytesThreshold(Map<String, String> providedSFConnectorConfig) {
+  private static String verifyBufferBytesThreshold(Map<String, String> providedSFConnectorConfig) {
     // verify buffer.size.bytes
     if (!providedSFConnectorConfig.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES)) {
       LOGGER.error(
           Logging.logMessage(
               "Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
-      return false;
+      return SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
     } else {
       final String providedBufferSizeBytesStr =
           providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
@@ -194,7 +202,7 @@ public abstract class BufferThreshold {
                   SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
                   providedBufferSizeBytesConfig,
                   SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN));
-          return false;
+          return SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
         }
       } catch (NumberFormatException e) {
         LOGGER.error(
@@ -202,19 +210,19 @@ public abstract class BufferThreshold {
                 "Config {} should be an integer. Provided:{}",
                 SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
                 providedBufferSizeBytesStr));
-        return false;
+        return SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
       }
     }
-    return true;
+    return "";
   }
 
-  private static boolean verifyBufferCountThreshold(Map<String, String> providedSFConnectorConfig) {
+  private static String verifyBufferCountThreshold(Map<String, String> providedSFConnectorConfig) {
     // verify buffer.count.records
     if (!providedSFConnectorConfig.containsKey(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS)) {
       LOGGER.error(
           Logging.logMessage(
               "Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
-      return false;
+      return SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
     } else {
       final String providedBufferCountRecordsStr =
           providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
@@ -226,7 +234,7 @@ public abstract class BufferThreshold {
                   "Config {} is {}, it should at least 1",
                   SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
                   providedBufferCountRecords));
-          return false;
+          return SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
         }
       } catch (NumberFormatException e) {
         LOGGER.error(
@@ -234,10 +242,10 @@ public abstract class BufferThreshold {
                 "Config {} should be a positive integer. Provided:{}",
                 SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
                 providedBufferCountRecordsStr));
-        return false;
+        return SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
       }
     }
-    return true;
+    return "";
   }
 
   @Override

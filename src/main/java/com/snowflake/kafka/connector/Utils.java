@@ -36,9 +36,7 @@ import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.kafka.common.config.Config;
@@ -335,7 +333,7 @@ public class Utils {
    * @return connector name
    */
   static String validateConfig(Map<String, String> config) {
-    boolean configIsValid = true; // verify all config
+    List<String> invalidConfigParams = new ArrayList<>(); // verify all config and list invalid ones
 
     // define the input parameters / keys in one place as static constants,
     // instead of using them directly
@@ -351,7 +349,7 @@ public class Utils {
                   + "should match Snowflake object identifier syntax. Please see the "
                   + "documentation.",
               SnowflakeSinkConnectorConfig.NAME));
-      configIsValid = false;
+      invalidConfigParams.add(SnowflakeSinkConnectorConfig.NAME);
     }
 
     // If config doesnt have ingestion method defined, default is snowpipe or if snowpipe is
@@ -361,25 +359,24 @@ public class Utils {
         || config
             .get(INGESTION_METHOD_OPT)
             .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString())) {
-      if (!BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE)) {
-        configIsValid = false;
-      }
+      invalidConfigParams.addAll(BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE));
 
       if (config.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
           && Boolean.parseBoolean(
               config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG))) {
-        configIsValid = false;
         LOGGER.error(
             Logging.logMessage(
                 "Schematization is only available with {}.",
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+        invalidConfigParams.add(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG);
+        // TODO @rcheng: question - can we add logging information in the error? this is confusing for customer
       }
     }
 
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)
         && parseTopicToTableMap(config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
             == null) {
-      configIsValid = false;
+      invalidConfigParams.add(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP);
     }
 
     // sanity check
@@ -387,40 +384,40 @@ public class Utils {
       LOGGER.error(
           Logging.logMessage(
               "{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE));
-      configIsValid = false;
+      invalidConfigParams.add(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE);
     }
 
     // sanity check
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA)) {
       LOGGER.error(
           Logging.logMessage("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
-      configIsValid = false;
+      invalidConfigParams.add(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA);
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY)) {
       LOGGER.error(
           Logging.logMessage(
               "{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY));
-      configIsValid = false;
+      invalidConfigParams.add(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY);
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER)) {
       LOGGER.error(
           Logging.logMessage("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_USER));
-      configIsValid = false;
+      invalidConfigParams.add(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER);
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL)) {
       LOGGER.error(
           Logging.logMessage("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_URL));
-      configIsValid = false;
+      invalidConfigParams.add(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL);
     }
     // jvm proxy settings
     try {
       validateProxySetting(config);
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error(Logging.logMessage("Proxy settings error: ", e.getMessage()));
-      configIsValid = false;
+      invalidConfigParams.add("Proxy settings error");
     }
 
     // set jdbc logging directory
@@ -433,7 +430,7 @@ public class Utils {
             config.get(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG));
       } catch (IllegalArgumentException exception) {
         LOGGER.error(Logging.logMessage("Kafka provider config error:{}", exception.getMessage()));
-        configIsValid = false;
+        invalidConfigParams.add(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG);
       }
     }
 
@@ -448,7 +445,7 @@ public class Utils {
                 "Kafka config:{} error:{}",
                 BEHAVIOR_ON_NULL_VALUES_CONFIG,
                 exception.getMessage()));
-        configIsValid = false;
+        invalidConfigParams.add(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG);
       }
     }
 
@@ -456,7 +453,7 @@ public class Utils {
       if (!(config.get(JMX_OPT).equalsIgnoreCase("true")
           || config.get(JMX_OPT).equalsIgnoreCase("false"))) {
         LOGGER.error(Logging.logMessage("Kafka config:{} should either be true or false", JMX_OPT));
-        configIsValid = false;
+        invalidConfigParams.add(SnowflakeSinkConnectorConfig.JMX_OPT);
       }
     }
 
@@ -469,14 +466,18 @@ public class Utils {
       LOGGER.error(
           Logging.logMessage(
               "Delivery Guarantee config:{} error:{}", DELIVERY_GUARANTEE, exception.getMessage()));
-      configIsValid = false;
+      invalidConfigParams.add(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE);
     }
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
-    final boolean isStreamingConfigValid = StreamingUtils.isStreamingSnowpipeConfigValid(config);
+    invalidConfigParams.addAll(StreamingUtils.isStreamingSnowpipeConfigValid(config));
 
-    if (!configIsValid || !isStreamingConfigValid) {
-      throw SnowflakeErrors.ERROR_0001.getException();
+    if (!invalidConfigParams.isEmpty()) {
+      StringBuilder errorMsg = new StringBuilder();
+      errorMsg.append("Invalid configuration parameters are: ");
+      invalidConfigParams.forEach((String param) -> { errorMsg.append(param); });
+
+      throw SnowflakeErrors.ERROR_0001.getException(errorMsg.toString());
     }
 
     return connectorName;

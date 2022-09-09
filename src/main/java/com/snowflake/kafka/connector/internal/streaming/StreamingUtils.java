@@ -10,9 +10,8 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.Logging;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+
 import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.record.DefaultRecord;
@@ -124,9 +123,9 @@ public class StreamingUtils {
    * @param inputConfig given in connector json file
    * @return true if valid, also logs error if invalid.
    */
-  public static boolean isStreamingSnowpipeConfigValid(final Map<String, String> inputConfig) {
+  public static Set<String> isStreamingSnowpipeConfigValid(final Map<String, String> inputConfig) {
 
-    boolean configIsValid = true;
+    Set<String> invalidConfigParams = new HashSet<>();
 
     // For snowpipe_streaming, role should be non empty and delivery guarantee should be exactly
     // once. (Which is default)
@@ -140,18 +139,11 @@ public class StreamingUtils {
             .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE_STREAMING.toString())) {
 
           // check if buffer thresholds are within permissible range
-          if (!BufferThreshold.validateBufferThreshold(
-              inputConfig, IngestionMethodConfig.SNOWPIPE_STREAMING)) {
-            configIsValid = false;
-          }
+          invalidConfigParams.addAll(BufferThreshold.validateBufferThreshold(
+              inputConfig, IngestionMethodConfig.SNOWPIPE_STREAMING));
 
-          if (!validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig)) {
-            configIsValid = false;
-          }
-
-          if (!validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig)) {
-            configIsValid = false;
-          }
+          invalidConfigParams.addAll(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
+          invalidConfigParams.addAll(validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig));
 
           // Validate if snowflake role is present
           if (!inputConfig.containsKey(Utils.SF_ROLE)
@@ -161,7 +153,8 @@ public class StreamingUtils {
                     "Config:{} should be present if ingestionMethod is:{}",
                     Utils.SF_ROLE,
                     inputConfig.get(INGESTION_METHOD_OPT)));
-            configIsValid = false;
+            invalidConfigParams.add(Utils.SF_ROLE);
+            // TODO @rcheng: question - can we add logging information in the error? this is confusing for customer
           }
           // setting delivery guarantee to EOS.
           // It is fine for customer to not set this value if Streaming SNOWPIPE is used.
@@ -179,7 +172,8 @@ public class StreamingUtils {
                     DELIVERY_GUARANTEE,
                     SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.toString(),
                     IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-            configIsValid = false;
+            // TODO @rcheng: question - can we add logging information in the error? this is confusing for customer
+            invalidConfigParams.add(DELIVERY_GUARANTEE);
           }
 
           /**
@@ -199,10 +193,11 @@ public class StreamingUtils {
         LOGGER.error(
             Logging.logMessage(
                 "Kafka config:{} error:{}", INGESTION_METHOD_OPT, exception.getMessage()));
-        configIsValid = false;
+        // TODO @rcheng: question - can we add logging information in the error? this is confusing for customer
+        invalidConfigParams.add(INGESTION_METHOD_OPT);
       }
     }
-    return configIsValid;
+    return invalidConfigParams;
   }
 
   /**
@@ -211,7 +206,7 @@ public class StreamingUtils {
    *
    * <p>return true if allowed, false otherwise.
    */
-  private static boolean validateConfigConverters(
+  private static Set<String> validateConfigConverters(
       final String inputConfigConverterField, Map<String, String> inputConfig) {
     if (inputConfig.containsKey(inputConfigConverterField)) {
       if (DISALLOWED_CONVERTERS_STREAMING.contains(inputConfig.get(inputConfigConverterField))) {
@@ -224,9 +219,9 @@ public class StreamingUtils {
                 inputConfig.get(inputConfigConverterField),
                 IngestionMethodConfig.SNOWPIPE_STREAMING,
                 Iterables.toString(DISALLOWED_CONVERTERS_STREAMING)));
-        return false;
+        return DISALLOWED_CONVERTERS_STREAMING;
       }
     }
-    return true;
+    return Collections.emptySet();
   }
 }
