@@ -10,7 +10,10 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Locale;
 import java.util.Map;
+
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 public class ConnectorConfigTest {
 
@@ -538,8 +541,13 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Rule
+  public ExpectedException expectedException = ExpectedException.none();
+
+  @Test
   public void testInvalidKeyConvertersForStreamingSnowpipe() {
+    expectedException.expectMessage("Invalid configuration parameters are: [com.snowflake.kafka.connector.records" +
+      ".SnowflakeAvroConverter, com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry, com.snowflake.kafka.connector.records.SnowflakeJsonConverter]");
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,

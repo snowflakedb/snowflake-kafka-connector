@@ -333,7 +333,7 @@ public class Utils {
    * @return connector name
    */
   static String validateConfig(Map<String, String> config) {
-    List<String> invalidConfigParams = new ArrayList<>(); // verify all config and list invalid ones
+    Set<String> invalidConfigParams = new HashSet<>(); // verify all config and list invalid ones
 
     // define the input parameters / keys in one place as static constants,
     // instead of using them directly
@@ -473,11 +473,9 @@ public class Utils {
     invalidConfigParams.addAll(StreamingUtils.isStreamingSnowpipeConfigValid(config));
 
     if (!invalidConfigParams.isEmpty()) {
-      StringBuilder errorMsg = new StringBuilder();
-      errorMsg.append("Invalid configuration parameters are: ");
-      invalidConfigParams.forEach((String param) -> { errorMsg.append(param); });
-
-      throw SnowflakeErrors.ERROR_0001.getException(errorMsg.toString());
+      String errorMsg = "Invalid configuration parameters are: " + invalidConfigParams;
+      // TODO @rcheng: question - do we want to trust the set.tostring function here?
+      throw SnowflakeErrors.ERROR_0001.getException(errorMsg);
     }
 
     return connectorName;
