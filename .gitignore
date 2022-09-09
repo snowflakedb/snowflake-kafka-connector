@@ -14,3 +14,4 @@ test/perf_test/data
 test/perf_test/confluent.tar.gz
 *.iml
 .vscode/
+docker-setup/connector-examples/*.json
