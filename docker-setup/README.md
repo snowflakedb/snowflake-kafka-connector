@@ -1,0 +1,2 @@
+# Snowflake Sink Connector Docker 
+Onboarding instructions here: [Snowflake Kafka Connector In Docker Container](https://snowflakecomputing.atlassian.net/wiki/spaces/EN/pages/2466252387/Snowflake+Kafka+Connector+In+Docker+Container)

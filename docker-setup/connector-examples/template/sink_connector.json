@@ -1,0 +1,21 @@
+{
+  "name": "SnowflakeSinkConnector_<alias>",
+  "config": {
+    "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+    "name": "SnowflakeSinkConnector_<alias>",
+    "topics": "SnowflakeSink_<alias>",
+    "tasks.max": "2",
+    "buffer.flush.time":"10",
+    "buffer.count.records":"10",
+    "buffer.size.bytes":"5000000",
+    "snowflake.url.name": "sfctest0.snowflakecomputing.com:443",
+    "snowflake.user.name": "test_kafka",
+    "snowflake.private.key": "<private key>",
+    "snowflake.database.name": "testdb_kafka",
+    "snowflake.schema.name": "kafka_test",
+    "key.converter":"org.apache.kafka.connect.storage.StringConverter",
+    "value.converter":"org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable":"false",
+    "jmx": "true"
+  }
+}
