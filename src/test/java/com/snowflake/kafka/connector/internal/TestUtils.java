@@ -70,41 +70,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import static com.snowflake.kafka.connector.Utils.*;
 
 public class TestUtils {
-  // test profile properties
-  private static final String USER = "user";
-  private static final String DATABASE = "database";
-  private static final String SCHEMA = "schema";
-  private static final String HOST = "host";
-  private static final String ROLE = "role";
-  private static final String WAREHOUSE = "warehouse";
-  private static final String PRIVATE_KEY = "private_key";
-  private static final String ENCRYPTED_PRIVATE_KEY = "encrypted_private_key";
-  private static final String PRIVATE_KEY_PASSPHRASE = "private_key_passphrase";
-  private static final Random random = new Random();
-  private static final String DES_RSA_KEY = "des_rsa_key";
   public static final String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
-  private static final Pattern BROKEN_RECORD_PATTERN =
-      Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(key|value)_(\\d+)\\.gz$");
-
-  // profile path
-  private static final String PROFILE_PATH = "profile.json";
-
-  private static final ObjectMapper mapper = new ObjectMapper();
-
-  private static Connection conn = null;
-
-  private static Connection connForStreamingIngestTests = null;
-
-  private static Map<String, String> conf = null;
-
-  private static Map<String, String> confForStreaming = null;
-
-  private static SnowflakeURL url = null;
-
-  private static JsonNode profile = null;
-
-  private static JsonNode profileForStreaming = null;
-
   public static final String JSON_WITH_SCHEMA =
       ""
           + "{\n"
@@ -131,6 +97,30 @@ public class TestUtils {
           + "  }\n"
           + "}";
   public static final String JSON_WITHOUT_SCHEMA = "{\"userid\": \"User_1\"}";
+  // test profile properties
+  private static final String USER = "user";
+  private static final String DATABASE = "database";
+  private static final String SCHEMA = "schema";
+  private static final String HOST = "host";
+  private static final String ROLE = "role";
+  private static final String WAREHOUSE = "warehouse";
+  private static final String PRIVATE_KEY = "private_key";
+  private static final String ENCRYPTED_PRIVATE_KEY = "encrypted_private_key";
+  private static final String PRIVATE_KEY_PASSPHRASE = "private_key_passphrase";
+  private static final Random random = new Random();
+  private static final String DES_RSA_KEY = "des_rsa_key";
+  private static final Pattern BROKEN_RECORD_PATTERN =
+      Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(key|value)_(\\d+)\\.gz$");
+  // profile path
+  private static final String PROFILE_PATH = "profile.json";
+  private static final ObjectMapper mapper = new ObjectMapper();
+  private static final Connection conn = null;
+  private static final Connection connForStreamingIngestTests = null;
+  private static Map<String, String> conf = null;
+  private static Map<String, String> confForStreaming = null;
+  private static SnowflakeURL url = null;
+  private static JsonNode profile = null;
+  private static JsonNode profileForStreaming = null;
 
   private static JsonNode getProfile(final String profileFilePath) {
     if (profileFilePath.equalsIgnoreCase(PROFILE_PATH)) {
@@ -467,11 +457,6 @@ public class TestUtils {
     return matcher.group(index);
   }
 
-  /** Interface to define the lambda function to be used by assertWithRetry */
-  public interface AssertFunction {
-    boolean operate() throws Exception;
-  }
-
   /**
    * Assert with sleep and retry logic
    *
@@ -486,7 +471,7 @@ public class TestUtils {
       if (iteration > maxRetry) {
         throw new InterruptedException("Max retry exceeded");
       }
-      Thread.sleep(intervalSec * 1000);
+      Thread.sleep(intervalSec * 1000L);
       iteration += 1;
     }
   }
@@ -719,5 +704,10 @@ public class TestUtils {
       }
       assert value.equals(contentMap.get(columnName));
     }
+  }
+
+  /** Interface to define the lambda function to be used by assertWithRetry */
+  public interface AssertFunction {
+    boolean operate() throws Exception;
   }
 }

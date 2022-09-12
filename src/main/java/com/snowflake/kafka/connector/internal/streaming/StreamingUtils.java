@@ -21,21 +21,20 @@ import org.slf4j.LoggerFactory;
 
 /* Utility class/Helper methods for streaming related ingestion. */
 public class StreamingUtils {
-  private static final Logger LOGGER = LoggerFactory.getLogger(StreamingUtils.class);
-
-  // Streaming Ingest API related fields
-
-  protected static final Duration DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY = Duration.ofSeconds(1);
-
-  protected static final int MAX_GET_OFFSET_TOKEN_RETRIES = 3;
-
   // Buffer related defaults and minimum set at connector level by clients/customers.
   public static final long STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC =
       Duration.ofSeconds(1).getSeconds();
 
+  // Streaming Ingest API related fields
   public static final long STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC =
       Duration.ofSeconds(10).getSeconds();
-
+  // excluding key, value and headers: 5 bytes length + 10 bytes timestamp + 5 bytes offset + 1
+  // byte attributes. (This is not for record metadata, this is before we transform to snowflake
+  // understood JSON)
+  // This is overhead size for calculating while buffering Kafka records.
+  public static final int MAX_RECORD_OVERHEAD_BYTES = DefaultRecord.MAX_RECORD_OVERHEAD;
+  protected static final Duration DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY = Duration.ofSeconds(1);
+  protected static final int MAX_GET_OFFSET_TOKEN_RETRIES = 3;
   protected static final long STREAMING_BUFFER_COUNT_RECORDS_DEFAULT = 10_000L;
 
   /**
@@ -47,14 +46,8 @@ public class StreamingUtils {
    * <p>1 MB is an ideal size for streaming ingestion so 95% if 20MB = 1MB
    */
   protected static final long STREAMING_BUFFER_BYTES_DEFAULT = 20_000_000;
-
+  private static final Logger LOGGER = LoggerFactory.getLogger(StreamingUtils.class);
   private static final Set<String> DISALLOWED_CONVERTERS_STREAMING = CUSTOM_SNOWFLAKE_CONVERTERS;
-
-  // excluding key, value and headers: 5 bytes length + 10 bytes timestamp + 5 bytes offset + 1
-  // byte attributes. (This is not for record metadata, this is before we transform to snowflake
-  // understood JSON)
-  // This is overhead size for calculating while buffering Kafka records.
-  public static final int MAX_RECORD_OVERHEAD_BYTES = DefaultRecord.MAX_RECORD_OVERHEAD;
 
   /* Maps streaming client's property keys to what we got from snowflake KC config file. */
   public static Map<String, String> convertConfigForStreamingClient(

@@ -69,13 +69,8 @@ public class Utils {
    * IngestionMethodConfig#SNOWPIPE_STREAMING}
    */
   public static final String SF_ROLE = "snowflake.role.name";
-
-  // constants strings
-  private static final String KAFKA_OBJECT_PREFIX = "SNOWFLAKE_KAFKA_CONNECTOR";
-
   // task id
   public static final String TASK_ID = "task_id";
-
   // jvm proxy
   public static final String HTTP_USE_PROXY = "http.useProxy";
   public static final String HTTPS_PROXY_HOST = "https.proxyHost";
@@ -83,25 +78,22 @@ public class Utils {
   public static final String HTTP_PROXY_HOST = "http.proxyHost";
   public static final String HTTP_PROXY_PORT = "http.proxyPort";
   public static final String HTTP_NON_PROXY_HOSTS = "http.nonProxyHosts";
-
   public static final String JDK_HTTP_AUTH_TUNNELING = "jdk.http.auth.tunneling.disabledSchemes";
   public static final String HTTPS_PROXY_USER = "https.proxyUser";
   public static final String HTTPS_PROXY_PASSWORD = "https.proxyPassword";
   public static final String HTTP_PROXY_USER = "http.proxyUser";
   public static final String HTTP_PROXY_PASSWORD = "http.proxyPassword";
-
   // jdbc log dir
   public static final String JAVA_IO_TMPDIR = "java.io.tmpdir";
-
+  public static final String TABLE_COLUMN_CONTENT = "RECORD_CONTENT";
+  public static final String TABLE_COLUMN_METADATA = "RECORD_METADATA";
+  static final String[] loginPropList = {SF_URL, SF_USER, SF_SCHEMA, SF_DATABASE};
+  // constants strings
+  private static final String KAFKA_OBJECT_PREFIX = "SNOWFLAKE_KAFKA_CONNECTOR";
   private static final Random random = new Random();
-
   // mvn repo
   private static final String MVN_REPO =
       "https://repo1.maven.org/maven2/com/snowflake/snowflake-kafka-connector/";
-
-  public static final String TABLE_COLUMN_CONTENT = "RECORD_CONTENT";
-  public static final String TABLE_COLUMN_METADATA = "RECORD_METADATA";
-
   private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class.getName());
 
   /**
@@ -604,8 +596,6 @@ public class Utils {
     }
     return topic2Table;
   }
-
-  static final String loginPropList[] = {SF_URL, SF_USER, SF_SCHEMA, SF_DATABASE};
 
   public static boolean isSingleFieldValid(Config result) {
     // if any single field validation failed
