@@ -11,10 +11,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.LoggerHandlerFactory;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
@@ -62,7 +64,8 @@ import org.slf4j.LoggerFactory;
  * getLatestOffsetToken from Snowflake
  */
 public class TopicPartitionChannel {
-  private static final Logger LOGGER = LoggerFactory.getLogger(TopicPartitionChannel.class);
+  private static final LoggerHandler LOGGER =
+    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(TopicPartitionChannel.class.getName());
 
   private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 
@@ -880,12 +883,10 @@ public class TopicPartitionChannel {
     try {
       this.channel.close().get();
     } catch (InterruptedException | ExecutionException e) {
-      LOGGER.error(
-          Logging.logMessage(
-              "Failure closing Streaming Channel name:{} msg:{}",
+      LOGGER.error("Failure closing Streaming Channel name:{} msg:{}",
               this.getChannelName(),
-              e.getMessage()),
-          e);
+              e.getMessage(),
+              e);
     }
   }
 

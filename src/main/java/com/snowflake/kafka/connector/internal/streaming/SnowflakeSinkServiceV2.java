@@ -7,13 +7,11 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.ST
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SchematizationUtils;
+import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.Logging;
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
+import com.snowflake.kafka.connector.internal.*;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
@@ -50,7 +48,8 @@ import org.slf4j.LoggerFactory;
  */
 public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkServiceV2.class);
+  private static final LoggerHandler LOGGER =
+    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(SnowflakeSinkServiceV2.class.getName());
 
   private static String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 
@@ -489,11 +488,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     try {
       streamingIngestClient.close();
     } catch (Exception e) {
-      LOGGER.error(
-          Logging.logMessage(
-              "Failure closing Streaming client msg:{}, cause:{}",
+      LOGGER.error("Failure closing Streaming client msg:{}, cause:{}",
               e.getMessage(),
-              Arrays.toString(e.getCause().getStackTrace())));
+              Arrays.toString(e.getCause().getStackTrace()));
     }
   }
 

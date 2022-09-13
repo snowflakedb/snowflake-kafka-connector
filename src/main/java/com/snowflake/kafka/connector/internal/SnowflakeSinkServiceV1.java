@@ -6,6 +6,7 @@ import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
@@ -52,7 +53,8 @@ import org.slf4j.LoggerFactory;
  * com.snowflake.kafka.connector.SnowflakeSinkTask#preCommit(Map)} APIs are called.
  */
 class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
-  private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkServiceV1.class);
+  private static final LoggerHandler LOGGER =
+    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(SnowflakeSinkServiceV1.class.getName());
 
   private static final long ONE_HOUR = 60 * 60 * 1000L;
   private static final long TEN_MINUTES = 10 * 60 * 1000L;
@@ -440,11 +442,9 @@ class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
                 MetricsUtil.constructMetricName(pipeName, BUFFER_SUB_DOMAIN, BUFFER_SIZE_BYTES));
       }
 
-      LOGGER.info(
-          Logging.logMessage(
-              "Registered {} metrics for pipeName:{}",
+      LOGGER.info("Registered {} metrics for pipeName:{}",
               metricRegistry.getMetrics().size(),
-              pipeName));
+              pipeName);
 
       logInfo("pipe: {} - service started", pipeName);
     }

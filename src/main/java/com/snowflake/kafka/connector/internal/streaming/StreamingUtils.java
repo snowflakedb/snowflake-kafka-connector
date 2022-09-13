@@ -8,7 +8,7 @@ import com.google.common.collect.Iterables;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.LoggerHandlerFactory;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -156,11 +156,9 @@ public class StreamingUtils {
           // Validate if snowflake role is present
           if (!inputConfig.containsKey(Utils.SF_ROLE)
               || Strings.isNullOrEmpty(inputConfig.get(Utils.SF_ROLE))) {
-            LOGGER.error(
-                Logging.logMessage(
-                    "Config:{} should be present if ingestionMethod is:{}",
+            LOGGER.error("Config:{} should be present if ingestionMethod is:{}",
                     Utils.SF_ROLE,
-                    inputConfig.get(INGESTION_METHOD_OPT)));
+                    inputConfig.get(INGESTION_METHOD_OPT));
             configIsValid = false;
           }
           // setting delivery guarantee to EOS.
@@ -173,12 +171,10 @@ public class StreamingUtils {
 
           if (deliveryGuarantee.equals(
               SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE)) {
-            LOGGER.error(
-                Logging.logMessage(
-                    "Config:{} should be:{} if ingestion method is:{}",
+            LOGGER.error("Config:{} should be:{} if ingestion method is:{}",
                     DELIVERY_GUARANTEE,
                     SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.toString(),
-                    IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+                    IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
             configIsValid = false;
           }
 
@@ -196,9 +192,7 @@ public class StreamingUtils {
           }
         }
       } catch (ConfigException exception) {
-        LOGGER.error(
-            Logging.logMessage(
-                "Kafka config:{} error:{}", INGESTION_METHOD_OPT, exception.getMessage()));
+        LOGGER.error("Kafka config:{} error:{}", INGESTION_METHOD_OPT, exception.getMessage());
         configIsValid = false;
       }
     }
@@ -215,15 +209,13 @@ public class StreamingUtils {
       final String inputConfigConverterField, Map<String, String> inputConfig) {
     if (inputConfig.containsKey(inputConfigConverterField)) {
       if (DISALLOWED_CONVERTERS_STREAMING.contains(inputConfig.get(inputConfigConverterField))) {
-        LOGGER.error(
-            Logging.logMessage(
-                "Config:{} has provided value:{}. If ingestionMethod is:{}, Snowflake Custom"
+        LOGGER.error("Config:{} has provided value:{}. If ingestionMethod is:{}, Snowflake Custom"
                     + " Converters are not allowed. \n"
                     + "Invalid Converters:{}",
                 inputConfigConverterField,
                 inputConfig.get(inputConfigConverterField),
                 IngestionMethodConfig.SNOWPIPE_STREAMING,
-                Iterables.toString(DISALLOWED_CONVERTERS_STREAMING)));
+                Iterables.toString(DISALLOWED_CONVERTERS_STREAMING));
         return false;
       }
     }

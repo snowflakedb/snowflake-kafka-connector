@@ -1,129 +1,52 @@
-/*
- * Copyright (c) 2019 Snowflake Inc. All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
-
 package com.snowflake.kafka.connector.internal;
 
-import java.util.Objects;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 
-/** Base class for all classes enable logging */
+import java.util.UUID;
+
 public class Logging {
-  // todo: change to interface when upgrading to Java 9 or later
-  private final Logger log = LoggerFactory.getLogger(getClass().getName());
+  private LoggerHandler logger;
 
-  // only message
-  protected void logInfo(String msg) {
-    if (log.isInfoEnabled()) {
-      log.info(logMessage(msg));
-    }
+  public Logging() {
+    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(this.getClass().getName());
+  }
+  public void logTrace(String format) {
+    this.logger.trace(format);
   }
 
-  protected void logTrace(String msg) {
-    if (log.isTraceEnabled()) {
-      log.trace(logMessage(msg));
-    }
+  public void logInfo(String format) {
+    this.logger.info(format);
   }
 
-  protected void logDebug(String msg) {
-    if (log.isDebugEnabled()) {
-      log.debug(logMessage(msg));
-    }
+  public void logWarn(String format) {
+    this.logger.warn(format);
   }
 
-  protected void logWarn(String msg) {
-    if (log.isWarnEnabled()) {
-      log.warn(logMessage(msg));
-    }
+  public void logDebug(String format) {
+    this.logger.debug(format);
   }
 
-  protected void logError(String msg) {
-    if (log.isErrorEnabled()) {
-      log.error(logMessage(msg));
-    }
+  public void logError(String format) {
+    this.logger.error(format);
   }
 
-  // format and variables
-  protected void logInfo(String format, Object... vars) {
-    if (log.isInfoEnabled()) {
-      log.info(logMessage(format, vars));
-    }
+  public void logTrace(String format, Object... vars) {
+    this.logger.trace(format, vars);
   }
 
-  protected void logTrace(String format, Object... vars) {
-    if (log.isTraceEnabled()) {
-      log.trace(logMessage(format, vars));
-    }
+  public void logInfo(String format, Object... vars) {
+    this.logger.info(format, vars);
   }
 
-  protected void logDebug(String format, Object... vars) {
-    if (log.isDebugEnabled()) {
-      log.debug(logMessage(format, vars));
-    }
+  public void logWarn(String format, Object... vars) {
+    this.logger.warn(format, vars);
   }
 
-  protected void logWarn(String format, Object... vars) {
-    if (log.isWarnEnabled()) {
-      log.warn(format, vars);
-    }
+  public void logDebug(String format, Object... vars) {
+    this.logger.debug(format, vars);
   }
 
-  protected void logError(String format, Object... vars) {
-    if (log.isErrorEnabled()) {
-      log.error(logMessage(format, vars));
-    }
-  }
-
-  // static elements
-
-  // log message tag
-  static final String SF_LOG_TAG = "[SF_KAFKA_CONNECTOR]";
-
-  /*
-   * the following methods wrap log message with Snowflake tag. For example,
-   *
-   * [SF_KAFKA_CONNECTOR] this is a log message
-   * [SF_KAFKA_CONNECTOR] this is the second line
-   *
-   * All log messages should be wrapped by Snowflake tag. Then user can filter
-   * out log messages output from Snowflake Kafka connector by these tags.
-   */
-
-  /**
-   * wrap a message without variable
-   *
-   * @param msg log message
-   * @return log message wrapped by snowflake tag
-   */
-  public static String logMessage(String msg) {
-    return SF_LOG_TAG + " " + msg;
-  }
-
-  /**
-   * wrap a message contains multiple variables
-   *
-   * @param format log message format string
-   * @param vars variable list
-   * @return log message wrapped by snowflake tag
-   */
-  public static String logMessage(String format, Object... vars) {
-    for (int i = 0; i < vars.length; i++) {
-      format = format.replaceFirst("\\{}", Objects.toString(vars[i]).replaceAll("\\$", "\\\\\\$"));
-    }
-    return logMessage(format);
+  public void logError(String format, Object... vars) {
+    this.logger.error(format, vars);
   }
 }

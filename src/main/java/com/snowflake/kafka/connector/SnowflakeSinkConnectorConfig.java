@@ -18,7 +18,8 @@ package com.snowflake.kafka.connector;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.LoggerHandlerFactory;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Arrays;
@@ -115,8 +116,8 @@ public class SnowflakeSinkConnectorConfig {
   public static final String REBALANCING = "snowflake.test.rebalancing";
   public static final boolean REBALANCING_DEFAULT = false;
 
-  private static final Logger LOGGER =
-      LoggerFactory.getLogger(SnowflakeSinkConnectorConfig.class.getName());
+  //private static final LoggerHandler LOGGER =
+    //SnowflakeSinkConnector.loggerHandlerFactory.getLogger(SnowflakeSinkConnector.class.getName());
 
   private static final ConfigDef.Validator nonEmptyStringValidator = new ConfigDef.NonEmptyString();
   private static final ConfigDef.Validator topicToTableValidator = new TopicToTableValidator();
@@ -188,7 +189,7 @@ public class SnowflakeSinkConnectorConfig {
   static void setFieldToDefaultValues(Map<String, String> config, String field, Long value) {
     if (!config.containsKey(field)) {
       config.put(field, value + "");
-      LOGGER.info(Logging.logMessage("{} set to default {} seconds", field, value));
+      LOGGER.info("{} set to default {} seconds", field, value);
     }
   }
 

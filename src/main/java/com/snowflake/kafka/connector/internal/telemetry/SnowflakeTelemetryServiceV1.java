@@ -12,9 +12,11 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_C
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.LoggerHandlerFactory;
 import java.sql.Connection;
 import java.util.Map;
+
+import com.snowflake.kafka.connector.internal.Logging;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;

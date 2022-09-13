@@ -20,12 +20,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVER
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.Logging;
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
-import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
+import com.snowflake.kafka.connector.internal.*;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
@@ -79,7 +74,8 @@ public class SnowflakeSinkTask extends SinkTask {
   // check connect-distributed.properties file used to start kafka connect
   private final int rebalancingSleepTime = 370000;
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkTask.class);
+  private static final LoggerHandler LOGGER =
+    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(SnowflakeSinkTask.class.getName());
 
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
@@ -124,7 +120,7 @@ public class SnowflakeSinkTask extends SinkTask {
     long startTime = System.currentTimeMillis();
     this.id = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
 
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:start", this.id));
+    LOGGER.info("SnowflakeSinkTask[ID:{}]:start", this.id);
     // connector configuration
 
     // generate topic to table map
@@ -214,11 +210,9 @@ public class SnowflakeSinkTask extends SinkTask {
             .setSinkTaskContext(this.context)
             .build();
 
-    LOGGER.info(
-        Logging.logMessage(
-            "SnowflakeSinkTask[ID:{}]:start. Time: {} seconds",
+    LOGGER.info("SnowflakeSinkTask[ID:{}]:start. Time: {} seconds",
             this.id,
-            (System.currentTimeMillis() - startTime) / 1000));
+            (System.currentTimeMillis() - startTime) / 1000);
   }
 
   /**
@@ -227,7 +221,7 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void stop() {
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:stop", this.id));
+    LOGGER.info("SnowflakeSinkTask[ID:{}]:stop", this.id);
     if (this.sink != null) {
       this.sink.setIsStoppedToTrue(); // close cleaner thread
     }
@@ -241,19 +235,15 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void open(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    LOGGER.info(
-        Logging.logMessage(
-            "SnowflakeSinkTask[ID:{}]:open, TopicPartition number: {}",
+    LOGGER.info("SnowflakeSinkTask[ID:{}]:open, TopicPartition number: {}",
             this.id,
-            partitions.size()));
+            partitions.size());
     partitions.forEach(
         tp -> this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp));
 
-    LOGGER.info(
-        Logging.logMessage(
-            "SnowflakeSinkTask[ID:{}]:open. Time: {} seconds",
+    LOGGER.info("SnowflakeSinkTask[ID:{}]:open. Time: {} seconds",
             this.id,
-            (System.currentTimeMillis() - startTime) / 1000));
+            (System.currentTimeMillis() - startTime) / 1000);
   }
 
   /**
@@ -267,16 +257,14 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void close(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:close", this.id));
+    LOGGER.info("SnowflakeSinkTask[ID:{}]:close", this.id);
     if (this.sink != null) {
       this.sink.close(partitions);
     }
 
-    LOGGER.info(
-        Logging.logMessage(
-            "SnowflakeSinkTask[ID:{}]:close. Time: {} seconds",
+    LOGGER.info("SnowflakeSinkTask[ID:{}]:close. Time: {} seconds",
             this.id,
-            (System.currentTimeMillis() - startTime) / 1000));
+            (System.currentTimeMillis() - startTime) / 1000);
   }
 
   /**
@@ -291,8 +279,7 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     long startTime = System.currentTimeMillis();
-    LOGGER.debug(
-        Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records", this.id, records.size()));
+    LOGGER.debug("SnowflakeSinkTask[ID:{}]:put {} records", this.id, records.size());
 
     getSink().insert(records);
 
@@ -313,19 +300,15 @@ public class SnowflakeSinkTask extends SinkTask {
   public Map<TopicPartition, OffsetAndMetadata> preCommit(
       Map<TopicPartition, OffsetAndMetadata> offsets) throws RetriableException {
     long startTime = System.currentTimeMillis();
-    LOGGER.debug(
-        Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit {}", this.id, offsets.size()));
+    LOGGER.debug("SnowflakeSinkTask[ID:{}]:preCommit {}", this.id, offsets.size());
 
     // return an empty map means that offset commitment is not desired
     if (sink == null || sink.isClosed()) {
-      LOGGER.warn(
-          Logging.logMessage(
-              "SnowflakeSinkTask[ID:{}]: sink " + "not initialized or closed before preCommit",
-              this.id));
+      LOGGER.warn("SnowflakeSinkTask[ID:{}]: sink " + "not initialized or closed before preCommit",
+              this.id);
       return new HashMap<>();
     } else if (sink.getPartitionCount() == 0) {
-      LOGGER.warn(
-          Logging.logMessage("SnowflakeSinkTask[ID:{}]: no partition is assigned", this.id));
+      LOGGER.warn("SnowflakeSinkTask[ID:{}]: no partition is assigned", this.id);
       return new HashMap<>();
     }
 
@@ -340,11 +323,9 @@ public class SnowflakeSinkTask extends SinkTask {
             }
           });
     } catch (Exception e) {
-      LOGGER.error(
-          Logging.logMessage(
-              "SnowflakeSinkTask[ID:{}]: Error " + "while preCommit: {} ",
+      LOGGER.error("SnowflakeSinkTask[ID:{}]: Error " + "while preCommit: {} ",
               this.id,
-              e.getMessage()));
+              e.getMessage());
       return new HashMap<>();
     }
 
@@ -371,7 +352,7 @@ public class SnowflakeSinkTask extends SinkTask {
       if (result != null) {
         return result;
       }
-      LOGGER.error(Logging.logMessage("Invalid Input, Topic2Table Map disabled"));
+      LOGGER.error("Invalid Input, Topic2Table Map disabled");
     }
     return new HashMap<>();
   }
@@ -398,16 +379,14 @@ public class SnowflakeSinkTask extends SinkTask {
       // This won't be frequently printed. It is vary rare to have execution greater than 300
       // seconds.
       // But having this warning helps customer to debug their Kafka Connect config.
-      LOGGER.warn(
-          Logging.logMessage(
-              "SnowflakeSinkTask[ID:{}]:{} {}. Time: {} seconds > 300 seconds. If there is"
+      LOGGER.warn("SnowflakeSinkTask[ID:{}]:{} {}. Time: {} seconds > 300 seconds. If there is"
                   + " CommitFailedException in the log or there is duplicated records, refer to"
                   + " this link for solution: "
                   + "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
               this.id,
               apiName,
               size,
-              executionTime));
+              executionTime);
     }
   }
 
