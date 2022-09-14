@@ -21,18 +21,19 @@ import com.google.common.collect.ImmutableSet;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * SnowflakeSinkConnectorConfig class is used for specifying the set of expected configurations. For
@@ -71,8 +72,9 @@ public class SnowflakeSinkConnectorConfig {
   static final String SNOWFLAKE_SCHEMA = Utils.SF_SCHEMA;
   static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
 
-  // For streaming ingest client
+  // For Snowpipe Streaming client
   static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
+  public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
 
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
@@ -151,8 +153,6 @@ public class SnowflakeSinkConnectorConfig {
       "Whether to output conversion errors to the dead letter queue "
           + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
-
-  public static final String ENABLE_SCHEMATIZATION_CONFIG = "enable.schematization";
 
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked
