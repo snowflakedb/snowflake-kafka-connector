@@ -12,7 +12,7 @@ public abstract class SnowflakeTelemetryBasicInfo {
   final String stageName;
 
   static final LoggerHandler LOGGER =
-    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(SnowflakeTelemetryBasicInfo.class.getName());
+    new LoggerHandler(SnowflakeTelemetryBasicInfo.class.getName());
 
   SnowflakeTelemetryBasicInfo(final String tableName, final String stageName) {
     this.tableName = tableName;

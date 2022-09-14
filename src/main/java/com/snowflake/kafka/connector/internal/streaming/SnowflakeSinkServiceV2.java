@@ -49,7 +49,7 @@ import org.slf4j.LoggerFactory;
 public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private static final LoggerHandler LOGGER =
-    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(SnowflakeSinkServiceV2.class.getName());
+    new LoggerHandler(SnowflakeSinkServiceV2.class.getName());
 
   private static String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 

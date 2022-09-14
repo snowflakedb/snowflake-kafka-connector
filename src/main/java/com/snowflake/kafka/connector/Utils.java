@@ -99,7 +99,7 @@ public class Utils {
   public static final String TABLE_COLUMN_CONTENT = "RECORD_CONTENT";
   public static final String TABLE_COLUMN_METADATA = "RECORD_METADATA";
 
-  private static final LoggerHandler LOGGER = SnowflakeSinkConnector.loggerHandlerFactory.getLogger(Utils.class.getName());
+  private static final LoggerHandler LOGGER = new LoggerHandler(Utils.class.getName());
 
   /**
    * check the connector version from Maven repo, report if any update version is available.

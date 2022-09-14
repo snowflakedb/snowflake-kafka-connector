@@ -16,7 +16,6 @@
  */
 package com.snowflake.kafka.connector.records;
 
-import com.snowflake.kafka.connector.internal.LoggerHandlerFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;

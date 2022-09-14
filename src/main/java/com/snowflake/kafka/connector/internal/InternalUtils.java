@@ -35,7 +35,7 @@ class InternalUtils {
   // internal parameters
   static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; // 10 days
 
-  private static final LoggerHandler LOGGER = SnowflakeSinkConnector.loggerHandlerFactory.getLogger(InternalUtils.class.getName());
+  private static final LoggerHandler LOGGER = new LoggerHandler(InternalUtils.class.getName());
 
   // backoff with 1, 2, 4, 8 seconds
   public static final int backoffSec[] = {0, 1, 2, 4, 8};

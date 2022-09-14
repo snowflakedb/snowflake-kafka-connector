@@ -19,7 +19,6 @@ package com.snowflake.kafka.connector;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
-import com.snowflake.kafka.connector.internal.LoggerHandlerFactory;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Arrays;
@@ -32,8 +31,6 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * SnowflakeSinkConnectorConfig class is used for specifying the set of expected configurations. For
@@ -116,8 +113,7 @@ public class SnowflakeSinkConnectorConfig {
   public static final String REBALANCING = "snowflake.test.rebalancing";
   public static final boolean REBALANCING_DEFAULT = false;
 
-  //private static final LoggerHandler LOGGER =
-    //SnowflakeSinkConnector.loggerHandlerFactory.getLogger(SnowflakeSinkConnector.class.getName());
+  private static final LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnector.class.getName());
 
   private static final ConfigDef.Validator nonEmptyStringValidator = new ConfigDef.NonEmptyString();
   private static final ConfigDef.Validator topicToTableValidator = new TopicToTableValidator();

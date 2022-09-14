@@ -16,7 +16,6 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
-import com.snowflake.kafka.connector.internal.LoggerHandlerFactory;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
@@ -46,8 +45,6 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * This is a wrapper on top of Streaming Ingest Channel which is responsible for ingesting rows to
@@ -65,7 +62,7 @@ import org.slf4j.LoggerFactory;
  */
 public class TopicPartitionChannel {
   private static final LoggerHandler LOGGER =
-    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(TopicPartitionChannel.class.getName());
+    new LoggerHandler(TopicPartitionChannel.class.getName());
 
   private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 

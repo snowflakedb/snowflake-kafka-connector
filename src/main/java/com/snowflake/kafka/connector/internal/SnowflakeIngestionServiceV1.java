@@ -26,7 +26,7 @@ import net.snowflake.ingest.utils.StagedFileWrapper;
  * <p>The difference between above two APIs @see <a
  * href="https://docs.snowflake.com/en/user-guide/data-load-snowpipe-rest-apis.html">here</a>
  */
-public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIngestionService {
+public class SnowflakeIngestionServiceV1 extends EnableLogging implements SnowflakeIngestionService {
   private static final long ONE_HOUR = 60 * 60 * 1000;
 
   private final String stageName;

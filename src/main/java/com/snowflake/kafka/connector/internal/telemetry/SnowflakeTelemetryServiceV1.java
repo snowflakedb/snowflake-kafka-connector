@@ -12,11 +12,11 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_C
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.LoggerHandlerFactory;
+
 import java.sql.Connection;
 import java.util.Map;
 
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.EnableLogging;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
@@ -25,7 +25,7 @@ import net.snowflake.client.jdbc.telemetry.TelemetryClient;
 import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
 import org.apache.kafka.common.utils.AppInfoParser;
 
-public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTelemetryService {
+public class SnowflakeTelemetryServiceV1 extends EnableLogging implements SnowflakeTelemetryService {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   // constant string list

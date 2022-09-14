@@ -8,7 +8,7 @@ import com.google.common.collect.Iterables;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.LoggerHandlerFactory;
+
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;

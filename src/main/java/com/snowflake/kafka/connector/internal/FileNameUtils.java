@@ -8,7 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class FileNameUtils {
-  private static final LoggerHandler LOGGER = SnowflakeSinkConnector.loggerHandlerFactory.getLogger(FileNameUtils.class.getName());
+  private static final LoggerHandler LOGGER = new LoggerHandler(FileNameUtils.class.getName());
 
   /**
    * generate file name File Name Format: app/table/partition/start_end_timeStamp.fileFormat.gz

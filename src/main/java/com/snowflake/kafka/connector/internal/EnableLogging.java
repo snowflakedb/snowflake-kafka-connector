@@ -1,15 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnector;
+public abstract class EnableLogging {
+  private static final LoggerHandler logger = new LoggerHandler(EnableLogging.class.getName());
 
-import java.util.UUID;
-
-public class Logging {
-  private LoggerHandler logger;
-
-  public Logging() {
-    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(this.getClass().getName());
-  }
   public void logTrace(String format) {
     this.logger.trace(format);
   }

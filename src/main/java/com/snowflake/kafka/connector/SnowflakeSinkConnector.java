@@ -36,10 +36,7 @@ import org.apache.kafka.connect.sink.SinkConnector;
  * running on Kafka Connect Workers.
  */
 public class SnowflakeSinkConnector extends SinkConnector {
-  // all logging goes through this factory to use the same correlationId
-  public static LoggerHandlerFactory loggerHandlerFactory = new LoggerHandlerFactory();
-  // create a default no correlationId logger in case of nullpointerexception. this should be reset in the start
-  // function
+  // create logger without correlationId for now
   private static LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnector.class.getName());
 
   private Map<String, String> config; // connector configuration, provided by
@@ -79,8 +76,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     Utils.checkConnectorVersion();
 
     // initialize logging with correlationId
-    this.loggerHandlerFactory = new LoggerHandlerFactory(UUID.randomUUID());
-    LOGGER = loggerHandlerFactory.getLogger(this.getClass().getName());
+    LoggerHandler.setCorrelationUuid(UUID.randomUUID());
 
     LOGGER.info("SnowflakeSinkConnector:start");
     setupComplete = false;

@@ -8,25 +8,41 @@ import org.slf4j.LoggerFactory;
 import java.util.UUID;
 
 public class LoggerHandler {
-  private final String CORRELATIONID_TAG = " - with CorrelationId: ";
-  private String loggerCorrelationIdStr;
+  // static properties and methods
+  private static final String CORRELATIONID_LOG_FORMAT = " - with CorrelationId: ";
+  private static final UUID CORRELATION_ID_EMPTY = null;
+  private static final Logger metaLogger = LoggerFactory.getLogger(LoggerHandler.class.getName());
+  private static UUID LOGGER_CORRELATION_ID = CORRELATION_ID_EMPTY;
+
+  //public static final enum Logging
+
+  // should only be called on start
+  public static void setCorrelationUuid(UUID correlationId) {
+    LOGGER_CORRELATION_ID = correlationId;
+    metaLogger.info(Utils.formatLogMessage("Setting correlationId for all logging in this instance of Snowflake Kafka" +
+        " Connector to '{}'",
+      correlationId.toString()));
+  }
+
   private Logger logger;
 
-  // create logger handler without correlationId
+  // create logger handler without changing correlationId
   public LoggerHandler(String name) {
     this.logger = LoggerFactory.getLogger(name);
 
-    this.logger.info(Utils.formatLogMessage("Created loggerHandler for class: '{}' without a correlationId", name));
+    if (isCorrelationIdValid()) {
+      metaLogger.info(Utils.formatLogMessage("Created loggerHandler for class: '{}' with correlationId: " +
+          "'{}'",
+        name, LOGGER_CORRELATION_ID.toString()));
+    } else {
+      metaLogger.info(Utils.formatLogMessage("Created loggerHandler for class: '{}' without a correlationId.",
+        name));
+    }
   }
 
-  // return logger with correlationId
-  public LoggerHandler(UUID loggerCorrelationId, String name) {
-    this.loggerCorrelationIdStr = loggerCorrelationId.toString();
-    this.logger = LoggerFactory.getLogger(name);
-
-    this.logger.info(Utils.formatLogMessage("Created loggerHandler for class: '{}' with correlationId", name,
-      this.loggerCorrelationIdStr));
-  }
+//  public void log(String msg, Function<String, > function) {
+//
+//  }
 
   // only message
   public void info(String msg) {
@@ -92,14 +108,20 @@ public class LoggerHandler {
 
   // format correctly and add correlationId tag if exists
   private String getFormattedMsg(String msg) {
-    return this.loggerCorrelationIdStr == null || this.loggerCorrelationIdStr.isEmpty() ?
+    return isCorrelationIdValid() ?
       Utils.formatLogMessage(msg) :
-      Utils.formatLogMessage(msg) + CORRELATIONID_TAG + this.loggerCorrelationIdStr;
+      Utils.formatLogMessage(msg) + CORRELATIONID_LOG_FORMAT + LOGGER_CORRELATION_ID;
   }
 
   private String getFormattedMsg(String msg, Object... vars) {
-    return this.loggerCorrelationIdStr == null || this.loggerCorrelationIdStr.isEmpty() ?
+    return isCorrelationIdValid() ?
       Utils.formatLogMessage(msg) :
-      Utils.formatLogMessage(msg, vars) + CORRELATIONID_TAG + this.loggerCorrelationIdStr;
+      Utils.formatLogMessage(msg, vars) + CORRELATIONID_LOG_FORMAT + LOGGER_CORRELATION_ID;
+  }
+
+  private static boolean isCorrelationIdValid() {
+    return LOGGER_CORRELATION_ID != null
+      && !LOGGER_CORRELATION_ID.toString().isEmpty()
+      && LOGGER_CORRELATION_ID != CORRELATION_ID_EMPTY;
   }
 }

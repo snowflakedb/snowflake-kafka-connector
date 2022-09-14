@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 public abstract class SnowflakeConverter implements Converter {
 
   protected static final LoggerHandler LOGGER =
-      SnowflakeSinkConnector.loggerHandlerFactory.getLogger(SnowflakeConverter.class.getName());
+      new LoggerHandler(SnowflakeConverter.class.getName());
 
   final ObjectMapper mapper = new ObjectMapper();
 

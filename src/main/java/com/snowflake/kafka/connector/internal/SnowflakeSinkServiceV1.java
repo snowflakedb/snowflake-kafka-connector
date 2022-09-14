@@ -52,9 +52,9 @@ import org.slf4j.LoggerFactory;
  * com.snowflake.kafka.connector.SnowflakeSinkTask#put(Collection)} and {@link
  * com.snowflake.kafka.connector.SnowflakeSinkTask#preCommit(Map)} APIs are called.
  */
-class SnowflakeSinkServiceV1 extends Logging implements SnowflakeSinkService {
+class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkService {
   private static final LoggerHandler LOGGER =
-    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(SnowflakeSinkServiceV1.class.getName());
+    new LoggerHandler(SnowflakeSinkServiceV1.class.getName());
 
   private static final long ONE_HOUR = 60 * 60 * 1000L;
   private static final long TEN_MINUTES = 10 * 60 * 1000L;

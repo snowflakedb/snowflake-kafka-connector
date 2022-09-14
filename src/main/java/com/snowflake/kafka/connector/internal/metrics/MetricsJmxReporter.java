@@ -9,14 +9,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
-import com.snowflake.kafka.connector.internal.LoggerHandlerFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Helper class for creation of JMX Metrics from metrics registry, also includes a definition to
@@ -27,7 +24,7 @@ import org.slf4j.LoggerFactory;
  */
 public class MetricsJmxReporter {
   static final LoggerHandler LOGGER =
-    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(MetricsJmxReporter.class.getName());
+    new LoggerHandler(MetricsJmxReporter.class.getName());
 
   // The registry which will hold pool of all metrics for this instance
   private final MetricRegistry metricRegistry;

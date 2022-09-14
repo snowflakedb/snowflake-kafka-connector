@@ -75,7 +75,7 @@ public class SnowflakeSinkTask extends SinkTask {
   private final int rebalancingSleepTime = 370000;
 
   private static final LoggerHandler LOGGER =
-    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(SnowflakeSinkTask.class.getName());
+    new LoggerHandler(SnowflakeSinkTask.class.getName());
 
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {

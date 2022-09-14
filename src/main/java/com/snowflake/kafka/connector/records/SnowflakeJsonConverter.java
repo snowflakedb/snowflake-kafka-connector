@@ -16,7 +16,6 @@
  */
 package com.snowflake.kafka.connector.records;
 
-import com.snowflake.kafka.connector.internal.LoggerHandlerFactory;
 import org.apache.kafka.connect.data.SchemaAndValue;
 
 public class SnowflakeJsonConverter extends SnowflakeConverter {

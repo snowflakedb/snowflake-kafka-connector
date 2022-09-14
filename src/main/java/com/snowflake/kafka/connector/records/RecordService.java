@@ -21,10 +21,8 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.SnowflakeSinkTask;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
-import com.snowflake.kafka.connector.internal.LoggerHandlerFactory;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.EnableLogging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -58,11 +56,11 @@ import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
 
-public class RecordService extends Logging {
+public class RecordService extends EnableLogging {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private static final LoggerHandler LOGGER =
-    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(RecordService.class.getName());
+    new LoggerHandler(RecordService.class.getName());
 
   // deleted private to use these values in test
   static final String OFFSET = "offset";

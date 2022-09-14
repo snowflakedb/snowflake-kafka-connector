@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
 public abstract class BufferThreshold {
 
   private static final LoggerHandler LOGGER =
-    SnowflakeSinkConnector.loggerHandlerFactory.getLogger(BufferThreshold.class.getName());
+    new LoggerHandler(BufferThreshold.class.getName());
 
   // What ingestion method is defined in connector.
   private final IngestionMethodConfig ingestionMethodConfig;

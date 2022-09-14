@@ -27,7 +27,7 @@ import net.snowflake.client.jdbc.internal.apache.commons.io.FilenameUtils;
  * <p>For GCS, we dont have any cache, we will make a call to GS for every put API since we require
  * presignedURL
  */
-public class SnowflakeInternalStage extends Logging {
+public class SnowflakeInternalStage extends EnableLogging {
 
   private static class SnowflakeMetadataWithExpiration {
 

@@ -22,7 +22,6 @@ import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
-import com.snowflake.kafka.connector.internal.LoggerHandlerFactory;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil.EventType;
