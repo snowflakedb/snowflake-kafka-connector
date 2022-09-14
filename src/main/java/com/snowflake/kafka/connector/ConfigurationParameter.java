@@ -6,6 +6,7 @@ package com.snowflake.kafka.connector;
 
 public final class ConfigurationParameter {
   public class SnowpipeConstants {
+    // add expected error messages per parameter here
 
     // empty constructor
     private SnowpipeConstants() {}
@@ -23,9 +24,11 @@ public final class ConfigurationParameter {
     private BufferConstants() {}
   }
 
-  private static final String TO_STRING_FORMAT = "Configuration parameter '{}' with value '{}";
-  private static final String EXCEPTION_TO_STRING_NO_ERRORMSG = "Invalid configuration parameter'{}' with value '{}'";
-  private static final String EXCEPTION_TO_STRING_WITH_ERRORMSG = "Invalid configuration parameter'{}' with value '{}. Error: {}'";
+  private static final String TO_STRING_FORMAT = "Configuration parameter '{}' with given value '{}";
+  private static final String EXCEPTION_TO_STRING_NO_ERRORMSG = "Invalid configuration parameter'{}' with given value" +
+    " '{}'";
+  private static final String EXCEPTION_TO_STRING_WITH_ERRORMSG = "Invalid configuration parameter'{}' with " +
+    "given value '{}. Error: {}'";
   private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class.getName());
 
   private final String paramName;
@@ -83,11 +86,11 @@ public final class ConfigurationParameter {
     if (!(obj instanceof ConfigurationParameter))
       return false;
 
-    ConfigurationParameter invalidConfigParam = (ConfigurationParameter) obj;
+    ConfigurationParameter configParam = (ConfigurationParameter) obj;
 
-    return this.paramName.equals(invalidConfigParam.paramName)
-      && this.paramValue.equals(invalidConfigParam.paramValue)
-      && this.errorMsg.equals(invalidConfigParam.errorMsg);
+    return this.getParamName().equals(configParam.getParamName())
+      && this.getParamValue().equals(configParam.getParamValue())
+      && this.getErrorMsg().equals(configParam.getErrorMsg());
   }
 
   private String getStringOrEmpty(String input) {
