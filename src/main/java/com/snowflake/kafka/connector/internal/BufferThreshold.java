@@ -4,23 +4,18 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC;
 
 import com.google.common.base.MoreObjects;
-import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Helper class associated to runtime of Kafka Connect which can help to identify if there is a need
  * to flush the buffered records.
  */
 public abstract class BufferThreshold {
-
-  private static final LoggerHandler LOGGER =
-    new LoggerHandler(BufferThreshold.class.getName());
+  private static final LoggerHandler LOGGER = new LoggerHandler(BufferThreshold.class.getName());
 
   // What ingestion method is defined in connector.
   private final IngestionMethodConfig ingestionMethodConfig;

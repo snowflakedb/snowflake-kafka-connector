@@ -168,16 +168,16 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging implements Snowfl
     msg.put(VERSION, Utils.VERSION); // version number
     try {
       telemetry.addLogToBatch(TelemetryUtil.buildJobData(msg));
-      logDebug("sending telemetry data: {} of type:{}", data.toString(), type.toString());
+      LOG_DEBUG_MSG("sending telemetry data: {} of type:{}", data.toString(), type.toString());
       telemetry.sendBatchAsync();
     } catch (Exception e) {
-      logError("Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
+      LOG_ERROR_MSG("Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
     }
   }
 
   private String getAppName() {
     if (name == null || name.isEmpty()) {
-      logWarn("appName in telemetry service is empty");
+      LOG_WARN_MSG("appName in telemetry service is empty");
       return "empty_appName";
     }
     return name;
@@ -185,7 +185,7 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging implements Snowfl
 
   private String getTaskID() {
     if (taskID == null || taskID.isEmpty()) {
-      logWarn("taskID in telemetry service is empty");
+      LOG_WARN_MSG("taskID in telemetry service is empty");
       return "empty_taskID";
     }
     return taskID;

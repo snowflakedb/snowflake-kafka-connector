@@ -18,11 +18,15 @@ package com.snowflake.kafka.connector.internal;
 
 import org.junit.Test;
 
-public class LoggerHandlerFactoryTest {
-// TODO @rcheng: fix testing here
+public class LoggerHandlerTest {
+  @Test
+  public void testLogMessage() {
+    String name = "test.logger.name";
+    String msg = "super useful logging message";
 
-//  @Test
-//  public void testLogMessageBasic() {
+    LoggerHandler loggerHandler = new LoggerHandler(name);
+    loggerHandler.info(msg);
+    // TODO @rcheng: question - how to test that the log was correct? since we dont have a mock framework setup
 //    // no variable
 //    String expected = LoggerHandlerFactory.SF_LOG_TAG + " test message";
 //
@@ -32,8 +36,8 @@ public class LoggerHandlerFactoryTest {
 //    expected = LoggerHandlerFactory.SF_LOG_TAG + " 1 test message";
 //
 //    assert LoggerHandlerFactory.formatLogMessage("{} test message", 1).equals(expected);
-//  }
-//
+  }
+
 //  @Test
 //  public void testLogMessageNulls() {
 //    // nulls

@@ -78,11 +78,11 @@ public class SnowflakeURL extends EnableLogging {
 
     jdbcUrl = "jdbc:snowflake://" + url + ":" + port;
     if (enableJDBCTrace()) {
-      logInfo("enabling JDBC tracing");
+      LOG_INFO_MSG("enabling JDBC tracing");
       jdbcUrl = jdbcUrl + "/?tracing=ALL";
     }
 
-    logDebug("parsed Snowflake URL: {}", urlStr);
+    LOG_DEBUG_MSG("parsed Snowflake URL: {}", urlStr);
   }
 
   /**

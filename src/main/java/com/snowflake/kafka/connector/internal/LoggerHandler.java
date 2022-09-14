@@ -9,17 +9,15 @@ import java.util.UUID;
 
 public class LoggerHandler {
   // static properties and methods
-  private static final String CORRELATIONID_LOG_FORMAT = " - with CorrelationId: ";
+  private static final String CORRELATION_ID_LOG_FORMAT = " - with CorrelationId: ";
   private static final UUID CORRELATION_ID_EMPTY = null;
-  private static final Logger metaLogger = LoggerFactory.getLogger(LoggerHandler.class.getName());
+  private static final Logger META_LOGGER = LoggerFactory.getLogger(LoggerHandler.class.getName());
   private static UUID LOGGER_CORRELATION_ID = CORRELATION_ID_EMPTY;
-
-  //public static final enum Logging
 
   // should only be called on start
   public static void setCorrelationUuid(UUID correlationId) {
     LOGGER_CORRELATION_ID = correlationId;
-    metaLogger.info(Utils.formatLogMessage("Setting correlationId for all logging in this instance of Snowflake Kafka" +
+    META_LOGGER.info(Utils.formatLogMessage("Setting correlationId for all logging in this instance of Snowflake Kafka" +
         " Connector to '{}'",
       correlationId.toString()));
   }
@@ -31,18 +29,14 @@ public class LoggerHandler {
     this.logger = LoggerFactory.getLogger(name);
 
     if (isCorrelationIdValid()) {
-      metaLogger.info(Utils.formatLogMessage("Created loggerHandler for class: '{}' with correlationId: " +
+      META_LOGGER.info(Utils.formatLogMessage("Created loggerHandler for class: '{}' with correlationId: " +
           "'{}'",
         name, LOGGER_CORRELATION_ID.toString()));
     } else {
-      metaLogger.info(Utils.formatLogMessage("Created loggerHandler for class: '{}' without a correlationId.",
+      META_LOGGER.info(Utils.formatLogMessage("Created loggerHandler for class: '{}' without a correlationId.",
         name));
     }
   }
-
-//  public void log(String msg, Function<String, > function) {
-//
-//  }
 
   // only message
   public void info(String msg) {
@@ -109,14 +103,14 @@ public class LoggerHandler {
   // format correctly and add correlationId tag if exists
   private String getFormattedMsg(String msg) {
     return isCorrelationIdValid() ?
-      Utils.formatLogMessage(msg) :
-      Utils.formatLogMessage(msg) + CORRELATIONID_LOG_FORMAT + LOGGER_CORRELATION_ID;
+      Utils.formatLogMessage(msg) + CORRELATION_ID_LOG_FORMAT + LOGGER_CORRELATION_ID :
+      Utils.formatLogMessage(msg);
   }
 
   private String getFormattedMsg(String msg, Object... vars) {
     return isCorrelationIdValid() ?
-      Utils.formatLogMessage(msg) :
-      Utils.formatLogMessage(msg, vars) + CORRELATIONID_LOG_FORMAT + LOGGER_CORRELATION_ID;
+      Utils.formatLogMessage(msg, vars) + CORRELATION_ID_LOG_FORMAT + LOGGER_CORRELATION_ID :
+      Utils.formatLogMessage(msg);
   }
 
   private static boolean isCorrelationIdValid() {

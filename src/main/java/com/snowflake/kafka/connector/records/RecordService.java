@@ -19,7 +19,6 @@ package com.snowflake.kafka.connector.records;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.EnableLogging;
@@ -545,7 +544,7 @@ public class RecordService extends EnableLogging {
         if (record.value() instanceof SnowflakeRecordContent) {
           SnowflakeRecordContent recordValueContent = (SnowflakeRecordContent) record.value();
           if (recordValueContent.isRecordContentValueNull()) {
-            logDebug(
+            LOG_DEBUG_MSG(
                 "Record value schema is:{} and value is Empty Json Node for topic {}, partition {}"
                     + " and offset {}",
                 valueSchema.getClass().getName(),
@@ -560,7 +559,7 @@ public class RecordService extends EnableLogging {
         // Tombstone handler SMT can be used but we need to check here if value is null if SMT is
         // not used
         if (record.value() == null) {
-          logDebug(
+          LOG_DEBUG_MSG(
               "Record value is null for topic {}, partition {} and offset {}",
               record.topic(),
               record.kafkaPartition(),
@@ -569,7 +568,7 @@ public class RecordService extends EnableLogging {
         }
       }
       if (isRecordValueNull) {
-        logDebug(
+        LOG_DEBUG_MSG(
             "Null valued record from topic '{}', partition {} and offset {} was skipped.",
             record.topic(),
             record.kafkaPartition(),
