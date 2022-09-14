@@ -1,22 +1,10 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.internal.TestUtils.createBigAvroRecords;
-import static com.snowflake.kafka.connector.internal.TestUtils.createNativeJsonSinkRecords;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
-
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -39,6 +27,19 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
+
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.internal.TestUtils.createBigAvroRecords;
+import static com.snowflake.kafka.connector.internal.TestUtils.createNativeJsonSinkRecords;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 
 @RunWith(MockitoJUnitRunner.class)
 public class TopicPartitionChannelTest {
@@ -486,10 +487,10 @@ public class TopicPartitionChannelTest {
   @Test(expected = DataException.class)
   public void testInsertRows_ValidationResponseHasErrors_NoErrorTolerance() throws Exception {
     InsertValidationResponse validationResponse = new InsertValidationResponse();
-    InsertValidationResponse.InsertError error =
+    InsertValidationResponse.InsertError insertErrorWithException =
         new InsertValidationResponse.InsertError("CONTENT", 0);
-    error.setException(SF_EXCEPTION);
-    validationResponse.addError(error);
+    insertErrorWithException.setException(SF_EXCEPTION);
+    validationResponse.addError(insertErrorWithException);
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
@@ -522,10 +523,10 @@ public class TopicPartitionChannelTest {
   @Test
   public void testInsertRows_ValidationResponseHasErrors_ErrorTolerance_ALL() throws Exception {
     InsertValidationResponse validationResponse = new InsertValidationResponse();
-    InsertValidationResponse.InsertError error =
+    InsertValidationResponse.InsertError insertErrorWithException =
         new InsertValidationResponse.InsertError("CONTENT", 0);
-    error.setException(SF_EXCEPTION);
-    validationResponse.addError(error);
+    insertErrorWithException.setException(SF_EXCEPTION);
+    validationResponse.addError(insertErrorWithException);
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
@@ -564,10 +565,10 @@ public class TopicPartitionChannelTest {
   public void testInsertRows_ValidationResponseHasErrors_ErrorTolerance_ALL_LogEnableTrue()
       throws Exception {
     InsertValidationResponse validationResponse = new InsertValidationResponse();
-    InsertValidationResponse.InsertError error =
+    InsertValidationResponse.InsertError insertErrorWithException =
         new InsertValidationResponse.InsertError("CONTENT", 0);
-    error.setException(SF_EXCEPTION);
-    validationResponse.addError(error);
+    insertErrorWithException.setException(SF_EXCEPTION);
+    validationResponse.addError(insertErrorWithException);
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
