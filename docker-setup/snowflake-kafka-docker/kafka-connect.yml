@@ -65,7 +65,10 @@ services:
       - 9876:9876 # JMX port
       - 8085:8085
     volumes:
-      - ./jars:/etc/kafka-connect/jars 
+      - ./jars:/etc/kafka-connect/jars       
+    # we dont need these currently, needed for exporting JMX to prometheus
+    #  - ./prometheus:/opt/jmx-exporter/
+    #  - ./config/connect-log4j.properties:/etc/kafka/connect-log4j.properties
     environment:
       CONNECT_BOOTSTRAP_SERVERS: 'kafka:29092'
       CONNECT_REST_ADVERTISED_HOST_NAME: connect
