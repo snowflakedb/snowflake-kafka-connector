@@ -10,17 +10,18 @@ import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
+import org.apache.avro.Schema;
+import org.apache.kafka.connect.data.ConnectSchema;
+import org.apache.kafka.connect.data.Schema.Type;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.avro.Schema;
-import org.apache.kafka.connect.data.ConnectSchema;
-import org.apache.kafka.connect.data.Schema.Type;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** This is a class containing the helper functions related to schematization */
 public class SchematizationUtils {
@@ -76,7 +77,7 @@ public class SchematizationUtils {
         // avro does not support double quotes so the columnName will be in uppercase anyway
         // doing conversion here would save the trouble for other components
         if (schemaMap.containsKey(columnName)) {
-          throw SnowflakeErrors.ERROR_0025.getException();
+          throw SnowflakeErrors.ERROR_0025.getException("columnName: " + columnName);
         }
         switch (fieldSchema.getType()) {
           case BOOLEAN:
