@@ -71,7 +71,7 @@ services:
       - 9876:9876 # JMX port
       - 8085:8085
     volumes:
-      - ./jars:/etc/kafka-connect/jars # build
+      - ./jars:/etc/kafka-connect/jars 
     environment:
       CONNECT_BOOTSTRAP_SERVERS: 'kafka:29092'
       CONNECT_REST_ADVERTISED_HOST_NAME: connect
