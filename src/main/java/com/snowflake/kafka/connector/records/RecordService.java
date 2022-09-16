@@ -231,7 +231,6 @@ public class RecordService extends Logging {
         }
       } catch (JsonProcessingException e) {
         // return an exception and propagate upwards
-        // TODO tzhang: do we need to rethrow?
         e.printStackTrace();
       }
     }
@@ -261,10 +260,7 @@ public class RecordService extends Logging {
         columnValue = MAPPER.writeValueAsString(columnNode);
       }
       // while the value is always dumped into a string, the Streaming Ingest SDK
-      // will be transformed the value according to its type in the table
-      if (streamingIngestRow.containsKey(columnName)) {
-        throw SnowflakeErrors.ERROR_0025.getException("columnName: " + columnName);
-      }
+      // will transform the value according to its type in the table
       streamingIngestRow.put(columnName, columnValue);
     }
     return streamingIngestRow;
