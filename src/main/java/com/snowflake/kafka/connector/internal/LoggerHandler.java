@@ -9,7 +9,6 @@ import java.util.UUID;
 
 public class LoggerHandler {
   // static properties and methods
-  private static final String CORRELATION_ID_LOG_FORMAT = " - with CorrelationId: ";
   private static final UUID CORRELATION_ID_EMPTY = null;
   private static final Logger META_LOGGER = LoggerFactory.getLogger(LoggerHandler.class.getName());
   private static UUID LOGGER_CORRELATION_ID = CORRELATION_ID_EMPTY;
@@ -102,20 +101,22 @@ public class LoggerHandler {
 
   // format correctly and add correlationId tag if exists
   private String getFormattedMsg(String msg) {
-    return isCorrelationIdValid() ?
-      Utils.formatLogMessage(msg) + CORRELATION_ID_LOG_FORMAT + LOGGER_CORRELATION_ID :
-      Utils.formatLogMessage(msg);
+    return Utils.formatLogMessage(getCorrelationIdStr() + msg);
   }
 
   private String getFormattedMsg(String msg, Object... vars) {
-    return isCorrelationIdValid() ?
-      Utils.formatLogMessage(msg, vars) + CORRELATION_ID_LOG_FORMAT + LOGGER_CORRELATION_ID :
-      Utils.formatLogMessage(msg);
+    return Utils.formatLogMessage(getCorrelationIdStr() + msg, vars);
   }
 
   private static boolean isCorrelationIdValid() {
     return LOGGER_CORRELATION_ID != null
       && !LOGGER_CORRELATION_ID.toString().isEmpty()
       && LOGGER_CORRELATION_ID != CORRELATION_ID_EMPTY;
+  }
+
+  private static String getCorrelationIdStr() {
+    return isCorrelationIdValid() ?
+      "[" + LOGGER_CORRELATION_ID.toString() + "]" :
+      "";
   }
 }
