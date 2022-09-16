@@ -269,7 +269,7 @@ public class RecordContentTest {
             topic, partition, Schema.STRING_SCHEMA, "string", sv.schema(), sv.value(), partition);
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
 
-    assert got.containsKey("NaMe");
+    assert got.containsKey("\"NaMe\"");
     assert got.containsKey("ANSWER");
   }
 }

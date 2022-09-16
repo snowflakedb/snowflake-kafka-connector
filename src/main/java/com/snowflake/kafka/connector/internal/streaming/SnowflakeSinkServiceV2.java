@@ -293,10 +293,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               partitionChannelKey(topicPartition.topic(), topicPartition.partition());
           TopicPartitionChannel topicPartitionChannel =
               partitionsToChannel.get(partitionChannelKey);
-          topicPartitionChannel.closeChannel();
+          // Check for null since it's possible that the something goes wrong even before the
+          // channels are created
+          if (topicPartitionChannel != null) {
+            topicPartitionChannel.closeChannel();
+          }
           LOGGER.info(
               "Closing partitionChannel:{}, partition:{}, topic:{}",
-              topicPartitionChannel.getChannelName(),
+              topicPartitionChannel == null ? null : topicPartitionChannel.getChannelName(),
               topicPartition.topic(),
               topicPartition.partition());
         });
