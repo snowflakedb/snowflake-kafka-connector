@@ -65,10 +65,10 @@ services:
       - 9876:9876 # JMX port
       - 8085:8085
     volumes:
-      - /usr/local/share/kafka/plugins:/etc/kafka-connect/jars/ # if you want your custom jar, put custom jar in ./jars directory
+      - ./jars:/etc/kafka-connect/jars       
+    # we dont need these currently, needed for exporting JMX to prometheus
     #  - ./prometheus:/opt/jmx-exporter/
-    # volumes:
-    #   - ./config/connect-log4j.properties:/etc/kafka/connect-log4j.properties
+    #  - ./config/connect-log4j.properties:/etc/kafka/connect-log4j.properties
     environment:
       CONNECT_BOOTSTRAP_SERVERS: 'kafka:29092'
       CONNECT_REST_ADVERTISED_HOST_NAME: connect
@@ -101,8 +101,8 @@ services:
       - -c
       - |
         echo "Installing Snowflake kafka connector"
-        # if jar is available on confluent hub, uncomment below line
-        confluent-hub install --no-prompt snowflakeinc/snowflake-kafka-connector:1.8.1
+        # uncomment if jar is available on confluent hub, comment if you want to test your own jar
+        # confluent-hub install --no-prompt snowflakeinc/snowflake-kafka-connector:1.8.1
         echo "Launching Kafka Connect worker"
         /etc/confluent/docker/run
 
