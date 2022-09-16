@@ -66,7 +66,7 @@ public class SchematizationUtils {
         // avro does not support double quotes so the columnName will be in uppercase anyway
         // doing conversion here would save the trouble for other components
         if (schemaMap.containsKey(columnName)) {
-          throw SnowflakeErrors.ERROR_0025.getException();
+          throw SnowflakeErrors.ERROR_0025.getException("columnName: " + columnName);
         }
         switch (fieldSchema.getType()) {
           case BOOLEAN:

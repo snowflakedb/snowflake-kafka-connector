@@ -23,7 +23,6 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.EnableLogging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
@@ -125,13 +124,13 @@ public class RecordService extends EnableLogging {
   /**
    * Directly set the enableSchematization through param
    *
-   * <p>This Method is only for testing
+   * <p>This method is only for testing
    *
-   * @param enableSchematizationIn
+   * @param enableSchematization whether we should enable schematization or not
    */
   @VisibleForTesting
-  public void setEnableSchematization(final boolean enableSchematizationIn) {
-    this.enableSchematization = enableSchematizationIn;
+  public void setEnableSchematization(final boolean enableSchematization) {
+    this.enableSchematization = enableSchematization;
   }
 
   /**
@@ -234,7 +233,7 @@ public class RecordService extends EnableLogging {
         if (metadataConfig.allFlag) {
           streamingIngestRow.put(TABLE_COLUMN_METADATA, MAPPER.writeValueAsString(row.metadata));
         }
-      } catch (IOException e) {
+      } catch (JsonProcessingException e) {
         // return an exception and propagate upwards
         e.printStackTrace();
       }
@@ -255,9 +254,7 @@ public class RecordService extends EnableLogging {
       if (columnNode.isArray()) {
         List<String> itemList = new ArrayList<>();
         ArrayNode arrayNode = (ArrayNode) columnNode;
-        Iterator<JsonNode> nodeIterator = arrayNode.iterator();
-        while (nodeIterator.hasNext()) {
-          JsonNode e = nodeIterator.next();
+        for (JsonNode e : arrayNode) {
           itemList.add(e.isTextual() ? e.textValue() : MAPPER.writeValueAsString(e));
         }
         columnValue = itemList;
@@ -267,9 +264,7 @@ public class RecordService extends EnableLogging {
         columnValue = MAPPER.writeValueAsString(columnNode);
       }
       // while the value is always dumped into a string, the Streaming Ingest SDK
-      // will transformed the value according to its type in the table
-      // TODO: SNOW-630885 the record could come directly as a map, and don't have to be
-      //  dumped into a string but the original type could be used.
+      // will transform the value according to its type in the table
       streamingIngestRow.put(columnName, columnValue);
     }
     return streamingIngestRow;
@@ -288,7 +283,7 @@ public class RecordService extends EnableLogging {
   private String formatColumnName(String columnName) {
     // the columnName has been checked and guaranteed not to be null or empty
     return (columnName.charAt(0) == '"' && columnName.charAt(columnName.length() - 1) == '"')
-        ? columnName.substring(1, columnName.length() - 1)
+        ? columnName
         : columnName.toUpperCase();
   }
 

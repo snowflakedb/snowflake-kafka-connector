@@ -1,5 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
+
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
@@ -46,10 +49,6 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging implements Snowf
 
   // User agent suffix we want to pass in to ingest service
   public static final String USER_AGENT_SUFFIX_FORMAT = "SFKafkaConnector/%s provider/%s";
-
-  private static final String METADATA_COLUMN = "RECORD_METADATA";
-
-  private static final String CONTENT_COLUMN = "RECORD_CONTENT";
 
   SnowflakeConnectionServiceV1(
       Properties prop,
@@ -320,12 +319,12 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging implements Snowf
       boolean allNullable = true;
       while (result.next()) {
         switch (result.getString(1)) {
-          case METADATA_COLUMN:
+          case TABLE_COLUMN_METADATA:
             if (result.getString(2).equals("VARIANT")) {
               hasMeta = true;
             }
             break;
-          case CONTENT_COLUMN:
+          case TABLE_COLUMN_CONTENT:
             if (result.getString(2).equals("VARIANT")) {
               hasContent = true;
             }
@@ -375,7 +374,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging implements Snowf
       result = stmt.executeQuery();
       while (result.next()) {
         // The result schema is row idx | column name | data type | kind | null? | ...
-        if (result.getString(1).equals(METADATA_COLUMN)) {
+        if (result.getString(1).equals(TABLE_COLUMN_METADATA)) {
           hasMeta = true;
           if (result.getString(2).equals("VARIANT")) {
             isVariant = true;

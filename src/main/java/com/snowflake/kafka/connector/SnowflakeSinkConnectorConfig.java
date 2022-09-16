@@ -69,8 +69,9 @@ public class SnowflakeSinkConnectorConfig {
   static final String SNOWFLAKE_SCHEMA = Utils.SF_SCHEMA;
   static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
 
-  // For streaming ingest client
+  // For Snowpipe Streaming client
   static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
+  public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
 
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
@@ -148,8 +149,6 @@ public class SnowflakeSinkConnectorConfig {
       "Whether to output conversion errors to the dead letter queue "
           + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
-
-  public static final String ENABLE_SCHEMATIZATION_CONFIG = "enable.schematization";
 
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked
