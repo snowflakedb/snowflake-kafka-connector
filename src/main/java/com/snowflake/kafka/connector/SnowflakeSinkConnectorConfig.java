@@ -113,7 +113,7 @@ public class SnowflakeSinkConnectorConfig {
   public static final String REBALANCING = "snowflake.test.rebalancing";
   public static final boolean REBALANCING_DEFAULT = false;
 
-  private static final LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnector.class.getName());
+  private static final LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnectorConfig.class.getName());
 
   private static final ConfigDef.Validator nonEmptyStringValidator = new ConfigDef.NonEmptyString();
   private static final ConfigDef.Validator topicToTableValidator = new TopicToTableValidator();
