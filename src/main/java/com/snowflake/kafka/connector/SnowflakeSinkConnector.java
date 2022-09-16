@@ -18,9 +18,7 @@ package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.*;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-
 import java.util.*;
-
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;

@@ -11,7 +11,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
@@ -62,7 +61,7 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
  */
 public class TopicPartitionChannel {
   private static final LoggerHandler LOGGER =
-    new LoggerHandler(TopicPartitionChannel.class.getName());
+      new LoggerHandler(TopicPartitionChannel.class.getName());
 
   private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 
@@ -880,10 +879,11 @@ public class TopicPartitionChannel {
     try {
       this.channel.close().get();
     } catch (InterruptedException | ExecutionException e) {
-      LOGGER.error("Failure closing Streaming Channel name:{} msg:{}",
-              this.getChannelName(),
-              e.getMessage(),
-              e);
+      LOGGER.error(
+          "Failure closing Streaming Channel name:{} msg:{}",
+          this.getChannelName(),
+          e.getMessage(),
+          e);
     }
   }
 

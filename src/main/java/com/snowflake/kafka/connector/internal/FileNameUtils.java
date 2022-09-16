@@ -3,10 +3,6 @@ package com.snowflake.kafka.connector.internal;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class FileNameUtils {
   private static final LoggerHandler LOGGER = new LoggerHandler(FileNameUtils.class.getName());
 

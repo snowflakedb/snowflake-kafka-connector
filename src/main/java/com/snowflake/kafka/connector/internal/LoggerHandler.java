@@ -1,11 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
-
 import com.snowflake.kafka.connector.Utils;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.UUID;
 
 public class LoggerHandler {
   // static properties and methods
@@ -16,9 +14,11 @@ public class LoggerHandler {
   // should only be called on start
   public static void setCorrelationUuid(UUID correlationId) {
     LOGGER_CORRELATION_ID = correlationId;
-    META_LOGGER.info(Utils.formatLogMessage("Setting correlationId for all logging in this instance of Snowflake Kafka" +
-        " Connector to '{}'",
-      correlationId.toString()));
+    META_LOGGER.info(
+        Utils.formatLogMessage(
+            "Setting correlationId for all logging in this instance of Snowflake Kafka"
+                + " Connector to '{}'",
+            correlationId.toString()));
   }
 
   private Logger logger;
@@ -28,12 +28,15 @@ public class LoggerHandler {
     this.logger = LoggerFactory.getLogger(name);
 
     if (isCorrelationIdValid()) {
-      META_LOGGER.info(Utils.formatLogMessage("Created loggerHandler for class: '{}' with correlationId: " +
-          "'{}'",
-        name, LOGGER_CORRELATION_ID.toString()));
+      META_LOGGER.info(
+          Utils.formatLogMessage(
+              "Created loggerHandler for class: '{}' with correlationId: " + "'{}'",
+              name,
+              LOGGER_CORRELATION_ID.toString()));
     } else {
-      META_LOGGER.info(Utils.formatLogMessage("Created loggerHandler for class: '{}' without a correlationId.",
-        name));
+      META_LOGGER.info(
+          Utils.formatLogMessage(
+              "Created loggerHandler for class: '{}' without a correlationId.", name));
     }
   }
 
@@ -110,13 +113,11 @@ public class LoggerHandler {
 
   private static boolean isCorrelationIdValid() {
     return LOGGER_CORRELATION_ID != null
-      && !LOGGER_CORRELATION_ID.toString().isEmpty()
-      && LOGGER_CORRELATION_ID != CORRELATION_ID_EMPTY;
+        && !LOGGER_CORRELATION_ID.toString().isEmpty()
+        && LOGGER_CORRELATION_ID != CORRELATION_ID_EMPTY;
   }
 
   private static String getCorrelationIdStr() {
-    return isCorrelationIdValid() ?
-      "[" + LOGGER_CORRELATION_ID.toString() + "]" :
-      "";
+    return isCorrelationIdValid() ? "[" + LOGGER_CORRELATION_ID.toString() + "]" : "";
   }
 }

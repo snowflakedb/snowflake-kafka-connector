@@ -7,7 +7,6 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.ST
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SchematizationUtils;
-import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -28,8 +27,6 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * This is per task configuration. A task can be assigned multiple partitions. Major methods are
@@ -49,7 +46,7 @@ import org.slf4j.LoggerFactory;
 public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private static final LoggerHandler LOGGER =
-    new LoggerHandler(SnowflakeSinkServiceV2.class.getName());
+      new LoggerHandler(SnowflakeSinkServiceV2.class.getName());
 
   private static String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 
@@ -492,9 +489,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     try {
       streamingIngestClient.close();
     } catch (Exception e) {
-      LOGGER.error("Failure closing Streaming client msg:{}, cause:{}",
-              e.getMessage(),
-              Arrays.toString(e.getCause().getStackTrace()));
+      LOGGER.error(
+          "Failure closing Streaming client msg:{}, cause:{}",
+          e.getMessage(),
+          Arrays.toString(e.getCause().getStackTrace()));
     }
   }
 

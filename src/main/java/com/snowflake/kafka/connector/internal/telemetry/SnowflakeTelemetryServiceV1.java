@@ -12,11 +12,9 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_C
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Utils;
-
+import com.snowflake.kafka.connector.internal.EnableLogging;
 import java.sql.Connection;
 import java.util.Map;
-
-import com.snowflake.kafka.connector.internal.EnableLogging;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
@@ -25,7 +23,8 @@ import net.snowflake.client.jdbc.telemetry.TelemetryClient;
 import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
 import org.apache.kafka.common.utils.AppInfoParser;
 
-public class SnowflakeTelemetryServiceV1 extends EnableLogging implements SnowflakeTelemetryService {
+public class SnowflakeTelemetryServiceV1 extends EnableLogging
+    implements SnowflakeTelemetryService {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   // constant string list
@@ -171,7 +170,8 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging implements Snowfl
       LOG_DEBUG_MSG("sending telemetry data: {} of type:{}", data.toString(), type.toString());
       telemetry.sendBatchAsync();
     } catch (Exception e) {
-      LOG_ERROR_MSG("Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
+      LOG_ERROR_MSG(
+          "Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
     }
   }
 

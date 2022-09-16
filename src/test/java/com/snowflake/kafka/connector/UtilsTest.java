@@ -173,6 +173,7 @@ public class UtilsTest {
         "com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
     assert !SchematizationUtils.usesAvroValueConverter(config);
   }
+
   @Test
   public void testLogMessageBasic() {
     // no variable
@@ -193,7 +194,8 @@ public class UtilsTest {
     assert Utils.formatLogMessage("{} test message", (String) null).equals(expected);
 
     expected = Utils.SF_LOG_TAG + " some string test null message null";
-    assert Utils.formatLogMessage("{} test {} message {}", "some string", null, null).equals(expected);
+    assert Utils.formatLogMessage("{} test {} message {}", "some string", null, null)
+        .equals(expected);
   }
 
   @Test
@@ -209,18 +211,18 @@ public class UtilsTest {
     expected = Utils.SF_LOG_TAG + " 1 test message\n" + "2 test message\n" + "3 test message";
 
     assert Utils.formatLogMessage("{} test message\n{} test message\n{} test " + "message", 1, 2, 3)
-      .equals(expected);
+        .equals(expected);
 
     // 4 variables
     expected =
-      Utils.SF_LOG_TAG
-        + " 1 test message\n"
-        + "2 test message\n"
-        + "3 test message\n"
-        + "4 test message";
+        Utils.SF_LOG_TAG
+            + " 1 test message\n"
+            + "2 test message\n"
+            + "3 test message\n"
+            + "4 test message";
 
     assert Utils.formatLogMessage(
-        "{} test message\n{} test message\n{} test " + "message\n{} test message", 1, 2, 3, 4)
-      .equals(expected);
+            "{} test message\n{} test message\n{} test " + "message\n{} test message", 1, 2, 3, 4)
+        .equals(expected);
   }
 }

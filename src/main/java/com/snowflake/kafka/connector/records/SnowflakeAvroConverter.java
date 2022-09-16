@@ -91,8 +91,8 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
       try {
         readerSchema = new Schema.Parser().parse((String) readerSchemaFromConfig);
       } catch (SchemaParseException e) {
-        LOGGER.error("the string provided for reader.schema is no valid Avro schema: "
-                    + e.getMessage());
+        LOGGER.error(
+            "the string provided for reader.schema is no valid Avro schema: " + e.getMessage());
         throw SnowflakeErrors.ERROR_0024.getException(e);
       }
     } else {

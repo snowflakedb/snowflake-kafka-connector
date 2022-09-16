@@ -51,7 +51,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
  */
 class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkService {
   private static final LoggerHandler LOGGER =
-    new LoggerHandler(SnowflakeSinkServiceV1.class.getName());
+      new LoggerHandler(SnowflakeSinkServiceV1.class.getName());
 
   private static final long ONE_HOUR = 60 * 60 * 1000L;
   private static final long TEN_MINUTES = 10 * 60 * 1000L;
@@ -439,9 +439,8 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
                 MetricsUtil.constructMetricName(pipeName, BUFFER_SUB_DOMAIN, BUFFER_SIZE_BYTES));
       }
 
-      LOGGER.info("Registered {} metrics for pipeName:{}",
-              metricRegistry.getMetrics().size(),
-              pipeName);
+      LOGGER.info(
+          "Registered {} metrics for pipeName:{}", metricRegistry.getMetrics().size(), pipeName);
 
       LOG_INFO_MSG("pipe: {} - service started", pipeName);
     }

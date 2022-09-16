@@ -312,9 +312,10 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
 
     // Lazily remove all registered metrics from the registry since this can be invoked during
     // partition reassignment
-    LOGGER.debug("Registering metrics for pipe:{}, existing:{}",
-            pipeName,
-            metricsJmxReporter.getMetricRegistry().getMetrics().keySet().toString());
+    LOGGER.debug(
+        "Registering metrics for pipe:{}, existing:{}",
+        pipeName,
+        metricsJmxReporter.getMetricRegistry().getMetrics().keySet().toString());
     metricsJmxReporter.removeMetricsFromRegistry(pipeName);
 
     try {

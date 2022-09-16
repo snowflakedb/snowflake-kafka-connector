@@ -37,8 +37,6 @@ import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * SnowflakeSinkTask implements SinkTask for Kafka Connect framework.
@@ -74,8 +72,7 @@ public class SnowflakeSinkTask extends SinkTask {
   // check connect-distributed.properties file used to start kafka connect
   private final int rebalancingSleepTime = 370000;
 
-  private static final LoggerHandler LOGGER =
-    new LoggerHandler(SnowflakeSinkTask.class.getName());
+  private static final LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkTask.class.getName());
 
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
@@ -210,9 +207,10 @@ public class SnowflakeSinkTask extends SinkTask {
             .setSinkTaskContext(this.context)
             .build();
 
-    LOGGER.info("SnowflakeSinkTask[ID:{}]:start. Time: {} seconds",
-            this.id,
-            (System.currentTimeMillis() - startTime) / 1000);
+    LOGGER.info(
+        "SnowflakeSinkTask[ID:{}]:start. Time: {} seconds",
+        this.id,
+        (System.currentTimeMillis() - startTime) / 1000);
   }
 
   /**
@@ -235,15 +233,15 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void open(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    LOGGER.info("SnowflakeSinkTask[ID:{}]:open, TopicPartition number: {}",
-            this.id,
-            partitions.size());
+    LOGGER.info(
+        "SnowflakeSinkTask[ID:{}]:open, TopicPartition number: {}", this.id, partitions.size());
     partitions.forEach(
         tp -> this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp));
 
-    LOGGER.info("SnowflakeSinkTask[ID:{}]:open. Time: {} seconds",
-            this.id,
-            (System.currentTimeMillis() - startTime) / 1000);
+    LOGGER.info(
+        "SnowflakeSinkTask[ID:{}]:open. Time: {} seconds",
+        this.id,
+        (System.currentTimeMillis() - startTime) / 1000);
   }
 
   /**
@@ -262,9 +260,10 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.close(partitions);
     }
 
-    LOGGER.info("SnowflakeSinkTask[ID:{}]:close. Time: {} seconds",
-            this.id,
-            (System.currentTimeMillis() - startTime) / 1000);
+    LOGGER.info(
+        "SnowflakeSinkTask[ID:{}]:close. Time: {} seconds",
+        this.id,
+        (System.currentTimeMillis() - startTime) / 1000);
   }
 
   /**
@@ -304,8 +303,9 @@ public class SnowflakeSinkTask extends SinkTask {
 
     // return an empty map means that offset commitment is not desired
     if (sink == null || sink.isClosed()) {
-      LOGGER.warn("SnowflakeSinkTask[ID:{}]: sink " + "not initialized or closed before preCommit",
-              this.id);
+      LOGGER.warn(
+          "SnowflakeSinkTask[ID:{}]: sink " + "not initialized or closed before preCommit",
+          this.id);
       return new HashMap<>();
     } else if (sink.getPartitionCount() == 0) {
       LOGGER.warn("SnowflakeSinkTask[ID:{}]: no partition is assigned", this.id);
@@ -323,9 +323,8 @@ public class SnowflakeSinkTask extends SinkTask {
             }
           });
     } catch (Exception e) {
-      LOGGER.error("SnowflakeSinkTask[ID:{}]: Error " + "while preCommit: {} ",
-              this.id,
-              e.getMessage());
+      LOGGER.error(
+          "SnowflakeSinkTask[ID:{}]: Error " + "while preCommit: {} ", this.id, e.getMessage());
       return new HashMap<>();
     }
 
@@ -379,14 +378,15 @@ public class SnowflakeSinkTask extends SinkTask {
       // This won't be frequently printed. It is vary rare to have execution greater than 300
       // seconds.
       // But having this warning helps customer to debug their Kafka Connect config.
-      LOGGER.warn("SnowflakeSinkTask[ID:{}]:{} {}. Time: {} seconds > 300 seconds. If there is"
-                  + " CommitFailedException in the log or there is duplicated records, refer to"
-                  + " this link for solution: "
-                  + "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
-              this.id,
-              apiName,
-              size,
-              executionTime);
+      LOGGER.warn(
+          "SnowflakeSinkTask[ID:{}]:{} {}. Time: {} seconds > 300 seconds. If there is"
+              + " CommitFailedException in the log or there is duplicated records, refer to this"
+              + " link for solution: "
+              + "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
+          this.id,
+          apiName,
+          size,
+          executionTime);
     }
   }
 

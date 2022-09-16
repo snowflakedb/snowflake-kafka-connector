@@ -148,16 +148,18 @@ public abstract class BufferThreshold {
                 ? BUFFER_FLUSH_TIME_SEC_MIN
                 : STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC;
         if (providedFlushTimeSecondsInConfig < thresholdTimeToCompare) {
-          LOGGER.error("{} is {}, it should be greater than {}",
-                  SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-                  providedFlushTimeSecondsInConfig,
-                  thresholdTimeToCompare);
+          LOGGER.error(
+              "{} is {}, it should be greater than {}",
+              SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+              providedFlushTimeSecondsInConfig,
+              thresholdTimeToCompare);
           return false;
         }
       } catch (NumberFormatException e) {
-        LOGGER.error("{} should be an integer. Invalid integer was provided:{}",
-                SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-                providedFlushTimeSecondsInStr);
+        LOGGER.error(
+            "{} should be an integer. Invalid integer was provided:{}",
+            SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+            providedFlushTimeSecondsInStr);
         return false;
       }
     }
@@ -177,16 +179,18 @@ public abstract class BufferThreshold {
         if (providedBufferSizeBytesConfig
             < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN) // 1 byte
         {
-          LOGGER.error("{} is too low at {}. It must be {} or greater.",
-                  SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-                  providedBufferSizeBytesConfig,
-                  SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN);
+          LOGGER.error(
+              "{} is too low at {}. It must be {} or greater.",
+              SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+              providedBufferSizeBytesConfig,
+              SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN);
           return false;
         }
       } catch (NumberFormatException e) {
-        LOGGER.error("Config {} should be an integer. Provided:{}",
-                SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-                providedBufferSizeBytesStr);
+        LOGGER.error(
+            "Config {} should be an integer. Provided:{}",
+            SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+            providedBufferSizeBytesStr);
         return false;
       }
     }
@@ -204,15 +208,17 @@ public abstract class BufferThreshold {
       try {
         long providedBufferCountRecords = Long.parseLong(providedBufferCountRecordsStr);
         if (providedBufferCountRecords <= 0) {
-          LOGGER.error("Config {} is {}, it should at least 1",
-                  SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-                  providedBufferCountRecords);
+          LOGGER.error(
+              "Config {} is {}, it should at least 1",
+              SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+              providedBufferCountRecords);
           return false;
         }
       } catch (NumberFormatException e) {
-        LOGGER.error("Config {} should be a positive integer. Provided:{}",
-                SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-                providedBufferCountRecordsStr);
+        LOGGER.error(
+            "Config {} should be a positive integer. Provided:{}",
+            SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+            providedBufferCountRecordsStr);
         return false;
       }
     }

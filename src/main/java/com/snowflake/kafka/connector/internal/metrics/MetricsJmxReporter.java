@@ -7,7 +7,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.jmx.JmxReporter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
-import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.util.Iterator;
@@ -23,8 +22,7 @@ import javax.management.ObjectName;
  * is handled per pipe level.
  */
 public class MetricsJmxReporter {
-  static final LoggerHandler LOGGER =
-    new LoggerHandler(MetricsJmxReporter.class.getName());
+  static final LoggerHandler LOGGER = new LoggerHandler(MetricsJmxReporter.class.getName());
 
   // The registry which will hold pool of all metrics for this instance
   private final MetricRegistry metricRegistry;
@@ -95,10 +93,11 @@ public class MetricsJmxReporter {
     if (metricRegistry.getMetrics().size() != 0) {
       LOGGER.debug("Unregistering all metrics for pipe:{}", prefixFilter);
       metricRegistry.removeMatching(MetricFilter.startsWith(prefixFilter));
-      LOGGER.debug("Metric registry size for pipe:{} is:{}, names:{}",
-              prefixFilter,
-              metricRegistry.getMetrics().size(),
-              metricRegistry.getMetrics().keySet().toString());
+      LOGGER.debug(
+          "Metric registry size for pipe:{} is:{}, names:{}",
+          prefixFilter,
+          metricRegistry.getMetrics().size(),
+          metricRegistry.getMetrics().keySet().toString());
     }
   }
 

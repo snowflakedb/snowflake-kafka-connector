@@ -42,8 +42,6 @@ import java.util.regex.Pattern;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.ConfigValue;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** Various arbitrary helper functions */
 public class Utils {
@@ -139,9 +137,10 @@ public class Utils {
       if (latestVersion == null) {
         throw new Exception("can't retrieve version number from Maven repo");
       } else if (!latestVersion.equals(VERSION)) {
-        LOGGER.warn("Connector update is available, please upgrade Snowflake Kafka Connector ({} -> {}) ",
-                VERSION,
-                latestVersion);
+        LOGGER.warn(
+            "Connector update is available, please upgrade Snowflake Kafka Connector ({} -> {}) ",
+            VERSION,
+            latestVersion);
       }
     } catch (Exception e) {
       LOGGER.warn("can't verify latest connector version " + "from Maven Repo\n{}", e.getMessage());
@@ -203,9 +202,9 @@ public class Utils {
         System.setProperty(JAVA_IO_TMPDIR, jdbcTmpDir);
       } else {
         LOGGER.info(
-                "invalid JDBC_LOG_DIR {} defaulting to {}",
-                jdbcTmpDir,
-                System.getProperty(JAVA_IO_TMPDIR));
+            "invalid JDBC_LOG_DIR {} defaulting to {}",
+            jdbcTmpDir,
+            System.getProperty(JAVA_IO_TMPDIR));
       }
     }
   }
@@ -337,9 +336,10 @@ public class Utils {
     // unique name of this connector instance
     String connectorName = config.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "");
     if (connectorName.isEmpty() || !isValidSnowflakeApplicationName(connectorName)) {
-      LOGGER.error("{} is empty or invalid. It should match Snowflake object identifier syntax. Please see " +
-          "the documentation.",
-              SnowflakeSinkConnectorConfig.NAME);
+      LOGGER.error(
+          "{} is empty or invalid. It should match Snowflake object identifier syntax. Please see "
+              + "the documentation.",
+          SnowflakeSinkConnectorConfig.NAME);
       configIsValid = false;
     }
 
@@ -358,8 +358,9 @@ public class Utils {
           && Boolean.parseBoolean(
               config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG))) {
         configIsValid = false;
-        LOGGER.error("Schematization is only available with {}.",
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+        LOGGER.error(
+            "Schematization is only available with {}.",
+            IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
       }
     }
 
@@ -423,9 +424,8 @@ public class Utils {
         VALIDATOR.ensureValid(
             BEHAVIOR_ON_NULL_VALUES_CONFIG, config.get(BEHAVIOR_ON_NULL_VALUES_CONFIG));
       } catch (ConfigException exception) {
-        LOGGER.error("Kafka config:{} error:{}",
-                BEHAVIOR_ON_NULL_VALUES_CONFIG,
-                exception.getMessage());
+        LOGGER.error(
+            "Kafka config:{} error:{}", BEHAVIOR_ON_NULL_VALUES_CONFIG, exception.getMessage());
         configIsValid = false;
       }
     }
@@ -444,7 +444,8 @@ public class Utils {
               DELIVERY_GUARANTEE,
               SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
     } catch (IllegalArgumentException exception) {
-      LOGGER.error("Delivery Guarantee config:{} error:{}", DELIVERY_GUARANTEE, exception.getMessage());
+      LOGGER.error(
+          "Delivery Guarantee config:{} error:{}", DELIVERY_GUARANTEE, exception.getMessage());
       configIsValid = false;
     }
 
@@ -534,9 +535,8 @@ public class Utils {
       String[] tt = str.split(":");
 
       if (tt.length != 2 || tt[0].trim().isEmpty() || tt[1].trim().isEmpty()) {
-        LOGGER.error("Invalid {} config format: {}",
-                SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
-                input);
+        LOGGER.error(
+            "Invalid {} config format: {}", SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, input);
         return null;
       }
 
@@ -544,10 +544,11 @@ public class Utils {
       String table = tt[1].trim();
 
       if (!isValidSnowflakeTableName(table)) {
-        LOGGER.error("table name {} should have at least 2 "
-                    + "characters, start with _a-zA-Z, and only contains "
-                    + "_$a-zA-z0-9",
-                table);
+        LOGGER.error(
+            "table name {} should have at least 2 "
+                + "characters, start with _a-zA-Z, and only contains "
+                + "_$a-zA-z0-9",
+            table);
         isInvalid = true;
       }
 

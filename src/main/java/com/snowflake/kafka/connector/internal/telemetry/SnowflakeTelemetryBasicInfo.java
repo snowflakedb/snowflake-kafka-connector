@@ -1,10 +1,7 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** Minimum information needed to sent to Snowflake through Telemetry API */
 public abstract class SnowflakeTelemetryBasicInfo {
@@ -12,7 +9,7 @@ public abstract class SnowflakeTelemetryBasicInfo {
   final String stageName;
 
   static final LoggerHandler LOGGER =
-    new LoggerHandler(SnowflakeTelemetryBasicInfo.class.getName());
+      new LoggerHandler(SnowflakeTelemetryBasicInfo.class.getName());
 
   SnowflakeTelemetryBasicInfo(final String tableName, final String stageName) {
     this.tableName = tableName;
