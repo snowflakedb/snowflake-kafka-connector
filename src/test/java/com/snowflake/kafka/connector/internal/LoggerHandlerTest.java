@@ -16,71 +16,129 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.Utils;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
+import org.slf4j.Logger;
+
+import java.util.UUID;
 
 public class LoggerHandlerTest {
-  @Test
-  public void testLogMessage() {
-    String name = "test.logger.name";
-    String msg = "super useful logging message";
+  // constants
+  private final String name = "test.logger.name";
+  private final String msg = "super useful logging message";
+  private final String formatMsg = "a formatted msg is totally more useful than a unformatted {}";
+  private final UUID cid = UUID.randomUUID();
+  private final String cidStr = "[" + cid.toString() + "] ";
 
-    LoggerHandler loggerHandler = new LoggerHandler(name);
-    loggerHandler.info(msg);
-    // TODO @rcheng: question - how to test that the log was correct? since we dont have a mock
-    // framework setup
-    //    // no variable
-    //    String expected = LoggerHandlerFactory.SF_LOG_TAG + " test message";
-    //
-    //    assert LoggerHandlerFactory.formatLogMessage("test message").equals(expected);
-    //
-    //    // 1 variable
-    //    expected = LoggerHandlerFactory.SF_LOG_TAG + " 1 test message";
-    //
-    //    assert LoggerHandlerFactory.formatLogMessage("{} test message", 1).equals(expected);
+  // mock and test setup
+  @Mock(name = "logger")
+  private Logger logger = Mockito.mock(Logger.class);
+
+  @InjectMocks private LoggerHandler loggerHandler = new LoggerHandler(name);
+
+  @Before
+  public void initMocks() {
+    LoggerHandler.setCorrelationUuid(cid);
+    MockitoAnnotations.initMocks(this);
   }
 
-  //  @Test
-  //  public void testLogMessageNulls() {
-  //    // nulls
-  //    String expected = LoggerHandlerFactory.SF_LOG_TAG + " null test message";
-  //    assert LoggerHandlerFactory.formatLogMessage("{} test message", (String)
-  // null).equals(expected);
-  //
-  //    expected = LoggerHandlerFactory.SF_LOG_TAG + " some string test null message null";
-  //    assert LoggerHandlerFactory.formatLogMessage("{} test {} message {}", "some string", null,
-  // null).equals(expected);
-  //  }
-  //
-  //  @Test
-  //  public void testLogMessageMultiLines() {
-  //    // 2 variables
-  //    String expected = LoggerHandlerFactory.SF_LOG_TAG + " 1 test message\n" + "2 test message";
-  //
-  //    System.out.println(LoggerHandlerFactory.formatLogMessage("{} test message\n{} test message",
-  // 1, 2));
-  //
-  //    assert LoggerHandlerFactory.formatLogMessage("{} test message\n{} test message", 1,
-  // 2).equals(expected);
-  //
-  //    // 3 variables
-  //    expected = LoggerHandlerFactory.SF_LOG_TAG + " 1 test message\n" + "2 test message\n" + "3
-  // test message";
-  //
-  //    assert LoggerHandlerFactory.formatLogMessage("{} test message\n{} test message\n{} test " +
-  // "message", 1, 2, 3)
-  //        .equals(expected);
-  //
-  //    // 4 variables
-  //    expected =
-  //        LoggerHandlerFactory.SF_LOG_TAG
-  //            + " 1 test message\n"
-  //            + "2 test message\n"
-  //            + "3 test message\n"
-  //            + "4 test message";
-  //
-  //    assert LoggerHandlerFactory.formatLogMessage(
-  //            "{} test message\n{} test message\n{} test " + "message\n{} test message", 1, 2, 3,
-  // 4)
-  //        .equals(expected);
-  //  }
+  @After
+  public void close() {
+    LoggerHandler.setCorrelationUuid(null);
+  }
+
+  @Test
+  public void testAllLogMessage() {
+    // info
+    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
+    loggerHandler.info(msg);
+
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(cidStr + msg));
+
+    // trace
+    Mockito.when(logger.isTraceEnabled()).thenReturn(true);
+    loggerHandler.trace(msg);
+
+    Mockito.verify(logger, Mockito.times(1)).trace(Utils.formatLogMessage(cidStr + msg));
+
+    // debug
+    Mockito.when(logger.isDebugEnabled()).thenReturn(true);
+    loggerHandler.debug(msg);
+
+    Mockito.verify(logger, Mockito.times(1)).debug(Utils.formatLogMessage(cidStr + msg));
+
+    // warn
+    Mockito.when(logger.isWarnEnabled()).thenReturn(true);
+    loggerHandler.warn(msg);
+
+    Mockito.verify(logger, Mockito.times(1)).warn(Utils.formatLogMessage(cidStr + msg));
+
+    // error
+    Mockito.when(logger.isErrorEnabled()).thenReturn(true);
+    loggerHandler.error(msg);
+
+    Mockito.verify(logger, Mockito.times(1)).error(Utils.formatLogMessage(cidStr + msg));
+  }
+
+  @Test
+  public void testAllLogMessageWithFormatting() {
+    // info
+    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
+    loggerHandler.info(formatMsg, msg);
+
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(cidStr + formatMsg, msg));
+
+    // trace
+    Mockito.when(logger.isTraceEnabled()).thenReturn(true);
+    loggerHandler.trace(formatMsg, msg);
+
+    Mockito.verify(logger, Mockito.times(1)).trace(Utils.formatLogMessage(cidStr + formatMsg, msg));
+
+    // debug
+    Mockito.when(logger.isDebugEnabled()).thenReturn(true);
+    loggerHandler.debug(formatMsg, msg);
+
+    Mockito.verify(logger, Mockito.times(1)).debug(Utils.formatLogMessage(cidStr + formatMsg, msg));
+
+    // warn
+    Mockito.when(logger.isWarnEnabled()).thenReturn(true);
+    loggerHandler.warn(formatMsg, msg);
+
+    Mockito.verify(logger, Mockito.times(1)).warn(Utils.formatLogMessage(cidStr + formatMsg, msg));
+
+    // error
+    Mockito.when(logger.isErrorEnabled()).thenReturn(true);
+    loggerHandler.error(formatMsg, msg);
+
+    Mockito.verify(logger, Mockito.times(1)).error(Utils.formatLogMessage(cidStr + formatMsg, msg));
+  }
+
+  @Test
+  public void testLogMessageDisabled() {
+    Mockito.when(logger.isInfoEnabled()).thenReturn(false);
+    loggerHandler.info(msg);
+
+    Mockito.verify(logger, Mockito.times(0)).info(Utils.formatLogMessage(msg));
+  }
+
+  @Test
+  public void testLogMessageWithCid() {
+    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
+    LoggerHandler.setCorrelationUuid(cid);
+    loggerHandler.info(msg);
+
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(cidStr + msg));
+  }
+
+  @Test
+  public void testLoggerHandlerCreationWithCid() {
+    LoggerHandler.setCorrelationUuid(cid);
+    LoggerHandler loggingHandler = new LoggerHandler(name);
+  }
 }

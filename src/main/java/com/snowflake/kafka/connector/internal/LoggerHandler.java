@@ -14,11 +14,18 @@ public class LoggerHandler {
   // should only be called on start
   public static void setCorrelationUuid(UUID correlationId) {
     LOGGER_CORRELATION_ID = correlationId;
-    META_LOGGER.info(
-        Utils.formatLogMessage(
-            "Setting correlationId for all logging in this instance of Snowflake Kafka"
-                + " Connector to '{}'",
-            correlationId.toString()));
+
+    if (correlationId == null) {
+      META_LOGGER.warn(
+          Utils.formatLogMessage(
+              "Given correlationId was null, continuing to log without a correlationId"));
+    } else {
+      META_LOGGER.info(
+          Utils.formatLogMessage(
+              "Setting correlationId for all logging in this instance of Snowflake Kafka"
+                  + " Connector to '{}'",
+              correlationId.toString()));
+    }
   }
 
   private Logger logger;
@@ -118,6 +125,6 @@ public class LoggerHandler {
   }
 
   private static String getCorrelationIdStr() {
-    return isCorrelationIdValid() ? "[" + LOGGER_CORRELATION_ID.toString() + "]" : "";
+    return isCorrelationIdValid() ? "[" + LOGGER_CORRELATION_ID.toString() + "] " : "";
   }
 }
