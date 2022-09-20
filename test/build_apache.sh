@@ -81,14 +81,17 @@ popd
 # get built image name
 # only match the first line
 SNOWFLAKE_PLUGIN_NAME=$(ls $SNOWFLAKE_PLUGIN_PATH | grep "$SNOWFLAKE_PLUGIN_NAME_REGEX" | head -n 1)
-echo -e "\n=== built connector name: $SNOWFLAKE_PLUGIN_NAME ==="
+echo -e "\n========================= BUILD COMPLETE ========================="
+echo -e "built connector name: $SNOWFLAKE_PLUGIN_NAME"
 
 # copy built connector to plugin path
 mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH || \
 sudo mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH 
 cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $KAFKA_CONNECT_PLUGIN_PATH || true
-echo -e "\n=== copied connector to $KAFKA_CONNECT_PLUGIN_PATH ==="
+echo -e "copied connector to $KAFKA_CONNECT_PLUGIN_PATH"
 
 KAFKA_CONNECT_DOCKER_JAR_PATH="$SNOWFLAKE_CONNECTOR_PATH/docker-setup/snowflake-kafka-docker/jars"
 mv $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $KAFKA_CONNECT_DOCKER_JAR_PATH || true
-echo -e "\n=== copied connector to $KAFKA_CONNECT_DOCKER_JAR_PATH for docker ==="
+echo -e "copied connector to $KAFKA_CONNECT_DOCKER_JAR_PATH for docker"
+
+echo -e "=== NOTE: do not share this privately built jar with customers ===\n"
