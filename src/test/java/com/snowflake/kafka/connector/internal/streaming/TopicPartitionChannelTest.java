@@ -319,7 +319,7 @@ public class TopicPartitionChannelTest {
     }
   }
 
-  /* No reteries and fallback here too since it throws an unknown NPE. */
+  /* No retries and fallback here too since it throws an unknown NPE. */
   @Test(expected = RuntimeException.class)
   public void testFetchOffsetTokenWithRetry_RuntimeException() {
     RuntimeException exception = new RuntimeException("runtime exception");

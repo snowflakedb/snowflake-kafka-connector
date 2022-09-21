@@ -154,10 +154,6 @@ public class SnowflakeSinkConnectorConfig {
           + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
 
-  // the amount of waiting before next insertion of buffered records is retried for schema evolution
-  // TODO: SNOW-646227 Remove waiting when the server cache issue is addressed
-  public static final long RETRY_INSERTION_TIME_SEC_DEFAULT = 5;
-
   // the number of retries before the insertion is treated as a failure
   public static final int RETRY_INSERTION_ATTEMPT_MAX_COUNT_DEFAULT = 5;
 

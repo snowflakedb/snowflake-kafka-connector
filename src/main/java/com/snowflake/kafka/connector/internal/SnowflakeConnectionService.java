@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+
 import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
@@ -99,16 +100,7 @@ public interface SnowflakeConnectionService {
    * @param role the role of the user
    * @return whether table and role has the required permission to perform schema evolution
    */
-  boolean hasSchemaEvolutionPermissionForRole(String tableName, String role);
-
-  /**
-   * Check if the role used by the connector has the permission to do schema evolution on the table
-   * through a cached map
-   *
-   * @param tableName the name of the table
-   * @return whether we have the permission to do schema evolution on the table
-   */
-  boolean hasSchemaEvolutionPermission(String tableName);
+  boolean hasSchemaEvolutionPermission(String tableName, String role);
 
   /**
    * Alter table to add columns according to a map from columnNames to their types

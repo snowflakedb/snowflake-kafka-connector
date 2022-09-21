@@ -168,6 +168,10 @@ public enum SnowflakeErrors {
       "2014", "Table not exists", "Table not exists. It might have been deleted externally."),
   ERROR_2015("2015", "Failed to append columns", "Failed to append columns"),
   ERROR_2016("2016", "Failed to drop NOT NULL", "Failed to drop NOT NULL"),
+  ERROR_2017(
+      "2017",
+      "Failed to check schema evolution permission",
+      "Failed to check schema evolution permission"),
   // Snowpipe related issues 3---
   ERROR_3001("3001", "Failed to ingest file", "Exception reported by Ingest SDK"),
 

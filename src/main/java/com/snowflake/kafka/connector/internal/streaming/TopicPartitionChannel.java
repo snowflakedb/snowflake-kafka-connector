@@ -1,12 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
-import static java.time.temporal.ChronoUnit.SECONDS;
-import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -19,6 +12,7 @@ import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
@@ -27,18 +21,7 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.Fallback;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectOutputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -52,6 +35,27 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
+import static java.time.temporal.ChronoUnit.SECONDS;
+import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
 /**
  * This is a wrapper on top of Streaming Ingest Channel which is responsible for ingesting rows to
@@ -242,9 +246,8 @@ public class TopicPartitionChannel {
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.conn = conn;
     if (conn != null) {
-      this.enableSchemaEvolution = this.conn.hasSchemaEvolutionPermission(this.tableName);
-      LOGGER.debug(
-          String.format("Has Schema Evolution Permission: %s", this.enableSchemaEvolution));
+      this.enableSchemaEvolution =
+          this.conn.hasSchemaEvolutionPermission(tableName, sfConnectorConfig.get(SNOWFLAKE_ROLE));
     }
 
     this.recordService = new RecordService();
@@ -510,8 +513,6 @@ public class TopicPartitionChannel {
    *
    * <p>Rows with error other than that will be added to DLQ if enabled
    *
-   * <p>TODO: SNOW-652669 add tests to see if rows with error are inserted into DLQ
-   *
    * @param streamingBufferToInsert the record buffer
    */
   public InsertRowsWithRetryResponse insertBufferedRecordsWithRetry(
@@ -539,7 +540,7 @@ public class TopicPartitionChannel {
       if (response.hasErrors()) {
         handleInsertRowsWithRetryFailures(response.insertErrors, response.recordsWithError);
       }
-      // the channel was reopened (several times, due to a racing condition in altering table or a
+      // the channel was reopened (due to a racing condition in altering table or a
       // random failure in reinsert the rows), and the channel offset was
       // reset to be before the current buffer. The offset needs to be reset to be the end of the
       // buffer to continue ingestion properly
@@ -548,10 +549,7 @@ public class TopicPartitionChannel {
       if (response.getChannelReopened()) {
         resetChannelMetadataAfterRecovery(
             StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK, lastKafkaOffsetInFailedBuffer);
-        // TODO: last record offset equivalent to snowflake offset?
-        // TODO: How multiple tasks work?
       }
-
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
       LOGGER.warn(
@@ -572,9 +570,9 @@ public class TopicPartitionChannel {
     public List<InsertValidationResponse.InsertError> insertErrors;
     public List<SinkRecord> recordsWithError;
 
-    private Map<String, String> extraColumnToType;
+    private final Map<String, String> extraColumns;
 
-    private List<String> nonNullableColumns;
+    private final List<String> nonNullableColumns;
 
     private boolean isChannelReopened;
 
@@ -582,6 +580,8 @@ public class TopicPartitionChannel {
       this.insertErrors = new ArrayList<>();
       this.recordsWithError = new ArrayList<>();
       this.isChannelReopened = false;
+      this.extraColumns = new HashMap<>();
+      this.nonNullableColumns = new ArrayList<>();
     }
 
     public boolean hasErrors() {
@@ -625,50 +625,57 @@ public class TopicPartitionChannel {
         List<InsertValidationResponse.InsertError> insertErrors,
         List<SinkRecord> insertedRecordsToBuffer) {
       StreamingBuffer failedBuffer = new StreamingBuffer();
-
-      Map<String, String> schemaMap = new HashMap<>();
-      if (sfConnectorConfig
-          .get(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD)
-          .equals(SnowflakeSinkConnectorConfig.CONFLUENT_AVRO_CONVERTER)) {
-        schemaMap =
-            SchematizationUtils.getSchemaMapForTopic(
-                topicPartition.topic(),
-                sfConnectorConfig.get(
-                    SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD));
-      }
-
-      extraColumnToType = new HashMap<>();
-      nonNullableColumns = new ArrayList<>();
+      extraColumns.clear();
+      nonNullableColumns.clear();
 
       for (InsertValidationResponse.InsertError insertError : insertErrors) {
-        Map<String, Object> recordMap;
-        try {
-          recordMap =
-              (Map<String, Object>)
-                  insertedRecordsToBuffer.get((int) insertError.getRowIndex()).value();
-        } catch (Exception e) {
-          recordMap = new HashMap<>();
-        }
-        // For Avro this is a Struct, not a map
-        Map<String, String> tempExtraColumnToType =
-            SchematizationUtils.collectExtraColumnToType(
-                recordMap, insertError.getExtraColNames(), schemaMap);
+        List<String> tempExtraColumns = insertError.getExtraColNames();
         List<String> tempNonNullableColumns = insertError.getMissingNotNullColNames();
-        if (tempNonNullableColumns == null) tempNonNullableColumns = new ArrayList<>();
-        if (tempExtraColumnToType.isEmpty() && tempNonNullableColumns.isEmpty()) {
-          // if not extra column and no non-nullable columns, then add it to response body to be
-          // returned
+        // If no extra column or non-nullable columns, add it to response body to be
+        // returned since it contains other types of error
+        if (tempExtraColumns == null && tempNonNullableColumns == null) {
           this.insertErrors.add(insertError);
           this.recordsWithError.add(insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
-          // containing other type of error
         } else {
-          extraColumnToType.putAll(tempExtraColumnToType);
-          nonNullableColumns.addAll(tempNonNullableColumns);
+          // If there are non-nullable columns, add them
+          if (tempNonNullableColumns != null) {
+            nonNullableColumns.addAll(tempNonNullableColumns);
+          }
+
+          // If there are extra columns, get the column type and add them
+          if (tempExtraColumns != null) {
+            SinkRecord record = insertedRecordsToBuffer.get((int) insertError.getRowIndex());
+            Map<String, String> schemaMap = SchematizationUtils.getSchemaMapFromRecord(record);
+            JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
+            Map<String, String> tempExtraColumnsToType =
+                SchematizationUtils.getColumnTypes(recordNode, tempExtraColumns, schemaMap);
+            checkDuplicationAndAddExtraColumns(tempExtraColumnsToType);
+          }
+
           failedBuffer.insert(insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
         }
       }
 
       return failedBuffer;
+    }
+
+    private void checkDuplicationAndAddExtraColumns(Map<String, String> extraColumnToTypes) {
+      for (Map.Entry<String, String> columnToType : extraColumnToTypes.entrySet()) {
+        String columnName = columnToType.getKey();
+        String columnType = columnToType.getValue();
+        // TODO tzhang: verify exception workflow
+        if (extraColumns.containsKey(columnName)
+            && !extraColumns.get(columnName).equals(columnType)) {
+          throw SnowflakeErrors.ERROR_0025.getException(
+              "columnName: "
+                  + columnName
+                  + " columnType: "
+                  + columnType
+                  + " prevColumnType: "
+                  + extraColumns.get(columnName));
+        }
+        extraColumns.put(columnName, columnType);
+      }
     }
 
     /**
@@ -689,9 +696,9 @@ public class TopicPartitionChannel {
         List<SinkRecord> records) {
       StreamingBuffer newBufferToInsert =
           insertRecordsToFailedBuffer(response.getInsertErrors(), records);
-      if (!this.extraColumnToType.isEmpty()) {
+      if (!this.extraColumns.isEmpty()) {
         try {
-          conn.appendColumnsToTable(tableName, this.extraColumnToType);
+          conn.appendColumnsToTable(tableName, this.extraColumns);
         } catch (SnowflakeKafkaConnectorException e) {
           LOGGER.warn(
               String.format("[INSERT_BUFFERED_RECORDS] Failure altering table :%s", tableName), e);
@@ -747,7 +754,7 @@ public class TopicPartitionChannel {
                         && ((InsertValidationResponse) result).hasErrors())
             .onRetry(
                 // when schematization is not enabled, maxInsertAttempt will be 0 and this block
-                // will never be executed. Instead it will go to onFailure immediately
+                // will never be executed. It will go to onFailure immediately instead.
                 executionAttemptedEvent -> {
                   InsertValidationResponse response =
                       (InsertValidationResponse) executionAttemptedEvent.getLastResult();
@@ -755,20 +762,16 @@ public class TopicPartitionChannel {
                       retryResponse.collectRowsWithErrorsAndAlterTable(
                           this.conn, this.tableName, response, newBuffer.get().getSinkRecords()));
                   supplier.updateBuffer(newBuffer.get());
-                  // even if the column failed to be added, the channel needs to be reopened
-                  // because otherwise the connector may never know the up-to-date table info
 
-                  Thread.sleep(
-                      SnowflakeSinkConnectorConfig.RETRY_INSERTION_TIME_SEC_DEFAULT * 1000);
-                  // TODO: SNOW-646227 Remove waiting when the server cache issue is addressed
-
+                  // Even if the column failed to be added, the channel needs to be reopened in
+                  // order to get updated schema
                   LOGGER.warn(
                       "{} Re-opening channel:{}",
                       StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
                       this.getChannelName());
+                  this.channel = Preconditions.checkNotNull(openChannelForTable());
                   retryResponse.setChannelReopened();
 
-                  this.channel = Preconditions.checkNotNull(openChannelForTable());
                   resetChannelMetadataAfterRecovery(
                       StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
                       fetchLatestCommittedOffsetFromSnowflake());
@@ -778,9 +781,9 @@ public class TopicPartitionChannel {
                 executionAttemptedEvent -> {
                   InsertValidationResponse response =
                       (InsertValidationResponse) executionAttemptedEvent.getResult();
+                  // All retries failed. add everything left to the response
                   retryResponse.addRecordsWithErrorsToResponse(
                       response.getInsertErrors(), newBuffer.get().getSinkRecords());
-                  // all retries failed. add everything left to the response
                 })
             .build();
 
@@ -1044,7 +1047,7 @@ public class TopicPartitionChannel {
       this.processedOffset.set(offsetRecoveredFromSnowflake);
       this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
 
-      // state that there was some exception and only clear that state when we received offset
+      // state that there was some exception and only clear that state when we have received offset
       // starting from offsetRecoveredFromSnowflake
       this.isOffsetResetInKafka.set(true);
     } finally {
@@ -1323,8 +1326,8 @@ public class TopicPartitionChannel {
     }
 
     /**
-     * Get all rows which which were buffered into this buffer. Each map corresponds to one row
-     * whose keys are column names and values are corresponding data in that column.
+     * Get all rows which were buffered into this buffer. Each map corresponds to one row whose keys
+     * are column names and values are corresponding data in that column.
      *
      * <p>This goes over through all buffered kafka records and transforms into JsonSchema and
      * JsonNode Check {@link #handleNativeRecord(SinkRecord, boolean)}
