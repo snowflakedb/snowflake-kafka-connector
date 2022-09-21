@@ -17,6 +17,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
+import java.util.UUID;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -25,8 +26,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.slf4j.Logger;
-
-import java.util.UUID;
 
 public class LoggerHandlerTest {
   // constants

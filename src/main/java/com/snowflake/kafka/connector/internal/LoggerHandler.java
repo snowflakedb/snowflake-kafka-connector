@@ -1,14 +1,11 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.UUID;
-
-/**
- * Attaches additional fields to the logs
- */
+/** Attaches additional fields to the logs */
 public class LoggerHandler {
   // static properties and methods
   private static final UUID CORRELATION_ID_EMPTY = null;
@@ -16,8 +13,9 @@ public class LoggerHandler {
   private static UUID loggerCorrelationId = CORRELATION_ID_EMPTY;
 
   /**
-   * Sets the correlationId for all loggers. This should only be called in start so that the entire kafka connector
-   * instance has the same correlationId logging
+   * Sets the correlationId for all loggers. This should only be called in start so that the entire
+   * kafka connector instance has the same correlationId logging
+   *
    * @param correlationId UUID attached for every log
    */
   public static void setCorrelationUuid(UUID correlationId) {
@@ -40,6 +38,7 @@ public class LoggerHandler {
 
   /**
    * Create and return a new logging handler
+   *
    * @param name The class name passed for initializing the logger
    */
   public LoggerHandler(String name) {
@@ -60,6 +59,7 @@ public class LoggerHandler {
 
   /**
    * Logs an info level message
+   *
    * @param msg The message to be logged
    */
   public void info(String msg) {
@@ -70,6 +70,7 @@ public class LoggerHandler {
 
   /**
    * Logs a trace level message
+   *
    * @param msg The message to be logged
    */
   public void trace(String msg) {
@@ -80,6 +81,7 @@ public class LoggerHandler {
 
   /**
    * Logs a debug level message
+   *
    * @param msg The message to be logged
    */
   public void debug(String msg) {
@@ -90,6 +92,7 @@ public class LoggerHandler {
 
   /**
    * Logs a warn level message
+   *
    * @param msg The message to be logged
    */
   public void warn(String msg) {
@@ -100,6 +103,7 @@ public class LoggerHandler {
 
   /**
    * Logs an error level message
+   *
    * @param msg The message to be logged
    */
   public void error(String msg) {
@@ -110,6 +114,7 @@ public class LoggerHandler {
 
   /**
    * Logs an info level message
+   *
    * @param format The message format without variables
    * @param vars The variables to insert into the format. These variables will be toString()'ed
    */
@@ -121,6 +126,7 @@ public class LoggerHandler {
 
   /**
    * Logs an trace level message
+   *
    * @param format The message format without variables
    * @param vars The variables to insert into the format. These variables will be toString()'ed
    */
@@ -132,6 +138,7 @@ public class LoggerHandler {
 
   /**
    * Logs an debug level message
+   *
    * @param format The message format without variables
    * @param vars The variables to insert into the format. These variables will be toString()'ed
    */
@@ -143,6 +150,7 @@ public class LoggerHandler {
 
   /**
    * Logs an warn level message
+   *
    * @param format The message format without variables
    * @param vars The variables to insert into the format. These variables will be toString()'ed
    */
@@ -154,6 +162,7 @@ public class LoggerHandler {
 
   /**
    * Logs an error level message
+   *
    * @param format The message format without variables
    * @param vars The variables to insert into the format. These variables will be toString()'ed
    */
@@ -166,7 +175,9 @@ public class LoggerHandler {
   // format correctly and add correlationId tag if exists
 
   /**
-   * Format the message correctly by attaching correlationId if needed and passing to Utils for more formatting
+   * Format the message correctly by attaching correlationId if needed and passing to Utils for more
+   * formatting
+   *
    * @param msg The message that needs to be prepended with tags
    * @return The fully formatted string to be logged
    */
@@ -175,8 +186,9 @@ public class LoggerHandler {
   }
 
   /**
-   * Format the message correctly by injecting the variables, attaching correlationId if needed, and passing to Utils
-   * for more formatting
+   * Format the message correctly by injecting the variables, attaching correlationId if needed, and
+   * passing to Utils for more formatting
+   *
    * @param msg The message format without variables that needs to be prepended with tags
    * @param vars The variables to insert into the format. These variables will be toString()'ed
    * @return The fully formatted string to be logged
@@ -187,15 +199,16 @@ public class LoggerHandler {
 
   /**
    * Check if the correlationId is valid
+   *
    * @return true if the correlationId is valid, false otherwise
    */
   private static boolean isCorrelationIdValid() {
-    return loggerCorrelationId != CORRELATION_ID_EMPTY
-        && !loggerCorrelationId.toString().isEmpty();
+    return loggerCorrelationId != CORRELATION_ID_EMPTY && !loggerCorrelationId.toString().isEmpty();
   }
 
   /**
    * Creates the correlationId tag
+   *
    * @return The correlationId tag
    */
   private static String getCorrelationIdStr() {
