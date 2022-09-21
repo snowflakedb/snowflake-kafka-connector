@@ -70,7 +70,7 @@ public class LoggerHandler {
     return "[" + descriptor + ":" + uuid.toString() + "] ";
   }
 
-  private final Logger logger;
+  private Logger logger;
   private String loggerInstanceIdTag = "";
 
   /**

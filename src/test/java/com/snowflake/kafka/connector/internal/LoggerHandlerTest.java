@@ -34,7 +34,7 @@ public class LoggerHandlerTest {
   private final String msg = "super useful logging message";
   private final String formatMsg = "a formatted msg is totally more useful than a unformatted {}";
   private final UUID kcGlobalInstanceId = UUID.randomUUID();
-  private final String kcGlobalInstanceIdTag = "[" + kcGlobalInstanceId.toString() + "] ";
+  private final String kcGlobalInstanceIdTag = "[KC:" + kcGlobalInstanceId.toString() + "] ";
 
   // mock and test setup
   @Mock(name = "logger")
@@ -59,31 +59,36 @@ public class LoggerHandlerTest {
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
     loggerHandler.info(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
+    Mockito.verify(logger, Mockito.times(1))
+        .info(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
 
     // trace
     Mockito.when(logger.isTraceEnabled()).thenReturn(true);
     loggerHandler.trace(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).trace(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
+    Mockito.verify(logger, Mockito.times(1))
+        .trace(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
 
     // debug
     Mockito.when(logger.isDebugEnabled()).thenReturn(true);
     loggerHandler.debug(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).debug(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
+    Mockito.verify(logger, Mockito.times(1))
+        .debug(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
 
     // warn
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
     loggerHandler.warn(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).warn(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
+    Mockito.verify(logger, Mockito.times(1))
+        .warn(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
 
     // error
     Mockito.when(logger.isErrorEnabled()).thenReturn(true);
     loggerHandler.error(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).error(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
+    Mockito.verify(logger, Mockito.times(1))
+        .error(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
   }
 
   @Test
@@ -92,31 +97,36 @@ public class LoggerHandlerTest {
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
     loggerHandler.info(formatMsg, msg);
 
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
+    Mockito.verify(logger, Mockito.times(1))
+        .info(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
 
     // trace
     Mockito.when(logger.isTraceEnabled()).thenReturn(true);
     loggerHandler.trace(formatMsg, msg);
 
-    Mockito.verify(logger, Mockito.times(1)).trace(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
+    Mockito.verify(logger, Mockito.times(1))
+        .trace(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
 
     // debug
     Mockito.when(logger.isDebugEnabled()).thenReturn(true);
     loggerHandler.debug(formatMsg, msg);
 
-    Mockito.verify(logger, Mockito.times(1)).debug(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
+    Mockito.verify(logger, Mockito.times(1))
+        .debug(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
 
     // warn
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
     loggerHandler.warn(formatMsg, msg);
 
-    Mockito.verify(logger, Mockito.times(1)).warn(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
+    Mockito.verify(logger, Mockito.times(1))
+        .warn(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
 
     // error
     Mockito.when(logger.isErrorEnabled()).thenReturn(true);
     loggerHandler.error(formatMsg, msg);
 
-    Mockito.verify(logger, Mockito.times(1)).error(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
+    Mockito.verify(logger, Mockito.times(1))
+        .error(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
   }
 
   @Test
@@ -133,7 +143,8 @@ public class LoggerHandlerTest {
     LoggerHandler.setKcGlobalInstanceId(kcGlobalInstanceId);
     loggerHandler.info(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
+    Mockito.verify(logger, Mockito.times(1))
+        .info(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
   }
 
   @Test
