@@ -24,22 +24,54 @@ public class LoggerHandler {
    * @param kcGlobalInstanceId UUID attached for every log
    */
   public static void setKcGlobalInstanceId(UUID kcGlobalInstanceId) {
-    if (isUuidValid(kcGlobalInstanceId)) {
-      kcGlobalInstanceIdTag = getIdTagStr(kcGlobalInstanceId);
-
-      META_LOGGER.info(
-          Utils.formatLogMessage(
-              "Set Kafka Connect global instance id for all logging to '{}'",
-              kcGlobalInstanceIdTag));
-    } else {
-      META_LOGGER.warn(
-          Utils.formatLogMessage(
-              "Given Kafka Connect global instance id was invalid (null or empty), continuing to log without"
-                  + " it"));
-    }
+    kcGlobalInstanceIdTag = parseUuidIntoTag("KC", kcGlobalInstanceId, "Kafka Connect global");
   }
 
-  private Logger logger;
+  /**
+   * Create instance id tag from given descriptor and uuid
+   *
+   * <p>Note: empty string will be returned if the uuid or descriptor is null or empty
+   *
+   * @param descriptor The string to be prepended to in the tag
+   * @param uuid The instance id uuid
+   * @param logIdName Name of the tag for logging
+   * @return A formatted instance id tag or empty striing
+   */
+  private static String parseUuidIntoTag(String descriptor, UUID uuid, String logIdName) {
+    if (uuid == null || uuid.toString().isEmpty()) {
+      META_LOGGER.warn(
+          Utils.formatLogMessage(
+              "Given {} instance id was invalid (null or empty), continuing to log without"
+                  + " it"),
+          logIdName);
+      return "";
+    }
+
+    if (descriptor == null || descriptor.toString().isEmpty()) {
+      META_LOGGER.warn(
+          Utils.formatLogMessage(
+              "Descriptor given for {} instance id was invalid (null or empty), continuing to log"
+                  + " without it"),
+          logIdName);
+      return "";
+    }
+
+    if (descriptor.length() > 10) {
+      META_LOGGER.info(
+          Utils.formatLogMessage(
+              "Given {} instance id descriptor '{}' is recommended to be below 10 characters",
+              logIdName,
+              descriptor));
+    }
+
+    META_LOGGER.info(
+        Utils.formatLogMessage("Setting {} instance id to '{}'", logIdName, kcGlobalInstanceIdTag));
+
+    return "[" + descriptor + ":" + uuid.toString() + "] ";
+  }
+
+  private final Logger logger;
+  private String loggerInstanceIdTag = "";
 
   /**
    * Create and return a new logging handler
@@ -58,6 +90,19 @@ public class LoggerHandler {
                 "Created loggerHandler for class: '{}' with Kafka Connect global instance id: '{}'",
                 name,
                 kcGlobalInstanceIdTag));
+  }
+
+  /**
+   * Create and return a new logging handler with logger specific instance id
+   *
+   * @param name The class name passed for initializing the logger
+   * @param loggerInstanceId The instance id for this logger
+   * @param loggerInstanceIdDescriptor The descriptor for this logger
+   */
+  public LoggerHandler(String name, UUID loggerInstanceId, String loggerInstanceIdDescriptor) {
+    this(name);
+    this.loggerInstanceIdTag =
+        parseUuidIntoTag(loggerInstanceIdDescriptor, loggerInstanceId, "logger");
   }
 
   /**
@@ -183,42 +228,11 @@ public class LoggerHandler {
    * @return The fully formatted string to be logged
    */
   private String getFormattedMsg(String msg, Object... vars) {
-    String fullMsg = kcGlobalInstanceIdTag + msg;
+    String fullMsg = kcGlobalInstanceIdTag + this.loggerInstanceIdTag + msg;
 
     if (vars == null) {
       return Utils.formatLogMessage(fullMsg);
     }
     return Utils.formatLogMessage(fullMsg, vars);
-  }
-
-  /**
-   * Check if the uuid is valid
-   *
-   * @param id The given uuid
-   * @return true if the uuid is not null and not empty, false otherwise
-   */
-  private static boolean isUuidValid(UUID id) {
-    return id != null && !id.toString().isEmpty();
-  }
-
-  /**
-   * Creates the id tag
-   *
-   * @param id The given id
-   * @return The id tag
-   */
-  private static String getIdTagStr(UUID id) {
-    return "[" + id.toString() + "] ";
-  }
-
-  /**
-   * Creates the id tag prepended with the descriptor
-   *
-   * @param id The given id
-   * @param descriptor The string prepended before the id
-   * @return The id tag
-   */
-  private static String getIdTagStr(UUID id, String descriptor) {
-    return "[" + descriptor + ":" + id.toString() + "]";
   }
 }
