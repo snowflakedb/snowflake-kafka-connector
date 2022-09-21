@@ -17,7 +17,6 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
-import java.util.UUID;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -27,13 +26,15 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.slf4j.Logger;
 
+import java.util.UUID;
+
 public class LoggerHandlerTest {
   // constants
   private final String name = "test.logger.name";
   private final String msg = "super useful logging message";
   private final String formatMsg = "a formatted msg is totally more useful than a unformatted {}";
-  private final UUID cid = UUID.randomUUID();
-  private final String cidStr = "[" + cid.toString() + "] ";
+  private final UUID kcGlobalInstanceId = UUID.randomUUID();
+  private final String kcGlobalInstanceIdTag = "[" + kcGlobalInstanceId.toString() + "] ";
 
   // mock and test setup
   @Mock(name = "logger")
@@ -43,13 +44,13 @@ public class LoggerHandlerTest {
 
   @Before
   public void initMocks() {
-    LoggerHandler.setCorrelationUuid(cid);
+    LoggerHandler.setKcGlobalInstanceId(kcGlobalInstanceId);
     MockitoAnnotations.initMocks(this);
   }
 
   @After
   public void close() {
-    LoggerHandler.setCorrelationUuid(null);
+    LoggerHandler.setKcGlobalInstanceId(null);
   }
 
   @Test
@@ -58,31 +59,31 @@ public class LoggerHandlerTest {
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
     loggerHandler.info(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(cidStr + msg));
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
 
     // trace
     Mockito.when(logger.isTraceEnabled()).thenReturn(true);
     loggerHandler.trace(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).trace(Utils.formatLogMessage(cidStr + msg));
+    Mockito.verify(logger, Mockito.times(1)).trace(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
 
     // debug
     Mockito.when(logger.isDebugEnabled()).thenReturn(true);
     loggerHandler.debug(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).debug(Utils.formatLogMessage(cidStr + msg));
+    Mockito.verify(logger, Mockito.times(1)).debug(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
 
     // warn
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
     loggerHandler.warn(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).warn(Utils.formatLogMessage(cidStr + msg));
+    Mockito.verify(logger, Mockito.times(1)).warn(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
 
     // error
     Mockito.when(logger.isErrorEnabled()).thenReturn(true);
     loggerHandler.error(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).error(Utils.formatLogMessage(cidStr + msg));
+    Mockito.verify(logger, Mockito.times(1)).error(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
   }
 
   @Test
@@ -91,31 +92,31 @@ public class LoggerHandlerTest {
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
     loggerHandler.info(formatMsg, msg);
 
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(cidStr + formatMsg, msg));
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
 
     // trace
     Mockito.when(logger.isTraceEnabled()).thenReturn(true);
     loggerHandler.trace(formatMsg, msg);
 
-    Mockito.verify(logger, Mockito.times(1)).trace(Utils.formatLogMessage(cidStr + formatMsg, msg));
+    Mockito.verify(logger, Mockito.times(1)).trace(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
 
     // debug
     Mockito.when(logger.isDebugEnabled()).thenReturn(true);
     loggerHandler.debug(formatMsg, msg);
 
-    Mockito.verify(logger, Mockito.times(1)).debug(Utils.formatLogMessage(cidStr + formatMsg, msg));
+    Mockito.verify(logger, Mockito.times(1)).debug(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
 
     // warn
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
     loggerHandler.warn(formatMsg, msg);
 
-    Mockito.verify(logger, Mockito.times(1)).warn(Utils.formatLogMessage(cidStr + formatMsg, msg));
+    Mockito.verify(logger, Mockito.times(1)).warn(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
 
     // error
     Mockito.when(logger.isErrorEnabled()).thenReturn(true);
     loggerHandler.error(formatMsg, msg);
 
-    Mockito.verify(logger, Mockito.times(1)).error(Utils.formatLogMessage(cidStr + formatMsg, msg));
+    Mockito.verify(logger, Mockito.times(1)).error(Utils.formatLogMessage(kcGlobalInstanceIdTag + formatMsg, msg));
   }
 
   @Test
@@ -127,17 +128,17 @@ public class LoggerHandlerTest {
   }
 
   @Test
-  public void testLogMessageWithCid() {
+  public void testLogMessageWithKcGlobalInstanceId() {
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-    LoggerHandler.setCorrelationUuid(cid);
+    LoggerHandler.setKcGlobalInstanceId(kcGlobalInstanceId);
     loggerHandler.info(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(cidStr + msg));
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
   }
 
   @Test
-  public void testLoggerHandlerCreationWithCid() {
-    LoggerHandler.setCorrelationUuid(cid);
+  public void testLoggerHandlerCreationWithKcGlobalInstanceId() {
+    LoggerHandler.setKcGlobalInstanceId(kcGlobalInstanceId);
     LoggerHandler loggingHandler = new LoggerHandler(name);
   }
 }

@@ -1,36 +1,41 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.UUID;
 
 /** Attaches additional fields to the logs */
 public class LoggerHandler {
   // static properties and methods
-  private static final UUID CORRELATION_ID_EMPTY = null;
+  private static final String EMPTY_ID_TAG = "";
   private static final Logger META_LOGGER = LoggerFactory.getLogger(LoggerHandler.class.getName());
-  private static UUID loggerCorrelationId = CORRELATION_ID_EMPTY;
+  private static String kcGlobalInstanceIdTag = EMPTY_ID_TAG;
 
   /**
-   * Sets the correlationId for all loggers. This should only be called in start so that the entire
-   * kafka connector instance has the same correlationId logging
+   * Sets the KC global instance id for all loggers.
    *
-   * @param correlationId UUID attached for every log
+   * <p>This should only be called in start so that the entire kafka connector instance has the same
+   * correlationId logging.
+   *
+   * <p>If an invalid id is given, continue to log without the id
+   *
+   * @param kcGlobalInstanceId UUID attached for every log
    */
-  public static void setCorrelationUuid(UUID correlationId) {
-    loggerCorrelationId = correlationId;
+  public static void setKcGlobalInstanceId(UUID kcGlobalInstanceId) {
+    if (isUuidValid(kcGlobalInstanceId)) {
+      kcGlobalInstanceIdTag = getIdTagStr(kcGlobalInstanceId);
 
-    if (correlationId == null) {
-      META_LOGGER.warn(
-          Utils.formatLogMessage(
-              "Given correlationId was null, continuing to log without a correlationId"));
-    } else {
       META_LOGGER.info(
           Utils.formatLogMessage(
-              "Setting correlationId for all logging in this instance of Snowflake Kafka"
-                  + " Connector to '{}'",
-              correlationId.toString()));
+              "Set Kafka Connect global instance id for all logging to '{}'",
+              kcGlobalInstanceIdTag));
+    } else {
+      META_LOGGER.warn(
+          Utils.formatLogMessage(
+              "Given Kafka Connect global instance id was invalid (null or empty), continuing to log without"
+                  + " it"));
     }
   }
 
@@ -44,17 +49,15 @@ public class LoggerHandler {
   public LoggerHandler(String name) {
     this.logger = LoggerFactory.getLogger(name);
 
-    if (isCorrelationIdValid()) {
-      META_LOGGER.info(
-          Utils.formatLogMessage(
-              "Created loggerHandler for class: '{}' with correlationId: " + "'{}'",
-              name,
-              loggerCorrelationId.toString()));
-    } else {
-      META_LOGGER.info(
-          Utils.formatLogMessage(
-              "Created loggerHandler for class: '{}' without a correlationId.", name));
-    }
+    META_LOGGER.info(
+        kcGlobalInstanceIdTag.equals(EMPTY_ID_TAG)
+            ? Utils.formatLogMessage(
+                "Created loggerHandler for class: '{}' without a Kafka Connect global instance id.",
+                name)
+            : Utils.formatLogMessage(
+                "Created loggerHandler for class: '{}' with Kafka Connect global instance id: '{}'",
+                name,
+                kcGlobalInstanceIdTag));
   }
 
   /**
@@ -172,46 +175,50 @@ public class LoggerHandler {
     }
   }
 
-  // format correctly and add correlationId tag if exists
-
   /**
-   * Format the message correctly by attaching correlationId if needed and passing to Utils for more
-   * formatting
-   *
-   * @param msg The message that needs to be prepended with tags
-   * @return The fully formatted string to be logged
-   */
-  private String getFormattedMsg(String msg) {
-    return Utils.formatLogMessage(getCorrelationIdStr() + msg);
-  }
-
-  /**
-   * Format the message correctly by injecting the variables, attaching correlationId if needed, and
-   * passing to Utils for more formatting
+   * Format the message by attaching instance id tags and sending to Utils for final formatting
    *
    * @param msg The message format without variables that needs to be prepended with tags
-   * @param vars The variables to insert into the format. These variables will be toString()'ed
+   * @param vars The variables to insert into the format, these are passed directly to Utils
    * @return The fully formatted string to be logged
    */
   private String getFormattedMsg(String msg, Object... vars) {
-    return Utils.formatLogMessage(getCorrelationIdStr() + msg, vars);
+    String fullMsg = kcGlobalInstanceIdTag + msg;
+
+    if (vars == null) {
+      return Utils.formatLogMessage(fullMsg);
+    }
+    return Utils.formatLogMessage(fullMsg, vars);
   }
 
   /**
-   * Check if the correlationId is valid
+   * Check if the uuid is valid
    *
-   * @return true if the correlationId is valid, false otherwise
+   * @param id The given uuid
+   * @return true if the uuid is not null and not empty, false otherwise
    */
-  private static boolean isCorrelationIdValid() {
-    return loggerCorrelationId != CORRELATION_ID_EMPTY && !loggerCorrelationId.toString().isEmpty();
+  private static boolean isUuidValid(UUID id) {
+    return id != null && !id.toString().isEmpty();
   }
 
   /**
-   * Creates the correlationId tag
+   * Creates the id tag
    *
-   * @return The correlationId tag
+   * @param id The given id
+   * @return The id tag
    */
-  private static String getCorrelationIdStr() {
-    return isCorrelationIdValid() ? "[" + loggerCorrelationId.toString() + "] " : "";
+  private static String getIdTagStr(UUID id) {
+    return "[" + id.toString() + "] ";
+  }
+
+  /**
+   * Creates the id tag prepended with the descriptor
+   *
+   * @param id The given id
+   * @param descriptor The string prepended before the id
+   * @return The id tag
+   */
+  private static String getIdTagStr(UUID id, String descriptor) {
+    return "[" + descriptor + ":" + id.toString() + "]";
   }
 }
