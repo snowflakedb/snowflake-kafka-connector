@@ -261,7 +261,7 @@ public class RecordService extends Logging {
         columnValue = MAPPER.writeValueAsString(columnNode);
       }
       // while the value is always dumped into a string, the Streaming Ingest SDK
-      // will be transformed the value according to its type in the table
+      // will transform the value according to its type in the table
       streamingIngestRow.put(columnName, columnValue);
     }
     return streamingIngestRow;
