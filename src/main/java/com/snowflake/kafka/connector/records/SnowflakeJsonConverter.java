@@ -16,7 +16,6 @@
  */
 package com.snowflake.kafka.connector.records;
 
-import com.snowflake.kafka.connector.internal.Logging;
 import org.apache.kafka.connect.data.SchemaAndValue;
 
 public class SnowflakeJsonConverter extends SnowflakeConverter {
@@ -39,7 +38,7 @@ public class SnowflakeJsonConverter extends SnowflakeConverter {
       return new SchemaAndValue(
           new SnowflakeJsonSchema(), new SnowflakeRecordContent(mapper.readTree(bytes)));
     } catch (Exception ex) {
-      LOGGER.error(Logging.logMessage("Failed to parse JSON record\n" + ex.toString()));
+      LOGGER.error("Failed to parse JSON record\n" + ex.toString());
       return new SchemaAndValue(new SnowflakeJsonSchema(), new SnowflakeRecordContent(bytes));
     }
   }
