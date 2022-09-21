@@ -66,7 +66,7 @@ public class SchematizationUtils {
     Type schemaType = ConnectSchema.schemaType(value.getClass());
     if (schemaType == null) {
       // only when the type of the value is unrecognizable for JAVA
-      throw SnowflakeErrors.ERROR_5023.getException();
+      throw SnowflakeErrors.ERROR_5021.getException();
     }
     return convertToSnowflakeType(schemaType);
   }

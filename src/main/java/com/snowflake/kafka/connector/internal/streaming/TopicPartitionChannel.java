@@ -181,14 +181,13 @@ public class TopicPartitionChannel {
   private final BufferThreshold streamingBufferThreshold;
 
   // Whether schematization has been enabled.
-  private boolean enableSchematization;
+  private final boolean enableSchematization;
 
   // Whether schema evolution could be done on this channel
-  private boolean enableSchemaEvolution = false;
+  private final boolean enableSchemaEvolution;
 
+  // Reference to the Snowflake connection service
   private SnowflakeConnectionService conn;
-  // TODO: SNOW-652708 Factor out schema related function so that the connection don't need to be
-  // passed in
 
   /** Initialize TopicPartitionChannel without the connection service */
   public TopicPartitionChannel(
@@ -245,14 +244,8 @@ public class TopicPartitionChannel {
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.conn = conn;
-    if (conn != null) {
-      this.enableSchemaEvolution =
-          this.conn.hasSchemaEvolutionPermission(tableName, sfConnectorConfig.get(SNOWFLAKE_ROLE));
-    }
 
     this.recordService = new RecordService();
-    this.enableSchematization =
-        this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
 
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -265,6 +258,14 @@ public class TopicPartitionChannel {
     this.logErrors = StreamingUtils.logErrors(this.sfConnectorConfig);
     this.isDLQTopicSet =
         !Strings.isNullOrEmpty(StreamingUtils.getDlqTopicName(this.sfConnectorConfig));
+
+    /* Schematization support */
+    this.enableSchematization =
+        this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
+    this.enableSchemaEvolution =
+        this.conn != null
+            && this.conn.hasSchemaEvolutionPermission(
+                tableName, sfConnectorConfig.get(SNOWFLAKE_ROLE));
   }
 
   /**

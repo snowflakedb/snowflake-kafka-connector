@@ -133,43 +133,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     createTable(tableName, false);
   }
 
-  public void createTableWithSchema(final String tableName, final Map<String, String> schema) {
-    if (schema.isEmpty()) {
-      createTableWithOnlyMetadataColumn(tableName);
-      return;
-    }
-    String comment = "comment 'created by automatic table creation from Snowflake Kafka Connector'";
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    StringBuilder createTableQuery = new StringBuilder("create table if not exists identifier(?)");
-    StringBuilder logColumn = new StringBuilder("[RECORD_METADATA (VARIANT)");
-    createTableQuery.append("(record_metadata variant ").append(comment);
-    for (Map.Entry<String, String> field : schema.entrySet()) {
-      createTableQuery
-          .append(", ")
-          .append(field.getKey())
-          .append(" ")
-          .append(field.getValue())
-          .append(" ")
-          .append(comment);
-      logColumn.append(", ").append(field.getKey()).append(" ").append(field.getValue());
-    }
-    createTableQuery.append(")");
-    logColumn.append("]");
-
-    try {
-      PreparedStatement stmt = conn.prepareStatement(createTableQuery.toString());
-      stmt.setString(1, tableName);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      logInfo("Failed to create table {} with schema {}", tableName, logColumn.toString());
-      throw SnowflakeErrors.ERROR_2007.getException(e);
-    }
-
-    logInfo("Created table {} with schema {}", tableName, logColumn.toString());
-  }
-
+  @Override
   public void createTableWithOnlyMetadataColumn(final String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
