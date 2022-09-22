@@ -24,7 +24,8 @@ public class LoggerHandler {
    * @param kcGlobalInstanceId UUID attached for every log
    */
   public static void setKcGlobalInstanceId(UUID kcGlobalInstanceId) {
-    kcGlobalInstanceIdTag = parseUuidIntoTag("KC", kcGlobalInstanceId, "Kafka Connect global");
+    kcGlobalInstanceIdTag =
+        parseUuidIntoTag("KC", kcGlobalInstanceId, "Kafka Connect global");
   }
 
   /**
@@ -37,7 +38,8 @@ public class LoggerHandler {
    * @param logIdName Name of the tag for logging
    * @return A formatted instance id tag or empty striing
    */
-  private static String parseUuidIntoTag(String descriptor, UUID uuid, String logIdName) {
+  private static String parseUuidIntoTag(
+      String descriptor, UUID uuid, String logIdName) {
     if (uuid == null || uuid.toString().isEmpty()) {
       META_LOGGER.warn(
           Utils.formatLogMessage(

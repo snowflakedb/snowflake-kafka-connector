@@ -64,7 +64,7 @@ public class LoggerHandlerTest {
   // test
   @Test
   public void testAllLogMessageNoInstanceIds() {
-    testAllLogMessageRunner();
+    testAllLogMessagesRunner();
   }
 
   @Test
@@ -72,51 +72,64 @@ public class LoggerHandlerTest {
     LoggerHandler.setKcGlobalInstanceId(this.kcGlobalInstanceId);
     MockitoAnnotations.initMocks(this);
 
-    testAllLogMessageRunner(this.kcGlobalInstanceIdTag);
+    testAllLogMessagesRunner(this.kcGlobalInstanceIdTag);
   }
 
   @Test
   public void testAllLogMessageLoggingInstanceId() {
-    this.loggerHandler = new LoggerHandler(this.name, this.loggerInstanceId, this.loggerInstanceIdDescriptor);
+    this.loggerHandler =
+        new LoggerHandler(this.name, this.loggerInstanceId, this.loggerInstanceIdDescriptor);
     MockitoAnnotations.initMocks(this);
 
-    testAllLogMessageRunner(this.loggerInstanceIdTag);
+    testAllLogMessagesRunner(this.loggerInstanceIdTag);
   }
 
   @Test
   public void testAllLogMessageAllInstanceIds() {
     LoggerHandler.setKcGlobalInstanceId(this.kcGlobalInstanceId);
-    this.loggerHandler = new LoggerHandler(this.name, this.loggerInstanceId, this.loggerInstanceIdDescriptor);
+    this.loggerHandler =
+        new LoggerHandler(this.name, this.loggerInstanceId, this.loggerInstanceIdDescriptor);
     MockitoAnnotations.initMocks(this);
 
-    testAllLogMessageRunner(this.kcGlobalInstanceIdTag, this.loggerInstanceIdTag);
+    testAllLogMessagesRunner(this.kcGlobalInstanceIdTag, this.loggerInstanceIdTag);
   }
 
-  //  @Test
-  //  public void testLogMessageDisabled() {
-  //    Mockito.when(logger.isInfoEnabled()).thenReturn(false);
-  //    loggerHandler.info(msg);
-  //
-  //    Mockito.verify(logger, Mockito.times(0)).info(Utils.formatLogMessage(msg));
-  //  }
-  //
-  //  @Test
-  //  public void testLogMessageWithKcGlobalInstanceId() {
-  //    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-  //    //LoggerHandler.setKcGlobalInstanceId(kcGlobalInstanceId);
-  //    loggerHandler.info(msg);
-  //
-  //    Mockito.verify(logger, Mockito.times(1))
-  //      .info(Utils.formatLogMessage(kcGlobalInstanceIdTag + msg));
-  //  }
-  //
-  //  @Test
-  //  public void testLoggerHandlerCreationWithKcGlobalInstanceId() {
-  //    //LoggerHandler.setKcGlobalInstanceId(kcGlobalInstanceId);
-  //    LoggerHandler loggingHandler = new LoggerHandler(name);
-  //  }
+  @Test
+  public void testInvalidUuid() {
+    this.loggerHandler =
+        new LoggerHandler(this.name, null, this.loggerInstanceIdDescriptor);
+    MockitoAnnotations.initMocks(this);
 
-  private void testAllLogMessageRunner(String... tagList) {
+    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
+    this.loggerHandler.info(this.msg);
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(this.expectedMsg));
+  }
+
+  @Test
+  public void testInvalidDescriptor() {
+    this.loggerHandler =
+      new LoggerHandler(this.name, this.loggerInstanceId, null);
+    MockitoAnnotations.initMocks(this);
+
+    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
+    this.loggerHandler.info(this.msg);
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(this.expectedMsg));
+  }
+
+  @Test
+  public void testLongDescriptor() {
+    String longDescriptor = "long descriptor yayay";
+    String longTag = "[" + longDescriptor + ":" + loggerInstanceId.toString() + "] ";
+    this.loggerHandler =
+      new LoggerHandler(this.name, this.loggerInstanceId, longDescriptor);
+    MockitoAnnotations.initMocks(this);
+
+    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
+    this.loggerHandler.info(this.msg);
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(longTag + this.expectedMsg));
+  }
+
+  private void testAllLogMessagesRunner(String... tagList) {
     String tags = "";
     for (String tag : tagList) {
       tags += tag;
