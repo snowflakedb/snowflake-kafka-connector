@@ -727,6 +727,14 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
   }
 
   @Override
+  public SnowflakeTelemetryService getTelemetryClient(String instanceId) {
+    return SnowflakeTelemetryServiceFactory.builder(conn)
+        .setAppName(this.connectorName)
+        .setTaskID(this.taskID)
+        .build();
+  }
+
+  @Override
   public void close() {
     try {
       conn.close();

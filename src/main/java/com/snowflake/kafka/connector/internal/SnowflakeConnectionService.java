@@ -216,6 +216,8 @@ public interface SnowflakeConnectionService {
   /** @return telemetry client */
   SnowflakeTelemetryService getTelemetryClient();
 
+  SnowflakeTelemetryService getTelemetryClient(String instanceId);
+
   /** Close Connection */
   void close();
 

@@ -27,6 +27,15 @@ public class LoggerHandler {
   }
 
   /**
+   * Returns the global kafka connector instance id tag
+   *
+   * @return the global kafka connector instance id tag
+   */
+  public static String getKcGlobalInstanceIdTag() {
+    return kcGlobalInstanceIdTag;
+  }
+
+  /**
    * Create instance id tag from given descriptor and uuid
    *
    * <p>Note: empty string will be returned if the uuid or descriptor is null or empty
@@ -102,6 +111,15 @@ public class LoggerHandler {
     this(name);
     this.loggerInstanceIdTag =
         parseUuidIntoTag(loggerInstanceIdDescriptor, loggerInstanceId, "logger");
+  }
+
+  /**
+   * Returns the logging instance id tag
+   *
+   * @return the logger's instance id or empty string
+   */
+  public String getLoggingInstanceIdTag() {
+    return this.loggerInstanceIdTag;
   }
 
   /**

@@ -16,8 +16,6 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
@@ -27,7 +25,17 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceV1;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.errors.RetriableException;
+import org.apache.kafka.connect.sink.ErrantRecordReporter;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.sink.SinkTask;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,13 +44,8 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.errors.ConnectException;
-import org.apache.kafka.connect.errors.RetriableException;
-import org.apache.kafka.connect.sink.ErrantRecordReporter;
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.apache.kafka.connect.sink.SinkTask;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 
 /**
  * SnowflakeSinkTask implements SinkTask for Kafka Connect framework.
@@ -55,6 +58,9 @@ import org.apache.kafka.connect.sink.SinkTask;
 public class SnowflakeSinkTask extends SinkTask {
   private static final long WAIT_TIME = 5 * 1000; // 5 sec
   private static final int REPEAT_TIME = 12; // 60 sec
+
+  // Snowflake Telemetry provides methods to report usage statistics
+  private SnowflakeTelemetryService telemetryClient;
 
   private SnowflakeSinkService sink = null;
   private Map<String, String> topic2table = null;
@@ -214,8 +220,14 @@ public class SnowflakeSinkTask extends SinkTask {
             .setSinkTaskContext(this.context)
             .build();
 
+    this.telemetryClient = conn.getTelemetryClient(LOGGER.getLoggingInstanceIdTag());
+
+    long elapsedTime = this.getElapsedTimeSec(startTime);
+    this.telemetryClient.reportTaskAction(
+        SnowflakeTelemetryServiceV1.TelemetryType.TASK_START, elapsedTime);
+
     LOGGER.info(
-        "SnowflakeSinkTask[ID:{}]:start. Time: {} seconds",
+        "SnowflakeSinkTask[ID:{}]:start. Elapsed time: {} seconds",
         this.id,
         (System.currentTimeMillis() - startTime) / 1000);
   }
@@ -226,10 +238,16 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void stop() {
+    long startTime = System.currentTimeMillis();
+
     LOGGER.info("SnowflakeSinkTask[ID:{}]:stop", this.id);
     if (this.sink != null) {
       this.sink.setIsStoppedToTrue(); // close cleaner thread
     }
+
+    long elapsedTime = this.getElapsedTimeSec(startTime);
+    this.telemetryClient.reportTaskAction(
+        SnowflakeTelemetryServiceV1.TelemetryType.TASK_STOP, elapsedTime);
   }
 
   /**
@@ -242,13 +260,22 @@ public class SnowflakeSinkTask extends SinkTask {
     long startTime = System.currentTimeMillis();
     LOGGER.info(
         "SnowflakeSinkTask[ID:{}]:open, TopicPartition number: {}", this.id, partitions.size());
+
     partitions.forEach(
-        tp -> this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp));
+        tp -> {
+          LOGGER.info("SnowflakeSinkTask[ID:{}]: Assigned Partition: '{}'", this.id, tp.toString());
+          this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp);
+        });
+
+    long elapsedTime = this.getElapsedTimeSec(startTime);
+    this.telemetryClient.reportTaskAction(
+        SnowflakeTelemetryServiceV1.TelemetryType.TASK_OPEN, elapsedTime);
 
     LOGGER.info(
-        "SnowflakeSinkTask[ID:{}]:open. Time: {} seconds",
+        "SnowflakeSinkTask[ID:{}]:open. Elapsed time: {} seconds",
         this.id,
-        (System.currentTimeMillis() - startTime) / 1000);
+        elapsedTime,
+        elapsedTime);
   }
 
   /**
@@ -267,8 +294,12 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.close(partitions);
     }
 
+    long elapsedTime = this.getElapsedTimeSec(startTime);
+    this.telemetryClient.reportTaskAction(
+        SnowflakeTelemetryServiceV1.TelemetryType.TASK_CLOSE, elapsedTime);
+
     LOGGER.info(
-        "SnowflakeSinkTask[ID:{}]:close. Time: {} seconds",
+        "SnowflakeSinkTask[ID:{}]:close. Elapsed time: {} seconds",
         this.id,
         (System.currentTimeMillis() - startTime) / 1000);
   }
@@ -290,6 +321,10 @@ public class SnowflakeSinkTask extends SinkTask {
     getSink().insert(records);
 
     logWarningForPutAndPrecommit(startTime, records.size(), "put");
+
+    long elapsedTime = this.getElapsedTimeSec(startTime);
+    this.telemetryClient.reportTaskAction(
+        SnowflakeTelemetryServiceV1.TelemetryType.TASK_PUT, elapsedTime);
   }
 
   /**
@@ -335,6 +370,11 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     logWarningForPutAndPrecommit(startTime, offsets.size(), "preCommit");
+
+    long elapsedTime = this.getElapsedTimeSec(startTime);
+    this.telemetryClient.reportTaskAction(
+        SnowflakeTelemetryServiceV1.TelemetryType.TASK_PRECOMMIT, elapsedTime);
+
     return committedOffsets;
   }
 
@@ -385,7 +425,7 @@ public class SnowflakeSinkTask extends SinkTask {
       // seconds.
       // But having this warning helps customer to debug their Kafka Connect config.
       LOGGER.warn(
-          "SnowflakeSinkTask[ID:{}]:{} {}. Time: {} seconds > 300 seconds. If there is"
+          "SnowflakeSinkTask[ID:{}]:{} {}. Elapsed time: {} seconds > 300 seconds. If there is"
               + " CommitFailedException in the log or there is duplicated records, refer to this"
               + " link for solution: "
               + "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
@@ -436,6 +476,10 @@ public class SnowflakeSinkTask extends SinkTask {
       }
     }
     return result;
+  }
+
+  private long getElapsedTimeSec(long startTime) {
+    return (System.currentTimeMillis() - startTime) / 1000;
   }
 
   /**

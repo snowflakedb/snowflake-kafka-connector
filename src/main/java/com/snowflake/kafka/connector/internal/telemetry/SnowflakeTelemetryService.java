@@ -58,4 +58,12 @@ public interface SnowflakeTelemetryService {
    * @param objectCreation SnowflakeObjectCreation object
    */
   void reportKafkaPartitionStart(final SnowflakeTelemetryBasicInfo objectCreation);
+
+  /**
+   * report data about the action performed on the task
+   *
+   * @param action the action the task has completed
+   * @param elapsedTime the amount of time it took for the action to complete
+   */
+  void reportTaskAction(SnowflakeTelemetryServiceV1.TelemetryType action, long elapsedTime);
 }

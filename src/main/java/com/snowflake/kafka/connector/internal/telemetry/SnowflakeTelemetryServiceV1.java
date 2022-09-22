@@ -1,5 +1,20 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.EnableLogging;
+import com.snowflake.kafka.connector.internal.LoggerHandler;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
+import net.snowflake.client.jdbc.telemetry.Telemetry;
+import net.snowflake.client.jdbc.telemetry.TelemetryClient;
+import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
+import org.apache.kafka.common.utils.AppInfoParser;
+
+import java.sql.Connection;
+import java.util.Map;
+
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
@@ -9,19 +24,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.EnableLogging;
-import java.sql.Connection;
-import java.util.Map;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
-import net.snowflake.client.jdbc.telemetry.Telemetry;
-import net.snowflake.client.jdbc.telemetry.TelemetryClient;
-import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
-import org.apache.kafka.common.utils.AppInfoParser;
 
 public class SnowflakeTelemetryServiceV1 extends EnableLogging
     implements SnowflakeTelemetryService {
@@ -35,6 +37,8 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
   private static final String MAX_TASKS = "max_tasks";
   private static final String START_TIME = "start_time";
   private static final String END_TIME = "end_time";
+  private static final String ELAPSED_TIME = "elapsed_time";
+  private static final String TIME_MEASUREMENT = "time_measurement";
   private static final String APP_NAME = "app_name";
   private static final String TASK_ID = "task_id";
   private static final String ERROR_NUMBER = "error_number";
@@ -42,13 +46,24 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
   private static final String VERSION = "version";
   private static final String KAFKA_VERSION = "kafka_version";
   private static final String IS_PIPE_CLOSING = "is_pipe_closing";
+  private static final String INSTANCE_ID_TAG = "instance_id_tag";
 
   private final Telemetry telemetry;
+  private String instanceIdTag;
   private String name = null;
   private String taskID = null;
 
   SnowflakeTelemetryServiceV1(Connection conn) {
     this.telemetry = TelemetryClient.createTelemetry(conn);
+    instanceIdTag = LoggerHandler.getKcGlobalInstanceIdTag();
+  }
+
+  SnowflakeTelemetryServiceV1(Connection conn, String instanceIdTag) {
+    this.telemetry = TelemetryClient.createTelemetry(conn);
+    this.instanceIdTag = instanceIdTag;
+    // TODO @rcheng: may be good to have an instanceid manager, or decide if telemetry or logging is
+    // source of truth.
+    //  alternatively have an instanceId for each class?
   }
 
   @VisibleForTesting
@@ -92,6 +107,7 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
 
     dataObjectNode.put(START_TIME, startTime);
     dataObjectNode.put(KAFKA_VERSION, AppInfoParser.getVersion());
+    dataObjectNode.put(TIME_MEASUREMENT, "milliseconds");
     addUserConnectorPropertiesToDataNode(userProvidedConfig, dataObjectNode);
 
     send(TelemetryType.KAFKA_START, dataObjectNode);
@@ -103,6 +119,7 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
 
     msg.put(START_TIME, startTime);
     msg.put(END_TIME, System.currentTimeMillis());
+    msg.put(TIME_MEASUREMENT, "milliseconds");
 
     send(TelemetryType.KAFKA_STOP, msg);
   }
@@ -113,6 +130,7 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
 
     msg.put(TIME, System.currentTimeMillis());
     msg.put(ERROR_NUMBER, errorDetail);
+    msg.put(TIME_MEASUREMENT, "milliseconds");
 
     send(TelemetryType.KAFKA_FATAL_ERROR, msg);
   }
@@ -140,6 +158,16 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
     send(TelemetryType.KAFKA_PIPE_START, msg);
   }
 
+  @Override
+  public void reportTaskAction(TelemetryType action, long elapsedTime) {
+    ObjectNode msg = getObjectNode();
+
+    msg.put(ELAPSED_TIME, elapsedTime);
+    msg.put(TIME_MEASUREMENT, "seconds");
+
+    send(action, msg);
+  }
+
   /**
    * JsonNode data is wrapped into another ObjectNode which looks like this:
    *
@@ -161,6 +189,7 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
    */
   private void send(TelemetryType type, JsonNode data) {
     ObjectNode msg = MAPPER.createObjectNode();
+    msg.put(INSTANCE_ID_TAG, this.instanceIdTag);
     msg.put(SOURCE, KAFKA_CONNECTOR);
     msg.put(TYPE, type.toString());
     msg.set(DATA, data);
@@ -229,12 +258,18 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
         VALUE_CONVERTER_CONFIG_FIELD, userProvidedConfig.get(VALUE_CONVERTER_CONFIG_FIELD));
   }
 
-  private enum TelemetryType {
+  public enum TelemetryType {
     KAFKA_START("kafka_start"),
     KAFKA_STOP("kafka_stop"),
     KAFKA_FATAL_ERROR("kafka_fatal_error"),
     KAFKA_PIPE_USAGE("kafka_pipe_usage"),
-    KAFKA_PIPE_START("kafka_pipe_start");
+    KAFKA_PIPE_START("kafka_pipe_start"),
+    TASK_START("kafka_task_start"),
+    TASK_STOP("kafka_task_stop"),
+    TASK_PUT("kafka_task_put"),
+    TASK_PRECOMMIT("kafka_task_precommit"),
+    TASK_CLOSE("kafka_task_close"),
+    TASK_OPEN("kafka_task_open");
 
     private final String name;
 

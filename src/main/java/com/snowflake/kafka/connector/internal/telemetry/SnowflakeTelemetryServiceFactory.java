@@ -22,6 +22,11 @@ public class SnowflakeTelemetryServiceFactory {
       this.service = new SnowflakeTelemetryServiceV1(conn);
     }
 
+    /** @param conn snowflake connection is required for telemetry service */
+    public SnowflakeTelemetryServiceBuilder(Connection conn, String instanceIdTag) {
+      this.service = new SnowflakeTelemetryServiceV1(conn, instanceIdTag);
+    }
+
     /**
      * @param name connector name
      * @return builder instance
