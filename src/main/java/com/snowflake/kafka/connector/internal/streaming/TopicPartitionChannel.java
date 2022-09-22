@@ -987,7 +987,7 @@ public class TopicPartitionChannel {
     SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
 
     if (isRecordBroken(snowflakeRecord)) {
-      // we wont be able to find accurate size of serialized record since serialization itself
+      // we won't be able to find accurate size of serialized record since serialization itself
       // failed
       // But this will not happen in streaming ingest since we deprecated custom converters.
       return 0L;
@@ -1096,6 +1096,10 @@ public class TopicPartitionChannel {
                 recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
             snowflakeTableRowsFromSinkRecords.add(tableRow);
           } catch (JsonProcessingException e) {
+            LOGGER.warn(
+                "Record has JsonProcessingException offset:{}, topic:{}",
+                kafkaSinkRecord.kafkaOffset(),
+                kafkaSinkRecord.topic());
             kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
           }
         }
