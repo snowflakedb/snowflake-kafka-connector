@@ -38,7 +38,7 @@ public class LoggerHandlerTest {
           + "useful logging message'";
   private final UUID kcGlobalInstanceId = UUID.randomUUID();
   private final UUID loggerInstanceId = UUID.randomUUID();
-  private final String loggerInstanceIdDescriptor = "logger";
+  private final String loggerInstanceIdDescriptor = "TEST";
   private final String kcGlobalInstanceIdTag = "[KC:" + kcGlobalInstanceId.toString() + "]";
   private final String loggerInstanceIdTag =
       "[" + loggerInstanceIdDescriptor + ":" + loggerInstanceId.toString() + "]";
@@ -76,8 +76,8 @@ public class LoggerHandlerTest {
 
   @Test
   public void testAllLogMessageLoggingInstanceId() {
-    this.loggerHandler =
-        new LoggerHandler(this.name, this.loggerInstanceId, this.loggerInstanceIdDescriptor);
+    this.loggerHandler = new LoggerHandler(this.name);
+    this.loggerHandler.setLoggerInstanceIdTag(loggerInstanceIdDescriptor, loggerInstanceId);
     MockitoAnnotations.initMocks(this);
 
     testAllLogMessagesRunner(this.loggerInstanceIdTag);
@@ -85,9 +85,9 @@ public class LoggerHandlerTest {
 
   @Test
   public void testAllLogMessageAllInstanceIds() {
+    this.loggerHandler = new LoggerHandler(this.name);
     LoggerHandler.setKcGlobalInstanceId(this.kcGlobalInstanceId);
-    this.loggerHandler =
-        new LoggerHandler(this.name, this.loggerInstanceId, this.loggerInstanceIdDescriptor);
+    this.loggerHandler.setLoggerInstanceIdTag(loggerInstanceIdDescriptor, loggerInstanceId);
     MockitoAnnotations.initMocks(this);
 
     testAllLogMessagesRunner(this.kcGlobalInstanceIdTag, this.loggerInstanceIdTag);
@@ -95,7 +95,7 @@ public class LoggerHandlerTest {
 
   @Test
   public void testInvalidUuid() {
-    this.loggerHandler = new LoggerHandler(this.name, null, this.loggerInstanceIdDescriptor);
+    this.loggerHandler = new LoggerHandler(this.name);
     MockitoAnnotations.initMocks(this);
 
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
@@ -105,7 +105,7 @@ public class LoggerHandlerTest {
 
   @Test
   public void testInvalidDescriptor() {
-    this.loggerHandler = new LoggerHandler(this.name, this.loggerInstanceId, null);
+    this.loggerHandler = new LoggerHandler(this.name);
     MockitoAnnotations.initMocks(this);
 
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
@@ -116,14 +116,22 @@ public class LoggerHandlerTest {
   @Test
   public void testLongDescriptor() {
     String longDescriptor = "long descriptor yayay";
-    String longTag = "[" + longDescriptor + ":" + loggerInstanceId.toString() + "]";
-    this.loggerHandler = new LoggerHandler(this.name, this.loggerInstanceId, longDescriptor);
+    this.loggerHandler = new LoggerHandler(this.name);
+    this.loggerHandler.setLoggerInstanceIdTag(longDescriptor, loggerInstanceId);
     MockitoAnnotations.initMocks(this);
 
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
     this.loggerHandler.info(this.msg);
     Mockito.verify(logger, Mockito.times(1))
-        .info(Utils.formatLogMessage(longTag + " " + this.expectedMsg));
+        .info(
+            Utils.formatLogMessage(
+                "["
+                    + longDescriptor
+                    + ":"
+                    + loggerInstanceId.toString()
+                    + "]"
+                    + " "
+                    + this.expectedMsg));
   }
 
   private void testAllLogMessagesRunner(String... tagList) {

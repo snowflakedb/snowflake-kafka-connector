@@ -23,7 +23,8 @@ public class LoggerHandler {
    * @param kcGlobalInstanceId UUID attached for every log
    */
   public static void setKcGlobalInstanceId(UUID kcGlobalInstanceId) {
-    kcGlobalInstanceIdTag = parseUuidIntoTag("KC", kcGlobalInstanceId, "Kafka Connect global");
+    kcGlobalInstanceIdTag =
+        parseUuidIntoTag("KC", kcGlobalInstanceId, "Kafka Connect global", META_LOGGER);
   }
 
   /**
@@ -36,9 +37,10 @@ public class LoggerHandler {
    * @param logIdName Name of the tag for logging
    * @return A formatted instance id tag or empty striing
    */
-  private static String parseUuidIntoTag(String descriptor, UUID uuid, String logIdName) {
+  private static String parseUuidIntoTag(
+      String descriptor, UUID uuid, String logIdName, Logger logger) {
     if (uuid == null || uuid.toString().isEmpty()) {
-      META_LOGGER.warn(
+      logger.warn(
           Utils.formatLogMessage(
               "Given {} instance id was invalid (null or empty), continuing to log without"
                   + " it"),
@@ -47,7 +49,7 @@ public class LoggerHandler {
     }
 
     if (descriptor == null || descriptor.toString().isEmpty()) {
-      META_LOGGER.warn(
+      logger.warn(
           Utils.formatLogMessage(
               "Descriptor given for {} instance id was invalid (null or empty), continuing to log"
                   + " without it"),
@@ -56,7 +58,7 @@ public class LoggerHandler {
     }
 
     if (descriptor.length() > 10) {
-      META_LOGGER.info(
+      logger.info(
           Utils.formatLogMessage(
               "Given {} instance id descriptor '{}' is recommended to be below 10 characters",
               logIdName,
@@ -64,7 +66,7 @@ public class LoggerHandler {
     }
 
     String tag = "[" + descriptor + ":" + uuid.toString() + "]";
-    META_LOGGER.info(Utils.formatLogMessage("Setting {} instance id to '{}'", logIdName, tag));
+    logger.info(Utils.formatLogMessage("Setting {} instance id to '{}'", logIdName, tag));
 
     return tag;
   }
@@ -92,16 +94,19 @@ public class LoggerHandler {
   }
 
   /**
-   * Create and return a new logging handler with logger specific instance id
+   * Sets the loggerHandler's instance id tag
    *
-   * @param name The class name passed for initializing the logger
-   * @param loggerInstanceId The instance id for this logger
    * @param loggerInstanceIdDescriptor The descriptor for this logger
+   * @param loggerInstanceId The instance id for this logger
    */
-  public LoggerHandler(String name, UUID loggerInstanceId, String loggerInstanceIdDescriptor) {
-    this(name);
+  public void setLoggerInstanceIdTag(String loggerInstanceIdDescriptor, UUID loggerInstanceId) {
     this.loggerInstanceIdTag =
-        parseUuidIntoTag(loggerInstanceIdDescriptor, loggerInstanceId, "logger");
+        parseUuidIntoTag(loggerInstanceIdDescriptor, loggerInstanceId, "logger", this.logger);
+  }
+
+  /** Clears the loggerHandler's instance id tag */
+  public void clearLoggerInstanceIdTag() {
+    this.loggerInstanceIdTag = "";
   }
 
   /**
@@ -228,10 +233,9 @@ public class LoggerHandler {
    */
   private String getFormattedMsg(String msg, Object... vars) {
     if (!kcGlobalInstanceIdTag.isEmpty() || !this.loggerInstanceIdTag.isEmpty()) {
-      return Utils.formatLogMessage(
-          kcGlobalInstanceIdTag + this.loggerInstanceIdTag + " " + msg, vars);
+      msg = " " + msg; // need to add space between tags and msg, ok to have no space between tags
     }
 
-    return Utils.formatLogMessage(msg, vars);
+    return Utils.formatLogMessage(kcGlobalInstanceIdTag + this.loggerInstanceIdTag + msg, vars);
   }
 }

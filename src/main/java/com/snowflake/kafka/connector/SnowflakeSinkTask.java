@@ -78,12 +78,18 @@ public class SnowflakeSinkTask extends SinkTask {
   // check connect-distributed.properties file used to start kafka connect
   private final int rebalancingSleepTime = 370000;
 
-  private static final LoggerHandler LOGGER =
-      new LoggerHandler(SnowflakeSinkTask.class.getName(), UUID.randomUUID(), "TASK");
+  // the dynamic logger is intended to be attached per task instance. the instance id will be set
+  // during task start,
+  // however if it is not set, it falls back to the static logger
+  private static final LoggerHandler STATIC_LOGGER =
+      new LoggerHandler(SnowflakeSinkTask.class.getName() + "_STATIC");
+  private final LoggerHandler DYNAMIC_LOGGER;
+  private UUID taskInstanceId;
 
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
     // nothing
+    DYNAMIC_LOGGER = new LoggerHandler(this.getClass().getName());
   }
 
   private SnowflakeConnectionService getConnection() {
@@ -121,10 +127,13 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
+    this.taskInstanceId = UUID.randomUUID();
+    this.DYNAMIC_LOGGER.setLoggerInstanceIdTag("TASK:", this.taskInstanceId);
+
     long startTime = System.currentTimeMillis();
     this.id = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
 
-    LOGGER.info("SnowflakeSinkTask[ID:{}]:start", this.id);
+    this.DYNAMIC_LOGGER.info("SnowflakeSinkTask[ID:{}]:start", this.id);
     // connector configuration
 
     // generate topic to table map
@@ -214,7 +223,7 @@ public class SnowflakeSinkTask extends SinkTask {
             .setSinkTaskContext(this.context)
             .build();
 
-    LOGGER.info(
+    DYNAMIC_LOGGER.info(
         "SnowflakeSinkTask[ID:{}]:start. Time: {} seconds",
         this.id,
         (System.currentTimeMillis() - startTime) / 1000);
@@ -226,7 +235,8 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void stop() {
-    LOGGER.info("SnowflakeSinkTask[ID:{}]:stop", this.id);
+    this.DYNAMIC_LOGGER.info("SnowflakeSinkTask[ID:{}]:stop", this.id);
+    this.DYNAMIC_LOGGER.clearLoggerInstanceIdTag();
     if (this.sink != null) {
       this.sink.setIsStoppedToTrue(); // close cleaner thread
     }
@@ -240,12 +250,12 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void open(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    LOGGER.info(
+    this.DYNAMIC_LOGGER.info(
         "SnowflakeSinkTask[ID:{}]:open, TopicPartition number: {}", this.id, partitions.size());
     partitions.forEach(
         tp -> this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp));
 
-    LOGGER.info(
+    this.DYNAMIC_LOGGER.info(
         "SnowflakeSinkTask[ID:{}]:open. Time: {} seconds",
         this.id,
         (System.currentTimeMillis() - startTime) / 1000);
@@ -262,12 +272,12 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void close(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    LOGGER.info("SnowflakeSinkTask[ID:{}]:close", this.id);
+    this.DYNAMIC_LOGGER.info("SnowflakeSinkTask[ID:{}]:close", this.id);
     if (this.sink != null) {
       this.sink.close(partitions);
     }
 
-    LOGGER.info(
+    this.DYNAMIC_LOGGER.info(
         "SnowflakeSinkTask[ID:{}]:close. Time: {} seconds",
         this.id,
         (System.currentTimeMillis() - startTime) / 1000);
@@ -285,7 +295,7 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     long startTime = System.currentTimeMillis();
-    LOGGER.debug("SnowflakeSinkTask[ID:{}]:put {} records", this.id, records.size());
+    this.DYNAMIC_LOGGER.debug("SnowflakeSinkTask[ID:{}]:put {} records", this.id, records.size());
 
     getSink().insert(records);
 
@@ -306,15 +316,15 @@ public class SnowflakeSinkTask extends SinkTask {
   public Map<TopicPartition, OffsetAndMetadata> preCommit(
       Map<TopicPartition, OffsetAndMetadata> offsets) throws RetriableException {
     long startTime = System.currentTimeMillis();
-    LOGGER.debug("SnowflakeSinkTask[ID:{}]:preCommit {}", this.id, offsets.size());
+    this.DYNAMIC_LOGGER.debug("SnowflakeSinkTask[ID:{}]:preCommit {}", this.id, offsets.size());
 
     // return an empty map means that offset commitment is not desired
     if (sink == null || sink.isClosed()) {
-      LOGGER.warn(
+      this.DYNAMIC_LOGGER.warn(
           "SnowflakeSinkTask[ID:{}]: sink not initialized or closed before preCommit", this.id);
       return new HashMap<>();
     } else if (sink.getPartitionCount() == 0) {
-      LOGGER.warn("SnowflakeSinkTask[ID:{}]: no partition is assigned", this.id);
+      this.DYNAMIC_LOGGER.warn("SnowflakeSinkTask[ID:{}]: no partition is assigned", this.id);
       return new HashMap<>();
     }
 
@@ -329,7 +339,7 @@ public class SnowflakeSinkTask extends SinkTask {
             }
           });
     } catch (Exception e) {
-      LOGGER.error(
+      this.DYNAMIC_LOGGER.error(
           "SnowflakeSinkTask[ID:{}]: Error " + "while preCommit: {} ", this.id, e.getMessage());
       return new HashMap<>();
     }
@@ -357,7 +367,7 @@ public class SnowflakeSinkTask extends SinkTask {
       if (result != null) {
         return result;
       }
-      LOGGER.error("Invalid Input, Topic2Table Map disabled");
+      STATIC_LOGGER.error("Invalid Input, Topic2Table Map disabled");
     }
     return new HashMap<>();
   }
@@ -384,7 +394,7 @@ public class SnowflakeSinkTask extends SinkTask {
       // This won't be frequently printed. It is vary rare to have execution greater than 300
       // seconds.
       // But having this warning helps customer to debug their Kafka Connect config.
-      LOGGER.warn(
+      this.DYNAMIC_LOGGER.warn(
           "SnowflakeSinkTask[ID:{}]:{} {}. Time: {} seconds > 300 seconds. If there is"
               + " CommitFailedException in the log or there is duplicated records, refer to this"
               + " link for solution: "
@@ -401,7 +411,8 @@ public class SnowflakeSinkTask extends SinkTask {
     rebalancingCounter++;
     if (rebalancingCounter == REBALANCING_THRESHOLD) {
       try {
-        LOGGER.debug("[TEST_ONLY] Sleeping :{} ms to trigger a rebalance", rebalancingSleepTime);
+        this.DYNAMIC_LOGGER.debug(
+            "[TEST_ONLY] Sleeping :{} ms to trigger a rebalance", rebalancingSleepTime);
         Thread.sleep(rebalancingSleepTime);
       } catch (InterruptedException e) {
         e.printStackTrace();
@@ -423,16 +434,17 @@ public class SnowflakeSinkTask extends SinkTask {
                   errantRecordReporter.report(record, error).get();
                 } catch (InterruptedException | ExecutionException e) {
                   final String errMsg = "ERROR reporting records to ErrantRecordReporter";
-                  LOGGER.error(errMsg, e);
+                  this.DYNAMIC_LOGGER.error(errMsg, e);
                   throw new ConnectException(errMsg, e);
                 }
               };
         } else {
-          LOGGER.info("Errant record reporter is not configured.");
+          this.DYNAMIC_LOGGER.info("Errant record reporter is not configured.");
         }
       } catch (NoClassDefFoundError | NoSuchMethodError e) {
         // Will occur in Connect runtimes earlier than 2.6
-        LOGGER.info("Kafka versions prior to 2.6 do not support the errant record reporter.");
+        this.DYNAMIC_LOGGER.info(
+            "Kafka versions prior to 2.6 do not support the errant record reporter.");
       }
     }
     return result;
