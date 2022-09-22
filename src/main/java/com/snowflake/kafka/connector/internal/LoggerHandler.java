@@ -229,10 +229,6 @@ public class LoggerHandler {
    */
   private String getFormattedMsg(String msg, Object... vars) {
     String fullMsg = kcGlobalInstanceIdTag + this.loggerInstanceIdTag + msg;
-
-    if (vars == null) {
-      return Utils.formatLogMessage(fullMsg);
-    }
     return Utils.formatLogMessage(fullMsg, vars);
   }
 }
