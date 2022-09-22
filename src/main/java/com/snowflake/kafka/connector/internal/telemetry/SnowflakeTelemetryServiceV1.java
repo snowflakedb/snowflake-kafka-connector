@@ -189,11 +189,14 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
    */
   private void send(TelemetryType type, JsonNode data) {
     ObjectNode msg = MAPPER.createObjectNode();
-    msg.put(INSTANCE_ID_TAG, this.instanceIdTag);
     msg.put(SOURCE, KAFKA_CONNECTOR);
     msg.put(TYPE, type.toString());
     msg.set(DATA, data);
     msg.put(VERSION, Utils.VERSION); // version number
+    if (!this.instanceIdTag.isEmpty()) {
+      // TODO @rcheng: maybe enforce having an instance id?
+      msg.put(INSTANCE_ID_TAG, this.instanceIdTag);
+    }
     try {
       telemetry.addLogToBatch(TelemetryUtil.buildJobData(msg));
       LOG_DEBUG_MSG("sending telemetry data: {} of type:{}", data.toString(), type.toString());
