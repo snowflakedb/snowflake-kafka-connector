@@ -220,7 +220,7 @@ public class SnowflakeSinkTask extends SinkTask {
             .setSinkTaskContext(this.context)
             .build();
 
-    this.telemetryClient = conn.getTelemetryClient(LOGGER.getLoggingInstanceIdTag());
+    this.telemetryClient = conn.getTelemetryClient();
 
     long elapsedTime = this.getElapsedTimeSec(startTime);
     this.telemetryClient.reportTaskAction(

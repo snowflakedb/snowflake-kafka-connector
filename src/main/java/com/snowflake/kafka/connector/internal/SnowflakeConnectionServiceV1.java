@@ -1,11 +1,12 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
-
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
+import net.snowflake.client.jdbc.SnowflakeConnectionV1;
+import net.snowflake.client.jdbc.SnowflakeDriver;
+import net.snowflake.client.jdbc.cloud.storage.StageInfo;
+
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -18,10 +19,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import net.snowflake.client.jdbc.SnowflakeConnectionV1;
-import net.snowflake.client.jdbc.SnowflakeDriver;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
+
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 /**
  * Implementation of Snowflake Connection Service interface which includes all handshake between KC
@@ -32,7 +34,6 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
   private final Connection conn;
   private final SnowflakeTelemetryService telemetry;
   private final String connectorName;
-  private final String taskID;
   private final Properties prop;
 
   // Placeholder for all proxy related properties set in the connector configuration
@@ -57,9 +58,9 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
       String connectorName,
       String taskID,
       Properties proxyProperties,
-      String kafkaProvider) {
+      String kafkaProvider,
+      UUID kcGlobalInstanceId) {
     this.connectorName = connectorName;
-    this.taskID = taskID;
     this.url = url;
     this.prop = prop;
     this.stageType = null;
@@ -83,9 +84,9 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
         new SnowflakeInternalStage(
             (SnowflakeConnectionV1) this.conn, credentialExpireTimeMillis, proxyProperties);
     this.telemetry =
-        SnowflakeTelemetryServiceFactory.builder(conn)
+        SnowflakeTelemetryServiceFactory.builder(conn, kcGlobalInstanceId)
             .setAppName(this.connectorName)
-            .setTaskID(this.taskID)
+            .setTaskID(taskID)
             .build();
     LOG_INFO_MSG("initialized the snowflake connection");
   }
@@ -724,14 +725,6 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
   @Override
   public SnowflakeTelemetryService getTelemetryClient() {
     return this.telemetry;
-  }
-
-  @Override
-  public SnowflakeTelemetryService getTelemetryClient(String instanceId) {
-    return SnowflakeTelemetryServiceFactory.builder(conn)
-        .setAppName(this.connectorName)
-        .setTaskID(this.taskID)
-        .build();
   }
 
   @Override

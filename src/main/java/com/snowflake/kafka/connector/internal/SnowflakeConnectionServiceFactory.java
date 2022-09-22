@@ -1,11 +1,13 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.PROVIDER_CONFIG;
-
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+
 import java.util.Map;
 import java.util.Properties;
+import java.util.UUID;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.PROVIDER_CONFIG;
 
 public class SnowflakeConnectionServiceFactory {
   public static SnowflakeConnectionServiceBuilder builder() {
@@ -23,6 +25,8 @@ public class SnowflakeConnectionServiceFactory {
     // This info is provided in the connector configuration
     // This property will be appeneded to user agent while calling snowpipe API in http request
     private String kafkaProvider = null;
+    private UUID kcGlobalInstanceId;
+    private UUID taskInstanceId;
 
     // For testing only
     public SnowflakeConnectionServiceBuilder setProperties(Properties prop) {
@@ -68,12 +72,22 @@ public class SnowflakeConnectionServiceFactory {
       return this;
     }
 
+    public SnowflakeConnectionServiceBuilder setKcGlobalInstanceId(UUID kcGlobalInstanceId) {
+      this.kcGlobalInstanceId = kcGlobalInstanceId;
+      return this;
+    }
+
+    public SnowflakeConnectionServiceBuilder setTaskInstanceId(UUID taskInstanceId) {
+      this.taskInstanceId = taskInstanceId;
+      return this;
+    }
+
     public SnowflakeConnectionService build() {
       InternalUtils.assertNotEmpty("properties", prop);
       InternalUtils.assertNotEmpty("url", url);
       InternalUtils.assertNotEmpty("connectorName", connectorName);
       return new SnowflakeConnectionServiceV1(
-          prop, url, connectorName, taskID, proxyProperties, kafkaProvider);
+          prop, url, connectorName, taskID, proxyProperties, kafkaProvider, kcGlobalInstanceId);
     }
   }
 }

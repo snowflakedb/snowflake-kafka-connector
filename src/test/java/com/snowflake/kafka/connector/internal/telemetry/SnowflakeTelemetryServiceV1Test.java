@@ -1,5 +1,22 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
+import net.snowflake.client.jdbc.telemetry.Telemetry;
+import net.snowflake.client.jdbc.telemetry.TelemetryData;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
@@ -9,36 +26,21 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CON
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
-import net.snowflake.client.jdbc.telemetry.Telemetry;
-import net.snowflake.client.jdbc.telemetry.TelemetryData;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
 public class SnowflakeTelemetryServiceV1Test {
 
-  MockTelemetryClient mockTelemetryClient;
+  private MockTelemetryClient mockTelemetryClient;
 
-  SnowflakeTelemetryServiceV1 snowflakeTelemetryServiceV1;
-
-  public static final String KAFKA_STRING_CONVERTER =
+  private SnowflakeTelemetryServiceV1 snowflakeTelemetryServiceV1;
+  private static final String KAFKA_STRING_CONVERTER =
       "org.apache.kafka.connect.storage.StringConverter";
-  public static final String KAFKA_CONFLUENT_AVRO_CONVERTER =
+  private static final String KAFKA_CONFLUENT_AVRO_CONVERTER =
       "io.confluent.connect.avro.AvroConverter";
+  private static final UUID KC_GLOBAL_INSTANCE_ID = UUID.randomUUID();
 
   @Before
   public void beforeEachTest() {
     mockTelemetryClient = new MockTelemetryClient();
-    snowflakeTelemetryServiceV1 = new SnowflakeTelemetryServiceV1(mockTelemetryClient);
+    snowflakeTelemetryServiceV1 = new SnowflakeTelemetryServiceV1(mockTelemetryClient, KC_GLOBAL_INSTANCE_ID);
     snowflakeTelemetryServiceV1.setAppName("TEST_APP");
 
     snowflakeTelemetryServiceV1.setTaskID("1");

@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal.telemetry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.EnableLogging;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
@@ -14,6 +13,7 @@ import org.apache.kafka.common.utils.AppInfoParser;
 
 import java.sql.Connection;
 import java.util.Map;
+import java.util.UUID;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
@@ -46,29 +46,22 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
   private static final String VERSION = "version";
   private static final String KAFKA_VERSION = "kafka_version";
   private static final String IS_PIPE_CLOSING = "is_pipe_closing";
-  private static final String INSTANCE_ID_TAG = "instance_id_tag";
+  private static final String KC_INSTANCE_ID = "instance_id_tag";
 
   private final Telemetry telemetry;
-  private String instanceIdTag;
+  private final UUID kcGlobalInstanceId;
   private String name = null;
   private String taskID = null;
 
-  SnowflakeTelemetryServiceV1(Connection conn) {
+  SnowflakeTelemetryServiceV1(Connection conn, UUID kcGlobalInstanceId) {
     this.telemetry = TelemetryClient.createTelemetry(conn);
-    instanceIdTag = LoggerHandler.getKcGlobalInstanceIdTag();
-  }
-
-  SnowflakeTelemetryServiceV1(Connection conn, String instanceIdTag) {
-    this.telemetry = TelemetryClient.createTelemetry(conn);
-    this.instanceIdTag = instanceIdTag;
-    // TODO @rcheng: may be good to have an instanceid manager, or decide if telemetry or logging is
-    // source of truth.
-    //  alternatively have an instanceId for each class?
+    this.kcGlobalInstanceId = kcGlobalInstanceId;
   }
 
   @VisibleForTesting
-  SnowflakeTelemetryServiceV1(Telemetry telemetry) {
+  SnowflakeTelemetryServiceV1(Telemetry telemetry, UUID kcGlobalInstanceId) {
     this.telemetry = telemetry;
+    this.kcGlobalInstanceId = kcGlobalInstanceId;
   }
 
   @Override
@@ -193,10 +186,7 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
     msg.put(TYPE, type.toString());
     msg.set(DATA, data);
     msg.put(VERSION, Utils.VERSION); // version number
-    if (!this.instanceIdTag.isEmpty()) {
-      // TODO @rcheng: maybe enforce having an instance id?
-      msg.put(INSTANCE_ID_TAG, this.instanceIdTag);
-    }
+    msg.put(KC_INSTANCE_ID, this.kcGlobalInstanceId == null ? "" : this.kcGlobalInstanceId.toString());
     try {
       telemetry.addLogToBatch(TelemetryUtil.buildJobData(msg));
       LOG_DEBUG_MSG("sending telemetry data: {} of type:{}", data.toString(), type.toString());

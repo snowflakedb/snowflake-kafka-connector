@@ -22,15 +22,16 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import org.apache.kafka.common.config.Config;
+import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.connect.connector.Task;
+import org.apache.kafka.connect.sink.SinkConnector;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.kafka.common.config.Config;
-import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.connect.connector.Task;
-import org.apache.kafka.connect.sink.SinkConnector;
 
 /**
  * SnowflakeSinkConnector implements SinkConnector for Kafka Connect framework.
@@ -42,7 +43,7 @@ import org.apache.kafka.connect.sink.SinkConnector;
  * running on Kafka Connect Workers.
  */
 public class SnowflakeSinkConnector extends SinkConnector {
-  // create logger without correlationId for now
+  // create logger without instance id for now
   private static LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnector.class.getName());
 
   private Map<String, String> config; // connector configuration, provided by
@@ -64,6 +65,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // Using setupComplete to synchronize
   private boolean setupComplete;
 
+  // this instance id will be set during start
+  private UUID kcGlobalInstanceId;
+
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeSinkConnector() {
     setupComplete = false;
@@ -81,8 +85,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
   public void start(final Map<String, String> parsedConfig) {
     Utils.checkConnectorVersion();
 
-    // initialize logging with correlationId
-    LoggerHandler.setKcGlobalInstanceId(UUID.randomUUID());
+    // set instanceId for metrics
+    this.kcGlobalInstanceId = UUID.randomUUID();
 
     LOGGER.info("SnowflakeSinkConnector:start");
     setupComplete = false;
@@ -102,8 +106,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     // create a persisted connection, and validate snowflake connection
     // config as a side effect
-    conn = SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
-
+    // set up metrics - logging and telemetry
+    conn = SnowflakeConnectionServiceFactory.builder().setProperties(config).setKcGlobalInstanceId(this.kcGlobalInstanceId).build();
+    LoggerHandler.setKcGlobalInstanceId(this.kcGlobalInstanceId);
     telemetryClient = conn.getTelemetryClient();
 
     telemetryClient.reportKafkaConnectStart(connectorStartTime, this.config);

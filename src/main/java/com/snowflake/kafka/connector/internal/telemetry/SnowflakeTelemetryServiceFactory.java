@@ -1,7 +1,9 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
 import com.snowflake.kafka.connector.internal.EnableLogging;
+
 import java.sql.Connection;
+import java.util.UUID;
 
 /**
  * Factory class which produces the telemetry service which essentially has a telemetry client
@@ -9,8 +11,8 @@ import java.sql.Connection;
  */
 public class SnowflakeTelemetryServiceFactory {
 
-  public static SnowflakeTelemetryServiceBuilder builder(Connection conn) {
-    return new SnowflakeTelemetryServiceBuilder(conn);
+  public static SnowflakeTelemetryServiceBuilder builder(Connection conn, UUID kcGlobalInstanceId) {
+    return new SnowflakeTelemetryServiceBuilder(conn, kcGlobalInstanceId);
   }
 
   /** Builder for TelemetryService */
@@ -18,13 +20,8 @@ public class SnowflakeTelemetryServiceFactory {
     private final SnowflakeTelemetryService service;
 
     /** @param conn snowflake connection is required for telemetry service */
-    public SnowflakeTelemetryServiceBuilder(Connection conn) {
-      this.service = new SnowflakeTelemetryServiceV1(conn);
-    }
-
-    /** @param conn snowflake connection is required for telemetry service */
-    public SnowflakeTelemetryServiceBuilder(Connection conn, String instanceIdTag) {
-      this.service = new SnowflakeTelemetryServiceV1(conn, instanceIdTag);
+    public SnowflakeTelemetryServiceBuilder(Connection conn, UUID kcGlobalInstanceId) {
+      this.service = new SnowflakeTelemetryServiceV1(conn, kcGlobalInstanceId);
     }
 
     /**
