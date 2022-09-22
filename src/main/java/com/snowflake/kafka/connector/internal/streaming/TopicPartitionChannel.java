@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -984,29 +985,34 @@ public class TopicPartitionChannel {
     SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
 
     if (isRecordBroken(snowflakeRecord)) {
-      // we wont be able to find accurate size of serialized record since serialization itself
+      // we won't be able to find accurate size of serialized record since serialization itself
       // failed
       // But this will not happen in streaming ingest since we deprecated custom converters.
       return 0L;
     }
 
-    // get the row that we want to insert into Snowflake.
-    Map<String, Object> tableRow =
-        recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
-    // need to loop through the map and get the object node
-    for (Map.Entry<String, Object> entry : tableRow.entrySet()) {
-      sinkRecordBufferSizeInBytes += entry.getKey().length() * 2L;
-      // Can Typecast into string because value is JSON
-      Object value = entry.getValue();
-      if (value instanceof String) {
-        sinkRecordBufferSizeInBytes += ((String) value).length() * 2L; // 1 char = 2 bytes
-      } else {
-        // for now it could only be a list of string
-        for (String s : (List<String>) value) {
-          sinkRecordBufferSizeInBytes += s.length() * 2L;
+    try {
+      // get the row that we want to insert into Snowflake.
+      Map<String, Object> tableRow =
+          recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
+      // need to loop through the map and get the object node
+      for (Map.Entry<String, Object> entry : tableRow.entrySet()) {
+        sinkRecordBufferSizeInBytes += entry.getKey().length() * 2L;
+        // Can Typecast into string because value is JSON
+        Object value = entry.getValue();
+        if (value instanceof String) {
+          sinkRecordBufferSizeInBytes += ((String) value).length() * 2L; // 1 char = 2 bytes
+        } else {
+          // for now it could only be a list of string
+          for (String s : (List<String>) value) {
+            sinkRecordBufferSizeInBytes += s.length() * 2L;
+          }
         }
       }
+    } catch (JsonProcessingException e) {
+      // We ignore any errors here because this is just calculating the record size
     }
+
     sinkRecordBufferSizeInBytes += StreamingUtils.MAX_RECORD_OVERHEAD_BYTES;
     return sinkRecordBufferSizeInBytes;
   }
@@ -1051,8 +1057,8 @@ public class TopicPartitionChannel {
     }
 
     /**
-     * Get all rows which which were buffered into this buffer. Each map corresponds to one row
-     * whose keys are column names and values are corresponding data in that column.
+     * Get all rows which were buffered into this buffer. Each map corresponds to one row whose keys
+     * are column names and values are corresponding data in that column.
      *
      * <p>This goes over through all buffered kafka records and transforms into JsonSchema and
      * JsonNode Check {@link #handleNativeRecord(SinkRecord, boolean)}
@@ -1080,10 +1086,20 @@ public class TopicPartitionChannel {
               && snowflakeRecord.timestampType() != NO_TIMESTAMP_TYPE) {
             // TODO:SNOW-529751 telemetry
           }
-          // Convert this records into Json Schema which has content and metadata
-          Map<String, Object> tableRow =
-              recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
-          snowflakeTableRowsFromSinkRecords.add(tableRow);
+
+          // Convert this records into Json Schema which has content and metadata, add it to DLQ if
+          // there is an exception
+          try {
+            Map<String, Object> tableRow =
+                recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
+            snowflakeTableRowsFromSinkRecords.add(tableRow);
+          } catch (JsonProcessingException e) {
+            LOGGER.warn(
+                "Record has JsonProcessingException offset:{}, topic:{}",
+                kafkaSinkRecord.kafkaOffset(),
+                kafkaSinkRecord.topic());
+            kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
+          }
         }
       }
       LOGGER.debug(
