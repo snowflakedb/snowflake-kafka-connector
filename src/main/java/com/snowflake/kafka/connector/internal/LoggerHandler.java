@@ -1,10 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.UUID;
 
 /** Attaches additional fields to the logs */
 public class LoggerHandler {
@@ -24,8 +23,7 @@ public class LoggerHandler {
    * @param kcGlobalInstanceId UUID attached for every log
    */
   public static void setKcGlobalInstanceId(UUID kcGlobalInstanceId) {
-    kcGlobalInstanceIdTag =
-        parseUuidIntoTag("KC", kcGlobalInstanceId, "Kafka Connect global");
+    kcGlobalInstanceIdTag = parseUuidIntoTag("KC", kcGlobalInstanceId, "Kafka Connect global");
   }
 
   /**
@@ -38,8 +36,7 @@ public class LoggerHandler {
    * @param logIdName Name of the tag for logging
    * @return A formatted instance id tag or empty striing
    */
-  private static String parseUuidIntoTag(
-      String descriptor, UUID uuid, String logIdName) {
+  private static String parseUuidIntoTag(String descriptor, UUID uuid, String logIdName) {
     if (uuid == null || uuid.toString().isEmpty()) {
       META_LOGGER.warn(
           Utils.formatLogMessage(
@@ -67,8 +64,7 @@ public class LoggerHandler {
     }
 
     String tag = "[" + descriptor + ":" + uuid.toString() + "]";
-    META_LOGGER.info(
-        Utils.formatLogMessage("Setting {} instance id to '{}'", logIdName, tag));
+    META_LOGGER.info(Utils.formatLogMessage("Setting {} instance id to '{}'", logIdName, tag));
 
     return tag;
   }
@@ -232,7 +228,8 @@ public class LoggerHandler {
    */
   private String getFormattedMsg(String msg, Object... vars) {
     if (!kcGlobalInstanceIdTag.isEmpty() || !this.loggerInstanceIdTag.isEmpty()) {
-      return Utils.formatLogMessage(kcGlobalInstanceIdTag + this.loggerInstanceIdTag + " " + msg, vars);
+      return Utils.formatLogMessage(
+          kcGlobalInstanceIdTag + this.loggerInstanceIdTag + " " + msg, vars);
     }
 
     return Utils.formatLogMessage(msg, vars);

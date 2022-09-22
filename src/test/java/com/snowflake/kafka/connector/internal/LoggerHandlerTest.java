@@ -96,8 +96,7 @@ public class LoggerHandlerTest {
 
   @Test
   public void testInvalidUuid() {
-    this.loggerHandler =
-        new LoggerHandler(this.name, null, this.loggerInstanceIdDescriptor);
+    this.loggerHandler = new LoggerHandler(this.name, null, this.loggerInstanceIdDescriptor);
     MockitoAnnotations.initMocks(this);
 
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
@@ -107,8 +106,7 @@ public class LoggerHandlerTest {
 
   @Test
   public void testInvalidDescriptor() {
-    this.loggerHandler =
-      new LoggerHandler(this.name, this.loggerInstanceId, null);
+    this.loggerHandler = new LoggerHandler(this.name, this.loggerInstanceId, null);
     MockitoAnnotations.initMocks(this);
 
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
@@ -120,13 +118,13 @@ public class LoggerHandlerTest {
   public void testLongDescriptor() {
     String longDescriptor = "long descriptor yayay";
     String longTag = "[" + longDescriptor + ":" + loggerInstanceId.toString() + "]";
-    this.loggerHandler =
-      new LoggerHandler(this.name, this.loggerInstanceId, longDescriptor);
+    this.loggerHandler = new LoggerHandler(this.name, this.loggerInstanceId, longDescriptor);
     MockitoAnnotations.initMocks(this);
 
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
     this.loggerHandler.info(this.msg);
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(longTag + " " + this.expectedMsg));
+    Mockito.verify(logger, Mockito.times(1))
+        .info(Utils.formatLogMessage(longTag + " " + this.expectedMsg));
   }
 
   private void testAllLogMessagesRunner(String... tagList) {
