@@ -66,10 +66,11 @@ public class LoggerHandler {
               descriptor));
     }
 
+    String tag = "[" + descriptor + ":" + uuid.toString() + "]";
     META_LOGGER.info(
-        Utils.formatLogMessage("Setting {} instance id to '{}'", logIdName, kcGlobalInstanceIdTag));
+        Utils.formatLogMessage("Setting {} instance id to '{}'", logIdName, tag));
 
-    return "[" + descriptor + ":" + uuid.toString() + "] ";
+    return tag;
   }
 
   private Logger logger;
@@ -230,7 +231,10 @@ public class LoggerHandler {
    * @return The fully formatted string to be logged
    */
   private String getFormattedMsg(String msg, Object... vars) {
-    String fullMsg = kcGlobalInstanceIdTag + this.loggerInstanceIdTag + msg;
-    return Utils.formatLogMessage(fullMsg, vars);
+    if (!kcGlobalInstanceIdTag.isEmpty() || !this.loggerInstanceIdTag.isEmpty()) {
+      return Utils.formatLogMessage(kcGlobalInstanceIdTag + this.loggerInstanceIdTag + " " + msg, vars);
+    }
+
+    return Utils.formatLogMessage(msg, vars);
   }
 }
