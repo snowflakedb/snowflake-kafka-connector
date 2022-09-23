@@ -150,7 +150,8 @@ public class SnowflakeSinkTask extends SinkTask {
             + ".{taskStartCount}]");
 
     this.taskInstanceStartCount++;
-    this.DYNAMIC_LOGGER.trySetLoggerInstanceIdTag(getTaskLoggingTag(), this.fallbackTaskInstanceId);
+    // this.DYNAMIC_LOGGER.trySetLoggerInstanceIdTag(getTaskLoggingTag(),
+    // this.fallbackTaskInstanceId);
 
     this.DYNAMIC_LOGGER.info("starting task...");
 
@@ -472,6 +473,20 @@ public class SnowflakeSinkTask extends SinkTask {
   }
 
   private String getTaskLoggingTag() {
+    int countThreshold = 999;
+
+    if (taskInstanceCreationCount > countThreshold) {
+      this.DYNAMIC_LOGGER.warn(
+          "This task instance has been created over {} times. Resetting to 0", countThreshold);
+      taskInstanceCreationCount = 0;
+    }
+
+    if (this.taskInstanceStartCount > countThreshold) {
+      this.DYNAMIC_LOGGER.warn(
+          "This task has been started over {} times. Resetting to 0", countThreshold);
+      this.taskInstanceStartCount = 0;
+    }
+
     return Utils.formatString(
         "SnowflakeSinkTask[ID:{}.{}.{}]",
         this.taskConfigId,

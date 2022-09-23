@@ -1,16 +1,18 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.UUID;
 
 /** Attaches additional fields to the logs */
 public class LoggerHandler {
   // static properties and methods
-  private static final String EMPTY_ID_TAG = "";
+  private static final UUID EMPTY_UUID = new UUID(0L, 0L);
   private static final Logger META_LOGGER = LoggerFactory.getLogger(LoggerHandler.class.getName());
-  private static String kcGlobalInstanceIdTag = EMPTY_ID_TAG;
+  private static UUID kcGlobalInstanceId = EMPTY_UUID;
+  private static String kcGlobalInstanceIdTag = "";
 
   /**
    * Sets the KC global instance id for all loggers.
@@ -23,8 +25,11 @@ public class LoggerHandler {
    * @param kcGlobalInstanceId UUID attached for every log
    */
   public static void setKcGlobalInstanceId(UUID kcGlobalInstanceId) {
-    kcGlobalInstanceIdTag =
-        parseUuidIntoTag("KC", kcGlobalInstanceId, "Kafka Connect global", META_LOGGER);
+    //kcGlobalInstanceIdTag =
+      //  LoggerHeaderBuilderFactory.builder(META_LOGGER).setIdDescriptor("strugglebus").build();
+
+    // kcGlobalInstanceIdTag =
+    // parseUuidIntoTag("KC", kcGlobalInstanceId, "Kafka Connect global", META_LOGGER);
   }
 
   /**
@@ -39,7 +44,7 @@ public class LoggerHandler {
    */
   private static String parseUuidIntoTag(
       String descriptor, UUID uuid, String logIdName, Logger logger) {
-    if (uuid == null || uuid.toString().isEmpty()) {
+    if (uuid == null || uuid.toString().isEmpty() || uuid.equals(EMPTY_UUID)) {
       logger.warn(
           Utils.formatLogMessage(
               "Given {} instance id was invalid (null or empty), continuing to log without"
@@ -57,10 +62,10 @@ public class LoggerHandler {
       return "";
     }
 
-    if (descriptor.length() > 10) {
+    if (descriptor.length() > 50) {
       logger.info(
           Utils.formatLogMessage(
-              "Given {} instance id descriptor '{}' is recommended to be below 10 characters",
+              "Given {} instance id descriptor '{}' is recommended to be below 50 characters",
               logIdName,
               descriptor));
     }
@@ -83,7 +88,7 @@ public class LoggerHandler {
     this.logger = LoggerFactory.getLogger(name);
 
     META_LOGGER.info(
-        kcGlobalInstanceIdTag.equals(EMPTY_ID_TAG)
+        kcGlobalInstanceIdTag.equals("")
             ? Utils.formatLogMessage(
                 "Created loggerHandler for class: '{}' without a Kafka Connect global instance id.",
                 name)
