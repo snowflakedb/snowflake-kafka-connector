@@ -17,7 +17,6 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
-import java.util.UUID;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -26,6 +25,8 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.slf4j.Logger;
+
+import java.util.UUID;
 
 public class LoggerHandlerTest {
   // test constants
@@ -39,9 +40,6 @@ public class LoggerHandlerTest {
   private final UUID kcGlobalInstanceId = UUID.randomUUID();
   private final UUID loggerInstanceId = UUID.randomUUID();
   private final String loggerInstanceIdDescriptor = "TEST";
-  private final String kcGlobalInstanceIdTag = "[KC:" + kcGlobalInstanceId.toString() + "]";
-  private final String loggerInstanceIdTag =
-      "[" + loggerInstanceIdDescriptor + ":" + loggerInstanceId.toString() + "]";
 
   // mock and test setup, inject logger into loggerHandler
   @Mock(name = "logger")
@@ -63,7 +61,7 @@ public class LoggerHandlerTest {
   // test
   @Test
   public void testAllLogMessageNoInstanceIds() {
-    testAllLogMessagesRunner();
+    testAllLogMessagesRunner("");
   }
 
   @Test
@@ -71,7 +69,7 @@ public class LoggerHandlerTest {
     LoggerHandler.setKcGlobalInstanceId(this.kcGlobalInstanceId);
     MockitoAnnotations.initMocks(this);
 
-    testAllLogMessagesRunner(this.kcGlobalInstanceIdTag);
+    testAllLogMessagesRunner("[KC:" + kcGlobalInstanceId.toString() + "] ");
   }
 
   @Test
@@ -80,7 +78,7 @@ public class LoggerHandlerTest {
     this.loggerHandler.setLoggerInstanceIdTag(loggerInstanceIdDescriptor, loggerInstanceId);
     MockitoAnnotations.initMocks(this);
 
-    testAllLogMessagesRunner(this.loggerInstanceIdTag);
+    testAllLogMessagesRunner("[" + loggerInstanceIdDescriptor + ":" + loggerInstanceId + "] ");
   }
 
   @Test
@@ -90,7 +88,7 @@ public class LoggerHandlerTest {
     this.loggerHandler.setLoggerInstanceIdTag(loggerInstanceIdDescriptor, loggerInstanceId);
     MockitoAnnotations.initMocks(this);
 
-    testAllLogMessagesRunner(this.kcGlobalInstanceIdTag, this.loggerInstanceIdTag);
+    testAllLogMessagesRunner("[KC:" + kcGlobalInstanceId.toString() + "|" + loggerInstanceIdDescriptor + "] ");
   }
 
   @Test
@@ -115,7 +113,7 @@ public class LoggerHandlerTest {
 
   @Test
   public void testLongDescriptor() {
-    String longDescriptor = "long descriptor yayay";
+    String longDescriptor = "looooooooooooooooong descriptor yayay";
     this.loggerHandler = new LoggerHandler(this.name);
     this.loggerHandler.setLoggerInstanceIdTag(longDescriptor, loggerInstanceId);
     MockitoAnnotations.initMocks(this);
@@ -134,19 +132,10 @@ public class LoggerHandlerTest {
                     + this.expectedMsg));
   }
 
-  private void testAllLogMessagesRunner(String... tagList) {
-    String tags = "";
-    for (String tag : tagList) {
-      tags += tag;
-    }
-
-    if (!tags.isEmpty()) {
-      tags += " ";
-    }
-
-    this.testLogMessagesRunner(this.msg, tags + this.expectedMsg);
+  private void testAllLogMessagesRunner(String expectedTag) {
+    this.testLogMessagesRunner(this.msg, expectedTag + this.expectedMsg);
     this.testLogMessagesWithFormattingRunner(
-        this.formatMsg, this.msg, tags + this.expectedFormattedMsg);
+        this.formatMsg, this.msg, expectedTag + this.expectedFormattedMsg);
   }
 
   private void testLogMessagesRunner(String msg, String expectedMsg) {

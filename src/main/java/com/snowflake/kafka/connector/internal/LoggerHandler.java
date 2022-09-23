@@ -9,9 +9,10 @@ import java.util.UUID;
 /** Attaches additional fields to the logs */
 public class LoggerHandler {
   // static properties and methods
-  private static final UUID EMPTY_UUID = new UUID(0L, 0L);
   private static final Logger META_LOGGER = LoggerFactory.getLogger(LoggerHandler.class.getName());
-  private static UUID kcGlobalInstanceId = EMPTY_UUID;
+  private static final UUID EMPTY_UUID = new UUID(0L, 0L);
+
+  private static UUID kcGlobalInstanceId = new UUID(0L,0L);
   private static String kcGlobalInstanceIdTag = "";
 
   /**
@@ -22,58 +23,19 @@ public class LoggerHandler {
    *
    * <p>If an invalid id is given, continue to log without the id
    *
-   * @param kcGlobalInstanceId UUID attached for every log
+   * @param id UUID attached for every log
    */
-  public static void setKcGlobalInstanceId(UUID kcGlobalInstanceId) {
-    //kcGlobalInstanceIdTag =
-      //  LoggerHeaderBuilderFactory.builder(META_LOGGER).setIdDescriptor("strugglebus").build();
-
-    // kcGlobalInstanceIdTag =
-    // parseUuidIntoTag("KC", kcGlobalInstanceId, "Kafka Connect global", META_LOGGER);
-  }
-
-  /**
-   * Create instance id tag from given descriptor and uuid
-   *
-   * <p>Note: empty string will be returned if the uuid or descriptor is null or empty
-   *
-   * @param descriptor The string to be prepended to in the tag
-   * @param uuid The instance id uuid
-   * @param logIdName Name of the tag for logging
-   * @return A formatted instance id tag or empty striing
-   */
-  private static String parseUuidIntoTag(
-      String descriptor, UUID uuid, String logIdName, Logger logger) {
-    if (uuid == null || uuid.toString().isEmpty() || uuid.equals(EMPTY_UUID)) {
-      logger.warn(
-          Utils.formatLogMessage(
-              "Given {} instance id was invalid (null or empty), continuing to log without"
-                  + " it"),
-          logIdName);
-      return "";
+  public static void setKcGlobalInstanceId(UUID id) {
+    if (id != null && !id.toString().isEmpty() && !id.equals(EMPTY_UUID)) {
+      kcGlobalInstanceId = id;
+      kcGlobalInstanceIdTag = Utils.formatString("[KC:{}]", id);
+      META_LOGGER.info("Set Kafka Connect global instance id tag for logging: '{}'", kcGlobalInstanceIdTag);
+    } else {
+      META_LOGGER.info("Given Kafka Connect global instance id was invalid (null or empty), continuing to log without" +
+        " it");
+      kcGlobalInstanceId = EMPTY_UUID;
+      kcGlobalInstanceIdTag = "";
     }
-
-    if (descriptor == null || descriptor.toString().isEmpty()) {
-      logger.warn(
-          Utils.formatLogMessage(
-              "Descriptor given for {} instance id was invalid (null or empty), continuing to log"
-                  + " without it"),
-          logIdName);
-      return "";
-    }
-
-    if (descriptor.length() > 50) {
-      logger.info(
-          Utils.formatLogMessage(
-              "Given {} instance id descriptor '{}' is recommended to be below 50 characters",
-              logIdName,
-              descriptor));
-    }
-
-    String tag = "[" + descriptor + ":" + uuid.toString() + "]";
-    logger.info(Utils.formatLogMessage("Setting {} instance id to '{}'", logIdName, tag));
-
-    return tag;
   }
 
   private Logger logger;
@@ -105,68 +67,25 @@ public class LoggerHandler {
    * @param loggerInstanceId The instance id for this logger
    */
   public void setLoggerInstanceIdTag(String loggerInstanceIdDescriptor, UUID loggerInstanceId) {
-    this.loggerInstanceIdTag =
-        parseUuidIntoTag(loggerInstanceIdDescriptor, loggerInstanceId, "logger", this.logger);
+    if (loggerInstanceIdDescriptor != null && !loggerInstanceIdDescriptor.isEmpty()) {
+      if (kcGlobalInstanceId != EMPTY_UUID) {
+        this.loggerInstanceIdTag = Utils.formatString("[KC:{}|{}]", kcGlobalInstanceId, loggerInstanceIdDescriptor);
+      } else if (loggerInstanceId != null && !loggerInstanceId.toString().isEmpty() && !loggerInstanceId.equals(EMPTY_UUID)) {
+        this.loggerInstanceIdTag = Utils.formatString("[{}:{}]", loggerInstanceIdDescriptor, loggerInstanceId);
+      } else {
+        this.logger.warn("Kafka Connect global instance id is null and given instance id '{}' was invalid (null or " +
+            "empty), continuing to log without either",
+          loggerInstanceId.toString());
+      }
+    } else {
+      this.logger.warn("Given instance id '{}' was invalid (null or empty), continuing to log without it",
+        loggerInstanceId.toString());
+    }
   }
 
   /** Clears the loggerHandler's instance id tag */
   public void clearLoggerInstanceIdTag() {
     this.loggerInstanceIdTag = "";
-  }
-
-  /**
-   * Logs an info level message
-   *
-   * @param msg The message to be logged
-   */
-  public void info(String msg) {
-    if (this.logger.isInfoEnabled()) {
-      this.logger.info(getFormattedMsg(msg));
-    }
-  }
-
-  /**
-   * Logs a trace level message
-   *
-   * @param msg The message to be logged
-   */
-  public void trace(String msg) {
-    if (this.logger.isTraceEnabled()) {
-      this.logger.trace(getFormattedMsg(msg));
-    }
-  }
-
-  /**
-   * Logs a debug level message
-   *
-   * @param msg The message to be logged
-   */
-  public void debug(String msg) {
-    if (this.logger.isDebugEnabled()) {
-      this.logger.debug(getFormattedMsg(msg));
-    }
-  }
-
-  /**
-   * Logs a warn level message
-   *
-   * @param msg The message to be logged
-   */
-  public void warn(String msg) {
-    if (this.logger.isWarnEnabled()) {
-      this.logger.warn(getFormattedMsg(msg));
-    }
-  }
-
-  /**
-   * Logs an error level message
-   *
-   * @param msg The message to be logged
-   */
-  public void error(String msg) {
-    if (this.logger.isErrorEnabled()) {
-      this.logger.error(getFormattedMsg(msg));
-    }
   }
 
   /**
@@ -237,10 +156,10 @@ public class LoggerHandler {
    * @return The fully formatted string to be logged
    */
   private String getFormattedMsg(String msg, Object... vars) {
-    if (!kcGlobalInstanceIdTag.isEmpty() || !this.loggerInstanceIdTag.isEmpty()) {
-      msg = " " + msg; // need to add space between tags and msg, ok to have no space between tags
-    }
+    String tag = !this.loggerInstanceIdTag.isEmpty() ? this.loggerInstanceIdTag + " "
+      : !kcGlobalInstanceIdTag.isEmpty() ? kcGlobalInstanceIdTag + " "
+        : "";
 
-    return Utils.formatLogMessage(kcGlobalInstanceIdTag + this.loggerInstanceIdTag + msg, vars);
+    return Utils.formatLogMessage(tag + msg, vars);
   }
 }
