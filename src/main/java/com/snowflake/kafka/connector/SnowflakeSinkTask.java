@@ -63,7 +63,9 @@ public class SnowflakeSinkTask extends SinkTask {
   // snowflake
   // account and execute queries
   private SnowflakeConnectionService conn = null;
-  private String id = "-1";
+
+  // this id is pulled from the task config
+  private String taskConfigId = "-1";
 
   // Rebalancing Test
   private boolean enableRebalancing = SnowflakeSinkConnectorConfig.REBALANCING_DEFAULT;
@@ -84,12 +86,21 @@ public class SnowflakeSinkTask extends SinkTask {
   private static final LoggerHandler STATIC_LOGGER =
       new LoggerHandler(SnowflakeSinkTask.class.getName() + "_STATIC");
   private final LoggerHandler DYNAMIC_LOGGER;
-  private UUID taskInstanceId;
+
+  // Task tracking counts, can be used for throttling
+  private static int taskInstanceCreationCount = 0;
+  private int taskInstanceStartCount;
+  // fallbackTaskInstanceId will only be used if the connector instance id has not been set
+  private UUID fallbackTaskInstanceId;
+
+  private long taskStartTime;
 
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
     // nothing
     DYNAMIC_LOGGER = new LoggerHandler(this.getClass().getName());
+    taskInstanceCreationCount++;
+    this.taskInstanceStartCount = 0;
   }
 
   private SnowflakeConnectionService getConnection() {
@@ -127,14 +138,21 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
-    this.taskInstanceId = UUID.randomUUID();
-    this.DYNAMIC_LOGGER.setLoggerInstanceIdTag("TASK:", this.taskInstanceId);
+    this.taskStartTime = System.currentTimeMillis();
+    long startTime = this.taskStartTime;
 
-    long startTime = System.currentTimeMillis();
-    this.id = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
-
-    this.DYNAMIC_LOGGER.info("SnowflakeSinkTask[ID:{}]:start", this.id);
     // connector configuration
+    this.taskConfigId = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
+
+    // setup logging
+    this.DYNAMIC_LOGGER.debug(
+        "Defining SnowflakeSinkTask tag to SnowflakeSinkTask[ID:{taskId}.{taskInstanceCount}"
+            + ".{taskStartCount}]");
+
+    this.taskInstanceStartCount++;
+    this.DYNAMIC_LOGGER.trySetLoggerInstanceIdTag(getTaskLoggingTag(), this.fallbackTaskInstanceId);
+
+    this.DYNAMIC_LOGGER.info("starting task...");
 
     // generate topic to table map
     this.topic2table = getTopicToTableMap(parsedConfig);
@@ -203,7 +221,7 @@ public class SnowflakeSinkTask extends SinkTask {
     conn =
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(parsedConfig)
-            .setTaskID(this.id)
+            .setTaskID(this.taskConfigId)
             .build();
 
     if (this.sink != null) {
@@ -224,9 +242,9 @@ public class SnowflakeSinkTask extends SinkTask {
             .build();
 
     DYNAMIC_LOGGER.info(
-        "SnowflakeSinkTask[ID:{}]:start. Time: {} seconds",
-        this.id,
-        (System.currentTimeMillis() - startTime) / 1000);
+        "task started, execution time: {} seconds",
+        this.taskConfigId,
+        getExecutionTimeSec(startTime, System.currentTimeMillis()));
   }
 
   /**
@@ -235,11 +253,14 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void stop() {
-    this.DYNAMIC_LOGGER.info("SnowflakeSinkTask[ID:{}]:stop", this.id);
-    this.DYNAMIC_LOGGER.clearLoggerInstanceIdTag();
     if (this.sink != null) {
       this.sink.setIsStoppedToTrue(); // close cleaner thread
     }
+
+    this.DYNAMIC_LOGGER.info(
+        "task stopped, total task runtime: {} seconds",
+        getExecutionTimeSec(this.taskStartTime, System.currentTimeMillis()));
+    this.DYNAMIC_LOGGER.clearLoggerInstanceIdTag();
   }
 
   /**
@@ -250,15 +271,13 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void open(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    this.DYNAMIC_LOGGER.info(
-        "SnowflakeSinkTask[ID:{}]:open, TopicPartition number: {}", this.id, partitions.size());
+    this.DYNAMIC_LOGGER.info("opening task with TopicPartition number: {}", partitions.size());
     partitions.forEach(
         tp -> this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp));
 
     this.DYNAMIC_LOGGER.info(
-        "SnowflakeSinkTask[ID:{}]:open. Time: {} seconds",
-        this.id,
-        (System.currentTimeMillis() - startTime) / 1000);
+        "task opened, execution time: {} seconds",
+        getExecutionTimeSec(startTime, System.currentTimeMillis()));
   }
 
   /**
@@ -272,15 +291,15 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void close(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    this.DYNAMIC_LOGGER.info("SnowflakeSinkTask[ID:{}]:close", this.id);
+    this.DYNAMIC_LOGGER.info("closing task...");
     if (this.sink != null) {
       this.sink.close(partitions);
     }
 
     this.DYNAMIC_LOGGER.info(
-        "SnowflakeSinkTask[ID:{}]:close. Time: {} seconds",
-        this.id,
-        (System.currentTimeMillis() - startTime) / 1000);
+        "task closed, execution time: {} seconds",
+        this.taskConfigId,
+        getExecutionTimeSec(startTime, System.currentTimeMillis()));
   }
 
   /**
@@ -295,7 +314,7 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     long startTime = System.currentTimeMillis();
-    this.DYNAMIC_LOGGER.debug("SnowflakeSinkTask[ID:{}]:put {} records", this.id, records.size());
+    this.DYNAMIC_LOGGER.debug("calling Put with {} records", records.size());
 
     getSink().insert(records);
 
@@ -316,15 +335,16 @@ public class SnowflakeSinkTask extends SinkTask {
   public Map<TopicPartition, OffsetAndMetadata> preCommit(
       Map<TopicPartition, OffsetAndMetadata> offsets) throws RetriableException {
     long startTime = System.currentTimeMillis();
-    this.DYNAMIC_LOGGER.debug("SnowflakeSinkTask[ID:{}]:preCommit {}", this.id, offsets.size());
+    this.DYNAMIC_LOGGER.debug(
+        "calling PreCommit with {} offsets", this.taskConfigId, offsets.size());
 
     // return an empty map means that offset commitment is not desired
     if (sink == null || sink.isClosed()) {
       this.DYNAMIC_LOGGER.warn(
-          "SnowflakeSinkTask[ID:{}]: sink not initialized or closed before preCommit", this.id);
+          "sink not initialized or closed before preCommit", this.taskConfigId);
       return new HashMap<>();
     } else if (sink.getPartitionCount() == 0) {
-      this.DYNAMIC_LOGGER.warn("SnowflakeSinkTask[ID:{}]: no partition is assigned", this.id);
+      this.DYNAMIC_LOGGER.warn("no partition is assigned", this.taskConfigId);
       return new HashMap<>();
     }
 
@@ -339,8 +359,7 @@ public class SnowflakeSinkTask extends SinkTask {
             }
           });
     } catch (Exception e) {
-      this.DYNAMIC_LOGGER.error(
-          "SnowflakeSinkTask[ID:{}]: Error " + "while preCommit: {} ", this.id, e.getMessage());
+      this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
       return new HashMap<>();
     }
 
@@ -388,18 +407,20 @@ public class SnowflakeSinkTask extends SinkTask {
     throw new TimeoutException();
   }
 
+  private static long getExecutionTimeSec(long startTime, long endTime) {
+    return (endTime - startTime) / 1000;
+  }
+
   void logWarningForPutAndPrecommit(long startTime, int size, String apiName) {
-    long executionTime = (System.currentTimeMillis() - startTime) / 1000;
+    long executionTime = getExecutionTimeSec(startTime, System.currentTimeMillis());
     if (executionTime > 300) {
       // This won't be frequently printed. It is vary rare to have execution greater than 300
       // seconds.
       // But having this warning helps customer to debug their Kafka Connect config.
       this.DYNAMIC_LOGGER.warn(
-          "SnowflakeSinkTask[ID:{}]:{} {}. Time: {} seconds > 300 seconds. If there is"
-              + " CommitFailedException in the log or there is duplicated records, refer to this"
-              + " link for solution: "
+          "{} {}. Time: {} seconds > 300 seconds. If there is CommitFailedException in the log or"
+              + " there is duplicated records, refer to this link for solution: "
               + "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
-          this.id,
           apiName,
           size,
           executionTime);
@@ -448,6 +469,14 @@ public class SnowflakeSinkTask extends SinkTask {
       }
     }
     return result;
+  }
+
+  private String getTaskLoggingTag() {
+    return Utils.formatString(
+        "SnowflakeSinkTask[ID:{}.{}.{}]",
+        this.taskConfigId,
+        taskInstanceCreationCount,
+        this.taskInstanceStartCount);
   }
 
   /**
