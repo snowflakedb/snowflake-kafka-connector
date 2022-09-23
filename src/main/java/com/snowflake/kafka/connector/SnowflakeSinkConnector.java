@@ -82,7 +82,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     Utils.checkConnectorVersion();
 
     // initialize logging with correlationId
-    LoggerHandler.setKcGlobalInstanceId(UUID.randomUUID());
+    LoggerHandler.setConnectGlobalInstanceId(UUID.randomUUID());
 
     LOGGER.info("SnowflakeSinkConnector:start");
     setupComplete = false;

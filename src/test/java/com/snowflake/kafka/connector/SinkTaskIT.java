@@ -1,15 +1,9 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
-import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
-
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -19,6 +13,13 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 
 public class SinkTaskIT {
   private String topicName;
@@ -172,5 +173,80 @@ public class SinkTaskIT {
     sinkTask.stop();
 
     sinkTask.logWarningForPutAndPrecommit(System.currentTimeMillis() - 400 * 1000, 1, "put");
+  }
+
+  @Test
+  public void testMultipleSinkTasks() throws Exception {
+    Map<String, String> config = TestUtils.getConf();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
+    SnowflakeSinkTask sinkTask2 = new SnowflakeSinkTask();
+
+    sinkTask1.start(config);
+    ArrayList<TopicPartition> topicPartitions1 = new ArrayList<>();
+    topicPartitions1.add(new TopicPartition(topicName, partition));
+    sinkTask1.open(topicPartitions1);
+
+    sinkTask2.start(config);
+    ArrayList<TopicPartition> topicPartitions2 = new ArrayList<>();
+    topicPartitions2.add(new TopicPartition(topicName, partition));
+    sinkTask2.open(topicPartitions2);
+
+    // send regular data
+    ArrayList<SinkRecord> records = new ArrayList<>();
+    String json = "{ \"f1\" : \"v1\" } ";
+    ObjectMapper objectMapper = new ObjectMapper();
+    Schema snowflakeSchema = new SnowflakeJsonSchema();
+    SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
+    for (int i = 0; i < BUFFER_COUNT_RECORDS_DEFAULT; ++i) {
+      records.add(
+        new SinkRecord(
+          topicName,
+          partition,
+          snowflakeSchema,
+          content,
+          snowflakeSchema,
+          content,
+          i,
+          System.currentTimeMillis(),
+          TimestampType.CREATE_TIME));
+    }
+
+    sinkTask1.put(records);
+    sinkTask2.put(records);
+
+    // send broken data
+    String brokenJson = "{ broken json";
+    records = new ArrayList<>();
+    content = new SnowflakeRecordContent(brokenJson.getBytes());
+    records.add(
+      new SinkRecord(
+        topicName,
+        partition,
+        snowflakeSchema,
+        content,
+        snowflakeSchema,
+        content,
+        10000,
+        System.currentTimeMillis(),
+        TimestampType.CREATE_TIME));
+    sinkTask1.put(records);
+
+    // commit offset
+    Map<TopicPartition, OffsetAndMetadata> offsetMap1 = new HashMap<>();
+    offsetMap1.put(topicPartitions1.get(0), new OffsetAndMetadata(0));
+    offsetMap1 = sinkTask1.preCommit(offsetMap1);
+
+    Map<TopicPartition, OffsetAndMetadata> offsetMap2 = new HashMap<>();
+    offsetMap2.put(topicPartitions1.get(0), new OffsetAndMetadata(0));
+    offsetMap2 = sinkTask1.preCommit(offsetMap2);
+
+    sinkTask1.close(topicPartitions1);
+    sinkTask1.stop();
+
+    sinkTask2.close(topicPartitions2);
+    sinkTask2.stop();
+    assert offsetMap1.get(topicPartitions1.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
+    assert offsetMap2.get(topicPartitions2.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
   }
 }

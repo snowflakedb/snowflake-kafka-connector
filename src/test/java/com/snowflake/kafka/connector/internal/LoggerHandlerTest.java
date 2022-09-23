@@ -47,7 +47,7 @@ public class LoggerHandlerTest {
 
   @After
   public void close() {
-    LoggerHandler.setKcGlobalInstanceId(null);
+    LoggerHandler.setConnectGlobalInstanceId(null);
     this.loggerHandler = new LoggerHandler(this.name);
   }
 
@@ -65,7 +65,7 @@ public class LoggerHandlerTest {
     String formatMsg = "super {} useful {} logging {} msg {}";
     String expectedFormattedMsg = "super wow useful wow! logging 1 msg yay";
 
-    LoggerHandler.setKcGlobalInstanceId(this.kcGlobalInstanceId);
+    LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
     MockitoAnnotations.initMocks(this);
 
     // [kc:id]
@@ -93,7 +93,7 @@ public class LoggerHandlerTest {
     String logTag = "TEST";
     String msg = "super useful logging msg";
 
-    LoggerHandler.setKcGlobalInstanceId(this.kcGlobalInstanceId);
+    LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
     loggerHandler = new LoggerHandler(name);
     this.loggerHandler.setLoggerInstanceIdTag(logTag, loggerInstanceId);
     MockitoAnnotations.initMocks(this);
@@ -106,7 +106,7 @@ public class LoggerHandlerTest {
   public void testInvalidKcId() {
     String msg = "super useful logging msg";
 
-    LoggerHandler.setKcGlobalInstanceId(null);
+    LoggerHandler.setConnectGlobalInstanceId(null);
     MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
 

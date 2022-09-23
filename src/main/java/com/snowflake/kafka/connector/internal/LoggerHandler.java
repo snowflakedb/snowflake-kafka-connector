@@ -25,7 +25,7 @@ public class LoggerHandler {
    *
    * @param id UUID attached for every log
    */
-  public static void setKcGlobalInstanceId(UUID id) {
+  public static void setConnectGlobalInstanceId(UUID id) {
     if (id != null && !id.toString().isEmpty() && !id.equals(EMPTY_UUID)) {
       kcGlobalInstanceId = id;
       kcGlobalInstanceIdTag = Utils.formatString("[KC:{}]", id);
