@@ -38,6 +38,9 @@ public class LoggerHandler {
   private Logger logger;
   private String loggerInstanceIdTag = "";
 
+  public LoggerHandler() {
+    this.logger = LoggerFactory.getLogger("test");
+  }
   /**
    * Create and return a new logging handler
    *

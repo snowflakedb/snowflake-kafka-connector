@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector;
 
+import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
@@ -13,6 +14,10 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -175,14 +180,26 @@ public class SinkTaskIT {
     sinkTask.logWarningForPutAndPrecommit(System.currentTimeMillis() - 400 * 1000, 1, "put");
   }
 
+  @Mock(name="DYNAMIC_LOGGER")
+  LoggerHandler loggerHandler = Mockito.mock(LoggerHandler.class);
+  @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
+  @InjectMocks private SnowflakeSinkTask sinkTask2 = new SnowflakeSinkTask();
+
   @Test
   public void testMultipleSinkTasks() throws Exception {
+
     Map<String, String> config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
-    SnowflakeSinkTask sinkTask2 = new SnowflakeSinkTask();
 
+    MockitoAnnotations.initMocks(this);
+
+    String logTag1 = "logTag1";
+    String logStart1 = "task1 started";
+    Mockito.doCallRealMethod().when(loggerHandler).info(logStart1);
     sinkTask1.start(config);
+    Mockito.verify(loggerHandler, Mockito.times(1)).setLoggerInstanceIdTag(logTag1);
+    Mockito.verify(loggerHandler, Mockito.times(1)).info(logStart1);
+
     ArrayList<TopicPartition> topicPartitions1 = new ArrayList<>();
     topicPartitions1.add(new TopicPartition(topicName, partition));
     sinkTask1.open(topicPartitions1);

@@ -18,7 +18,6 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -32,18 +31,12 @@ public class LoggerHandlerTest {
   // test constants
   private final String name = "test.logger.name";
   private final UUID kcGlobalInstanceId = UUID.randomUUID();
-  private final UUID loggerInstanceId = UUID.randomUUID();
 
   // mock and test setup, inject logger into loggerHandler
   @Mock(name = "logger")
   private Logger logger = Mockito.mock(Logger.class);
 
   @InjectMocks private LoggerHandler loggerHandler = new LoggerHandler(this.name);
-
-  @Before
-  public void initMocks() {
-    MockitoAnnotations.initMocks(this);
-  }
 
   @After
   public void close() {
@@ -54,7 +47,7 @@ public class LoggerHandlerTest {
   // test
   @Test
   public void testAllLogMessageNoInstanceIds() {
-    String msg = "super useful logging msg";
+    MockitoAnnotations.initMocks(this);
 
     testAllLogMessagesRunner("");
   }
