@@ -13,7 +13,6 @@ public class LoggerHandler {
   private static final UUID EMPTY_UUID = new UUID(0L, 0L);
 
   private static UUID kcGlobalInstanceId = new UUID(0L,0L);
-  private static String kcGlobalInstanceIdTag = "";
 
   /**
    * Sets the KC global instance id for all loggers.
@@ -28,13 +27,11 @@ public class LoggerHandler {
   public static void setConnectGlobalInstanceId(UUID id) {
     if (id != null && !id.toString().isEmpty() && !id.equals(EMPTY_UUID)) {
       kcGlobalInstanceId = id;
-      kcGlobalInstanceIdTag = Utils.formatString("[KC:{}]", id);
-      META_LOGGER.info("Set Kafka Connect global instance id tag for logging: '{}'", kcGlobalInstanceIdTag);
+      META_LOGGER.info("Set Kafka Connect global instance id tag for logging: '{}'", kcGlobalInstanceId);
     } else {
       META_LOGGER.info("Given Kafka Connect global instance id was invalid (null or empty), continuing to log without" +
         " it");
       kcGlobalInstanceId = EMPTY_UUID;
-      kcGlobalInstanceIdTag = "";
     }
   }
 
@@ -50,41 +47,32 @@ public class LoggerHandler {
     this.logger = LoggerFactory.getLogger(name);
 
     META_LOGGER.info(
-        kcGlobalInstanceIdTag.equals("")
+      kcGlobalInstanceId.equals(EMPTY_UUID)
             ? Utils.formatLogMessage(
                 "Created loggerHandler for class: '{}' without a Kafka Connect global instance id.",
                 name)
             : Utils.formatLogMessage(
                 "Created loggerHandler for class: '{}' with Kafka Connect global instance id: '{}'",
                 name,
-                kcGlobalInstanceIdTag));
+            kcGlobalInstanceId));
   }
 
   /**
-   * Sets the loggerHandler's instance id tag. If kc instance id exists, then it will append the tag to the end,
-   * otherwise it will use the fallback id.
+   * Sets the loggerHandler's instance id tag
    *
    * Note: this should be called after the kc instance id has been set
    *
    * @param loggerTag The tag for this logger
-   * @param fallbackLoggerInstanceId The instance id for this logger (if kc instance id doesnt exist)
    */
-  public void setLoggerInstanceIdTag(String loggerTag, UUID fallbackLoggerInstanceId) {
-    if (loggerTag == null || loggerTag.isEmpty()
-          || fallbackLoggerInstanceId == null || fallbackLoggerInstanceId.equals(EMPTY_UUID)) {
-      this.logger.warn("Given logger tag '{}' or fallback id '{}' is invalid (null or empty), continuing to log " +
-          "without it", loggerTag,
-        fallbackLoggerInstanceId);
+  public void setLoggerInstanceIdTag(String loggerTag) {
+    if (loggerTag == null || loggerTag.isEmpty()) {
+      this.logger.warn("Given logger tag '{}' is invalid (null or empty), continuing to log " +
+          "without it", loggerTag);
       return;
     }
 
-    if (kcGlobalInstanceId != EMPTY_UUID) {
-      this.loggerInstanceIdTag = Utils.formatString("[KC:{}|{}]", kcGlobalInstanceId, loggerTag);
-    } else {
-      this.loggerInstanceIdTag = Utils.formatString("[{}:{}]", loggerTag, fallbackLoggerInstanceId);
-    }
-
-    this.logger.info("Given logger tag set to: '{}'", loggerInstanceIdTag);
+    this.loggerInstanceIdTag = loggerTag;
+    this.logger.info("Given logger tag set to: '{}'", this.loggerInstanceIdTag);
   }
 
   /** Clears the loggerHandler's instance id tag */
@@ -160,9 +148,17 @@ public class LoggerHandler {
    * @return The fully formatted string to be logged
    */
   private String getFormattedMsg(String msg, Object... vars) {
-    String tag = !this.loggerInstanceIdTag.isEmpty() ? this.loggerInstanceIdTag + " "
-      : !kcGlobalInstanceIdTag.isEmpty() ? kcGlobalInstanceIdTag + " "
-        : "";
+    String tag = "";
+
+    if (!kcGlobalInstanceId.equals(EMPTY_UUID)) {
+      if (!this.loggerInstanceIdTag.isEmpty()) {
+        tag = Utils.formatString("[KC:{}|{}] ", kcGlobalInstanceId, this.loggerInstanceIdTag);
+      } else {
+        tag = Utils.formatString("[KC:{}] ", kcGlobalInstanceId);
+      }
+    } else if (!this.loggerInstanceIdTag.isEmpty()){
+      tag = Utils.formatString("[{}] ", this.loggerInstanceIdTag);
+    }
 
     return Utils.formatLogMessage(tag + msg, vars);
   }

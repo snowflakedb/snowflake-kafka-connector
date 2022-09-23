@@ -61,10 +61,6 @@ public class LoggerHandlerTest {
 
   @Test
   public void testAllLogMessageKcGlobalInstanceId() {
-    String msg = "super useful logging msg";
-    String formatMsg = "super {} useful {} logging {} msg {}";
-    String expectedFormattedMsg = "super wow useful wow! logging 1 msg yay";
-
     LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
     MockitoAnnotations.initMocks(this);
 
@@ -73,16 +69,15 @@ public class LoggerHandlerTest {
   }
 
   @Test
-  public void testAllLogMessageLoggingInstanceId() {
+  public void testAllLogMessageLoggingTag() {
     String logTag = "TEST";
-    String msg = "super useful logging msg";
 
     this.loggerHandler = new LoggerHandler(this.name);
-    this.loggerHandler.setLoggerInstanceIdTag(logTag, loggerInstanceId);
+    this.loggerHandler.setLoggerInstanceIdTag(logTag);
     MockitoAnnotations.initMocks(this);
 
-    // [logtag:id]
-    testAllLogMessagesRunner(Utils.formatString("[{}:{}] ", logTag, loggerInstanceId));
+    // [logtag]
+    testAllLogMessagesRunner(Utils.formatString("[{}] ", logTag));
 
     this.loggerHandler.clearLoggerInstanceIdTag();
     testAllLogMessagesRunner("");
@@ -91,15 +86,14 @@ public class LoggerHandlerTest {
   @Test
   public void testAllLogMessageAllInstanceIds() {
     String logTag = "TEST";
-    String msg = "super useful logging msg";
 
     LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
     loggerHandler = new LoggerHandler(name);
-    this.loggerHandler.setLoggerInstanceIdTag(logTag, loggerInstanceId);
+    this.loggerHandler.setLoggerInstanceIdTag(logTag);
     MockitoAnnotations.initMocks(this);
 
     // [kc:id|tag]
-    testAllLogMessagesRunner(Utils.formatString("[KC:{}|{}] ", kcGlobalInstanceId, logTag) );
+    testAllLogMessagesRunner(Utils.formatString("[KC:{}|{}] ", kcGlobalInstanceId, logTag));
   }
 
   @Test
@@ -119,20 +113,7 @@ public class LoggerHandlerTest {
   public void testInvalidLogTag() {
     String msg = "super useful logging msg";
 
-    this.loggerHandler.setLoggerInstanceIdTag(null, this.loggerInstanceId);
-    MockitoAnnotations.initMocks(this);
-    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-
-    this.loggerHandler.info(msg);
-
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(msg));
-  }
-
-  @Test
-  public void testInvalidLogUuid() {
-    String msg = "super useful logging msg";
-
-    this.loggerHandler.setLoggerInstanceIdTag("TEST", null);
+    this.loggerHandler.setLoggerInstanceIdTag(null);
     MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
 
