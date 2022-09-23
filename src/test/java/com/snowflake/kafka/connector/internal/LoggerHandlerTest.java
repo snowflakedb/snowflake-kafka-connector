@@ -31,15 +31,8 @@ import java.util.UUID;
 public class LoggerHandlerTest {
   // test constants
   private final String name = "test.logger.name";
-  private final String msg = "super useful logging message";
-  private final String expectedMsg = msg;
-  private final String formatMsg = "a formatted msg is totally more useful than a unformatted '{}'";
-  private final String expectedFormattedMsg =
-      "a formatted msg is totally more useful than a unformatted 'super "
-          + "useful logging message'";
   private final UUID kcGlobalInstanceId = UUID.randomUUID();
   private final UUID loggerInstanceId = UUID.randomUUID();
-  private final String loggerInstanceIdDescriptor = "TEST";
 
   // mock and test setup, inject logger into loggerHandler
   @Mock(name = "logger")
@@ -61,81 +54,101 @@ public class LoggerHandlerTest {
   // test
   @Test
   public void testAllLogMessageNoInstanceIds() {
+    String msg = "super useful logging msg";
+
     testAllLogMessagesRunner("");
   }
 
   @Test
   public void testAllLogMessageKcGlobalInstanceId() {
+    String msg = "super useful logging msg";
+    String formatMsg = "super {} useful {} logging {} msg {}";
+    String expectedFormattedMsg = "super wow useful wow! logging 1 msg yay";
+
     LoggerHandler.setKcGlobalInstanceId(this.kcGlobalInstanceId);
     MockitoAnnotations.initMocks(this);
 
-    testAllLogMessagesRunner("[KC:" + kcGlobalInstanceId.toString() + "] ");
+    // [kc:id]
+    testAllLogMessagesRunner("[KC:" + kcGlobalInstanceId + "] ");
   }
 
   @Test
   public void testAllLogMessageLoggingInstanceId() {
+    String logTag = "TEST";
+    String msg = "super useful logging msg";
+
     this.loggerHandler = new LoggerHandler(this.name);
-    this.loggerHandler.setLoggerInstanceIdTag(loggerInstanceIdDescriptor, loggerInstanceId);
+    this.loggerHandler.setLoggerInstanceIdTag(logTag, loggerInstanceId);
     MockitoAnnotations.initMocks(this);
 
-    testAllLogMessagesRunner("[" + loggerInstanceIdDescriptor + ":" + loggerInstanceId + "] ");
+    // [logtag:id]
+    testAllLogMessagesRunner(Utils.formatString("[{}:{}] ", logTag, loggerInstanceId));
+
+    this.loggerHandler.clearLoggerInstanceIdTag();
+    testAllLogMessagesRunner("");
   }
 
   @Test
   public void testAllLogMessageAllInstanceIds() {
-    this.loggerHandler = new LoggerHandler(this.name);
+    String logTag = "TEST";
+    String msg = "super useful logging msg";
+
     LoggerHandler.setKcGlobalInstanceId(this.kcGlobalInstanceId);
-    this.loggerHandler.setLoggerInstanceIdTag(loggerInstanceIdDescriptor, loggerInstanceId);
+    loggerHandler = new LoggerHandler(name);
+    this.loggerHandler.setLoggerInstanceIdTag(logTag, loggerInstanceId);
     MockitoAnnotations.initMocks(this);
 
-    testAllLogMessagesRunner("[KC:" + kcGlobalInstanceId.toString() + "|" + loggerInstanceIdDescriptor + "] ");
+    // [kc:id|tag]
+    testAllLogMessagesRunner(Utils.formatString("[KC:{}|{}] ", kcGlobalInstanceId, logTag) );
   }
 
   @Test
-  public void testInvalidUuid() {
-    this.loggerHandler = new LoggerHandler(this.name);
-    MockitoAnnotations.initMocks(this);
+  public void testInvalidKcId() {
+    String msg = "super useful logging msg";
 
+    LoggerHandler.setKcGlobalInstanceId(null);
+    MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-    this.loggerHandler.info(this.msg);
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(this.expectedMsg));
+
+    this.loggerHandler.info(msg);
+
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(msg));
   }
 
   @Test
-  public void testInvalidDescriptor() {
-    this.loggerHandler = new LoggerHandler(this.name);
-    MockitoAnnotations.initMocks(this);
+  public void testInvalidLogTag() {
+    String msg = "super useful logging msg";
 
+    this.loggerHandler.setLoggerInstanceIdTag(null, this.loggerInstanceId);
+    MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-    this.loggerHandler.info(this.msg);
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(this.expectedMsg));
+
+    this.loggerHandler.info(msg);
+
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(msg));
   }
 
   @Test
-  public void testLongDescriptor() {
-    String longDescriptor = "looooooooooooooooong descriptor yayay";
-    this.loggerHandler = new LoggerHandler(this.name);
-    this.loggerHandler.setLoggerInstanceIdTag(longDescriptor, loggerInstanceId);
-    MockitoAnnotations.initMocks(this);
+  public void testInvalidLogUuid() {
+    String msg = "super useful logging msg";
 
+    this.loggerHandler.setLoggerInstanceIdTag("TEST", null);
+    MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-    this.loggerHandler.info(this.msg);
-    Mockito.verify(logger, Mockito.times(1))
-        .info(
-            Utils.formatLogMessage(
-                "["
-                    + longDescriptor
-                    + ":"
-                    + loggerInstanceId.toString()
-                    + "]"
-                    + " "
-                    + this.expectedMsg));
+
+    this.loggerHandler.info(msg);
+
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(msg));
   }
 
   private void testAllLogMessagesRunner(String expectedTag) {
-    this.testLogMessagesRunner(this.msg, expectedTag + this.expectedMsg);
-    this.testLogMessagesWithFormattingRunner(
-        this.formatMsg, this.msg, expectedTag + this.expectedFormattedMsg);
+    String msg = "super useful logging msg";
+    String formatMsg = "super {} useful {} logging {} msg {}";
+    String expectedFormattedMsg = "super wow useful wow! logging 1 msg yay";
+
+    this.testLogMessagesRunner(msg, Utils.formatLogMessage(expectedTag + msg));
+    this.testLogMessagesWithFormattingRunner(formatMsg, Utils.formatLogMessage(expectedTag + expectedFormattedMsg),
+      "wow", "wow!", 1, "yay");
   }
 
   private void testLogMessagesRunner(String msg, String expectedMsg) {
@@ -143,63 +156,63 @@ public class LoggerHandlerTest {
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
     loggerHandler.info(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(expectedMsg));
+    Mockito.verify(logger, Mockito.times(1)).info(expectedMsg);
 
     // trace
     Mockito.when(logger.isTraceEnabled()).thenReturn(true);
     loggerHandler.trace(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).trace(Utils.formatLogMessage(expectedMsg));
+    Mockito.verify(logger, Mockito.times(1)).trace(expectedMsg);
 
     // debug
     Mockito.when(logger.isDebugEnabled()).thenReturn(true);
     loggerHandler.debug(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).debug(Utils.formatLogMessage(expectedMsg));
+    Mockito.verify(logger, Mockito.times(1)).debug(expectedMsg);
 
     // warn
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
     loggerHandler.warn(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).warn(Utils.formatLogMessage(expectedMsg));
+    Mockito.verify(logger, Mockito.times(1)).warn(expectedMsg);
 
     // error
     Mockito.when(logger.isErrorEnabled()).thenReturn(true);
     loggerHandler.error(msg);
 
-    Mockito.verify(logger, Mockito.times(1)).error(Utils.formatLogMessage(expectedMsg));
+    Mockito.verify(logger, Mockito.times(1)).error(expectedMsg);
   }
 
   private void testLogMessagesWithFormattingRunner(
-      String formatMsg, String msg, String expectedFormattedMsg) {
+      String formatMsg, String expectedFormattedMsg, Object... vars) {
     // info
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-    loggerHandler.info(formatMsg, msg);
+    loggerHandler.info(formatMsg, vars);
 
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(expectedFormattedMsg));
+    Mockito.verify(logger, Mockito.times(1)).info(expectedFormattedMsg);
 
     // trace
     Mockito.when(logger.isTraceEnabled()).thenReturn(true);
-    loggerHandler.trace(formatMsg, msg);
+    loggerHandler.trace(formatMsg, vars);
 
-    Mockito.verify(logger, Mockito.times(1)).trace(Utils.formatLogMessage(expectedFormattedMsg));
+    Mockito.verify(logger, Mockito.times(1)).trace(expectedFormattedMsg);
 
     // debug
     Mockito.when(logger.isDebugEnabled()).thenReturn(true);
-    loggerHandler.debug(formatMsg, msg);
+    loggerHandler.debug(formatMsg, vars);
 
-    Mockito.verify(logger, Mockito.times(1)).debug(Utils.formatLogMessage(expectedFormattedMsg));
+    Mockito.verify(logger, Mockito.times(1)).debug(expectedFormattedMsg);
 
     // warn
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
-    loggerHandler.warn(formatMsg, msg);
+    loggerHandler.warn(formatMsg, vars);
 
-    Mockito.verify(logger, Mockito.times(1)).warn(Utils.formatLogMessage(expectedFormattedMsg));
+    Mockito.verify(logger, Mockito.times(1)).warn(expectedFormattedMsg);
 
     // error
     Mockito.when(logger.isErrorEnabled()).thenReturn(true);
-    loggerHandler.error(formatMsg, msg);
+    loggerHandler.error(formatMsg, vars);
 
-    Mockito.verify(logger, Mockito.times(1)).error(Utils.formatLogMessage(expectedFormattedMsg));
+    Mockito.verify(logger, Mockito.times(1)).error(expectedFormattedMsg);
   }
 }

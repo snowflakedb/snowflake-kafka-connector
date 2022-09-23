@@ -61,26 +61,30 @@ public class LoggerHandler {
   }
 
   /**
-   * Sets the loggerHandler's instance id tag
+   * Sets the loggerHandler's instance id tag. If kc instance id exists, then it will append the tag to the end,
+   * otherwise it will use the fallback id.
    *
-   * @param loggerInstanceIdDescriptor The descriptor for this logger
-   * @param loggerInstanceId The instance id for this logger
+   * Note: this should be called after the kc instance id has been set
+   *
+   * @param loggerTag The tag for this logger
+   * @param fallbackLoggerInstanceId The instance id for this logger (if kc instance id doesnt exist)
    */
-  public void setLoggerInstanceIdTag(String loggerInstanceIdDescriptor, UUID loggerInstanceId) {
-    if (loggerInstanceIdDescriptor != null && !loggerInstanceIdDescriptor.isEmpty()) {
-      if (kcGlobalInstanceId != EMPTY_UUID) {
-        this.loggerInstanceIdTag = Utils.formatString("[KC:{}|{}]", kcGlobalInstanceId, loggerInstanceIdDescriptor);
-      } else if (loggerInstanceId != null && !loggerInstanceId.toString().isEmpty() && !loggerInstanceId.equals(EMPTY_UUID)) {
-        this.loggerInstanceIdTag = Utils.formatString("[{}:{}]", loggerInstanceIdDescriptor, loggerInstanceId);
-      } else {
-        this.logger.warn("Kafka Connect global instance id is null and given instance id '{}' was invalid (null or " +
-            "empty), continuing to log without either",
-          loggerInstanceId.toString());
-      }
-    } else {
-      this.logger.warn("Given instance id '{}' was invalid (null or empty), continuing to log without it",
-        loggerInstanceId.toString());
+  public void setLoggerInstanceIdTag(String loggerTag, UUID fallbackLoggerInstanceId) {
+    if (loggerTag == null || loggerTag.isEmpty()
+          || fallbackLoggerInstanceId == null || fallbackLoggerInstanceId.equals(EMPTY_UUID)) {
+      this.logger.warn("Given logger tag '{}' or fallback id '{}' is invalid (null or empty), continuing to log " +
+          "without it", loggerTag,
+        fallbackLoggerInstanceId);
+      return;
     }
+
+    if (kcGlobalInstanceId != EMPTY_UUID) {
+      this.loggerInstanceIdTag = Utils.formatString("[KC:{}|{}]", kcGlobalInstanceId, loggerTag);
+    } else {
+      this.loggerInstanceIdTag = Utils.formatString("[{}:{}]", loggerTag, fallbackLoggerInstanceId);
+    }
+
+    this.logger.info("Given logger tag set to: '{}'", loggerInstanceIdTag);
   }
 
   /** Clears the loggerHandler's instance id tag */
