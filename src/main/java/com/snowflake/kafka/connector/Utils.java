@@ -16,18 +16,16 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
-
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
+import org.apache.kafka.common.config.Config;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.config.ConfigValue;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
@@ -42,9 +40,12 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.kafka.common.config.Config;
-import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.common.config.ConfigValue;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
 /** Various arbitrary helper functions */
 public class Utils {
@@ -613,34 +614,24 @@ public class Utils {
   // log message tag
   static final String SF_LOG_TAG = "[SF_KAFKA_CONNECTOR]";
 
-  /*
-   * the following methods wrap log message with Snowflake tag. For example,
+  /**
+   * the following method wraps log messages with Snowflake tag. For example,
    *
    * [SF_KAFKA_CONNECTOR] this is a log message
    * [SF_KAFKA_CONNECTOR] this is the second line
    *
    * All log messages should be wrapped by Snowflake tag. Then user can filter
    * out log messages output from Snowflake Kafka connector by these tags.
-   */
-
-  /**
-   * wrap a message without variable
-   *
-   * @param msg log message
-   * @return log message wrapped by snowflake tag
-   */
-  public static String formatLogMessage(String msg) {
-    return SF_LOG_TAG + " " + msg;
-  }
-
-  /**
-   * wrap a message contains multiple variables
    *
    * @param format log message format string
    * @param vars variable list
    * @return log message wrapped by snowflake tag
    */
   public static String formatLogMessage(String format, Object... vars) {
+    return SF_LOG_TAG + " " + formatString(format, vars);
+  }
+
+  public static String formatString(String format, Object... vars) {
     for (int i = 0; i < vars.length; i++) {
       format = format.replaceFirst("\\{}", Objects.toString(vars[i]).replaceAll("\\$", "\\\\\\$"));
     }
