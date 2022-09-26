@@ -10,7 +10,7 @@ import com.snowflake.kafka.connector.SchematizationUtils;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -30,8 +30,6 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * This is per task configuration. A task can be assigned multiple partitions. Major methods are
@@ -50,7 +48,8 @@ import org.slf4j.LoggerFactory;
  */
 public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkServiceV2.class);
+  private static final LoggerHandler LOGGER =
+      new LoggerHandler(SnowflakeSinkServiceV2.class.getName());
 
   private static String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 
@@ -293,10 +292,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               partitionChannelKey(topicPartition.topic(), topicPartition.partition());
           TopicPartitionChannel topicPartitionChannel =
               partitionsToChannel.get(partitionChannelKey);
-          topicPartitionChannel.closeChannel();
+          // Check for null since it's possible that the something goes wrong even before the
+          // channels are created
+          if (topicPartitionChannel != null) {
+            topicPartitionChannel.closeChannel();
+          }
           LOGGER.info(
               "Closing partitionChannel:{}, partition:{}, topic:{}",
-              topicPartitionChannel.getChannelName(),
+              topicPartitionChannel == null ? null : topicPartitionChannel.getChannelName(),
               topicPartition.topic(),
               topicPartition.partition());
         });
@@ -490,10 +493,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       streamingIngestClient.close();
     } catch (Exception e) {
       LOGGER.error(
-          Logging.logMessage(
-              "Failure closing Streaming client msg:{}, cause:{}",
-              e.getMessage(),
-              Arrays.toString(e.getCause().getStackTrace())));
+          "Failure closing Streaming client msg:{}, cause:{}",
+          e.getMessage(),
+          Arrays.toString(e.getCause().getStackTrace()));
     }
   }
 

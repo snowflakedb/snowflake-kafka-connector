@@ -1,5 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
+
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
@@ -24,7 +27,8 @@ import net.snowflake.client.jdbc.cloud.storage.StageInfo;
  * Implementation of Snowflake Connection Service interface which includes all handshake between KC
  * and SF through JDBC connection.
  */
-public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeConnectionService {
+public class SnowflakeConnectionServiceV1 extends EnableLogging
+    implements SnowflakeConnectionService {
   private final Connection conn;
   private final SnowflakeTelemetryService telemetry;
   private final String connectorName;
@@ -47,10 +51,6 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
   // User agent suffix we want to pass in to ingest service
   public static final String USER_AGENT_SUFFIX_FORMAT = "SFKafkaConnector/%s provider/%s";
 
-  private static final String METADATA_COLUMN = "RECORD_METADATA";
-
-  private static final String CONTENT_COLUMN = "RECORD_CONTENT";
-
   SnowflakeConnectionServiceV1(
       Properties prop,
       SnowflakeURL url,
@@ -69,10 +69,10 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       if (proxyProperties != null && !proxyProperties.isEmpty()) {
         Properties combinedProperties =
             mergeProxyAndConnectionProperties(this.prop, this.proxyProperties);
-        logDebug("Proxy properties are set, passing in JDBC while creating the connection");
+        LOG_DEBUG_MSG("Proxy properties are set, passing in JDBC while creating the connection");
         this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), combinedProperties);
       } else {
-        logInfo("Establishing a JDBC connection with url:{}", url.getJdbcUrl());
+        LOG_INFO_MSG("Establishing a JDBC connection with url:{}", url.getJdbcUrl());
         this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), prop);
       }
     } catch (SQLException e) {
@@ -87,7 +87,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
             .setAppName(this.connectorName)
             .setTaskID(this.taskID)
             .build();
-    logInfo("initialized the snowflake connection");
+    LOG_INFO_MSG("initialized the snowflake connection");
   }
 
   /* Merges the two properties. */
@@ -124,7 +124,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       throw SnowflakeErrors.ERROR_2007.getException(e);
     }
 
-    logInfo("create table {}", tableName);
+    LOG_INFO_MSG("create table {}", tableName);
   }
 
   @Override
@@ -154,11 +154,11 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       stmt.execute();
       stmt.close();
     } catch (SQLException e) {
-      logInfo("Failed to create table {} with schema {}", tableName, logColumn.toString());
+      LOG_INFO_MSG("Failed to create table {} with schema {}", tableName, logColumn.toString());
       throw SnowflakeErrors.ERROR_2007.getException(e);
     }
 
-    logInfo("Created table {} with schema {}", tableName, logColumn.toString());
+    LOG_INFO_MSG("Created table {} with schema {}", tableName, logColumn.toString());
   }
 
   @Override
@@ -187,7 +187,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2009.getException(e);
     }
-    logInfo("create pipe: {}", pipeName);
+    LOG_INFO_MSG("create pipe: {}", pipeName);
   }
 
   @Override
@@ -214,7 +214,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2008.getException(e);
     }
-    logInfo("create stage {}", stageName);
+    LOG_INFO_MSG("create stage {}", stageName);
   }
 
   @Override
@@ -235,7 +235,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       stmt.execute();
       exist = true;
     } catch (Exception e) {
-      logDebug("table {} doesn't exist", tableName);
+      LOG_DEBUG_MSG("table {} doesn't exist", tableName);
       exist = false;
     } finally {
       if (stmt != null) {
@@ -262,7 +262,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       stmt.execute();
       exist = true;
     } catch (SQLException e) {
-      logDebug("stage {} doesn't exists", stageName);
+      LOG_DEBUG_MSG("stage {} doesn't exists", stageName);
       exist = false;
     } finally {
       if (stmt != null) {
@@ -289,7 +289,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       stmt.execute();
       exist = true;
     } catch (SQLException e) {
-      logDebug("pipe {} doesn't exist", pipeName);
+      LOG_DEBUG_MSG("pipe {} doesn't exist", pipeName);
       exist = false;
     } finally {
       if (stmt != null) {
@@ -320,12 +320,12 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       boolean allNullable = true;
       while (result.next()) {
         switch (result.getString(1)) {
-          case METADATA_COLUMN:
+          case TABLE_COLUMN_METADATA:
             if (result.getString(2).equals("VARIANT")) {
               hasMeta = true;
             }
             break;
-          case CONTENT_COLUMN:
+          case TABLE_COLUMN_CONTENT:
             if (result.getString(2).equals("VARIANT")) {
               hasContent = true;
             }
@@ -338,7 +338,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       }
       compatible = hasMeta && hasContent && allNullable;
     } catch (SQLException e) {
-      logDebug("table {} doesn't exist", tableName);
+      LOG_DEBUG_MSG("table {} doesn't exist", tableName);
       compatible = false;
     } finally {
       try {
@@ -375,7 +375,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       result = stmt.executeQuery();
       while (result.next()) {
         // The result schema is row idx | column name | data type | kind | null? | ...
-        if (result.getString(1).equals(METADATA_COLUMN)) {
+        if (result.getString(1).equals(TABLE_COLUMN_METADATA)) {
           hasMeta = true;
           if (result.getString(2).equals("VARIANT")) {
             isVariant = true;
@@ -407,13 +407,13 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     checkConnection();
     InternalUtils.assertNotEmpty("stageName", stageName);
     if (!stageExist(stageName)) {
-      logDebug("stage {} doesn't exists", stageName);
+      LOG_DEBUG_MSG("stage {} doesn't exists", stageName);
       return false;
     }
     List<String> files = listStage(stageName, "");
     for (String name : files) {
       if (!FileNameUtils.verifyFileName(name)) {
-        logDebug("file name {} in stage {} is not valid", name, stageName);
+        LOG_DEBUG_MSG("file name {} in stage {} is not valid", name, stageName);
         return false;
       }
     }
@@ -443,12 +443,12 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
         compatible = false;
       } else {
         String definition = result.getString("definition");
-        logDebug("pipe {} definition: {}", pipeName, definition);
+        LOG_DEBUG_MSG("pipe {} definition: {}", pipeName, definition);
         compatible = definition.equalsIgnoreCase(pipeDefinition(tableName, stageName));
       }
 
     } catch (SQLException e) {
-      logDebug("pipe {} doesn't exists ", pipeName);
+      LOG_DEBUG_MSG("pipe {} doesn't exists ", pipeName);
       compatible = false;
     } finally {
       try {
@@ -479,7 +479,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
 
-    logInfo("database {} exists", databaseName);
+    LOG_INFO_MSG("database {} exists", databaseName);
   }
 
   @Override
@@ -496,7 +496,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
 
-    logInfo("schema {} exists", schemaName);
+    LOG_INFO_MSG("schema {} exists", schemaName);
   }
 
   @Override
@@ -514,7 +514,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
 
-    logInfo("pipe {} dropped", pipeName);
+    LOG_INFO_MSG("pipe {} dropped", pipeName);
   }
 
   @Override
@@ -539,7 +539,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
-    logInfo("stage {} can't be dropped because it is not empty", stageName);
+    LOG_INFO_MSG("stage {} can't be dropped because it is not empty", stageName);
     return false;
   }
 
@@ -556,7 +556,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
-    logInfo("stage {} dropped", stageName);
+    LOG_INFO_MSG("stage {} dropped", stageName);
   }
 
   @Override
@@ -565,7 +565,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     for (String fileName : files) {
       removeFile(stageName, fileName);
     }
-    logInfo("purge {} files from stage: {}", files.size(), stageName);
+    LOG_INFO_MSG("purge {} files from stage: {}", files.size(), stageName);
   }
 
   @Override
@@ -594,7 +594,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       } catch (SQLException e) {
         throw SnowflakeErrors.ERROR_2003.getException(e);
       }
-      logInfo("moved file: {} from stage: {} to table stage: {}", name, stageName, tableName);
+      LOG_INFO_MSG("moved file: {} from stage: {} to table stage: {}", name, stageName, tableName);
       // remove
       removeFile(stageName, name);
     }
@@ -636,7 +636,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
-    logInfo("list stage {} retrieved {} file names", stageName, result.size());
+    LOG_INFO_MSG("list stage {} retrieved {} file names", stageName, result.size());
     return result;
   }
 
@@ -668,7 +668,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_2003.getException(e);
     }
-    logDebug("put file {} to stage {}", fileName, stageName);
+    LOG_DEBUG_MSG("put file {} to stage {}", fileName, stageName);
   }
 
   @Override
@@ -686,7 +686,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
             return true;
           });
     } catch (Exception e) {
-      logError(
+      LOG_ERROR_MSG(
           "Put With Cache(uploadWithoutConnection) failed after multiple retries for stageName:{},"
               + " stageType:{}, fullFilePath:{}",
           stageName,
@@ -718,7 +718,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_2003.getException(e);
     }
-    logInfo("put file: {} to table stage: {}", fileName, tableName);
+    LOG_INFO_MSG("put file: {} to table stage: {}", fileName, tableName);
   }
 
   @Override
@@ -734,7 +734,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
       throw SnowflakeErrors.ERROR_2005.getException(e);
     }
 
-    logInfo("snowflake connection closed");
+    LOG_INFO_MSG("snowflake connection closed");
   }
 
   @Override
@@ -832,7 +832,7 @@ public class SnowflakeConnectionServiceV1 extends Logging implements SnowflakeCo
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
-    logDebug("deleted {} from stage {}", fileName, stageName);
+    LOG_DEBUG_MSG("deleted {} from stage {}", fileName, stageName);
   }
 
   @Override

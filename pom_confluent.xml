@@ -407,7 +407,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-registry-client</artifactId>
-            <version>6.2.0</version>
+            <version>7.2.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -442,8 +442,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-connect-avro-converter</artifactId>
-            <version>5.5.1</version>
-            <scope>test</scope>
+            <version>7.2.1</version>
         </dependency>
 
         <!--JDBC driver for building connection with Snowflake-->
