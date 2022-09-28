@@ -18,8 +18,6 @@ import net.snowflake.client.core.SFSessionProperty;
 import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
 import net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import net.snowflake.ingest.connection.IngestStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 class InternalUtils {
   // JDBC parameter list
@@ -34,7 +32,7 @@ class InternalUtils {
   // internal parameters
   static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; // 10 days
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(InternalUtils.class.getName());
+  private static final LoggerHandler LOGGER = new LoggerHandler(InternalUtils.class.getName());
 
   // backoff with 1, 2, 4, 8 seconds
   public static final int backoffSec[] = {0, 1, 2, 4, 8};
@@ -102,7 +100,7 @@ class InternalUtils {
 
     String date = df.format(new Date(time));
 
-    LOGGER.debug(Logging.logMessage("converted date: {}", date));
+    LOGGER.debug("converted date: {}", date);
 
     return date;
   }

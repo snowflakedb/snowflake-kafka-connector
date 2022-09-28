@@ -2,11 +2,9 @@ package com.snowflake.kafka.connector.internal;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class FileNameUtils {
-  private static final Logger LOGGER = LoggerFactory.getLogger(FileNameUtils.class.getName());
+  private static final LoggerHandler LOGGER = new LoggerHandler(FileNameUtils.class.getName());
 
   /**
    * generate file name File Name Format: app/table/partition/start_end_timeStamp.fileFormat.gz
@@ -40,7 +38,7 @@ public class FileNameUtils {
   static String fileName(String prefix, long start, long end) {
     long time = System.currentTimeMillis();
     String fileName = prefix + start + "_" + end + "_" + time + ".json.gz";
-    LOGGER.debug(Logging.logMessage("generated file name: {}", fileName));
+    LOGGER.debug("generated file name: {}", fileName);
     return fileName;
   }
 
@@ -71,7 +69,7 @@ public class FileNameUtils {
     long time = System.currentTimeMillis();
     String isKeyString = isKey ? "key" : "value";
     String fileName = prefix + offset + "_" + isKeyString + "_" + time + ".gz";
-    LOGGER.debug(Logging.logMessage("generated broken data file name: {}", fileName));
+    LOGGER.debug("generated broken data file name: {}", fileName);
     return fileName;
   }
 

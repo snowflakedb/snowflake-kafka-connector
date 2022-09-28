@@ -12,7 +12,7 @@ public class SnowflakeConnectionServiceFactory {
     return new SnowflakeConnectionServiceBuilder();
   }
 
-  public static class SnowflakeConnectionServiceBuilder extends Logging {
+  public static class SnowflakeConnectionServiceBuilder extends EnableLogging {
     private Properties prop;
     private Properties proxyProperties;
     private SnowflakeURL url;

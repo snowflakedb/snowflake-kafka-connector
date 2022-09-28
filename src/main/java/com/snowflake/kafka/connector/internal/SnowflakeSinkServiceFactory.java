@@ -37,7 +37,7 @@ public class SnowflakeSinkServiceFactory {
   }
 
   /** Builder class to create instance of {@link SnowflakeSinkService} */
-  public static class SnowflakeSinkServiceBuilder extends Logging {
+  public static class SnowflakeSinkServiceBuilder extends EnableLogging {
     private final SnowflakeSinkService service;
 
     private SnowflakeSinkServiceBuilder(
@@ -50,7 +50,7 @@ public class SnowflakeSinkServiceFactory {
         this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
       }
 
-      logInfo("{} created", this.service.getClass().getName());
+      LOG_INFO_MSG("{} created", this.service.getClass().getName());
     }
 
     private SnowflakeSinkServiceBuilder(SnowflakeConnectionService conn) {
@@ -67,7 +67,7 @@ public class SnowflakeSinkServiceFactory {
      */
     public SnowflakeSinkServiceBuilder addTask(String tableName, TopicPartition topicPartition) {
       this.service.startTask(tableName, topicPartition);
-      logInfo(
+      LOG_INFO_MSG(
           "create new task in {} - table: {}, topicPartition: {}",
           SnowflakeSinkService.class.getName(),
           tableName,
@@ -77,19 +77,19 @@ public class SnowflakeSinkServiceFactory {
 
     public SnowflakeSinkServiceBuilder setRecordNumber(long num) {
       this.service.setRecordNumber(num);
-      logInfo("record number is limited to {}", num);
+      LOG_INFO_MSG("record number is limited to {}", num);
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setFileSize(long size) {
       this.service.setFileSize(size);
-      logInfo("file size is limited to {}", size);
+      LOG_INFO_MSG("file size is limited to {}", size);
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setFlushTime(long time) {
       this.service.setFlushTime(time);
-      logInfo("flush time is limited to {}", time);
+      LOG_INFO_MSG("flush time is limited to {}", time);
       return this;
     }
 
@@ -99,33 +99,33 @@ public class SnowflakeSinkServiceFactory {
       for (Map.Entry<String, String> entry : topic2TableMap.entrySet()) {
         map.append(entry.getKey()).append(" -> ").append(entry.getValue()).append("\n");
       }
-      logInfo("set topic 2 table map \n {}", map.toString());
+      LOG_INFO_MSG("set topic 2 table map \n {}", map.toString());
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setMetadataConfig(SnowflakeMetadataConfig configMap) {
       this.service.setMetadataConfig(configMap);
-      logInfo("metadata config map is {}", configMap.toString());
+      LOG_INFO_MSG("metadata config map is {}", configMap.toString());
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setBehaviorOnNullValuesConfig(
         SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
       this.service.setBehaviorOnNullValuesConfig(behavior);
-      logInfo("Config Behavior on null value is {}", behavior.toString());
+      LOG_INFO_MSG("Config Behavior on null value is {}", behavior.toString());
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setCustomJMXMetrics(final boolean enableJMX) {
       this.service.setCustomJMXMetrics(enableJMX);
-      logInfo("Config JMX value {}. (true = Enabled, false = Disabled)", enableJMX);
+      LOG_INFO_MSG("Config JMX value {}. (true = Enabled, false = Disabled)", enableJMX);
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setDeliveryGuarantee(
         SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
       this.service.setDeliveryGuarantee(ingestionDeliveryGuarantee);
-      logInfo("Config Delivery Guarantee type {}.", ingestionDeliveryGuarantee.toString());
+      LOG_INFO_MSG("Config Delivery Guarantee type {}.", ingestionDeliveryGuarantee.toString());
       return this;
     }
 
@@ -147,7 +147,7 @@ public class SnowflakeSinkServiceFactory {
     }
 
     public SnowflakeSinkService build() {
-      logInfo("{} created", SnowflakeSinkService.class.getName());
+      LOG_INFO_MSG("{} created", SnowflakeSinkService.class.getName());
       return service;
     }
   }
