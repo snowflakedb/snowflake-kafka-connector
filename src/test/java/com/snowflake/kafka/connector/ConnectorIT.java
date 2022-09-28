@@ -1,18 +1,24 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.Utils.NAME;
-import static com.snowflake.kafka.connector.Utils.TASK_ID;
-import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
-import static com.snowflake.kafka.connector.internal.TestUtils.getConf;
-
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigValue;
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import static com.snowflake.kafka.connector.Utils.NAME;
+import static com.snowflake.kafka.connector.Utils.TASK_ID;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+import static com.snowflake.kafka.connector.internal.TestUtils.getConf;
 
 public class ConnectorIT {
   static final String allPropertiesList[] = {
@@ -309,6 +315,26 @@ public class ConnectorIT {
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "admin");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "test");
+    Utils.validateProxySetting(config);
+  }
+
+  @Test
+  public void testErrorNonProxyHostConfig() {
+    Map<String, String> config = getCorrectConfig();
+    config.put(SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS, "host1, host2");
+    try {
+      Utils.validateProxySetting(config);
+    } catch (SnowflakeKafkaConnectorException e) {
+      Assert.assertEquals("0026", e.getCode());
+      return;
+    }
+    Assert.fail();
+  }
+
+  @Test
+  public void testNonProxyHostConfig() {
+    Map<String, String> config = getCorrectConfig();
+    config.put(SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS, "host1|host2");
     Utils.validateProxySetting(config);
   }
 
