@@ -108,9 +108,9 @@ public enum SnowflakeErrors {
       "Duplicate case-insensitive column names detected. Schematization currently does not support"
           + " this."),
   ERROR_0026(
-    "0026",
-    "Invalid nonproxyhost parameter",
-    "Since JVM uses '|' as delimiters, the nonproxyhost parameter should not contain ','"),
+      "0026",
+      "Invalid nonproxyhost parameter",
+      "Since JVM uses '|' as delimiters, the nonproxyhost parameter should not contain ','"),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",

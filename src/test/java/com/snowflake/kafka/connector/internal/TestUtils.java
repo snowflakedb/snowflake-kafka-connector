@@ -16,16 +16,17 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.Utils.*;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_USER;
+import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
 import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
 import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_USER;
 import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
-import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
 import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
 import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
 import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
@@ -66,8 +67,6 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
-
-import static com.snowflake.kafka.connector.Utils.*;
 
 public class TestUtils {
   public static final String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";

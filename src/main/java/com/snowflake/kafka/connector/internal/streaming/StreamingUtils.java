@@ -46,6 +46,7 @@ public class StreamingUtils {
    * <p>1 MB is an ideal size for streaming ingestion so 95% if 20MB = 1MB
    */
   protected static final long STREAMING_BUFFER_BYTES_DEFAULT = 20_000_000;
+
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamingUtils.class);
   private static final Set<String> DISALLOWED_CONVERTERS_STREAMING = CUSTOM_SNOWFLAKE_CONVERTERS;
 

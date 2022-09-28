@@ -1,11 +1,11 @@
 package com.snowflake.kafka.connector;
 
-import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import org.apache.kafka.common.config.Config;
-import org.apache.kafka.common.config.ConfigValue;
-import org.junit.Assert;
-import org.junit.Test;
+import static com.snowflake.kafka.connector.Utils.NAME;
+import static com.snowflake.kafka.connector.Utils.TASK_ID;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+import static com.snowflake.kafka.connector.internal.TestUtils.getConf;
 
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -14,11 +14,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import static com.snowflake.kafka.connector.Utils.NAME;
-import static com.snowflake.kafka.connector.Utils.TASK_ID;
-import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
-import static com.snowflake.kafka.connector.internal.TestUtils.getConf;
+import org.apache.kafka.common.config.Config;
+import org.apache.kafka.common.config.ConfigValue;
+import org.junit.Assert;
+import org.junit.Test;
 
 public class ConnectorIT {
   static final String allPropertiesList[] = {
