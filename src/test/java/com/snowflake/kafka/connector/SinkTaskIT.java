@@ -1,10 +1,17 @@
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkTask.TASK_INSTANCE_TAG_FORMAT;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -14,17 +21,13 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.AdditionalMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
-import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+import org.mockito.Spy;
+import org.slf4j.Logger;
 
 public class SinkTaskIT {
   private String topicName;
@@ -180,36 +183,65 @@ public class SinkTaskIT {
     sinkTask.logWarningForPutAndPrecommit(System.currentTimeMillis() - 400 * 1000, 1, "put");
   }
 
-  @Mock(name="DYNAMIC_LOGGER")
-  LoggerHandler loggerHandler = Mockito.mock(LoggerHandler.class);
-  @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
-  @InjectMocks private SnowflakeSinkTask sinkTask2 = new SnowflakeSinkTask();
+  @Mock Logger logger = Mockito.mock(Logger.class);
+
+  @InjectMocks @Spy
+  private LoggerHandler loggerHandler = Mockito.spy(new LoggerHandler(this.getClass().getName()));
+
+  @InjectMocks private SnowflakeSinkTask task1 = new SnowflakeSinkTask();
 
   @Test
   public void testMultipleSinkTasks() throws Exception {
-
-    Map<String, String> config = TestUtils.getConf();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-
+    // setup log mocking for task1
+    int task0StartCount = 0;
+    int task1StartCount = 0;
+    int taskCreationCount = 2;
     MockitoAnnotations.initMocks(this);
+    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
+    Mockito.when(logger.isWarnEnabled()).thenReturn(true);
 
-    String logTag1 = "logTag1";
-    String logStart1 = "task1 started";
-    Mockito.doCallRealMethod().when(loggerHandler).info(logStart1);
-    sinkTask1.start(config);
-    Mockito.verify(loggerHandler, Mockito.times(1)).setLoggerInstanceIdTag(logTag1);
-    Mockito.verify(loggerHandler, Mockito.times(1)).info(logStart1);
+    // setup tasks
+    String task0Id = "0";
+    Map<String, String> task0Config = TestUtils.getConf();
+    SnowflakeSinkConnectorConfig.setDefaultValues(task0Config);
+    task0Config.put(Utils.TASK_ID, task0Id);
+    SnowflakeSinkTask task0 = new SnowflakeSinkTask();
+
+    String task1Id = "1";
+    Map<String, String> task1Config = TestUtils.getConf();
+    SnowflakeSinkConnectorConfig.setDefaultValues(task1Config);
+    task1Config.put(Utils.TASK_ID, task1Id);
+
+    // set up task1 logging tag
+    task0StartCount++;
+    task1StartCount++;
+    String expectedTask1Tag = getExpectedLogTag(task1Id, taskCreationCount, task1StartCount);
+    Mockito.doCallRealMethod().when(loggerHandler).setLoggerInstanceTag(expectedTask1Tag);
+
+    // start tasks
+    task0.start(task0Config);
+    task1.start(task1Config);
+
+    // verify task1 start logs
+    Mockito.verify(loggerHandler, Mockito.times(1)).setLoggerInstanceTag(expectedTask1Tag);
+    Mockito.verify(logger, Mockito.times(2))
+        .info(
+            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("start")));
+
+    // open tasks
+    ArrayList<TopicPartition> topicPartitions0 = new ArrayList<>();
+    topicPartitions0.add(new TopicPartition(topicName, partition));
+    task0.open(topicPartitions0);
 
     ArrayList<TopicPartition> topicPartitions1 = new ArrayList<>();
     topicPartitions1.add(new TopicPartition(topicName, partition));
-    sinkTask1.open(topicPartitions1);
+    task1.open(topicPartitions1);
 
-    sinkTask2.start(config);
-    ArrayList<TopicPartition> topicPartitions2 = new ArrayList<>();
-    topicPartitions2.add(new TopicPartition(topicName, partition));
-    sinkTask2.open(topicPartitions2);
+    // verify task1 open logs
+    Mockito.verify(logger, Mockito.times(2))
+        .info(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
 
-    // send regular data
+    // put regular data to tasks
     ArrayList<SinkRecord> records = new ArrayList<>();
     String json = "{ \"f1\" : \"v1\" } ";
     ObjectMapper objectMapper = new ObjectMapper();
@@ -217,53 +249,77 @@ public class SinkTaskIT {
     SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
     for (int i = 0; i < BUFFER_COUNT_RECORDS_DEFAULT; ++i) {
       records.add(
-        new SinkRecord(
-          topicName,
-          partition,
-          snowflakeSchema,
-          content,
-          snowflakeSchema,
-          content,
-          i,
-          System.currentTimeMillis(),
-          TimestampType.CREATE_TIME));
+          new SinkRecord(
+              topicName,
+              partition,
+              snowflakeSchema,
+              content,
+              snowflakeSchema,
+              content,
+              i,
+              System.currentTimeMillis(),
+              TimestampType.CREATE_TIME));
     }
 
-    sinkTask1.put(records);
-    sinkTask2.put(records);
+    task0.put(records);
+    task1.put(records);
 
-    // send broken data
+    // verify task1 put logs
+    Mockito.verify(logger, Mockito.times(2))
+        .info(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("put")));
+
+    // send broken data to task1
     String brokenJson = "{ broken json";
     records = new ArrayList<>();
     content = new SnowflakeRecordContent(brokenJson.getBytes());
     records.add(
-      new SinkRecord(
-        topicName,
-        partition,
-        snowflakeSchema,
-        content,
-        snowflakeSchema,
-        content,
-        10000,
-        System.currentTimeMillis(),
-        TimestampType.CREATE_TIME));
-    sinkTask1.put(records);
+        new SinkRecord(
+            topicName,
+            partition,
+            snowflakeSchema,
+            content,
+            snowflakeSchema,
+            content,
+            10000,
+            System.currentTimeMillis(),
+            TimestampType.CREATE_TIME));
+    task1.put(records);
+
+    // verify task1 broken put logs, 4 bc in addition to last call
+    Mockito.verify(logger, Mockito.times(4))
+        .info(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("put")));
 
     // commit offset
+    Map<TopicPartition, OffsetAndMetadata> offsetMap0 = new HashMap<>();
+    offsetMap0.put(topicPartitions0.get(0), new OffsetAndMetadata(0));
+    offsetMap0 = task0.preCommit(offsetMap0);
+
     Map<TopicPartition, OffsetAndMetadata> offsetMap1 = new HashMap<>();
     offsetMap1.put(topicPartitions1.get(0), new OffsetAndMetadata(0));
-    offsetMap1 = sinkTask1.preCommit(offsetMap1);
+    offsetMap1 = task1.preCommit(offsetMap1);
 
-    Map<TopicPartition, OffsetAndMetadata> offsetMap2 = new HashMap<>();
-    offsetMap2.put(topicPartitions1.get(0), new OffsetAndMetadata(0));
-    offsetMap2 = sinkTask1.preCommit(offsetMap2);
+    // verify task1 precommit logs
+    Mockito.verify(logger, Mockito.times(2))
+        .info(
+            AdditionalMatchers.and(
+                Mockito.contains(expectedTask1Tag), Mockito.contains("precommit")));
 
-    sinkTask1.close(topicPartitions1);
-    sinkTask1.stop();
+    // close tasks
+    task0.close(topicPartitions0);
+    task0.stop();
 
-    sinkTask2.close(topicPartitions2);
-    sinkTask2.stop();
-    assert offsetMap1.get(topicPartitions1.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
-    assert offsetMap2.get(topicPartitions2.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
+    task1.close(topicPartitions1);
+    task1.stop();
+
+    // verify task1 stop logs
+    Mockito.verify(logger, Mockito.times(1))
+        .info(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("stop")));
+
+    assert offsetMap1.get(topicPartitions0.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
+    assert offsetMap0.get(topicPartitions1.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
+  }
+
+  private String getExpectedLogTag(String taskId, int taskCreationCount, int taskStartCount) {
+    return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, taskId, taskCreationCount, taskStartCount);
   }
 }

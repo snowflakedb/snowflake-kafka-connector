@@ -16,6 +16,8 @@
  */
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
@@ -26,14 +28,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.errors.ConnectException;
-import org.apache.kafka.connect.errors.RetriableException;
-import org.apache.kafka.connect.sink.ErrantRecordReporter;
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.apache.kafka.connect.sink.SinkTask;
-
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,8 +35,13 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
-
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.errors.RetriableException;
+import org.apache.kafka.connect.sink.ErrantRecordReporter;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.sink.SinkTask;
 
 /**
  * SnowflakeSinkTask implements SinkTask for Kafka Connect framework.
@@ -53,6 +52,8 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVER
  * Snowflake via Sink service
  */
 public class SnowflakeSinkTask extends SinkTask {
+  public static final String TASK_INSTANCE_TAG_FORMAT = "SnowflakeSinkTask[ID:{}.{}.{}]";
+
   private static final long WAIT_TIME = 5 * 1000; // 5 sec
   private static final int REPEAT_TIME = 12; // 60 sec
 
@@ -64,8 +65,12 @@ public class SnowflakeSinkTask extends SinkTask {
   // account and execute queries
   private SnowflakeConnectionService conn = null;
 
-  // this id is pulled from the task config
+  // tracks number of tasks the config wants to create
   private String taskConfigId = "-1";
+  // tracks total number of tasks created in this kc instance
+  private static int taskCreationCount = 0;
+  // tracks number of times this task instance has been started
+  private int taskInstanceStartCount;
 
   // Rebalancing Test
   private boolean enableRebalancing = SnowflakeSinkConnectorConfig.REBALANCING_DEFAULT;
@@ -85,11 +90,7 @@ public class SnowflakeSinkTask extends SinkTask {
   // however if it is not set, it falls back to the static logger
   private static final LoggerHandler STATIC_LOGGER =
       new LoggerHandler(SnowflakeSinkTask.class.getName() + "_STATIC");
-  private LoggerHandler DYNAMIC_LOGGER;
-
-  // Task tracking counts, can be used for throttling
-  private static int taskInstanceCreationCount = 0;
-  private int taskInstanceStartCount;
+  @VisibleForTesting LoggerHandler DYNAMIC_LOGGER;
 
   private long taskStartTime;
 
@@ -97,7 +98,7 @@ public class SnowflakeSinkTask extends SinkTask {
   public SnowflakeSinkTask() {
     // nothing
     DYNAMIC_LOGGER = new LoggerHandler(this.getClass().getName());
-    taskInstanceCreationCount++;
+    taskCreationCount++;
     this.taskInstanceStartCount = 0;
   }
 
@@ -144,11 +145,14 @@ public class SnowflakeSinkTask extends SinkTask {
 
     // setup logging
     this.DYNAMIC_LOGGER.debug(
-        "Defining SnowflakeSinkTask tag to SnowflakeSinkTask[ID:{taskId}.{taskInstanceCount}"
-            + ".{taskStartCount}]");
+        "Defining SnowflakeSinkTask instance tag to"
+            + " SnowflakeSinkTask[ID:{taskId}.{taskCreationCount}.{taskStartCount}], where taskId"
+            + " is pulled from the config, taskCreationCount is the total number of tasks created"
+            + " during this run of Snowflake Kafka Connector, and taskStartCount is the number of"
+            + " times this task has been started");
 
     this.taskInstanceStartCount++;
-    this.DYNAMIC_LOGGER.setLoggerInstanceIdTag(this.getTaskLoggingTag());
+    this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskLoggingTag());
 
     this.DYNAMIC_LOGGER.info("starting task...");
 
@@ -312,7 +316,7 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     long startTime = System.currentTimeMillis();
-    this.DYNAMIC_LOGGER.debug("calling Put with {} records", records.size());
+    this.DYNAMIC_LOGGER.info("calling put with {} records", records.size());
 
     getSink().insert(records);
 
@@ -333,8 +337,8 @@ public class SnowflakeSinkTask extends SinkTask {
   public Map<TopicPartition, OffsetAndMetadata> preCommit(
       Map<TopicPartition, OffsetAndMetadata> offsets) throws RetriableException {
     long startTime = System.currentTimeMillis();
-    this.DYNAMIC_LOGGER.debug(
-        "calling PreCommit with {} offsets", this.taskConfigId, offsets.size());
+    this.DYNAMIC_LOGGER.info(
+        "calling precommit with {} offsets", this.taskConfigId, offsets.size());
 
     // return an empty map means that offset commitment is not desired
     if (sink == null || sink.isClosed()) {
@@ -361,7 +365,7 @@ public class SnowflakeSinkTask extends SinkTask {
       return new HashMap<>();
     }
 
-    logWarningForPutAndPrecommit(startTime, offsets.size(), "preCommit");
+    logWarningForPutAndPrecommit(startTime, offsets.size(), "precommit");
     return committedOffsets;
   }
 
@@ -422,6 +426,12 @@ public class SnowflakeSinkTask extends SinkTask {
           apiName,
           size,
           executionTime);
+    } else {
+      this.DYNAMIC_LOGGER.info(
+          "successfully called {} with {} records, execution time: {} seconds",
+          apiName,
+          size,
+          getExecutionTimeSec(startTime, System.currentTimeMillis()));
     }
   }
 
@@ -472,10 +482,10 @@ public class SnowflakeSinkTask extends SinkTask {
   private String getTaskLoggingTag() {
     int countThreshold = 999;
 
-    if (taskInstanceCreationCount > countThreshold) {
+    if (taskCreationCount > countThreshold) {
       this.DYNAMIC_LOGGER.warn(
           "This task instance has been created over {} times. Resetting to 0", countThreshold);
-      taskInstanceCreationCount = 0;
+      taskCreationCount = 0;
     }
 
     if (this.taskInstanceStartCount > countThreshold) {
@@ -485,9 +495,9 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     return Utils.formatString(
-        "SnowflakeSinkTask[ID:{}.{}.{}]",
+        TASK_INSTANCE_TAG_FORMAT,
         this.taskConfigId,
-        taskInstanceCreationCount,
+        taskCreationCount,
         this.taskInstanceStartCount);
   }
 

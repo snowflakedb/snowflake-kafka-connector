@@ -17,6 +17,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
+import java.util.UUID;
 import org.junit.After;
 import org.junit.Test;
 import org.mockito.InjectMocks;
@@ -24,8 +25,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.slf4j.Logger;
-
-import java.util.UUID;
 
 public class LoggerHandlerTest {
   // test constants
@@ -66,7 +65,7 @@ public class LoggerHandlerTest {
     String logTag = "TEST";
 
     this.loggerHandler = new LoggerHandler(this.name);
-    this.loggerHandler.setLoggerInstanceIdTag(logTag);
+    this.loggerHandler.setLoggerInstanceTag(logTag);
     MockitoAnnotations.initMocks(this);
 
     // [logtag]
@@ -82,7 +81,7 @@ public class LoggerHandlerTest {
 
     LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
     loggerHandler = new LoggerHandler(name);
-    this.loggerHandler.setLoggerInstanceIdTag(logTag);
+    this.loggerHandler.setLoggerInstanceTag(logTag);
     MockitoAnnotations.initMocks(this);
 
     // [kc:id|tag]
@@ -106,7 +105,7 @@ public class LoggerHandlerTest {
   public void testInvalidLogTag() {
     String msg = "super useful logging msg";
 
-    this.loggerHandler.setLoggerInstanceIdTag(null);
+    this.loggerHandler.setLoggerInstanceTag(null);
     MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
 
@@ -121,8 +120,13 @@ public class LoggerHandlerTest {
     String expectedFormattedMsg = "super wow useful wow! logging 1 msg yay";
 
     this.testLogMessagesRunner(msg, Utils.formatLogMessage(expectedTag + msg));
-    this.testLogMessagesWithFormattingRunner(formatMsg, Utils.formatLogMessage(expectedTag + expectedFormattedMsg),
-      "wow", "wow!", 1, "yay");
+    this.testLogMessagesWithFormattingRunner(
+        formatMsg,
+        Utils.formatLogMessage(expectedTag + expectedFormattedMsg),
+        "wow",
+        "wow!",
+        1,
+        "yay");
   }
 
   private void testLogMessagesRunner(String msg, String expectedMsg) {
