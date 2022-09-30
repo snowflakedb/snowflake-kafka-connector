@@ -35,10 +35,16 @@ public class SinkTaskIT {
   private SnowflakeConnectionService snowflakeConnectionService;
   private static int partition = 0;
 
+  @Mock Logger logger = Mockito.mock(Logger.class);
+
+  @InjectMocks @Spy
+  private LoggerHandler loggerHandler = Mockito.spy(new LoggerHandler(this.getClass().getName()));
+
+  @InjectMocks private SnowflakeSinkTask task1 = new SnowflakeSinkTask();
+
   @Before
   public void setup() {
     topicName = TestUtils.randomTableName();
-
     snowflakeConnectionService = TestUtils.getConnectionService();
   }
 
@@ -184,15 +190,8 @@ public class SinkTaskIT {
     sinkTask.logWarningForPutAndPrecommit(System.currentTimeMillis() - 400 * 1000, 1, "put");
   }
 
-  @Mock Logger logger = Mockito.mock(Logger.class);
-
-  @InjectMocks @Spy
-  private LoggerHandler loggerHandler = Mockito.spy(new LoggerHandler(this.getClass().getName()));
-
-  @InjectMocks private SnowflakeSinkTask task1 = new SnowflakeSinkTask();
-
   @Test
-  public void testMultipleSinkTasks() throws Exception {
+  public void testMultipleSinkTasksWithLogs() throws Exception {
     // setup log mocking for task1
     int task1StartCount = 0;
     int taskCreationCount = 2;
@@ -308,8 +307,10 @@ public class SinkTaskIT {
     task1.close(topicPartitions1);
 
     // verify task1 close logs
-    Mockito.verify(logger, Mockito.times(2))
+    Mockito.verify(logger, Mockito.times(1))
       .info(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("close")));
+    Mockito.verify(logger, Mockito.times(1))
+      .info(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("closing")));
 
     // stop tasks
     task0.stop();
