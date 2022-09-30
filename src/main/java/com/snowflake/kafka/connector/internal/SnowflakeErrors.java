@@ -316,7 +316,7 @@ public enum SnowflakeErrors {
       return new SnowflakeKafkaConnectorException(toString(), code);
     } else {
       return new SnowflakeKafkaConnectorException(
-          Logging.logMessage(
+          Utils.formatLogMessage(
               "Exception: {}\nError Code: {}\nDetail: {}\nMessage: {}", name, code, detail, msg),
           code);
     }
@@ -332,6 +332,6 @@ public enum SnowflakeErrors {
 
   @Override
   public String toString() {
-    return Logging.logMessage("Exception: {}\nError Code: {}\nDetail: {}", name, code, detail);
+    return Utils.formatLogMessage("Exception: {}\nError Code: {}\nDetail: {}", name, code, detail);
   }
 }

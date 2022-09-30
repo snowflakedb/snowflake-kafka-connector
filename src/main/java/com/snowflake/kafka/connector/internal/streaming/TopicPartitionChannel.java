@@ -9,7 +9,7 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -21,6 +21,7 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.Fallback;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
@@ -33,8 +34,6 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
@@ -72,7 +71,8 @@ import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
  * getLatestOffsetToken from Snowflake
  */
 public class TopicPartitionChannel {
-  private static final Logger LOGGER = LoggerFactory.getLogger(TopicPartitionChannel.class);
+  private static final LoggerHandler LOGGER =
+      new LoggerHandler(TopicPartitionChannel.class.getName());
 
   private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 
@@ -1155,10 +1155,9 @@ public class TopicPartitionChannel {
       this.channel.close().get();
     } catch (InterruptedException | ExecutionException e) {
       LOGGER.error(
-          Logging.logMessage(
-              "Failure closing Streaming Channel name:{} msg:{}",
-              this.getChannelName(),
-              e.getMessage()),
+          "Failure closing Streaming Channel name:{} msg:{}",
+          this.getChannelName(),
+          e.getMessage(),
           e);
     }
   }
@@ -1260,29 +1259,34 @@ public class TopicPartitionChannel {
     SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
 
     if (isRecordBroken(snowflakeRecord)) {
-      // we wont be able to find accurate size of serialized record since serialization itself
+      // we won't be able to find accurate size of serialized record since serialization itself
       // failed
       // But this will not happen in streaming ingest since we deprecated custom converters.
       return 0L;
     }
 
-    // get the row that we want to insert into Snowflake.
-    Map<String, Object> tableRow =
-        recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
-    // need to loop through the map and get the object node
-    for (Map.Entry<String, Object> entry : tableRow.entrySet()) {
-      sinkRecordBufferSizeInBytes += entry.getKey().length() * 2L;
-      // Can Typecast into string because value is JSON
-      Object value = entry.getValue();
-      if (value instanceof String) {
-        sinkRecordBufferSizeInBytes += ((String) value).length() * 2L; // 1 char = 2 bytes
-      } else {
-        // for now it could only be a list of string
-        for (String s : (List<String>) value) {
-          sinkRecordBufferSizeInBytes += s.length() * 2L;
+    try {
+      // get the row that we want to insert into Snowflake.
+      Map<String, Object> tableRow =
+          recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
+      // need to loop through the map and get the object node
+      for (Map.Entry<String, Object> entry : tableRow.entrySet()) {
+        sinkRecordBufferSizeInBytes += entry.getKey().length() * 2L;
+        // Can Typecast into string because value is JSON
+        Object value = entry.getValue();
+        if (value instanceof String) {
+          sinkRecordBufferSizeInBytes += ((String) value).length() * 2L; // 1 char = 2 bytes
+        } else {
+          // for now it could only be a list of string
+          for (String s : (List<String>) value) {
+            sinkRecordBufferSizeInBytes += s.length() * 2L;
+          }
         }
       }
+    } catch (JsonProcessingException e) {
+      // We ignore any errors here because this is just calculating the record size
     }
+
     sinkRecordBufferSizeInBytes += StreamingUtils.MAX_RECORD_OVERHEAD_BYTES;
     return sinkRecordBufferSizeInBytes;
   }
@@ -1356,10 +1360,20 @@ public class TopicPartitionChannel {
               && snowflakeRecord.timestampType() != NO_TIMESTAMP_TYPE) {
             // TODO:SNOW-529751 telemetry
           }
-          // Convert this records into Json Schema which has content and metadata
-          Map<String, Object> tableRow =
-              recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
-          snowflakeTableRowsFromSinkRecords.add(tableRow);
+
+          // Convert this records into Json Schema which has content and metadata, add it to DLQ if
+          // there is an exception
+          try {
+            Map<String, Object> tableRow =
+                recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
+            snowflakeTableRowsFromSinkRecords.add(tableRow);
+          } catch (JsonProcessingException e) {
+            LOGGER.warn(
+                "Record has JsonProcessingException offset:{}, topic:{}",
+                kafkaSinkRecord.kafkaOffset(),
+                kafkaSinkRecord.topic());
+            kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
+          }
         }
       }
       LOGGER.debug(

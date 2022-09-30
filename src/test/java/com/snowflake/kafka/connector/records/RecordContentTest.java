@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.records;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.type.TypeReference;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -234,7 +235,7 @@ public class RecordContentTest {
   }
 
   @Test
-  public void testSchematizationStringField() {
+  public void testSchematizationStringField() throws JsonProcessingException {
     RecordService service = new RecordService();
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
@@ -256,7 +257,7 @@ public class RecordContentTest {
   }
 
   @Test
-  public void testColumnNameFormatting() {
+  public void testColumnNameFormatting() throws JsonProcessingException {
     RecordService service = new RecordService();
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 

@@ -16,7 +16,6 @@
  */
 package com.snowflake.kafka.connector.records;
 
-import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -93,13 +92,11 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
         readerSchema = new Schema.Parser().parse((String) readerSchemaFromConfig);
       } catch (SchemaParseException e) {
         LOGGER.error(
-            Logging.logMessage(
-                "the string provided for reader.schema is no valid Avro schema: "
-                    + e.getMessage()));
+            "the string provided for reader.schema is no valid Avro schema: " + e.getMessage());
         throw SnowflakeErrors.ERROR_0024.getException(e);
       }
     } else {
-      LOGGER.error(Logging.logMessage("reader.schema has to be a string"));
+      LOGGER.error("reader.schema has to be a string");
       throw SnowflakeErrors.ERROR_0024.getException();
     }
   }
@@ -178,7 +175,7 @@ public class SnowflakeAvroConverter extends SnowflakeConverter {
 
   private SchemaAndValue logErrorAndReturnBrokenRecord(final Exception e, final byte[] bytes) {
 
-    LOGGER.error(Logging.logMessage("failed to parse AVRO record\n" + e.getMessage()));
+    LOGGER.error("failed to parse AVRO record\n" + e.getMessage());
     return new SchemaAndValue(new SnowflakeJsonSchema(), new SnowflakeRecordContent(bytes));
   }
 
