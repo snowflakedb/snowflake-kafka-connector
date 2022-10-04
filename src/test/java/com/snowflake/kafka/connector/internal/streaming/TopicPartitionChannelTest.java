@@ -436,7 +436,7 @@ public class TopicPartitionChannelTest {
       TopicPartitionChannel.StreamingBuffer streamingBuffer =
           topicPartitionChannel.new StreamingBuffer();
       streamingBuffer.insert(records.get(0));
-      topicPartitionChannel.insertBufferedRecordsWithRetry(streamingBuffer, 1);
+      topicPartitionChannel.insertBufferedRecords(streamingBuffer);
     } catch (SFException ex) {
       Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
       Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
@@ -450,6 +450,7 @@ public class TopicPartitionChannelTest {
 
   /* Runtime exception doesnt perform any fallbacks. */
   @Test(expected = RuntimeException.class)
+  // TODO TZHANG run this
   public void testInsertRows_RuntimeException() throws Exception {
     RuntimeException exception = new RuntimeException("runtime exception");
     Mockito.when(
@@ -473,8 +474,7 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertRecordToBuffer(records.get(0));
 
     try {
-      topicPartitionChannel.insertBufferedRecordsWithRetry(
-          topicPartitionChannel.getStreamingBuffer(), 1);
+      topicPartitionChannel.insertBufferedRecords(topicPartitionChannel.getStreamingBuffer());
     } catch (RuntimeException ex) {
       Mockito.verify(mockStreamingClient, Mockito.times(1)).openChannel(ArgumentMatchers.any());
       Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
@@ -512,8 +512,7 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertRecordToBuffer(records.get(0));
 
     try {
-      topicPartitionChannel.insertBufferedRecordsWithRetry(
-          topicPartitionChannel.getStreamingBuffer(), 1);
+      topicPartitionChannel.insertBufferedRecords(topicPartitionChannel.getStreamingBuffer());
     } catch (DataException ex) {
       throw ex;
     }
@@ -555,7 +554,7 @@ public class TopicPartitionChannelTest {
         topicPartitionChannel.new StreamingBuffer();
     streamingBuffer.insert(records.get(0));
 
-    assert topicPartitionChannel.insertBufferedRecordsWithRetry(streamingBuffer, 1).hasErrors();
+    assert topicPartitionChannel.insertBufferedRecords(streamingBuffer).hasErrors();
 
     assert kafkaRecordErrorReporter.getReportedRecords().size() == 1;
   }
@@ -599,7 +598,7 @@ public class TopicPartitionChannelTest {
         topicPartitionChannel.new StreamingBuffer();
     streamingBuffer.insert(records.get(0));
 
-    assert topicPartitionChannel.insertBufferedRecordsWithRetry(streamingBuffer, 1).hasErrors();
+    assert topicPartitionChannel.insertBufferedRecords(streamingBuffer).hasErrors();
 
     assert kafkaRecordErrorReporter.getReportedRecords().size() == 1;
   }

@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
-import com.snowflake.kafka.connector.SchematizationUtils;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.SchematizationUtils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
@@ -494,6 +494,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
   public void alterNonNullableColumns(String tableName, List<String> columnNames) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
+    // TODO tzhang: what if there're multiple table with the same name?
     StringBuilder dropNotNullQuery = new StringBuilder("alter table identifier(?) alter ");
     boolean isFirstColumn = true;
     StringBuilder logColumn = new StringBuilder("[");

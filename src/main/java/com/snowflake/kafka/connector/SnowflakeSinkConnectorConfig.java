@@ -152,9 +152,6 @@ public class SnowflakeSinkConnectorConfig {
           + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
 
-  // the number of retries before the insertion is treated as a failure
-  public static final int RETRY_INSERTION_ATTEMPT_MAX_COUNT_DEFAULT = 5;
-
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked
    * before actually sending records to Kafka connector.

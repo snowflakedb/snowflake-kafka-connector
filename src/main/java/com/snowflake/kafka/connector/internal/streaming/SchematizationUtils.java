@@ -1,6 +1,9 @@
-package com.snowflake.kafka.connector;
+package com.snowflake.kafka.connector.internal.streaming;
 
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.records.RecordService;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Field;
@@ -111,5 +114,46 @@ public class SchematizationUtils {
     return (objectName.charAt(0) == '"' && objectName.charAt(objectName.length() - 1) == '"')
         ? objectName.substring(1, objectName.length() - 1)
         : objectName.toUpperCase();
+  }
+
+  /**
+   * From the response collect rows with error and append those with unretryable errors to *
+   * recordWithError. Insert the rest into a StreamingBuffer waiting for retry insertion, and *
+   * collect the column to be added at the same time. After that the table is altered.
+   *
+   * @param conn
+   * @param tableName
+   * @param nonNullableColumns
+   * @param extraColNames
+   * @param record
+   */
+  public static void alterTableIfNeeded(
+      SnowflakeConnectionService conn,
+      String tableName,
+      List<String> nonNullableColumns,
+      List<String> extraColNames,
+      SinkRecord record) {
+    if (nonNullableColumns != null) {
+      try {
+        conn.alterNonNullableColumns(tableName, nonNullableColumns);
+      } catch (SnowflakeKafkaConnectorException e) {
+        LOGGER.warn(
+            String.format("[INSERT_BUFFERED_RECORDS] Failure altering table :%s", tableName), e);
+      }
+    }
+
+    if (extraColNames != null) {
+      Map<String, String> schemaMap = SchematizationUtils.getSchemaMapFromRecord(record);
+      JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
+      Map<String, String> extraColumnsToType =
+          SchematizationUtils.getColumnTypes(recordNode, extraColNames, schemaMap);
+
+      try {
+        conn.appendColumnsToTable(tableName, extraColumnsToType);
+      } catch (SnowflakeKafkaConnectorException e) {
+        LOGGER.warn(
+            String.format("[INSERT_BUFFERED_RECORDS] Failure altering table :%s", tableName), e);
+      }
+    }
   }
 }
