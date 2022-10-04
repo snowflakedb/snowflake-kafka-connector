@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Map;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.type.TypeReference;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -233,7 +234,7 @@ public class RecordContentTest {
   }
 
   @Test
-  public void testSchematizationStringField() {
+  public void testSchematizationStringField() throws JsonProcessingException {
     RecordService service = new RecordService();
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
@@ -255,7 +256,7 @@ public class RecordContentTest {
   }
 
   @Test
-  public void testColumnNameFormatting() {
+  public void testColumnNameFormatting() throws JsonProcessingException {
     RecordService service = new RecordService();
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
