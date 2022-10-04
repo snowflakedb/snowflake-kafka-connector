@@ -308,9 +308,12 @@ public class SinkTaskIT {
 
     // verify task1 close logs
     Mockito.verify(logger, Mockito.times(1))
-      .info(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("close")));
+        .info(
+            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("close")));
     Mockito.verify(logger, Mockito.times(1))
-      .info(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("closing")));
+        .info(
+            AdditionalMatchers.and(
+                Mockito.contains(expectedTask1Tag), Mockito.contains("closing")));
 
     // stop tasks
     task0.stop();

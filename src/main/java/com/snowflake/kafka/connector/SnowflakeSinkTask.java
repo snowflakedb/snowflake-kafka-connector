@@ -16,8 +16,6 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
@@ -28,13 +26,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Supplier;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -42,6 +33,16 @@ import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
+
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 
 /**
  * SnowflakeSinkTask implements SinkTask for Kafka Connect framework.
@@ -90,7 +91,7 @@ public class SnowflakeSinkTask extends SinkTask {
   // however if it is not set, it falls back to the static logger
   private static final LoggerHandler STATIC_LOGGER =
       new LoggerHandler(SnowflakeSinkTask.class.getName() + "_STATIC");
-  @VisibleForTesting LoggerHandler DYNAMIC_LOGGER;
+  private LoggerHandler DYNAMIC_LOGGER;
 
   private long taskStartTime;
 
@@ -144,7 +145,7 @@ public class SnowflakeSinkTask extends SinkTask {
     this.taskConfigId = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
 
     // setup logging
-    this.DYNAMIC_LOGGER.debug(
+    this.DYNAMIC_LOGGER.info(
         "Defining SnowflakeSinkTask instance tag to"
             + " SnowflakeSinkTask[ID:{taskId}.{taskCreationCount}.{taskStartCount}], where taskId"
             + " is pulled from the config, taskCreationCount is the total number of tasks created"
