@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2022 Snowflake Computing Inc. All rights reserved.
+ */
+
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -22,58 +26,124 @@ public class SchematizationUtils {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SchematizationUtils.class);
 
-  public static Map<String, String> getSchemaMapFromRecord(SinkRecord record) {
+  /**
+   * Transform the objectName to uppercase unless it is enclosed in double quotes
+   *
+   * <p>In that case, drop the quotes and leave it as it is.
+   *
+   * @param objectName name of the snowflake object, could be tableName, columnName, roleName, etc.
+   * @return Transformed objectName
+   */
+  public static String formatName(String objectName) {
+    return (objectName.charAt(0) == '"' && objectName.charAt(objectName.length() - 1) == '"')
+        ? objectName.substring(1, objectName.length() - 1)
+        : objectName.toUpperCase();
+  }
+
+  /**
+   * Execute a ALTER TABLE command if there is any extra column that needs to be added, or any
+   * column nullability that needs to be updated, used by schema evolution
+   *
+   * @param conn connection to the Snowflake
+   * @param tableName table name
+   * @param nonNullableColumns a list of columns that needs to update the nullability
+   * @param extraColNames a list of columns that needs to be updated
+   * @param record the sink record that contains the schema and actual data
+   */
+  public static void alterTableIfNeeded(
+      SnowflakeConnectionService conn,
+      String tableName,
+      List<String> nonNullableColumns,
+      List<String> extraColNames,
+      SinkRecord record) {
+    // Update nullability if needed, ignore any exceptions since other task might be succeeded
+    if (nonNullableColumns != null) {
+      try {
+        conn.alterNonNullableColumns(tableName, nonNullableColumns);
+      } catch (SnowflakeKafkaConnectorException e) {
+        LOGGER.warn(
+            String.format("Failure altering table to update nullability: %s", tableName), e);
+      }
+    }
+
+    // Add columns if needed, ignore any exceptions since other task might be succeeded
+    if (extraColNames != null) {
+      Map<String, String> extraColumnsToType = getColumnTypes(record, extraColNames);
+      try {
+        conn.appendColumnsToTable(tableName, extraColumnsToType);
+      } catch (SnowflakeKafkaConnectorException e) {
+        LOGGER.warn(String.format("Failure altering table to add column: %s", tableName), e);
+      }
+    }
+  }
+
+  /**
+   * With the list of columns, collect their data types from either the schema or the data itself
+   *
+   * @param record the sink record that contains the schema and actual data
+   * @param columnNames the names of the extra columns
+   * @return a Map object where the key is column name and value is Snowflake data type
+   */
+  static Map<String, String> getColumnTypes(SinkRecord record, List<String> columnNames) {
+    if (columnNames == null) {
+      return new HashMap<>();
+    }
+    Map<String, String> columnToType = new HashMap<>();
+    Map<String, String> schemaMap = getSchemaMapFromRecord(record);
+    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
+
+    for (String columnName : columnNames) {
+      if (!columnToType.containsKey(columnName)) {
+        String type;
+        if (schemaMap.isEmpty()) {
+          // No schema associated with the record, we will try to infer it based on the data
+          Object value = recordNode.get(columnName);
+          if (value == null) {
+            LOGGER.info(
+                "The corresponding value is null for the given column: {}, so infer to VARIANT type",
+                columnName);
+            type = "VARIANT";
+          } else {
+            type = inferDataTypeFromJsonObject(recordNode.get(columnName));
+          }
+        } else {
+          // Get from the schema
+          type = schemaMap.get(columnName);
+        }
+        columnToType.put(columnName, type);
+      }
+    }
+    return columnToType;
+  }
+
+  /**
+   * Given a SinkRecord, get the schema information from it
+   *
+   * @param record the sink record that contains the schema and actual data
+   * @return a Map object where the key is column name and value is Snowflake data type
+   */
+  private static Map<String, String> getSchemaMapFromRecord(SinkRecord record) {
     Map<String, String> schemaMap = new HashMap<>();
     Schema schema = record.valueSchema();
-    for (Field field : schema.fields()) {
-      schemaMap.put(field.name(), convertToSnowflakeType(field.schema().type()));
+    if (schema != null) {
+      for (Field field : schema.fields()) {
+        schemaMap.put(field.name(), convertToSnowflakeType(field.schema().type()));
+      }
     }
     return schemaMap;
   }
 
-  /**
-   * With the list of extra columns, collect their types from either the record or from schema
-   * fetched from schema registry
-   *
-   * @param recordNode the record body
-   * @param columnNames the names of the extra columns
-   * @param schemaMap the schema map from schema registry, could be empty
-   * @return the map from columnNames to their types
-   */
-  public static Map<String, String> getColumnTypes(
-      JsonNode recordNode, List<String> columnNames, Map<String, String> schemaMap) {
-    if (columnNames == null) {
-      return new HashMap<>();
-    }
-    Map<String, String> extraColumnToType = new HashMap<>();
-
-    for (String columnName : columnNames) {
-      if (!extraColumnToType.containsKey(columnName)) {
-        String type;
-        if (schemaMap.isEmpty()) {
-          // no schema associated with the record
-          type = getTypeFromJsonObject(recordNode.get(columnName));
-        } else {
-          type = schemaMap.get(columnName);
-        }
-        extraColumnToType.put(columnName, type);
-      }
-    }
-    return extraColumnToType;
-  }
-
-  private static String getTypeFromJsonObject(Object value) {
-    if (value == null) {
-      return "VARIANT";
-    }
+  /** Try to infer the data type from the data */
+  private static String inferDataTypeFromJsonObject(Object value) {
     Type schemaType = ConnectSchema.schemaType(value.getClass());
     if (schemaType == null) {
       // only when the type of the value is unrecognizable for JAVA
-      throw SnowflakeErrors.ERROR_5021.getException();
+      throw SnowflakeErrors.ERROR_5021.getException("class: " + value.getClass());
     }
     return convertToSnowflakeType(schemaType);
   }
 
+  /** Convert the kafka data type to Snowflake data type */
   private static String convertToSnowflakeType(Type kafkaType) {
     switch (kafkaType) {
       case INT8:
@@ -98,62 +168,9 @@ public class SchematizationUtils {
         return "ARRAY";
       default:
         // MAP and STRUCT will go here
+        LOGGER.debug(
+            "The corresponding kafka type is {}, so infer to VARIANT type", kafkaType.getName());
         return "VARIANT";
-    }
-  }
-
-  /**
-   * Transform the objectName to uppercase unless it is enclosed in double quotes
-   *
-   * <p>In that case, drop the quotes and leave it as it is.
-   *
-   * @param objectName name of the snowflake object, could be tableName, columnName, roleName, etc.
-   * @return Transformed objectName
-   */
-  public static String formatName(String objectName) {
-    return (objectName.charAt(0) == '"' && objectName.charAt(objectName.length() - 1) == '"')
-        ? objectName.substring(1, objectName.length() - 1)
-        : objectName.toUpperCase();
-  }
-
-  /**
-   * From the response collect rows with error and append those with unretryable errors to *
-   * recordWithError. Insert the rest into a StreamingBuffer waiting for retry insertion, and *
-   * collect the column to be added at the same time. After that the table is altered.
-   *
-   * @param conn
-   * @param tableName
-   * @param nonNullableColumns
-   * @param extraColNames
-   * @param record
-   */
-  public static void alterTableIfNeeded(
-      SnowflakeConnectionService conn,
-      String tableName,
-      List<String> nonNullableColumns,
-      List<String> extraColNames,
-      SinkRecord record) {
-    if (nonNullableColumns != null) {
-      try {
-        conn.alterNonNullableColumns(tableName, nonNullableColumns);
-      } catch (SnowflakeKafkaConnectorException e) {
-        LOGGER.warn(
-            String.format("[INSERT_BUFFERED_RECORDS] Failure altering table :%s", tableName), e);
-      }
-    }
-
-    if (extraColNames != null) {
-      Map<String, String> schemaMap = SchematizationUtils.getSchemaMapFromRecord(record);
-      JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
-      Map<String, String> extraColumnsToType =
-          SchematizationUtils.getColumnTypes(recordNode, extraColNames, schemaMap);
-
-      try {
-        conn.appendColumnsToTable(tableName, extraColumnsToType);
-      } catch (SnowflakeKafkaConnectorException e) {
-        LOGGER.warn(
-            String.format("[INSERT_BUFFERED_RECORDS] Failure altering table :%s", tableName), e);
-      }
     }
   }
 }

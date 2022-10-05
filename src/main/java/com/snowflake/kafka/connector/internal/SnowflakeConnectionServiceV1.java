@@ -439,7 +439,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
 
     boolean hasPermission = hasRolePrivilege && hasTableOptionEnabled;
     LOG_INFO_MSG(
-        String.format("Table: %s has Schema Evolution permission: %s", tableName, hasPermission));
+        String.format("Table: %s has schema evolution permission: %s", tableName, hasPermission));
     return hasPermission;
   }
 
@@ -477,6 +477,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
       stmt.execute();
       stmt.close();
     } catch (SQLException e) {
+      // TODO TZHANG: verify the exception is caught
       throw SnowflakeErrors.ERROR_2015.getException(e);
     }
 
