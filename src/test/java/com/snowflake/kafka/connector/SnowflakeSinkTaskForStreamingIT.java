@@ -1,9 +1,22 @@
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+import static com.snowflake.kafka.connector.SnowflakeSinkTask.TASK_INSTANCE_TAG_FORMAT;
+
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -21,20 +34,6 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 import org.slf4j.Logger;
-
-import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkTask.TASK_INSTANCE_TAG_FORMAT;
 
 /**
  * Sink Task IT test which uses {@link
@@ -134,7 +133,8 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask1.start(config1);
 
     // verify task1 start logs
-    Mockito.verify(loggerHandler, Mockito.times(1)).setLoggerInstanceTag(Mockito.contains(expectedTask1Tag));
+    Mockito.verify(loggerHandler, Mockito.times(1))
+        .setLoggerInstanceTag(Mockito.contains(expectedTask1Tag));
     Mockito.verify(logger, Mockito.times(2))
         .info(
             AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("start")));
