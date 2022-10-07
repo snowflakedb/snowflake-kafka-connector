@@ -16,6 +16,9 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkTask.TASK_INSTANCE_TAG_FORMAT;
+import static com.snowflake.kafka.connector.Utils.*;
+
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -24,16 +27,6 @@ import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.kafka.common.record.TimestampType;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaAndValue;
-import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.json.JsonConverter;
-import org.apache.kafka.connect.sink.SinkRecord;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -51,9 +44,15 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static com.snowflake.kafka.connector.SnowflakeSinkTask.TASK_INSTANCE_TAG_FORMAT;
-import static com.snowflake.kafka.connector.Utils.*;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.common.record.TimestampType;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.sink.SinkRecord;
 
 public class TestUtils {
   // test profile properties

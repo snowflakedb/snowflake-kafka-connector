@@ -16,6 +16,8 @@
  */
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
@@ -26,14 +28,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.errors.ConnectException;
-import org.apache.kafka.connect.errors.RetriableException;
-import org.apache.kafka.connect.sink.ErrantRecordReporter;
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.apache.kafka.connect.sink.SinkTask;
-
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,8 +35,13 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
-
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.errors.RetriableException;
+import org.apache.kafka.connect.sink.ErrantRecordReporter;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.sink.SinkTask;
 
 /**
  * SnowflakeSinkTask implements SinkTask for Kafka Connect framework.
@@ -54,7 +53,8 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVER
  */
 public class SnowflakeSinkTask extends SinkTask {
   // SfTask[ID:taskId.taskOpenCount, #totalTaskCreationCount]
-  // Example: SfTask[ID:0.1, #2] would indicate that this is a task with id 0, it has been opened once, and that
+  // Example: SfTask[ID:0.1, #2] would indicate that this is a task with id 0, it has been opened
+  // once, and that
   // this instance of KC has created two tasks
   public static final String TASK_INSTANCE_TAG_FORMAT = "SfTask[ID:{}.{}, #{}]";
 
@@ -67,7 +67,7 @@ public class SnowflakeSinkTask extends SinkTask {
   // the dynamic logger is intended to be attached per task instance. the instance id will be set
   // during task start, however if it is not set, it falls back to the static logger
   private static final LoggerHandler STATIC_LOGGER =
-    new LoggerHandler(SnowflakeSinkTask.class.getName() + "_STATIC");
+      new LoggerHandler(SnowflakeSinkTask.class.getName() + "_STATIC");
   private LoggerHandler DYNAMIC_LOGGER;
 
   // After 5 put operations, we will insert a sleep which will cause a rebalance since heartbeat is
@@ -107,7 +107,8 @@ public class SnowflakeSinkTask extends SinkTask {
   public SnowflakeSinkTask() {
     DYNAMIC_LOGGER = new LoggerHandler(this.getClass().getName());
     // only increment task creation count if we know kc has been started
-    totalTaskCreationCount = totalTaskCreationCount != -1 ? totalTaskCreationCount + 1 : totalTaskCreationCount;
+    totalTaskCreationCount =
+        totalTaskCreationCount != -1 ? totalTaskCreationCount + 1 : totalTaskCreationCount;
     this.taskOpenCount = 0;
   }
 
@@ -154,12 +155,10 @@ public class SnowflakeSinkTask extends SinkTask {
 
     // setup logging
     this.DYNAMIC_LOGGER.info(
-        "Defining SnowflakeSinkTask instance tag to"
-            + " SfTask[ID:{taskId}.{taskOpenCount}, #{totalTaskCreationCount}], where taskId is pulled from the"
-            + " config, taskOpenCount is the number of times this task has been opened and totalTaskCreationCount is " +
-          "the total number of tasks " +
-          "created during this run"
-            + " of Snowflake Kafka Connector");
+        "Defining SnowflakeSinkTask instance tag to SfTask[ID:{taskId}.{taskOpenCount},"
+            + " #{totalTaskCreationCount}], where taskId is pulled from the config, taskOpenCount"
+            + " is the number of times this task has been opened and totalTaskCreationCount is the"
+            + " total number of tasks created during this run of Snowflake Kafka Connector");
 
     this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskLoggingTag());
 
@@ -499,7 +498,8 @@ public class SnowflakeSinkTask extends SinkTask {
       totalTaskCreationCount = 0;
     }
 
-    return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, this.taskConfigId, this.taskOpenCount, totalTaskCreationCount);
+    return Utils.formatString(
+        TASK_INSTANCE_TAG_FORMAT, this.taskConfigId, this.taskOpenCount, totalTaskCreationCount);
   }
 
   /**
