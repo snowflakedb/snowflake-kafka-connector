@@ -1,22 +1,9 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkTask.TASK_INSTANCE_TAG_FORMAT;
-
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -34,6 +21,20 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 import org.slf4j.Logger;
+
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+import static com.snowflake.kafka.connector.SnowflakeSinkTask.TASK_INSTANCE_TAG_FORMAT;
 
 /**
  * Sink Task IT test which uses {@link
@@ -103,8 +104,6 @@ public class SnowflakeSinkTaskForStreamingIT {
     MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
-    int task1StartCount = 0;
-    int taskCreationCount = 2;
 
     // set up configs
     String task0Id = "0";
@@ -127,8 +126,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
 
     // set up task1 logging tag
-    task1StartCount++;
-    String expectedTask1Tag = getExpectedLogTag(task1Id, taskCreationCount, task1StartCount);
+    String expectedTask1Tag = getExpectedLogTagWithoutCreationCount(task1Id);
     Mockito.doCallRealMethod().when(loggerHandler).setLoggerInstanceTag(expectedTask1Tag);
 
     // start tasks
@@ -136,7 +134,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask1.start(config1);
 
     // verify task1 start logs
-    Mockito.verify(loggerHandler, Mockito.times(1)).setLoggerInstanceTag(expectedTask1Tag);
+    Mockito.verify(loggerHandler, Mockito.times(1)).setLoggerInstanceTag(Mockito.contains(expectedTask1Tag));
     Mockito.verify(logger, Mockito.times(2))
         .info(
             AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("start")));
@@ -301,7 +299,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     assert partitionsInTable.size() == 2;
   }
 
-  private String getExpectedLogTag(String taskId, int taskCreationCount, int taskStartCount) {
-    return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, taskId, taskCreationCount, taskStartCount);
+  private String getExpectedLogTagWithoutCreationCount(String taskId) {
+    return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, taskId, "").split("\\.")[0];
   }
 }

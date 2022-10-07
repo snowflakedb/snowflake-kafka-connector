@@ -1,17 +1,10 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
-import static com.snowflake.kafka.connector.SnowflakeSinkTask.TASK_INSTANCE_TAG_FORMAT;
-import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
-
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -28,6 +21,14 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 import org.slf4j.Logger;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkTask.TASK_INSTANCE_TAG_FORMAT;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 
 public class SinkTaskIT {
   private String topicName;
@@ -192,8 +193,6 @@ public class SinkTaskIT {
   @Test
   public void testMultipleSinkTasksWithLogs() throws Exception {
     // setup log mocking for task1
-    int task1StartCount = 0;
-    int taskCreationCount = 2;
     MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
@@ -211,16 +210,15 @@ public class SinkTaskIT {
     task1Config.put(Utils.TASK_ID, task1Id);
 
     // set up task1 logging tag
-    task1StartCount++;
-    String expectedTask1Tag = getExpectedLogTag(task1Id, taskCreationCount, task1StartCount);
-    Mockito.doCallRealMethod().when(loggerHandler).setLoggerInstanceTag(expectedTask1Tag);
+    String expectedTask1Tag = getExpectedLogTagWithoutCreationCount(task1Id);
+    //Mockito.doCallRealMethod().when(loggerHandler).setLoggerInstanceTag(expectedTask1Tag);
 
     // start tasks
     task0.start(task0Config);
     task1.start(task1Config);
 
     // verify task1 start logs
-    Mockito.verify(loggerHandler, Mockito.times(1)).setLoggerInstanceTag(expectedTask1Tag);
+    Mockito.verify(loggerHandler, Mockito.times(1)).setLoggerInstanceTag(Mockito.contains(expectedTask1Tag));
     Mockito.verify(logger, Mockito.times(2))
         .info(
             AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("start")));
@@ -326,7 +324,7 @@ public class SinkTaskIT {
     assert offsetMap0.get(topicPartitions1.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
   }
 
-  private String getExpectedLogTag(String taskId, int taskCreationCount, int taskStartCount) {
-    return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, taskId, taskCreationCount, taskStartCount);
+  private String getExpectedLogTagWithoutCreationCount(String taskId) {
+    return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, taskId, "").split("\\.")[0];
   }
 }
