@@ -16,8 +16,6 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
@@ -28,13 +26,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Supplier;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -42,6 +33,16 @@ import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
+
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 
 /**
  * SnowflakeSinkTask implements SinkTask for Kafka Connect framework.
@@ -52,10 +53,30 @@ import org.apache.kafka.connect.sink.SinkTask;
  * Snowflake via Sink service
  */
 public class SnowflakeSinkTask extends SinkTask {
-  public static final String TASK_INSTANCE_TAG_FORMAT = "SnowflakeSinkTask[ID:{}.{}]";
+  // SfTask[ID:taskId.taskOpenCount, #totalTaskCreationCount]
+  // Example: SfTask[ID:0.1, #2] would indicate that this is a task with id 0, it has been opened once, and that
+  // this instance of KC has created two tasks
+  public static final String TASK_INSTANCE_TAG_FORMAT = "SfTask[ID:{}.{}, #{}]";
 
   private static final long WAIT_TIME = 5 * 1000; // 5 sec
   private static final int REPEAT_TIME = 12; // 60 sec
+
+  // tracks total number of tasks created in this kc instance, default (when KC isn't running) is -1
+  private static int totalTaskCreationCount = -1;
+
+  // the dynamic logger is intended to be attached per task instance. the instance id will be set
+  // during task start, however if it is not set, it falls back to the static logger
+  private static final LoggerHandler STATIC_LOGGER =
+    new LoggerHandler(SnowflakeSinkTask.class.getName() + "_STATIC");
+  private LoggerHandler DYNAMIC_LOGGER;
+
+  // After 5 put operations, we will insert a sleep which will cause a rebalance since heartbeat is
+  // not found
+  private final int REBALANCING_THRESHOLD = 10;
+
+  // This value should be more than max.poll.interval.ms
+  // check connect-distributed.properties file used to start kafka connect
+  private final int rebalancingSleepTime = 370000;
 
   private SnowflakeSinkService sink = null;
   private Map<String, String> topic2table = null;
@@ -67,36 +88,27 @@ public class SnowflakeSinkTask extends SinkTask {
 
   // tracks number of tasks the config wants to create
   private String taskConfigId = "-1";
-  // tracks total number of tasks created in this kc instance
-  private static int taskCreationCount = 0;
 
   // Rebalancing Test
   private boolean enableRebalancing = SnowflakeSinkConnectorConfig.REBALANCING_DEFAULT;
   // After REBALANCING_THRESHOLD put operations, insert a thread.sleep which will trigger rebalance
   private int rebalancingCounter = 0;
 
-  // After 5 put operations, we will insert a sleep which will cause a rebalance since heartbeat is
-  // not found
-  private final int REBALANCING_THRESHOLD = 10;
-
-  // This value should be more than max.poll.interval.ms
-  // check connect-distributed.properties file used to start kafka connect
-  private final int rebalancingSleepTime = 370000;
-
-  // the dynamic logger is intended to be attached per task instance. the instance id will be set
-  // during task start,
-  // however if it is not set, it falls back to the static logger
-  private static final LoggerHandler STATIC_LOGGER =
-      new LoggerHandler(SnowflakeSinkTask.class.getName() + "_STATIC");
-  private LoggerHandler DYNAMIC_LOGGER;
-
   private long taskStartTime;
+
+  private long taskOpenCount;
+
+  public static void setTotalTaskCreationCount(int newCreationCount) {
+    STATIC_LOGGER.info("Setting task creation count to {} for logging", newCreationCount);
+    totalTaskCreationCount = newCreationCount;
+  }
 
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
-    // nothing
     DYNAMIC_LOGGER = new LoggerHandler(this.getClass().getName());
-    taskCreationCount++;
+    // only increment task creation count if we know kc has been started
+    totalTaskCreationCount = totalTaskCreationCount != -1 ? totalTaskCreationCount + 1 : totalTaskCreationCount;
+    this.taskOpenCount = 0;
   }
 
   private SnowflakeConnectionService getConnection() {
@@ -143,8 +155,10 @@ public class SnowflakeSinkTask extends SinkTask {
     // setup logging
     this.DYNAMIC_LOGGER.info(
         "Defining SnowflakeSinkTask instance tag to"
-            + " SnowflakeSinkTask[ID:{taskId}.{taskCreationCount}], where taskId is pulled from the"
-            + " config and taskCreationCount is the total number of tasks created during this run"
+            + " SfTask[ID:{taskId}.{taskOpenCount}, #{totalTaskCreationCount}], where taskId is pulled from the"
+            + " config, taskOpenCount is the number of times this task has been opened and totalTaskCreationCount is " +
+          "the total number of tasks " +
+          "created during this run"
             + " of Snowflake Kafka Connector");
 
     this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskLoggingTag());
@@ -267,11 +281,13 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void open(final Collection<TopicPartition> partitions) {
+    this.taskOpenCount++;
+    this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskLoggingTag());
+
     long startTime = System.currentTimeMillis();
     this.DYNAMIC_LOGGER.info("opening task with TopicPartition number: {}", partitions.size());
     partitions.forEach(
         tp -> this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp));
-
     this.DYNAMIC_LOGGER.info(
         "task opened, execution time: {} seconds",
         getExecutionTimeSec(startTime, System.currentTimeMillis()));
@@ -477,13 +493,13 @@ public class SnowflakeSinkTask extends SinkTask {
   private String getTaskLoggingTag() {
     int countThreshold = 999;
 
-    if (taskCreationCount > countThreshold) {
+    if (totalTaskCreationCount > countThreshold) {
       this.DYNAMIC_LOGGER.warn(
           "More than {} tasks have been created. Resetting to 0", countThreshold);
-      taskCreationCount = 0;
+      totalTaskCreationCount = 0;
     }
 
-    return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, this.taskConfigId, taskCreationCount);
+    return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, this.taskConfigId, this.taskOpenCount, totalTaskCreationCount);
   }
 
   /**

@@ -22,15 +22,16 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import org.apache.kafka.common.config.Config;
+import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.connect.connector.Task;
+import org.apache.kafka.connect.sink.SinkConnector;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.kafka.common.config.Config;
-import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.connect.connector.Task;
-import org.apache.kafka.connect.sink.SinkConnector;
 
 /**
  * SnowflakeSinkConnector implements SinkConnector for Kafka Connect framework.
@@ -79,9 +80,12 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
+    // ensure we start counting tasks at 0 for this instance
+    SnowflakeSinkTask.setTotalTaskCreationCount(0);
+
     Utils.checkConnectorVersion();
 
-    // initialize logging with correlationId
+    // initialize logging with global instance Id
     LoggerHandler.setConnectGlobalInstanceId(UUID.randomUUID());
 
     LOGGER.info("SnowflakeSinkConnector:start");
@@ -121,6 +125,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void stop() {
+    // set task logging to default
+    SnowflakeSinkTask.setTotalTaskCreationCount(-1);
     setupComplete = false;
     LOGGER.info("SnowflakeSinkConnector:stop");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
