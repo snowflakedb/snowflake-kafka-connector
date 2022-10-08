@@ -3,9 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.TextNode;
 import org.apache.kafka.common.record.TimestampType;
-import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -13,18 +11,12 @@ import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-
-import static org.apache.kafka.connect.data.Schema.Type.INT32;
-import static org.apache.kafka.connect.data.Schema.Type.MAP;
-import static org.apache.kafka.connect.data.Schema.Type.STRING;
 
 public class SchematizationUtilsTest {
   @Rule public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
@@ -61,20 +53,15 @@ public class SchematizationUtilsTest {
             System.currentTimeMillis(),
             TimestampType.CREATE_TIME);
 
-    try (MockedStatic<ConnectSchema> utilities = Mockito.mockStatic(ConnectSchema.class)) {
-      utilities.when(() -> ConnectSchema.schemaType(TextNode.class)).thenReturn(INT32);
-      utilities.when(() -> ConnectSchema.schemaType(HashMap.class)).thenReturn(MAP);
-      utilities.when(() -> ConnectSchema.schemaType(String.class)).thenReturn(STRING);
-      Map<String, String> columnToTypes =
-          SchematizationUtils.getColumnTypes(
-              recordWithoutSchema, Collections.singletonList(columnName));
-      Assert.assertEquals("INT", columnToTypes.get(columnName));
-      // Get non-existing column name should return VARIANT data type
-      columnToTypes =
-          SchematizationUtils.getColumnTypes(
-              recordWithoutSchema, Collections.singletonList("random"));
-      Assert.assertEquals("VARIANT", columnToTypes.get("random"));
-    }
+    Map<String, String> columnToTypes =
+        SchematizationUtils.getColumnTypes(
+            recordWithoutSchema, Collections.singletonList(columnName));
+    Assert.assertEquals("VARCHAR", columnToTypes.get(columnName));
+    // Get non-existing column name should return VARIANT data type
+    columnToTypes =
+        SchematizationUtils.getColumnTypes(
+            recordWithoutSchema, Collections.singletonList("random"));
+    Assert.assertEquals("VARIANT", columnToTypes.get("random"));
   }
 
   @Test

@@ -16,21 +16,6 @@
  */
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
-import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
-import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
-import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_USER;
-import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_HOST;
-import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PASSWORD;
-import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
-import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_USER;
-import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
-import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
-import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
-import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
-import static com.snowflake.kafka.connector.Utils.SF_URL;
-import static com.snowflake.kafka.connector.Utils.SF_USER;
-
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -39,6 +24,16 @@ import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.common.record.TimestampType;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.sink.SinkRecord;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -56,15 +51,21 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.kafka.common.record.TimestampType;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaAndValue;
-import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.json.JsonConverter;
-import org.apache.kafka.connect.sink.SinkRecord;
+
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_USER;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_HOST;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PASSWORD;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_USER;
+import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
+import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
+import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
+import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
+import static com.snowflake.kafka.connector.Utils.SF_URL;
+import static com.snowflake.kafka.connector.Utils.SF_USER;
 
 public class TestUtils {
   // test profile properties
@@ -680,7 +681,7 @@ public class TestUtils {
     int numberOfColumnExpected = schemaMap.size();
     int numberOfColumnInTable = 0;
     while (result.next()) {
-      assert result.getString(2).startsWith(schemaMap.get(result.getString(1)));
+      assert result.getString("type").startsWith(schemaMap.get(result.getString("name")));
       // see if the type of the column in sf is the same as expected (ignoring scale)
       numberOfColumnInTable++;
     }
@@ -705,15 +706,21 @@ public class TestUtils {
     for (int i = 0; i < contentMap.size(); ++i) {
       String columnName = result.getMetaData().getColumnName(i + 1);
       Object value = result.getObject(i + 1);
-      if (value instanceof String && ((String) value).startsWith("{")) {
-        // is a map
-        value = ((String) value).replace(" ", "").replace("\n", "");
-        // get rid of the formatting added by snowflake
+      if (value != null) {
+        // For map or array
+        if (value instanceof String
+            && (((String) value).startsWith("{") || ((String) value).startsWith("["))) {
+          // Get rid of the formatting added by snowflake
+          value = ((String) value).replace(" ", "").replace("\n", "");
+        }
+        if ("RECORD_METADATA_PLACE_HOLDER".equals(contentMap.get(columnName))) {
+          continue;
+        }
+        assert value.equals(contentMap.get(columnName))
+            : "expected: " + contentMap.get(columnName) + " actual: " + value;
+      } else {
+        assert contentMap.get(columnName) == null : "value should be null";
       }
-      if (contentMap.get(columnName).equals("RECORD_METADATA_PLACE_HOLDER")) {
-        continue;
-      }
-      assert value.equals(contentMap.get(columnName));
     }
   }
 }

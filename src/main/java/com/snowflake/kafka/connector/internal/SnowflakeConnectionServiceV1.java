@@ -495,7 +495,6 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
   public void alterNonNullableColumns(String tableName, List<String> columnNames) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-    // TODO tzhang: what if there're multiple table with the same name?
     StringBuilder dropNotNullQuery = new StringBuilder("alter table identifier(?) alter ");
     boolean isFirstColumn = true;
     StringBuilder logColumn = new StringBuilder("[");

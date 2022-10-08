@@ -255,6 +255,8 @@ public class RecordService extends EnableLogging {
         columnValue = itemList;
       } else if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
+      } else if (columnNode.isNull()) {
+        columnValue = null;
       } else {
         columnValue = MAPPER.writeValueAsString(columnNode);
       }

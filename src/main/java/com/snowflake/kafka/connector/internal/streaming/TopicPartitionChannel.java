@@ -1119,12 +1119,14 @@ public class TopicPartitionChannel {
         sinkRecordBufferSizeInBytes += entry.getKey().length() * 2L;
         // Can Typecast into string because value is JSON
         Object value = entry.getValue();
-        if (value instanceof String) {
-          sinkRecordBufferSizeInBytes += ((String) value).length() * 2L; // 1 char = 2 bytes
-        } else {
-          // for now it could only be a list of string
-          for (String s : (List<String>) value) {
-            sinkRecordBufferSizeInBytes += s.length() * 2L;
+        if (value != null) {
+          if (value instanceof String) {
+            sinkRecordBufferSizeInBytes += ((String) value).length() * 2L; // 1 char = 2 bytes
+          } else {
+            // for now it could only be a list of string
+            for (String s : (List<String>) value) {
+              sinkRecordBufferSizeInBytes += s.length() * 2L;
+            }
           }
         }
       }

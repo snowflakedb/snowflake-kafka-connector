@@ -9,7 +9,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.records.RecordService;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Schema.Type;
@@ -20,6 +19,17 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.apache.kafka.connect.data.Schema.Type.ARRAY;
+import static org.apache.kafka.connect.data.Schema.Type.BOOLEAN;
+import static org.apache.kafka.connect.data.Schema.Type.BYTES;
+import static org.apache.kafka.connect.data.Schema.Type.FLOAT32;
+import static org.apache.kafka.connect.data.Schema.Type.FLOAT64;
+import static org.apache.kafka.connect.data.Schema.Type.INT16;
+import static org.apache.kafka.connect.data.Schema.Type.INT32;
+import static org.apache.kafka.connect.data.Schema.Type.INT64;
+import static org.apache.kafka.connect.data.Schema.Type.STRING;
+import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
 
 /** This is a class containing the helper functions related to schematization */
 public class SchematizationUtils {
@@ -97,15 +107,7 @@ public class SchematizationUtils {
         String type;
         if (schemaMap.isEmpty()) {
           // No schema associated with the record, we will try to infer it based on the data
-          Object value = recordNode.get(columnName);
-          if (value == null) {
-            LOGGER.info(
-                "The corresponding value is null for the given column: {}, so infer to VARIANT type",
-                columnName);
-            type = "VARIANT";
-          } else {
-            type = inferDataTypeFromJsonObject(recordNode.get(columnName));
-          }
+          type = inferDataTypeFromJsonObject(recordNode.get(columnName));
         } else {
           // Get from the schema
           type = schemaMap.get(columnName);
@@ -134,13 +136,43 @@ public class SchematizationUtils {
   }
 
   /** Try to infer the data type from the data */
-  private static String inferDataTypeFromJsonObject(Object value) {
-    Type schemaType = ConnectSchema.schemaType(value.getClass());
+  private static String inferDataTypeFromJsonObject(JsonNode value) {
+    Type schemaType = convertJsonNodeTypeToKafkaType(value);
     if (schemaType == null) {
       // only when the type of the value is unrecognizable for JAVA
       throw SnowflakeErrors.ERROR_5021.getException("class: " + value.getClass());
     }
     return convertToSnowflakeType(schemaType);
+  }
+
+  /** Convert a json node type to kafka data type */
+  private static Type convertJsonNodeTypeToKafkaType(JsonNode value) {
+    if (value == null || value.isNull()) {
+      return STRUCT;
+    } else if (value.isNumber()) {
+      if (value.isShort()) {
+        return INT16;
+      } else if (value.isInt()) {
+        return INT32;
+      } else if (value.isFloat()) {
+        return FLOAT32;
+      } else if (value.isDouble()) {
+        return FLOAT64;
+      }
+      return INT64;
+    } else if (value.isTextual()) {
+      return STRING;
+    } else if (value.isBoolean()) {
+      return BOOLEAN;
+    } else if (value.isBinary()) {
+      return BYTES;
+    } else if (value.isArray()) {
+      return ARRAY;
+    } else if (value.isObject()) {
+      return STRUCT;
+    } else {
+      return null;
+    }
   }
 
   /** Convert the kafka data type to Snowflake data type */

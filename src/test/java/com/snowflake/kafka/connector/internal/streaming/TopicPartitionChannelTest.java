@@ -448,7 +448,7 @@ public class TopicPartitionChannelTest {
     }
   }
 
-  /* Runtime exception doesnt perform any fallbacks. */
+  /* Runtime exception does not perform any fallbacks. */
   @Test(expected = RuntimeException.class)
   // TODO TZHANG run this
   public void testInsertRows_RuntimeException() throws Exception {
