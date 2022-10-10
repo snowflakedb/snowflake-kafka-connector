@@ -550,7 +550,7 @@ public class TopicPartitionChannel {
    * {@link InsertValidationResponse}
    *
    * @param buffer buffer to insert into snowflake
-   * @return InsertValidationResponse object sent from insertRows API.
+   * @return InsertRowsResponse a response that wraps around InsertValidationResponse
    */
   private InsertRowsResponse insertRowsWithFallback(StreamingBuffer buffer) {
     Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
@@ -585,12 +585,16 @@ public class TopicPartitionChannel {
   private static class InsertRowsApiResponseSupplier
       implements CheckedSupplier<InsertRowsResponse> {
 
+    // Reference to the Snowpipe Streaming channel
     private final SnowflakeStreamingIngestChannel channel;
 
+    // Buffer that holds the original sink records from kafka
     private final StreamingBuffer insertRowsStreamingBuffer;
 
+    // Whether the schema evolution is enabled
     private final boolean enableSchemaEvolution;
 
+    // Connection service which will be used to do the ALTER TABLE command for schema evolution
     private final SnowflakeConnectionService conn;
 
     private InsertRowsApiResponseSupplier(
@@ -622,8 +626,9 @@ public class TopicPartitionChannel {
                 records, Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
       } else {
         for (int idx = 0; idx < records.size(); idx++) {
-          // To support schema evolution, we need to insert row by row in order to preserve the
-          // original order, since we will retry the insertRow again after the evolution
+          // For schema evolution, we need to call the insertRows API row by row in order to
+          // preserve the original order, for anything after the first schema mismatch error we will
+          // retry after the evolution
           InsertValidationResponse response =
               this.channel.insertRow(records.get(idx), Long.toString(offsets.get(idx)));
           if (response.hasErrors()) {
@@ -637,12 +642,13 @@ public class TopicPartitionChannel {
               // Simply added to the final response if it's not schema related errors
               finalResponse.addError(insertError);
             } else {
-              SchematizationUtils.alterTableIfNeeded(
+              SchematizationUtils.evolvingSchemaIfNeeded(
                   this.conn,
                   this.channel.getTableName(),
                   nonNullableColumns,
                   extraColNames,
                   this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
+              // Offset reset needed since it's possible that we successfully ingested partial batch
               fNeedToResetOffset = true;
               break;
             }
@@ -653,24 +659,26 @@ public class TopicPartitionChannel {
     }
   }
 
+  // A class the wraps around the InsertValidationResponse from the ingest SDK plus some additional
+  // information
   static class InsertRowsResponse {
     private final InsertValidationResponse response;
     private final boolean fNeedToResetOffset;
 
-    public InsertRowsResponse(InsertValidationResponse response, boolean fNeedToResetOffset) {
+    InsertRowsResponse(InsertValidationResponse response, boolean fNeedToResetOffset) {
       this.response = response;
       this.fNeedToResetOffset = fNeedToResetOffset;
     }
 
-    public boolean hasErrors() {
+    boolean hasErrors() {
       return response.hasErrors();
     }
 
-    public List<InsertValidationResponse.InsertError> getInsertErrors() {
+    List<InsertValidationResponse.InsertError> getInsertErrors() {
       return response.getInsertErrors();
     }
 
-    public boolean fNeedToResetOffset() {
+    boolean fNeedToResetOffset() {
       return this.fNeedToResetOffset;
     }
   }
@@ -1178,13 +1186,13 @@ public class TopicPartitionChannel {
     }
 
     /**
-     * Get all rows which were buffered into this buffer. Each map corresponds to one row whose keys
-     * are column names and values are corresponding data in that column.
+     * Get all rows and their offsets. Each map corresponds to one row whose keys are column names
+     * and values are corresponding data in that column.
      *
      * <p>This goes over through all buffered kafka records and transforms into JsonSchema and
      * JsonNode Check {@link #handleNativeRecord(SinkRecord, boolean)}
      *
-     * @return List of Map of String(COLUMN_NAME) and Object
+     * @return A pair that contains the records and their corresponding offsets
      */
     @Override
     public Pair<List<Map<String, Object>>, List<Long>> getData() {
@@ -1264,6 +1272,7 @@ public class TopicPartitionChannel {
      */
     GET_OFFSET_TOKEN_FALLBACK,
 
+    /** Fallback invoked when schema evolution kicks in during insert rows */
     INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK,
     ;
 

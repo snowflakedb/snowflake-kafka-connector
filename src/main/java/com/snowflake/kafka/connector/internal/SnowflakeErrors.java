@@ -263,7 +263,7 @@ public enum SnowflakeErrors {
   ERROR_5020("5020", "Failed to register MBean in MbeanServer", "Object Name is invalid"),
 
   ERROR_5021(
-      "5023",
+      "5021",
       "Failed to get data schema",
       "Failed to get data schema. Unrecognizable data type in JSON object");
 

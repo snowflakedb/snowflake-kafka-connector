@@ -320,7 +320,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-ingest-sdk</artifactId>
-            <version>1.0.2-beta.4</version>
+            <version>1.0.2-beta.5</version>
         </dependency>
 
         <dependency>
@@ -442,7 +442,7 @@
         <!--Mockito for unit test-->
         <dependency>
             <groupId>org.mockito</groupId>
-            <artifactId>mockito-inline</artifactId>
+            <artifactId>mockito-core</artifactId>
             <version>2.20.1</version>
             <scope>test</scope>
         </dependency>
@@ -475,12 +475,6 @@
             <groupId>org.apache.kafka</groupId>
             <artifactId>connect-json</artifactId>
             <version>0.9.0.0</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <version>3.9.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
