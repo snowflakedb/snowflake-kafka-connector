@@ -39,7 +39,7 @@ public class LoggerHandlerTest {
 
   @After
   public void close() {
-    LoggerHandler.setConnectGlobalInstanceId(null);
+    LoggerHandler.setConnectGlobalInstanceId("");
     this.loggerHandler = new LoggerHandler(this.name);
   }
 
@@ -92,7 +92,7 @@ public class LoggerHandlerTest {
   public void testInvalidKcId() {
     String msg = "super useful logging msg";
 
-    LoggerHandler.setConnectGlobalInstanceId(null);
+    LoggerHandler.setConnectGlobalInstanceId("");
     MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
 

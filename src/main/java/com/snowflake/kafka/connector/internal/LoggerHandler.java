@@ -9,22 +9,36 @@ import org.slf4j.LoggerFactory;
 public class LoggerHandler {
   // static properties and methods
   private static final Logger META_LOGGER = LoggerFactory.getLogger(LoggerHandler.class.getName());
-  private static final UUID EMPTY_UUID = new UUID(0L, 0L);
+  private static final String EMPTY_ID = new UUID(0L, 0L).toString();
 
-  private static UUID kcGlobalInstanceId = new UUID(0L, 0L);
+  private static String kcGlobalInstanceId = EMPTY_ID;
 
   /**
    * Sets the KC global instance id for all loggers.
    *
    * <p>This should only be called in start so that the entire kafka connector instance has the same
-   * correlationId logging.
+   * tag for logging
    *
    * <p>If an invalid id is given, continue to log without the id
    *
    * @param id UUID attached for every log
    */
   public static void setConnectGlobalInstanceId(UUID id) {
-    if (id != null && !id.toString().isEmpty() && !id.equals(EMPTY_UUID)) {
+    setConnectGlobalInstanceId(id.toString());
+  }
+
+  /**
+   * Sets the KC global instance id for all loggers.
+   *
+   * <p>This should only be called in start so that the entire kafka connector instance has the same
+   * tag for logging
+   *
+   * <p>If an invalid id is given, continue to log without the id
+   *
+   * @param id String attached to every log
+   */
+  public static void setConnectGlobalInstanceId(String id) {
+    if (id != null && !id.isEmpty() && !id.equals(EMPTY_ID)) {
       kcGlobalInstanceId = id;
       META_LOGGER.info(
           "Set Kafka Connect global instance id tag for logging: '{}'", kcGlobalInstanceId);
@@ -32,7 +46,7 @@ public class LoggerHandler {
       META_LOGGER.info(
           "Given Kafka Connect global instance id was invalid (null or empty), continuing to log"
               + " without it");
-      kcGlobalInstanceId = EMPTY_UUID;
+      kcGlobalInstanceId = EMPTY_ID;
     }
   }
 
@@ -48,7 +62,7 @@ public class LoggerHandler {
     this.logger = LoggerFactory.getLogger(name);
 
     META_LOGGER.info(
-        kcGlobalInstanceId.equals(EMPTY_UUID)
+        kcGlobalInstanceId.equals(EMPTY_ID)
             ? Utils.formatLogMessage(
                 "Created loggerHandler for class: '{}' without a Kafka Connect global instance id.",
                 name)
@@ -152,7 +166,7 @@ public class LoggerHandler {
   private String getFormattedMsg(String msg, Object... vars) {
     String tag = "";
 
-    if (!kcGlobalInstanceId.equals(EMPTY_UUID)) {
+    if (!kcGlobalInstanceId.equals(EMPTY_ID)) {
       if (!this.loggerInstanceTag.isEmpty()) {
         tag = Utils.formatString("[KC:{}|{}] ", kcGlobalInstanceId, this.loggerInstanceTag);
       } else {
