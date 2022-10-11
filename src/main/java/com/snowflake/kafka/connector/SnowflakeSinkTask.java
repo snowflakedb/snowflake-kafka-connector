@@ -148,7 +148,6 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void start(final Map<String, String> parsedConfig) {
     this.taskStartTime = System.currentTimeMillis();
-    long startTime = this.taskStartTime;
 
     // connector configuration
     this.taskConfigId = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
@@ -254,7 +253,7 @@ public class SnowflakeSinkTask extends SinkTask {
     DYNAMIC_LOGGER.info(
         "task started, execution time: {} seconds",
         this.taskConfigId,
-        getExecutionTimeSec(startTime, System.currentTimeMillis()));
+        getExecutionTimeSec(this.taskStartTime, System.currentTimeMillis()));
   }
 
   /**
