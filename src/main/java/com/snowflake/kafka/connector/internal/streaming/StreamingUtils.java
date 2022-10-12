@@ -1,21 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.BufferThreshold;
-import net.snowflake.ingest.utils.Constants;
-import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.common.record.DefaultRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
@@ -26,6 +10,21 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ErrorTo
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
+
+import com.google.common.base.Strings;
+import com.google.common.collect.Iterables;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.BufferThreshold;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import net.snowflake.ingest.utils.Constants;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.record.DefaultRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /* Utility class/Helper methods for streaming related ingestion. */
 public class StreamingUtils {

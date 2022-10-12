@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-
 import java.sql.Connection;
 import java.util.List;
 import java.util.Map;

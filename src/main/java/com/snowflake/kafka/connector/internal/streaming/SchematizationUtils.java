@@ -4,22 +4,6 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import com.snowflake.kafka.connector.records.RecordService;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import org.apache.kafka.connect.data.Field;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.Schema.Type;
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import static org.apache.kafka.connect.data.Schema.Type.ARRAY;
 import static org.apache.kafka.connect.data.Schema.Type.BOOLEAN;
 import static org.apache.kafka.connect.data.Schema.Type.BYTES;
@@ -30,6 +14,21 @@ import static org.apache.kafka.connect.data.Schema.Type.INT32;
 import static org.apache.kafka.connect.data.Schema.Type.INT64;
 import static org.apache.kafka.connect.data.Schema.Type.STRING;
 import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
+
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.records.RecordService;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Schema.Type;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** This is a class containing the helper functions related to schematization */
 public class SchematizationUtils {

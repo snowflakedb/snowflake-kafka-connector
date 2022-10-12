@@ -1,6 +1,11 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.internal.TestUtils;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.record.TimestampType;
@@ -11,12 +16,6 @@ import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
 public class SchematizationUtilsTest {
   @Rule public final EnvironmentVariables environmentVariables = new EnvironmentVariables();

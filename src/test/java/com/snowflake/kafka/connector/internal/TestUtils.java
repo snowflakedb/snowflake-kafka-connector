@@ -16,6 +16,21 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_USER;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_HOST;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PASSWORD;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_USER;
+import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
+import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
+import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
+import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
+import static com.snowflake.kafka.connector.Utils.SF_URL;
+import static com.snowflake.kafka.connector.Utils.SF_USER;
+
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -24,16 +39,6 @@ import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.kafka.common.record.TimestampType;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaAndValue;
-import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.json.JsonConverter;
-import org.apache.kafka.connect.sink.SinkRecord;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -51,21 +56,15 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
-import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
-import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
-import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_USER;
-import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_HOST;
-import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PASSWORD;
-import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
-import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_USER;
-import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
-import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
-import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
-import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
-import static com.snowflake.kafka.connector.Utils.SF_URL;
-import static com.snowflake.kafka.connector.Utils.SF_USER;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.common.record.TimestampType;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.sink.SinkRecord;
 
 public class TestUtils {
   // test profile properties
