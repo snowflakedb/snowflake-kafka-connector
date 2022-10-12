@@ -638,7 +638,12 @@ public class TopicPartitionChannel {
             long originalSinkRecordIdx =
                 offsets.get(idx) - this.insertRowsStreamingBuffer.getFirstOffset();
             if (extraColNames == null && nonNullableColumns == null) {
-              // TODO tzhang: we need to reset the row index in the error
+              InsertValidationResponse.InsertError newInsertError =
+                  new InsertValidationResponse.InsertError(
+                      insertError.getRowContent(), originalSinkRecordIdx);
+              newInsertError.setException(insertError.getException());
+              newInsertError.setExtraColNames(insertError.getExtraColNames());
+              newInsertError.setMissingNotNullColNames(insertError.getMissingNotNullColNames());
               // Simply added to the final response if it's not schema related errors
               finalResponse.addError(insertError);
             } else {

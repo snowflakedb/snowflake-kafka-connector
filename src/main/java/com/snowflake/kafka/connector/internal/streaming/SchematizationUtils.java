@@ -111,6 +111,11 @@ public class SchematizationUtils {
         } else {
           // Get from the schema
           type = schemaMap.get(columnName);
+          if (type == null) {
+            // only when the type of the value is unrecognizable for JAVA
+            throw SnowflakeErrors.ERROR_5022.getException(
+                "column: " + columnName + " schemaMap: " + schemaMap);
+          }
         }
         columnToType.put(columnName, type);
       }

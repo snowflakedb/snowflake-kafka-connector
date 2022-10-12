@@ -261,11 +261,11 @@ public enum SnowflakeErrors {
   ERROR_5018("5018", "Failed to execute cached put", "Error in cached put command"),
   ERROR_5019("5019", "Failed to get stage storage type", "Error in get storage type"),
   ERROR_5020("5020", "Failed to register MBean in MbeanServer", "Object Name is invalid"),
-
   ERROR_5021(
       "5021",
       "Failed to get data schema",
-      "Failed to get data schema. Unrecognizable data type in JSON object");
+      "Failed to get data schema. Unrecognizable data type in JSON object"),
+  ERROR_5022("5022", "Invalid column name", "Failed to find column in the schema");
 
   // properties
 
