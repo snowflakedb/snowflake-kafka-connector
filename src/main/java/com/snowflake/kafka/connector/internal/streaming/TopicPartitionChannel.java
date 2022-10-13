@@ -663,7 +663,7 @@ public class TopicPartitionChannel {
     }
   }
 
-  // A class the wraps around the InsertValidationResponse from the ingest SDK plus some additional
+  // A class that wraps around the InsertValidationResponse from the Ingest SDK plus some additional
   // information
   static class InsertRowsResponse {
     private final InsertValidationResponse response;

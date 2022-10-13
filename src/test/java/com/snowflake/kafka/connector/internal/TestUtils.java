@@ -680,7 +680,11 @@ public class TestUtils {
     int numberOfColumnExpected = schemaMap.size();
     int numberOfColumnInTable = 0;
     while (result.next()) {
-      assert result.getString("type").startsWith(schemaMap.get(result.getString("name")));
+      String colName = result.getString("name");
+      if (!colName.equals(colName.toUpperCase())) {
+        colName = "\"" + colName + "\"";
+      }
+      assert result.getString("type").startsWith(schemaMap.get(colName));
       // see if the type of the column in sf is the same as expected (ignoring scale)
       numberOfColumnInTable++;
     }

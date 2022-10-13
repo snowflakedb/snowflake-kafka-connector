@@ -16,6 +16,8 @@ import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -907,7 +909,7 @@ public class SnowflakeSinkServiceV2IT {
             .field("id_int8", Schema.INT8_SCHEMA)
             .field("id_int8_optional", Schema.OPTIONAL_INT8_SCHEMA)
             .field("id_int16", Schema.INT16_SCHEMA)
-            .field("id_int32", Schema.INT32_SCHEMA)
+            .field("ID_INT32", Schema.INT32_SCHEMA)
             .field("id_int64", Schema.INT64_SCHEMA)
             .field("first_name", Schema.STRING_SCHEMA)
             .field("rating_float32", Schema.FLOAT32_SCHEMA)
@@ -921,7 +923,7 @@ public class SnowflakeSinkServiceV2IT {
         new Struct(schemaBuilder.build())
             .put("id_int8", (byte) 0)
             .put("id_int16", (short) 42)
-            .put("id_int32", 42)
+            .put("ID_INT32", 42)
             .put("id_int64", 42L)
             .put("first_name", "zekai")
             .put("rating_float32", 0.99f)
@@ -972,7 +974,8 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
 
-    TestUtils.checkTableContentOneRow(table, SchematizationTestUtils.CONTENT_FOR_TABLE_CREATION);
+    TestUtils.checkTableContentOneRow(
+        table, SchematizationTestUtils.CONTENT_FOR_AVRO_TABLE_CREATION);
 
     service.closeAll();
   }
@@ -994,7 +997,7 @@ public class SnowflakeSinkServiceV2IT {
             .field("id_int8", Schema.INT8_SCHEMA)
             .field("id_int8_optional", Schema.OPTIONAL_INT8_SCHEMA)
             .field("id_int16", Schema.INT16_SCHEMA)
-            .field("id_int32", Schema.INT32_SCHEMA)
+            .field("\"id_int32_double_quotes\"", Schema.INT32_SCHEMA)
             .field("id_int64", Schema.INT64_SCHEMA)
             .field("first_name", Schema.STRING_SCHEMA)
             .field("rating_float32", Schema.FLOAT32_SCHEMA)
@@ -1008,7 +1011,7 @@ public class SnowflakeSinkServiceV2IT {
         new Struct(schemaBuilder.build())
             .put("id_int8", (byte) 0)
             .put("id_int16", (short) 42)
-            .put("id_int32", 42)
+            .put("\"id_int32_double_quotes\"", 42)
             .put("id_int64", 42L)
             .put("first_name", "zekai")
             .put("rating_float32", 0.99f)
@@ -1049,7 +1052,6 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(jsonRecordValue);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset, 20, 5);
-
     TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_JSON_SCHEMA_FOR_TABLE_CREATION);
 
     // Retry the insert should succeed now with the updated schema
@@ -1057,8 +1059,86 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
 
-    TestUtils.checkTableContentOneRow(table, SchematizationTestUtils.CONTENT_FOR_TABLE_CREATION);
+    TestUtils.checkTableContentOneRow(
+        table, SchematizationTestUtils.CONTENT_FOR_JSON_TABLE_CREATION);
 
     service.closeAll();
+  }
+
+  @Test
+  public void testSchematizationSchemaEvolutionWithNonNullableColumn() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+        "org.apache.kafka.connect.json.JsonConverter");
+    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
+    config.put("schemas.enable", "false");
+    // get rid of these at the end
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    SchemaBuilder schemaBuilder = SchemaBuilder.struct().field("id_int8", Schema.INT8_SCHEMA);
+    Struct original = new Struct(schemaBuilder.build()).put("id_int8", (byte) 0);
+
+    JsonConverter jsonConverter = new JsonConverter();
+    jsonConverter.configure(config, false);
+    byte[] converted = jsonConverter.fromConnectData(topic, original.schema(), original);
+    conn.createTableWithOnlyMetadataColumn(table);
+    createNonNullableColumn(table, "id_int8_non_nullable");
+
+    SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
+
+    long startOffset = 0;
+    long endOffset = 0;
+
+    SinkRecord jsonRecordValue =
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test",
+            jsonInputValue.schema(),
+            jsonInputValue.value(),
+            startOffset);
+
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition))
+            .build();
+
+    // The first insert should fail and schema evolution will kick in to add the column
+    service.insert(jsonRecordValue);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset, 20, 5);
+
+    // The second insert should fail again and schema evolution will kick in to update the
+    // nullability
+    service.insert(jsonRecordValue);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset, 20, 5);
+
+    // Retry the insert should succeed now with the updated schema
+    service.insert(jsonRecordValue);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
+
+    service.closeAll();
+  }
+
+  private void createNonNullableColumn(String tableName, String colName) {
+    String createTableQuery = "alter table identifier(?) add " + colName + " int not null";
+
+    try {
+      PreparedStatement stmt = conn.getConnection().prepareStatement(createTableQuery);
+      stmt.setString(1, tableName);
+      stmt.setString(2, colName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
   }
 }

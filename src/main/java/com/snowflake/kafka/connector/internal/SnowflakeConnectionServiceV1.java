@@ -476,7 +476,6 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
       stmt.execute();
       stmt.close();
     } catch (SQLException e) {
-      // TODO TZHANG: verify the exception is caught
       throw SnowflakeErrors.ERROR_2015.getException(e);
     }
 
