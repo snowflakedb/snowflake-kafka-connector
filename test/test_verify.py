@@ -562,8 +562,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
                 True, True,
                 True,
                 False, False,
-                True, True,
-                True, True,
+                True, False,
+                True, False,
                 True
             ]
         elif testSet != "clean":

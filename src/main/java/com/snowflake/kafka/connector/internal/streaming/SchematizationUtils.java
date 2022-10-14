@@ -71,7 +71,12 @@ public class SchematizationUtils {
         conn.alterNonNullableColumns(tableName, nonNullableColumns);
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
-            String.format("Failure altering table to update nullability: %s", tableName), e);
+            String.format(
+                "Failure altering table to update nullability: %s, this could happen when multiple"
+                    + " partitions try to alter the table at the same time and the warning could be"
+                    + " ignored",
+                tableName),
+            e);
       }
     }
 
@@ -81,7 +86,13 @@ public class SchematizationUtils {
       try {
         conn.appendColumnsToTable(tableName, extraColumnsToType);
       } catch (SnowflakeKafkaConnectorException e) {
-        LOGGER.warn(String.format("Failure altering table to add column: %s", tableName), e);
+        LOGGER.warn(
+            String.format(
+                "Failure altering table to add column: %s, this could happen when multiple"
+                    + " partitions try to alter the table at the same time and the warning could be"
+                    + " ignored",
+                tableName),
+            e);
       }
     }
   }
