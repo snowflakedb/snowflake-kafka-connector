@@ -79,14 +79,17 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
-    Utils.checkConnectorVersion();
+    // ensure we start counting tasks at 0 for this instance
+    SnowflakeSinkTask.setTotalTaskCreationCount(0);
 
-    // initialize logging with correlationId
-    LoggerHandler.setCorrelationUuid(UUID.randomUUID());
+    Utils.checkConnectorVersion();
 
     LOGGER.info("SnowflakeSinkConnector:start");
     setupComplete = false;
     connectorStartTime = System.currentTimeMillis();
+
+    // initialize logging with global instance Id
+    LoggerHandler.setConnectGlobalInstanceId(this.getKcInstanceId(this.connectorStartTime));
 
     config = new HashMap<>(parsedConfig);
 
@@ -121,6 +124,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void stop() {
+    // set task logging to default
+    SnowflakeSinkTask.setTotalTaskCreationCount(-1);
     setupComplete = false;
     LOGGER.info("SnowflakeSinkConnector:stop");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
@@ -301,5 +306,14 @@ public class SnowflakeSinkConnector extends SinkConnector {
   @Override
   public String version() {
     return Utils.VERSION;
+  }
+
+  // returns the instance id as a combo of a random uuid and the current time
+  private String getKcInstanceId(long currTime) {
+    // 9-10 char
+    String combinedId = UUID.randomUUID().toString() + currTime;
+    int unsignedHashCode = Math.abs(combinedId.hashCode());
+
+    return "" + unsignedHashCode;
   }
 }
