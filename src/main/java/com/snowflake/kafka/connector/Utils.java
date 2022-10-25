@@ -613,37 +613,28 @@ public class Utils {
   // log message tag
   static final String SF_LOG_TAG = "[SF_KAFKA_CONNECTOR]";
 
-  /*
-   * the following methods wrap log message with Snowflake tag. For example,
-   *
-   * [SF_KAFKA_CONNECTOR] this is a log message
-   * [SF_KAFKA_CONNECTOR] this is the second line
-   *
-   * All log messages should be wrapped by Snowflake tag. Then user can filter
-   * out log messages output from Snowflake Kafka connector by these tags.
-   */
-
   /**
-   * wrap a message without variable
+   * the following method wraps log messages with Snowflake tag. For example,
    *
-   * @param msg log message
-   * @return log message wrapped by snowflake tag
-   */
-  public static String formatLogMessage(String msg) {
-    return SF_LOG_TAG + " " + msg;
-  }
-
-  /**
-   * wrap a message contains multiple variables
+   * <p>[SF_KAFKA_CONNECTOR] this is a log message
+   *
+   * <p>[SF_KAFKA_CONNECTOR] this is the second line
+   *
+   * <p>All log messages should be wrapped by Snowflake tag. Then user can filter out log messages
+   * output from Snowflake Kafka connector by these tags.
    *
    * @param format log message format string
    * @param vars variable list
    * @return log message wrapped by snowflake tag
    */
   public static String formatLogMessage(String format, Object... vars) {
+    return SF_LOG_TAG + " " + formatString(format, vars);
+  }
+
+  public static String formatString(String format, Object... vars) {
     for (int i = 0; i < vars.length; i++) {
       format = format.replaceFirst("\\{}", Objects.toString(vars[i]).replaceAll("\\$", "\\\\\\$"));
     }
-    return formatLogMessage(format);
+    return format;
   }
 }
