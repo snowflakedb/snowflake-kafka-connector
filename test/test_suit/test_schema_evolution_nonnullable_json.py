@@ -1,9 +1,9 @@
-from test_suit.test_utils import RetryableError, NonRetryableError
 import json
-import datetime
+
+from test_suit.test_utils import RetryableError, NonRetryableError
+
 
 # test if the table is updated with the correct column
-# add test if all the records from different topics safely land in the table
 class TestSchemaEvolutionNonNullableJson:
     def __init__(self, driver, nameSalt):
         self.driver = driver
@@ -55,7 +55,9 @@ class TestSchemaEvolutionNonNullableJson:
         for index, row in enumerate(rows):
             self.gold_columns.remove(row[0])
             if not row[1].startswith(self.gold_type[row[0]]):
-                raise NonRetryableError("Column {} has the wrong type. got: {}, expected: {}".format(row[0], row[1], self.gold_type[row[0]]))
+                raise NonRetryableError("Column {} has the wrong type. got: {}, expected: {}".format(row[0], row[1],
+                                                                                                     self.gold_type[
+                                                                                                         row[0]]))
             res_col[row[0]] = index
             if row[3] != 'Y':
                 raise NonRetryableError("Column {} is non-nullable".format(row[0]))

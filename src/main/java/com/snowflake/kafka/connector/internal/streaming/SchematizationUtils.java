@@ -22,6 +22,7 @@ import com.snowflake.kafka.connector.records.RecordService;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
@@ -60,7 +61,7 @@ public class SchematizationUtils {
    * @param record the sink record that contains the schema and actual data
    */
   public static void evolveSchemaIfNeeded(
-      SnowflakeConnectionService conn,
+      @Nonnull SnowflakeConnectionService conn,
       String tableName,
       List<String> nonNullableColumns,
       List<String> extraColNames,
