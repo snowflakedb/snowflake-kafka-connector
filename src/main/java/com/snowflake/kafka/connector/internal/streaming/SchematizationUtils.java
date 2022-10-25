@@ -59,7 +59,7 @@ public class SchematizationUtils {
    * @param extraColNames a list of columns that needs to be updated
    * @param record the sink record that contains the schema and actual data
    */
-  public static void evolvingSchemaIfNeeded(
+  public static void evolveSchemaIfNeeded(
       SnowflakeConnectionService conn,
       String tableName,
       List<String> nonNullableColumns,

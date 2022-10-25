@@ -62,7 +62,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // records in kafka
   private long recordNum;
 
-  // Used to connect to Snowflake
+  // Used to connect to Snowflake, could be null during testing
   private final SnowflakeConnectionService conn;
 
   private final RecordService recordService;

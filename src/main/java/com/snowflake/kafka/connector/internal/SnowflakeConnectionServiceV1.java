@@ -15,6 +15,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -398,8 +399,6 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
    * Check whether the user has the role privilege to do schema evolution and whether the schema
    * evolution option is enabled on the table
    *
-   * <p>The permission will be stored in schemaEvolutionPermissionForTables
-   *
    * @param tableName the name of the table
    * @param role the role of the user
    * @return whether schema evolution has the required permission to be performed
@@ -409,6 +408,8 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query = "show grants on table identifier(?)";
+    List<String> schemaEvolutionAllowedPrivilegeList =
+        Arrays.asList("EVOLVE SCHEMA", "ALL", "OWNERSHIP");
     ResultSet result = null;
     // whether the role has the privilege to do schema evolution (EVOLVE SCHEMA / ALL / OWNERSHIP)
     boolean hasRolePrivilege = false;
@@ -425,9 +426,8 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
         if (!result.getString("grantee_name").equals(myRole)) {
           continue;
         }
-        if (result.getString("privilege").equals("EVOLVE SCHEMA")
-            || result.getString("privilege").equals("ALL")
-            || result.getString("privilege").equals("OWNERSHIP")) {
+        if (schemaEvolutionAllowedPrivilegeList.contains(
+            result.getString("privilege").toUpperCase())) {
           hasRolePrivilege = true;
         }
       }

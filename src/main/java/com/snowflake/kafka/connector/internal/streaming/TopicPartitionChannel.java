@@ -182,7 +182,7 @@ public class TopicPartitionChannel {
   // Reference to the Snowflake connection service
   private final SnowflakeConnectionService conn;
 
-  /** Initialize TopicPartitionChannel without the connection service */
+  /** Testing only, initialize TopicPartitionChannel without the connection service */
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
       TopicPartition topicPartition,
@@ -519,7 +519,7 @@ public class TopicPartitionChannel {
       }
 
       // Check whether we need to reset the offset due to schema evolution
-      if (response.fNeedToResetOffset()) {
+      if (response.needToResetOffset()) {
         streamingApiFallbackSupplier(
             StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
       }
@@ -618,7 +618,7 @@ public class TopicPartitionChannel {
       List<Map<String, Object>> records = recordsAndOffsets.getKey();
       List<Long> offsets = recordsAndOffsets.getValue();
       InsertValidationResponse finalResponse = new InsertValidationResponse();
-      boolean fNeedToResetOffset = false;
+      boolean needToResetOffset = false;
       if (!enableSchemaEvolution) {
         finalResponse =
             this.channel.insertRows(
@@ -646,20 +646,20 @@ public class TopicPartitionChannel {
               // Simply added to the final response if it's not schema related errors
               finalResponse.addError(insertError);
             } else {
-              SchematizationUtils.evolvingSchemaIfNeeded(
+              SchematizationUtils.evolveSchemaIfNeeded(
                   this.conn,
                   this.channel.getTableName(),
                   nonNullableColumns,
                   extraColNames,
                   this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
               // Offset reset needed since it's possible that we successfully ingested partial batch
-              fNeedToResetOffset = true;
+              needToResetOffset = true;
               break;
             }
           }
         }
       }
-      return new InsertRowsResponse(finalResponse, fNeedToResetOffset);
+      return new InsertRowsResponse(finalResponse, needToResetOffset);
     }
   }
 
@@ -667,11 +667,11 @@ public class TopicPartitionChannel {
   // information
   static class InsertRowsResponse {
     private final InsertValidationResponse response;
-    private final boolean fNeedToResetOffset;
+    private final boolean needToResetOffset;
 
-    InsertRowsResponse(InsertValidationResponse response, boolean fNeedToResetOffset) {
+    InsertRowsResponse(InsertValidationResponse response, boolean needToResetOffset) {
       this.response = response;
-      this.fNeedToResetOffset = fNeedToResetOffset;
+      this.needToResetOffset = needToResetOffset;
     }
 
     boolean hasErrors() {
@@ -682,8 +682,8 @@ public class TopicPartitionChannel {
       return response.getInsertErrors();
     }
 
-    boolean fNeedToResetOffset() {
-      return this.fNeedToResetOffset;
+    boolean needToResetOffset() {
+      return this.needToResetOffset;
     }
   }
 
