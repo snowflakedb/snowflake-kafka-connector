@@ -42,10 +42,12 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
   private static final String VERSION = "version";
   private static final String KAFKA_VERSION = "kafka_version";
   private static final String IS_PIPE_CLOSING = "is_pipe_closing";
+  private static final String TASK_TAG = "task_tag";
 
   private final Telemetry telemetry;
   private String name = null;
   private String taskID = null;
+  private String taskTag = null;
 
   SnowflakeTelemetryServiceV1(Connection conn) {
     this.telemetry = TelemetryClient.createTelemetry(conn);
@@ -66,6 +68,10 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
     this.taskID = taskID;
   }
 
+  @Override
+  public void setTelemetryTag(final String taskTag) {
+    this.taskTag = taskTag;}
+
   /**
    * This is the minimum JsonNode which will be present in each telemetry Payload. Format:
    *
@@ -82,6 +88,7 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(APP_NAME, getAppName());
     msg.put(TASK_ID, getTaskID());
+    msg.put(TASK_TAG, getTaskTag());
     return msg;
   }
 
@@ -189,6 +196,14 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
       return "empty_taskID";
     }
     return taskID;
+  }
+
+  private String getTaskTag() {
+    if (taskTag == null || taskID.isEmpty()) {
+      LOG_WARN_MSG("task tag for teleemtry service is empty");
+      return "empty_taskTag";
+    }
+    return taskTag;
   }
 
   /**

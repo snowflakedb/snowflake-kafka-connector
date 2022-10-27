@@ -18,6 +18,8 @@ public interface SnowflakeTelemetryService {
    */
   void setTaskID(String taskID);
 
+  void setTelemetryTag(String telemetryTag);
+
   /**
    * Event of connector start
    *
