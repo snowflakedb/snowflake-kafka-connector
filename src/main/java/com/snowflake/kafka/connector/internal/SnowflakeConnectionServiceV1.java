@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.SchematizationUtils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
 import java.io.ByteArrayInputStream;
@@ -14,6 +15,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -132,33 +134,24 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
     createTable(tableName, false);
   }
 
-  public void createTableWithSchema(final String tableName, final Map<String, String> schema) {
-    if (schema.isEmpty()) {
-      throw SnowflakeErrors.ERROR_5021.getException();
-    }
+  @Override
+  public void createTableWithOnlyMetadataColumn(final String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-    StringBuilder createTableQuery = new StringBuilder("create table if not exists identifier(?)");
-    StringBuilder logColumn = new StringBuilder("[RECORD_METADATA (VARIANT)");
-    createTableQuery.append("(record_metadata variant");
-    for (Map.Entry<String, String> field : schema.entrySet()) {
-      createTableQuery.append(", ").append(field.getKey()).append(" ").append(field.getValue());
-      logColumn.append(", ").append(field.getKey()).append(" ").append(field.getValue());
-    }
-    createTableQuery.append(")");
-    logColumn.append("]");
+    String createTableQuery =
+        "create table if not exists identifier(?) (record_metadata variant comment 'created by"
+            + " automatic table creation from Snowflake Kafka Connector')";
 
     try {
-      PreparedStatement stmt = conn.prepareStatement(createTableQuery.toString());
+      PreparedStatement stmt = conn.prepareStatement(createTableQuery);
       stmt.setString(1, tableName);
       stmt.execute();
       stmt.close();
     } catch (SQLException e) {
-      LOG_INFO_MSG("Failed to create table {} with schema {}", tableName, logColumn.toString());
       throw SnowflakeErrors.ERROR_2007.getException(e);
     }
 
-    LOG_INFO_MSG("Created table {} with schema {}", tableName, logColumn.toString());
+    LOG_INFO_MSG("Created table {} with only RECORD_METADATA column", tableName);
   }
 
   @Override
@@ -400,6 +393,139 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2013.getException("table name: " + tableName);
     }
+  }
+
+  /**
+   * Check whether the user has the role privilege to do schema evolution and whether the schema
+   * evolution option is enabled on the table
+   *
+   * @param tableName the name of the table
+   * @param role the role of the user
+   * @return whether schema evolution has the required permission to be performed
+   */
+  @Override
+  public boolean hasSchemaEvolutionPermission(String tableName, String role) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "show grants on table identifier(?)";
+    List<String> schemaEvolutionAllowedPrivilegeList =
+        Arrays.asList("EVOLVE SCHEMA", "ALL", "OWNERSHIP");
+    ResultSet result = null;
+    // whether the role has the privilege to do schema evolution (EVOLVE SCHEMA / ALL / OWNERSHIP)
+    boolean hasRolePrivilege = false;
+    // whether the table has ENABLE_SCHEMA_EVOLUTION option set to true.
+    // TODO: SNOW-650969 once the option enters PuPr we need to enable the check and fetch the
+    //  option from the table
+    boolean hasTableOptionEnabled = true;
+    String myRole = SchematizationUtils.formatName(role);
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      result = stmt.executeQuery();
+      while (result.next()) {
+        if (!result.getString("grantee_name").equals(myRole)) {
+          continue;
+        }
+        if (schemaEvolutionAllowedPrivilegeList.contains(
+            result.getString("privilege").toUpperCase())) {
+          hasRolePrivilege = true;
+        }
+      }
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2017.getException(e);
+    }
+
+    boolean hasPermission = hasRolePrivilege && hasTableOptionEnabled;
+    LOG_INFO_MSG(
+        String.format("Table: %s has schema evolution permission: %s", tableName, hasPermission));
+    return hasPermission;
+  }
+
+  /**
+   * Alter table to add columns according to a map from columnNames to their types
+   *
+   * @param tableName the name of the table
+   * @param columnToType the mapping from the columnNames to their types
+   */
+  @Override
+  public void appendColumnsToTable(String tableName, Map<String, String> columnToType) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    StringBuilder appendColumnQuery = new StringBuilder("alter table identifier(?) add column ");
+    boolean first = true;
+    StringBuilder logColumn = new StringBuilder("[");
+    for (String columnName : columnToType.keySet()) {
+      if (first) {
+        first = false;
+      } else {
+        appendColumnQuery.append(", ");
+        logColumn.append(",");
+      }
+      appendColumnQuery
+          .append(columnName)
+          .append(" ")
+          .append(columnToType.get(columnName))
+          .append(" comment 'column created by schema evolution from Snowflake Kafka Connector'");
+      logColumn.append(columnName).append(" (").append(columnToType.get(columnName)).append(")");
+    }
+    try {
+      LOG_INFO_MSG("Trying to run query: {}", appendColumnQuery.toString());
+      PreparedStatement stmt = conn.prepareStatement(appendColumnQuery.toString());
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2015.getException(e);
+    }
+
+    logColumn.insert(0, "Following columns created for table {}:\n").append("]");
+    LOG_INFO_MSG(logColumn.toString(), tableName);
+  }
+
+  /**
+   * Alter table to drop non-nullability of a list of columns
+   *
+   * @param tableName the name of the table
+   * @param columnNames the list of columnNames
+   */
+  @Override
+  public void alterNonNullableColumns(String tableName, List<String> columnNames) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    StringBuilder dropNotNullQuery = new StringBuilder("alter table identifier(?) alter ");
+    boolean isFirstColumn = true;
+    StringBuilder logColumn = new StringBuilder("[");
+    for (String columnName : columnNames) {
+      if (isFirstColumn) {
+        isFirstColumn = false;
+      } else {
+        dropNotNullQuery.append(", ");
+        logColumn.append(", ");
+      }
+      dropNotNullQuery
+          .append(columnName)
+          .append(" drop not null, ")
+          .append(columnName)
+          .append(
+              " comment 'column altered to be nullable by schema evolution from Snowflake Kafka"
+                  + " Connector'");
+      logColumn.append(columnName);
+    }
+    try {
+      LOG_INFO_MSG("Trying to run query: {}", dropNotNullQuery.toString());
+      PreparedStatement stmt = conn.prepareStatement(dropNotNullQuery.toString());
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2016.getException(e);
+    }
+
+    logColumn
+        .insert(0, "Following columns' non-nullabilty was dropped for table {}:\n")
+        .append("]");
+    LOG_INFO_MSG(logColumn.toString(), tableName);
   }
 
   @Override

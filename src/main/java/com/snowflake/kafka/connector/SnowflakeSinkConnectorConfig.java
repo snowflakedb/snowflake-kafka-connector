@@ -70,7 +70,7 @@ public class SnowflakeSinkConnectorConfig {
   static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
 
   // For Snowpipe Streaming client
-  static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
+  public static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
   public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
 
   // Proxy Info
@@ -171,8 +171,6 @@ public class SnowflakeSinkConnectorConfig {
           "com.snowflake.kafka.connector.records.SnowflakeJsonConverter",
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry",
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
-
-  public static final String CONFLUENT_AVRO_CONVERTER = "io.confluent.connect.avro.AvroConverter";
 
   public static void setDefaultValues(Map<String, String> config) {
     setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);

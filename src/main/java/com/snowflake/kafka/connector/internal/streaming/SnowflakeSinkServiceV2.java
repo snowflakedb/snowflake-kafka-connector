@@ -6,7 +6,6 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.ST
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.kafka.connector.SchematizationUtils;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -63,7 +62,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // records in kafka
   private long recordNum;
 
-  // Used to connect to Snowflake
+  // Used to connect to Snowflake, could be null during testing
   private final SnowflakeConnectionService conn;
 
   private final RecordService recordService;
@@ -151,17 +150,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void startTask(String tableName, TopicPartition topicPartition) {
-    // the table should be present before opening a channel so lets do a table existence check here
+    // the table should be present before opening a channel so let's do a table existence check here
     createTableIfNotExists(tableName);
 
+    // Create channel for the given partition
     createStreamingChannelForTopicPartition(tableName, topicPartition);
   }
 
   /**
    * Always opens a new channel and creates a new instance of TopicPartitionChannel.
    *
-   * <p>This is essentially a blind write to partitionsToChannel. i.e we dont check if it is present
-   * or not.
+   * <p>This is essentially a blind write to partitionsToChannel. i.e. we do not check if it is
+   * presented or not.
    */
   private void createStreamingChannelForTopicPartition(
       final String tableName, final TopicPartition topicPartition) {
@@ -178,7 +178,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             new StreamingBufferThreshold(this.flushTimeSeconds, this.fileSizeBytes, this.recordNum),
             this.connectorConfig,
             this.kafkaRecordErrorReporter,
-            this.sinkTaskContext));
+            this.sinkTaskContext,
+            this.conn));
   }
 
   /**
@@ -220,7 +221,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void insert(SinkRecord record) {
     String partitionChannelKey = partitionChannelKey(record.topic(), record.kafkaPartition());
-    // init a new topic partition if it not present in cache or if channel is closed
+    // init a new topic partition if it's not presented in cache or if channel is closed
     if (!partitionsToChannel.containsKey(partitionChannelKey)
         || partitionsToChannel.get(partitionChannelKey).isChannelClosed()) {
       LOGGER.warn(
@@ -513,18 +514,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     } else {
       LOGGER.info("Creating new table {}.", tableName);
       if (this.enableSchematization) {
-        if (SchematizationUtils.usesAvroValueConverter(connectorConfig)) {
-          // if we could read schema from schema registry
-          this.conn.createTableWithSchema(
-              tableName,
-              SchematizationUtils.getSchemaMapForTable(
-                  tableName,
-                  this.topicToTableMap,
-                  this.connectorConfig.get(
-                      SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD)));
-        } else {
-          throw SnowflakeErrors.ERROR_5021.getException();
-        }
+        // Always create the table with RECORD_METADATA only and rely on schema evolution to update
+        // the schema
+        this.conn.createTableWithOnlyMetadataColumn(tableName);
       } else {
         this.conn.createTable(tableName);
       }

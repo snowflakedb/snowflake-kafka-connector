@@ -681,7 +681,11 @@ public class TestUtils {
     int numberOfColumnExpected = schemaMap.size();
     int numberOfColumnInTable = 0;
     while (result.next()) {
-      assert result.getString(2).startsWith(schemaMap.get(result.getString(1)));
+      String colName = result.getString("name");
+      if (!colName.equals(colName.toUpperCase())) {
+        colName = "\"" + colName + "\"";
+      }
+      assert result.getString("type").startsWith(schemaMap.get(colName));
       // see if the type of the column in sf is the same as expected (ignoring scale)
       numberOfColumnInTable++;
     }
@@ -706,15 +710,21 @@ public class TestUtils {
     for (int i = 0; i < contentMap.size(); ++i) {
       String columnName = result.getMetaData().getColumnName(i + 1);
       Object value = result.getObject(i + 1);
-      if (value instanceof String && ((String) value).startsWith("{")) {
-        // is a map
-        value = ((String) value).replace(" ", "").replace("\n", "");
-        // get rid of the formatting added by snowflake
+      if (value != null) {
+        // For map or array
+        if (value instanceof String
+            && (((String) value).startsWith("{") || ((String) value).startsWith("["))) {
+          // Get rid of the formatting added by snowflake
+          value = ((String) value).replace(" ", "").replace("\n", "");
+        }
+        if ("RECORD_METADATA_PLACE_HOLDER".equals(contentMap.get(columnName))) {
+          continue;
+        }
+        assert value.equals(contentMap.get(columnName))
+            : "expected: " + contentMap.get(columnName) + " actual: " + value;
+      } else {
+        assert contentMap.get(columnName) == null : "value should be null";
       }
-      if (contentMap.get(columnName).equals("RECORD_METADATA_PLACE_HOLDER")) {
-        continue;
-      }
-      assert value.equals(contentMap.get(columnName));
     }
   }
 

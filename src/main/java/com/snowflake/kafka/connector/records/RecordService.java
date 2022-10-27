@@ -244,7 +244,6 @@ public class RecordService extends EnableLogging {
     while (columnNames.hasNext()) {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
-      columnName = formatColumnName(columnName);
       Object columnValue;
       if (columnNode.isArray()) {
         List<String> itemList = new ArrayList<>();
@@ -255,6 +254,8 @@ public class RecordService extends EnableLogging {
         columnValue = itemList;
       } else if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
+      } else if (columnNode.isNull()) {
+        columnValue = null;
       } else {
         columnValue = MAPPER.writeValueAsString(columnNode);
       }
@@ -263,23 +264,6 @@ public class RecordService extends EnableLogging {
       streamingIngestRow.put(columnName, columnValue);
     }
     return streamingIngestRow;
-  }
-
-  /**
-   * Transform the columnName to uppercase unless it is enclosed in double quotes
-   *
-   * <p>In that case, drop the quotes and leave it as it is.
-   *
-   * <p>This transformation exist to mimic the behavior of the Ingest SDK.
-   *
-   * @param columnName
-   * @return Transformed columnName
-   */
-  private String formatColumnName(String columnName) {
-    // the columnName has been checked and guaranteed not to be null or empty
-    return (columnName.charAt(0) == '"' && columnName.charAt(columnName.length() - 1) == '"')
-        ? columnName
-        : columnName.toUpperCase();
   }
 
   /** For now there are two columns one is content and other is metadata. Both are Json */

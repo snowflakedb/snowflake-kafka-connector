@@ -92,6 +92,32 @@ public interface SnowflakeConnectionService {
   boolean isTableCompatible(String tableName);
 
   /**
+   * Check whether the user has the role privilege to do schema evolution and whether the schema
+   * evolution option is enabled on the table
+   *
+   * @param tableName the name of the table
+   * @param role the role of the user
+   * @return whether table and role has the required permission to perform schema evolution
+   */
+  boolean hasSchemaEvolutionPermission(String tableName, String role);
+
+  /**
+   * Alter table to add columns according to a map from columnNames to their types
+   *
+   * @param tableName the name of the table
+   * @param columnToType the mapping from the columnNames to their types
+   */
+  void appendColumnsToTable(String tableName, Map<String, String> columnToType);
+
+  /**
+   * Alter table to drop non-nullability of a list of columns
+   *
+   * @param tableName the name of the table
+   * @param columnNames the list of columnNames
+   */
+  void alterNonNullableColumns(String tableName, List<String> columnNames);
+
+  /**
    * Examine all file names matches our pattern
    *
    * @param stageName stage name
@@ -247,14 +273,13 @@ public interface SnowflakeConnectionService {
   void appendMetaColIfNotExist(String tableName);
 
   /**
-   * Create a table with name being tableName and columns as defined in schemaMap.
+   * Create a table with only the RECORD_METADATA column. The rest of the columns might be added
+   * through schema evolution
    *
-   * <p>The key of the schemaMap is the column name and the value is the type of the data
-   *
-   * <p>The RECORD_METADATA column, while not in this map, will be added automatically
+   * <p>In the beginning of the function we will check if we have the permission to do schema
+   * evolution, and we will error out if we don't
    *
    * @param tableName table name
-   * @param schemaMap table column description
    */
-  void createTableWithSchema(String tableName, Map<String, String> schemaMap);
+  void createTableWithOnlyMetadataColumn(String tableName);
 }
