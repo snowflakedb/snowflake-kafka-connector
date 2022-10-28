@@ -40,6 +40,15 @@ public class SnowflakeTelemetryServiceFactory {
       return this;
     }
 
+    /**
+     * @param telemetryTag telemetryTag
+     * @return builder instance
+     */
+    public SnowflakeTelemetryServiceBuilder setTelemetryTag(String telemetryTag) {
+      this.service.setTelemetryTag(telemetryTag);
+      return this;
+    }
+
     public SnowflakeTelemetryService build() {
       return this.service;
     }

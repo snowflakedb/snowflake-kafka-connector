@@ -148,6 +148,7 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void start(final Map<String, String> parsedConfig) {
     this.taskStartTime = System.currentTimeMillis();
+    String taskTag = this.getTaskTag();
 
     // connector configuration
     this.taskConfigId = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
@@ -159,7 +160,7 @@ public class SnowflakeSinkTask extends SinkTask {
             + " is the number of times this task has been opened and totalTaskCreationCount is the"
             + " total number of tasks created during this run of Snowflake Kafka Connector");
 
-    this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskLoggingTag());
+    this.DYNAMIC_LOGGER.setLoggerInstanceTag(taskTag);
 
     this.DYNAMIC_LOGGER.info("starting task...");
 
@@ -231,6 +232,7 @@ public class SnowflakeSinkTask extends SinkTask {
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(parsedConfig)
             .setTaskID(this.taskConfigId)
+            .setTelemetryTag(taskTag)
             .build();
 
     if (this.sink != null) {
@@ -280,7 +282,7 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void open(final Collection<TopicPartition> partitions) {
     this.taskOpenCount++;
-    this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskLoggingTag());
+    this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskTag());
 
     long startTime = System.currentTimeMillis();
     this.DYNAMIC_LOGGER.info("opening task with TopicPartition number: {}", partitions.size());
@@ -488,7 +490,7 @@ public class SnowflakeSinkTask extends SinkTask {
     return result;
   }
 
-  private String getTaskLoggingTag() {
+  private String getTaskTag() {
     int countThreshold = 999;
 
     if (totalTaskCreationCount > countThreshold) {
