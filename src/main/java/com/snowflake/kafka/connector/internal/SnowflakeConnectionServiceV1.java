@@ -33,7 +33,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
   private final SnowflakeTelemetryService telemetry;
   private final String connectorName;
   private final String taskID;
-  private final String telemetryTag;
+  private final String taskTag;
   private final Properties prop;
 
   // Placeholder for all proxy related properties set in the connector configuration
@@ -57,12 +57,12 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
       SnowflakeURL url,
       String connectorName,
       String taskID,
-      String telemetryTag,
+      String taskTag,
       Properties proxyProperties,
       String kafkaProvider) {
     this.connectorName = connectorName;
     this.taskID = taskID;
-    this.telemetryTag = telemetryTag;
+    this.taskTag = taskTag;
     this.url = url;
     this.prop = prop;
     this.stageType = null;
@@ -89,7 +89,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
         SnowflakeTelemetryServiceFactory.builder(conn)
             .setAppName(this.connectorName)
             .setTaskID(this.taskID)
-            .setTelemetryTag(this.telemetryTag)
+            .setTaskTag(this.taskTag)
             .build();
     LOG_INFO_MSG("initialized the snowflake connection");
   }

@@ -18,7 +18,7 @@ public class SnowflakeConnectionServiceFactory {
     private SnowflakeURL url;
     private String connectorName;
     private String taskID = "-1";
-    private String telemetryTag;
+    private String taskTag;
 
     // whether kafka is hosted on premise or on confluent cloud.
     // This info is provided in the connector configuration
@@ -51,8 +51,8 @@ public class SnowflakeConnectionServiceFactory {
       return this;
     }
 
-    public SnowflakeConnectionServiceBuilder setTelemetryTag(String telemetryTag) {
-      this.telemetryTag = telemetryTag;
+    public SnowflakeConnectionServiceBuilder setTaskTag(String taskTag) {
+      this.taskTag = taskTag;
       return this;
     }
 
@@ -79,7 +79,7 @@ public class SnowflakeConnectionServiceFactory {
       InternalUtils.assertNotEmpty("url", url);
       InternalUtils.assertNotEmpty("connectorName", connectorName);
       return new SnowflakeConnectionServiceV1(
-          prop, url, connectorName, taskID, telemetryTag, proxyProperties, kafkaProvider);
+          prop, url, connectorName, taskID, taskTag, proxyProperties, kafkaProvider);
     }
   }
 }

@@ -232,7 +232,7 @@ public class SnowflakeSinkTask extends SinkTask {
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(parsedConfig)
             .setTaskID(this.taskConfigId)
-            .setTelemetryTag(taskTag)
+            .setTaskTag(taskTag)
             .build();
 
     if (this.sink != null) {

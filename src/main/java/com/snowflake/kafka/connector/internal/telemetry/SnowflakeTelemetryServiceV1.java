@@ -37,12 +37,12 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
   private static final String END_TIME = "end_time";
   private static final String APP_NAME = "app_name";
   private static final String TASK_ID = "task_id";
+  private static final String TASK_TAG = "task_tag";
   private static final String ERROR_NUMBER = "error_number";
   private static final String TIME = "time";
   private static final String VERSION = "version";
   private static final String KAFKA_VERSION = "kafka_version";
   private static final String IS_PIPE_CLOSING = "is_pipe_closing";
-  private static final String TASK_TAG = "task_tag";
 
   private final Telemetry telemetry;
   private String name = null;
@@ -69,7 +69,7 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
   }
 
   @Override
-  public void setTelemetryTag(final String taskTag) {
+  public void setTaskTag(final String taskTag) {
     this.taskTag = taskTag;}
 
   /**
