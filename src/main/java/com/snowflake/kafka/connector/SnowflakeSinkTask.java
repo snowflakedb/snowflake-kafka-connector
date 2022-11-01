@@ -283,6 +283,7 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void open(final Collection<TopicPartition> partitions) {
     if (!SHOULD_RUN_TASKS) {
+      DYNAMIC_LOGGER.error("Turning off kafka connector so this task will not run");
       throw new SFException(ErrorCode.CLOSED_CLIENT);
     }
 
