@@ -32,6 +32,8 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkTask.SHOULD_RUN_TASKS;
+
 /**
  * SnowflakeSinkConnector implements SinkConnector for Kafka Connect framework.
  *
@@ -112,6 +114,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     telemetryClient.reportKafkaConnectStart(connectorStartTime, this.config);
 
     setupComplete = true;
+    SHOULD_RUN_TASKS = true;
   }
 
   /**
@@ -127,6 +130,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     // set task logging to default
     SnowflakeSinkTask.setTotalTaskCreationCount(-1);
     setupComplete = false;
+    SHOULD_RUN_TASKS = false;
     LOGGER.info("SnowflakeSinkConnector:stop");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
   }

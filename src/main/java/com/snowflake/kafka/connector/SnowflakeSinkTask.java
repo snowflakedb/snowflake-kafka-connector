@@ -35,6 +35,8 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
+
+import net.snowflake.ingest.utils.*;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -57,6 +59,7 @@ public class SnowflakeSinkTask extends SinkTask {
   // once, and that
   // this instance of KC has created two tasks
   public static final String TASK_INSTANCE_TAG_FORMAT = "SfTask[ID:{}.{}, #{}]";
+  public static boolean SHOULD_RUN_TASKS = false;
 
   private static final long WAIT_TIME = 5 * 1000; // 5 sec
   private static final int REPEAT_TIME = 12; // 60 sec
@@ -279,6 +282,10 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void open(final Collection<TopicPartition> partitions) {
+    if (!SHOULD_RUN_TASKS) {
+      throw new SFException(ErrorCode.CLOSED_CLIENT);
+    }
+
     this.taskOpenCount++;
     this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskLoggingTag());
 
@@ -369,7 +376,18 @@ public class SnowflakeSinkTask extends SinkTask {
               committedOffsets.put(topicPartition, new OffsetAndMetadata(offSet));
             }
           });
-    } catch (Exception e) {
+    } catch (SFException e) {
+      this.DYNAMIC_LOGGER.error("PreCommit SFException: {}", e.getMessage());
+
+      // if open channel failure, throw exception to kill kc
+      if (e.getVendorCode().equals(ErrorCode.OPEN_CHANNEL_FAILURE.getMessageCode())) {
+        this.DYNAMIC_LOGGER.error("Failed to open channel, stopping kafka connector");
+        SHOULD_RUN_TASKS = false;
+      }
+
+      return new HashMap<>();
+    }
+    catch (Exception e) {
       this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
       return new HashMap<>();
     }
