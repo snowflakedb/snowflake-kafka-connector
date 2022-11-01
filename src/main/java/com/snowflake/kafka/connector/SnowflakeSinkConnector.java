@@ -16,6 +16,8 @@
  */
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkTask.SHOULD_RUN_TASKS;
+
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
@@ -31,8 +33,6 @@ import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
-
-import static com.snowflake.kafka.connector.SnowflakeSinkTask.SHOULD_RUN_TASKS;
 
 /**
  * SnowflakeSinkConnector implements SinkConnector for Kafka Connect framework.

@@ -35,7 +35,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
-
 import net.snowflake.ingest.utils.*;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -386,8 +385,7 @@ public class SnowflakeSinkTask extends SinkTask {
       }
 
       return new HashMap<>();
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
       return new HashMap<>();
     }
