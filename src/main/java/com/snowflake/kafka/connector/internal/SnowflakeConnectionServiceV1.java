@@ -1,12 +1,13 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
-
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.SchematizationUtils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
+import net.snowflake.client.jdbc.SnowflakeConnectionV1;
+import net.snowflake.client.jdbc.SnowflakeDriver;
+import net.snowflake.client.jdbc.cloud.storage.StageInfo;
+
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -21,9 +22,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-import net.snowflake.client.jdbc.SnowflakeConnectionV1;
-import net.snowflake.client.jdbc.SnowflakeDriver;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
+
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 /**
  * Implementation of Snowflake Connection Service interface which includes all handshake between KC
@@ -149,6 +150,19 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
       stmt.close();
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
+
+    // Enable schema evolution by default if the table is created by the connector
+    String enableSchemaEvolutionQuery =
+        "alter table identifier(?) set ENABLE_SCHEMA_EVOLUTION = true";
+    try {
+      PreparedStatement stmt = conn.prepareStatement(enableSchemaEvolutionQuery);
+      stmt.setString(1, tableName);
+      stmt.executeQuery();
+    } catch (SQLException e) {
+      // Skip the error given that schema evolution is still under PrPr
+      LOG_WARN_MSG(
+          "Enable schema evolution failed on table: {}, message: {}", tableName, e.getMessage());
     }
 
     LOG_INFO_MSG("Created table {} with only RECORD_METADATA column", tableName);
@@ -413,10 +427,6 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
     ResultSet result = null;
     // whether the role has the privilege to do schema evolution (EVOLVE SCHEMA / ALL / OWNERSHIP)
     boolean hasRolePrivilege = false;
-    // whether the table has ENABLE_SCHEMA_EVOLUTION option set to true.
-    // TODO: SNOW-650969 once the option enters PuPr we need to enable the check and fetch the
-    //  option from the table
-    boolean hasTableOptionEnabled = true;
     String myRole = SchematizationUtils.formatName(role);
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -429,6 +439,29 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
         if (schemaEvolutionAllowedPrivilegeList.contains(
             result.getString("privilege").toUpperCase())) {
           hasRolePrivilege = true;
+        }
+      }
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2017.getException(e);
+    }
+
+    // whether the table has ENABLE_SCHEMA_EVOLUTION option set to true on the table.
+    boolean hasTableOptionEnabled = false;
+    query = "show tables like '" + tableName + "' limit 1";
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      result = stmt.executeQuery();
+      while (result.next()) {
+        String enableSchemaEvolution = "N";
+        try {
+          enableSchemaEvolution = result.getString("enable_schema_evolution");
+        } catch (SQLException e) {
+          // Do nothing since schema evolution is still in PrPr
+        }
+        if (enableSchemaEvolution.equals("Y")) {
+          hasTableOptionEnabled = true;
         }
       }
       stmt.close();
