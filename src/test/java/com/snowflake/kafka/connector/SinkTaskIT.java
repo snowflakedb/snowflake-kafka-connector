@@ -68,6 +68,7 @@ public class SinkTaskIT {
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
+    SnowflakeSinkTask.SHOULD_RUN_TASKS = true;
     sinkTask.start(config);
     ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
     topicPartitions.add(new TopicPartition(topicName, partition));
@@ -213,6 +214,7 @@ public class SinkTaskIT {
         TestUtils.getExpectedLogTagWithoutCreationCount(task1Id, task1OpenCount);
 
     // start tasks
+    SnowflakeSinkTask.SHOULD_RUN_TASKS = true;
     task0.start(task0Config);
     task1.start(task1Config);
 
