@@ -19,6 +19,9 @@ class TestSchemaEvolutionNonNullableJson:
         self.driver.snowflake_conn.cursor().execute(
             'Create or replace table {} ("case_sensitive_PERFORMANCE_STRING" STRING not null)'.format(self.table))
 
+        self.driver.snowflake_conn.cursor().execute(
+            "alter table {} set ENABLE_SCHEMA_EVOLUTION = true".format(self.table))
+
         self.records = []
 
         self.records.append({

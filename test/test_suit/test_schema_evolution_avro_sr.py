@@ -1,9 +1,6 @@
-from test_suit.test_utils import RetryableError, NonRetryableError
-import json
-import datetime
 from confluent_kafka import avro
-from confluent_kafka.schema_registry import SchemaRegistryClient
-from confluent_kafka.schema_registry import Schema
+from test_suit.test_utils import RetryableError, NonRetryableError
+
 
 # test if the table is updated with the correct column
 # add test if all the records from different topics safely land in the table
@@ -20,6 +17,9 @@ class TestSchemaEvolutionAvroSR:
 
         self.driver.snowflake_conn.cursor().execute(
             "Create or replace table {} (PERFORMANCE_STRING STRING)".format(self.table))
+
+        self.driver.snowflake_conn.cursor().execute(
+            "alter table {} set ENABLE_SCHEMA_EVOLUTION = true".format(self.table))
 
         self.records = []
 
@@ -95,7 +95,9 @@ class TestSchemaEvolutionAvroSR:
         for index, row in enumerate(rows):
             self.gold_columns.remove(row[0])
             if not row[1].startswith(self.gold_type[row[0]]):
-                raise NonRetryableError("Column {} has the wrong type. got: {}, expected: {}".format(row[0], row[1], self.gold_type[row[0]]))
+                raise NonRetryableError("Column {} has the wrong type. got: {}, expected: {}".format(row[0], row[1],
+                                                                                                     self.gold_type[
+                                                                                                         row[0]]))
             res_col[row[0]] = index
 
         print("Columns not in table: ", self.gold_columns)
