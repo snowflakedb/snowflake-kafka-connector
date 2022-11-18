@@ -26,6 +26,7 @@ import org.apache.kafka.common.utils.AppInfoParser;
 public class SnowflakeTelemetryServiceV1 extends EnableLogging
     implements SnowflakeTelemetryService {
   private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final long INSERTROWS_MIN_BATCH_SIZE = 500;
 
   // constant string list
   private static final String SOURCE = "source";
@@ -42,10 +43,14 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
   private static final String VERSION = "version";
   private static final String KAFKA_VERSION = "kafka_version";
   private static final String IS_PIPE_CLOSING = "is_pipe_closing";
+  private static final String INSERTROWS_COUNT = "insert_rows_count";
+  private static final String INSERTROWS_BYTES = "insert_rows_bytes";
 
   private final Telemetry telemetry;
   private String name = null;
   private String taskID = null;
+  private long insertRowsCount = 0;
+  private long insertRowsBytes = 0;
 
   SnowflakeTelemetryServiceV1(Connection conn) {
     this.telemetry = TelemetryClient.createTelemetry(conn);
@@ -138,6 +143,26 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
     pipeCreation.dumpTo(msg);
 
     send(TelemetryType.KAFKA_PIPE_START, msg);
+  }
+
+  @Override
+  public void reportInsertRowsBatchCount(final int recordCount, final long bufferSizeBytes) {
+    if (recordCount < 0 || bufferSizeBytes < 0) {
+      LOG_ERROR_MSG("reportInsertRowsBatchCount must be called with positive parameters: recordCount={}, bufferSizeBytes={}", recordCount, bufferSizeBytes);
+      return;
+    }
+
+    this.insertRowsCount += recordCount;
+    this.insertRowsBytes += bufferSizeBytes;
+
+    // batch ready to send
+    if (this.insertRowsCount > INSERTROWS_MIN_BATCH_SIZE) {
+      ObjectNode msg = getObjectNode();
+      msg.put(INSERTROWS_COUNT, this.insertRowsCount);
+      msg.put(INSERTROWS_BYTES, this.insertRowsBytes);
+
+      send(TelemetryType.INSERTROWS_BATCH_COUNT, msg);
+    }
   }
 
   /**
@@ -234,7 +259,8 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
     KAFKA_STOP("kafka_stop"),
     KAFKA_FATAL_ERROR("kafka_fatal_error"),
     KAFKA_PIPE_USAGE("kafka_pipe_usage"),
-    KAFKA_PIPE_START("kafka_pipe_start");
+    KAFKA_PIPE_START("kafka_pipe_start"),
+    INSERTROWS_BATCH_COUNT("insertrows_batch_count");
 
     private final String name;
 

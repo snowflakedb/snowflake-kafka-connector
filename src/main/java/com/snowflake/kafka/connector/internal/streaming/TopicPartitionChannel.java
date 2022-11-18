@@ -18,6 +18,7 @@ import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -182,6 +183,9 @@ public class TopicPartitionChannel {
   // Reference to the Snowflake connection service
   private final SnowflakeConnectionService conn;
 
+  // The snowflake telemtry service
+  protected final SnowflakeTelemetryService telemetryService;
+
   /** Testing only, initialize TopicPartitionChannel without the connection service */
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
@@ -245,6 +249,8 @@ public class TopicPartitionChannel {
     this.streamingBuffer = new StreamingBuffer();
     this.processedOffset = new AtomicLong(-1);
     this.offsetSafeToCommitToKafka = new AtomicLong(0);
+
+    this.telemetryService = this.conn.getTelemetryClient();
 
     /* Error properties */
     this.errorTolerance = StreamingUtils.tolerateErrors(this.sfConnectorConfig);
@@ -1237,12 +1243,19 @@ public class TopicPartitionChannel {
           }
         }
       }
+
+      int numRecords = getNumOfRecords();
+      long bufferSizeBytes = getBufferSizeBytes();
+
+      telemetryService.reportInsertRowsBatchCount(numRecords, bufferSizeBytes);
+
       LOGGER.debug(
           "Get rows for streaming ingest. {} records, {} bytes, offset {} - {}",
-          getNumOfRecords(),
-          getBufferSizeBytes(),
+          numRecords,
+          bufferSizeBytes,
           getFirstOffset(),
           getLastOffset());
+
       return new Pair<>(records, offsets);
     }
 

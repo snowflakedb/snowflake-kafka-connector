@@ -58,4 +58,12 @@ public interface SnowflakeTelemetryService {
    * @param objectCreation SnowflakeObjectCreation object
    */
   void reportKafkaPartitionStart(final SnowflakeTelemetryBasicInfo objectCreation);
+
+  /**
+   * reports how many records have been ingested. This groups data into batches to reduce telemtry traffic
+   *
+   * @param recordCount the number of records ingested
+   * @param bufferSizeBytes the size of the current buffer
+   */
+  void reportInsertRowsBatchCount(final int recordCount, final long bufferSizeBytes);
 }
