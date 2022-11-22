@@ -13,6 +13,7 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
@@ -21,8 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -121,7 +120,7 @@ public class TopicPartitionChannelTest {
         sfConnectorConfig,
         mockKafkaRecordErrorReporter,
         mockSinkTaskContext,
-mockConn);
+        mockConn);
   }
 
   @Test
@@ -138,7 +137,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
@@ -158,7 +157,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     Assert.assertEquals(100L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
@@ -183,7 +182,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     JsonConverter converter = new JsonConverter();
     HashMap<String, String> converterConfig = new HashMap<String, String>();
@@ -228,7 +227,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     topicPartitionChannel.closeChannel();
   }
@@ -286,7 +285,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     Assert.assertEquals(
         Long.parseLong(offsetTokenAfterMaxAttempts),
@@ -313,7 +312,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     try {
       topicPartitionChannel.fetchOffsetTokenWithRetry();
@@ -345,7 +344,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     try {
       Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
@@ -373,7 +372,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     try {
       Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
@@ -407,7 +406,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
     final int noOfRecords = 5;
     // Since record 0 was not able to ingest, all records in this batch will not be added into the
     // buffer.
@@ -543,7 +542,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -582,7 +581,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -621,7 +620,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -708,7 +707,7 @@ mockConn);
             sfConnectorConfigWithErrors,
             kafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -748,7 +747,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     // Sending 5 records will trigger a buffer bytes based threshold after 4 records have been
     // added. Size of each record after serialization to Json is 260 Bytes
@@ -797,7 +796,7 @@ mockConn);
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
-mockConn);
+            mockConn);
 
     // Sending 3 records will trigger a buffer bytes based threshold after 2 records have been
     // added. Size of each record after serialization to Json is ~6 KBytes

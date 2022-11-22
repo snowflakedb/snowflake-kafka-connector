@@ -148,7 +148,11 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
   @Override
   public void reportInsertRowsBatchCount(final int recordCount, final long bufferSizeBytes) {
     if (recordCount < 0 || bufferSizeBytes < 0) {
-      LOG_ERROR_MSG("reportInsertRowsBatchCount must be called with positive parameters: recordCount={}, bufferSizeBytes={}", recordCount, bufferSizeBytes);
+      LOG_ERROR_MSG(
+          "reportInsertRowsBatchCount must be called with positive parameters: recordCount={},"
+              + " bufferSizeBytes={}",
+          recordCount,
+          bufferSizeBytes);
       return;
     }
 
