@@ -99,7 +99,7 @@ public class ConnectionServiceIT {
         });
 
     SnowflakeURL url = TestUtils.getUrl();
-    Properties prop = InternalUtils.createProperties(TestUtils.getConf(), url.sslEnabled(), 0);
+    Properties prop = InternalUtils.createProperties(TestUtils.getConf(), url.sslEnabled(), 0, 60);
     String appName = TestUtils.TEST_CONNECTOR_NAME;
 
     SnowflakeConnectionServiceFactory.builder()

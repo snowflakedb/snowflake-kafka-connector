@@ -22,6 +22,10 @@ public class SnowflakeConnectionServiceFactory {
     // https://docs.snowflake.com/en/user-guide/jdbc-parameters.html#networktimeout
     private int networkTimeOut = 0;
 
+    // loginTimeOut is defined in secs
+    // https://docs.snowflake.com/en/user-guide/jdbc-parameters.html#logintimeout
+    private int loginTimeOut = 60;
+
     // whether kafka is hosted on premise or on confluent cloud.
     // This info is provided in the connector configuration
     // This property will be appeneded to user agent while calling snowpipe API in http request
@@ -58,12 +62,17 @@ public class SnowflakeConnectionServiceFactory {
       return this;
     }
 
+    public SnowflakeConnectionServiceBuilder setLoginTimeOut(int timeout) {
+      this.loginTimeOut = timeout;
+      return this;
+    }
+
     public SnowflakeConnectionServiceBuilder setProperties(Map<String, String> conf) {
       if (!conf.containsKey(Utils.SF_URL)) {
         throw SnowflakeErrors.ERROR_0017.getException();
       }
       this.url = new SnowflakeURL(conf.get(Utils.SF_URL));
-      this.prop = InternalUtils.createProperties(conf, this.url.sslEnabled(), this.networkTimeOut);
+      this.prop = InternalUtils.createProperties(conf, this.url.sslEnabled(), this.networkTimeOut, this.loginTimeOut);
       this.kafkaProvider =
           SnowflakeSinkConnectorConfig.KafkaProvider.of(conf.get(PROVIDER_CONFIG)).name();
       // TODO: Ideally only one property is required, but because we dont pass it around in JDBC and
