@@ -47,6 +47,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
+import io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer;
 import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Hex;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
@@ -132,6 +134,48 @@ public class ConverterTest {
 
     assert jsonNodes[0].toString().equals("{\"name\":\"foo\",\"age\":30}");
     assert jsonNodes[1].toString().equals("{\"name\":\"bar\",\"age\":29}");
+
+    // null value
+    sv = converter.toConnectData("test", null);
+    assert ((SnowflakeRecordContent) sv.value()).getData()[0].toString().equals("{}");
+  }
+
+  private byte[] serializedWithJsonSchemaRegistryFormat(){
+      KafkaJsonSchemaSerializer serializer = new KafkaJsonSchemaSerializer();
+      serializer.configure(Collections.singletonMap("schema.registry.url","mock://"), false);
+      Map map = new HashMap();
+      map.put("name", "foo");
+      map.put("age", 30);
+
+      return serializer.serialize(TEST_TOPIC, map);
+  }
+
+
+  @Test
+  public void testJSONSchemaWithSchemaRegistry() throws IOException {
+    // JSON_SR serialized input data
+    final KafkaJsonSchemaSerializer<Map<String, Object>> serializer = new KafkaJsonSchemaSerializer<>();
+    final Map<String, String> config = Collections.singletonMap("schema.registry.url","mock://");
+    final SnowflakeJsonSchemaConverter converter = new SnowflakeJsonSchemaConverter();
+    converter.configure(config,false);
+    serializer.configure(config, false);
+    final Map<String, Object> map = new HashMap<>();
+    map.put("name", "foo");
+    map.put("age", 30);
+
+    SchemaAndValue sv = converter.toConnectData("test", serializer.serialize(TEST_TOPIC, map));
+
+    assert sv.schema().name().equals(SnowflakeJsonSchema.NAME);
+
+    assert sv.value() instanceof SnowflakeRecordContent;
+
+    SnowflakeRecordContent content = (SnowflakeRecordContent) sv.value();
+
+    JsonNode[] jsonNodes = content.getData();
+
+    assert jsonNodes.length == 1;
+
+    assert jsonNodes[0].toString().equals("{\"name\":\"foo\",\"age\":30}");
 
     // null value
     sv = converter.toConnectData("test", null);

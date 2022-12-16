@@ -169,6 +169,7 @@ public class SnowflakeSinkConnectorConfig {
   public static final Set<String> CUSTOM_SNOWFLAKE_CONVERTERS =
       ImmutableSet.of(
           "com.snowflake.kafka.connector.records.SnowflakeJsonConverter",
+          "com.snowflake.kafka.connector.records.SnowflakeJsonSchemaConverter",
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry",
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
 

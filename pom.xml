@@ -322,7 +322,11 @@
             <artifactId>snowflake-ingest-sdk</artifactId>
             <version>1.0.2-beta.5</version>
         </dependency>
-
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-connect-json-schema-converter</artifactId>
+             <version>7.2.1</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
