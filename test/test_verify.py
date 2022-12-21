@@ -1,31 +1,32 @@
-from confluent_kafka import Producer
-from confluent_kafka.avro import AvroProducer
-from confluent_kafka.admin import AdminClient, NewTopic, ConfigResource, NewPartitions
-from time import sleep
-from datetime import datetime
-
-from test_suit.test_at_least_once_semantic import TestAtLeastOnceSemantic
-from test_suit.test_exactly_once_semantic import TestExactlyOnceSemantic
-from test_suit.test_exactly_once_semantic_time_based import TestExactlyOnceSemanticTimeBased
-from test_suit.test_utils import parsePrivateKey, RetryableError
-from multiprocessing.dummy import Pool as ThreadPool
-
 import json
 import os
 import re
 import sys
-import snowflake.connector
-import test_suit
-import requests
 import traceback
+from datetime import datetime
+from time import sleep
+
+import requests
+import snowflake.connector
+from confluent_kafka import Producer
+from confluent_kafka.admin import AdminClient, NewTopic, ConfigResource, NewPartitions
+from confluent_kafka.avro import AvroProducer
+
+import test_suit
+from test_suit.test_at_least_once_semantic import TestAtLeastOnceSemantic
+from test_suit.test_exactly_once_semantic import TestExactlyOnceSemantic
+from test_suit.test_exactly_once_semantic_time_based import TestExactlyOnceSemanticTimeBased
+from test_suit.test_utils import parsePrivateKey, RetryableError
 
 
 def errorExit(message):
     print(datetime.now().strftime("%H:%M:%S "), message)
     exit(1)
 
+
 class KafkaTest:
-    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, testVersion, enableSSL, snowflakeCloudPlatform, enableDeliveryGuaranteeTests = False):
+    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, testVersion, enableSSL,
+                 snowflakeCloudPlatform, enableDeliveryGuaranteeTests=False):
         self.testVersion = testVersion
         self.credentialPath = credentialPath
         # can be None or one of AWS, AZURE, GCS
@@ -100,8 +101,9 @@ class KafkaTest:
 
     def verifyWaitTime(self):
         # sleep two minutes before verify result in SF DB
-        print(datetime.now().strftime("\n%H:%M:%S "), "=== Sleep {} secs before verify result in Snowflake DB ===".format(
-            self.VERIFY_INTERVAL), flush=True)
+        print(datetime.now().strftime("\n%H:%M:%S "),
+              "=== Sleep {} secs before verify result in Snowflake DB ===".format(
+                  self.VERIFY_INTERVAL), flush=True)
         sleep(self.VERIFY_INTERVAL)
 
     def verifyWithRetry(self, func, round):
@@ -118,7 +120,8 @@ class KafkaTest:
                 print(datetime.now().strftime("%H:%M:%S "), "=== Failed, retryable. {}===".format(e.msg), flush=True)
                 self.verifyWaitTime()
             except test_suit.test_utils.NonRetryableError as e:
-                print(datetime.now().strftime("\n%H:%M:%S "), "=== Non retryable error raised ===\n{}".format(e.msg), flush=True)
+                print(datetime.now().strftime("\n%H:%M:%S "), "=== Non retryable error raised ===\n{}".format(e.msg),
+                      flush=True)
                 raise test_suit.test_utils.NonRetryableError()
             except snowflake.connector.errors.ProgrammingError as e:
                 print("Error in VerifyWithRetry" + str(e))
@@ -145,7 +148,8 @@ class KafkaTest:
                 print("Failed to delete topic {}: {}".format(topicName, e))
 
     def describeTopic(self, topicName):
-        configs = self.adminClient.describe_configs(resources=[ConfigResource(restype=ConfigResource.Type.TOPIC, name=topicName)])
+        configs = self.adminClient.describe_configs(
+            resources=[ConfigResource(restype=ConfigResource.Type.TOPIC, name=topicName)])
         for config_resource, f in configs.items():
             try:
                 configs = f.result()
@@ -156,7 +160,8 @@ class KafkaTest:
                 print("Failed to describe topic {}: {}".format(topicName, e))
 
     def createPartitions(self, topicName, new_total_partitions):
-        kafka_partitions = self.adminClient.create_partitions(new_partitions=[NewPartitions(topicName, new_total_partitions)])
+        kafka_partitions = self.adminClient.create_partitions(
+            new_partitions=[NewPartitions(topicName, new_total_partitions)])
         for topic, f in kafka_partitions.items():
             try:
                 f.result()  # The result itself is None
@@ -288,13 +293,15 @@ class KafkaTest:
             # Use Encrypted key if passphrase is non empty
             pkEncrypted = credentialJson["encrypted_private_key"]
 
-        print(datetime.now().strftime("\n%H:%M:%S "), "=== generate sink connector rest reqeuest from {} ===".format(rest_template_path))
+        print(datetime.now().strftime("\n%H:%M:%S "),
+              "=== generate sink connector rest reqeuest from {} ===".format(rest_template_path))
         if not os.path.exists(rest_generate_path):
             os.makedirs(rest_generate_path)
         snowflake_connector_name = fileName.split(".")[0] + nameSalt
         snowflake_topic_name = snowflake_connector_name
 
-        print(datetime.now().strftime("\n%H:%M:%S "), "=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
+        print(datetime.now().strftime("\n%H:%M:%S "),
+              "=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
         with open("{}/{}".format(rest_template_path, fileName), 'r') as f:
             fileContent = f.read()
             # Template has passphrase, use the encrypted version of P8 Key
@@ -328,7 +335,8 @@ class KafkaTest:
             except BaseException as e:
                 print('An exception occurred: {}'.format(e))
                 pass
-            print(datetime.now().strftime("\n%H:%M:%S "), "=== sleep for 30 secs to wait for kafka connect to accept connection ===")
+            print(datetime.now().strftime("\n%H:%M:%S "),
+                  "=== sleep for 30 secs to wait for kafka connect to accept connection ===")
             sleep(30)
             retry += 1
         if retry == MAX_RETRY:
@@ -339,11 +347,11 @@ class KafkaTest:
         print("Response Content Json " + json.dumps(r.json()))
         print(datetime.now().strftime("%H:%M:%S "), r.status_code)
         getConnectorResponse = requests.get(post_url)
-        print("Get Connectors status:{0}, response:{1}".format(getConnectorResponse.status_code, getConnectorResponse.content))
+        print("Get Connectors status:{0}, response:{1}".format(getConnectorResponse.status_code,
+                                                               getConnectorResponse.content))
 
 
 def runDeliveryGuaranteeTests(driver, testSet, nameSalt):
-
     if driver.snowflakeCloudPlatform == 'GCS' or driver.snowflakeCloudPlatform is None:
         print("Not running Delivery Guarantee tests in GCS due to flakiness")
         return
@@ -397,7 +405,6 @@ def runDeliveryGuaranteeTests(driver, testSet, nameSalt):
     execution(testSet, testSuitList6, testCleanEnableList6, testSuitEnableList6, driver, nameSalt)
 
 
-
 # These tests run from StressTest.yml file and not ran while running End-To-End Tests
 def runStressTests(driver, testSet, nameSalt):
     from test_suit.test_pressure import TestPressure
@@ -441,6 +448,7 @@ def runStressTests(driver, testSet, nameSalt):
     execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=1)
     ############################ Stress Tests Round 2 ############################
 
+
 def runTestSet(driver, testSet, nameSalt, enable_stress_test):
     if enable_stress_test:
         runStressTests(driver, testSet, nameSalt)
@@ -463,7 +471,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
         from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
 
-        from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import TestMultipleTopicToOneTableSnowpipeStreaming
+        from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import \
+            TestMultipleTopicToOneTableSnowpipeStreaming
         from test_suit.test_multiple_topic_to_one_table_snowpipe import TestMultipleTopicToOneTableSnowpipe
 
         from test_suit.test_schema_mapping import TestSchemaMapping
@@ -474,10 +483,14 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         from test_suit.test_schema_evolution_json import TestSchemaEvolutionJson
         from test_suit.test_schema_evolution_avro_sr import TestSchemaEvolutionAvroSR
 
-        from test_suit.test_schema_evolution_w_auto_table_creation_json import TestSchemaEvolutionWithAutoTableCreationJson
-        from test_suit.test_schema_evolution_w_auto_table_creation_avro_sr import TestSchemaEvolutionWithAutoTableCreationAvroSR
+        from test_suit.test_schema_evolution_w_auto_table_creation_json import \
+            TestSchemaEvolutionWithAutoTableCreationJson
+        from test_suit.test_schema_evolution_w_auto_table_creation_avro_sr import \
+            TestSchemaEvolutionWithAutoTableCreationAvroSR
 
         from test_suit.test_schema_evolution_nonnullable_json import TestSchemaEvolutionNonNullableJson
+
+        from test_suit.test_schema_not_supported_converter import TestSchemaNotSupportedConverter
 
         testStringJson = TestStringJson(driver, nameSalt)
         testJsonJson = TestJsonJson(driver, nameSalt)
@@ -507,15 +520,19 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         testSchemaMapping = TestSchemaMapping(driver, nameSalt)
 
         testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet)
-        testAutoTableCreationTopic2Table = TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress, testSet)
+        testAutoTableCreationTopic2Table = TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress,
+                                                                            testSet)
 
         testSchemaEvolutionJson = TestSchemaEvolutionJson(driver, nameSalt)
         testSchemaEvolutionAvroSR = TestSchemaEvolutionAvroSR(driver, nameSalt)
 
         testSchemaEvolutionWithAutoTableCreationJson = TestSchemaEvolutionWithAutoTableCreationJson(driver, nameSalt)
-        testSchemaEvolutionWithAutoTableCreationAvroSR = TestSchemaEvolutionWithAutoTableCreationAvroSR(driver, nameSalt)
+        testSchemaEvolutionWithAutoTableCreationAvroSR = TestSchemaEvolutionWithAutoTableCreationAvroSR(driver,
+                                                                                                        nameSalt)
 
         testSchemaEvolutionNonNullableJson = TestSchemaEvolutionNonNullableJson(driver, nameSalt)
+
+        testSchemaNotSupportedConverter = TestSchemaNotSupportedConverter(driver, nameSalt)
 
         ############################ round 1 ############################
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
@@ -529,7 +546,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
             testAutoTableCreation, testAutoTableCreationTopic2Table,
             testSchemaEvolutionJson, testSchemaEvolutionAvroSR,
             testSchemaEvolutionWithAutoTableCreationJson, testSchemaEvolutionWithAutoTableCreationAvroSR,
-            testSchemaEvolutionNonNullableJson
+            testSchemaEvolutionNonNullableJson,
+            testSchemaNotSupportedConverter
         ]
 
         # Adding StringJsonProxy test at the end
@@ -541,7 +559,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
             True, True,
             True, True,
             True, True,
-            True
+            True, True
         ]
         testSuitEnableList1 = []
         if testSet == "confluent":
@@ -553,7 +571,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
                 True, True,
                 True, True,
                 True, True,
-                True
+                True, True
             ]
         elif testSet == "apache":
             testSuitEnableList1 = [
@@ -564,7 +582,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
                 False, False,
                 True, False,
                 True, False,
-                True
+                True, True
             ]
         elif testSet != "clean":
             errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
@@ -576,7 +594,6 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         if driver.enableDeliveryGuaranteeTests:
             # At least once and exactly once guarantee tests runs only in AWS and AZURE
             runDeliveryGuaranteeTests(driver, testSet, nameSalt)
-
 
         ############################ Always run Proxy tests in the end ############################
 
@@ -601,7 +618,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         ############################ Proxy End To End Test End ############################
 
 
-def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round = 1):
+def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=1):
     if testSet == "clean":
         for i, test in enumerate(testSuitList):
             if testCleanEnableList[i]:
@@ -619,9 +636,11 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
                 print(datetime.now().strftime("\n%H:%M:%S "), "=== round {} ===".format(r))
                 for i, test in enumerate(testSuitList):
                     if testSuitEnableList[i]:
-                        print(datetime.now().strftime("\n%H:%M:%S "), "=== Sending " + test.__class__.__name__ + " data ===")
+                        print(datetime.now().strftime("\n%H:%M:%S "),
+                              "=== Sending " + test.__class__.__name__ + " data ===")
                         test.send()
-                        print(datetime.now().strftime("%H:%M:%S "), "=== Done " + test.__class__.__name__ + " ===", flush=True)
+                        print(datetime.now().strftime("%H:%M:%S "), "=== Done " + test.__class__.__name__ + " ===",
+                              flush=True)
 
                 driver.verifyWaitTime()
 
@@ -629,7 +648,8 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
                     if testSuitEnableList[i]:
                         print(datetime.now().strftime("\n%H:%M:%S "), "=== Verify " + test.__class__.__name__ + " ===")
                         driver.verifyWithRetry(test.verify, r)
-                        print(datetime.now().strftime("%H:%M:%S "), "=== Passed " + test.__class__.__name__ + " ===", flush=True)
+                        print(datetime.now().strftime("%H:%M:%S "), "=== Passed " + test.__class__.__name__ + " ===",
+                              flush=True)
 
             print(datetime.now().strftime("\n%H:%M:%S "), "=== All test passed ===")
         except Exception as e:
