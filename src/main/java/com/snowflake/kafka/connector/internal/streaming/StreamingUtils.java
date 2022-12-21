@@ -1,5 +1,21 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.google.common.base.Strings;
+import com.google.common.collect.Iterables;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.BufferThreshold;
+import net.snowflake.ingest.utils.Constants;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.record.DefaultRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
@@ -10,21 +26,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ErrorTo
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
-
-import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.BufferThreshold;
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import net.snowflake.ingest.utils.Constants;
-import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.common.record.DefaultRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /* Utility class/Helper methods for streaming related ingestion. */
 public class StreamingUtils {
@@ -56,6 +57,8 @@ public class StreamingUtils {
   protected static final long STREAMING_BUFFER_BYTES_DEFAULT = 20_000_000;
 
   private static final Set<String> DISALLOWED_CONVERTERS_STREAMING = CUSTOM_SNOWFLAKE_CONVERTERS;
+  private static final String STRING_CONVERTER_KEYWORD = "StringConverter";
+  private static final String BYTE_ARRAY_CONVERTER_KEYWORD = "ByteArrayConverter";
 
   // excluding key, value and headers: 5 bytes length + 10 bytes timestamp + 5 bytes offset + 1
   // byte attributes. (This is not for record metadata, this is before we transform to snowflake
@@ -201,10 +204,8 @@ public class StreamingUtils {
           }
 
           // Valid schematization for Snowpipe Streaming
-          if (inputConfig.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)) {
-            BOOLEAN_VALIDATOR.ensureValid(
-                SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
-                inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
+          if (!validateSchematizationConfig(inputConfig)) {
+            configIsValid = false;
           }
         }
       } catch (ConfigException exception) {
@@ -233,6 +234,32 @@ public class StreamingUtils {
             inputConfig.get(inputConfigConverterField),
             IngestionMethodConfig.SNOWPIPE_STREAMING,
             Iterables.toString(DISALLOWED_CONVERTERS_STREAMING));
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Validates if key and value converters are allowed values if {@link
+   * IngestionMethodConfig#SNOWPIPE_STREAMING} is used.
+   *
+   * <p>return true if allowed, false otherwise.
+   */
+  private static boolean validateSchematizationConfig(Map<String, String> inputConfig) {
+    if (inputConfig.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)) {
+      BOOLEAN_VALIDATOR.ensureValid(
+          SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
+          inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
+
+      if (inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD) != null
+          && (inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD).contains(STRING_CONVERTER_KEYWORD)
+              || inputConfig
+                  .get(VALUE_CONVERTER_CONFIG_FIELD)
+                  .contains(BYTE_ARRAY_CONVERTER_KEYWORD))) {
+        LOGGER.error(
+            "The value converter:{} is not supported with schematization.",
+            inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD));
         return false;
       }
     }
