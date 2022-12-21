@@ -1,19 +1,5 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.EnableLogging;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
-import net.snowflake.client.jdbc.telemetry.Telemetry;
-import net.snowflake.client.jdbc.telemetry.TelemetryClient;
-import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
-import org.apache.kafka.common.utils.AppInfoParser;
-
-import java.sql.Connection;
-import java.util.Map;
-
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
@@ -25,6 +11,19 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.EnableLogging;
+import java.sql.Connection;
+import java.util.Map;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
+import net.snowflake.client.jdbc.telemetry.Telemetry;
+import net.snowflake.client.jdbc.telemetry.TelemetryClient;
+import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
+import org.apache.kafka.common.utils.AppInfoParser;
 
 public class SnowflakeTelemetryServiceV1 extends EnableLogging
     implements SnowflakeTelemetryService {
