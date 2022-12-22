@@ -47,18 +47,6 @@ class TestSchemaNotSupportedConverter:
         self.driver.sendBytesData(self.topic, value, key)
 
     def verify(self, round):
-        rows = self.driver.snowflake_conn.cursor().execute(
-            "desc table {}".format(self.topic)).fetchall()
-        res_col = {}
-
-        metadata_exist = False
-        for index, row in enumerate(rows):
-            if row[0] == 'RECORD_METADATA':
-                metadata_exist = True
-            res_col[row[0]] = index
-        if not metadata_exist:
-            raise NonRetryableError("Metadata column was not created")
-
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res != 0:
