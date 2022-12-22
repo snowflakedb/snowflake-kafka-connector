@@ -72,6 +72,7 @@ public class SnowflakeSinkConnectorConfig {
   // For Snowpipe Streaming client
   public static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
   public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
+  public static final String ENABLE_SCHEMATIZATION_DEFAULT = "false";
 
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";

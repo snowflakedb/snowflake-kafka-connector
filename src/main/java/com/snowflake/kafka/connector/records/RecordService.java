@@ -263,6 +263,11 @@ public class RecordService extends EnableLogging {
       // will transform the value according to its type in the table
       streamingIngestRow.put(columnName, columnValue);
     }
+    // Thrown an exception if the input JsonNode is not in the expected format
+    if (streamingIngestRow.isEmpty()) {
+      throw SnowflakeErrors.ERROR_0010.getException(
+          "Not able to convert node to Snowpipe Streaming input format");
+    }
     return streamingIngestRow;
   }
 
