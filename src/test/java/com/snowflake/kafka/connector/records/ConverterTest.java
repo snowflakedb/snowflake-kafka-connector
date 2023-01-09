@@ -18,6 +18,7 @@ package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.records.RecordService.ISO_DATE_TIME_FORMAT;
 
+import com.google.common.collect.Sets;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
 import io.confluent.connect.avro.AvroConverter;
@@ -28,20 +29,13 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.GregorianCalendar;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -107,6 +101,34 @@ public class ConverterTest {
     // null value
     sv = converter.toConnectData("test", null);
     assert ((SnowflakeRecordContent) sv.value()).getData()[0].toString().equals("{}");
+  }
+
+  @Test
+  public void testConnectJsonSchemaConverter() {
+    SnowflakeJsonSchemaConverter converter = new SnowflakeJsonSchemaConverter();
+    ByteBuffer buffer = ByteBuffer.allocate(29);
+    int schemaId = 33;
+    buffer.put((byte)0).putInt(schemaId).put("{\"str\":\"test\",\"num\":123}".getBytes(StandardCharsets.UTF_8));
+
+    SchemaAndValue sv =
+            converter.toConnectData("test", buffer.array());
+
+    assert sv.schema().name().equals(SnowflakeJsonSchema.NAME);
+
+    assert sv.value() instanceof SnowflakeRecordContent;
+
+    SnowflakeRecordContent content = (SnowflakeRecordContent) sv.value();
+    assert content.getSchemaID() == schemaId;
+
+    JsonNode[] jsonNodes = content.getData();
+
+    assert jsonNodes.length == 1;
+    assert jsonNodes[0].size() == 2;
+    assert Sets.newHashSet(jsonNodes[0].fieldNames()).containsAll(Arrays.asList("str", "num"));
+    assert jsonNodes[0].get("str").isTextual();
+    assert jsonNodes[0].get("str").asText().equals("test");
+    assert jsonNodes[0].get("num").isInt();
+    assert jsonNodes[0].get("num").asInt() == 123;
   }
 
   @Test
