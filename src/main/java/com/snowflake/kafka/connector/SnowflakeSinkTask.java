@@ -161,6 +161,8 @@ public class SnowflakeSinkTask extends SinkTask {
 
     this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskLoggingTag());
 
+    this.DYNAMIC_LOGGER.info("starting task...");
+    
     // generate topic to table map
     this.topic2table = getTopicToTableMap(parsedConfig);
 
