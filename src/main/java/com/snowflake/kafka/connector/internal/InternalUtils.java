@@ -202,6 +202,9 @@ class InternalUtils {
       proxyProperties.put(
           SFSessionProperty.PROXY_PORT.getPropertyKey(),
           conf.get(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT));
+      proxyProperties.put(
+          SFSessionProperty.NON_PROXY_HOSTS.getPropertyKey(),
+          conf.get(SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS));
 
       // For username and password, check if host and port are given.
       // If they are given, check if username and password are non null
