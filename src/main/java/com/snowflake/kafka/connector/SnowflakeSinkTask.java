@@ -237,7 +237,7 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.closeAll();
     }
     this.sink =
-        SnowflakeSinkServiceFactory.builder(getConnection(), ingestionType, parsedConfig)
+        SnowflakeSinkServiceFactory.builder(getConnection(), ingestionType, parsedConfig, SnowflakeSinkConnector.getStreamingIngestClient())
             .setFileSize(bufferSizeBytes)
             .setRecordNumber(bufferCountRecords)
             .setFlushTime(bufferFlushTime)

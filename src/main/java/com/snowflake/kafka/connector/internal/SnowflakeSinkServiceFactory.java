@@ -6,6 +6,8 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Map;
+
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
@@ -22,8 +24,9 @@ public class SnowflakeSinkServiceFactory {
   public static SnowflakeSinkServiceBuilder builder(
       SnowflakeConnectionService conn,
       IngestionMethodConfig ingestionType,
-      Map<String, String> connectorConfig) {
-    return new SnowflakeSinkServiceBuilder(conn, ingestionType, connectorConfig);
+      Map<String, String> connectorConfig,
+      SnowflakeStreamingIngestClient streamingIngestClient) {
+    return new SnowflakeSinkServiceBuilder(conn, ingestionType, connectorConfig, streamingIngestClient);
   }
 
   /**
@@ -43,18 +46,19 @@ public class SnowflakeSinkServiceFactory {
     private SnowflakeSinkServiceBuilder(
         SnowflakeConnectionService conn,
         IngestionMethodConfig ingestionType,
-        Map<String, String> connectorConfig) {
+        Map<String, String> connectorConfig,
+        SnowflakeStreamingIngestClient streamingIngestClient) {
       if (ingestionType == IngestionMethodConfig.SNOWPIPE) {
         this.service = new SnowflakeSinkServiceV1(conn);
       } else {
-        this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
+        this.service = new SnowflakeSinkServiceV2(conn, connectorConfig, streamingIngestClient);
       }
 
       LOG_INFO_MSG("{} created", this.service.getClass().getName());
     }
 
     private SnowflakeSinkServiceBuilder(SnowflakeConnectionService conn) {
-      this(conn, IngestionMethodConfig.SNOWPIPE, null /* Not required for V1 */);
+      this(conn, IngestionMethodConfig.SNOWPIPE, null /* Not required for V1 */, null);
     }
 
     /**

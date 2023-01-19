@@ -50,8 +50,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private static final LoggerHandler LOGGER =
       new LoggerHandler(SnowflakeSinkServiceV2.class.getName());
 
-  private static String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
-
   // Assume next three values are a threshold after which we will call insertRows API
   // Set in config (Time based flush) in seconds
   private long flushTimeSeconds;
@@ -98,8 +96,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private final String taskId;
 
-  private final String streamingIngestClientName;
-
   private boolean enableSchematization;
 
   /**
@@ -110,7 +106,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
 
   public SnowflakeSinkServiceV2(
-      SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
+      SnowflakeConnectionService conn, Map<String, String> connectorConfig, SnowflakeStreamingIngestClient streamingIngestClient) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
     }
@@ -132,10 +128,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
 
+    this.streamingIngestClient = streamingIngestClient;
+
     this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
-    this.streamingIngestClientName =
-        STREAMING_CLIENT_PREFIX_NAME + conn.getConnectorName() + "_" + taskId;
-    initStreamingClient();
     this.partitionsToChannel = new HashMap<>();
   }
 
@@ -270,7 +265,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           topicPartitionChannel.closeChannel();
         });
     partitionsToChannel.clear();
-    closeStreamingClient();
   }
 
   /**
@@ -464,42 +458,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   // ------ Streaming Ingest Related Functions ------ //
-
-  /* Init Streaming client. If is also used to re-init the client if client was closed before. */
-  private void initStreamingClient() {
-    Map<String, String> streamingPropertiesMap =
-        StreamingUtils.convertConfigForStreamingClient(new HashMap<>(this.connectorConfig));
-    Properties streamingClientProps = new Properties();
-    streamingClientProps.putAll(streamingPropertiesMap);
-    if (this.streamingIngestClient == null || this.streamingIngestClient.isClosed()) {
-      try {
-        LOGGER.info("Initializing Streaming Client. ClientName:{}", this.streamingIngestClientName);
-        this.streamingIngestClient =
-            SnowflakeStreamingIngestClientFactory.builder(this.streamingIngestClientName)
-                .setProperties(streamingClientProps)
-                .build();
-      } catch (SFException ex) {
-        LOGGER.error(
-            "Exception creating streamingIngestClient with name:{}",
-            this.streamingIngestClientName);
-        throw new ConnectException(ex);
-      }
-    }
-  }
-
-  /** Closes the streaming client. */
-  private void closeStreamingClient() {
-    LOGGER.info("Closing Streaming Client:{}", this.streamingIngestClientName);
-    try {
-      streamingIngestClient.close();
-    } catch (Exception e) {
-      LOGGER.error(
-          "Failure closing Streaming client msg:{}, cause:{}",
-          e.getMessage(),
-          Arrays.toString(e.getCause().getStackTrace()));
-    }
-  }
-
   private void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
       if (!this.enableSchematization) {
