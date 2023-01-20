@@ -162,7 +162,7 @@ public class SnowflakeSinkTask extends SinkTask {
     this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskLoggingTag());
 
     this.DYNAMIC_LOGGER.info("starting task...");
-    
+
     // generate topic to table map
     this.topic2table = getTopicToTableMap(parsedConfig);
 
@@ -237,7 +237,11 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.closeAll();
     }
     this.sink =
-        SnowflakeSinkServiceFactory.builder(getConnection(), ingestionType, parsedConfig, SnowflakeSinkConnector.getStreamingIngestClient())
+        SnowflakeSinkServiceFactory.builder(
+                getConnection(),
+                ingestionType,
+                parsedConfig,
+                SnowflakeSinkConnector.getStreamingIngestClient())
             .setFileSize(bufferSizeBytes)
             .setRecordNumber(bufferCountRecords)
             .setFlushTime(bufferFlushTime)
