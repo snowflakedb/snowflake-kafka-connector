@@ -193,6 +193,7 @@ public class SinkTaskIT {
     // setup log mocking for task1
     MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
+    Mockito.when(logger.isDebugEnabled()).thenReturn(true);
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
 
     // setup tasks
@@ -220,7 +221,7 @@ public class SinkTaskIT {
     Mockito.verify(loggerHandler, Mockito.times(1))
         .setLoggerInstanceTag(Mockito.contains(expectedTask1Tag));
     Mockito.verify(logger, Mockito.times(2))
-        .info(
+        .debug(
             AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("start")));
 
     // open tasks
@@ -235,8 +236,8 @@ public class SinkTaskIT {
     expectedTask1Tag = TestUtils.getExpectedLogTagWithoutCreationCount(task1Id, task1OpenCount);
 
     // verify task1 open logs
-    Mockito.verify(logger, Mockito.times(2))
-        .info(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
+    Mockito.verify(logger, Mockito.times(1))
+        .debug(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
 
     // put regular data to tasks
     ArrayList<SinkRecord> records = new ArrayList<>();
@@ -262,8 +263,8 @@ public class SinkTaskIT {
     task1.put(records);
 
     // verify task1 put logs
-    Mockito.verify(logger, Mockito.times(2))
-        .info(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("put")));
+    Mockito.verify(logger, Mockito.times(1))
+        .debug(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("put")));
 
     // send broken data to task1
     String brokenJson = "{ broken json";
@@ -283,8 +284,8 @@ public class SinkTaskIT {
     task1.put(records);
 
     // verify task1 broken put logs, 4 bc in addition to last call
-    Mockito.verify(logger, Mockito.times(4))
-        .info(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("put")));
+    Mockito.verify(logger, Mockito.times(2))
+        .debug(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("put")));
 
     // commit offset
     Map<TopicPartition, OffsetAndMetadata> offsetMap0 = new HashMap<>();
@@ -296,8 +297,8 @@ public class SinkTaskIT {
     offsetMap1 = task1.preCommit(offsetMap1);
 
     // verify task1 precommit logs
-    Mockito.verify(logger, Mockito.times(2))
-        .info(
+    Mockito.verify(logger, Mockito.times(1))
+        .debug(
             AdditionalMatchers.and(
                 Mockito.contains(expectedTask1Tag), Mockito.contains("precommit")));
 
@@ -307,20 +308,15 @@ public class SinkTaskIT {
 
     // verify task1 close logs
     Mockito.verify(logger, Mockito.times(1))
-        .info(
-            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("close")));
-    Mockito.verify(logger, Mockito.times(1))
-        .info(
-            AdditionalMatchers.and(
-                Mockito.contains(expectedTask1Tag), Mockito.contains("closing")));
-
+        .debug(
+            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("closed")));
     // stop tasks
     task0.stop();
     task1.stop();
 
     // verify task1 stop logs
     Mockito.verify(logger, Mockito.times(1))
-        .info(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("stop")));
+        .debug(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("stop")));
 
     assert offsetMap1.get(topicPartitions0.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
     assert offsetMap0.get(topicPartitions1.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
