@@ -237,7 +237,8 @@ public class SinkTaskIT {
 
     // verify task1 open logs
     Mockito.verify(logger, Mockito.times(1))
-        .debug(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
+        .debug(
+            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
 
     // put regular data to tasks
     ArrayList<SinkRecord> records = new ArrayList<>();
@@ -316,7 +317,8 @@ public class SinkTaskIT {
 
     // verify task1 stop logs
     Mockito.verify(logger, Mockito.times(1))
-        .debug(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("stop")));
+        .debug(
+            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("stop")));
 
     assert offsetMap1.get(topicPartitions0.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
     assert offsetMap0.get(topicPartitions1.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;

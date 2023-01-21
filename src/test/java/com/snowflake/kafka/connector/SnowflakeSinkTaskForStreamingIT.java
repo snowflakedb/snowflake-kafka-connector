@@ -155,7 +155,8 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // verify task1 open logs
     Mockito.verify(logger, Mockito.times(1))
-        .debug(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
+        .debug(
+            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
 
     // send data to tasks
     List<SinkRecord> records0 = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition);
@@ -203,7 +204,8 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // verify task1 stop logs
     Mockito.verify(logger, Mockito.times(1))
-        .debug(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("stop")));
+        .debug(
+            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("stop")));
   }
 
   @Test
