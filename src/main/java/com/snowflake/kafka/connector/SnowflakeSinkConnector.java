@@ -58,7 +58,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // user through kafka connect framework
   private String connectorName; // unique name of this connector instance
 
-  private int streamingIngestClientCount = 0;
+  private static int streamingIngestClientCount = 0;
 
   // SnowflakeJDBCWrapper provides methods to interact with user's snowflake
   // account and executes queries
@@ -141,6 +141,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   public void stop() {
     // set task logging to default
     SnowflakeSinkTask.setTotalTaskCreationCount(-1);
+    closeStreamingClient(this.connectorName);
     setupComplete = false;
     LOGGER.info("SnowflakeSinkConnector:stop");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
@@ -341,18 +342,18 @@ public class SnowflakeSinkConnector extends SinkConnector {
     return "" + unsignedHashCode;
   }
 
-  private SnowflakeStreamingIngestClient initStreamingClient(
+  public static SnowflakeStreamingIngestClient initStreamingClient(
       Map<String, String> connectorConfig, String connectorName) {
     Map<String, String> streamingPropertiesMap =
         StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig));
     Properties streamingClientProps = new Properties();
     streamingClientProps.putAll(streamingPropertiesMap);
 
-    String streamingIngestClientName = this.getStreamingIngestClientName(connectorName);
+    String streamingIngestClientName = getStreamingIngestClientName(connectorName);
 
     try {
       LOGGER.info("Initializing Streaming Client. ClientName:{}", streamingIngestClientName);
-      this.streamingIngestClientCount++;
+      streamingIngestClientCount++;
       return SnowflakeStreamingIngestClientFactory.builder(streamingIngestClientName)
           .setProperties(streamingClientProps)
           .build();
@@ -363,8 +364,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
     }
   }
 
-  private void closeStreamingClient(String connectorName) {
-    String streamingIngestClientName = this.getStreamingIngestClientName(connectorName);
+  public static void closeStreamingClient(String connectorName) {
+    String streamingIngestClientName = getStreamingIngestClientName(connectorName);
     LOGGER.info("Closing Streaming Client:{}", streamingIngestClientName);
     try {
       streamingIngestClient.close();
@@ -376,7 +377,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     }
   }
 
-  private String getStreamingIngestClientName(String connectorName) {
-    return STREAMING_CLIENT_PREFIX_NAME + connectorName + this.streamingIngestClientCount;
+  private static String getStreamingIngestClientName(String connectorName) {
+    return STREAMING_CLIENT_PREFIX_NAME + connectorName + streamingIngestClientCount;
   }
 }
