@@ -26,8 +26,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import net.bytebuddy.implementation.bytecode.Addition;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
+import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.SFException;
@@ -42,6 +44,8 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Test;
 import org.mockito.AdditionalMatchers;
+import org.mockito.ArgumentMatchers;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -186,14 +190,20 @@ public class SnowflakeSinkServiceV2IT {
   public void testStreamingIngestion() throws Exception {
     SnowflakeStreamingIngestClient streamingIngestClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
     SnowflakeStreamingIngestChannel channel = Mockito.mock(SnowflakeStreamingIngestChannel.class);
-    Mockito.when(streamingIngestClient.openChannel(Mockito.any())).thenReturn(channel);
-    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
-
+    // setup constants
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    conn.createTable(table);
 
-    // opens a channel for partition 0, table and topic
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input =
+            converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+
+    // setup streaming mocks
+    MockitoAnnotations.initMocks(this);
+    Mockito.when(streamingIngestClient.openChannel(Mockito.any(OpenChannelRequest.class))).thenReturn(channel);
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+
+    // test opening a channel
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, streamingIngestClient)
@@ -203,11 +213,8 @@ public class SnowflakeSinkServiceV2IT {
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .build();
 
-    SnowflakeConverter converter = new SnowflakeJsonConverter();
-    SchemaAndValue input =
-        converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+    // test putting one record
     long offset = 0;
-    Mockito.when(channel.getLatestCommittedOffsetToken()).thenReturn(offset + "");
 
     SinkRecord record1 =
         new SinkRecord(
@@ -219,12 +226,13 @@ public class SnowflakeSinkServiceV2IT {
             input.value(),
             offset);
 
+    Mockito.when(channel.getLatestCommittedOffsetToken()).thenReturn(offset + "");
     service.insert(record1);
 
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
 
-    // insert another offset and check what we committed
+    // test insert another offset and check what we committed
     offset += 1;
     SinkRecord record2 =
         new SinkRecord(
@@ -246,18 +254,22 @@ public class SnowflakeSinkServiceV2IT {
             input.value(),
             offset);
 
-    InsertValidationResponse response = new InsertValidationResponse();
-
     Mockito.when(channel.getLatestCommittedOffsetToken()).thenReturn(offset + "");
-    Mockito.when(channel.insertRows(Mockito.any(), AdditionalMatchers.or(Mockito.contains("1"), Mockito.contains("2")))).thenReturn(response);
-
-
+    Mockito.when(channel.insertRows(Mockito.any(), AdditionalMatchers.or(Mockito.contains("1"), Mockito.contains("2")))).thenReturn(new InsertValidationResponse());
 
     service.insert(Arrays.asList(record2, record3));
+
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == 3, 20, 5);
 
     service.closeAll();
+
+    // verify mocks
+    Mockito.verify(streamingIngestClient, Mockito.times(1)).openChannel(Mockito.any(OpenChannelRequest.class));
+    Mockito.verify(channel, Mockito.times(3)).getLatestCommittedOffsetToken();
+    Mockito.verify(channel, Mockito.times(2)).insertRows(Mockito.any(), Mockito.any());
+    Mockito.verify(channel, Mockito.times(3)).getLatestCommittedOffsetToken();
+    Mockito.verify(channel, Mockito.times(1)).close();
   }
 
   @Test
