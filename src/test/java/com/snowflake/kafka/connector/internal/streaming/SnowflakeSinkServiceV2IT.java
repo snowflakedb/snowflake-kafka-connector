@@ -24,7 +24,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.ingest.streaming.InsertValidationResponse;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -36,6 +41,10 @@ import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Test;
+import org.mockito.AdditionalMatchers;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
 
 public class SnowflakeSinkServiceV2IT {
 
@@ -175,6 +184,11 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testStreamingIngestion() throws Exception {
+    SnowflakeStreamingIngestClient streamingIngestClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    SnowflakeStreamingIngestChannel channel = Mockito.mock(SnowflakeStreamingIngestChannel.class);
+    Mockito.when(streamingIngestClient.openChannel(Mockito.any())).thenReturn(channel);
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
@@ -182,7 +196,7 @@ public class SnowflakeSinkServiceV2IT {
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, null)
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, streamingIngestClient)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -193,6 +207,7 @@ public class SnowflakeSinkServiceV2IT {
     SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
     long offset = 0;
+    Mockito.when(channel.getLatestCommittedOffsetToken()).thenReturn(offset + "");
 
     SinkRecord record1 =
         new SinkRecord(
@@ -230,6 +245,13 @@ public class SnowflakeSinkServiceV2IT {
             input.schema(),
             input.value(),
             offset);
+
+    InsertValidationResponse response = new InsertValidationResponse();
+
+    Mockito.when(channel.getLatestCommittedOffsetToken()).thenReturn(offset + "");
+    Mockito.when(channel.insertRows(Mockito.any(), AdditionalMatchers.or(Mockito.contains("1"), Mockito.contains("2")))).thenReturn(response);
+
+
 
     service.insert(Arrays.asList(record2, record3));
     TestUtils.assertWithRetry(
