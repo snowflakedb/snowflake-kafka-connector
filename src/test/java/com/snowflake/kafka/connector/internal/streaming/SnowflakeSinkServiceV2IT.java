@@ -42,6 +42,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.mockito.AdditionalMatchers;
 import org.mockito.ArgumentMatchers;
@@ -59,7 +60,18 @@ public class SnowflakeSinkServiceV2IT {
   private String topic = "test";
   private TopicPartition topicPartition = new TopicPartition(topic, partition);
   private static ObjectMapper MAPPER = new ObjectMapper();
+  private Map<String, String> config;
 
+  @Mock
+  SnowflakeStreamingIngestClient streamingIngestClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+  SnowflakeStreamingIngestChannel channel = Mockito.mock(SnowflakeStreamingIngestChannel.class);
+
+  @Before 
+  public void setup() {
+    config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+  }
+  
   @After
   public void afterEach() {
     TestUtils.dropTable(table);
@@ -67,12 +79,9 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testSinkServiceV2Builder() {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, null)
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, streamingIngestClient)
             .build();
 
     assert service instanceof SnowflakeSinkServiceV2;
@@ -82,7 +91,7 @@ public class SnowflakeSinkServiceV2IT {
         SnowflakeErrors.ERROR_5010,
         () ->
             SnowflakeSinkServiceFactory.builder(
-                    null, IngestionMethodConfig.SNOWPIPE_STREAMING, config, null)
+                    null, IngestionMethodConfig.SNOWPIPE_STREAMING, config, streamingIngestClient)
                 .build());
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_5010,
@@ -90,30 +99,28 @@ public class SnowflakeSinkServiceV2IT {
           SnowflakeConnectionService conn = TestUtils.getConnectionService();
           conn.close();
           SnowflakeSinkServiceFactory.builder(
-                  conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, null)
+                  conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, streamingIngestClient)
               .build();
         });
   }
 
   @Test
   public void testChannelCloseIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    conn.createTable(table);
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input =
+            converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
 
-    // opens a channel for partition 0, table and topic
+    // Test open a channel for partition 0, table and topic
+    Mockito.when(streamingIngestClient.openChannel(Mockito.any(OpenChannelRequest.class))).thenReturn(channel);
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, null)
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, streamingIngestClient)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .build();
 
-    SnowflakeConverter converter = new SnowflakeJsonConverter();
-    SchemaAndValue input =
-        converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
     long offset = 0;
 
     SinkRecord record1 =
@@ -126,24 +133,28 @@ public class SnowflakeSinkServiceV2IT {
             input.value(),
             offset);
 
-    // Lets close the service
+    // Test closing the service
     // Closing a partition == closing a channel
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
     service.close(Collections.singletonList(new TopicPartition(topic, partition)));
 
     // Lets insert a record when partition was closed.
     // It should auto create the channel
+    Mockito.when(channel.getLatestCommittedOffsetToken()).thenReturn(offset + "");
+    Mockito.when(channel.insertRows(Mockito.any(), Mockito.any())).thenReturn(new InsertValidationResponse());
     service.insert(record1);
 
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
 
-    service.closeAll();
+        Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+service.closeAll();
+
   }
 
   @Test
   public void testRebalanceOpenCloseIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
     // opens a channel for partition 0, table and topic
@@ -183,27 +194,22 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
 
-    service.closeAll();
+        Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+service.closeAll();
+
   }
 
   @Test
   public void testStreamingIngestion() throws Exception {
-    SnowflakeStreamingIngestClient streamingIngestClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
-    SnowflakeStreamingIngestChannel channel = Mockito.mock(SnowflakeStreamingIngestChannel.class);
     // setup constants
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-
     SnowflakeConverter converter = new SnowflakeJsonConverter();
     SchemaAndValue input =
             converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
 
-    // setup streaming mocks
-    MockitoAnnotations.initMocks(this);
-    Mockito.when(streamingIngestClient.openChannel(Mockito.any(OpenChannelRequest.class))).thenReturn(channel);
-    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
-
     // test opening a channel
+    Mockito.when(streamingIngestClient.openChannel(Mockito.any(OpenChannelRequest.class))).thenReturn(channel);
+
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, streamingIngestClient)
@@ -262,7 +268,11 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == 3, 20, 5);
 
-    service.closeAll();
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+        Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+service.closeAll();
+
 
     // verify mocks
     Mockito.verify(streamingIngestClient, Mockito.times(1)).openChannel(Mockito.any(OpenChannelRequest.class));
@@ -274,8 +284,6 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testStreamingIngest_multipleChannelPartitions() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
     // opens a channel for partition 0, table and topic
@@ -321,13 +329,14 @@ public class SnowflakeSinkServiceV2IT {
         20,
         5);
 
-    service.closeAll();
+        Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+service.closeAll();
+
   }
 
   @Test
   public void testStreamingIngestion_timeBased() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
     // opens a channel for partition 0, table and topic
@@ -359,13 +368,14 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 20, 5);
 
-    service.closeAll();
+        Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+service.closeAll();
+
   }
 
   @Test
   public void testNativeJsonInputIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
     // json without schema
@@ -459,13 +469,14 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
 
-    service.closeAll();
+        Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+service.closeAll();
+
   }
 
   @Test
   public void testNativeAvroInputIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
     // avro
     SchemaBuilder schemaBuilder =
         SchemaBuilder.struct()
@@ -621,13 +632,14 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
 
-    service.closeAll();
+        Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+service.closeAll();
+
   }
 
   @Test
   public void testBrokenIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
     // Mismatched schema and value
@@ -690,13 +702,14 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testBrokenRecordIngestionFollowedUpByValidRecord() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
     // Mismatched schema and value
     SchemaAndValue brokenInputValue = new SchemaAndValue(Schema.INT32_SCHEMA, "error");
     SchemaAndValue correctInputValue = new SchemaAndValue(Schema.STRING_SCHEMA, "correct");
+
+    Mockito.when(streamingIngestClient.openChannel(Mockito.any(OpenChannelRequest.class))).thenReturn(channel);
+    Mockito.when(channel.insertRows(Mockito.any(), Mockito.any())).thenReturn(new InsertValidationResponse());
 
     long recordCount = 1;
 
@@ -716,15 +729,18 @@ public class SnowflakeSinkServiceV2IT {
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, null)
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, streamingIngestClient)
             .setErrorReporter(errorReporter)
             .setRecordNumber(recordCount)
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
+    Mockito.when(channel.getLatestCommittedOffsetToken()).thenReturn("-1");
     service.insert(brokenValue);
+    Mockito.when(channel.getLatestCommittedOffsetToken()).thenReturn("0");
     service.insert(brokenKey);
+    Mockito.when(channel.getLatestCommittedOffsetToken()).thenReturn("1");
     service.insert(correctValue);
 
     TestUtils.assertWithRetry(
@@ -735,6 +751,7 @@ public class SnowflakeSinkServiceV2IT {
 
     assert reportedData.size() == 2;
 
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
     service.closeAll();
   }
 
@@ -745,8 +762,6 @@ public class SnowflakeSinkServiceV2IT {
    */
   @Test
   public void testBrokenRecordIngestionAfterValidRecord() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
     // Mismatched schema and value
@@ -795,7 +810,10 @@ public class SnowflakeSinkServiceV2IT {
 
     assert reportedData.size() == 2;
 
-    service.closeAll();
+        Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+service.closeAll();
+
   }
 
   @Test(expected = ConnectException.class)
@@ -821,8 +839,6 @@ public class SnowflakeSinkServiceV2IT {
   public void testStreamingIngestionWithExactlyOnceSemanticsNoOverlappingOffsets()
       throws Exception {
     conn.createTable(table);
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, null)
@@ -849,7 +865,10 @@ public class SnowflakeSinkServiceV2IT {
     // wait for ingest
     TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 30, 20);
 
-    service.closeAll();
+        Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+service.closeAll();
+
 
     // initialize a new sink service
     SnowflakeSinkService service2 =
@@ -883,8 +902,6 @@ public class SnowflakeSinkServiceV2IT {
   @Test
   public void testStreamingIngestionWithExactlyOnceSemanticsOverlappingOffsets() throws Exception {
     conn.createTable(table);
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, null)
@@ -912,7 +929,10 @@ public class SnowflakeSinkServiceV2IT {
     // wait for ingest
     TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 10, 30, 20);
 
-    service.closeAll();
+        Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+service.closeAll();
+
 
     // initialize a new sink service
     SnowflakeSinkService service2 =
@@ -1028,7 +1048,10 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.checkTableContentOneRow(
         table, SchematizationTestUtils.CONTENT_FOR_AVRO_TABLE_CREATION);
 
-    service.closeAll();
+        Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+service.closeAll();
+
   }
 
   @Test
@@ -1114,7 +1137,10 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.checkTableContentOneRow(
         table, SchematizationTestUtils.CONTENT_FOR_JSON_TABLE_CREATION);
 
-    service.closeAll();
+        Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+service.closeAll();
+
   }
 
   @Test
@@ -1178,7 +1204,10 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
 
-    service.closeAll();
+        Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+    Mockito.when(channel.close()).thenReturn(CompletableFuture.completedFuture(null));
+service.closeAll();
+
   }
 
   private void createNonNullableColumn(String tableName, String colName) {
