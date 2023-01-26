@@ -248,7 +248,7 @@ public class TopicPartitionChannelIT {
   }
 
   /**
-   * Two partions for a topic Partition 1 -> 10(0-9) records -> Success Partition 2 -> 10(0-9)
+   * Two partitions for a topic Partition 1 -> 10(0-9) records -> Success Partition 2 -> 10(0-9)
    * records -> Success
    *
    * <p>Partition 1 -> Channel 1 -> open with same client Client sequencer for channel 1 - 1
@@ -300,8 +300,6 @@ public class TopicPartitionChannelIT {
         20,
         5);
 
-    SnowflakeStreamingIngestClient client =
-        TestUtils.createStreamingClient(this.config, "testclient");
     OpenChannelRequest channelRequest =
         OpenChannelRequest.builder(testChannelName)
             .setDBName(config.get(Utils.SF_DATABASE))
@@ -311,7 +309,7 @@ public class TopicPartitionChannelIT {
             .build();
 
     // Open a channel with same name will bump up the client sequencer number for this channel
-    client.openChannel(channelRequest);
+    this.streamingIngestClient.openChannel(channelRequest);
 
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
 
@@ -338,7 +336,6 @@ public class TopicPartitionChannelIT {
     // Send records to partition 2 which should not be affected. (Since there were no overlapping
     // offsets in blob)
     service.insert(records);
-    service.insert(records);
 
     TestUtils.assertWithRetry(
         () ->
@@ -364,8 +361,7 @@ public class TopicPartitionChannelIT {
     assert TestUtils.tableSize(testTableName)
         == recordsInPartition1 + anotherSetOfRecords + recordsInPartition2 + anotherSetOfRecords;
 
-    Mockito.verify(ingestSdkProvider, Mockito.times(1)).createStreamingClient(ArgumentMatchers.any(), ArgumentMatchers.anyString());
-    Mockito.verify(ingestSdkProvider, Mockito.times(1)).getStreamingIngestClient();
+    Mockito.verify(ingestSdkProvider, Mockito.times(2)).getStreamingIngestClient();
   }
 
   @Test
