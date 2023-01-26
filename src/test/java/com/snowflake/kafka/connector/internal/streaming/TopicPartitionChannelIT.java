@@ -20,6 +20,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 
@@ -116,6 +117,9 @@ public class TopicPartitionChannelIT {
     assert service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords;
     assert inMemorySinkTaskContext.offsets().size() == 1;
     assert inMemorySinkTaskContext.offsets().get(topicPartition) == 1;
+
+    Mockito.verify(ingestSdkProvider, Mockito.times(1)).createStreamingClient(ArgumentMatchers.any(), ArgumentMatchers.anyString());
+    Mockito.verify(ingestSdkProvider, Mockito.times(1)).getStreamingIngestClient();
   }
 
   /* This will automatically open the channel. */
@@ -165,6 +169,9 @@ public class TopicPartitionChannelIT {
 
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+
+    Mockito.verify(ingestSdkProvider, Mockito.times(1)).createStreamingClient(ArgumentMatchers.any(), ArgumentMatchers.anyString());
+    Mockito.verify(ingestSdkProvider, Mockito.times(1)).getStreamingIngestClient();
   }
 
   /**
@@ -235,6 +242,9 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (anotherSetOfRecords + noOfRecords - 1);
+
+    Mockito.verify(ingestSdkProvider, Mockito.times(1)).createStreamingClient(ArgumentMatchers.any(), ArgumentMatchers.anyString());
+    Mockito.verify(ingestSdkProvider, Mockito.times(1)).getStreamingIngestClient();
   }
 
   /**
@@ -258,7 +268,7 @@ public class TopicPartitionChannelIT {
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, this.ingestSdkProvider)
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(5)
             .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
@@ -328,6 +338,7 @@ public class TopicPartitionChannelIT {
     // Send records to partition 2 which should not be affected. (Since there were no overlapping
     // offsets in blob)
     service.insert(records);
+    service.insert(records);
 
     TestUtils.assertWithRetry(
         () ->
@@ -352,6 +363,9 @@ public class TopicPartitionChannelIT {
 
     assert TestUtils.tableSize(testTableName)
         == recordsInPartition1 + anotherSetOfRecords + recordsInPartition2 + anotherSetOfRecords;
+
+    Mockito.verify(ingestSdkProvider, Mockito.times(1)).createStreamingClient(ArgumentMatchers.any(), ArgumentMatchers.anyString());
+    Mockito.verify(ingestSdkProvider, Mockito.times(1)).getStreamingIngestClient();
   }
 
   @Test
@@ -415,5 +429,8 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 2;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (recordsInPartition1 + anotherSetOfRecords - 1);
+
+    Mockito.verify(ingestSdkProvider, Mockito.times(1)).createStreamingClient(ArgumentMatchers.any(), ArgumentMatchers.anyString());
+    Mockito.verify(ingestSdkProvider, Mockito.times(1)).getStreamingIngestClient();
   }
 }
