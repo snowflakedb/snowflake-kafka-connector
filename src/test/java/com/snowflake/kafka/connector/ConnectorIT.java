@@ -316,6 +316,7 @@ public class ConnectorIT {
   public void testConnectorComprehensive() {
     Map<String, String> config = getConf();
     SnowflakeSinkConnector sinkConnector = new SnowflakeSinkConnector();
+    sinkConnector.initialize(null);
     sinkConnector.start(config);
     assert sinkConnector.taskClass().equals(SnowflakeSinkTask.class);
     List<Map<String, String>> taskConfigs = sinkConnector.taskConfigs(2);

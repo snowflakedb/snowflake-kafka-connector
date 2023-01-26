@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector;
 
+import com.snowflake.kafka.connector.internal.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
@@ -35,6 +36,7 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.connect.connector.ConnectorContext;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkConnector;
@@ -52,13 +54,11 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // create logger without correlationId for now
   private static LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnector.class.getName());
 
-  private static String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
-
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
   private String connectorName; // unique name of this connector instance
 
-  private static int streamingIngestClientCount = 0;
+  private int streamingIngestClientCount = 0;
 
   // SnowflakeJDBCWrapper provides methods to interact with user's snowflake
   // account and executes queries
@@ -68,7 +68,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
   private SnowflakeTelemetryService telemetryClient;
   private long connectorStartTime;
 
-  private static SnowflakeStreamingIngestClient streamingIngestClient;
 
   // Kafka Connect starts sink tasks without waiting for setup in
   // SnowflakeSinkConnector to finish.
@@ -77,9 +76,19 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // Using setupComplete to synchronize
   private boolean setupComplete;
 
+  private IngestSdkProvider ingestSdkProvider;
+  private SnowflakeStreamingIngestClient streamingIngestClient;
+
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeSinkConnector() {
     setupComplete = false;
+  }
+
+  @Override
+  public void initialize(ConnectorContext ctx) {
+    super.initialize(ctx);
+
+    this.ingestSdkProvider = new IngestSdkProvider();
   }
 
   /**
@@ -120,7 +129,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     // config as a side effect
     conn = SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
 
-    streamingIngestClient = initStreamingClient(config, conn.getConnectorName());
+    ingestSdkProvider.createStreamingClient(config, connectorName);
 
     telemetryClient = conn.getTelemetryClient();
 
@@ -141,8 +150,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
   public void stop() {
     // set task logging to default
     SnowflakeSinkTask.setTotalTaskCreationCount(-1);
-    closeStreamingClient(this.connectorName);
     setupComplete = false;
+    this.ingestSdkProvider.closeStreamingClient();
     LOGGER.info("SnowflakeSinkConnector:stop");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
   }
@@ -324,15 +333,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
     return Utils.VERSION;
   }
 
-  public static SnowflakeStreamingIngestClient getStreamingIngestClient() {
-    if (streamingIngestClient != null && !streamingIngestClient.isClosed()) {
-      return streamingIngestClient;
-    }
-
-    LOGGER.error("Streaming ingest client was null or closed. It must be initialized");
-    throw SnowflakeErrors.ERROR_3009.getException();
-  }
-
   // returns the instance id as a combo of a random uuid and the current time
   private String getKcInstanceId(long currTime) {
     // 9-10 char
@@ -340,44 +340,5 @@ public class SnowflakeSinkConnector extends SinkConnector {
     int unsignedHashCode = Math.abs(combinedId.hashCode());
 
     return "" + unsignedHashCode;
-  }
-
-  public static SnowflakeStreamingIngestClient initStreamingClient(
-      Map<String, String> connectorConfig, String connectorName) {
-    Map<String, String> streamingPropertiesMap =
-        StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig));
-    Properties streamingClientProps = new Properties();
-    streamingClientProps.putAll(streamingPropertiesMap);
-
-    String streamingIngestClientName = getStreamingIngestClientName(connectorName);
-
-    try {
-      LOGGER.info("Initializing Streaming Client. ClientName:{}", streamingIngestClientName);
-      streamingIngestClientCount++;
-      return SnowflakeStreamingIngestClientFactory.builder(streamingIngestClientName)
-          .setProperties(streamingClientProps)
-          .build();
-    } catch (SFException ex) {
-      LOGGER.error(
-          "Exception creating streamingIngestClient with name:{}", streamingIngestClientName);
-      throw new ConnectException(ex);
-    }
-  }
-
-  public static void closeStreamingClient(String connectorName) {
-    String streamingIngestClientName = getStreamingIngestClientName(connectorName);
-    LOGGER.info("Closing Streaming Client:{}", streamingIngestClientName);
-    try {
-      streamingIngestClient.close();
-    } catch (Exception e) {
-      LOGGER.error(
-          "Failure closing Streaming client msg:{}, cause:{}",
-          e.getMessage(),
-          Arrays.toString(e.getCause().getStackTrace()));
-    }
-  }
-
-  private static String getStreamingIngestClientName(String connectorName) {
-    return STREAMING_CLIENT_PREFIX_NAME + connectorName + streamingIngestClientCount;
   }
 }

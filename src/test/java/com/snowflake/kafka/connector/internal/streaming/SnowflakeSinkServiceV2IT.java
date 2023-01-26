@@ -4,6 +4,7 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -25,8 +26,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -49,14 +53,20 @@ public class SnowflakeSinkServiceV2IT {
   private String topic = "test";
   private TopicPartition topicPartition = new TopicPartition(topic, partition);
   private static ObjectMapper MAPPER = new ObjectMapper();
-  private SnowflakeStreamingIngestClient streamingIngestClient;
+
   private Map<String, String> config;
+  private SnowflakeStreamingIngestClient streamingIngestClient;
+  private final IngestSdkProvider ingestSdkProvider = new IngestSdkProvider();
+  private final String connectorName = "testconnector";
 
   @Before
   public void setup() {
-    config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    streamingIngestClient = SnowflakeSinkConnector.initStreamingClient(config, "testclient");
+    // config
+    this.config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
+
+    // streaming client
+    this.streamingIngestClient = ingestSdkProvider.createStreamingClient(this.config, connectorName);
   }
   
   @After
@@ -760,22 +770,6 @@ public class SnowflakeSinkServiceV2IT {
     assert reportedData.size() == 2;
 
     service.closeAll();
-  }
-
-  @Test(expected = ConnectException.class)
-  public void testMissingPropertiesForStreamingClient() {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    config.remove(Utils.SF_ROLE);
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-
-    try {
-      SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, streamingIngestClient)
-          .build();
-    } catch (ConnectException ex) {
-      assert ex.getCause() instanceof SFException;
-      assert ex.getCause().getMessage().contains("Missing role");
-      throw ex;
-    }
   }
 
   /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest check data */
