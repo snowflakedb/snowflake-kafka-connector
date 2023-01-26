@@ -964,6 +964,10 @@ public class SnowflakeSinkServiceV2IT {
             avroInputValue.value(),
             startOffset);
 
+    this.streamingIngestClient = TestUtils.createStreamingClient(config, "testclient");
+    Mockito.when(this.ingestSdkProvider.createStreamingClient(this.config, this.connectorName)).thenReturn(this.streamingIngestClient);
+    Mockito.when(this.ingestSdkProvider.getStreamingIngestClient()).thenReturn(this.streamingIngestClient);
+
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)

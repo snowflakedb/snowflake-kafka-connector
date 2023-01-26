@@ -13,6 +13,8 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -105,9 +107,9 @@ public class TopicPartitionChannelTest {
         Boolean.toString(this.enableSchematization));
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testTopicPartitionChannelInit_streamingClientClosed() {
-    Mockito.when(mockStreamingClient.isClosed()).thenReturn(true);
+    Mockito.when(mockIngestSdkProvider.getStreamingIngestClient()).thenThrow(SnowflakeErrors.ERROR_3009.getException());
     new TopicPartitionChannel(
         mockIngestSdkProvider,
         topicPartition,
@@ -483,7 +485,8 @@ public class TopicPartitionChannelTest {
           new InMemoryKafkaRecordErrorReporter();
 
       IngestSdkProvider ingestSdkProviderMock = Mockito.mock(IngestSdkProvider.class);
-      Mockito.when(ingestSdkProviderMock.getStreamingIngestClient()).thenReturn(TestUtils.createStreamingClient(this.sfConnectorConfig, "testclient"));
+      SnowflakeStreamingIngestClient ingestClient = TestUtils.createStreamingClient(sfConnectorConfigWithErrors, "testclient");
+      Mockito.when(ingestSdkProviderMock.getStreamingIngestClient()).thenReturn(ingestClient);
 
       TopicPartitionChannel topicPartitionChannel =
           new TopicPartitionChannel(
