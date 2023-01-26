@@ -1,8 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnector;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
@@ -26,18 +24,13 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
-
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
-import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
@@ -60,9 +53,8 @@ public class SnowflakeSinkServiceV2IT {
   private SnowflakeStreamingIngestClient streamingIngestClient;
   private final String connectorName = "testconnector";
 
-  @Mock
-  private final IngestSdkProvider ingestSdkProvider = Mockito.mock(IngestSdkProvider.class);
-  
+  @Mock private final IngestSdkProvider ingestSdkProvider = Mockito.mock(IngestSdkProvider.class);
+
   @Before
   public void setup() {
     // config
@@ -71,10 +63,12 @@ public class SnowflakeSinkServiceV2IT {
 
     // streaming client
     this.streamingIngestClient = TestUtils.createStreamingClient(this.config, this.connectorName);
-    Mockito.when(this.ingestSdkProvider.createStreamingClient(this.config, this.connectorName)).thenReturn(this.streamingIngestClient);
-    Mockito.when(this.ingestSdkProvider.getStreamingIngestClient()).thenReturn(this.streamingIngestClient);
+    Mockito.when(this.ingestSdkProvider.createStreamingClient(this.config, this.connectorName))
+        .thenReturn(this.streamingIngestClient);
+    Mockito.when(this.ingestSdkProvider.getStreamingIngestClient())
+        .thenReturn(this.streamingIngestClient);
   }
-  
+
   @After
   public void afterEach() throws Exception {
     TestUtils.dropTable(table);
@@ -84,7 +78,8 @@ public class SnowflakeSinkServiceV2IT {
   @Test
   public void testSinkServiceV2Builder() {
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .build();
 
     assert service instanceof SnowflakeSinkServiceV2;
@@ -94,7 +89,10 @@ public class SnowflakeSinkServiceV2IT {
         SnowflakeErrors.ERROR_5010,
         () ->
             SnowflakeSinkServiceFactory.builder(
-                    null, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+                    null,
+                    IngestionMethodConfig.SNOWPIPE_STREAMING,
+                    this.config,
+                    this.ingestSdkProvider)
                 .build());
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_5010,
@@ -102,7 +100,10 @@ public class SnowflakeSinkServiceV2IT {
           SnowflakeConnectionService conn = TestUtils.getConnectionService();
           conn.close();
           SnowflakeSinkServiceFactory.builder(
-                  conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+                  conn,
+                  IngestionMethodConfig.SNOWPIPE_STREAMING,
+                  this.config,
+                  this.ingestSdkProvider)
               .build();
         });
   }
@@ -115,7 +116,8 @@ public class SnowflakeSinkServiceV2IT {
 
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -159,7 +161,8 @@ public class SnowflakeSinkServiceV2IT {
 
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -204,7 +207,8 @@ public class SnowflakeSinkServiceV2IT {
 
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -268,7 +272,8 @@ public class SnowflakeSinkServiceV2IT {
 
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(5)
             .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
@@ -319,7 +324,8 @@ public class SnowflakeSinkServiceV2IT {
 
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(100)
             .setFlushTime(11) // 11 seconds
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
@@ -428,7 +434,8 @@ public class SnowflakeSinkServiceV2IT {
             startOffset + 3);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -591,7 +598,8 @@ public class SnowflakeSinkServiceV2IT {
     conn.createTable(table);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -651,7 +659,8 @@ public class SnowflakeSinkServiceV2IT {
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(errorReporter)
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -698,7 +707,8 @@ public class SnowflakeSinkServiceV2IT {
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setErrorReporter(errorReporter)
             .setRecordNumber(recordCount)
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -756,7 +766,8 @@ public class SnowflakeSinkServiceV2IT {
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setErrorReporter(errorReporter)
             .setRecordNumber(recordCount)
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -788,7 +799,8 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -816,7 +828,8 @@ public class SnowflakeSinkServiceV2IT {
 
     // initialize a new sink service
     SnowflakeSinkService service2 =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -848,7 +861,8 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -877,7 +891,8 @@ public class SnowflakeSinkServiceV2IT {
 
     // initialize a new sink service
     SnowflakeSinkService service2 =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -965,11 +980,14 @@ public class SnowflakeSinkServiceV2IT {
             startOffset);
 
     this.streamingIngestClient = TestUtils.createStreamingClient(config, "testclient");
-    Mockito.when(this.ingestSdkProvider.createStreamingClient(this.config, this.connectorName)).thenReturn(this.streamingIngestClient);
-    Mockito.when(this.ingestSdkProvider.getStreamingIngestClient()).thenReturn(this.streamingIngestClient);
+    Mockito.when(this.ingestSdkProvider.createStreamingClient(this.config, this.connectorName))
+        .thenReturn(this.streamingIngestClient);
+    Mockito.when(this.ingestSdkProvider.getStreamingIngestClient())
+        .thenReturn(this.streamingIngestClient);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -1055,7 +1073,8 @@ public class SnowflakeSinkServiceV2IT {
             startOffset);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -1116,7 +1135,8 @@ public class SnowflakeSinkServiceV2IT {
             startOffset);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))

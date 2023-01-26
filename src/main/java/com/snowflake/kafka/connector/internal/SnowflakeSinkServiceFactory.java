@@ -6,7 +6,6 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Map;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
@@ -25,8 +24,7 @@ public class SnowflakeSinkServiceFactory {
       IngestionMethodConfig ingestionType,
       Map<String, String> connectorConfig,
       IngestSdkProvider ingestSdkProvider) {
-    return new SnowflakeSinkServiceBuilder(
-        conn, ingestionType, connectorConfig, ingestSdkProvider);
+    return new SnowflakeSinkServiceBuilder(conn, ingestionType, connectorConfig, ingestSdkProvider);
   }
 
   /**
@@ -58,7 +56,11 @@ public class SnowflakeSinkServiceFactory {
     }
 
     private SnowflakeSinkServiceBuilder(SnowflakeConnectionService conn) {
-      this(conn, IngestionMethodConfig.SNOWPIPE, null /* Not required for V1 */, null /* Not required for V1 */);
+      this(
+          conn,
+          IngestionMethodConfig.SNOWPIPE,
+          null /* Not required for V1 */,
+          null /* Not required for V1 */);
     }
 
     /**

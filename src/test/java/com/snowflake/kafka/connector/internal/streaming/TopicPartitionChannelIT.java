@@ -32,13 +32,12 @@ public class TopicPartitionChannelIT {
   private String topic;
   private TopicPartition topicPartition, topicPartition2;
   private String testChannelName, testChannelName2;
-  
+
   private Map<String, String> config;
   private SnowflakeStreamingIngestClient streamingIngestClient;
   private final String connectorName = "testconnector";
 
-  @Mock
-  private final IngestSdkProvider ingestSdkProvider = Mockito.mock(IngestSdkProvider.class);
+  @Mock private final IngestSdkProvider ingestSdkProvider = Mockito.mock(IngestSdkProvider.class);
 
   @Before
   public void beforeEach() {
@@ -57,8 +56,10 @@ public class TopicPartitionChannelIT {
 
     // setup client
     this.streamingIngestClient = TestUtils.createStreamingClient(this.config, this.connectorName);
-    Mockito.when(ingestSdkProvider.createStreamingClient(this.config, this.connectorName)).thenReturn(this.streamingIngestClient);
-    Mockito.when(ingestSdkProvider.getStreamingIngestClient()).thenReturn(this.streamingIngestClient);
+    Mockito.when(ingestSdkProvider.createStreamingClient(this.config, this.connectorName))
+        .thenReturn(this.streamingIngestClient);
+    Mockito.when(ingestSdkProvider.getStreamingIngestClient())
+        .thenReturn(this.streamingIngestClient);
   }
 
   @After
@@ -289,7 +290,8 @@ public class TopicPartitionChannelIT {
         20,
         5);
 
-    SnowflakeStreamingIngestClient client = TestUtils.createStreamingClient(this.config, "testclient");
+    SnowflakeStreamingIngestClient client =
+        TestUtils.createStreamingClient(this.config, "testclient");
     OpenChannelRequest channelRequest =
         OpenChannelRequest.builder(testChannelName)
             .setDBName(config.get(Utils.SF_DATABASE))

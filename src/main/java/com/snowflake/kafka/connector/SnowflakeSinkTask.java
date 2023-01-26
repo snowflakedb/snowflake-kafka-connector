@@ -117,9 +117,10 @@ public class SnowflakeSinkTask extends SinkTask {
   }
 
   /**
-   * TEST ONLY
-   * the ingestSdkProvider should be initialized before task creation begins. Since we can't control what is passed to this task (extends kafka sink task), the provider must be static and thus un-mockable
-   * **/
+   * TEST ONLY the ingestSdkProvider should be initialized before task creation begins. Since we
+   * can't control what is passed to this task (extends kafka sink task), the provider must be
+   * static and thus un-mockable *
+   */
   @VisibleForTesting
   public SnowflakeSinkTask(IngestSdkProvider ingestSdkProvider) {
     this();
@@ -251,7 +252,8 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.closeAll();
     }
     this.sink =
-        SnowflakeSinkServiceFactory.builder(getConnection(), ingestionType, parsedConfig, this.ingestSdkProvider)
+        SnowflakeSinkServiceFactory.builder(
+                getConnection(), ingestionType, parsedConfig, this.ingestSdkProvider)
             .setFileSize(bufferSizeBytes)
             .setRecordNumber(bufferCountRecords)
             .setFlushTime(bufferFlushTime)

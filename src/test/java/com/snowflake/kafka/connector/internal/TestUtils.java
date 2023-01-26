@@ -736,13 +736,14 @@ public class TestUtils {
     return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, taskId, taskOpenCount, "").split("#")[0];
   }
 
-
-  public static SnowflakeStreamingIngestClient createStreamingClient(Map<String, String> config, String connectorName) {
+  public static SnowflakeStreamingIngestClient createStreamingClient(
+      Map<String, String> config, String connectorName) {
     Properties streamingClientProps = new Properties();
-    streamingClientProps.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
+    streamingClientProps.putAll(
+        StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
 
     return SnowflakeStreamingIngestClientFactory.builder(connectorName)
-            .setProperties(streamingClientProps)
-            .build();
+        .setProperties(streamingClientProps)
+        .build();
   }
 }

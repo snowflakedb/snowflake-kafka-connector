@@ -49,8 +49,7 @@ public class SnowflakeSinkTaskForStreamingIT {
   private Map<String, String> config;
 
   @Mock Logger logger = Mockito.mock(Logger.class);
-  @Mock
-  private IngestSdkProvider ingestSdkProvider = Mockito.mock(IngestSdkProvider.class);
+  @Mock private IngestSdkProvider ingestSdkProvider = Mockito.mock(IngestSdkProvider.class);
 
   @InjectMocks @Spy
   private LoggerHandler loggerHandler = Mockito.spy(new LoggerHandler(this.getClass().getName()));
@@ -61,11 +60,11 @@ public class SnowflakeSinkTaskForStreamingIT {
   public void setup() {
     topicName = TestUtils.randomTableName();
     topicPartition = new TopicPartition(topicName, partition);
-    
+
     // config
     this.config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
-    
+
     // client
     this.ingestClient = TestUtils.createStreamingClient(this.config, "testclient");
     Mockito.when(this.ingestSdkProvider.getStreamingIngestClient()).thenReturn(this.ingestClient);
@@ -138,7 +137,8 @@ public class SnowflakeSinkTaskForStreamingIT {
     config1.put(Utils.TASK_ID, task1Id);
 
     SnowflakeSinkTask sinkTask0 = new SnowflakeSinkTask(this.ingestSdkProvider);
-    Mockito.when(this.ingestSdkProvider.getStreamingIngestClient()).thenReturn(this.ingestClient); // need to call because injectmocks happens before @before
+    Mockito.when(this.ingestSdkProvider.getStreamingIngestClient())
+        .thenReturn(this.ingestClient); // need to call because injectmocks happens before @before
 
     sinkTask0.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
     sinkTask1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
