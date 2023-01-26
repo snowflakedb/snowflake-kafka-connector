@@ -20,6 +20,8 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.Mockito;
 
 public class TopicPartitionChannelIT {
 
@@ -33,8 +35,10 @@ public class TopicPartitionChannelIT {
   
   private Map<String, String> config;
   private SnowflakeStreamingIngestClient streamingIngestClient;
-  private final IngestSdkProvider ingestSdkProvider = new IngestSdkProvider();
   private final String connectorName = "testconnector";
+
+  @Mock
+  private final IngestSdkProvider ingestSdkProvider = Mockito.mock(IngestSdkProvider.class);
 
   @Before
   public void beforeEach() {
@@ -51,12 +55,16 @@ public class TopicPartitionChannelIT {
     this.config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
 
-    this.streamingIngestClient = ingestSdkProvider.createStreamingClient(this.config, connectorName);
+    // setup client
+    this.streamingIngestClient = TestUtils.createStreamingClient(this.config, this.connectorName);
+    Mockito.when(ingestSdkProvider.createStreamingClient(this.config, this.connectorName)).thenReturn(this.streamingIngestClient);
+    Mockito.when(ingestSdkProvider.getStreamingIngestClient()).thenReturn(this.streamingIngestClient);
   }
 
   @After
-  public void afterEach() {
+  public void afterEach() throws Exception {
     TestUtils.dropTable(testTableName);
+    this.streamingIngestClient.close();
   }
 
   @Test
@@ -67,7 +75,7 @@ public class TopicPartitionChannelIT {
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, this.streamingIngestClient)
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
@@ -90,7 +98,7 @@ public class TopicPartitionChannelIT {
     // Ctor of TopicPartitionChannel tries to open the channel.
     TopicPartitionChannel channel =
         new TopicPartitionChannel(
-            snowflakeSinkServiceV2.getStreamingIngestClient(),
+            this.ingestSdkProvider,
             topicPartition,
             testChannelName,
             testTableName,
@@ -118,7 +126,7 @@ public class TopicPartitionChannelIT {
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, streamingIngestClient)
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
@@ -174,7 +182,7 @@ public class TopicPartitionChannelIT {
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, streamingIngestClient)
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, this.ingestSdkProvider)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
@@ -249,7 +257,7 @@ public class TopicPartitionChannelIT {
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, streamingIngestClient)
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, this.ingestSdkProvider)
             .setRecordNumber(5)
             .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
@@ -281,8 +289,7 @@ public class TopicPartitionChannelIT {
         20,
         5);
 
-    SnowflakeStreamingIngestClient client =
-        ((SnowflakeSinkServiceV2) service).getStreamingIngestClient();
+    SnowflakeStreamingIngestClient client = TestUtils.createStreamingClient(this.config, "testclient");
     OpenChannelRequest channelRequest =
         OpenChannelRequest.builder(testChannelName)
             .setDBName(config.get(Utils.SF_DATABASE))
@@ -353,7 +360,7 @@ public class TopicPartitionChannelIT {
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, streamingIngestClient)
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config, ingestSdkProvider)
             .setRecordNumber(10)
             .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
@@ -374,8 +381,6 @@ public class TopicPartitionChannelIT {
         20,
         5);
 
-    SnowflakeStreamingIngestClient client =
-        ((SnowflakeSinkServiceV2) service).getStreamingIngestClient();
     OpenChannelRequest channelRequest =
         OpenChannelRequest.builder(testChannelName)
             .setDBName(config.get(Utils.SF_DATABASE))
@@ -383,7 +388,7 @@ public class TopicPartitionChannelIT {
             .setTableName(this.testTableName)
             .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
             .build();
-    client.openChannel(channelRequest);
+    this.streamingIngestClient.openChannel(channelRequest);
     Thread.sleep(5_000);
 
     // send offset 10 - 19

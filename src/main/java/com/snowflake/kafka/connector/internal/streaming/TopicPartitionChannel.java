@@ -12,9 +12,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.SnowflakeSinkTask;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
+import com.snowflake.kafka.connector.internal.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -184,7 +186,7 @@ public class TopicPartitionChannel {
 
   /** Testing only, initialize TopicPartitionChannel without the connection service */
   public TopicPartitionChannel(
-      SnowflakeStreamingIngestClient streamingIngestClient,
+      IngestSdkProvider ingestSdkProvider,
       TopicPartition topicPartition,
       final String channelName,
       final String tableName,
@@ -193,7 +195,7 @@ public class TopicPartitionChannel {
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext) {
     this(
-        streamingIngestClient,
+        ingestSdkProvider,
         topicPartition,
         channelName,
         tableName,
@@ -205,7 +207,7 @@ public class TopicPartitionChannel {
   }
 
   /**
-   * @param streamingIngestClient client created specifically for this task
+   * @param ingestSdkProvider provider to get client created specifically for this task
    * @param topicPartition topic partition corresponding to this Streaming Channel
    *     (TopicPartitionChannel)
    * @param channelName channel Name which is deterministic for topic and partition
@@ -217,7 +219,7 @@ public class TopicPartitionChannel {
    * @param conn the snowflake connection service
    */
   public TopicPartitionChannel(
-      SnowflakeStreamingIngestClient streamingIngestClient,
+      IngestSdkProvider ingestSdkProvider,
       TopicPartition topicPartition,
       final String channelName,
       final String tableName,
@@ -226,8 +228,8 @@ public class TopicPartitionChannel {
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn) {
-    this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
-    Preconditions.checkState(!streamingIngestClient.isClosed());
+    // TODO: there is no guarantee that the ingestsdkprovider has already been initialized. could lead to task creation failures
+    this.streamingIngestClient = ingestSdkProvider.getStreamingIngestClient();
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelName = Preconditions.checkNotNull(channelName);
     this.tableName = Preconditions.checkNotNull(tableName);
@@ -237,7 +239,6 @@ public class TopicPartitionChannel {
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.conn = conn;
-
     this.recordService = new RecordService();
 
     this.previousFlushTimeStampMs = System.currentTimeMillis();

@@ -2,21 +2,13 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mockito;
-import org.mockito.Spy;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 
 public class IngestSdkProviderTest {
     private Map<String, String> config;
@@ -32,20 +24,11 @@ public class IngestSdkProviderTest {
         SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
     }
 
-    private SnowflakeStreamingIngestClient getGoalClient(Map<String, String> config, String connectorName) {
-        Properties streamingClientProps = new Properties();
-        streamingClientProps.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
-
-        return SnowflakeStreamingIngestClientFactory.builder(connectorName)
-                .setProperties(streamingClientProps)
-                .build();
-    }
-
     @Test
     public void testCreateClient() {
         // setup
         IngestSdkProvider ingestSdkProvider = new IngestSdkProvider();
-        SnowflakeStreamingIngestClient goalClient = this.getGoalClient(this.config, "KC_CLIENT_" + this.connectorName + "0");
+        SnowflakeStreamingIngestClient goalClient = TestUtils.createStreamingClient(this.config, "KC_CLIENT_" + this.connectorName + "0");
 
         // test
         SnowflakeStreamingIngestClient createdClient = ingestSdkProvider.createStreamingClient(this.config, this.connectorName);
@@ -59,7 +42,7 @@ public class IngestSdkProviderTest {
         // setup
         IngestSdkProvider ingestSdkProvider = new IngestSdkProvider();
         SnowflakeStreamingIngestClient createdClient = ingestSdkProvider.createStreamingClient(config, connectorName);
-        SnowflakeStreamingIngestClient goalClient = this.getGoalClient(this.config, "KC_CLIENT_" + this.connectorName + "0");
+        SnowflakeStreamingIngestClient goalClient = TestUtils.createStreamingClient(this.config, "KC_CLIENT_" + this.connectorName + "0");
         goalClient.close();
 
         // test
@@ -74,7 +57,7 @@ public class IngestSdkProviderTest {
         // setup
         IngestSdkProvider ingestSdkProvider = new IngestSdkProvider();
         ingestSdkProvider.createStreamingClient(config, connectorName);
-        SnowflakeStreamingIngestClient goalClient = this.getGoalClient(this.config, "KC_CLIENT_" + this.connectorName + "0");
+        SnowflakeStreamingIngestClient goalClient = TestUtils.createStreamingClient(this.config, "KC_CLIENT_" + this.connectorName + "0");
 
         // test
         SnowflakeStreamingIngestClient gotClient = ingestSdkProvider.getStreamingIngestClient();

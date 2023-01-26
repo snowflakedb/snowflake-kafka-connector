@@ -58,8 +58,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // user through kafka connect framework
   private String connectorName; // unique name of this connector instance
 
-  private int streamingIngestClientCount = 0;
-
   // SnowflakeJDBCWrapper provides methods to interact with user's snowflake
   // account and executes queries
   private SnowflakeConnectionService conn;
@@ -68,7 +66,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
   private SnowflakeTelemetryService telemetryClient;
   private long connectorStartTime;
 
-
   // Kafka Connect starts sink tasks without waiting for setup in
   // SnowflakeSinkConnector to finish.
   // This causes race conditions for: config validation, tables and stages
@@ -76,8 +73,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // Using setupComplete to synchronize
   private boolean setupComplete;
 
-  private IngestSdkProvider ingestSdkProvider;
-  private SnowflakeStreamingIngestClient streamingIngestClient;
+  public static IngestSdkProvider ingestSdkProvider;
 
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeSinkConnector() {
@@ -88,7 +84,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   public void initialize(ConnectorContext ctx) {
     super.initialize(ctx);
 
-    this.ingestSdkProvider = new IngestSdkProvider();
+    ingestSdkProvider = new IngestSdkProvider();
   }
 
   /**
@@ -151,7 +147,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     // set task logging to default
     SnowflakeSinkTask.setTotalTaskCreationCount(-1);
     setupComplete = false;
-    this.ingestSdkProvider.closeStreamingClient();
+    ingestSdkProvider.closeStreamingClient();
     LOGGER.info("SnowflakeSinkConnector:stop");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
   }

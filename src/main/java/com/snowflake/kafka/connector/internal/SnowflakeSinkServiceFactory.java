@@ -24,9 +24,9 @@ public class SnowflakeSinkServiceFactory {
       SnowflakeConnectionService conn,
       IngestionMethodConfig ingestionType,
       Map<String, String> connectorConfig,
-      SnowflakeStreamingIngestClient streamingIngestClient) {
+      IngestSdkProvider ingestSdkProvider) {
     return new SnowflakeSinkServiceBuilder(
-        conn, ingestionType, connectorConfig, streamingIngestClient);
+        conn, ingestionType, connectorConfig, ingestSdkProvider);
   }
 
   /**
@@ -47,18 +47,18 @@ public class SnowflakeSinkServiceFactory {
         SnowflakeConnectionService conn,
         IngestionMethodConfig ingestionType,
         Map<String, String> connectorConfig,
-        SnowflakeStreamingIngestClient streamingIngestClient) {
+        IngestSdkProvider ingestSdkProvider) {
       if (ingestionType == IngestionMethodConfig.SNOWPIPE) {
         this.service = new SnowflakeSinkServiceV1(conn);
       } else {
-        this.service = new SnowflakeSinkServiceV2(conn, connectorConfig, streamingIngestClient);
+        this.service = new SnowflakeSinkServiceV2(conn, connectorConfig, ingestSdkProvider);
       }
 
       LOG_INFO_MSG("{} created", this.service.getClass().getName());
     }
 
     private SnowflakeSinkServiceBuilder(SnowflakeConnectionService conn) {
-      this(conn, IngestionMethodConfig.SNOWPIPE, null /* Not required for V1 */, null);
+      this(conn, IngestionMethodConfig.SNOWPIPE, null /* Not required for V1 */, null /* Not required for V1 */);
     }
 
     /**

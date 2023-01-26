@@ -9,6 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -83,8 +84,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private SinkTaskContext sinkTaskContext;
 
   // ------ Streaming Ingest ------ //
-  // needs url, username. p8 key, role name
-  private SnowflakeStreamingIngestClient streamingIngestClient;
+  private IngestSdkProvider ingestSdkProvider;
 
   // Config set in JSON
   private final Map<String, String> connectorConfig;
@@ -103,7 +103,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn,
       Map<String, String> connectorConfig,
-      SnowflakeStreamingIngestClient streamingIngestClient) {
+      IngestSdkProvider ingestSdkProvider) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
     }
@@ -125,7 +125,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
 
-    this.streamingIngestClient = streamingIngestClient;
+    this.ingestSdkProvider = ingestSdkProvider;
 
     this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
     this.partitionsToChannel = new HashMap<>();
@@ -163,7 +163,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     partitionsToChannel.put(
         partitionChannelKey,
         new TopicPartitionChannel(
-            this.streamingIngestClient,
+            this.ingestSdkProvider,
             topicPartition,
             partitionChannelKey, // Streaming channel name
             tableName,
@@ -433,12 +433,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @VisibleForTesting
   protected static String partitionChannelKey(String topic, int partition) {
     return topic + "_" + partition;
-  }
-
-  /* Used for testing */
-  @VisibleForTesting
-  SnowflakeStreamingIngestClient getStreamingIngestClient() {
-    return this.streamingIngestClient;
   }
 
   /**

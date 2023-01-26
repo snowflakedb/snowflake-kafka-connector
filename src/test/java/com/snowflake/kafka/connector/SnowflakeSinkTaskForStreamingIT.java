@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 
+import com.snowflake.kafka.connector.internal.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
@@ -19,6 +20,7 @@ import java.util.Set;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -43,38 +45,48 @@ public class SnowflakeSinkTaskForStreamingIT {
   private String topicName;
   private static int partition = 0;
   private TopicPartition topicPartition;
+  private SnowflakeStreamingIngestClient ingestClient;
+  private Map<String, String> config;
 
   @Mock Logger logger = Mockito.mock(Logger.class);
+  @Mock
+  private IngestSdkProvider ingestSdkProvider = Mockito.mock(IngestSdkProvider.class);
 
   @InjectMocks @Spy
   private LoggerHandler loggerHandler = Mockito.spy(new LoggerHandler(this.getClass().getName()));
 
-  @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
+  @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask(this.ingestSdkProvider);
 
   @Before
   public void setup() {
     topicName = TestUtils.randomTableName();
     topicPartition = new TopicPartition(topicName, partition);
+    
+    // config
+    this.config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
+    
+    // client
+    this.ingestClient = TestUtils.createStreamingClient(this.config, "testclient");
+    Mockito.when(this.ingestSdkProvider.getStreamingIngestClient()).thenReturn(this.ingestClient);
   }
 
   @After
-  public void after() {
+  public void after() throws Exception {
     TestUtils.dropTable(topicName);
+    this.ingestClient.close();
   }
 
   @Test
   public void testSinkTask() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(BUFFER_COUNT_RECORDS, "1"); // override
+    this.config.put(BUFFER_COUNT_RECORDS, "1"); // override
+    this.config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-
-    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
+    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask(this.ingestSdkProvider);
 
     // Inits the sinktaskcontext
     sinkTask.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
-    sinkTask.start(config);
+    sinkTask.start(this.config);
     ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
     topicPartitions.add(new TopicPartition(topicName, partition));
     sinkTask.open(topicPartitions);
@@ -94,10 +106,15 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     sinkTask.close(topicPartitions);
     sinkTask.stop();
+
+    Mockito.verify(this.ingestSdkProvider, Mockito.times(1)).getStreamingIngestClient();
   }
 
   @Test
   public void testMultipleSinkTaskWithLogs() throws Exception {
+    int partition0 = 0;
+    int partition1 = 1;
+
     // setup log mocking for task1
     MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
@@ -120,7 +137,8 @@ public class SnowflakeSinkTaskForStreamingIT {
     config1.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config1.put(Utils.TASK_ID, task1Id);
 
-    SnowflakeSinkTask sinkTask0 = new SnowflakeSinkTask();
+    SnowflakeSinkTask sinkTask0 = new SnowflakeSinkTask(this.ingestSdkProvider);
+    Mockito.when(this.ingestSdkProvider.getStreamingIngestClient()).thenReturn(this.ingestClient); // need to call because injectmocks happens before @before
 
     sinkTask0.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
     sinkTask1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
@@ -143,9 +161,9 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // open tasks
     ArrayList<TopicPartition> topicPartitions0 = new ArrayList<>();
-    topicPartitions0.add(new TopicPartition(topicName, partition));
+    topicPartitions0.add(new TopicPartition(topicName, partition0));
     ArrayList<TopicPartition> topicPartitions1 = new ArrayList<>();
-    topicPartitions1.add(new TopicPartition(topicName, partition));
+    topicPartitions1.add(new TopicPartition(topicName, partition1));
 
     sinkTask0.open(topicPartitions0);
     sinkTask1.open(topicPartitions1);
@@ -159,8 +177,8 @@ public class SnowflakeSinkTaskForStreamingIT {
             AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
 
     // send data to tasks
-    List<SinkRecord> records0 = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition);
-    List<SinkRecord> records1 = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition);
+    List<SinkRecord> records0 = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition0);
+    List<SinkRecord> records1 = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition1);
 
     sinkTask0.put(records0);
     sinkTask1.put(records1);
@@ -206,21 +224,19 @@ public class SnowflakeSinkTaskForStreamingIT {
     Mockito.verify(logger, Mockito.times(1))
         .debug(
             AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("stop")));
+    Mockito.verify(this.ingestSdkProvider, Mockito.times(2)).getStreamingIngestClient();
   }
 
   @Test
   public void testSinkTaskWithMultipleOpenClose() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(BUFFER_COUNT_RECORDS, "1"); // override
+    this.config.put(BUFFER_COUNT_RECORDS, "1"); // override
+    this.config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-
-    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
+    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask(this.ingestSdkProvider);
     // Inits the sinktaskcontext
     sinkTask.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
 
-    sinkTask.start(config);
+    sinkTask.start(this.config);
     ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
     topicPartitions.add(new TopicPartition(topicName, partition));
     sinkTask.open(topicPartitions);
@@ -300,5 +316,6 @@ public class SnowflakeSinkTaskForStreamingIT {
         });
 
     assert partitionsInTable.size() == 2;
+    Mockito.verify(this.ingestSdkProvider, Mockito.times(3)).getStreamingIngestClient();
   }
 }
