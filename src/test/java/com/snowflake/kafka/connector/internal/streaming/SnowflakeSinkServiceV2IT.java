@@ -1136,7 +1136,7 @@ public class SnowflakeSinkServiceV2IT {
 
     this.streamingIngestClient = TestUtils.createStreamingClient(config, this.connectorName);
     Mockito.when(this.ingestSdkProvider.getStreamingIngestClient())
-            .thenReturn(this.streamingIngestClient);
+        .thenReturn(this.streamingIngestClient);
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
