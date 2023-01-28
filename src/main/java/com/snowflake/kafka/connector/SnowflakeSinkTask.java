@@ -113,7 +113,6 @@ public class SnowflakeSinkTask extends SinkTask {
     totalTaskCreationCount =
         totalTaskCreationCount != -1 ? totalTaskCreationCount + 1 : totalTaskCreationCount;
     this.taskOpenCount = 0;
-    this.ingestSdkProvider = SnowflakeSinkConnector.ingestSdkProvider;
   }
 
   /**
@@ -247,6 +246,8 @@ public class SnowflakeSinkTask extends SinkTask {
             .setProperties(parsedConfig)
             .setTaskID(this.taskConfigId)
             .build();
+
+    this.ingestSdkProvider = SnowflakeSinkConnector.ingestSdkProvider;
 
     if (this.sink != null) {
       this.sink.closeAll();
