@@ -101,8 +101,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn,
-      Map<String, String> connectorConfig,
-      IngestSdkProvider ingestSdkProvider) {
+      Map<String, String> connectorConfig) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
     }
@@ -123,8 +122,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
-
-    this.ingestSdkProvider = ingestSdkProvider;
 
     this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
     this.partitionsToChannel = new HashMap<>();

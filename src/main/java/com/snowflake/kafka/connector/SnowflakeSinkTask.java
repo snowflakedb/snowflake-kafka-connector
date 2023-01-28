@@ -20,7 +20,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVER
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
@@ -99,8 +98,6 @@ public class SnowflakeSinkTask extends SinkTask {
 
   private long taskOpenCount;
 
-  private IngestSdkProvider ingestSdkProvider;
-
   public static void setTotalTaskCreationCount(int newCreationCount) {
     STATIC_LOGGER.info("Setting task creation count to {} for logging", newCreationCount);
     totalTaskCreationCount = newCreationCount;
@@ -113,17 +110,6 @@ public class SnowflakeSinkTask extends SinkTask {
     totalTaskCreationCount =
         totalTaskCreationCount != -1 ? totalTaskCreationCount + 1 : totalTaskCreationCount;
     this.taskOpenCount = 0;
-  }
-
-  /**
-   * TEST ONLY the ingestSdkProvider should be initialized before task creation begins. Since we
-   * can't control what is passed to this task (extends kafka sink task), the provider must be
-   * static and thus un-mockable *
-   */
-  @VisibleForTesting
-  public SnowflakeSinkTask(IngestSdkProvider ingestSdkProvider) {
-    this();
-    this.ingestSdkProvider = ingestSdkProvider;
   }
 
   private SnowflakeConnectionService getConnection() {
@@ -247,16 +233,12 @@ public class SnowflakeSinkTask extends SinkTask {
             .setTaskID(this.taskConfigId)
             .build();
 
-    if (SnowflakeSinkConnector.ingestSdkProvider != null) {
-      this.ingestSdkProvider = SnowflakeSinkConnector.ingestSdkProvider;
-    }
-
     if (this.sink != null) {
       this.sink.closeAll();
     }
     this.sink =
         SnowflakeSinkServiceFactory.builder(
-                getConnection(), ingestionType, parsedConfig, this.ingestSdkProvider)
+                getConnection(), ingestionType, parsedConfig)
             .setFileSize(bufferSizeBytes)
             .setRecordNumber(bufferCountRecords)
             .setFlushTime(bufferFlushTime)
