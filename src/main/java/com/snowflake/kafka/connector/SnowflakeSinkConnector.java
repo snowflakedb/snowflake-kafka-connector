@@ -47,9 +47,10 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // create logger without correlationId for now
   private static LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnector.class.getName());
 
+  private final int closeConnectorRetryCount = 5;
+
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
-  private String connectorName; // unique name of this connector instance
 
   // SnowflakeJDBCWrapper provides methods to interact with user's snowflake
   // account and executes queries
@@ -67,6 +68,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
   private boolean setupComplete;
 
   public static IngestSdkProvider ingestSdkProvider;
+
+  private String kcInstanceId;
 
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeSinkConnector() {
@@ -100,7 +103,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
     connectorStartTime = System.currentTimeMillis();
 
     // initialize logging with global instance Id
-    LoggerHandler.setConnectGlobalInstanceId(this.getKcInstanceId(this.connectorStartTime));
+    this.kcInstanceId = this.getKcInstanceId(this.connectorStartTime);
+    LoggerHandler.setConnectGlobalInstanceId(kcInstanceId);
 
     config = new HashMap<>(parsedConfig);
 
@@ -118,7 +122,10 @@ public class SnowflakeSinkConnector extends SinkConnector {
     // config as a side effect
     conn = SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
 
-    ingestSdkProvider.createStreamingClient(config, connectorName);
+    // check if streaming client is necessary
+    if (!config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).equals(SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE)) {
+      ingestSdkProvider.createStreamingClient(config, kcInstanceId);
+    }
 
     telemetryClient = conn.getTelemetryClient();
 
@@ -140,7 +147,14 @@ public class SnowflakeSinkConnector extends SinkConnector {
     // set task logging to default
     SnowflakeSinkTask.setTotalTaskCreationCount(-1);
     setupComplete = false;
-    ingestSdkProvider.closeStreamingClient();
+
+    // retry closing streaming client
+    int retryCount = 0;
+    while (retryCount < this.closeConnectorRetryCount && !ingestSdkProvider.closeStreamingClient()) {
+      retryCount++;
+      LOGGER.debug("Failed to close streaming client, retrying {}/{}", retryCount, this.closeConnectorRetryCount);
+    }
+
     LOGGER.info("SnowflakeSinkConnector:stop");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
   }

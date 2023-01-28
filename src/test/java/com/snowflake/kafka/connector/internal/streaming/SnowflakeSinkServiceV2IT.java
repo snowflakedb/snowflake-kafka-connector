@@ -63,8 +63,6 @@ public class SnowflakeSinkServiceV2IT {
 
     // streaming client
     this.streamingIngestClient = TestUtils.createStreamingClient(this.config, this.connectorName);
-    Mockito.when(this.ingestSdkProvider.createStreamingClient(this.config, this.connectorName))
-        .thenReturn(this.streamingIngestClient);
     Mockito.when(this.ingestSdkProvider.getStreamingIngestClient())
         .thenReturn(this.streamingIngestClient);
   }
@@ -980,8 +978,6 @@ public class SnowflakeSinkServiceV2IT {
             startOffset);
 
     this.streamingIngestClient = TestUtils.createStreamingClient(config, "testclient");
-    Mockito.when(this.ingestSdkProvider.createStreamingClient(config, this.connectorName))
-        .thenReturn(this.streamingIngestClient);
     Mockito.when(this.ingestSdkProvider.getStreamingIngestClient())
         .thenReturn(this.streamingIngestClient);
 

@@ -25,15 +25,20 @@ import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.Spy;
 
 public class IngestSdkProviderTest {
   private Map<String, String> config;
-  private String connectorName;
+  private String kcInstanceId;
 
   @Before
   // set up sunny day tests
   public void setup() {
-    this.connectorName = "testConnector";
+    this.kcInstanceId = "testConnector";
 
     // config
     this.config = TestUtils.getConfForStreaming();
@@ -41,15 +46,15 @@ public class IngestSdkProviderTest {
   }
 
   @Test
-  public void testCreateClient() {
+  public void testCreateAndGetClient() {
     // setup
     IngestSdkProvider ingestSdkProvider = new IngestSdkProvider();
     SnowflakeStreamingIngestClient goalClient =
-        TestUtils.createStreamingClient(this.config, "KC_CLIENT_" + this.connectorName + "0");
+        TestUtils.createStreamingClient(this.config, "KC_CLIENT_" + this.kcInstanceId + "0");
 
     // test
-    SnowflakeStreamingIngestClient createdClient =
-        ingestSdkProvider.createStreamingClient(this.config, this.connectorName);
+    ingestSdkProvider.createStreamingClient(this.config, this.kcInstanceId);
+    SnowflakeStreamingIngestClient createdClient = ingestSdkProvider.getStreamingIngestClient();
 
     // verification - very difficult (impossible?) to mock the
     // SnowflakeStreamingIngestClientFactory.builder method because it is static, so use a goal
@@ -60,33 +65,95 @@ public class IngestSdkProviderTest {
   @Test
   public void testCloseClient() throws Exception {
     // setup
-    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider();
-    SnowflakeStreamingIngestClient createdClient =
-        ingestSdkProvider.createStreamingClient(config, connectorName);
-    SnowflakeStreamingIngestClient goalClient =
-        TestUtils.createStreamingClient(this.config, "KC_CLIENT_" + this.connectorName + "0");
-    goalClient.close();
+    SnowflakeStreamingIngestClient goalClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider(goalClient);
 
     // test
-    ingestSdkProvider.closeStreamingClient();
+    boolean isClosed = ingestSdkProvider.closeStreamingClient();
 
-    // verify
-    assert createdClient.isClosed() == goalClient.isClosed();
+    // verify client closed
+    assert isClosed;
+    Mockito.verify(goalClient, Mockito.times(1)).isClosed();
+    Mockito.verify(goalClient, Mockito.times(1)).close();
   }
 
   @Test
-  public void testGetClient() {
+  public void testCloseNullClient() {
     // setup
     IngestSdkProvider ingestSdkProvider = new IngestSdkProvider();
-    ingestSdkProvider.createStreamingClient(config, connectorName);
-    SnowflakeStreamingIngestClient goalClient =
-        TestUtils.createStreamingClient(this.config, "KC_CLIENT_" + this.connectorName + "0");
 
     // test
-    SnowflakeStreamingIngestClient gotClient = ingestSdkProvider.getStreamingIngestClient();
+    boolean isClosed = ingestSdkProvider.closeStreamingClient();
+
+    // verify client closed
+    assert isClosed;
+  }
+
+  @Test
+  public void testAlreadyClosedClient() throws Exception {
+    // setup
+    SnowflakeStreamingIngestClient goalClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    Mockito.when(goalClient.isClosed()).thenReturn(true);
+    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider(goalClient);
+
+    // test
+    boolean isClosed = ingestSdkProvider.closeStreamingClient();
+
+    // verify client closed
+    assert isClosed;
+    Mockito.verify(goalClient, Mockito.times(1)).isClosed();
+    Mockito.verify(goalClient, Mockito.times(0)).close();
+  }
+
+  @Test
+  public void testCloseClientExceptionNoMessage() throws Exception {
+    // setup
+    SnowflakeStreamingIngestClient goalClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider(goalClient);
+    Mockito.doThrow(new Exception()).when(goalClient).close();
+
+    // test
+    boolean isClosed = ingestSdkProvider.closeStreamingClient();
 
     // verify
-    assert gotClient.getName().equals(goalClient.getName());
+    assert !isClosed;
+    Mockito.verify(goalClient, Mockito.times(1)).close();
+    Mockito.verify(goalClient, Mockito.times(1)).isClosed();
+  }
+
+  @Test
+  public void testCloseClientExceptionNoCause() throws Exception {
+    // setup
+    SnowflakeStreamingIngestClient goalClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider(goalClient);
+    Mockito.doThrow(new Exception("test close client failure exception")).when(goalClient).close();
+
+    // test
+    boolean isClosed = ingestSdkProvider.closeStreamingClient();
+
+    // verify
+    assert !isClosed;
+    Mockito.verify(goalClient, Mockito.times(1)).close();
+    Mockito.verify(goalClient, Mockito.times(1)).isClosed();
+  }
+
+  @Test
+  public void testCloseClientException() throws Exception {
+    // setup
+    SnowflakeStreamingIngestClient goalClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider(goalClient);
+    Exception closeException = new Exception("test close client failure exception");
+    Exception causeException = new Exception("cause exception");
+    closeException.initCause(causeException);
+    Mockito.doThrow(closeException).when(goalClient).close();
+
+    // test
+    boolean isClosed = ingestSdkProvider.closeStreamingClient();
+
+    // verify
+    assert !isClosed;
+    Mockito.verify(goalClient, Mockito.times(1)).close();
+    Mockito.verify(goalClient, Mockito.times(1)).isClosed();
   }
 
   @Test
@@ -105,7 +172,7 @@ public class IngestSdkProviderTest {
     IngestSdkProvider ingestSdkProvider = new IngestSdkProvider();
 
     try {
-      ingestSdkProvider.createStreamingClient(this.config, connectorName);
+      ingestSdkProvider.createStreamingClient(this.config, kcInstanceId);
     } catch (ConnectException ex) {
       assert ex.getCause() instanceof SFException;
       assert ex.getCause().getMessage().contains("Missing role");

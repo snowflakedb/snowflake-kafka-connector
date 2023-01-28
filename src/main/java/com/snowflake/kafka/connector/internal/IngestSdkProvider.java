@@ -17,6 +17,7 @@
 
 package com.snowflake.kafka.connector.internal;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -46,14 +47,21 @@ public class IngestSdkProvider {
     this.streamingIngestClientCount = 0;
   }
 
-  public SnowflakeStreamingIngestClient createStreamingClient(
-      Map<String, String> connectorConfig, String connectorName) {
+  // ONLY FOR TESTING - since the client factory is static and unmockable, use this to inject
+  @VisibleForTesting
+  public IngestSdkProvider(SnowflakeStreamingIngestClient client) {
+    this();
+    this.streamingIngestClient = client;
+  }
+
+  public void createStreamingClient(
+      Map<String, String> connectorConfig, String kcInstanceId) {
     Map<String, String> streamingPropertiesMap =
         StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig));
     Properties streamingClientProps = new Properties();
     streamingClientProps.putAll(streamingPropertiesMap);
 
-    String streamingIngestClientName = this.getStreamingIngestClientName(connectorName);
+    String streamingIngestClientName = this.getStreamingIngestClientName(kcInstanceId);
 
     try {
       LOGGER.info("Creating Streaming Client. ClientName:{}", streamingIngestClientName);
@@ -62,28 +70,38 @@ public class IngestSdkProvider {
           SnowflakeStreamingIngestClientFactory.builder(streamingIngestClientName)
               .setProperties(streamingClientProps)
               .build();
-      return this.getStreamingIngestClient();
     } catch (SFException ex) {
-      // note: unable to test this exception since the factory is not mockable. be careful changing
-      // logic here
       LOGGER.error(
           "Exception creating streamingIngestClient with name:{}", streamingIngestClientName);
       throw new ConnectException(ex);
     }
   }
 
-  public void closeStreamingClient() {
+  public boolean closeStreamingClient() {
+    if (this.streamingIngestClient == null || this.streamingIngestClient.isClosed()) {
+      return true;
+    }
+
     String streamingIngestClientName = this.streamingIngestClient.getName();
     LOGGER.info("Closing Streaming Client:{}", streamingIngestClientName);
+
     try {
       this.streamingIngestClient.close();
+      return true;
     } catch (Exception e) {
-      // note: unable to test this exception since the factory is not mockable. be careful changing
-      // logic here
+      String message = e.getMessage() != null && !e.getMessage().isEmpty() ?
+              e.getMessage() :
+              "no error message provided";
+
+      String cause = e.getCause() != null && e.getCause().getStackTrace() != null && !Arrays.toString(e.getCause().getStackTrace()).isEmpty()?
+              Arrays.toString(e.getCause().getStackTrace()) :
+              "no cause provided";
+
       LOGGER.error(
-          "Failure closing Streaming client msg:{}, cause:{}",
-          e.getMessage(),
-          Arrays.toString(e.getCause().getStackTrace()));
+              "Failure closing Streaming client msg:{}, cause:{}",
+              message,
+              cause);
+      return false;
     }
   }
 
@@ -96,7 +114,7 @@ public class IngestSdkProvider {
     throw SnowflakeErrors.ERROR_3009.getException();
   }
 
-  private String getStreamingIngestClientName(String connectorName) {
-    return STREAMING_CLIENT_PREFIX_NAME + connectorName + this.streamingIngestClientCount;
+  private String getStreamingIngestClientName(String kcInstanceId) {
+    return STREAMING_CLIENT_PREFIX_NAME + kcInstanceId + this.streamingIngestClientCount;
   }
 }
