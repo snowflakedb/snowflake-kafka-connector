@@ -75,6 +75,7 @@ public class SnowflakeSinkTaskForStreamingIT {
   public void after() throws Exception {
     TestUtils.dropTable(topicName);
     this.ingestClient.close();
+    SnowflakeSinkConnector.ingestSdkProvider = null;
   }
 
   @Test
