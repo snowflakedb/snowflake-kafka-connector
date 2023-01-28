@@ -137,8 +137,6 @@ public class SnowflakeSinkTaskForStreamingIT {
     config1.put(Utils.TASK_ID, task1Id);
 
     SnowflakeSinkTask sinkTask0 = new SnowflakeSinkTask(this.ingestSdkProvider);
-    Mockito.when(this.ingestSdkProvider.getStreamingIngestClient())
-        .thenReturn(this.ingestClient); // need to call because injectmocks happens before @before
 
     sinkTask0.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
     sinkTask1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));

@@ -247,7 +247,9 @@ public class SnowflakeSinkTask extends SinkTask {
             .setTaskID(this.taskConfigId)
             .build();
 
-    this.ingestSdkProvider = SnowflakeSinkConnector.ingestSdkProvider;
+    if (SnowflakeSinkConnector.ingestSdkProvider != null) {
+      this.ingestSdkProvider = SnowflakeSinkConnector.ingestSdkProvider;
+    }
 
     if (this.sink != null) {
       this.sink.closeAll();

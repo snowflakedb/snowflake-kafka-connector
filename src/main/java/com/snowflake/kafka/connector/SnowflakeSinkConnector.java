@@ -71,6 +71,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
   private String kcInstanceId;
 
+  private boolean isStreamingIngestion;
+
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeSinkConnector() {
     setupComplete = false;
@@ -123,7 +125,13 @@ public class SnowflakeSinkConnector extends SinkConnector {
     conn = SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
 
     // check if streaming client is necessary
-    if (!config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).equals(SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE)) {
+    this.isStreamingIngestion =
+            config != null
+            && config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT) != null
+            && !config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).isEmpty()
+            && !config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).equals(SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE);
+
+    if (this.isStreamingIngestion) {
       ingestSdkProvider.createStreamingClient(config, kcInstanceId);
     }
 
@@ -150,7 +158,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     // retry closing streaming client
     int retryCount = 0;
-    while (retryCount < this.closeConnectorRetryCount && !ingestSdkProvider.closeStreamingClient()) {
+    while (this.isStreamingIngestion && retryCount < this.closeConnectorRetryCount && !ingestSdkProvider.closeStreamingClient()) {
       retryCount++;
       LOGGER.debug("Failed to close streaming client, retrying {}/{}", retryCount, this.closeConnectorRetryCount);
     }
