@@ -37,7 +37,7 @@ public class TopicPartitionChannelIT {
   private SnowflakeStreamingIngestClient streamingIngestClient;
   private final String connectorName = "testconnector";
 
-  @Mock private final IngestSdkProvider ingestSdkProvider = Mockito.mock(IngestSdkProvider.class);
+  @Mock private IngestSdkProvider streamingIngestClientManager = Mockito.mock(IngestSdkProvider.class);
 
   @Before
   public void beforeEach() {
@@ -56,14 +56,16 @@ public class TopicPartitionChannelIT {
 
     // setup client
     this.streamingIngestClient = TestUtils.createStreamingClient(this.config, this.connectorName);
-    Mockito.when(ingestSdkProvider.getStreamingIngestClient())
+    Mockito.when(streamingIngestClientManager.getStreamingIngestClient())
         .thenReturn(this.streamingIngestClient);
+    IngestSdkProvider.streamingIngestClientManager = this.streamingIngestClientManager;
   }
 
   @After
   public void afterEach() throws Exception {
     TestUtils.dropTable(testTableName);
     this.streamingIngestClient.close();
+    IngestSdkProvider.streamingIngestClientManager = null;
   }
 
   @Test
@@ -96,7 +98,7 @@ public class TopicPartitionChannelIT {
     // Ctor of TopicPartitionChannel tries to open the channel.
     TopicPartitionChannel channel =
         new TopicPartitionChannel(
-            this.ingestSdkProvider,
+            this.streamingIngestClientManager,
             topicPartition,
             testChannelName,
             testTableName,
@@ -114,7 +116,7 @@ public class TopicPartitionChannelIT {
     assert inMemorySinkTaskContext.offsets().size() == 1;
     assert inMemorySinkTaskContext.offsets().get(topicPartition) == 1;
 
-    Mockito.verify(ingestSdkProvider, Mockito.times(2)).getStreamingIngestClient();
+    Mockito.verify(streamingIngestClientManager, Mockito.times(2)).getStreamingIngestClient();
   }
 
   /* This will automatically open the channel. */
@@ -164,7 +166,7 @@ public class TopicPartitionChannelIT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
 
-    Mockito.verify(ingestSdkProvider, Mockito.times(2)).getStreamingIngestClient();
+    Mockito.verify(streamingIngestClientManager, Mockito.times(2)).getStreamingIngestClient();
   }
 
   /**
@@ -235,7 +237,7 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (anotherSetOfRecords + noOfRecords - 1);
 
-    Mockito.verify(ingestSdkProvider, Mockito.times(2)).getStreamingIngestClient();
+    Mockito.verify(streamingIngestClientManager, Mockito.times(2)).getStreamingIngestClient();
   }
 
   /**
@@ -352,7 +354,7 @@ public class TopicPartitionChannelIT {
     assert TestUtils.tableSize(testTableName)
         == recordsInPartition1 + anotherSetOfRecords + recordsInPartition2 + anotherSetOfRecords;
 
-    Mockito.verify(ingestSdkProvider, Mockito.times(2)).getStreamingIngestClient();
+    Mockito.verify(streamingIngestClientManager, Mockito.times(2)).getStreamingIngestClient();
   }
 
   @Test
@@ -416,6 +418,6 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (recordsInPartition1 + anotherSetOfRecords - 1);
 
-    Mockito.verify(ingestSdkProvider, Mockito.times(1)).getStreamingIngestClient();
+    Mockito.verify(streamingIngestClientManager, Mockito.times(1)).getStreamingIngestClient();
   }
 }

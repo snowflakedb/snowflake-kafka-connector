@@ -28,7 +28,7 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 
-public final class IngestSdkProvider {
+public class IngestSdkProvider {
   public static IngestSdkProvider streamingIngestClientManager = new IngestSdkProvider();
 
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
