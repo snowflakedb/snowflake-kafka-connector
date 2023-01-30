@@ -11,7 +11,8 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.IngestSdkProvider;
+import com.snowflake.kafka.connector.internal.ingestsdk.ClientManager;
+import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
@@ -59,7 +60,7 @@ public class TopicPartitionChannelTest {
 
   @Mock private SinkTaskContext mockSinkTaskContext;
 
-  @Mock private IngestSdkProvider mockStreamingIngestClientManager;
+  @Mock private ClientManager mockStreamingIngestClientManager;
 
   private static final String TOPIC = "TEST";
 
@@ -94,13 +95,13 @@ public class TopicPartitionChannelTest {
     mockStreamingChannel = Mockito.mock(SnowflakeStreamingIngestChannel.class);
     mockKafkaRecordErrorReporter = Mockito.mock(KafkaRecordErrorReporter.class);
     mockSinkTaskContext = Mockito.mock(SinkTaskContext.class);
-    mockStreamingIngestClientManager = Mockito.mock(IngestSdkProvider.class);
+    mockStreamingIngestClientManager = Mockito.mock(ClientManager.class);
     Mockito.when(mockStreamingClient.isClosed()).thenReturn(false);
     Mockito.when(mockStreamingClient.openChannel(ArgumentMatchers.any(OpenChannelRequest.class)))
         .thenReturn(mockStreamingChannel);
     Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
     Mockito.when(mockStreamingIngestClientManager.getStreamingIngestClient()).thenReturn(mockStreamingClient);
-    IngestSdkProvider.streamingIngestClientManager = mockStreamingIngestClientManager;
+    IngestSdkProvider.clientManager = mockStreamingIngestClientManager;
     this.topicPartition = new TopicPartition(TOPIC, PARTITION);
     this.sfConnectorConfig = TestUtils.getConfig();
     this.streamingBufferThreshold = new StreamingBufferThreshold(10, 10_000, 1);
@@ -108,10 +109,10 @@ public class TopicPartitionChannelTest {
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
         Boolean.toString(this.enableSchematization));
   }
-  
+
   @After
   public void afterEachTest() {
-    IngestSdkProvider.streamingIngestClientManager = null;
+    IngestSdkProvider.clientManager = null;
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
