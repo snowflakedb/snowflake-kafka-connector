@@ -736,14 +736,12 @@ public class TestUtils {
     return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, taskId, taskOpenCount, "").split("#")[0];
   }
 
+  // note: uses the ingestSdkProvider to get the client
   public static SnowflakeStreamingIngestClient createStreamingClient(
       Map<String, String> config, String connectorName) {
-    Properties streamingClientProps = new Properties();
-    streamingClientProps.putAll(
-        StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
+    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider(null);
+    ingestSdkProvider.createStreamingClient(config, connectorName);
 
-    return SnowflakeStreamingIngestClientFactory.builder(connectorName)
-        .setProperties(streamingClientProps)
-        .build();
+    return ingestSdkProvider.getStreamingIngestClient();
   }
 }
