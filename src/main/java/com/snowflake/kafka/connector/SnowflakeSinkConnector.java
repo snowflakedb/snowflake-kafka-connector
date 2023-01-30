@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.connect.connector.ConnectorContext;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
 
@@ -67,8 +66,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // Using setupComplete to synchronize
   private boolean setupComplete;
 
-  public static IngestSdkProvider ingestSdkProvider;
-
   private String kcInstanceId;
 
   private boolean isStreamingIngestion;
@@ -76,13 +73,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeSinkConnector() {
     setupComplete = false;
-  }
-
-  @Override
-  public void initialize(ConnectorContext ctx) {
-    super.initialize(ctx);
-
-    ingestSdkProvider = new IngestSdkProvider();
   }
 
   /**
@@ -132,7 +122,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
             && !config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).equals(SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE);
 
     if (this.isStreamingIngestion) {
-      ingestSdkProvider.createStreamingClient(config, kcInstanceId);
+      IngestSdkProvider.streamingIngestClientManager.createStreamingClient(config, kcInstanceId);
     }
 
     telemetryClient = conn.getTelemetryClient();
@@ -158,7 +148,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     // retry closing streaming client
     int retryCount = 0;
-    while (this.isStreamingIngestion && retryCount < this.closeConnectorRetryCount && !ingestSdkProvider.closeStreamingClient()) {
+    while (this.isStreamingIngestion && retryCount < this.closeConnectorRetryCount && !IngestSdkProvider.streamingIngestClientManager.closeStreamingClient()) {
       retryCount++;
       LOGGER.debug("Failed to close streaming client, retrying {}/{}", retryCount, this.closeConnectorRetryCount);
     }

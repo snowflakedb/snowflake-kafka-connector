@@ -48,9 +48,9 @@ public class IngestSdkProviderTest {
   @Test
   public void testCreateAndGetClient() {
     // setup
-    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider();
     SnowflakeStreamingIngestClient goalClient =
-        TestUtils.createStreamingClient(this.config, "KC_CLIENT_" + this.kcInstanceId + "0");
+            TestUtils.createStreamingClient(this.config, "KC_CLIENT_" + this.kcInstanceId + "0");
+    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider(goalClient);
 
     // test
     ingestSdkProvider.createStreamingClient(this.config, this.kcInstanceId);
@@ -80,7 +80,7 @@ public class IngestSdkProviderTest {
   @Test
   public void testCloseNullClient() {
     // setup
-    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider();
+    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider(null);
 
     // test
     boolean isClosed = ingestSdkProvider.closeStreamingClient();
@@ -158,7 +158,7 @@ public class IngestSdkProviderTest {
 
   @Test
   public void testGetClientFailure() {
-    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider();
+    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider(null);
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_3009,
         () -> {
@@ -169,7 +169,7 @@ public class IngestSdkProviderTest {
   @Test(expected = ConnectException.class)
   public void testMissingPropertiesForStreamingClient() {
     this.config.remove(Utils.SF_ROLE);
-    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider();
+    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider(null);
 
     try {
       ingestSdkProvider.createStreamingClient(this.config, kcInstanceId);

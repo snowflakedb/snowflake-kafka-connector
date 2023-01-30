@@ -28,7 +28,9 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 
-public class IngestSdkProvider {
+public final class IngestSdkProvider {
+  public static IngestSdkProvider streamingIngestClientManager = new IngestSdkProvider();
+
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 
   private LoggerHandler LOGGER;
@@ -36,24 +38,29 @@ public class IngestSdkProvider {
   private SnowflakeStreamingIngestClient streamingIngestClient;
 
   /**
-   * This is a wrapper for the ingest sdk to help define a contract between KC and Ingest
+   * This is a singleton wrapper for the ingest sdk to help define a contract between KC and Ingest
    *
    * <p>Ideally all ingest sdk calls will go through this to make mocking and integration tests
    * easier to write (potentially also to run most of the integration tests without needing a
    * snowflake connection). Currently it only manages the client.
    */
-  public IngestSdkProvider() {
+  private IngestSdkProvider() {
     LOGGER = new LoggerHandler(this.getClass().getName());
     this.streamingIngestClientCount = 0;
   }
 
-  // ONLY FOR TESTING - since the client factory is static and unmockable, use this to inject
+  // ONLY FOR TESTING - use this to inject client
   @VisibleForTesting
   public IngestSdkProvider(SnowflakeStreamingIngestClient client) {
     this();
     this.streamingIngestClient = client;
   }
 
+  /**
+   * Calls the ingest sdk to create the streaming client
+   * @param connectorConfig properties for the streaming client
+   * @param kcInstanceId identifier of the connector instance creating the client
+   */
   public void createStreamingClient(
       Map<String, String> connectorConfig, String kcInstanceId) {
     Map<String, String> streamingPropertiesMap =
@@ -77,6 +84,10 @@ public class IngestSdkProvider {
     }
   }
 
+  /**
+   * Calls the ingest sdk to close the client sdk
+   * @return true if the client was successfully closed, false if not
+   */
   public boolean closeStreamingClient() {
     if (this.streamingIngestClient == null || this.streamingIngestClient.isClosed()) {
       return true;
@@ -105,6 +116,10 @@ public class IngestSdkProvider {
     }
   }
 
+  /**
+   * Gets the streaming client if it was created
+   * @return The streaming client, throws an exception if no client was initialized
+   */
   public SnowflakeStreamingIngestClient getStreamingIngestClient() {
     if (this.streamingIngestClient != null && !this.streamingIngestClient.isClosed()) {
       return this.streamingIngestClient;
@@ -114,6 +129,11 @@ public class IngestSdkProvider {
     throw SnowflakeErrors.ERROR_3009.getException();
   }
 
+  /**
+   * Gets the clients name by adding a prefix and client count
+   * @param kcInstanceId the indentifier for the connector creating this client
+   * @return the streaming ingest client name
+   */
   private String getStreamingIngestClientName(String kcInstanceId) {
     return STREAMING_CLIENT_PREFIX_NAME + kcInstanceId + this.streamingIngestClientCount;
   }

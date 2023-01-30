@@ -68,14 +68,14 @@ public class SnowflakeSinkTaskForStreamingIT {
     this.ingestSdkProvider = Mockito.mock(IngestSdkProvider.class);
     this.ingestClient = TestUtils.createStreamingClient(this.config, "testclient");
     Mockito.when(this.ingestSdkProvider.getStreamingIngestClient()).thenReturn(this.ingestClient);
-    SnowflakeSinkConnector.ingestSdkProvider = this.ingestSdkProvider;
+    IngestSdkProvider.streamingIngestClientManager = this.ingestSdkProvider;
   }
 
   @After
   public void after() throws Exception {
     TestUtils.dropTable(topicName);
     this.ingestClient.close();
-    SnowflakeSinkConnector.ingestSdkProvider = null;
+    IngestSdkProvider.streamingIngestClientManager = null;
   }
 
   @Test

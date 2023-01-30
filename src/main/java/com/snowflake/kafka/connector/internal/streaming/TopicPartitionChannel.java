@@ -228,7 +228,7 @@ public class TopicPartitionChannel {
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn) {
-    this.streamingIngestClient = Preconditions.checkNotNull(SnowflakeSinkConnector.ingestSdkProvider.getStreamingIngestClient());
+    this.streamingIngestClient = Preconditions.checkNotNull(IngestSdkProvider.streamingIngestClientManager.getStreamingIngestClient());
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelName = Preconditions.checkNotNull(channelName);
     this.tableName = Preconditions.checkNotNull(tableName);
