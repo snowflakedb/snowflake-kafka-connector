@@ -46,7 +46,7 @@ public class IngestSdkProviderTest {
   public void testCreateAndGetClient() {
     // setup
     SnowflakeStreamingIngestClient goalClient =
-        TestUtils.createStreamingClient(this.config, "KC_CLIENT_" + this.kcInstanceId + "0");
+        TestUtils.createStreamingClient(this.config, this.kcInstanceId);
     ClientManager clientManager = new ClientManager(goalClient);
 
     // test

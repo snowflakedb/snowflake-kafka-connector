@@ -17,9 +17,13 @@
 
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
-
+/**
+ * This is a singleton provider that provides global access to the static managers of the ingest sdk
+ */
 public class IngestSdkProvider {
+  // manages the streaming ingest sdk client
   public static ClientManager clientManager = new ClientManager();
 
+  // private constructor for singletonness
   private IngestSdkProvider() {}
 }

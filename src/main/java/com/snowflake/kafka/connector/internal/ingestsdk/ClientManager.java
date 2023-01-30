@@ -20,13 +20,7 @@ public class ClientManager {
   private int streamingIngestClientCount;
   private SnowflakeStreamingIngestClient streamingIngestClient;
 
-  /**
-   * This is a singleton wrapper for the ingest sdk to help define a contract between KC and Ingest
-   *
-   * <p>Ideally all ingest sdk calls will go through this to make mocking and integration tests
-   * easier to write (potentially also to run most of the integration tests without needing a
-   * snowflake connection). Currently it only manages the client.
-   */
+  /** This is a wrapper to help manage the streaming ingest client */
   protected ClientManager() {
     LOGGER = new LoggerHandler(this.getClass().getName());
     this.streamingIngestClientCount = 0;
