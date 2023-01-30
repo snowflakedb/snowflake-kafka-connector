@@ -13,6 +13,7 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 
+/** This is a wrapper to help manage the streaming ingest clients */
 public class ClientManager {
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 
@@ -20,7 +21,6 @@ public class ClientManager {
   private int streamingIngestClientCount;
   private SnowflakeStreamingIngestClient streamingIngestClient;
 
-  /** This is a wrapper to help manage the streaming ingest client */
   protected ClientManager() {
     LOGGER = new LoggerHandler(this.getClass().getName());
     this.streamingIngestClientCount = 0;

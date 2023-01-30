@@ -192,7 +192,7 @@ public enum SnowflakeErrors {
   ERROR_3006("3006", "Failed to configure client status", "Exception reported by Ingest SDK"),
   ERROR_3007("3007", "Failed to get client status", "Exception reported by Ingest SDK"),
   ERROR_3008("3008", "Failed to ingest file with client info", "Exception reported by Ingest SDK"),
-  ERROR_3009("3009", "Streaming ingest client is null or closed", "The client must be initialized"),
+  ERROR_3009("3009", "Failed to get streaming ingest client", "The client must be initialized"),
   // Wrong result issues 4---
   ERROR_4001("4001", "Unexpected Result", "Get wrong results from Snowflake service"),
   // Connector internal errors 5---

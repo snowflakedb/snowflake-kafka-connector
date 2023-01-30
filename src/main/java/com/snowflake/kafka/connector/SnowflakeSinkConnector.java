@@ -68,7 +68,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
   private String kcInstanceId;
 
-  private boolean isStreamingIngestion;
+  private boolean usesStreamingIngestion;
 
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeSinkConnector() {
@@ -115,7 +115,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     conn = SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
 
     // check if streaming client is necessary
-    this.isStreamingIngestion =
+    this.usesStreamingIngestion =
         config != null
             && config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT) != null
             && !config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).isEmpty()
@@ -123,7 +123,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
                 .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
                 .equals(SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE);
 
-    if (this.isStreamingIngestion) {
+    if (this.usesStreamingIngestion) {
       IngestSdkProvider.clientManager.createStreamingClient(config, kcInstanceId);
     }
 
@@ -148,11 +148,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
     SnowflakeSinkTask.setTotalTaskCreationCount(-1);
     setupComplete = false;
 
-    // retry closing streaming client
-    // closing the client here is best effort - ultimately orphaned clients will not charge the
-    // customer so I don't think we need to throw an error here as well
+    // retry closing streaming client, closing the client here is best effort
     int retryCount = 0;
-    while (this.isStreamingIngestion
+    while (this.usesStreamingIngestion
         && retryCount < this.closeConnectorRetryCount
         && !IngestSdkProvider.clientManager.closeStreamingClient()) {
       retryCount++;
