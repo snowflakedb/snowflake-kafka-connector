@@ -149,7 +149,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
     setupComplete = false;
 
     // retry closing streaming client
-    // closing the client here is best effort - ultimately orphaned clients will not charge the customer so I don't think we need to throw an error here as well
+    // closing the client here is best effort - ultimately orphaned clients will not charge the
+    // customer so I don't think we need to throw an error here as well
     int retryCount = 0;
     while (this.isStreamingIngestion
         && retryCount < this.closeConnectorRetryCount
