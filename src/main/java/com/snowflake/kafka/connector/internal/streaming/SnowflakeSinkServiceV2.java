@@ -100,8 +100,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
 
   public SnowflakeSinkServiceV2(
-      SnowflakeConnectionService conn,
-      Map<String, String> connectorConfig) {
+      SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
     }

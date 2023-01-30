@@ -58,11 +58,11 @@ public final class IngestSdkProvider {
 
   /**
    * Calls the ingest sdk to create the streaming client
+   *
    * @param connectorConfig properties for the streaming client
    * @param kcInstanceId identifier of the connector instance creating the client
    */
-  public void createStreamingClient(
-      Map<String, String> connectorConfig, String kcInstanceId) {
+  public void createStreamingClient(Map<String, String> connectorConfig, String kcInstanceId) {
     Map<String, String> streamingPropertiesMap =
         StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig));
     Properties streamingClientProps = new Properties();
@@ -86,6 +86,7 @@ public final class IngestSdkProvider {
 
   /**
    * Calls the ingest sdk to close the client sdk
+   *
    * @return true if the client was successfully closed, false if not
    */
   public boolean closeStreamingClient() {
@@ -100,24 +101,26 @@ public final class IngestSdkProvider {
       this.streamingIngestClient.close();
       return true;
     } catch (Exception e) {
-      String message = e.getMessage() != null && !e.getMessage().isEmpty() ?
-              e.getMessage() :
-              "no error message provided";
+      String message =
+          e.getMessage() != null && !e.getMessage().isEmpty()
+              ? e.getMessage()
+              : "no error message provided";
 
-      String cause = e.getCause() != null && e.getCause().getStackTrace() != null && !Arrays.toString(e.getCause().getStackTrace()).isEmpty()?
-              Arrays.toString(e.getCause().getStackTrace()) :
-              "no cause provided";
+      String cause =
+          e.getCause() != null
+                  && e.getCause().getStackTrace() != null
+                  && !Arrays.toString(e.getCause().getStackTrace()).isEmpty()
+              ? Arrays.toString(e.getCause().getStackTrace())
+              : "no cause provided";
 
-      LOGGER.error(
-              "Failure closing Streaming client msg:{}, cause:{}",
-              message,
-              cause);
+      LOGGER.error("Failure closing Streaming client msg:{}, cause:{}", message, cause);
       return false;
     }
   }
 
   /**
    * Gets the streaming client if it was created
+   *
    * @return The streaming client, throws an exception if no client was initialized
    */
   public SnowflakeStreamingIngestClient getStreamingIngestClient() {
@@ -131,6 +134,7 @@ public final class IngestSdkProvider {
 
   /**
    * Gets the clients name by adding a prefix and client count
+   *
    * @param kcInstanceId the indentifier for the connector creating this client
    * @return the streaming ingest client name
    */

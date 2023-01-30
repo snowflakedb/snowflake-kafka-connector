@@ -54,10 +54,7 @@ public class SnowflakeSinkServiceFactory {
     }
 
     private SnowflakeSinkServiceBuilder(SnowflakeConnectionService conn) {
-      this(
-          conn,
-          IngestionMethodConfig.SNOWPIPE,
-          null /* Not required for V1 */);
+      this(conn, IngestionMethodConfig.SNOWPIPE, null /* Not required for V1 */);
     }
 
     /**

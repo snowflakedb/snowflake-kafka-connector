@@ -25,11 +25,7 @@ import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.ArgumentMatchers;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.Spy;
 
 public class IngestSdkProviderTest {
   private Map<String, String> config;
@@ -49,7 +45,7 @@ public class IngestSdkProviderTest {
   public void testCreateAndGetClient() {
     // setup
     SnowflakeStreamingIngestClient goalClient =
-            TestUtils.createStreamingClient(this.config, "KC_CLIENT_" + this.kcInstanceId + "0");
+        TestUtils.createStreamingClient(this.config, "KC_CLIENT_" + this.kcInstanceId + "0");
     IngestSdkProvider ingestSdkProvider = new IngestSdkProvider(goalClient);
 
     // test

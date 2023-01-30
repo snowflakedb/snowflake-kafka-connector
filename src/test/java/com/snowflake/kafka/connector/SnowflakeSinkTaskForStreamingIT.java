@@ -53,6 +53,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
   @InjectMocks @Spy
   private LoggerHandler loggerHandler = Mockito.spy(new LoggerHandler(this.getClass().getName()));
+
   @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
 
   @Before

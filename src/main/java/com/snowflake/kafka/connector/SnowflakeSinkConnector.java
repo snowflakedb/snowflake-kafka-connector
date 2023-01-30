@@ -116,10 +116,12 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     // check if streaming client is necessary
     this.isStreamingIngestion =
-            config != null
+        config != null
             && config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT) != null
             && !config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).isEmpty()
-            && !config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).equals(SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE);
+            && !config
+                .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
+                .equals(SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE);
 
     if (this.isStreamingIngestion) {
       IngestSdkProvider.streamingIngestClientManager.createStreamingClient(config, kcInstanceId);
@@ -148,9 +150,14 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     // retry closing streaming client
     int retryCount = 0;
-    while (this.isStreamingIngestion && retryCount < this.closeConnectorRetryCount && !IngestSdkProvider.streamingIngestClientManager.closeStreamingClient()) {
+    while (this.isStreamingIngestion
+        && retryCount < this.closeConnectorRetryCount
+        && !IngestSdkProvider.streamingIngestClientManager.closeStreamingClient()) {
       retryCount++;
-      LOGGER.debug("Failed to close streaming client, retrying {}/{}", retryCount, this.closeConnectorRetryCount);
+      LOGGER.debug(
+          "Failed to close streaming client, retrying {}/{}",
+          retryCount,
+          this.closeConnectorRetryCount);
     }
 
     LOGGER.info("SnowflakeSinkConnector:stop");
