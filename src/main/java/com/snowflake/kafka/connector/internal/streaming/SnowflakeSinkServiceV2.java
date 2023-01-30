@@ -9,11 +9,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
+import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
@@ -158,7 +158,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     partitionsToChannel.put(
         partitionChannelKey,
         new TopicPartitionChannel(
-            this.ingestSdkProvider,
             topicPartition,
             partitionChannelKey, // Streaming channel name
             tableName,

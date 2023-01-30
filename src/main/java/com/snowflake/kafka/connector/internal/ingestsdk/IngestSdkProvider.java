@@ -17,22 +17,9 @@
 
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
-import net.snowflake.ingest.utils.SFException;
-import org.apache.kafka.connect.errors.ConnectException;
 
 public class IngestSdkProvider {
   public static ClientManager clientManager = new ClientManager();
 
-  private IngestSdkProvider() {
-  }
+  private IngestSdkProvider() {}
 }

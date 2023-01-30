@@ -3,9 +3,10 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 
-import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.ingestsdk.ClientManager;
+import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.sql.ResultSet;
@@ -49,7 +50,7 @@ public class SnowflakeSinkTaskForStreamingIT {
   private Map<String, String> config;
 
   @Mock Logger logger = Mockito.mock(Logger.class);
-  @Mock private IngestSdkProvider ingestSdkProvider;
+  @Mock private ClientManager clientManager;
 
   @InjectMocks @Spy
   private LoggerHandler loggerHandler = Mockito.spy(new LoggerHandler(this.getClass().getName()));
@@ -66,17 +67,17 @@ public class SnowflakeSinkTaskForStreamingIT {
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
 
     // client
-    this.ingestSdkProvider = Mockito.mock(IngestSdkProvider.class);
+    this.clientManager = Mockito.mock(ClientManager.class);
     this.ingestClient = TestUtils.createStreamingClient(this.config, "testclient");
-    Mockito.when(this.ingestSdkProvider.getStreamingIngestClient()).thenReturn(this.ingestClient);
-    IngestSdkProvider.streamingIngestClientManager = this.ingestSdkProvider;
+    Mockito.when(this.clientManager.getStreamingIngestClient()).thenReturn(this.ingestClient);
+    IngestSdkProvider.clientManager = this.clientManager;
   }
 
   @After
   public void after() throws Exception {
     TestUtils.dropTable(topicName);
     this.ingestClient.close();
-    IngestSdkProvider.streamingIngestClientManager = null;
+    IngestSdkProvider.clientManager = null;
   }
 
   @Test
@@ -109,7 +110,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask.close(topicPartitions);
     sinkTask.stop();
 
-    Mockito.verify(this.ingestSdkProvider, Mockito.times(1)).getStreamingIngestClient();
+    Mockito.verify(this.clientManager, Mockito.times(1)).getStreamingIngestClient();
   }
 
   @Test
@@ -316,6 +317,6 @@ public class SnowflakeSinkTaskForStreamingIT {
         });
 
     assert partitionsInTable.size() == 2;
-    Mockito.verify(this.ingestSdkProvider, Mockito.times(3)).getStreamingIngestClient();
+    Mockito.verify(this.clientManager, Mockito.times(3)).getStreamingIngestClient();
   }
 }

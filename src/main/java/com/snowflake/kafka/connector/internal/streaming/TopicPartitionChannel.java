@@ -15,10 +15,10 @@ import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -204,7 +204,6 @@ public class TopicPartitionChannel {
   }
 
   /**
-   * @param ingestSdkProvider provider to get client created specifically for this task
    * @param topicPartition topic partition corresponding to this Streaming Channel
    *     (TopicPartitionChannel)
    * @param channelName channel Name which is deterministic for topic and partition
@@ -225,8 +224,7 @@ public class TopicPartitionChannel {
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn) {
     this.streamingIngestClient =
-        Preconditions.checkNotNull(
-            IngestSdkProvider.clientManager.getStreamingIngestClient());
+        Preconditions.checkNotNull(IngestSdkProvider.clientManager.getStreamingIngestClient());
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelName = Preconditions.checkNotNull(channelName);
     this.tableName = Preconditions.checkNotNull(tableName);

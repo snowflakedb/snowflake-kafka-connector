@@ -2,13 +2,14 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.ingestsdk.ClientManager;
+import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
@@ -54,8 +55,7 @@ public class SnowflakeSinkServiceV2IT {
   private final String connectorName = "testconnector";
 
   @Mock
-  private final IngestSdkProvider streamingIngestClientManager =
-      Mockito.mock(IngestSdkProvider.class);
+  private final ClientManager streamingIngestClientManager = Mockito.mock(ClientManager.class);
 
   @Before
   public void setup() {
@@ -67,14 +67,14 @@ public class SnowflakeSinkServiceV2IT {
     this.streamingIngestClient = TestUtils.createStreamingClient(this.config, this.connectorName);
     Mockito.when(this.streamingIngestClientManager.getStreamingIngestClient())
         .thenReturn(this.streamingIngestClient);
-    IngestSdkProvider.streamingIngestClientManager = this.streamingIngestClientManager;
+    IngestSdkProvider.clientManager = this.streamingIngestClientManager;
   }
 
   @After
   public void afterEach() throws Exception {
     TestUtils.dropTable(table);
     this.streamingIngestClient.close();
-    IngestSdkProvider.streamingIngestClientManager = null;
+    IngestSdkProvider.clientManager = null;
   }
 
   @Test

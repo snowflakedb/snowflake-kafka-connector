@@ -11,12 +11,12 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.ingestsdk.ClientManager;
-import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.ingestsdk.ClientManager;
+import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
@@ -100,7 +100,8 @@ public class TopicPartitionChannelTest {
     Mockito.when(mockStreamingClient.openChannel(ArgumentMatchers.any(OpenChannelRequest.class)))
         .thenReturn(mockStreamingChannel);
     Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
-    Mockito.when(mockStreamingIngestClientManager.getStreamingIngestClient()).thenReturn(mockStreamingClient);
+    Mockito.when(mockStreamingIngestClientManager.getStreamingIngestClient())
+        .thenReturn(mockStreamingClient);
     IngestSdkProvider.clientManager = mockStreamingIngestClientManager;
     this.topicPartition = new TopicPartition(TOPIC, PARTITION);
     this.sfConnectorConfig = TestUtils.getConfig();
@@ -120,7 +121,6 @@ public class TopicPartitionChannelTest {
     Mockito.when(mockStreamingIngestClientManager.getStreamingIngestClient())
         .thenThrow(SnowflakeErrors.ERROR_3009.getException());
     new TopicPartitionChannel(
-            mockStreamingIngestClientManager,
         topicPartition,
         TEST_CHANNEL_NAME,
         TEST_TABLE_NAME,
@@ -136,7 +136,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -155,7 +154,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -179,7 +177,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -223,7 +220,6 @@ public class TopicPartitionChannelTest {
     Mockito.when(mockFuture.get()).thenThrow(new InterruptedException("Interrupted Exception"));
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -246,7 +242,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -280,7 +275,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -307,7 +301,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -339,7 +332,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -367,7 +359,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -401,7 +392,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -493,14 +483,8 @@ public class TopicPartitionChannelTest {
       InMemoryKafkaRecordErrorReporter kafkaRecordErrorReporter =
           new InMemoryKafkaRecordErrorReporter();
 
-      IngestSdkProvider ingestSdkProviderMock = Mockito.mock(IngestSdkProvider.class);
-      SnowflakeStreamingIngestClient ingestClient =
-          TestUtils.createStreamingClient(sfConnectorConfigWithErrors, "testclient");
-      Mockito.when(ingestSdkProviderMock.getStreamingIngestClient()).thenReturn(ingestClient);
-
       TopicPartitionChannel topicPartitionChannel =
           new TopicPartitionChannel(
-              ingestSdkProviderMock,
               topicPartition,
               TEST_CHANNEL_NAME,
               TEST_TABLE_NAME,
@@ -543,7 +527,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -582,7 +565,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -621,7 +603,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -662,7 +643,6 @@ public class TopicPartitionChannelTest {
         new InMemoryKafkaRecordErrorReporter();
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -706,7 +686,6 @@ public class TopicPartitionChannelTest {
         new InMemoryKafkaRecordErrorReporter();
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -745,7 +724,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
@@ -794,7 +772,6 @@ public class TopicPartitionChannelTest {
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
-                mockStreamingIngestClientManager,
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,

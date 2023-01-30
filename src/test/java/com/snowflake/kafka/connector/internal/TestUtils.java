@@ -35,7 +35,7 @@ import static com.snowflake.kafka.connector.Utils.SF_USER;
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
+import com.snowflake.kafka.connector.internal.ingestsdk.ClientManager;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
@@ -738,9 +738,9 @@ public class TestUtils {
   // note: uses the ingestSdkProvider to get the client
   public static SnowflakeStreamingIngestClient createStreamingClient(
       Map<String, String> config, String connectorName) {
-    IngestSdkProvider ingestSdkProvider = new IngestSdkProvider(null);
-    ingestSdkProvider.createStreamingClient(config, connectorName);
+    ClientManager clientManager = new ClientManager(null);
+    clientManager.createStreamingClient(config, connectorName);
 
-    return ingestSdkProvider.getStreamingIngestClient();
+    return clientManager.getStreamingIngestClient();
   }
 }

@@ -16,12 +16,12 @@
  */
 package com.snowflake.kafka.connector;
 
-import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -124,7 +124,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
                 .equals(SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE);
 
     if (this.isStreamingIngestion) {
-      IngestSdkProvider.streamingIngestClientManager.createStreamingClient(config, kcInstanceId);
+      IngestSdkProvider.clientManager.createStreamingClient(config, kcInstanceId);
     }
 
     telemetryClient = conn.getTelemetryClient();
@@ -152,7 +152,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     int retryCount = 0;
     while (this.isStreamingIngestion
         && retryCount < this.closeConnectorRetryCount
-        && !IngestSdkProvider.streamingIngestClientManager.closeStreamingClient()) {
+        && !IngestSdkProvider.clientManager.closeStreamingClient()) {
       retryCount++;
       LOGGER.debug(
           "Failed to close streaming client, retrying {}/{}",
