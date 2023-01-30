@@ -15,10 +15,12 @@
  * under the License.
  */
 
-package com.snowflake.kafka.connector.internal;
+package com.snowflake.kafka.connector.internal.ingestsdk;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.ingestsdk.ClientManager;
 import java.util.Map;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
@@ -28,7 +30,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-public class IngestSdkProviderTest {
+public class ClientManagerTest {
   private Map<String, String> config;
   private String kcInstanceId;
 

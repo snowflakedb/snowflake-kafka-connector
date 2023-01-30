@@ -68,6 +68,7 @@ public class ClientManager {
    */
   public boolean closeStreamingClient() {
     if (this.streamingIngestClient == null || this.streamingIngestClient.isClosed()) {
+      LOGGER.info("Streaming client is already closed or null");
       return true;
     }
 
