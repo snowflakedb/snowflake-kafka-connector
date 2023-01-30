@@ -46,8 +46,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // create logger without correlationId for now
   private static LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnector.class.getName());
 
-  private final int closeConnectorRetryCount = 5;
-
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
 
@@ -148,17 +146,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     SnowflakeSinkTask.setTotalTaskCreationCount(-1);
     setupComplete = false;
 
-    // retry closing streaming client, closing the client here is best effort
-    int retryCount = 0;
-    while (this.usesStreamingIngestion
-        && retryCount < this.closeConnectorRetryCount
-        && !IngestSdkProvider.clientManager.closeStreamingClient()) {
-      retryCount++;
-      LOGGER.debug(
-          "Failed to close streaming client, retrying {}/{}",
-          retryCount,
-          this.closeConnectorRetryCount);
-    }
+    IngestSdkProvider.clientManager.closeStreamingClient();
 
     LOGGER.info("SnowflakeSinkConnector:stop");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);

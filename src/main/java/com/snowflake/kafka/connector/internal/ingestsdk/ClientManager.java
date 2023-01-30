@@ -17,6 +17,8 @@ import org.apache.kafka.connect.errors.ConnectException;
 public class ClientManager {
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 
+  private final int clientRetryCount = 5;
+
   private LoggerHandler LOGGER;
   private int streamingIngestClientCount;
   private SnowflakeStreamingIngestClient streamingIngestClient;
@@ -47,52 +49,62 @@ public class ClientManager {
 
     String streamingIngestClientName = this.getStreamingIngestClientName(kcInstanceId);
 
-    try {
-      LOGGER.info("Creating Streaming Client. ClientName:{}", streamingIngestClientName);
-      this.streamingIngestClientCount++;
-      this.streamingIngestClient =
-          SnowflakeStreamingIngestClientFactory.builder(streamingIngestClientName)
-              .setProperties(streamingClientProps)
-              .build();
-    } catch (SFException ex) {
-      LOGGER.error(
-          "Exception creating streamingIngestClient with name:{}", streamingIngestClientName);
-      throw new ConnectException(ex);
+    int retryCount = 0;
+    while (true) {
+      try {
+        LOGGER.info("Creating Streaming Client. ClientName:{}", streamingIngestClientName);
+        this.streamingIngestClient =
+                SnowflakeStreamingIngestClientFactory.builder(streamingIngestClientName)
+                        .setProperties(streamingClientProps)
+                        .build();
+        this.streamingIngestClientCount++;
+        return;
+      } catch (SFException ex) {
+        LOGGER.error(
+                "Exception creating streamingIngestClient with name:{}. Retrying {}/{ ", streamingIngestClientName, retryCount, this.clientRetryCount);
+        retryCount++;
+        if (retryCount == this.clientRetryCount) {
+          throw new ConnectException(ex);
+        }
+      }
     }
   }
 
   /**
-   * Calls the ingest sdk to close the client sdk
-   *
-   * @return true if the client was successfully closed, false if not
+   * Calls the ingest sdk to close the client sdk, retries on failure
    */
-  public boolean closeStreamingClient() {
+  public void closeStreamingClient() {
     if (this.streamingIngestClient == null || this.streamingIngestClient.isClosed()) {
       LOGGER.info("Streaming client is already closed or null");
-      return true;
+      return;
     }
 
     String streamingIngestClientName = this.streamingIngestClient.getName();
     LOGGER.info("Closing Streaming Client:{}", streamingIngestClientName);
 
-    try {
-      this.streamingIngestClient.close();
-      return true;
-    } catch (Exception e) {
-      String message =
-          e.getMessage() != null && !e.getMessage().isEmpty()
-              ? e.getMessage()
-              : "no error message provided";
+    // retry closing streaming client, closing the client here is best effort
+    int retryCount = 0;
+    while (retryCount < this.clientRetryCount) {
+      try {
+        this.streamingIngestClient.close();
+        // TODO: add client count and map verification here
+        return;
+      } catch (Exception e) {
+        String message =
+                e.getMessage() != null && !e.getMessage().isEmpty()
+                        ? e.getMessage()
+                        : "no error message provided";
 
-      String cause =
-          e.getCause() != null
-                  && e.getCause().getStackTrace() != null
-                  && !Arrays.toString(e.getCause().getStackTrace()).isEmpty()
-              ? Arrays.toString(e.getCause().getStackTrace())
-              : "no cause provided";
+        String cause =
+                e.getCause() != null
+                        && e.getCause().getStackTrace() != null
+                        && !Arrays.toString(e.getCause().getStackTrace()).isEmpty()
+                        ? Arrays.toString(e.getCause().getStackTrace())
+                        : "no cause provided";
 
-      LOGGER.error("Failure closing Streaming client msg:{}, cause:{}", message, cause);
-      return false;
+        LOGGER.error("Failure closing Streaming client msg:{}, cause:{}. Retrying {}/{}", message, cause, retryCount, this.clientRetryCount);
+        retryCount++;
+      }
     }
   }
 
