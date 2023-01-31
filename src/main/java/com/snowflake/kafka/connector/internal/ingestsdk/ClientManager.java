@@ -21,7 +21,6 @@ public class ClientManager {
 
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 
-  private final int clientRetryCount = 5;
   private int streamingIngestClientCount;
 
   private ClientTaskMap clientTaskMap;
@@ -81,23 +80,14 @@ public class ClientManager {
     streamingClientProps.putAll(streamingPropertiesMap);
 
     String streamingIngestClientName = this.getStreamingIngestClientName(kcInstanceId);
-
-    int retryCount = 0;
-    while (true) {
       try {
         LOGGER.info("Creating Streaming Client. ClientName:{}", streamingIngestClientName);
         return SnowflakeStreamingIngestClientFactory.builder(streamingIngestClientName)
                         .setProperties(streamingClientProps)
                         .build();
       } catch (SFException ex) {
-        LOGGER.error(
-                "Exception creating streamingIngestClient with name:{}. Retrying {}/{ ", streamingIngestClientName, retryCount, this.clientRetryCount);
-        retryCount++;
-        if (retryCount == this.clientRetryCount) {
           throw new ConnectException(ex);
-        }
       }
-    }
   }
 
   /**
@@ -112,9 +102,6 @@ public class ClientManager {
     String streamingIngestClientName = streamingIngestClient.getName();
     LOGGER.info("Closing Streaming Client:{}", streamingIngestClientName);
 
-    // retry closing streaming client, closing the client here is best effort
-    int retryCount = 0;
-    while (retryCount < this.clientRetryCount) {
       try {
         streamingIngestClient.close();
         // TODO: add client count and map verification here
@@ -131,10 +118,8 @@ public class ClientManager {
                         && !Arrays.toString(e.getCause().getStackTrace()).isEmpty()
                         ? Arrays.toString(e.getCause().getStackTrace())
                         : "no cause provided";
-
-        LOGGER.error("Failure closing Streaming client msg:{}, cause:{}. Retrying {}/{}", message, cause, retryCount, this.clientRetryCount);
-        retryCount++;
-      }
+        // don't throw an exception because closing the client here is best effort
+        LOGGER.error("Failure closing Streaming client msg:{}, cause:{}", message, cause);
     }
 
     return false;

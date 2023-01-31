@@ -58,12 +58,12 @@ public class ClientTaskMap {
             if (taskList.contains(taskId)) {
                 SnowflakeStreamingIngestClient client = this.clientTaskMap.get(taskList);
 
-                if (client != null && !client.isClosed()) {
-                    return client;
-                } else {
+                if (client == null || client.isClosed()) {
                     LOGGER.error("Streaming ingest client was null or closed. It must be initialized");
                     throw SnowflakeErrors.ERROR_3009.getException();
                 }
+
+                return client;
             }
         }
     }
