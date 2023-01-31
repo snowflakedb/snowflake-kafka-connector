@@ -49,7 +49,7 @@ public class ClientManager {
     for (List<Integer> taskList : clientTaskMap.getTaskIdLists()) {
       SnowflakeStreamingIngestClient client = this.createStreamingClient(streamingClientProps, kcInstanceId);
       this.initializedClientCount++;
-      clientTaskMap.addClient(taskList, client);
+      clientTaskMap.upsertClient(taskList, client);
     }
 
     String exceptions = clientTaskMap.validateMap(this.initializedClientCount);
@@ -65,14 +65,14 @@ public class ClientManager {
    * @return The streaming client, throws an exception if no client was initialized
    */
   public SnowflakeStreamingIngestClient getStreamingIngestClient(int taskId) {
-    return this.clientTaskMap.getClient(taskId);
+    return this.clientTaskMap.getValidClient(taskId);
   }
 
   public void closeAllStreamingClients() {
-    for (SnowflakeStreamingIngestClient client : this.clientTaskMap.getClients()) {
+    for (SnowflakeStreamingIngestClient client : this.clientTaskMap.getValidClients()) {
       this.closeStreamingClient(client);
       this.initializedClientCount--;
-      this.clientTaskMap.removeClient(client);
+      this.clientTaskMap.removeClientTaskEntry(client);
     }
 
     String exceptions = this.clientTaskMap.validateMap(this.initializedClientCount);
@@ -83,7 +83,7 @@ public class ClientManager {
   }
 
   /**
-   * Calls the ingest sdk to create the streaming client, retries on exception
+   * Calls the ingest sdk to create the streaming client, bubbles exception
    *
    * @param connectorConfig properties for the streaming client
    * @param kcInstanceId identifier of the connector instance creating the client
@@ -92,31 +92,37 @@ public class ClientManager {
       try {
         // get client name
         String streamingIngestClientName = this.getStreamingIngestClientName(kcInstanceId, this.initializedClientId);
-        this.initializedClientId++;
 
         LOGGER.info("Creating Streaming Client. ClientName:{}", streamingIngestClientName);
-        return SnowflakeStreamingIngestClientFactory.builder(streamingIngestClientName)
+        SnowflakeStreamingIngestClient client = SnowflakeStreamingIngestClientFactory.builder(streamingIngestClientName)
                         .setProperties(streamingClientProps)
                         .build();
+
+        this.initializedClientCount++;
+        this.initializedClientId++;
+        return client;
       } catch (SFException ex) {
           throw new ConnectException(ex);
       }
   }
 
   /**
-   * Calls the ingest sdk to close the client sdk, retries on failure
+   * Calls the ingest sdk to close the client sdk
+   * Ignores if the client is null or already closed
+   * TODO @rcheng: we should add retry here and create even in sdk retries bc network issues? esp with rowset api later. bubble up ingest exceptions, retry all others
    */
-  private void closeStreamingClient(SnowflakeStreamingIngestClient streamingIngestClient) {
-    if (streamingIngestClient == null || streamingIngestClient.isClosed()) {
-      LOGGER.info("Streaming client is already closed or null");
-      return;
-    }
-
+  private boolean closeStreamingClient(SnowflakeStreamingIngestClient streamingIngestClient) {
     String streamingIngestClientName = streamingIngestClient.getName();
     LOGGER.info("Closing Streaming Client:{}", streamingIngestClientName);
 
+    if (streamingIngestClient == null || streamingIngestClient.isClosed()) {
+      LOGGER.info("Streaming client is already closed or null");
+      return true;
+    }
+
       try {
         streamingIngestClient.close();
+        return true;
       } catch (Exception e) {
         String message =
                 e.getMessage() != null && !e.getMessage().isEmpty()
@@ -129,8 +135,11 @@ public class ClientManager {
                         && !Arrays.toString(e.getCause().getStackTrace()).isEmpty()
                         ? Arrays.toString(e.getCause().getStackTrace())
                         : "no cause provided";
+
         // don't throw an exception because closing the client here is best effort
+        // TODO @rcheng: telemetry?
         LOGGER.error("Failure closing Streaming client msg:{}, cause:{}", message, cause);
+        return false;
     }
   }
 
