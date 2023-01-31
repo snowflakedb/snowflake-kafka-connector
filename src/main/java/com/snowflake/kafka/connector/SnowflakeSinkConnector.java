@@ -21,6 +21,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.ingestsdk.ClientTaskMap;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.ArrayList;
@@ -43,6 +44,9 @@ import org.apache.kafka.connect.sink.SinkConnector;
  * running on Kafka Connect Workers.
  */
 public class SnowflakeSinkConnector extends SinkConnector {
+  // TEMPORARY config of num tasks assigned per client, round up if number is not divisible
+  private static final double NUM_TASK_TO_CLIENT = 1;
+
   // create logger without correlationId for now
   private static LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnector.class.getName());
 
@@ -121,10 +125,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
                 .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
                 .equals(SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE);
 
-    if (this.usesStreamingIngestion) {
-      IngestSdkProvider.clientManager.createStreamingClient(config, kcInstanceId);
-    }
-
     telemetryClient = conn.getTelemetryClient();
 
     telemetryClient.reportKafkaConnectStart(connectorStartTime, this.config);
@@ -146,7 +146,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     SnowflakeSinkTask.setTotalTaskCreationCount(-1);
     setupComplete = false;
 
-    IngestSdkProvider.clientManager.closeStreamingClient();
+    IngestSdkProvider.clientManager.closeAllStreamingClients();
 
     LOGGER.info("SnowflakeSinkConnector:stop");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
@@ -177,6 +177,13 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public List<Map<String, String>> taskConfigs(final int maxTasks) {
+    // create all necessary clients
+    if (this.usesStreamingIngestion) {
+      int clientCount = (int)Math.ceil(maxTasks / NUM_TASK_TO_CLIENT);
+      ClientTaskMap clientTaskMap = new ClientTaskMap(maxTasks, clientCount);
+      IngestSdkProvider.clientManager.createAllStreamingClients(config, kcInstanceId, clientTaskMap);
+    }
+
     // wait for setup to complete
     int counter = 0;
     while (counter < 120) // poll for 120*5 seconds (10 mins) maximum

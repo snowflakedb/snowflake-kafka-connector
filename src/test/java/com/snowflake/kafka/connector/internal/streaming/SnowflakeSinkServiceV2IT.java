@@ -65,7 +65,7 @@ public class SnowflakeSinkServiceV2IT {
 
     // streaming client
     this.streamingIngestClient = TestUtils.createStreamingClient(this.config, this.connectorName);
-    Mockito.when(this.streamingIngestClientManager.getStreamingIngestClient())
+    Mockito.when(this.streamingIngestClientManager.getStreamingIngestClient(0))
         .thenReturn(this.streamingIngestClient);
     IngestSdkProvider.clientManager = this.streamingIngestClientManager;
   }
@@ -976,7 +976,7 @@ public class SnowflakeSinkServiceV2IT {
             startOffset);
 
     this.streamingIngestClient = TestUtils.createStreamingClient(config, "testclient");
-    Mockito.when(this.streamingIngestClientManager.getStreamingIngestClient())
+    Mockito.when(this.streamingIngestClientManager.getStreamingIngestClient(0))
         .thenReturn(this.streamingIngestClient);
 
     SnowflakeSinkService service =
@@ -1127,7 +1127,7 @@ public class SnowflakeSinkServiceV2IT {
             startOffset);
 
     this.streamingIngestClient = TestUtils.createStreamingClient(config, this.connectorName);
-    Mockito.when(this.streamingIngestClientManager.getStreamingIngestClient())
+    Mockito.when(this.streamingIngestClientManager.getStreamingIngestClient(0))
         .thenReturn(this.streamingIngestClient);
 
     SnowflakeSinkService service =

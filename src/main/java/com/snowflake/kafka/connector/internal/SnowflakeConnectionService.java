@@ -282,4 +282,6 @@ public interface SnowflakeConnectionService {
    * @param tableName table name
    */
   void createTableWithOnlyMetadataColumn(String tableName);
+
+  int getTaskId();
 }

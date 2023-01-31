@@ -224,7 +224,7 @@ public class TopicPartitionChannel {
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn) {
     this.streamingIngestClient =
-        Preconditions.checkNotNull(IngestSdkProvider.clientManager.getStreamingIngestClient());
+        Preconditions.checkNotNull(IngestSdkProvider.clientManager.getStreamingIngestClient(conn.getTaskId()));
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelName = Preconditions.checkNotNull(channelName);
     this.tableName = Preconditions.checkNotNull(tableName);

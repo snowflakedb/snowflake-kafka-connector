@@ -69,7 +69,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     // client
     this.clientManager = Mockito.mock(ClientManager.class);
     this.ingestClient = TestUtils.createStreamingClient(this.config, "testclient");
-    Mockito.when(this.clientManager.getStreamingIngestClient()).thenReturn(this.ingestClient);
+    Mockito.when(this.clientManager.getStreamingIngestClient(0)).thenReturn(this.ingestClient);
     IngestSdkProvider.clientManager = this.clientManager;
   }
 
@@ -110,7 +110,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask.close(topicPartitions);
     sinkTask.stop();
 
-    Mockito.verify(this.clientManager, Mockito.times(1)).getStreamingIngestClient();
+    Mockito.verify(this.clientManager, Mockito.times(1)).getStreamingIngestClient(0);
   }
 
   @Test
@@ -317,6 +317,6 @@ public class SnowflakeSinkTaskForStreamingIT {
         });
 
     assert partitionsInTable.size() == 2;
-    Mockito.verify(this.clientManager, Mockito.times(3)).getStreamingIngestClient();
+    Mockito.verify(this.clientManager, Mockito.times(3)).getStreamingIngestClient(0);
   }
 }

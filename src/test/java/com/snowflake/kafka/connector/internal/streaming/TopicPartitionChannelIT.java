@@ -57,7 +57,7 @@ public class TopicPartitionChannelIT {
 
     // setup client
     this.streamingIngestClient = TestUtils.createStreamingClient(this.config, this.connectorName);
-    Mockito.when(clientManager.getStreamingIngestClient()).thenReturn(this.streamingIngestClient);
+    Mockito.when(clientManager.getStreamingIngestClient(0)).thenReturn(this.streamingIngestClient);
     IngestSdkProvider.clientManager = this.clientManager;
   }
 
@@ -115,7 +115,7 @@ public class TopicPartitionChannelIT {
     assert inMemorySinkTaskContext.offsets().size() == 1;
     assert inMemorySinkTaskContext.offsets().get(topicPartition) == 1;
 
-    Mockito.verify(clientManager, Mockito.times(2)).getStreamingIngestClient();
+    Mockito.verify(clientManager, Mockito.times(2)).getStreamingIngestClient(0);
   }
 
   /* This will automatically open the channel. */
@@ -165,7 +165,7 @@ public class TopicPartitionChannelIT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
 
-    Mockito.verify(clientManager, Mockito.times(2)).getStreamingIngestClient();
+    Mockito.verify(clientManager, Mockito.times(2)).getStreamingIngestClient(0);
   }
 
   /**
@@ -236,7 +236,7 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (anotherSetOfRecords + noOfRecords - 1);
 
-    Mockito.verify(clientManager, Mockito.times(2)).getStreamingIngestClient();
+    Mockito.verify(clientManager, Mockito.times(2)).getStreamingIngestClient(0);
   }
 
   /**
@@ -353,7 +353,7 @@ public class TopicPartitionChannelIT {
     assert TestUtils.tableSize(testTableName)
         == recordsInPartition1 + anotherSetOfRecords + recordsInPartition2 + anotherSetOfRecords;
 
-    Mockito.verify(clientManager, Mockito.times(2)).getStreamingIngestClient();
+    Mockito.verify(clientManager, Mockito.times(2)).getStreamingIngestClient(0);
   }
 
   @Test
@@ -417,6 +417,6 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (recordsInPartition1 + anotherSetOfRecords - 1);
 
-    Mockito.verify(clientManager, Mockito.times(1)).getStreamingIngestClient();
+    Mockito.verify(clientManager, Mockito.times(1)).getStreamingIngestClient(0);
   }
 }
