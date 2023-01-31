@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.ingestsdk;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 
 import java.util.Arrays;
@@ -33,8 +34,9 @@ public class ClientManager {
 
   // ONLY FOR TESTING - use this to inject client map
   @VisibleForTesting
-  public ClientManager(ClientTaskMap clientTaskMap) {
+  public ClientManager(ClientTaskMap clientTaskMap, int initializedClientCount) {
     this();
+    this.initializedClientCount = initializedClientCount;
     this.clientTaskMap = clientTaskMap;
   }
 
@@ -50,7 +52,10 @@ public class ClientManager {
       clientTaskMap.addClient(taskList, client);
     }
 
-    clientTaskMap.validateMap(this.initializedClientCount);
+    String exceptions = clientTaskMap.validateMap(this.initializedClientCount);
+    if (!exceptions.isEmpty()) {
+      throw SnowflakeErrors.ERROR_3009.getException(exceptions);
+    }
     this.clientTaskMap = clientTaskMap;
   }
 
@@ -70,7 +75,10 @@ public class ClientManager {
       this.clientTaskMap.removeClient(client);
     }
 
-    clientTaskMap.validateMap(this.initializedClientCount);
+    String exceptions = this.clientTaskMap.validateMap(this.initializedClientCount);
+    if (!exceptions.isEmpty()) {
+      LOGGER.error("Client task map was invalid because: {}", exceptions);
+    }
     this.clientTaskMap = null;
   }
 

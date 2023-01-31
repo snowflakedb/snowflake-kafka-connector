@@ -103,7 +103,7 @@ public class ClientTaskMap {
     }
 
     // validate consecutive tasks and all clients are initialized
-    public List<String> validateMap(int initializedClientCount) {
+    public String validateMap(int initializedClientCount) {
         List<String> exceptionMsgs = new ArrayList<>();
         boolean[] taskIds = new boolean[this.taskCount];
         List<SnowflakeStreamingIngestClient> invalidClients = new ArrayList<>();
@@ -141,6 +141,7 @@ public class ClientTaskMap {
             exceptionMsgs.add(Utils.formatString("There were {} invalid clients: {}", invalidClients.size(), invalidClientsStr));
         }
 
+        // correct number of tasks
         String invalidTaskIds = "";
         for (int taskIdx = 0; taskIdx < taskIds.length; taskIdx++) {
             if (!taskIds[taskIdx]) {
@@ -151,7 +152,7 @@ public class ClientTaskMap {
             exceptionMsgs.add(Utils.formatString("Not enough tasks were mapped to clients, tasks missing clients: {}", invalidTaskIds.substring(0, invalidTaskIds.lastIndexOf(','))));
         }
 
-        return exceptionMsgs;
+        return exceptionMsgs.toString();
     }
 
     private boolean isClientValid(SnowflakeStreamingIngestClient client) {

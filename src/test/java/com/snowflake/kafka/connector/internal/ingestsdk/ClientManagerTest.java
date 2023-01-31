@@ -39,6 +39,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 
@@ -81,36 +82,185 @@ public class ClientManagerTest {
   }
 
   @Test
-  public void testCreateAndGetClient() {
+  public void testCreateAndGetClient() throws Exception {
     // setup
     List<Integer> taskList = Arrays.asList(0);
+    Set<List<Integer>> taskListSet = new HashSet<>();
+    taskListSet.add(taskList);
 
+    Mockito.when(this.clientTaskMap.getTaskIdLists()).thenReturn(taskListSet);
+    Mockito.when(this.clientTaskMap.getClient(taskList.get(0))).thenReturn(this.goalClient);
+    Mockito.when(this.clientTaskMap.validateMap(1)).thenReturn("");
+
+    // test creation
+    ClientManager clientManager = new ClientManager();
+    clientManager.createAllStreamingClients(this.config, this.kcInstanceId, this.clientTaskMap);
+
+    // test get
+    SnowflakeStreamingIngestClient createdClient = clientManager.getStreamingIngestClient(taskList.get(0));
+    createdClient.close(); // dont orphan client
+
+    // verify
+    assert createdClient.getName().equals(goalClient.getName());
+
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).getTaskIdLists();
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).addClient(Mockito.eq(taskList), ArgumentMatchers.any(SnowflakeStreamingIngestClient.class));
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).validateMap(1);
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).getClient(taskList.get(0));
+  }
+
+  @Test
+  public void testCreateClientInvalidMap() {
+    // setup
+    List<Integer> taskList = Arrays.asList(0);
+    Set<List<Integer>> taskListSet = new HashSet<>();
+    taskListSet.add(taskList);
+    String exceptionMsg = "Invalid map!";
+    Mockito.when(this.clientTaskMap.getTaskIdLists()).thenReturn(taskListSet);
+
+    // test creation
+    Mockito.when(this.clientTaskMap.validateMap(1)).thenReturn(exceptionMsg);
+
+    ClientManager clientManager = new ClientManager();
+    assert TestUtils.assertError(
+            SnowflakeErrors.ERROR_3009,
+            () -> {
+              clientManager.createAllStreamingClients(this.config, this.kcInstanceId, this.clientTaskMap);
+            });
+
+    // verify
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).getTaskIdLists();
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).addClient(Mockito.eq(taskList), ArgumentMatchers.any(SnowflakeStreamingIngestClient.class));
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).validateMap(1);
+  }
+
+  @Test
+  public void testCreateClientFailure() {
+    // setup
+    List<Integer> taskList = Arrays.asList(0);
     Set<List<Integer>> taskListSet = new HashSet<>();
     taskListSet.add(taskList);
     Mockito.when(this.clientTaskMap.getTaskIdLists()).thenReturn(taskListSet);
 
-    // test
-    ClientManager clientManager = new ClientManager();
-    clientManager.createAllStreamingClients(this.config, this.kcInstanceId, this.clientTaskMap);
+    // test creation
+    this.config.remove(Utils.SF_ROLE);
 
-    // verification - very difficult (impossible?) to mock the
-    // SnowflakeStreamingIngestClientFactory.builder method because it is static, so use a goal
-    // client to at least test idempotency
-    assert createdClient.getName().equals(goalClient.getName());
+    ClientManager clientManager = new ClientManager();
+    try {
+      clientManager.createAllStreamingClients(this.config, this.kcInstanceId, this.clientTaskMap);
+    } catch (ConnectException ex) {
+      assert ex.getCause() instanceof SFException;
+      assert ex.getCause().getMessage().contains("Missing role");
+    }
+
+    // verify
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).getTaskIdLists();
   }
 
   @Test
   public void testCloseClient() throws Exception {
     // setup
-    SnowflakeStreamingIngestClient goalClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
-    ClientManager clientManager = new ClientManager();
+    List<Integer> taskList = Arrays.asList(0);
+    Set<List<Integer>> taskListSet = new HashSet<>();
+    taskListSet.add(taskList);
+    Set<SnowflakeStreamingIngestClient> clientSet = new HashSet<>();
+    clientSet.add(this.mockClient);
+    Mockito.when(this.clientTaskMap.getClients()).thenReturn(clientSet);
+    Mockito.when(this.clientTaskMap.validateMap(0)).thenReturn("");
 
     // test
+    ClientManager clientManager = new ClientManager(this.clientTaskMap, 1);
     clientManager.closeAllStreamingClients();
 
     // verify client closed
-    Mockito.verify(goalClient, Mockito.times(1)).isClosed();
-    Mockito.verify(goalClient, Mockito.times(1)).close();
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).getClients();
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).removeClient(ArgumentMatchers.any(SnowflakeStreamingIngestClient.class));
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).validateMap(0);
+    Mockito.verify(this.mockClient, Mockito.times(1)).isClosed();
+    Mockito.verify(this.mockClient, Mockito.times(1)).close();
+  }
+
+  // note: we dont throw exceptions on close
+  @Test
+  public void testCloseClientInvalidMap() throws Exception {
+    // setup
+    List<Integer> taskList = Arrays.asList(0);
+    Set<List<Integer>> taskListSet = new HashSet<>();
+    taskListSet.add(taskList);
+    Set<SnowflakeStreamingIngestClient> clientSet = new HashSet<>();
+    clientSet.add(this.mockClient);
+    Mockito.when(this.clientTaskMap.getClients()).thenReturn(clientSet);
+
+    // test
+    Mockito.when(this.clientTaskMap.validateMap(0)).thenReturn("invalid map!");
+
+    ClientManager clientManager = new ClientManager(this.clientTaskMap, 1);
+    clientManager.closeAllStreamingClients();
+
+    // verify client closed
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).getClients();
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).removeClient(ArgumentMatchers.any(SnowflakeStreamingIngestClient.class));
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).validateMap(0);
+    Mockito.verify(this.mockClient, Mockito.times(1)).isClosed();
+    Mockito.verify(this.mockClient, Mockito.times(1)).close();
+  }
+
+
+  // note: we dont throw exceptions on close
+  @Test
+  public void testCloseClientFailures() throws Exception {
+    // setup
+    Set<SnowflakeStreamingIngestClient> clientSet = new HashSet<>();
+    clientSet.add(this.mockClient);
+    Mockito.when(this.clientTaskMap.getClients()).thenReturn(clientSet);
+    Mockito.when(this.clientTaskMap.validateMap(0)).thenReturn("");
+
+    // test cant close client no message
+    Exception thrownException = new Exception();
+    Mockito.doThrow(thrownException).when(this.mockClient).close();
+    ClientManager clientManager = new ClientManager(this.clientTaskMap, 1);
+    clientManager.closeAllStreamingClients();
+
+    // test cant close client with message
+    thrownException = new Exception("don't forget to pet a cat today");
+    Mockito.doThrow(thrownException).when(this.mockClient).close();
+    clientManager = new ClientManager(this.clientTaskMap, 1);
+    clientManager.closeAllStreamingClients();
+
+    // test cant close client no cause
+    thrownException.initCause(new Exception());
+    Mockito.doThrow(thrownException).when(this.mockClient).close();
+    clientManager = new ClientManager(this.clientTaskMap, 1);
+    clientManager.closeAllStreamingClients();
+
+    // verify client closed
+    Mockito.verify(this.clientTaskMap, Mockito.times(3)).getClients();
+    Mockito.verify(this.clientTaskMap, Mockito.times(3)).removeClient(ArgumentMatchers.any(SnowflakeStreamingIngestClient.class));
+    Mockito.verify(this.clientTaskMap, Mockito.times(3)).validateMap(0);
+    Mockito.verify(this.mockClient, Mockito.times(3)).isClosed();
+    Mockito.verify(this.mockClient, Mockito.times(3)).close();
+  }
+
+  // note: we dont throw exceptions on close
+  @Test
+  public void testCloseAlreadyClosedClient() throws Exception {
+    // setup
+    Set<SnowflakeStreamingIngestClient> clientSet = new HashSet<>();
+    clientSet.add(this.mockClient);
+    Mockito.when(this.clientTaskMap.getClients()).thenReturn(clientSet);
+    Mockito.when(this.clientTaskMap.validateMap(0)).thenReturn("");
+
+    // test client is already closed
+    Mockito.when(this.mockClient.isClosed()).thenReturn(true);
+
+    ClientManager clientManager = new ClientManager(this.clientTaskMap, 1);
+    clientManager.closeAllStreamingClients();
+
+    // verify client closed
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).getClients();
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).removeClient(ArgumentMatchers.any(SnowflakeStreamingIngestClient.class));
+    Mockito.verify(this.clientTaskMap, Mockito.times(1)).validateMap(0);
+    Mockito.verify(this.mockClient, Mockito.times(1)).isClosed();
   }
 
 //  @Test

@@ -738,7 +738,7 @@ public class TestUtils {
   // note: uses the ingestSdkProvider to get the client
   public static SnowflakeStreamingIngestClient createStreamingClient(
       Map<String, String> config, String connectorName) {
-    ClientManager clientManager = new ClientManager(null);
+    ClientManager clientManager = new ClientManager(null, 0);
     //clientManager.createStreamingClient(config, connectorName);
 
     return clientManager.getStreamingIngestClient(0);
