@@ -45,7 +45,7 @@ import org.apache.kafka.connect.sink.SinkConnector;
  */
 public class SnowflakeSinkConnector extends SinkConnector {
   // TEMPORARY config of num tasks assigned per client, round up if number is not divisible
-  private static final double NUM_TASK_TO_CLIENT = 1;
+  private static final int NUM_TASK_TO_CLIENT = 1;
 
   // create logger without correlationId for now
   private static LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnector.class.getName());
@@ -179,8 +179,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   public List<Map<String, String>> taskConfigs(final int maxTasks) {
     // create all necessary clients
     if (this.usesStreamingIngestion) {
-      int clientCount = (int)Math.ceil(maxTasks / NUM_TASK_TO_CLIENT);
-      ClientTaskMap clientTaskMap = new ClientTaskMap(maxTasks, clientCount);
+      ClientTaskMap clientTaskMap = new ClientTaskMap(maxTasks, NUM_TASK_TO_CLIENT);
       IngestSdkProvider.clientManager.createAllStreamingClients(config, kcInstanceId, clientTaskMap);
     }
 

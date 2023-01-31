@@ -1,8 +1,10 @@
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 
 import java.util.ArrayList;
@@ -16,28 +18,32 @@ public class ClientTaskMap {
 
     private Map<List<Integer>, SnowflakeStreamingIngestClient> clientTaskMap;
     private boolean areAllClientsInitialized;
+    private final int taskCount;
+    private final int clientCount;
 
-    public ClientTaskMap(int taskCount, int clientCount)  {
+    // don't open or close client here, this just tracks state
+    public ClientTaskMap(int taskCount, int numTasksPerClient)  {
+        this.taskCount = taskCount;
+        // round up number of clients
+        this.clientCount = (int) Math.ceil(taskCount / numTasksPerClient);
+
         LOGGER = new LoggerHandler(this.getClass().getName());
         this.clientTaskMap = new HashMap<>();
         this.areAllClientsInitialized = false;
 
-        int clientIdx = 0;
         int taskIdx = 0;
-        List<Integer> taskIdList = new ArrayList<>();
+        int clientIdx = 0;
 
-        while (taskIdx < taskCount) {
-            taskIdList.add(taskIdx);
-            taskIdx++;
-            clientIdx++;
+        while (clientIdx < this.clientCount) {
+            List<Integer> taskIdList = new ArrayList<>();
 
-            if (clientIdx == clientCount) {
-                // initialize map with null clients
-                this.clientTaskMap.put(taskIdList, null);
-
-                taskIdList = new ArrayList<>();
-                clientIdx = 0;
+            while (taskIdx < this.taskCount) {
+                taskIdList.add(taskIdx);
+                taskIdx++;
             }
+
+            this.clientTaskMap.put(taskIdList, null);
+            clientIdx++;
         }
     }
 
@@ -58,26 +64,97 @@ public class ClientTaskMap {
             if (taskList.contains(taskId)) {
                 SnowflakeStreamingIngestClient client = this.clientTaskMap.get(taskList);
 
-                if (client == null || client.isClosed()) {
-                    LOGGER.error("Streaming ingest client was null or closed. It must be initialized");
+                if (!this.isClientValid(client)) {
                     throw SnowflakeErrors.ERROR_3009.getException();
                 }
 
                 return client;
             }
         }
+
+        throw SnowflakeErrors.ERROR_3010.getException();
     }
 
     public void addClient(List<Integer> taskList, SnowflakeStreamingIngestClient client) {
+        if (!this.isClientValid(client)) {
+            throw SnowflakeErrors.ERROR_3009.getException();
+        }
 
+        SnowflakeStreamingIngestClient prevClient = this.clientTaskMap.get(taskList);
+        if (this.isClientValid(prevClient)) {
+            LOGGER.warn("Replacing previous valid client instance '{}' with new client instance '{}'", prevClient.getName(), client.getName());
+            this.removeClient(prevClient);
+        }
+
+        this.clientTaskMap.put(taskList, client);
     }
 
     public void removeClient(SnowflakeStreamingIngestClient client) {
+        for (Map.Entry<List<Integer>, SnowflakeStreamingIngestClient> entry : this.clientTaskMap.entrySet()) {
+            SnowflakeStreamingIngestClient currClient = entry.getValue();
 
+            if (currClient != null && currClient.getName().equals(client.getName())) {
+                this.clientTaskMap.remove(entry.getKey());
+                return;
+            }
+        }
+
+        LOGGER.warn("Given client could not be removed because it was not found");
     }
 
-    public void validateMap(int streamingIngestClientCount) {
-        this.areAllClientsInitialized
+    // validate consecutive tasks and all clients are initialized
+    public List<String> validateMap(int initializedClientCount) {
+        List<String> exceptionMsgs = new ArrayList<>();
+        boolean[] taskIds = new boolean[this.taskCount];
+        List<SnowflakeStreamingIngestClient> invalidClients = new ArrayList<>();
 
+        for (Map.Entry<List<Integer>, SnowflakeStreamingIngestClient> entry : this.clientTaskMap.entrySet()) {
+            List<Integer> currTaskList = entry.getKey();
+            SnowflakeStreamingIngestClient currClient = entry.getValue();
+
+            // get existing task ids
+            for (int taskIdx : currTaskList) {
+                if (taskIdx < taskIds.length && taskIdx >= 0) {
+                    taskIds[taskIdx] = true;
+                } else {
+                    exceptionMsgs.add(Utils.formatString("Mapped taskid {} was out of bounds, expected a number between {} - {}", taskIdx, 0, this.taskCount));
+                }
+            }
+
+            // get invalid clients
+            if (!this.isClientValid(currClient)) {
+                invalidClients.add(currClient);
+            }
+        }
+
+        // check expected client and actual client counts are the same
+        if (this.clientTaskMap.size() != initializedClientCount) {
+            exceptionMsgs.add(Utils.formatString("Expected {} initialized clients, but actually have {} initialized clients", this.clientCount, initializedClientCount));
+        }
+
+        // if any clients were invalid
+        if (!invalidClients.isEmpty()) {
+            String invalidClientsStr = invalidClients.get(0).getName();
+            for (int invalidClientIdx = 1; invalidClientIdx < invalidClients.size(); invalidClientIdx++) {
+                invalidClientsStr += ", " + invalidClients.get(invalidClientIdx).getName();
+            }
+            exceptionMsgs.add(Utils.formatString("There were {} invalid clients: {}", invalidClients.size(), invalidClientsStr));
+        }
+
+        String invalidTaskIds = "";
+        for (int taskIdx = 0; taskIdx < taskIds.length; taskIdx++) {
+            if (!taskIds[taskIdx]) {
+                invalidTaskIds += taskIdx + ", ";
+            }
+        }
+        if (!invalidTaskIds.isEmpty()) {
+            exceptionMsgs.add(Utils.formatString("Not enough tasks were mapped to clients, tasks missing clients: {}", invalidTaskIds.substring(0, invalidTaskIds.lastIndexOf(','))));
+        }
+
+        return exceptionMsgs;
+    }
+
+    private boolean isClientValid(SnowflakeStreamingIngestClient client) {
+        return client != null && !client.isClosed();
     }
 }

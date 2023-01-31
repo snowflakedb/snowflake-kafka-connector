@@ -4,7 +4,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -21,13 +20,13 @@ public class ClientManager {
 
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 
-  private int streamingIngestClientCount;
+  private int initializedClientCount;
 
   private ClientTaskMap clientTaskMap;
 
   protected ClientManager() {
     LOGGER = new LoggerHandler(this.getClass().getName());
-    this.streamingIngestClientCount = 0;
+    this.initializedClientCount = 0;
   }
 
   // ONLY FOR TESTING - use this to inject client map
@@ -38,13 +37,19 @@ public class ClientManager {
   }
 
   public void createAllStreamingClients(Map<String, String> connectorConfig, String kcInstanceId, ClientTaskMap clientTaskMap) {
+    Map<String, String> streamingPropertiesMap =
+            StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig));
+    Properties streamingClientProps = new Properties();
+    streamingClientProps.putAll(streamingPropertiesMap);
+    String streamingIngestClientName = this.getStreamingIngestClientName(kcInstanceId);
+
     for (List<Integer> taskList : clientTaskMap.getTaskIdLists()) {
-      SnowflakeStreamingIngestClient client = this.createStreamingClient(connectorConfig, kcInstanceId);
+      SnowflakeStreamingIngestClient client = this.createStreamingClient(streamingClientProps, streamingIngestClientName);
+      this.initializedClientCount++;
       clientTaskMap.addClient(taskList, client);
-      this.streamingIngestClientCount++;
     }
 
-    this.clientTaskMap.validateMap(this.streamingIngestClientCount);
+    clientTaskMap.validateMap(this.initializedClientCount);
     this.clientTaskMap = clientTaskMap;
   }
 
@@ -59,11 +64,12 @@ public class ClientManager {
 
   public void closeAllStreamingClients() {
     for (SnowflakeStreamingIngestClient client : this.clientTaskMap.getClients()) {
+      this.closeStreamingClient(client);
+      this.initializedClientCount--;
       this.clientTaskMap.removeClient(client);
-      this.streamingIngestClientCount--;
     }
 
-    this.clientTaskMap.validateMap(this.streamingIngestClientCount);
+    clientTaskMap.validateMap(this.initializedClientCount);
     this.clientTaskMap = null;
   }
 
@@ -73,13 +79,7 @@ public class ClientManager {
    * @param connectorConfig properties for the streaming client
    * @param kcInstanceId identifier of the connector instance creating the client
    */
-  private SnowflakeStreamingIngestClient createStreamingClient(Map<String, String> connectorConfig, String kcInstanceId) {
-    Map<String, String> streamingPropertiesMap =
-        StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig));
-    Properties streamingClientProps = new Properties();
-    streamingClientProps.putAll(streamingPropertiesMap);
-
-    String streamingIngestClientName = this.getStreamingIngestClientName(kcInstanceId);
+  private SnowflakeStreamingIngestClient createStreamingClient(Properties streamingClientProps, String streamingIngestClientName) {
       try {
         LOGGER.info("Creating Streaming Client. ClientName:{}", streamingIngestClientName);
         return SnowflakeStreamingIngestClientFactory.builder(streamingIngestClientName)
@@ -93,10 +93,10 @@ public class ClientManager {
   /**
    * Calls the ingest sdk to close the client sdk, retries on failure
    */
-  private boolean closeStreamingClient(SnowflakeStreamingIngestClient streamingIngestClient) {
+  private void closeStreamingClient(SnowflakeStreamingIngestClient streamingIngestClient) {
     if (streamingIngestClient == null || streamingIngestClient.isClosed()) {
       LOGGER.info("Streaming client is already closed or null");
-      return true;
+      return;
     }
 
     String streamingIngestClientName = streamingIngestClient.getName();
@@ -104,8 +104,6 @@ public class ClientManager {
 
       try {
         streamingIngestClient.close();
-        // TODO: add client count and map verification here
-        return true;
       } catch (Exception e) {
         String message =
                 e.getMessage() != null && !e.getMessage().isEmpty()
@@ -121,8 +119,6 @@ public class ClientManager {
         // don't throw an exception because closing the client here is best effort
         LOGGER.error("Failure closing Streaming client msg:{}, cause:{}", message, cause);
     }
-
-    return false;
   }
 
   /**
@@ -132,6 +128,6 @@ public class ClientManager {
    * @return the streaming ingest client name
    */
   private String getStreamingIngestClientName(String kcInstanceId) {
-    return STREAMING_CLIENT_PREFIX_NAME + kcInstanceId + this.streamingIngestClientCount;
+    return STREAMING_CLIENT_PREFIX_NAME + kcInstanceId + this.initializedClientCount;
   }
 }
