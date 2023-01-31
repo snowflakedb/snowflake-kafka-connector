@@ -21,12 +21,14 @@ public class ClientManager {
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 
   private int initializedClientCount;
+  private int initializedClientId;
 
   private ClientTaskMap clientTaskMap;
 
   protected ClientManager() {
     LOGGER = new LoggerHandler(this.getClass().getName());
     this.initializedClientCount = 0;
+    this.initializedClientId = 0;
   }
 
   // ONLY FOR TESTING - use this to inject client map
@@ -41,10 +43,9 @@ public class ClientManager {
             StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig));
     Properties streamingClientProps = new Properties();
     streamingClientProps.putAll(streamingPropertiesMap);
-    String streamingIngestClientName = this.getStreamingIngestClientName(kcInstanceId);
 
     for (List<Integer> taskList : clientTaskMap.getTaskIdLists()) {
-      SnowflakeStreamingIngestClient client = this.createStreamingClient(streamingClientProps, streamingIngestClientName);
+      SnowflakeStreamingIngestClient client = this.createStreamingClient(streamingClientProps, kcInstanceId);
       this.initializedClientCount++;
       clientTaskMap.addClient(taskList, client);
     }
@@ -79,8 +80,12 @@ public class ClientManager {
    * @param connectorConfig properties for the streaming client
    * @param kcInstanceId identifier of the connector instance creating the client
    */
-  private SnowflakeStreamingIngestClient createStreamingClient(Properties streamingClientProps, String streamingIngestClientName) {
+  private SnowflakeStreamingIngestClient createStreamingClient(Properties streamingClientProps, String kcInstanceId) {
       try {
+        // get client name
+        String streamingIngestClientName = this.getStreamingIngestClientName(kcInstanceId, this.initializedClientId);
+        this.initializedClientId++;
+
         LOGGER.info("Creating Streaming Client. ClientName:{}", streamingIngestClientName);
         return SnowflakeStreamingIngestClientFactory.builder(streamingIngestClientName)
                         .setProperties(streamingClientProps)
@@ -127,7 +132,7 @@ public class ClientManager {
    * @param kcInstanceId the indentifier for the connector creating this client
    * @return the streaming ingest client name
    */
-  private String getStreamingIngestClientName(String kcInstanceId) {
-    return STREAMING_CLIENT_PREFIX_NAME + kcInstanceId + this.initializedClientCount;
+  public static String getStreamingIngestClientName(String kcInstanceId, int clientId) {
+    return STREAMING_CLIENT_PREFIX_NAME + kcInstanceId + clientId;
   }
 }
