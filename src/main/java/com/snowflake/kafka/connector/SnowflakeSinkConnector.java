@@ -21,7 +21,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import com.snowflake.kafka.connector.internal.ingestsdk.ClientTaskMap;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.ArrayList;
@@ -177,10 +176,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public List<Map<String, String>> taskConfigs(final int maxTasks) {
-    // create all necessary clients
+    // create all necessary clients, evenly mapping tasks to clients
     if (this.usesStreamingIngestion) {
-      ClientTaskMap clientTaskMap = new ClientTaskMap(maxTasks, NUM_TASK_TO_CLIENT);
-      IngestSdkProvider.clientManager.createAllStreamingClients(config, kcInstanceId, clientTaskMap);
+      IngestSdkProvider.clientManager.createAllStreamingClients(config, kcInstanceId, maxTasks, NUM_TASK_TO_CLIENT);
     }
 
     // wait for setup to complete

@@ -19,6 +19,7 @@ import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
+import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -124,7 +125,7 @@ public class TopicPartitionChannel {
 
   // -------- private final fields -------- //
 
-  private final SnowflakeStreamingIngestClient streamingIngestClient;
+  private final KcStreamingIngestClient streamingIngestClient;
 
   // Topic partition Object from connect consisting of topic and partition
   private final TopicPartition topicPartition;
@@ -230,7 +231,7 @@ public class TopicPartitionChannel {
     this.tableName = Preconditions.checkNotNull(tableName);
     this.streamingBufferThreshold = Preconditions.checkNotNull(streamingBufferThreshold);
     this.sfConnectorConfig = Preconditions.checkNotNull(sfConnectorConfig);
-    this.channel = Preconditions.checkNotNull(openChannelForTable());
+    this.channel = Preconditions.checkNotNull(this.streamingIngestClient.openChannel(this.channelName, this.sfConnectorConfig, this.tableName));
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.conn = conn;
@@ -928,7 +929,7 @@ public class TopicPartitionChannel {
   private long getRecoveredOffsetFromSnowflake(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
     LOGGER.warn("{} Re-opening channel:{}", streamingApiFallbackInvoker, this.getChannelName());
-    this.channel = Preconditions.checkNotNull(openChannelForTable());
+    this.channel = Preconditions.checkNotNull(this.streamingIngestClient.openChannel(this.channelName, this.sfConnectorConfig, this.tableName));
     LOGGER.warn(
         "{} Fetching offsetToken after re-opening the channel:{}",
         streamingApiFallbackInvoker,
@@ -971,32 +972,6 @@ public class TopicPartitionChannel {
           this.getChannelName());
       throw new ConnectException(ex);
     }
-  }
-
-  /**
-   * Open a channel for Table with given channel name and tableName.
-   *
-   * <p>Open channels happens at:
-   *
-   * <p>Constructor of TopicPartitionChannel -> which means we will wipe of all states and it will
-   * call precomputeOffsetTokenForChannel
-   *
-   * <p>Failure handling which will call reopen, replace instance variable with new channel and call
-   * offsetToken/insertRows.
-   *
-   * @return new channel which was fetched after open/reopen
-   */
-  private SnowflakeStreamingIngestChannel openChannelForTable() {
-    OpenChannelRequest channelRequest =
-        OpenChannelRequest.builder(this.channelName)
-            .setDBName(this.sfConnectorConfig.get(Utils.SF_DATABASE))
-            .setSchemaName(this.sfConnectorConfig.get(Utils.SF_SCHEMA))
-            .setTableName(this.tableName)
-            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
-            .build();
-    LOGGER.info(
-        "Opening a channel with name:{} for table name:{}", this.channelName, this.tableName);
-    return streamingIngestClient.openChannel(channelRequest);
   }
 
   /**
