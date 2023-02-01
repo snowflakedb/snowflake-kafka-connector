@@ -1,30 +1,30 @@
-//package com.snowflake.kafka.connector.internal.streaming;
+// package com.snowflake.kafka.connector.internal.streaming;
 //
-//import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-//import com.snowflake.kafka.connector.Utils;
-//import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
-//import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-//import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
-//import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
-//import com.snowflake.kafka.connector.internal.TestUtils;
-//import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
-//import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
-//import java.util.ArrayList;
-//import java.util.Collections;
-//import java.util.List;
-//import java.util.Map;
-//import net.snowflake.ingest.streaming.OpenChannelRequest;
-//import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-//import org.apache.kafka.common.TopicPartition;
-//import org.apache.kafka.connect.sink.SinkRecord;
-//import org.junit.After;
-//import org.junit.Assert;
-//import org.junit.Before;
-//import org.junit.Test;
-//import org.mockito.Mock;
-//import org.mockito.Mockito;
+// import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+// import com.snowflake.kafka.connector.Utils;
+// import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
+// import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+// import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
+// import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
+// import com.snowflake.kafka.connector.internal.TestUtils;
+// import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
+// import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
+// import java.util.ArrayList;
+// import java.util.Collections;
+// import java.util.List;
+// import java.util.Map;
+// import net.snowflake.ingest.streaming.OpenChannelRequest;
+// import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+// import org.apache.kafka.common.TopicPartition;
+// import org.apache.kafka.connect.sink.SinkRecord;
+// import org.junit.After;
+// import org.junit.Assert;
+// import org.junit.Before;
+// import org.junit.Test;
+// import org.mockito.Mock;
+// import org.mockito.Mockito;
 //
-//public class TopicPartitionChannelIT {
+// public class TopicPartitionChannelIT {
 //
 //  private SnowflakeConnectionService conn = TestUtils.getConnectionService();
 //  private String testTableName;
@@ -38,7 +38,8 @@
 //  private SnowflakeStreamingIngestClient streamingIngestClient;
 //  private final String connectorName = "testconnector";
 //
-//  @Mock private KcStreamingIngestClient kcStreamingIngestClient = Mockito.mock(KcStreamingIngestClient.class);
+//  @Mock private KcStreamingIngestClient kcStreamingIngestClient =
+// Mockito.mock(KcStreamingIngestClient.class);
 //
 //  @Before
 //  public void beforeEach() {
@@ -57,7 +58,8 @@
 //
 //    // setup client
 //    this.streamingIngestClient = TestUtils.createStreamingClient(this.config, this.connectorName);
-//    Mockito.when(kcStreamingIngestClient.getStreamingIngestClient(0)).thenReturn(this.streamingIngestClient);
+//
+// Mockito.when(kcStreamingIngestClient.getStreamingIngestClient(0)).thenReturn(this.streamingIngestClient);
 //    IngestSdkProvider.clientManager = this.kcStreamingIngestClient;
 //  }
 //
@@ -75,7 +77,8 @@
 //
 //    // This will automatically create a channel for topicPartition.
 //    SnowflakeSinkService service =
-//        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+//        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING,
+// config)
 //            .setRecordNumber(1)
 //            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
 //            .setSinkTaskContext(inMemorySinkTaskContext)
@@ -126,7 +129,8 @@
 //
 //    // This will automatically create a channel for topicPartition.
 //    SnowflakeSinkService service =
-//        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+//        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING,
+// config)
 //            .setRecordNumber(1)
 //            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
 //            .setSinkTaskContext(inMemorySinkTaskContext)
@@ -183,7 +187,8 @@
 //
 //    // This will automatically create a channel for topicPartition.
 //    SnowflakeSinkService service =
-//        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+//        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING,
+// config)
 //            .setRecordNumber(1)
 //            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
 //            .setSinkTaskContext(inMemorySinkTaskContext)
@@ -245,7 +250,8 @@
 //   *
 //   * <p>Partition 1 -> Channel 1 -> open with same client Client sequencer for channel 1 - 1
 //   *
-//   * <p>Partition 1 -> 10(10-19) records -> Failure -> reopen -> fetch offset token Client sequencer
+//   * <p>Partition 1 -> 10(10-19) records -> Failure -> reopen -> fetch offset token Client
+// sequencer
 //   * for channel 1 - 2
 //   *
 //   * <p>Partition 2 -> 10(10-19) records -> Success
@@ -317,7 +323,8 @@
 //    // server side to 1
 //    service.insert(records);
 //
-//    // Will need to retry which should succeed (Retry is mimicking the reset of kafka offsets, which
+//    // Will need to retry which should succeed (Retry is mimicking the reset of kafka offsets,
+// which
 //    // will send offsets from 10 since last committed offset in Snowflake is 9)
 //    service.insert(records);
 //
@@ -363,7 +370,8 @@
 //
 //    // This will automatically create a channel for topicPartition.
 //    SnowflakeSinkService service =
-//        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+//        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING,
+// config)
 //            .setRecordNumber(10)
 //            .setFlushTime(5)
 //            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
@@ -419,4 +427,4 @@
 //
 //    Mockito.verify(kcStreamingIngestClient, Mockito.times(1)).getStreamingIngestClient(0);
 //  }
-//}
+// }

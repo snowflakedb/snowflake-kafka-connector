@@ -35,7 +35,6 @@ import static com.snowflake.kafka.connector.Utils.SF_USER;
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
@@ -60,7 +59,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -735,12 +733,12 @@ public class TestUtils {
     return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, taskId, taskOpenCount, "").split("#")[0];
   }
 
-//  // note: uses the ingestSdkProvider to get the client
-//  public static SnowflakeStreamingIngestClient createStreamingClient(
-//      Map<String, String> config, String connectorName) {
-//    KcStreamingIngestClient kcStreamingIngestClient = new KcStreamingIngestClient(null, 0);
-//    //clientManager.createStreamingClient(config, connectorName);
-//
-//    return kcStreamingIngestClient.getStreamingIngestClient(0);
-//  }
+  //  // note: uses the ingestSdkProvider to get the client
+  //  public static SnowflakeStreamingIngestClient createStreamingClient(
+  //      Map<String, String> config, String connectorName) {
+  //    KcStreamingIngestClient kcStreamingIngestClient = new KcStreamingIngestClient(null, 0);
+  //    //clientManager.createStreamingClient(config, connectorName);
+  //
+  //    return kcStreamingIngestClient.getStreamingIngestClient(0);
+  //  }
 }

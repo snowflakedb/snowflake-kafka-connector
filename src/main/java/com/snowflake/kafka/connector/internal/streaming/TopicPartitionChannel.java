@@ -12,7 +12,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
@@ -39,9 +38,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
-import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.Pair;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
@@ -225,13 +222,17 @@ public class TopicPartitionChannel {
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn) {
     this.streamingIngestClient =
-        Preconditions.checkNotNull(IngestSdkProvider.clientManager.getStreamingIngestClient(conn.getTaskId()));
+        Preconditions.checkNotNull(
+            IngestSdkProvider.clientManager.getStreamingIngestClient(conn.getTaskId()));
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelName = Preconditions.checkNotNull(channelName);
     this.tableName = Preconditions.checkNotNull(tableName);
     this.streamingBufferThreshold = Preconditions.checkNotNull(streamingBufferThreshold);
     this.sfConnectorConfig = Preconditions.checkNotNull(sfConnectorConfig);
-    this.channel = Preconditions.checkNotNull(this.streamingIngestClient.openChannel(this.channelName, this.sfConnectorConfig, this.tableName));
+    this.channel =
+        Preconditions.checkNotNull(
+            this.streamingIngestClient.openChannel(
+                this.channelName, this.sfConnectorConfig, this.tableName));
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.conn = conn;
@@ -929,7 +930,10 @@ public class TopicPartitionChannel {
   private long getRecoveredOffsetFromSnowflake(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
     LOGGER.warn("{} Re-opening channel:{}", streamingApiFallbackInvoker, this.getChannelName());
-    this.channel = Preconditions.checkNotNull(this.streamingIngestClient.openChannel(this.channelName, this.sfConnectorConfig, this.tableName));
+    this.channel =
+        Preconditions.checkNotNull(
+            this.streamingIngestClient.openChannel(
+                this.channelName, this.sfConnectorConfig, this.tableName));
     LOGGER.warn(
         "{} Fetching offsetToken after re-opening the channel:{}",
         streamingApiFallbackInvoker,

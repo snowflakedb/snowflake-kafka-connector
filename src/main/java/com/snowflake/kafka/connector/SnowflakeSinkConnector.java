@@ -178,7 +178,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
   public List<Map<String, String>> taskConfigs(final int maxTasks) {
     // create all necessary clients, evenly mapping tasks to clients
     if (this.usesStreamingIngestion) {
-      IngestSdkProvider.clientManager.createAllStreamingClients(config, kcInstanceId, maxTasks, NUM_TASK_TO_CLIENT);
+      IngestSdkProvider.clientManager.createAllStreamingClients(
+          config, kcInstanceId, maxTasks, NUM_TASK_TO_CLIENT);
     }
 
     // wait for setup to complete

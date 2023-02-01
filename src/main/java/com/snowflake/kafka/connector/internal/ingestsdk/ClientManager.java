@@ -1,107 +1,111 @@
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.utils.SFException;
-import shaded.parquet.it.unimi.dsi.fastutil.Hash;
-
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
+import net.snowflake.ingest.utils.SFException;
 
 // provides access to clients
 public class ClientManager {
-    private LoggerHandler LOGGER;
+  private LoggerHandler LOGGER;
 
-    private Map<Integer, KcStreamingIngestClient> taskToClientMap;
-    private boolean areAllClientsInitialized;
-    private int clientCount;
-    private int taskCount;
+  private Map<Integer, KcStreamingIngestClient> taskToClientMap;
+  private boolean areAllClientsInitialized;
+  private int clientCount;
+  private int taskCount;
 
-    protected ClientManager()  {
-        LOGGER = new LoggerHandler(this.getClass().getName());
-        this.taskToClientMap = new HashMap<>();
-        this.areAllClientsInitialized = false;
-        this.clientCount = 0;
-        this.taskCount = 0;
+  protected ClientManager() {
+    LOGGER = new LoggerHandler(this.getClass().getName());
+    this.taskToClientMap = new HashMap<>();
+    this.areAllClientsInitialized = false;
+    this.clientCount = 0;
+    this.taskCount = 0;
+  }
+
+  // note: assumes taskids are consecutive and starts from 0
+  public void createAllStreamingClients(
+      Map<String, String> connectorConfig,
+      String kcInstanceId,
+      int maxTasks,
+      int numTasksPerClient) {
+    this.areAllClientsInitialized = false;
+
+    assert connectorConfig != null;
+    assert kcInstanceId != null;
+    assert maxTasks > 0;
+    assert numTasksPerClient > 0;
+    // TODO @rcheng: assert handling?
+
+    this.taskCount = maxTasks;
+    this.clientCount = (int) Math.ceil((double) maxTasks / (double) numTasksPerClient);
+    LOGGER.info(
+        "Creating {} clients for {} tasks with max {} tasks per client",
+        clientCount,
+        maxTasks,
+        numTasksPerClient);
+
+    Properties clientProperties = new Properties();
+    clientProperties.putAll(
+        StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig)));
+
+    int taskId = 0;
+    int clientId = 0;
+    int tasksToCurrClient = 0;
+    KcStreamingIngestClient createdClient =
+        new KcStreamingIngestClient(
+            clientProperties,
+            KcStreamingIngestClient.buildStreamingIngestClientName(kcInstanceId, clientId));
+    while (taskId < maxTasks) {
+      if (tasksToCurrClient == numTasksPerClient) {
+        createdClient =
+            new KcStreamingIngestClient(
+                clientProperties,
+                KcStreamingIngestClient.buildStreamingIngestClientName(kcInstanceId, clientId));
+        this.taskToClientMap.put(taskId, createdClient);
+        tasksToCurrClient = 1;
+        clientId++;
+      } else {
+        this.taskToClientMap.put(taskId, createdClient);
+        tasksToCurrClient++;
+      }
+
+      taskId++;
     }
 
-    // note: assumes taskids are consecutive and starts from 0
-    public void createAllStreamingClients(Map<String, String> connectorConfig, String kcInstanceId, int maxTasks, int numTasksPerClient) {
-        this.areAllClientsInitialized = false;
+    this.areAllClientsInitialized = true;
+  }
 
-        assert connectorConfig != null;
-        assert kcInstanceId != null;
-        assert maxTasks > 0;
-        assert numTasksPerClient > 0;
-        // TODO @rcheng: assert handling?
-
-        this.taskCount = maxTasks;
-        this.clientCount = (int) Math.ceil((double) maxTasks / (double) numTasksPerClient);
-        LOGGER.info("Creating {} clients for {} tasks with max {} tasks per client", clientCount, maxTasks, numTasksPerClient);
-
-        Properties clientProperties = new Properties();
-        clientProperties.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig)));
-
-        int taskId = 0;
-        int clientId = 0;
-        int tasksToCurrClient = 0;
-        KcStreamingIngestClient createdClient = new KcStreamingIngestClient(clientProperties, KcStreamingIngestClient.buildStreamingIngestClientName(kcInstanceId, clientId));
-        while (taskId < maxTasks) {
-            if (tasksToCurrClient == numTasksPerClient) {
-                createdClient = new KcStreamingIngestClient(clientProperties, KcStreamingIngestClient.buildStreamingIngestClientName(kcInstanceId, clientId));
-                this.taskToClientMap.put(taskId, createdClient);
-                tasksToCurrClient = 1;
-                clientId++;
-            } else {
-                this.taskToClientMap.put(taskId, createdClient);
-                tasksToCurrClient++;
-            }
-
-            taskId++;
-        }
-
-        this.areAllClientsInitialized = true;
+  /**
+   * Gets the streaming client if all clients are valid note: could return just the valid client if
+   * the others were not setup
+   *
+   * @return The streaming client, throws an exception if no client was initialized
+   */
+  public KcStreamingIngestClient getStreamingIngestClient(int taskId) {
+    if (this.taskCount > taskId) {
+      throw new SFException(null);
+      // TODO @rcheng: error handling?
     }
 
-
-    /**
-     * Gets the streaming client if all clients are valid
-     * note: could return just the valid client if the others were not setup
-     *
-     * @return The streaming client, throws an exception if no client was initialized
-     */
-    public KcStreamingIngestClient getStreamingIngestClient(int taskId) {
-        if (this.taskCount > taskId) {
-            throw new SFException(null);
-            // TODO @rcheng: error handling?
-        }
-
-        if (!this.areAllClientsInitialized) {
-            throw new SFException(null);
-        }
-
-        return this.taskToClientMap.get(taskId);
+    if (!this.areAllClientsInitialized) {
+      throw new SFException(null);
     }
 
-    public boolean closeAllStreamingClients() {
-        boolean isAllClosed = true;
-        LOGGER.info("Closing all {} clients...", clientCount);
+    return this.taskToClientMap.get(taskId);
+  }
 
-        for (Integer taskId : this.taskToClientMap.keySet()) {
-            KcStreamingIngestClient client = this.taskToClientMap.get(taskId);
-            isAllClosed &= client.close();
-            this.areAllClientsInitialized = false;
-        }
+  public boolean closeAllStreamingClients() {
+    boolean isAllClosed = true;
+    LOGGER.info("Closing all {} clients...", clientCount);
 
-        return isAllClosed;
+    for (Integer taskId : this.taskToClientMap.keySet()) {
+      KcStreamingIngestClient client = this.taskToClientMap.get(taskId);
+      isAllClosed &= client.close();
+      this.areAllClientsInitialized = false;
     }
+
+    return isAllClosed;
+  }
 }

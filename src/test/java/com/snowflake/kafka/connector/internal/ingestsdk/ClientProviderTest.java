@@ -1,4 +1,4 @@
-///*
+/// *
 // * Copyright (c) 2023 Snowflake Inc. All rights reserved.
 // *
 // * Licensed under the Apache License, Version 2.0 (the
@@ -15,21 +15,21 @@
 // * under the License.
 // */
 //
-//package com.snowflake.kafka.connector.internal.ingestsdk;
+// package com.snowflake.kafka.connector.internal.ingestsdk;
 //
-//import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-//import com.snowflake.kafka.connector.internal.TestUtils;
-//import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-//import org.junit.Before;
-//import org.junit.Test;
-//import org.mockito.Mockito;
+// import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+// import com.snowflake.kafka.connector.internal.TestUtils;
+// import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+// import org.junit.Before;
+// import org.junit.Test;
+// import org.mockito.Mockito;
 //
-//import java.util.Arrays;
-//import java.util.HashSet;
-//import java.util.List;
-//import java.util.Set;
+// import java.util.Arrays;
+// import java.util.HashSet;
+// import java.util.List;
+// import java.util.Set;
 //
-//public class ClientTaskMapTest {
+// public class ClientTaskMapTest {
 //    @Before
 //    // set up sunny day tests
 //    public void setup() {
@@ -58,7 +58,8 @@
 //        this.testConstructorAndGetTaskIdListsRunner(6, 5, goalTaskIdLists);
 //    }
 //
-//    private void testConstructorAndGetTaskIdListsRunner(int taskCount, int numTasksPerClient, Set<List<Integer>> goalTaskIdLists) {
+//    private void testConstructorAndGetTaskIdListsRunner(int taskCount, int numTasksPerClient,
+// Set<List<Integer>> goalTaskIdLists) {
 //        // test creation and get task ids
 //        ClientManager clientManager = new ClientManager(taskCount, numTasksPerClient);
 //        Set<List<Integer>> gotTaskIdLists = clientManager.getTaskIdLists();
@@ -99,9 +100,12 @@
 //        List<Integer> clientBTaskList = Arrays.asList(2, 3);
 //        List<Integer> clientCTaskList = Arrays.asList(4);
 //
-//        SnowflakeStreamingIngestClient clientA = Mockito.mock(SnowflakeStreamingIngestClient.class);
-//        SnowflakeStreamingIngestClient clientB = Mockito.mock(SnowflakeStreamingIngestClient.class);
-//        SnowflakeStreamingIngestClient clientC = Mockito.mock(SnowflakeStreamingIngestClient.class);
+//        SnowflakeStreamingIngestClient clientA =
+// Mockito.mock(SnowflakeStreamingIngestClient.class);
+//        SnowflakeStreamingIngestClient clientB =
+// Mockito.mock(SnowflakeStreamingIngestClient.class);
+//        SnowflakeStreamingIngestClient clientC =
+// Mockito.mock(SnowflakeStreamingIngestClient.class);
 //        Mockito.when(clientA.isClosed()).thenReturn(false);
 //        Mockito.when(clientB.isClosed()).thenReturn(false);
 //        Mockito.when(clientC.isClosed()).thenReturn(false);
@@ -147,20 +151,27 @@
 //        List<Integer> clientBTaskList = Arrays.asList(2, 3);
 //        List<Integer> clientCTaskList = Arrays.asList(4);
 //
-//        // since remove takes a client as a param, create a mock param client as well for mock verification accuracy
+//        // since remove takes a client as a param, create a mock param client as well for mock
+// verification accuracy
 //        String clientAName = "clientA";
-//        SnowflakeStreamingIngestClient paramClientA = Mockito.mock(SnowflakeStreamingIngestClient.class);
-//        SnowflakeStreamingIngestClient existingClientA = Mockito.mock(SnowflakeStreamingIngestClient.class);
+//        SnowflakeStreamingIngestClient paramClientA =
+// Mockito.mock(SnowflakeStreamingIngestClient.class);
+//        SnowflakeStreamingIngestClient existingClientA =
+// Mockito.mock(SnowflakeStreamingIngestClient.class);
 //        Mockito.when(paramClientA.getName()).thenReturn(clientAName);
 //        Mockito.when(existingClientA.getName()).thenReturn(clientAName);
 //        String clientBName = "clientB";
-//        SnowflakeStreamingIngestClient paramClientB = Mockito.mock(SnowflakeStreamingIngestClient.class);
-//        SnowflakeStreamingIngestClient existingClientB = Mockito.mock(SnowflakeStreamingIngestClient.class);
+//        SnowflakeStreamingIngestClient paramClientB =
+// Mockito.mock(SnowflakeStreamingIngestClient.class);
+//        SnowflakeStreamingIngestClient existingClientB =
+// Mockito.mock(SnowflakeStreamingIngestClient.class);
 //        Mockito.when(paramClientB.getName()).thenReturn(clientBName);
 //        Mockito.when(existingClientB.getName()).thenReturn(clientBName);
 //        String clientCName = "clientC";
-//        SnowflakeStreamingIngestClient paramClientC = Mockito.mock(SnowflakeStreamingIngestClient.class);
-//        SnowflakeStreamingIngestClient existingClientC = Mockito.mock(SnowflakeStreamingIngestClient.class);
+//        SnowflakeStreamingIngestClient paramClientC =
+// Mockito.mock(SnowflakeStreamingIngestClient.class);
+//        SnowflakeStreamingIngestClient existingClientC =
+// Mockito.mock(SnowflakeStreamingIngestClient.class);
 //        Mockito.when(paramClientC.getName()).thenReturn(clientCName);
 //        Mockito.when(existingClientC.getName()).thenReturn(clientCName);
 //
@@ -187,7 +198,8 @@
 //        this.assertGoalClients(clientManager, goalClients);
 //
 //        // test remove not initialized client should not affect anything or fail
-//        SnowflakeStreamingIngestClient notInitClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+//        SnowflakeStreamingIngestClient notInitClient =
+// Mockito.mock(SnowflakeStreamingIngestClient.class);
 //        Mockito.when(notInitClient.getName()).thenReturn("notInitializedClient");
 //        clientManager.removeClientTaskEntry(notInitClient);
 //
@@ -212,7 +224,8 @@
 ////        Mockito.verify(clientC, Mockito.times(3)).getName();
 //    }
 //
-//    private void assertGoalClients(ClientManager clientManager, Set<SnowflakeStreamingIngestClient> goalClients) {
+//    private void assertGoalClients(ClientManager clientManager,
+// Set<SnowflakeStreamingIngestClient> goalClients) {
 //        Set<SnowflakeStreamingIngestClient> gotClients = clientManager.getValidClients();
 //
 //        // verify clients are as expected
@@ -241,4 +254,4 @@
 //    public void testValidate() {
 //
 //    }
-//}
+// }

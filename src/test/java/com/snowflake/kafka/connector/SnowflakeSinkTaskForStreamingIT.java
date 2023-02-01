@@ -1,47 +1,47 @@
-//package com.snowflake.kafka.connector;
+// package com.snowflake.kafka.connector;
 //
-//import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
-//import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+// import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
+// import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 //
-//import com.snowflake.kafka.connector.internal.LoggerHandler;
-//import com.snowflake.kafka.connector.internal.TestUtils;
-//import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
-//import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
-//import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
-//import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-//import java.sql.ResultSet;
-//import java.util.ArrayList;
-//import java.util.Collections;
-//import java.util.HashMap;
-//import java.util.HashSet;
-//import java.util.LinkedList;
-//import java.util.List;
-//import java.util.Map;
-//import java.util.Set;
-//import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
-//import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-//import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-//import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-//import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-//import org.apache.kafka.common.TopicPartition;
-//import org.apache.kafka.connect.sink.SinkRecord;
-//import org.junit.After;
-//import org.junit.Assert;
-//import org.junit.Before;
-//import org.junit.Test;
-//import org.mockito.AdditionalMatchers;
-//import org.mockito.InjectMocks;
-//import org.mockito.Mock;
-//import org.mockito.Mockito;
-//import org.mockito.MockitoAnnotations;
-//import org.mockito.Spy;
-//import org.slf4j.Logger;
+// import com.snowflake.kafka.connector.internal.LoggerHandler;
+// import com.snowflake.kafka.connector.internal.TestUtils;
+// import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
+// import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
+// import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
+// import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+// import java.sql.ResultSet;
+// import java.util.ArrayList;
+// import java.util.Collections;
+// import java.util.HashMap;
+// import java.util.HashSet;
+// import java.util.LinkedList;
+// import java.util.List;
+// import java.util.Map;
+// import java.util.Set;
+// import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
+// import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+// import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+// import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+// import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+// import org.apache.kafka.common.TopicPartition;
+// import org.apache.kafka.connect.sink.SinkRecord;
+// import org.junit.After;
+// import org.junit.Assert;
+// import org.junit.Before;
+// import org.junit.Test;
+// import org.mockito.AdditionalMatchers;
+// import org.mockito.InjectMocks;
+// import org.mockito.Mock;
+// import org.mockito.Mockito;
+// import org.mockito.MockitoAnnotations;
+// import org.mockito.Spy;
+// import org.slf4j.Logger;
 //
-///**
+/// **
 // * Sink Task IT test which uses {@link
 // * com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2}
 // */
-//public class SnowflakeSinkTaskForStreamingIT {
+// public class SnowflakeSinkTaskForStreamingIT {
 //
 //  private String topicName;
 //  private static int partition = 0;
@@ -69,7 +69,8 @@
 //    // client
 //    this.kcStreamingIngestClient = Mockito.mock(KcStreamingIngestClient.class);
 //    this.ingestClient = TestUtils.createStreamingClient(this.config, "testclient");
-//    Mockito.when(this.kcStreamingIngestClient.getStreamingIngestClient(0)).thenReturn(this.ingestClient);
+//
+// Mockito.when(this.kcStreamingIngestClient.getStreamingIngestClient(0)).thenReturn(this.ingestClient);
 //    IngestSdkProvider.clientManager = this.kcStreamingIngestClient;
 //  }
 //
@@ -159,7 +160,8 @@
 //        .setLoggerInstanceTag(Mockito.contains(expectedTask1Tag));
 //    Mockito.verify(logger, Mockito.times(2))
 //        .debug(
-//            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("start")));
+//            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag),
+// Mockito.contains("start")));
 //
 //    // open tasks
 //    ArrayList<TopicPartition> topicPartitions0 = new ArrayList<>();
@@ -179,15 +181,18 @@
 //            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
 //
 //    // send data to tasks
-//    List<SinkRecord> records0 = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition0);
-//    List<SinkRecord> records1 = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition1);
+//    List<SinkRecord> records0 = TestUtils.createJsonStringSinkRecords(0, 1, topicName,
+// partition0);
+//    List<SinkRecord> records1 = TestUtils.createJsonStringSinkRecords(0, 1, topicName,
+// partition1);
 //
 //    sinkTask0.put(records0);
 //    sinkTask1.put(records1);
 //
 //    // verify task1 put logs
 //    Mockito.verify(logger, Mockito.times(1))
-//        .debug(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("put")));
+//        .debug(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag),
+// Mockito.contains("put")));
 //
 //    // commit offsets
 //    final Map<TopicPartition, OffsetAndMetadata> offsetMap0 = new HashMap<>();
@@ -216,7 +221,8 @@
 //    // verify task1 close logs
 //    Mockito.verify(logger, Mockito.times(1))
 //        .debug(
-//            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("closed")));
+//            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag),
+// Mockito.contains("closed")));
 //
 //    // stop tasks
 //    sinkTask0.stop();
@@ -319,4 +325,4 @@
 //    assert partitionsInTable.size() == 2;
 //    Mockito.verify(this.kcStreamingIngestClient, Mockito.times(3)).getStreamingIngestClient(0);
 //  }
-//}
+// }
