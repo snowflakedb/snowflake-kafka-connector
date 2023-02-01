@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.HashMap;
 import java.util.Map;
@@ -12,16 +14,17 @@ public class ClientManager {
   private LoggerHandler LOGGER;
 
   private Map<Integer, KcStreamingIngestClient> taskToClientMap;
-  private boolean areAllClientsInitialized;
-  private int clientCount;
-  private int taskCount;
+
+  // TESTING ONLY - inject the client map
+  @VisibleForTesting
+  public ClientManager(Map<Integer, KcStreamingIngestClient> taskToClientMap) {
+    this();
+    this.taskToClientMap = taskToClientMap;
+  }
 
   protected ClientManager() {
     LOGGER = new LoggerHandler(this.getClass().getName());
     this.taskToClientMap = new HashMap<>();
-    this.areAllClientsInitialized = false;
-    this.clientCount = 0;
-    this.taskCount = 0;
   }
 
   // note: assumes taskids are consecutive and starts from 0
@@ -30,16 +33,13 @@ public class ClientManager {
       String kcInstanceId,
       int maxTasks,
       int numTasksPerClient) {
-    this.areAllClientsInitialized = false;
-
     assert connectorConfig != null;
     assert kcInstanceId != null;
     assert maxTasks > 0;
     assert numTasksPerClient > 0;
     // TODO @rcheng: assert handling?
 
-    this.taskCount = maxTasks;
-    this.clientCount = (int) Math.ceil((double) maxTasks / (double) numTasksPerClient);
+    int clientCount = (int) Math.ceil((double) maxTasks / (double) numTasksPerClient);
     LOGGER.info(
         "Creating {} clients for {} tasks with max {} tasks per client",
         clientCount,
@@ -73,8 +73,6 @@ public class ClientManager {
 
       taskId++;
     }
-
-    this.areAllClientsInitialized = true;
   }
 
   /**
@@ -83,27 +81,22 @@ public class ClientManager {
    *
    * @return The streaming client, throws an exception if no client was initialized
    */
-  public KcStreamingIngestClient getStreamingIngestClient(int taskId) {
-    if (this.taskCount > taskId) {
-      throw new SFException(null);
-      // TODO @rcheng: error handling?
+  public KcStreamingIngestClient getClient(int taskId) {
+    KcStreamingIngestClient client = this.taskToClientMap.get(taskId);
+    if (client == null || client.isClosed()) {
+        throw SnowflakeErrors.ERROR_3009.getException();
     }
 
-    if (!this.areAllClientsInitialized) {
-      throw new SFException(null);
-    }
-
-    return this.taskToClientMap.get(taskId);
+    return client;
   }
 
   public boolean closeAllStreamingClients() {
     boolean isAllClosed = true;
-    LOGGER.info("Closing all {} clients...", clientCount);
+    LOGGER.info("Closing all clients");
 
     for (Integer taskId : this.taskToClientMap.keySet()) {
       KcStreamingIngestClient client = this.taskToClientMap.get(taskId);
       isAllClosed &= client.close();
-      this.areAllClientsInitialized = false;
     }
 
     return isAllClosed;

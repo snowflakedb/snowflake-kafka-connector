@@ -27,8 +27,6 @@ import java.util.Properties;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
@@ -39,7 +37,6 @@ public class KcStreamingIngestClientTest {
   private Map<String, String> config;
   private Properties properties;
 
-  private SnowflakeStreamingIngestClient actualClient;
   private SnowflakeStreamingIngestClient mockClient;
 
   @Before
@@ -52,16 +49,7 @@ public class KcStreamingIngestClientTest {
     this.properties.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
 
     // sunny day clients
-    this.actualClient =
-        SnowflakeStreamingIngestClientFactory.builder(this.clientName)
-            .setProperties(this.properties)
-            .build();
     this.mockClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
-  }
-
-  @After
-  public void teardown() throws Exception {
-    this.actualClient.close();
   }
 
   @Test
