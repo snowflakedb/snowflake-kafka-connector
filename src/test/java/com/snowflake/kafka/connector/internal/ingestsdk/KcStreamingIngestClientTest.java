@@ -19,23 +19,15 @@ package com.snowflake.kafka.connector.internal.ingestsdk;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
-
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
-import net.snowflake.ingest.utils.SFException;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -79,7 +71,8 @@ public class KcStreamingIngestClientTest {
     KcStreamingIngestClient kcMockClient = new KcStreamingIngestClient(this.mockClient);
 
     // test
-    KcStreamingIngestClient kcActualClient = new KcStreamingIngestClient(this.properties, this.clientName);
+    KcStreamingIngestClient kcActualClient =
+        new KcStreamingIngestClient(this.properties, this.clientName);
 
     // verify
     assert kcActualClient.getName().equals(kcMockClient.getName());
@@ -98,20 +91,23 @@ public class KcStreamingIngestClientTest {
     this.config.put(Utils.SF_DATABASE, "testdb");
     this.config.put(Utils.SF_SCHEMA, "testschema");
     OpenChannelRequest request =
-            OpenChannelRequest.builder(channelName)
-                    .setDBName(this.config.get(Utils.SF_DATABASE))
-                    .setSchemaName(this.config.get(Utils.SF_SCHEMA))
-                    .setTableName(tableName)
-                    .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
-                    .build();
+        OpenChannelRequest.builder(channelName)
+            .setDBName(this.config.get(Utils.SF_DATABASE))
+            .setSchemaName(this.config.get(Utils.SF_SCHEMA))
+            .setTableName(tableName)
+            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
+            .build();
 
     // setup mocks
-    SnowflakeStreamingIngestChannel goalChannel = Mockito.mock(SnowflakeStreamingIngestChannel.class);
-    Mockito.when(this.mockClient.openChannel(ArgumentMatchers.refEq(request))).thenReturn(goalChannel);
+    SnowflakeStreamingIngestChannel goalChannel =
+        Mockito.mock(SnowflakeStreamingIngestChannel.class);
+    Mockito.when(this.mockClient.openChannel(ArgumentMatchers.refEq(request)))
+        .thenReturn(goalChannel);
 
     // test
     KcStreamingIngestClient kcMockClient = new KcStreamingIngestClient(this.mockClient);
-    SnowflakeStreamingIngestChannel res = kcMockClient.openChannel(channelName, this.config, tableName);
+    SnowflakeStreamingIngestChannel res =
+        kcMockClient.openChannel(channelName, this.config, tableName);
 
     // verify
     assert res.equals(goalChannel);
@@ -127,14 +123,13 @@ public class KcStreamingIngestClientTest {
     Mockito.verify(this.mockClient, Mockito.times(1)).isClosed();
   }
 
-    @Test
-    public void testCloseAlreadyClosedClient() throws Exception {
-      Mockito.when(this.mockClient.isClosed()).thenReturn(true);
-      KcStreamingIngestClient kcMockClient = new KcStreamingIngestClient(this.mockClient);
-      assert kcMockClient.close();
-      Mockito.verify(this.mockClient, Mockito.times(1)).isClosed();
-    }
-
+  @Test
+  public void testCloseAlreadyClosedClient() throws Exception {
+    Mockito.when(this.mockClient.isClosed()).thenReturn(true);
+    KcStreamingIngestClient kcMockClient = new KcStreamingIngestClient(this.mockClient);
+    assert kcMockClient.close();
+    Mockito.verify(this.mockClient, Mockito.times(1)).isClosed();
+  }
 
   @Test
   public void testCloseClientFailure() {
