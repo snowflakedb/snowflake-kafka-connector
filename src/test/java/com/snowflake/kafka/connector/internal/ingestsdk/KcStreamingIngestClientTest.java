@@ -27,6 +27,7 @@ import java.util.Properties;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
@@ -53,7 +54,7 @@ public class KcStreamingIngestClientTest {
   }
 
   @Test
-  public void testCreateClient() throws Exception {
+  public void testCreateClient() {
     // setup
     Mockito.when(this.mockClient.getName()).thenReturn(this.clientName);
     KcStreamingIngestClient kcMockClient = new KcStreamingIngestClient(this.mockClient);
@@ -69,11 +70,16 @@ public class KcStreamingIngestClientTest {
 
   @Test
   public void testCreateClientFailure() {
-    assert false;
+    TestUtils.assertExceptionType(
+        ConnectException.class, () -> new KcStreamingIngestClient(null, null));
+    TestUtils.assertExceptionType(
+        ConnectException.class, () -> new KcStreamingIngestClient(null, this.clientName));
+    TestUtils.assertExceptionType(
+        ConnectException.class, () -> new KcStreamingIngestClient(this.properties, null));
   }
 
   @Test
-  public void testOpenChannel() throws Exception {
+  public void testOpenChannel() {
     String channelName = "testchannel";
     String tableName = "testtable";
     this.config.put(Utils.SF_DATABASE, "testdb");
@@ -120,12 +126,31 @@ public class KcStreamingIngestClientTest {
   }
 
   @Test
-  public void testCloseClientFailure() {
-    assert false;
+  public void testCloseClientFailure() throws Exception {
+    Exception exceptionToThrow = new Exception();
+    this.testCloseClientFailureRunner(exceptionToThrow);
+    exceptionToThrow = new Exception("did you pet a cat today though");
+    this.testCloseClientFailureRunner(exceptionToThrow);
+    exceptionToThrow.initCause(new Exception("because you should"));
+    this.testCloseClientFailureRunner(exceptionToThrow);
+  }
+
+  private void testCloseClientFailureRunner(Exception exceptionToThrow) throws Exception {
+    this.mockClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    Mockito.doThrow(exceptionToThrow).when(this.mockClient).close();
+    Mockito.when(this.mockClient.isClosed()).thenReturn(false);
+
+    // test
+    KcStreamingIngestClient kcMockClient = new KcStreamingIngestClient(this.mockClient);
+    assert !kcMockClient.close();
+
+    // verify
+    Mockito.verify(this.mockClient, Mockito.times(1)).close();
+    Mockito.verify(this.mockClient, Mockito.times(1)).isClosed();
   }
 
   @Test
-  public void testClientIsClosed() throws Exception {
+  public void testClientIsClosed() {
     boolean isClosed = false;
     Mockito.when(this.mockClient.isClosed()).thenReturn(isClosed);
     KcStreamingIngestClient kcMockClient = new KcStreamingIngestClient(this.mockClient);

@@ -68,10 +68,12 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
 
     // clients
-    this.snowflakeStreamingIngestClient = TestUtils.createStreamingClient(this.config, this.clientName);
+    this.snowflakeStreamingIngestClient =
+        TestUtils.createStreamingClient(this.config, this.clientName);
 
     Map<Integer, KcStreamingIngestClient> taskToClientMap = new HashMap<>();
-    taskToClientMap.put(conn.getTaskId(), new KcStreamingIngestClient(this.snowflakeStreamingIngestClient));
+    taskToClientMap.put(
+        conn.getTaskId(), new KcStreamingIngestClient(this.snowflakeStreamingIngestClient));
 
     this.clientManager = new ClientManager(taskToClientMap);
     IngestSdkProvider.clientManager = this.clientManager;

@@ -15,7 +15,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
@@ -24,9 +23,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.ArgumentMatchers;
-import org.mockito.Mock;
-import org.mockito.Mockito;
 
 public class TopicPartitionChannelIT {
   private final String clientName = "testclient";
@@ -59,10 +55,12 @@ public class TopicPartitionChannelIT {
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
 
     // clients
-    this.snowflakeStreamingIngestClient = TestUtils.createStreamingClient(this.config, this.clientName);
+    this.snowflakeStreamingIngestClient =
+        TestUtils.createStreamingClient(this.config, this.clientName);
 
     Map<Integer, KcStreamingIngestClient> taskToClientMap = new HashMap<>();
-    taskToClientMap.put(conn.getTaskId(), new KcStreamingIngestClient(this.snowflakeStreamingIngestClient));
+    taskToClientMap.put(
+        conn.getTaskId(), new KcStreamingIngestClient(this.snowflakeStreamingIngestClient));
 
     this.clientManager = new ClientManager(taskToClientMap);
     IngestSdkProvider.clientManager = this.clientManager;

@@ -17,14 +17,10 @@
 
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
-import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
 

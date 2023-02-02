@@ -35,7 +35,6 @@ import static com.snowflake.kafka.connector.Utils.SF_USER;
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -370,6 +369,22 @@ public class TestUtils {
       func.run();
     } catch (SnowflakeKafkaConnectorException e) {
       return e.checkErrorCode(error);
+    }
+    return false;
+  }
+
+  /**
+   * Check Snowflake Error Code in test
+   *
+   * @param error Snowflake error
+   * @param func function throwing exception
+   * @return true is error code is correct, otherwise, false
+   */
+  public static boolean assertExceptionType(Class exceptionClass, Runnable func) {
+    try {
+      func.run();
+    } catch (Exception ex) {
+      return ex.getClass().equals(exceptionClass);
     }
     return false;
   }
@@ -745,10 +760,9 @@ public class TestUtils {
   public static SnowflakeStreamingIngestClient createStreamingClient(
       Map<String, String> config, String clientName) {
     Properties clientProperties = new Properties();
-    clientProperties.putAll(
-            StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
+    clientProperties.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
     return SnowflakeStreamingIngestClientFactory.builder(clientName)
-                    .setProperties(clientProperties)
-                    .build();
+        .setProperties(clientProperties)
+        .build();
   }
 }

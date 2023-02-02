@@ -36,7 +36,6 @@ public class ClientManager {
     assert kcInstanceId != null;
     assert maxTasks > 0;
     assert numTasksPerClient > 0;
-    // TODO @rcheng: assert handling?
 
     int clientCount = (int) Math.ceil((double) maxTasks / (double) numTasksPerClient);
     LOGGER.info(
