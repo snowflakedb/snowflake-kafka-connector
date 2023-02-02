@@ -51,12 +51,13 @@ public class StreamingClientManager {
 
   /**
    * Creates as many clients as needed with the connector config and kc instance id. This assumes
-   * that all taskIds are consecutive ranging from 0 -> maxTasks.
+   * that all taskIds are consecutive ranging from 0 to maxTasks.
    *
    * @param connectorConfig the config for the clients, cannot be null
    * @param kcInstanceId the kafka connector id requesting the clients, cannot be null
-   * @param maxTasks the max number of tasks assigned to this connector, must be > 0
-   * @param numTasksPerClient the max number of tasks to be assigned to each client, must be > 0
+   * @param maxTasks the max number of tasks assigned to this connector, must be greater than 0
+   * @param numTasksPerClient the max number of tasks to be assigned to each client, must be greater
+   *     than 0
    */
   public void createAllStreamingClients(
       Map<String, String> connectorConfig,
@@ -107,6 +108,7 @@ public class StreamingClientManager {
   /**
    * Gets the client corresponding to the task id and validates it (not null and is closed)
    *
+   * @param taskId the task id to get the corresponding client
    * @return The streaming client, throws an exception if no client was initialized
    */
   public KcStreamingIngestClient getValidClient(int taskId) {
