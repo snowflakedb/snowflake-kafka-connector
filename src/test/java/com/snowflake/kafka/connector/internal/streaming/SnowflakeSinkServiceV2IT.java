@@ -8,6 +8,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.ingestsdk.ClientManager;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
@@ -26,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -40,6 +42,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 
 public class SnowflakeSinkServiceV2IT {
+  private final String clientName = "testclient";
 
   private SnowflakeConnectionService conn = TestUtils.getConnectionService();
   private String table = TestUtils.randomTableName();
@@ -50,8 +53,9 @@ public class SnowflakeSinkServiceV2IT {
   private static ObjectMapper MAPPER = new ObjectMapper();
 
   private Map<String, String> config;
-  private KcStreamingIngestClient streamingIngestClient;
-  private final String connectorName = "testconnector";
+
+  private ClientManager clientManager;
+  private SnowflakeStreamingIngestClient snowflakeStreamingIngestClient;
 
   @Mock
   private final KcStreamingIngestClient streamingIngestKcStreamingIngestClient =
@@ -63,18 +67,20 @@ public class SnowflakeSinkServiceV2IT {
     this.config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
 
-    // streaming client
-    //    this.streamingIngestClient = TestUtils.createStreamingClient(this.config,
-    // this.connectorName);
-    //    Mockito.when(this.streamingIngestKcStreamingIngestClient.getStreamingIngestClient(0))
-    //        .thenReturn(this.streamingIngestClient);
-    //    IngestSdkProvider.clientManager = this.streamingIngestKcStreamingIngestClient;
+    // clients
+    this.snowflakeStreamingIngestClient = TestUtils.createStreamingClient(this.config, this.clientName);
+
+    Map<Integer, KcStreamingIngestClient> taskToClientMap = new HashMap<>();
+    taskToClientMap.put(conn.getTaskId(), new KcStreamingIngestClient(this.snowflakeStreamingIngestClient));
+
+    this.clientManager = new ClientManager(taskToClientMap);
+    IngestSdkProvider.clientManager = this.clientManager;
   }
 
   @After
   public void afterEach() throws Exception {
     TestUtils.dropTable(table);
-    this.streamingIngestClient.close();
+    this.snowflakeStreamingIngestClient.close();
     IngestSdkProvider.clientManager = null;
   }
 

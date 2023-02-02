@@ -18,6 +18,7 @@
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.HashMap;
@@ -28,22 +29,6 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 public class ClientManagerTest {
-  private Map<String, String> config;
-  private Properties properties;
-  private String kcInstanceId;
-
-  private KcStreamingIngestClient mockClient;
-
-  @Before
-  public void setUp() {
-    this.config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    this.properties = new Properties();
-    this.properties.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
-    this.kcInstanceId = "testkcid";
-
-    this.mockClient = Mockito.mock(KcStreamingIngestClient.class);
-  }
 
   @Test
   public void testCreateAndGetAllStreamingClients() {
@@ -51,7 +36,7 @@ public class ClientManagerTest {
     // [0, 1] -> clientA, [2, 3] -> clientB, [4] -> clientC
     // test
     ClientManager manager = new ClientManager();
-    manager.createAllStreamingClients(config, kcInstanceId, 5, 2);
+    manager.createAllStreamingClients(TestUtils.getConfForStreaming(), "testkcid", 5, 2);
 
     // verify
     KcStreamingIngestClient task0Client = manager.getValidClient(0);
@@ -106,7 +91,27 @@ public class ClientManagerTest {
   }
 
   @Test
-  public void testGetClientFailure() {
-    assert false;
+  public void testGetClosedClient() {
+    int taskId = 0;
+    Map<Integer, KcStreamingIngestClient> taskToClientMap = new HashMap<>();
+
+    KcStreamingIngestClient mockClient = Mockito.mock(KcStreamingIngestClient.class);
+    Mockito.when(mockClient.isClosed()).thenReturn(true);
+    taskToClientMap.put(taskId, mockClient);
+
+    ClientManager manager = new ClientManager(taskToClientMap);
+    TestUtils.assertError(SnowflakeErrors.ERROR_3009, () -> manager.getValidClient(taskId));
+
+    Mockito.verify(mockClient, Mockito.times(1)).isClosed();
+  }
+
+  @Test
+  public void testGetNullClient() {
+    int taskId = 0;
+    Map<Integer, KcStreamingIngestClient> taskToClientMap = new HashMap<>();
+    taskToClientMap.put(taskId, null);
+
+    ClientManager manager = new ClientManager(taskToClientMap);
+    TestUtils.assertError(SnowflakeErrors.ERROR_3009, () -> manager.getValidClient(taskId));
   }
 }

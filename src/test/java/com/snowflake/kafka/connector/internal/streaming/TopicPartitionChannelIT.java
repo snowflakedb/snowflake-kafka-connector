@@ -7,12 +7,15 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.ingestsdk.ClientManager;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
@@ -21,10 +24,12 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 
 public class TopicPartitionChannelIT {
+  private final String clientName = "testclient";
 
   private SnowflakeConnectionService conn = TestUtils.getConnectionService();
   private String testTableName;
@@ -35,40 +40,38 @@ public class TopicPartitionChannelIT {
   private String testChannelName, testChannelName2;
 
   private Map<String, String> config;
-  private SnowflakeStreamingIngestClient streamingIngestClient;
-  private final String connectorName = "testconnector";
 
-  @Mock
-  private KcStreamingIngestClient kcStreamingIngestClient =
-      Mockito.mock(KcStreamingIngestClient.class);
+  private ClientManager clientManager;
+  private SnowflakeStreamingIngestClient snowflakeStreamingIngestClient;
 
   @Before
   public void beforeEach() {
     testTableName = TestUtils.randomTableName();
     topic = testTableName;
-    topicPartition = new TopicPartition(topic, PARTITION);
 
+    topicPartition = new TopicPartition(topic, PARTITION);
     topicPartition2 = new TopicPartition(topic, PARTITION_2);
 
     testChannelName = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION);
-
     testChannelName2 = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION_2);
 
     this.config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
 
-    // setup client
-    //    this.streamingIngestClient = TestUtils.createStreamingClient(this.config,
-    // this.connectorName);
-    //
-    // Mockito.when(kcStreamingIngestClient.getStreamingIngestClient(0)).thenReturn(this.streamingIngestClient);
-    //    IngestSdkProvider.clientManager = this.kcStreamingIngestClient;
+    // clients
+    this.snowflakeStreamingIngestClient = TestUtils.createStreamingClient(this.config, this.clientName);
+
+    Map<Integer, KcStreamingIngestClient> taskToClientMap = new HashMap<>();
+    taskToClientMap.put(conn.getTaskId(), new KcStreamingIngestClient(this.snowflakeStreamingIngestClient));
+
+    this.clientManager = new ClientManager(taskToClientMap);
+    IngestSdkProvider.clientManager = this.clientManager;
   }
 
   @After
   public void afterEach() throws Exception {
     TestUtils.dropTable(testTableName);
-    this.streamingIngestClient.close();
+    this.snowflakeStreamingIngestClient.close();
     IngestSdkProvider.clientManager = null;
   }
 
@@ -100,15 +103,16 @@ public class TopicPartitionChannelIT {
     SnowflakeSinkServiceV2 snowflakeSinkServiceV2 = (SnowflakeSinkServiceV2) service;
 
     // Ctor of TopicPartitionChannel tries to open the channel.
-    //    TopicPartitionChannel channel =
-    //        new TopicPartitionChannel(
-    //            topicPartition,
-    //            testChannelName,
-    //            testTableName,
-    //            new StreamingBufferThreshold(10, 10_000, 1),
-    //            config,
-    //            new InMemoryKafkaRecordErrorReporter(),
-    //            new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
+    TopicPartitionChannel channel =
+        new TopicPartitionChannel(
+            topicPartition,
+            testChannelName,
+            testTableName,
+            new StreamingBufferThreshold(10, 10_000, 1),
+            config,
+            new InMemoryKafkaRecordErrorReporter(),
+            new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
+            conn);
 
     // since channel is updated, try to insert data again or may be call getOffsetToken
     // We will reopen the channel in since the older channel in service is stale because we
@@ -299,7 +303,7 @@ public class TopicPartitionChannelIT {
             .build();
 
     // Open a channel with same name will bump up the client sequencer number for this channel
-    this.streamingIngestClient.openChannel(channelRequest);
+    this.snowflakeStreamingIngestClient.openChannel(channelRequest);
 
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
 
@@ -387,7 +391,7 @@ public class TopicPartitionChannelIT {
             .setTableName(this.testTableName)
             .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
             .build();
-    this.streamingIngestClient.openChannel(channelRequest);
+    this.snowflakeStreamingIngestClient.openChannel(channelRequest);
     Thread.sleep(5_000);
 
     // send offset 10 - 19
