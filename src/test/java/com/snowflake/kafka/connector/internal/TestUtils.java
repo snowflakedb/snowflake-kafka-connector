@@ -391,7 +391,10 @@ public class TestUtils {
 
   /** @return snowflake connection for test */
   public static SnowflakeConnectionService getConnectionService() {
-    return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
+    return SnowflakeConnectionServiceFactory.builder()
+        .setProperties(getConf())
+        .setTaskID("0")
+        .build();
   }
 
   /**

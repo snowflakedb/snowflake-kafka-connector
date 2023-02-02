@@ -17,6 +17,7 @@
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
@@ -24,7 +25,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-/** Provides access to the streaming ingest clients. This should be the only place to manage clients. */
+/**
+ * Provides access to the streaming ingest clients. This should be the only place to manage clients.
+ */
 public class StreamingClientManager {
   private LoggerHandler LOGGER;
 
@@ -39,9 +42,7 @@ public class StreamingClientManager {
     this.taskToClientMap = taskToClientMap;
   }
 
-  /**
-   * Creates a new client manager
-   */
+  /** Creates a new client manager */
   protected StreamingClientManager() {
     LOGGER = new LoggerHandler(this.getClass().getName());
     this.taskToClientMap = new HashMap<>();
@@ -49,8 +50,9 @@ public class StreamingClientManager {
   }
 
   /**
-   * Creates as many clients as needed with the connector config and kc instance id.
-   * This assumes that all taskIds are consecutive ranging from 0 -> maxTasks.
+   * Creates as many clients as needed with the connector config and kc instance id. This assumes
+   * that all taskIds are consecutive ranging from 0 -> maxTasks.
+   *
    * @param connectorConfig the config for the clients, cannot be null
    * @param kcInstanceId the kafka connector id requesting the clients, cannot be null
    * @param maxTasks the max number of tasks assigned to this connector, must be > 0
@@ -112,7 +114,9 @@ public class StreamingClientManager {
    */
   public KcStreamingIngestClient getValidClient(int taskId) {
     if (taskId > this.maxTasks || taskId < this.minTasks) {
-      throw SnowflakeErrors.ERROR_3010.getException();
+      throw SnowflakeErrors.ERROR_3010.getException(
+          Utils.formatString(
+              "taskId must be between 0 and {} but was given {}", this.maxTasks, taskId));
     }
 
     KcStreamingIngestClient client = this.taskToClientMap.get(taskId);

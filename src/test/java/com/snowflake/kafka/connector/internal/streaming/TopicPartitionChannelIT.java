@@ -1,22 +1,18 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
-import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
+import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import net.snowflake.ingest.streaming.OpenChannelRequest;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
@@ -37,9 +33,6 @@ public class TopicPartitionChannelIT {
 
   private Map<String, String> config;
 
-  private StreamingClientManager streamingClientManager;
-  private SnowflakeStreamingIngestClient snowflakeStreamingIngestClient;
-
   @Before
   public void beforeEach() {
     testTableName = TestUtils.randomTableName();
@@ -54,23 +47,15 @@ public class TopicPartitionChannelIT {
     this.config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
 
-    // clients
-    this.snowflakeStreamingIngestClient =
-        TestUtils.createStreamingClient(this.config, this.clientName);
-
-    Map<Integer, KcStreamingIngestClient> taskToClientMap = new HashMap<>();
-    taskToClientMap.put(
-        conn.getTaskId(), new KcStreamingIngestClient(this.snowflakeStreamingIngestClient));
-
-    this.streamingClientManager = new StreamingClientManager(taskToClientMap);
-    IngestSdkProvider.streamingClientManager = this.streamingClientManager;
+    IngestSdkProvider.streamingClientManager.createAllStreamingClients(
+        this.config, "testkcid", 2, 1);
   }
 
   @After
   public void afterEach() throws Exception {
     TestUtils.dropTable(testTableName);
-    this.snowflakeStreamingIngestClient.close();
-    IngestSdkProvider.streamingClientManager = null;
+    IngestSdkProvider.streamingClientManager =
+        new StreamingClientManager(new HashMap<>()); // reset to clean initial manager
   }
 
   @Test
@@ -292,16 +277,10 @@ public class TopicPartitionChannelIT {
         20,
         5);
 
-    OpenChannelRequest channelRequest =
-        OpenChannelRequest.builder(testChannelName)
-            .setDBName(config.get(Utils.SF_DATABASE))
-            .setSchemaName(config.get(Utils.SF_SCHEMA))
-            .setTableName(this.testTableName)
-            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
-            .build();
-
     // Open a channel with same name will bump up the client sequencer number for this channel
-    this.snowflakeStreamingIngestClient.openChannel(channelRequest);
+    IngestSdkProvider.streamingClientManager
+        .getValidClient(0)
+        .openChannel(testChannelName, config, testTableName);
 
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
 
@@ -382,14 +361,9 @@ public class TopicPartitionChannelIT {
         20,
         5);
 
-    OpenChannelRequest channelRequest =
-        OpenChannelRequest.builder(testChannelName)
-            .setDBName(config.get(Utils.SF_DATABASE))
-            .setSchemaName(config.get(Utils.SF_SCHEMA))
-            .setTableName(this.testTableName)
-            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
-            .build();
-    this.snowflakeStreamingIngestClient.openChannel(channelRequest);
+    IngestSdkProvider.streamingClientManager
+        .getValidClient(0)
+        .openChannel(testChannelName, config, testTableName);
     Thread.sleep(5_000);
 
     // send offset 10 - 19

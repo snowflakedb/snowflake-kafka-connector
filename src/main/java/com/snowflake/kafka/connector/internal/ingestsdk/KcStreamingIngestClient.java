@@ -38,6 +38,7 @@ public class KcStreamingIngestClient {
 
   /**
    * Builds the client's name based on the kc instance and expected client id
+   *
    * @param kcInstanceId the kafka connector instance id
    * @param clientId the client id
    * @return the client's name as 'KC_CLIENT_kcInstanceId_clientId'
@@ -53,8 +54,10 @@ public class KcStreamingIngestClient {
   }
 
   /**
-   * Creates a streaming client from the given properties and requested name. Validates the requested client is not null and has the correct name
-   * Any exceptions will be passed up, a sfexception will be converted to a connectexception
+   * Creates a streaming client from the given properties and requested name. Validates the
+   * requested client is not null and has the correct name Any exceptions will be passed up, a
+   * sfexception will be converted to a connectexception
+   *
    * @param streamingClientProps the properties for the client
    * @param clientName the client name to uniquely identify the client
    */
@@ -74,8 +77,9 @@ public class KcStreamingIngestClient {
   }
 
   /**
-   * Creates an ingest sdk OpenChannelRequest and opens the client's channel
-   * No exception handling done, all exceptions will be passed through
+   * Creates an ingest sdk OpenChannelRequest and opens the client's channel No exception handling
+   * done, all exceptions will be passed through
+   *
    * @param channelName the name of the channel to open
    * @param config config to get the database and schema names for the channel
    * @param tableName table name of the channel
@@ -96,9 +100,10 @@ public class KcStreamingIngestClient {
   }
 
   /**
-   * TODO @rcheng: should add retry here and create() even if sdk retries bc network/load issues? esp with rowset api later
-   * Calls the ingest sdk to close the client sdk
-   * Swallows all exceptions and returns t/f if the client was closed because closing is best effort
+   * TODO @rcheng: should add retry here and create() even if sdk retries bc network/load issues?
+   * esp with rowset api later Calls the ingest sdk to close the client sdk Swallows all exceptions
+   * and returns t/f if the client was closed because closing is best effort
+   *
    * @return if the client was successfully closed
    */
   public boolean close() {
@@ -126,7 +131,8 @@ public class KcStreamingIngestClient {
               : "no cause provided";
 
       // don't throw an exception because closing the client is best effort
-      // TODO @rcheng: are sfexceptions logged? in streamingIngestClient I only saw telemetry before the actual close, not in the catch or finally
+      // TODO @rcheng: are sfexceptions logged? in streamingIngestClient I only saw telemetry before
+      // the actual close, not in the catch or finally
       LOGGER.error("Failure closing Streaming client msg:{}, cause:{}", message, cause);
       return false;
     }
@@ -134,6 +140,7 @@ public class KcStreamingIngestClient {
 
   /**
    * Checks if the current client is closed
+   *
    * @return if the client is closed
    */
   public boolean isClosed() {
@@ -142,6 +149,7 @@ public class KcStreamingIngestClient {
 
   /**
    * Returns the clients name. We treat this as the id
+   *
    * @return the clients name
    */
   public String getName() {

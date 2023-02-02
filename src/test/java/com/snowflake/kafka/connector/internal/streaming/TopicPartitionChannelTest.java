@@ -12,9 +12,9 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
+import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
@@ -138,7 +138,8 @@ public class TopicPartitionChannelTest {
 
   @Test
   public void testTopicPartitionChannelInit_streamingClientClosed() {
-    Mockito.when(this.mockStreamingClientManager.getValidClient(ArgumentMatchers.any(Integer.class)))
+    Mockito.when(
+            this.mockStreamingClientManager.getValidClient(ArgumentMatchers.any(Integer.class)))
         .thenThrow(SnowflakeErrors.ERROR_3009.getException());
     this.expectedCallOpenChannelCount = 0; // constructor fails before open
 
