@@ -127,6 +127,12 @@ public class StreamingClientManager {
     return client;
   }
 
+  /**
+   * Closes all the streaming clients in the map. Client closure expections will be swallowed and
+   * logged
+   *
+   * @return if all the clients were closed
+   */
   public boolean closeAllStreamingClients() {
     boolean isAllClosed = true;
     LOGGER.info("Closing all clients");

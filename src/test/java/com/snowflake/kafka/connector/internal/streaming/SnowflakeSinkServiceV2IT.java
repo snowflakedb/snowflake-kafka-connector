@@ -9,7 +9,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
-import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
 import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
@@ -27,7 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -38,8 +36,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mock;
-import org.mockito.Mockito;
 
 public class SnowflakeSinkServiceV2IT {
   private final String clientName = "testclient";
@@ -54,36 +50,20 @@ public class SnowflakeSinkServiceV2IT {
 
   private Map<String, String> config;
 
-  private StreamingClientManager streamingClientManager;
-  private SnowflakeStreamingIngestClient snowflakeStreamingIngestClient;
-
-  @Mock
-  private final KcStreamingIngestClient streamingIngestKcStreamingIngestClient =
-      Mockito.mock(KcStreamingIngestClient.class);
-
   @Before
   public void setup() {
     // config
     this.config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
 
-    // clients
-    this.snowflakeStreamingIngestClient =
-        TestUtils.createStreamingClient(this.config, this.clientName);
-
-    Map<Integer, KcStreamingIngestClient> taskToClientMap = new HashMap<>();
-    taskToClientMap.put(
-        conn.getTaskId(), new KcStreamingIngestClient(this.snowflakeStreamingIngestClient));
-
-    this.streamingClientManager = new StreamingClientManager(taskToClientMap);
-    IngestSdkProvider.streamingClientManager = this.streamingClientManager;
+    IngestSdkProvider.streamingClientManager.createAllStreamingClients(config, "testkcid", 1, 1);
   }
 
   @After
   public void afterEach() throws Exception {
     TestUtils.dropTable(table);
-    this.snowflakeStreamingIngestClient.close();
-    IngestSdkProvider.streamingClientManager = null;
+    IngestSdkProvider.streamingClientManager =
+        new StreamingClientManager(new HashMap<>()); // reset to clean initial manager
   }
 
   @Test

@@ -83,7 +83,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // Inits the sinktaskcontext
     sinkTask.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
-    sinkTask.start(this.config);
+    sinkTask.start(config);
     ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
     topicPartitions.add(new TopicPartition(topicName, partition));
     sinkTask.open(topicPartitions);
