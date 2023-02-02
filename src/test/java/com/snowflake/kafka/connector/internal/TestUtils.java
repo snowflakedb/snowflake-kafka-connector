@@ -530,25 +530,23 @@ public class TestUtils {
   }
 
   public static SinkRecord createNativeJsonSinkRecord(
-          final long offset,
-          final String topicName,
-          final int partitionNo) {
+      final long offset, final String topicName, final int partitionNo) {
     JsonConverter converter = new JsonConverter();
     HashMap<String, String> converterConfig = new HashMap<>();
     converterConfig.put("schemas.enable", "true");
     converter.configure(converterConfig, false);
     SchemaAndValue schemaInputValue =
-            converter.toConnectData(
-                    "test", TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
+        converter.toConnectData(
+            "test", TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
 
     return new SinkRecord(
-                      topicName,
-                      partitionNo,
-                      Schema.STRING_SCHEMA,
-                      "test",
-                      schemaInputValue.schema(),
-                      schemaInputValue.value(),
-                      offset);
+        topicName,
+        partitionNo,
+        Schema.STRING_SCHEMA,
+        "test",
+        schemaInputValue.schema(),
+        schemaInputValue.value(),
+        offset);
   }
 
   /* Generate (noOfRecords - startOffset) for a given topic and partition which were essentially avro records */
