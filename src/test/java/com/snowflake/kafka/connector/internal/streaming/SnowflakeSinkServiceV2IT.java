@@ -1,46 +1,45 @@
- package com.snowflake.kafka.connector.internal.streaming;
+package com.snowflake.kafka.connector.internal.streaming;
 
- import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
- import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
- import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
- import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
- import com.snowflake.kafka.connector.internal.SnowflakeErrors;
- import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
- import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
- import com.snowflake.kafka.connector.internal.TestUtils;
- import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
- import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
- import com.snowflake.kafka.connector.records.SnowflakeConverter;
- import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
- import io.confluent.connect.avro.AvroConverter;
- import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
- import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
- import java.nio.ByteBuffer;
- import java.nio.charset.StandardCharsets;
- import java.sql.PreparedStatement;
- import java.sql.SQLException;
- import java.util.ArrayList;
- import java.util.Arrays;
- import java.util.Collections;
- import java.util.HashMap;
- import java.util.List;
- import java.util.Map;
- import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
- import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
- import org.apache.kafka.common.TopicPartition;
- import org.apache.kafka.connect.data.Schema;
- import org.apache.kafka.connect.data.SchemaAndValue;
- import org.apache.kafka.connect.data.SchemaBuilder;
- import org.apache.kafka.connect.data.Struct;
- import org.apache.kafka.connect.json.JsonConverter;
- import org.apache.kafka.connect.sink.SinkRecord;
- import org.junit.After;
- import org.junit.Before;
- import org.junit.Test;
- import org.mockito.Mock;
- import org.mockito.Mockito;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
+import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
+import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
+import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
+import com.snowflake.kafka.connector.records.SnowflakeConverter;
+import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
+import io.confluent.connect.avro.AvroConverter;
+import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.Mockito;
 
- public class SnowflakeSinkServiceV2IT {
+public class SnowflakeSinkServiceV2IT {
 
   private SnowflakeConnectionService conn = TestUtils.getConnectionService();
   private String table = TestUtils.randomTableName();
@@ -56,7 +55,7 @@
 
   @Mock
   private final KcStreamingIngestClient streamingIngestKcStreamingIngestClient =
- Mockito.mock(KcStreamingIngestClient.class);
+      Mockito.mock(KcStreamingIngestClient.class);
 
   @Before
   public void setup() {
@@ -65,10 +64,11 @@
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
 
     // streaming client
-//    this.streamingIngestClient = TestUtils.createStreamingClient(this.config, this.connectorName);
-//    Mockito.when(this.streamingIngestKcStreamingIngestClient.getStreamingIngestClient(0))
-//        .thenReturn(this.streamingIngestClient);
-//    IngestSdkProvider.clientManager = this.streamingIngestKcStreamingIngestClient;
+    //    this.streamingIngestClient = TestUtils.createStreamingClient(this.config,
+    // this.connectorName);
+    //    Mockito.when(this.streamingIngestKcStreamingIngestClient.getStreamingIngestClient(0))
+    //        .thenReturn(this.streamingIngestClient);
+    //    IngestSdkProvider.clientManager = this.streamingIngestKcStreamingIngestClient;
   }
 
   @After
@@ -117,8 +117,7 @@
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .build();
 
@@ -163,8 +162,7 @@
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .build();
 
@@ -210,8 +208,7 @@
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .build();
 
@@ -277,8 +274,7 @@
             .setRecordNumber(5)
             .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .addTask(table, new TopicPartition(topic, partition2)) // Internally calls startTask
             .build();
@@ -330,8 +326,7 @@
             .setRecordNumber(100)
             .setFlushTime(11) // 11 seconds
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .build();
 
@@ -385,16 +380,14 @@
     converterConfig.put("schemas.enable", "true");
     converter.configure(converterConfig, false);
     SchemaAndValue schemaInputValue =
-        converter.toConnectData(topic,
- TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
+        converter.toConnectData(topic, TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
 
     converter = new JsonConverter();
     converterConfig = new HashMap<>();
     converterConfig.put("schemas.enable", "true");
     converter.configure(converterConfig, true);
     SchemaAndValue schemaInputKey =
-        converter.toConnectData(topic,
- TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
+        converter.toConnectData(topic, TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
 
     long startOffset = 0;
     long endOffset = 3;
@@ -442,8 +435,7 @@
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .build();
 
@@ -607,8 +599,7 @@
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -669,8 +660,7 @@
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config)
             .setRecordNumber(1)
             .setErrorReporter(errorReporter)
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -709,8 +699,7 @@
 
     SinkRecord correctValue =
         new SinkRecord(
-            topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(),
- 2);
+            topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(), 2);
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
@@ -719,8 +708,7 @@
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config)
             .setErrorReporter(errorReporter)
             .setRecordNumber(recordCount)
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -758,8 +746,7 @@
 
     SinkRecord correctValue =
         new SinkRecord(
-            topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(),
- 0);
+            topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(), 0);
 
     SinkRecord brokenValue =
         new SinkRecord(
@@ -771,8 +758,7 @@
 
     SinkRecord anotherCorrectValue =
         new SinkRecord(
-            topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(),
- 3);
+            topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(), 3);
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
@@ -781,8 +767,7 @@
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config)
             .setErrorReporter(errorReporter)
             .setRecordNumber(recordCount)
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -803,7 +788,7 @@
   }
 
   /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest
- check data */
+  check data */
 
   @Test
   public void testStreamingIngestionWithExactlyOnceSemanticsNoOverlappingOffsets()
@@ -816,8 +801,7 @@
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -829,8 +813,7 @@
     // Create sink record
     SinkRecord record1 =
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(),
- offset);
+            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
 
     service.insert(record1);
 
@@ -847,8 +830,7 @@
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .setDeliveryGuarantee(
                 SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
@@ -857,8 +839,7 @@
     // Create sink record
     SinkRecord record2 =
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(),
- offset);
+            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
 
     service2.insert(record2);
 
@@ -871,11 +852,10 @@
   }
 
   /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest
- check data */
+  check data */
 
   @Test
-  public void testStreamingIngestionWithExactlyOnceSemanticsOverlappingOffsets() throws Exception
- {
+  public void testStreamingIngestionWithExactlyOnceSemanticsOverlappingOffsets() throws Exception {
     conn.createTable(table);
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
@@ -884,8 +864,7 @@
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -915,8 +894,7 @@
                 conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .setDeliveryGuarantee(
                 SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
@@ -946,8 +924,7 @@
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
         "io.confluent.connect.avro.AvroConverter");
-    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD,
- "http://fake-url");
+    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
     // get rid of these at the end
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     // avro
@@ -1000,18 +977,16 @@
             avroInputValue.schema(),
             avroInputValue.value(),
             startOffset);
-//
-//    this.streamingIngestClient = Mockito.mock(KcStreamingIngestClient.class);
-//    Mockito.when(this.streamingIngestKcStreamingIngestClient.getStreamingIngestClient(0))
-//        .thenReturn(this.streamingIngestClient);
+    //
+    //    this.streamingIngestClient = Mockito.mock(KcStreamingIngestClient.class);
+    //    Mockito.when(this.streamingIngestKcStreamingIngestClient.getStreamingIngestClient(0))
+    //        .thenReturn(this.streamingIngestClient);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING,
- config)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -1040,8 +1015,7 @@
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
         "org.apache.kafka.connect.json.JsonConverter");
-    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD,
- "http://fake-url");
+    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
     config.put("schemas.enable", "false");
     // get rid of these at the end
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
@@ -1095,12 +1069,10 @@
             startOffset);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING,
- config)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -1128,8 +1100,7 @@
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
         "org.apache.kafka.connect.json.JsonConverter");
-    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD,
- "http://fake-url");
+    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
     config.put("schemas.enable", "false");
     // get rid of these at the end
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
@@ -1158,17 +1129,15 @@
             jsonInputValue.value(),
             startOffset);
 
-//    this.streamingIngestClient = TestUtils.createStreamingClient(config, this.connectorName);
-//    Mockito.when(this.streamingIngestKcStreamingIngestClient.getStreamingIngestClient(0))
-//        .thenReturn(this.streamingIngestClient);
+    //    this.streamingIngestClient = TestUtils.createStreamingClient(config, this.connectorName);
+    //    Mockito.when(this.streamingIngestKcStreamingIngestClient.getStreamingIngestClient(0))
+    //        .thenReturn(this.streamingIngestClient);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING,
- config)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new
- InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -1204,4 +1173,4 @@
       throw SnowflakeErrors.ERROR_2007.getException(e);
     }
   }
- }
+}

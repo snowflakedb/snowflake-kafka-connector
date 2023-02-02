@@ -7,7 +7,6 @@ import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import net.snowflake.ingest.utils.SFException;
 
 // provides access to clients
 public class ClientManager {
@@ -81,10 +80,10 @@ public class ClientManager {
    *
    * @return The streaming client, throws an exception if no client was initialized
    */
-  public KcStreamingIngestClient getClient(int taskId) {
+  public KcStreamingIngestClient getValidClient(int taskId) {
     KcStreamingIngestClient client = this.taskToClientMap.get(taskId);
     if (client == null || client.isClosed()) {
-        throw SnowflakeErrors.ERROR_3009.getException();
+      throw SnowflakeErrors.ERROR_3009.getException();
     }
 
     return client;

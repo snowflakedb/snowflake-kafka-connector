@@ -181,26 +181,6 @@ public class TopicPartitionChannel {
   // Reference to the Snowflake connection service
   private final SnowflakeConnectionService conn;
 
-  /** Testing only, initialize TopicPartitionChannel without the connection service */
-  public TopicPartitionChannel(
-      TopicPartition topicPartition,
-      final String channelName,
-      final String tableName,
-      final BufferThreshold streamingBufferThreshold,
-      final Map<String, String> sfConnectorConfig,
-      KafkaRecordErrorReporter kafkaRecordErrorReporter,
-      SinkTaskContext sinkTaskContext) {
-    this(
-        topicPartition,
-        channelName,
-        tableName,
-        streamingBufferThreshold,
-        sfConnectorConfig,
-        kafkaRecordErrorReporter,
-        sinkTaskContext,
-        null);
-  }
-
   /**
    * @param topicPartition topic partition corresponding to this Streaming Channel
    *     (TopicPartitionChannel)
@@ -222,7 +202,8 @@ public class TopicPartitionChannel {
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn) {
     this.streamingIngestClient =
-        Preconditions.checkNotNull(IngestSdkProvider.clientManager.getClient(conn.getTaskId()));
+        Preconditions.checkNotNull(
+            IngestSdkProvider.clientManager.getValidClient(conn.getTaskId()));
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelName = Preconditions.checkNotNull(channelName);
     this.tableName = Preconditions.checkNotNull(tableName);

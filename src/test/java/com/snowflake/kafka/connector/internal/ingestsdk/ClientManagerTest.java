@@ -54,16 +54,16 @@ public class ClientManagerTest {
     manager.createAllStreamingClients(config, kcInstanceId, 5, 2);
 
     // verify
-    KcStreamingIngestClient task0Client = manager.getClient(0);
-    KcStreamingIngestClient task1Client = manager.getClient(1);
+    KcStreamingIngestClient task0Client = manager.getValidClient(0);
+    KcStreamingIngestClient task1Client = manager.getValidClient(1);
     assert task0Client.equals(task1Client);
 
-    KcStreamingIngestClient task2Client = manager.getClient(2);
-    KcStreamingIngestClient task3Client = manager.getClient(3);
+    KcStreamingIngestClient task2Client = manager.getValidClient(2);
+    KcStreamingIngestClient task3Client = manager.getValidClient(3);
     assert task2Client.equals(task3Client);
     assert !task2Client.equals(task0Client);
 
-    KcStreamingIngestClient task4Client = manager.getClient(4);
+    KcStreamingIngestClient task4Client = manager.getValidClient(4);
     assert !task4Client.equals(task0Client);
     assert !task4Client.equals(task2Client);
 
