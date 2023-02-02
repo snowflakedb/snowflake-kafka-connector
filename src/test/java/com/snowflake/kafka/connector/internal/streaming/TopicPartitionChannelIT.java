@@ -7,7 +7,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.ingestsdk.ClientManager;
+import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
 import java.util.ArrayList;
@@ -37,7 +37,7 @@ public class TopicPartitionChannelIT {
 
   private Map<String, String> config;
 
-  private ClientManager clientManager;
+  private StreamingClientManager streamingClientManager;
   private SnowflakeStreamingIngestClient snowflakeStreamingIngestClient;
 
   @Before
@@ -62,15 +62,15 @@ public class TopicPartitionChannelIT {
     taskToClientMap.put(
         conn.getTaskId(), new KcStreamingIngestClient(this.snowflakeStreamingIngestClient));
 
-    this.clientManager = new ClientManager(taskToClientMap);
-    IngestSdkProvider.clientManager = this.clientManager;
+    this.streamingClientManager = new StreamingClientManager(taskToClientMap);
+    IngestSdkProvider.streamingClientManager = this.streamingClientManager;
   }
 
   @After
   public void afterEach() throws Exception {
     TestUtils.dropTable(testTableName);
     this.snowflakeStreamingIngestClient.close();
-    IngestSdkProvider.clientManager = null;
+    IngestSdkProvider.streamingClientManager = null;
   }
 
   @Test

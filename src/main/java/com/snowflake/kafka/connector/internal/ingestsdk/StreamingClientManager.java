@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Properties;
 
 /** Provides access to the streaming ingest clients. This should be the only place to manage clients. */
-public class ClientManager {
+public class StreamingClientManager {
   private LoggerHandler LOGGER;
 
   private Map<Integer, KcStreamingIngestClient> taskToClientMap;
@@ -34,7 +34,7 @@ public class ClientManager {
 
   // TESTING ONLY - inject the client map
   @VisibleForTesting
-  public ClientManager(Map<Integer, KcStreamingIngestClient> taskToClientMap) {
+  public StreamingClientManager(Map<Integer, KcStreamingIngestClient> taskToClientMap) {
     this();
     this.taskToClientMap = taskToClientMap;
   }
@@ -42,7 +42,7 @@ public class ClientManager {
   /**
    * Creates a new client manager
    */
-  protected ClientManager() {
+  protected StreamingClientManager() {
     LOGGER = new LoggerHandler(this.getClass().getName());
     this.taskToClientMap = new HashMap<>();
     this.maxTasks = 0;

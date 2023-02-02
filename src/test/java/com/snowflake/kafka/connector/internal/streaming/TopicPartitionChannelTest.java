@@ -12,7 +12,7 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.ingestsdk.ClientManager;
+import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
 import java.nio.charset.StandardCharsets;
@@ -52,7 +52,7 @@ public class TopicPartitionChannelTest {
   @Mock private SnowflakeStreamingIngestChannel mockStreamingChannel;
   @Mock private SinkTaskContext mockSinkTaskContext;
   @Mock private KcStreamingIngestClient mockKcStreamingIngestClient;
-  @Mock private ClientManager mockClientManager;
+  @Mock private StreamingClientManager mockStreamingClientManager;
   @Mock private SnowflakeConnectionService mockConn;
   @Mock private StreamingBufferThreshold mockStreamingBufferThreshold;
 
@@ -93,12 +93,12 @@ public class TopicPartitionChannelTest {
     this.mockKafkaRecordErrorReporter = Mockito.mock(KafkaRecordErrorReporter.class);
     this.mockSinkTaskContext = Mockito.mock(SinkTaskContext.class);
     this.mockKcStreamingIngestClient = Mockito.mock(KcStreamingIngestClient.class);
-    this.mockClientManager = Mockito.mock(ClientManager.class);
+    this.mockStreamingClientManager = Mockito.mock(StreamingClientManager.class);
     this.mockConn = Mockito.mock(SnowflakeConnectionService.class);
     this.mockStreamingBufferThreshold = Mockito.mock(StreamingBufferThreshold.class);
 
     // sunny mock interactions and verifications
-    Mockito.when(this.mockClientManager.getValidClient(this.taskId))
+    Mockito.when(this.mockStreamingClientManager.getValidClient(this.taskId))
         .thenReturn(this.mockKcStreamingIngestClient);
     Mockito.when(
             this.mockKcStreamingIngestClient.openChannel(
@@ -117,16 +117,16 @@ public class TopicPartitionChannelTest {
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
         Boolean.toString(this.enableSchematization));
 
-    IngestSdkProvider.clientManager = this.mockClientManager;
+    IngestSdkProvider.streamingClientManager = this.mockStreamingClientManager;
   }
 
   @After
   public void afterEachTest() {
     // need to reset client manager since it is global static variable
-    IngestSdkProvider.clientManager = null;
+    IngestSdkProvider.streamingClientManager = null;
 
     // verify the mocks setup above
-    Mockito.verify(this.mockClientManager, Mockito.times(expectedCallGetValidClientCount))
+    Mockito.verify(this.mockStreamingClientManager, Mockito.times(expectedCallGetValidClientCount))
         .getValidClient(this.taskId);
     Mockito.verify(this.mockKcStreamingIngestClient, Mockito.times(expectedCallOpenChannelCount))
         .openChannel(
@@ -138,7 +138,7 @@ public class TopicPartitionChannelTest {
 
   @Test
   public void testTopicPartitionChannelInit_streamingClientClosed() {
-    Mockito.when(this.mockClientManager.getValidClient(ArgumentMatchers.any(Integer.class)))
+    Mockito.when(this.mockStreamingClientManager.getValidClient(ArgumentMatchers.any(Integer.class)))
         .thenThrow(SnowflakeErrors.ERROR_3009.getException());
     this.expectedCallOpenChannelCount = 0; // constructor fails before open
 

@@ -24,14 +24,14 @@ import java.util.Map;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-public class ClientManagerTest {
+public class StreamingClientManagerTest {
 
   @Test
   public void testCreateAndGetAllStreamingClients() {
     // test to create the following mapping
     // [0, 1] -> clientA, [2, 3] -> clientB, [4] -> clientC
     // test
-    ClientManager manager = new ClientManager();
+    StreamingClientManager manager = new StreamingClientManager();
     manager.createAllStreamingClients(TestUtils.getConfForStreaming(), "testkcid", 5, 2);
 
     // verify
@@ -75,7 +75,7 @@ public class ClientManagerTest {
     taskToClientMap.put(3, task23Client);
     taskToClientMap.put(4, task4Client);
 
-    ClientManager manager = new ClientManager(taskToClientMap);
+    StreamingClientManager manager = new StreamingClientManager(taskToClientMap);
 
     // test
     assert manager.closeAllStreamingClients();
@@ -95,7 +95,7 @@ public class ClientManagerTest {
     Mockito.when(mockClient.isClosed()).thenReturn(true);
     taskToClientMap.put(taskId, mockClient);
 
-    ClientManager manager = new ClientManager(taskToClientMap);
+    StreamingClientManager manager = new StreamingClientManager(taskToClientMap);
     TestUtils.assertError(SnowflakeErrors.ERROR_3009, () -> manager.getValidClient(taskId));
 
     Mockito.verify(mockClient, Mockito.times(1)).isClosed();
@@ -107,7 +107,7 @@ public class ClientManagerTest {
     Map<Integer, KcStreamingIngestClient> taskToClientMap = new HashMap<>();
     taskToClientMap.put(taskId, null);
 
-    ClientManager manager = new ClientManager(taskToClientMap);
+    StreamingClientManager manager = new StreamingClientManager(taskToClientMap);
     TestUtils.assertError(SnowflakeErrors.ERROR_3009, () -> manager.getValidClient(taskId));
   }
 
@@ -116,7 +116,7 @@ public class ClientManagerTest {
     int maxTasks = 5;
 
     // create with max task id 4 (starts from 0)
-    ClientManager manager = new ClientManager();
+    StreamingClientManager manager = new StreamingClientManager();
     manager.createAllStreamingClients(TestUtils.getConfForStreaming(), "testkcid", maxTasks, 2);
 
     // test throws error

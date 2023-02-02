@@ -22,7 +22,7 @@ package com.snowflake.kafka.connector.internal.ingestsdk;
  */
 public class IngestSdkProvider {
   // manages the streaming ingest sdk client
-  public static ClientManager clientManager = new ClientManager();
+  public static StreamingClientManager streamingClientManager = new StreamingClientManager();
 
   // private constructor for singletonness
   private IngestSdkProvider() {}

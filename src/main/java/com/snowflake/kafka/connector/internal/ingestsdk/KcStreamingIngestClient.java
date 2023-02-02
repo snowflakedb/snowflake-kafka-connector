@@ -37,7 +37,7 @@ public class KcStreamingIngestClient {
   private final SnowflakeStreamingIngestClient client;
 
   /**
-   * Builds the clients name based on the kc instance and expected client id
+   * Builds the client's name based on the kc instance and expected client id
    * @param kcInstanceId the kafka connector instance id
    * @param clientId the client id
    * @return the client's name as 'KC_CLIENT_kcInstanceId_clientId'

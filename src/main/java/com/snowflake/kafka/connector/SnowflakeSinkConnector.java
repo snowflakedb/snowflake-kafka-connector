@@ -145,7 +145,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     SnowflakeSinkTask.setTotalTaskCreationCount(-1);
     setupComplete = false;
 
-    IngestSdkProvider.clientManager.closeAllStreamingClients();
+    IngestSdkProvider.streamingClientManager.closeAllStreamingClients();
 
     LOGGER.info("SnowflakeSinkConnector:stop");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
@@ -178,7 +178,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   public List<Map<String, String>> taskConfigs(final int maxTasks) {
     // create all necessary clients, evenly mapping tasks to clients
     if (this.usesStreamingIngestion) {
-      IngestSdkProvider.clientManager.createAllStreamingClients(
+      IngestSdkProvider.streamingClientManager.createAllStreamingClients(
           config, kcInstanceId, maxTasks, NUM_TASK_TO_CLIENT);
     }
 

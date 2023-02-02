@@ -8,7 +8,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.ingestsdk.ClientManager;
+import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
@@ -54,7 +54,7 @@ public class SnowflakeSinkServiceV2IT {
 
   private Map<String, String> config;
 
-  private ClientManager clientManager;
+  private StreamingClientManager streamingClientManager;
   private SnowflakeStreamingIngestClient snowflakeStreamingIngestClient;
 
   @Mock
@@ -75,15 +75,15 @@ public class SnowflakeSinkServiceV2IT {
     taskToClientMap.put(
         conn.getTaskId(), new KcStreamingIngestClient(this.snowflakeStreamingIngestClient));
 
-    this.clientManager = new ClientManager(taskToClientMap);
-    IngestSdkProvider.clientManager = this.clientManager;
+    this.streamingClientManager = new StreamingClientManager(taskToClientMap);
+    IngestSdkProvider.streamingClientManager = this.streamingClientManager;
   }
 
   @After
   public void afterEach() throws Exception {
     TestUtils.dropTable(table);
     this.snowflakeStreamingIngestClient.close();
-    IngestSdkProvider.clientManager = null;
+    IngestSdkProvider.streamingClientManager = null;
   }
 
   @Test
