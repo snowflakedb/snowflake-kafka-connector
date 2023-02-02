@@ -206,6 +206,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
       throw SnowflakeErrors.ERROR_5007.getException(telemetryClient);
     }
 
+    // taskIds must be consecutive, the StreamingClientManager relies on this
     List<Map<String, String>> taskConfigs = new ArrayList<>(maxTasks);
     for (int i = 0; i < maxTasks; i++) {
       Map<String, String> conf = new HashMap<>(config);
