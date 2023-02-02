@@ -55,8 +55,9 @@ public class KcStreamingIngestClient {
 
   /**
    * Creates a streaming client from the given properties and requested name. Validates the
-   * requested client is not null and has the correct name Any exceptions will be passed up, a
-   * sfexception will be converted to a connectexception
+   * requested client is not null and has the correct name
+   *
+   * <p>Any exceptions will be passed up, a sfexception will be converted to a connectexception
    *
    * @param streamingClientProps the properties for the client
    * @param clientName the client name to uniquely identify the client
@@ -77,8 +78,9 @@ public class KcStreamingIngestClient {
   }
 
   /**
-   * Creates an ingest sdk OpenChannelRequest and opens the client's channel No exception handling
-   * done, all exceptions will be passed through
+   * Creates an ingest sdk OpenChannelRequest and opens the client's channel
+   *
+   * <p>No exception handling done, all exceptions will be passed through
    *
    * @param channelName the name of the channel to open
    * @param config config to get the database and schema names for the channel
@@ -101,8 +103,12 @@ public class KcStreamingIngestClient {
 
   /**
    * TODO @rcheng: should add retry here and create() even if sdk retries bc network/load issues?
-   * esp with rowset api later Calls the ingest sdk to close the client sdk Swallows all exceptions
-   * and returns t/f if the client was closed because closing is best effort
+   * esp with rowset api later
+   *
+   * <p>Calls the ingest sdk to close the client sdk
+   *
+   * <p>Swallows all exceptions and returns t/f if the client was closed because closing is best
+   * effort
    *
    * @return if the client was successfully closed
    */

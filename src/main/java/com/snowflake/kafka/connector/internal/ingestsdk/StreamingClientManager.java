@@ -63,10 +63,7 @@ public class StreamingClientManager {
       String kcInstanceId,
       int maxTasks,
       int numTasksPerClient) {
-    assert connectorConfig != null;
-    assert kcInstanceId != null;
-    assert maxTasks > 0;
-    assert numTasksPerClient > 0;
+    assert connectorConfig != null && kcInstanceId != null && maxTasks > 0 && numTasksPerClient > 0;
 
     this.maxTasks = maxTasks;
 
