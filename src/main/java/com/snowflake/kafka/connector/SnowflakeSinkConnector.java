@@ -122,7 +122,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
             && !config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).isEmpty()
             && !config
                 .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
-                .equals(SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE);
+                .equalsIgnoreCase(SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE);
 
     telemetryClient = conn.getTelemetryClient();
 

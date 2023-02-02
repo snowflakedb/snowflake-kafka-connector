@@ -110,4 +110,20 @@ public class ClientManagerTest {
     ClientManager manager = new ClientManager(taskToClientMap);
     TestUtils.assertError(SnowflakeErrors.ERROR_3009, () -> manager.getValidClient(taskId));
   }
+
+  @Test
+  public void testGetInvalidTaskId() {
+    int maxTasks = 5;
+
+    // create with max task id 4 (starts from 0)
+    ClientManager manager = new ClientManager();
+    manager.createAllStreamingClients(TestUtils.getConfForStreaming(), "testkcid", maxTasks, 2);
+
+    // test throws error
+    TestUtils.assertError(SnowflakeErrors.ERROR_3010, () -> manager.getValidClient(-1));
+    TestUtils.assertError(SnowflakeErrors.ERROR_3010, () -> manager.getValidClient(maxTasks));
+
+    // verify can get a client
+    assert manager.getValidClient(0) != null;
+  }
 }

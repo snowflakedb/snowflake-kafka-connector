@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2023 Snowflake Inc. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -15,19 +31,19 @@ import org.apache.kafka.connect.errors.ConnectException;
 
 /** This is a wrapper to help define a contract with the streaming ingest clients */
 public class KcStreamingIngestClient {
-  private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
+  private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT";
   private LoggerHandler LOGGER = new LoggerHandler(this.getClass().getName());
 
   private final SnowflakeStreamingIngestClient client;
 
   /**
-   * Gets the clients name by adding a prefix and client count
-   *
-   * @param kcInstanceId the indentifier for the connector creating this client
-   * @return the streaming ingest client name
+   * Builds the clients name based on the kc instance and expected client id
+   * @param kcInstanceId the kafka connector instance id
+   * @param clientId the client id
+   * @return the client's name as 'KC_CLIENT_kcInstanceId_clientId'
    */
   public static String buildStreamingIngestClientName(String kcInstanceId, int clientId) {
-    return STREAMING_CLIENT_PREFIX_NAME + kcInstanceId + clientId;
+    return Utils.formatString("{}_{}_{}", STREAMING_CLIENT_PREFIX_NAME, kcInstanceId, clientId);
   }
 
   // TESTING ONLY - inject the client
@@ -36,6 +52,12 @@ public class KcStreamingIngestClient {
     this.client = client;
   }
 
+  /**
+   * Creates a streaming client from the given properties and requested name. Validates the requested client is not null and has the correct name
+   * Any exceptions will be passed up, a sfexception will be converted to a connectexception
+   * @param streamingClientProps the properties for the client
+   * @param clientName the client name to uniquely identify the client
+   */
   protected KcStreamingIngestClient(Properties streamingClientProps, String clientName) {
     try {
       LOGGER.info("Creating Streaming Client: {}", clientName);
@@ -51,6 +73,14 @@ public class KcStreamingIngestClient {
     }
   }
 
+  /**
+   * Creates an ingest sdk OpenChannelRequest and opens the client's channel
+   * No exception handling done, all exceptions will be passed through
+   * @param channelName the name of the channel to open
+   * @param config config to get the database and schema names for the channel
+   * @param tableName table name of the channel
+   * @return the opened channel
+   */
   public SnowflakeStreamingIngestChannel openChannel(
       String channelName, Map<String, String> config, String tableName) {
     OpenChannelRequest channelRequest =
@@ -66,9 +96,10 @@ public class KcStreamingIngestClient {
   }
 
   /**
-   * Calls the ingest sdk to close the client sdk Ignores if the client is null or already closed
-   * returns t/f if closed TODO @rcheng: we should add retry here and create even in sdk retries bc
-   * network issues? esp with rowset api later. bubble up ingest exceptions, retry all others
+   * TODO @rcheng: should add retry here and create() even if sdk retries bc network/load issues? esp with rowset api later
+   * Calls the ingest sdk to close the client sdk
+   * Swallows all exceptions and returns t/f if the client was closed because closing is best effort
+   * @return if the client was successfully closed
    */
   public boolean close() {
     if (this.client.isClosed()) {
@@ -95,17 +126,24 @@ public class KcStreamingIngestClient {
               : "no cause provided";
 
       // don't throw an exception because closing the client is best effort
-      // TODO @rcheng: telemetry?
+      // TODO @rcheng: are sfexceptions logged? in streamingIngestClient I only saw telemetry before the actual close, not in the catch or finally
       LOGGER.error("Failure closing Streaming client msg:{}, cause:{}", message, cause);
       return false;
     }
   }
 
+  /**
+   * Checks if the current client is closed
+   * @return if the client is closed
+   */
   public boolean isClosed() {
     return this.client.isClosed();
   }
 
-  // client name is the only id we have for clients
+  /**
+   * Returns the clients name. We treat this as the id
+   * @return the clients name
+   */
   public String getName() {
     return this.client.getName();
   }
