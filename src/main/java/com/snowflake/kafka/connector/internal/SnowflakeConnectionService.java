@@ -281,5 +281,5 @@ public interface SnowflakeConnectionService {
    *
    * @param tableName table name
    */
-  void createTableWithOnlyMetadataColumn(String tableName);
+  void createTableWithOnlyMetadataColumn(String tableName, boolean autoSchematization);
 }

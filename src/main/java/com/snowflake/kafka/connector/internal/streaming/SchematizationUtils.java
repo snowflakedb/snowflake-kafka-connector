@@ -145,7 +145,7 @@ public class SchematizationUtils {
     Schema schema = record.valueSchema();
     if (schema != null) {
       for (Field field : schema.fields()) {
-        schemaMap.put(field.name(), convertToSnowflakeType(field.schema().type()));
+        schemaMap.put(field.name(), convertToSnowflakeType(field.schema().type(), field.schema().name()));
       }
     }
     return schemaMap;
@@ -158,7 +158,7 @@ public class SchematizationUtils {
       // only when the type of the value is unrecognizable for JAVA
       throw SnowflakeErrors.ERROR_5021.getException("class: " + value.getClass());
     }
-    return convertToSnowflakeType(schemaType);
+    return convertToSnowflakeType(schemaType, null);
   }
 
   /** Convert a json node type to kafka data type */
@@ -192,7 +192,7 @@ public class SchematizationUtils {
   }
 
   /** Convert the kafka data type to Snowflake data type */
-  private static String convertToSnowflakeType(Type kafkaType) {
+  private static String convertToSnowflakeType(Type kafkaType, String semanticType) {
     switch (kafkaType) {
       case INT8:
         return "BYTEINT";
@@ -209,6 +209,9 @@ public class SchematizationUtils {
       case BOOLEAN:
         return "BOOLEAN";
       case STRING:
+        if (semanticType != null && semanticType.equals("io.debezium.data.Json")) {
+          return "VARIANT";
+        }
         return "VARCHAR";
       case BYTES:
         return "BINARY";

@@ -74,6 +74,13 @@ public class SnowflakeSinkConnectorConfig {
   public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
   public static final String ENABLE_SCHEMATIZATION_DEFAULT = "false";
 
+  public static final String SCHEMATIZATION_AUTO_CONFIG = "snowflake.schematization.auto";
+  public static final String SCHEMATIZATION_AUTO_DEFAULT = "true";
+  public static final String SCHEMATIZATION_AUTO_DISPLAY = "Use automatic schema evolution";
+  public static final String SCHEMATIZATION_AUTO_DOC =
+      "If true, use snowflake automatic schema evolution feature."
+          + "NOTE: you need to grant evolve schema to " + SNOWFLAKE_USER;
+  
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
   public static final String JVM_PROXY_HOST = "jvm.proxy.host";
