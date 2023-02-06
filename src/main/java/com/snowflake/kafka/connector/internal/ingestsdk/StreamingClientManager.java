@@ -127,7 +127,7 @@ public class StreamingClientManager {
   }
 
   /**
-   * Closes all the streaming clients in the map. Client closure expections will be swallowed and
+   * Closes all the streaming clients in the map. Client closure exceptions will be swallowed and
    * logged
    *
    * @return if all the clients were closed
