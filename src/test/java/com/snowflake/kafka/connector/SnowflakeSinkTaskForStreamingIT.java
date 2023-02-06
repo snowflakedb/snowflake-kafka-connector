@@ -6,7 +6,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
-import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
 import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -105,7 +104,6 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask.stop();
   }
 
-
   // test two tasks map to one client behaves as expected
   @Test
   public void testTaskToClientMapping() throws Exception {
@@ -151,9 +149,9 @@ public class SnowflakeSinkTaskForStreamingIT {
     TestUtils.assertWithRetry(() -> sinkTask1.preCommit(offsetMap1).size() == 1, 20, 5);
 
     TestUtils.assertWithRetry(
-            () -> sinkTask0.preCommit(offsetMap0).get(topicPartitions0.get(0)).offset() == 1, 20, 5);
+        () -> sinkTask0.preCommit(offsetMap0).get(topicPartitions0.get(0)).offset() == 1, 20, 5);
     TestUtils.assertWithRetry(
-            () -> sinkTask1.preCommit(offsetMap1).get(topicPartitions1.get(0)).offset() == 1, 20, 5);
+        () -> sinkTask1.preCommit(offsetMap1).get(topicPartitions1.get(0)).offset() == 1, 20, 5);
 
     // clean up tasks
     sinkTask0.close(topicPartitions0);

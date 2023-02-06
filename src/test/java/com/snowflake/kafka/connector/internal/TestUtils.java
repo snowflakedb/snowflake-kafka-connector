@@ -165,7 +165,7 @@ public class TestUtils {
     configuration.put(Utils.SF_URL, getProfile(profileFileName).get(HOST).asText());
     configuration.put(Utils.SF_WAREHOUSE, getProfile(profileFileName).get(WAREHOUSE).asText());
     configuration.put(Utils.SF_PRIVATE_KEY, getProfile(profileFileName).get(PRIVATE_KEY).asText());
-    //configuration.put(Utils.SF_ROLE, getProfile(profileFileName).get(ROLE).asText());
+    // configuration.put(Utils.SF_ROLE, getProfile(profileFileName).get(ROLE).asText());
 
     configuration.put(Utils.NAME, TEST_CONNECTOR_NAME);
 
