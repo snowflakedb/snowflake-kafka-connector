@@ -24,6 +24,6 @@ public class IngestSdkProvider {
   // manages the streaming ingest sdk client
   public static StreamingClientManager streamingClientManager = new StreamingClientManager();
 
-  // private constructor for singletonness
+  // private constructor for singletons
   private IngestSdkProvider() {}
 }

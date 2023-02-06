@@ -89,13 +89,13 @@ public class StreamingClientManager {
             KcStreamingIngestClient.buildStreamingIngestClientName(kcInstanceId, clientId));
     while (taskId < maxTasks) {
       if (tasksToCurrClient == numTasksPerClient) {
+        tasksToCurrClient = 1;
+        clientId++;
         createdClient =
             new KcStreamingIngestClient(
                 clientProperties,
                 KcStreamingIngestClient.buildStreamingIngestClientName(kcInstanceId, clientId));
         this.taskToClientMap.put(taskId, createdClient);
-        tasksToCurrClient = 1;
-        clientId++;
       } else {
         this.taskToClientMap.put(taskId, createdClient);
         tasksToCurrClient++;

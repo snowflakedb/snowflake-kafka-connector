@@ -70,8 +70,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // The id of this connector instance. Should only be reset on start
   private String kcInstanceId;
 
-  // If this connector is configured to use streaming snowpipe ingestion. Potentially may be better
-  // as a enum if we decide to add additional ingestion methods
+  // If this connector is configured to use streaming snowpipe ingestion
   private boolean usesStreamingIngestion;
 
   /** No-Arg constructor. Required by Kafka Connect framework */
@@ -122,7 +121,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
     this.usesStreamingIngestion =
         config != null
             && config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT) != null
-            && !config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).isEmpty()
             && !config
                 .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
                 .equalsIgnoreCase(SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE);

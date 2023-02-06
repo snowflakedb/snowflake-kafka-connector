@@ -227,8 +227,6 @@ public class SnowflakeSinkTask extends SinkTask {
       }
     }
 
-    // conn.setTaskId must be before the sink is created in the streaming workflow because
-    // TopicPartitionChannel requires conn.getTaskId
     conn =
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(parsedConfig)
