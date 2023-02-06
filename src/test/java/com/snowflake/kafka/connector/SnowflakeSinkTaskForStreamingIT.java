@@ -6,6 +6,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
+import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
 import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -61,6 +62,8 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // config
     this.config = TestUtils.getConfForStreaming();
+    this.config.put(BUFFER_COUNT_RECORDS, "1"); // override
+    this.config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
 
     IngestSdkProvider.streamingClientManager.createAllStreamingClients(
@@ -76,9 +79,6 @@ public class SnowflakeSinkTaskForStreamingIT {
 
   @Test
   public void testSinkTask() throws Exception {
-    this.config.put(BUFFER_COUNT_RECORDS, "1"); // override
-    this.config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
     // Inits the sinktaskcontext
@@ -105,6 +105,63 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask.stop();
   }
 
+
+  // test two tasks map to one client behaves as expected
+  @Test
+  public void testTaskToClientMapping() throws Exception {
+    // setup two tasks pointing to one client
+    IngestSdkProvider.streamingClientManager = new StreamingClientManager(new HashMap<>());
+    IngestSdkProvider.streamingClientManager.createAllStreamingClients(this.config, "kcid", 2, 2);
+
+    // setup task0
+    int partition0 = 0;
+    String topic0Name = "topic0";
+    SnowflakeSinkTask sinkTask0 = new SnowflakeSinkTask();
+    TopicPartition topicPartition0 = new TopicPartition(topic0Name, partition0);
+    sinkTask0.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition0)));
+    sinkTask0.start(config);
+    ArrayList<TopicPartition> topicPartitions0 = new ArrayList<>();
+    topicPartitions0.add(topicPartition0);
+    sinkTask0.open(topicPartitions0);
+
+    // setup task1
+    int partition1 = 1;
+    String topic1Name = "topic1";
+    SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
+    TopicPartition topicPartition1 = new TopicPartition(topic1Name, partition1);
+    sinkTask1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition0)));
+    sinkTask1.start(config);
+    ArrayList<TopicPartition> topicPartitions1 = new ArrayList<>();
+    topicPartitions1.add(topicPartition1);
+    sinkTask1.open(topicPartitions1);
+
+    // send data to both tasks
+    List<SinkRecord> records0 = TestUtils.createJsonStringSinkRecords(0, 1, topic0Name, partition0);
+    sinkTask0.put(records0);
+    List<SinkRecord> records1 = TestUtils.createJsonStringSinkRecords(0, 1, topic1Name, partition1);
+    sinkTask1.put(records1);
+
+    final Map<TopicPartition, OffsetAndMetadata> offsetMap0 = new HashMap<>();
+    final Map<TopicPartition, OffsetAndMetadata> offsetMap1 = new HashMap<>();
+    offsetMap0.put(topicPartitions0.get(0), new OffsetAndMetadata(10000));
+    offsetMap1.put(topicPartitions1.get(0), new OffsetAndMetadata(10000));
+
+    // verify that data was ingested
+    TestUtils.assertWithRetry(() -> sinkTask0.preCommit(offsetMap0).size() == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> sinkTask1.preCommit(offsetMap1).size() == 1, 20, 5);
+
+    TestUtils.assertWithRetry(
+            () -> sinkTask0.preCommit(offsetMap0).get(topicPartitions0.get(0)).offset() == 1, 20, 5);
+    TestUtils.assertWithRetry(
+            () -> sinkTask1.preCommit(offsetMap1).get(topicPartitions1.get(0)).offset() == 1, 20, 5);
+
+    // clean up tasks
+    sinkTask0.close(topicPartitions0);
+    sinkTask1.close(topicPartitions1);
+    sinkTask0.stop();
+    sinkTask1.stop();
+  }
+
   @Test
   public void testMultipleSinkTaskWithLogs() throws Exception {
     int partition0 = 0;
@@ -120,16 +177,12 @@ public class SnowflakeSinkTaskForStreamingIT {
     String task0Id = "0";
     Map<String, String> config0 = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config0);
-    config0.put(BUFFER_COUNT_RECORDS, "1"); // override
-    config0.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config0.put(Utils.TASK_ID, task0Id);
 
     String task1Id = "1";
     int taskOpen1Count = 0;
     Map<String, String> config1 = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config1);
-    config1.put(BUFFER_COUNT_RECORDS, "1"); // override
-    config1.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config1.put(Utils.TASK_ID, task1Id);
 
     SnowflakeSinkTask sinkTask0 = new SnowflakeSinkTask();
@@ -222,9 +275,6 @@ public class SnowflakeSinkTaskForStreamingIT {
 
   @Test
   public void testSinkTaskWithMultipleOpenClose() throws Exception {
-    this.config.put(BUFFER_COUNT_RECORDS, "1"); // override
-    this.config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
     // Inits the sinktaskcontext
     sinkTask.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));

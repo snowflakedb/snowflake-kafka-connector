@@ -161,4 +161,19 @@ public class KcStreamingIngestClient {
   public String getName() {
     return this.client.getName();
   }
+
+  /**
+   * Equality between clients is verified by the client name and the state (if it is closed or not)
+   * @param o Other object to check equality
+   * @return If the given object is the same
+   */
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof KcStreamingIngestClient)) {
+      return false;
+    }
+
+    KcStreamingIngestClient otherClient = (KcStreamingIngestClient) o;
+    return otherClient.getName().equals(this.getName()) && otherClient.isClosed() == this.isClosed();
+  }
 }
