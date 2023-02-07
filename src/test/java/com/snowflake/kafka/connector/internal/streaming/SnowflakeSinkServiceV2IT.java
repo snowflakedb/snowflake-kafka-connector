@@ -1117,10 +1117,6 @@ public class SnowflakeSinkServiceV2IT {
             jsonInputValue.value(),
             startOffset);
 
-    //    this.streamingIngestClient = TestUtils.createStreamingClient(config, this.connectorName);
-    //    Mockito.when(this.streamingIngestKcStreamingIngestClient.getStreamingIngestClient(0))
-    //        .thenReturn(this.streamingIngestClient);
-
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)

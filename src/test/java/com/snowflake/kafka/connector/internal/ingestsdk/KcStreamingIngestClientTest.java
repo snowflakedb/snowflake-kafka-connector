@@ -49,7 +49,6 @@ public class KcStreamingIngestClientTest {
     this.properties = new Properties();
     this.properties.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
 
-    // sunny day clients
     this.mockClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
   }
 

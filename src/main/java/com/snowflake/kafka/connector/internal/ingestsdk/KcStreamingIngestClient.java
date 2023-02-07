@@ -114,7 +114,7 @@ public class KcStreamingIngestClient {
    */
   public boolean close() {
     if (this.client.isClosed()) {
-      LOGGER.debug("Streaming client is already closed or null");
+      LOGGER.debug("Streaming client is already closed");
       return true;
     }
 

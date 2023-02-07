@@ -47,7 +47,6 @@ import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
 public class TopicPartitionChannelTest {
-  // mocks
   @Mock private KafkaRecordErrorReporter mockKafkaRecordErrorReporter;
   @Mock private SnowflakeStreamingIngestChannel mockStreamingChannel;
   @Mock private SinkTaskContext mockSinkTaskContext;

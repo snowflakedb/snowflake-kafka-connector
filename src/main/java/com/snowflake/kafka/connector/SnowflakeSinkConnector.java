@@ -44,6 +44,7 @@ import org.apache.kafka.connect.sink.SinkConnector;
  */
 public class SnowflakeSinkConnector extends SinkConnector {
   // TEMPORARY config of num tasks assigned per client, round up if number is not divisible
+  // currently set to 1 for a 1:1 task to client ratio, so we can maintain the current functionality
   private static final int NUM_TASK_TO_CLIENT = 1;
 
   // create logger without correlationId for now

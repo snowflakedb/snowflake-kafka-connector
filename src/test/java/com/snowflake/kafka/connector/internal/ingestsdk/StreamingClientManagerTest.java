@@ -27,7 +27,7 @@ import org.mockito.Mockito;
 public class StreamingClientManagerTest {
 
   @Test
-  public void testCreateAndGetAllStreamingClients() {
+  public void testCreateAndGetAllStreamingClientsWithUnevenRatio() {
     // test to create the following mapping
     // [0, 1] -> clientA, [2, 3] -> clientB, [4] -> clientC
     // test
@@ -54,6 +54,38 @@ public class StreamingClientManagerTest {
     task2Client.close();
     task3Client.close();
     task4Client.close();
+  }
+
+  @Test
+  public void testCreateAndGetAllStreamingClientsWithEvenRatio() {
+    // test to create the following mapping
+    // [0, 1, 2] -> clientA, [3, 4, 5] -> clientB
+    // test
+    StreamingClientManager manager = new StreamingClientManager();
+    manager.createAllStreamingClients(TestUtils.getConfForStreaming(), "testkcid", 6, 3);
+
+    // verify
+    KcStreamingIngestClient task0Client = manager.getValidClient(0);
+    KcStreamingIngestClient task1Client = manager.getValidClient(1);
+    KcStreamingIngestClient task2Client = manager.getValidClient(2);
+    assert task0Client.equals(task1Client);
+    assert task1Client.equals(task2Client);
+
+    KcStreamingIngestClient task3Client = manager.getValidClient(3);
+    KcStreamingIngestClient task4Client = manager.getValidClient(4);
+    KcStreamingIngestClient task5Client = manager.getValidClient(5);
+    assert task3Client.equals(task4Client);
+    assert task4Client.equals(task5Client);
+
+    assert !task0Client.equals(task5Client);
+
+    // close clients
+    task0Client.close();
+    task1Client.close();
+    task2Client.close();
+    task3Client.close();
+    task4Client.close();
+    task5Client.close();
   }
 
   @Test
@@ -125,5 +157,14 @@ public class StreamingClientManagerTest {
 
     // verify can get a client
     assert manager.getValidClient(0) != null;
+  }
+
+  @Test
+  public void testGetUnInitClient() {
+    int taskId = 0;
+    Map<Integer, KcStreamingIngestClient> taskToClientMap = new HashMap<>();
+
+    StreamingClientManager manager = new StreamingClientManager(taskToClientMap);
+    TestUtils.assertError(SnowflakeErrors.ERROR_3009, () -> manager.getValidClient(taskId));
   }
 }
