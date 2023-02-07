@@ -116,13 +116,13 @@ public class TopicPartitionChannelTest {
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
         Boolean.toString(this.enableSchematization));
 
-    IngestSdkProvider.streamingClientManager = this.mockStreamingClientManager;
+    IngestSdkProvider.setStreamingClientManager(this.mockStreamingClientManager);
   }
 
   @After
   public void afterEachTest() {
     // need to reset client manager since it is global static variable
-    IngestSdkProvider.streamingClientManager = null;
+    IngestSdkProvider.setStreamingClientManager(new StreamingClientManager(new HashMap<>()));
 
     // verify the mocks setup above
     Mockito.verify(this.mockStreamingClientManager, Mockito.times(expectedCallGetValidClientCount))

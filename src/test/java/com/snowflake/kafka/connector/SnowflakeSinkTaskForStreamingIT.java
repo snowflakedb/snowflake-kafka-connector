@@ -65,15 +65,15 @@ public class SnowflakeSinkTaskForStreamingIT {
     this.config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
 
-    IngestSdkProvider.streamingClientManager.createAllStreamingClients(
-        this.config, "testkcid", 2, 1);
+    IngestSdkProvider.getStreamingClientManager()
+        .createAllStreamingClients(this.config, "testkcid", 2, 1);
   }
 
   @After
   public void after() throws Exception {
     TestUtils.dropTable(topicName);
-    IngestSdkProvider.streamingClientManager =
-        new StreamingClientManager(new HashMap<>()); // reset to clean initial manager
+    IngestSdkProvider.setStreamingClientManager(
+        new StreamingClientManager(new HashMap<>())); // reset to clean initial manager
   }
 
   @Test
@@ -108,8 +108,8 @@ public class SnowflakeSinkTaskForStreamingIT {
   @Test
   public void testTaskToClientMapping() throws Exception {
     // setup two tasks pointing to one client
-    IngestSdkProvider.streamingClientManager = new StreamingClientManager(new HashMap<>());
-    IngestSdkProvider.streamingClientManager.createAllStreamingClients(this.config, "kcid", 2, 2);
+    IngestSdkProvider.getStreamingClientManager()
+        .createAllStreamingClients(this.config, "kcid", 2, 2);
 
     // setup task0
     int partition0 = 0;

@@ -47,15 +47,15 @@ public class TopicPartitionChannelIT {
     this.config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
 
-    IngestSdkProvider.streamingClientManager.createAllStreamingClients(
-        this.config, "testkcid", 2, 1);
+    IngestSdkProvider.getStreamingClientManager()
+        .createAllStreamingClients(this.config, "testkcid", 2, 1);
   }
 
   @After
   public void afterEach() throws Exception {
     TestUtils.dropTable(testTableName);
-    IngestSdkProvider.streamingClientManager =
-        new StreamingClientManager(new HashMap<>()); // reset to clean initial manager
+    IngestSdkProvider.setStreamingClientManager(
+        new StreamingClientManager(new HashMap<>())); // reset to clean initial manager
   }
 
   @Test
@@ -278,7 +278,7 @@ public class TopicPartitionChannelIT {
         5);
 
     // Open a channel with same name will bump up the client sequencer number for this channel
-    IngestSdkProvider.streamingClientManager
+    IngestSdkProvider.getStreamingClientManager()
         .getValidClient(0)
         .openChannel(testChannelName, config, testTableName);
 
@@ -361,7 +361,7 @@ public class TopicPartitionChannelIT {
         20,
         5);
 
-    IngestSdkProvider.streamingClientManager
+    IngestSdkProvider.getStreamingClientManager()
         .getValidClient(0)
         .openChannel(testChannelName, config, testTableName);
     Thread.sleep(5_000);

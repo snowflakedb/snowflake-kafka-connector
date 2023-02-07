@@ -17,13 +17,26 @@
 
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
+import com.google.common.annotations.VisibleForTesting;
+
 /**
  * This is a singleton provider that provides global access to the static managers of the ingest sdk
  */
 public class IngestSdkProvider {
   // manages the streaming ingest sdk client
-  public static StreamingClientManager streamingClientManager = new StreamingClientManager();
+  private static StreamingClientManager streamingClientManager = new StreamingClientManager();
 
   // private constructor for singletons
   private IngestSdkProvider() {}
+
+  public static StreamingClientManager getStreamingClientManager() {
+    assert streamingClientManager != null;
+    return streamingClientManager;
+  }
+
+  // TESTING ONLY
+  @VisibleForTesting
+  public static void setStreamingClientManager(StreamingClientManager manager) {
+    streamingClientManager = manager;
+  }
 }

@@ -56,14 +56,15 @@ public class SnowflakeSinkServiceV2IT {
     this.config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
 
-    IngestSdkProvider.streamingClientManager.createAllStreamingClients(config, "testkcid", 1, 1);
+    IngestSdkProvider.getStreamingClientManager()
+        .createAllStreamingClients(config, "testkcid", 1, 1);
   }
 
   @After
   public void afterEach() throws Exception {
     TestUtils.dropTable(table);
-    IngestSdkProvider.streamingClientManager =
-        new StreamingClientManager(new HashMap<>()); // reset to clean initial manager
+    IngestSdkProvider.setStreamingClientManager(
+        new StreamingClientManager(new HashMap<>())); // reset to clean initial manager
   }
 
   @Test
@@ -965,7 +966,7 @@ public class SnowflakeSinkServiceV2IT {
             avroInputValue.schema(),
             avroInputValue.value(),
             startOffset);
-    
+
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
