@@ -285,6 +285,7 @@ public interface SnowflakeConnectionService {
 
   /**
    * Gets the task id for this snowflake connection
+   *
    * @return The task id for the snowflake connection
    */
   int getTaskId();

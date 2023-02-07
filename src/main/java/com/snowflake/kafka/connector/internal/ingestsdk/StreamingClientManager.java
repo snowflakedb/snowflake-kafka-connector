@@ -41,7 +41,7 @@ public class StreamingClientManager {
   public StreamingClientManager(Map<Integer, KcStreamingIngestClient> taskToClientMap) {
     this();
     this.taskToClientMap = taskToClientMap;
-    this.clientCount = (int)taskToClientMap.values().stream().distinct().count() - 1;
+    this.clientCount = (int) taskToClientMap.values().stream().distinct().count() - 1;
   }
 
   /** Creates a new client manager */
@@ -84,7 +84,9 @@ public class StreamingClientManager {
 
     // put a new client for every tasksToCurrClient taskIds
     int tasksToCurrClient = numTasksPerClient;
-    KcStreamingIngestClient createdClient = this.getClientHelper(clientProperties, kcInstanceId, 0); // asserted that we have at least 1 task
+    KcStreamingIngestClient createdClient =
+        this.getClientHelper(
+            clientProperties, kcInstanceId, 0); // asserted that we have at least 1 task
 
     for (int taskId = 0; taskId < this.maxTasks; taskId++) {
       if (tasksToCurrClient == numTasksPerClient) {
@@ -99,14 +101,14 @@ public class StreamingClientManager {
   }
 
   // builds the client name and returns the created client. note taskId is used just for logging
-  private KcStreamingIngestClient getClientHelper(Properties props, String kcInstanceId, int taskId) {
+  private KcStreamingIngestClient getClientHelper(
+      Properties props, String kcInstanceId, int taskId) {
     this.clientCount++;
-    String clientName = KcStreamingIngestClient.buildStreamingIngestClientName(kcInstanceId, this.clientCount);
+    String clientName =
+        KcStreamingIngestClient.buildStreamingIngestClientName(kcInstanceId, this.clientCount);
     LOGGER.debug("Creating client {} for taskid {}", clientName, taskId);
 
-    return new KcStreamingIngestClient(
-            props,
-            clientName);
+    return new KcStreamingIngestClient(props, clientName);
   }
 
   /**
