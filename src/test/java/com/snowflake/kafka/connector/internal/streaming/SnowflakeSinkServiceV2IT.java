@@ -965,11 +965,7 @@ public class SnowflakeSinkServiceV2IT {
             avroInputValue.schema(),
             avroInputValue.value(),
             startOffset);
-    //
-    //    this.streamingIngestClient = Mockito.mock(KcStreamingIngestClient.class);
-    //    Mockito.when(this.streamingIngestKcStreamingIngestClient.getStreamingIngestClient(0))
-    //        .thenReturn(this.streamingIngestClient);
-
+    
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
