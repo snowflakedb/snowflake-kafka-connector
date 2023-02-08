@@ -236,9 +236,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
     try {
       testConnection =
           SnowflakeConnectionServiceFactory.builder()
-                  .setProperties(connectorConfigs)
                   .setNetworkTimeout(VALIDATION_NETWORK_TIMEOUT_IN_MS)
                   .setLoginTimeOut(VALIDATION_LOGIN_TIMEOUT_IN_SEC)
+                  .setProperties(connectorConfigs)
                   .build();
 
     } catch (SnowflakeKafkaConnectorException e) {
