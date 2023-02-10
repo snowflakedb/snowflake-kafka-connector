@@ -102,10 +102,7 @@ public class KcStreamingIngestClient {
   }
 
   /**
-   * TODO @rcheng: should add retry here and create() even if sdk retries bc network/load issues?
-   * esp with rowset api later
-   *
-   * <p>Calls the ingest sdk to close the client sdk
+   * Calls the ingest sdk to close the client sdk
    *
    * <p>Swallows all exceptions and returns t/f if the client was closed because closing is best
    * effort
@@ -137,7 +134,6 @@ public class KcStreamingIngestClient {
               : "no cause provided";
 
       // don't throw an exception because closing the client is best effort
-      // TODO @rcheng: are sfexceptions logged? in streamingIngestClient I only saw telemetry before
       // the actual close, not in the catch or finally
       LOGGER.error("Failure closing Streaming client msg:{}, cause:{}", message, cause);
       return false;

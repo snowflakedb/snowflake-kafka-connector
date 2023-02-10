@@ -537,8 +537,6 @@ public class TopicPartitionChannelTest {
       noOfRecords++;
 
       // this response should make schema evolve
-      // TODO @rcheng question - for schema evolution, will this row eventually be inserted with the
-      // new schema?
       InsertValidationResponse evolveSchemaResponse = new InsertValidationResponse();
       InsertValidationResponse.InsertError insertError2 =
           new InsertValidationResponse.InsertError("CONTENT", noOfRecords);
@@ -612,7 +610,6 @@ public class TopicPartitionChannelTest {
 
   /* SFExceptions is thrown in first attempt of insert rows. It is also thrown while refetching
   committed offset from snowflake after reopening the channel */
-  // TODO @rcheng question - isn't this the same as testFetchOffsetTokenWithRetry_SFException?
   @Test(expected = SFException.class)
   public void testInsertRows_GetOffsetTokenFailureAfterReopenChannel() throws Exception {
     Mockito.when(
