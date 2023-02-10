@@ -12,12 +12,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
+import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -37,9 +38,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
-import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.Pair;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
@@ -123,7 +122,7 @@ public class TopicPartitionChannel {
 
   // -------- private final fields -------- //
 
-  private final SnowflakeStreamingIngestClient streamingIngestClient;
+  private final KcStreamingIngestClient streamingIngestClient;
 
   // Topic partition Object from connect consisting of topic and partition
   private final TopicPartition topicPartition;
@@ -182,30 +181,7 @@ public class TopicPartitionChannel {
   // Reference to the Snowflake connection service
   private final SnowflakeConnectionService conn;
 
-  /** Testing only, initialize TopicPartitionChannel without the connection service */
-  public TopicPartitionChannel(
-      SnowflakeStreamingIngestClient streamingIngestClient,
-      TopicPartition topicPartition,
-      final String channelName,
-      final String tableName,
-      final BufferThreshold streamingBufferThreshold,
-      final Map<String, String> sfConnectorConfig,
-      KafkaRecordErrorReporter kafkaRecordErrorReporter,
-      SinkTaskContext sinkTaskContext) {
-    this(
-        streamingIngestClient,
-        topicPartition,
-        channelName,
-        tableName,
-        streamingBufferThreshold,
-        sfConnectorConfig,
-        kafkaRecordErrorReporter,
-        sinkTaskContext,
-        null);
-  }
-
   /**
-   * @param streamingIngestClient client created specifically for this task
    * @param topicPartition topic partition corresponding to this Streaming Channel
    *     (TopicPartitionChannel)
    * @param channelName channel Name which is deterministic for topic and partition
@@ -217,7 +193,6 @@ public class TopicPartitionChannel {
    * @param conn the snowflake connection service
    */
   public TopicPartitionChannel(
-      SnowflakeStreamingIngestClient streamingIngestClient,
       TopicPartition topicPartition,
       final String channelName,
       final String tableName,
@@ -226,18 +201,21 @@ public class TopicPartitionChannel {
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn) {
-    this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
-    Preconditions.checkState(!streamingIngestClient.isClosed());
+    this.streamingIngestClient =
+        Preconditions.checkNotNull(
+            IngestSdkProvider.getStreamingClientManager().getValidClient(conn.getTaskId()));
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelName = Preconditions.checkNotNull(channelName);
     this.tableName = Preconditions.checkNotNull(tableName);
     this.streamingBufferThreshold = Preconditions.checkNotNull(streamingBufferThreshold);
     this.sfConnectorConfig = Preconditions.checkNotNull(sfConnectorConfig);
-    this.channel = Preconditions.checkNotNull(openChannelForTable());
+    this.channel =
+        Preconditions.checkNotNull(
+            this.streamingIngestClient.openChannel(
+                this.channelName, this.sfConnectorConfig, this.tableName));
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.conn = conn;
-
     this.recordService = new RecordService();
 
     this.previousFlushTimeStampMs = System.currentTimeMillis();
@@ -932,7 +910,10 @@ public class TopicPartitionChannel {
   private long getRecoveredOffsetFromSnowflake(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
     LOGGER.warn("{} Re-opening channel:{}", streamingApiFallbackInvoker, this.getChannelName());
-    this.channel = Preconditions.checkNotNull(openChannelForTable());
+    this.channel =
+        Preconditions.checkNotNull(
+            this.streamingIngestClient.openChannel(
+                this.channelName, this.sfConnectorConfig, this.tableName));
     LOGGER.warn(
         "{} Fetching offsetToken after re-opening the channel:{}",
         streamingApiFallbackInvoker,
@@ -975,32 +956,6 @@ public class TopicPartitionChannel {
           this.getChannelName());
       throw new ConnectException(ex);
     }
-  }
-
-  /**
-   * Open a channel for Table with given channel name and tableName.
-   *
-   * <p>Open channels happens at:
-   *
-   * <p>Constructor of TopicPartitionChannel -> which means we will wipe of all states and it will
-   * call precomputeOffsetTokenForChannel
-   *
-   * <p>Failure handling which will call reopen, replace instance variable with new channel and call
-   * offsetToken/insertRows.
-   *
-   * @return new channel which was fetched after open/reopen
-   */
-  private SnowflakeStreamingIngestChannel openChannelForTable() {
-    OpenChannelRequest channelRequest =
-        OpenChannelRequest.builder(this.channelName)
-            .setDBName(this.sfConnectorConfig.get(Utils.SF_DATABASE))
-            .setSchemaName(this.sfConnectorConfig.get(Utils.SF_SCHEMA))
-            .setTableName(this.tableName)
-            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
-            .build();
-    LOGGER.info(
-        "Opening a channel with name:{} for table name:{}", this.channelName, this.tableName);
-    return streamingIngestClient.openChannel(channelRequest);
   }
 
   /**

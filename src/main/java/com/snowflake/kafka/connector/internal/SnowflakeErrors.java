@@ -192,6 +192,13 @@ public enum SnowflakeErrors {
   ERROR_3006("3006", "Failed to configure client status", "Exception reported by Ingest SDK"),
   ERROR_3007("3007", "Failed to get client status", "Exception reported by Ingest SDK"),
   ERROR_3008("3008", "Failed to ingest file with client info", "Exception reported by Ingest SDK"),
+  ERROR_3009("3009", "Failed to get streaming ingest client", "The client must be initialized"),
+  ERROR_3010(
+      "3010",
+      "Invalid task id(s)",
+      "Task id(s) was not correctly mapped to a streaming ingest client"),
+  ERROR_3011(
+      "3011", "Invalid client task map parameters", "Given task count or ratio should be above 0"),
   // Wrong result issues 4---
   ERROR_4001("4001", "Unexpected Result", "Get wrong results from Snowflake service"),
   // Connector internal errors 5---

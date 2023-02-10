@@ -21,6 +21,8 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -42,12 +44,15 @@ import org.apache.kafka.connect.sink.SinkConnector;
  * running on Kafka Connect Workers.
  */
 public class SnowflakeSinkConnector extends SinkConnector {
+  // TEMPORARY config of num tasks assigned per client, round up if number is not divisible
+  // currently set to 1 for a 1:1 task to client ratio, so we can maintain the current functionality
+  private static final int NUM_TASK_TO_CLIENT = 1;
+
   // create logger without correlationId for now
   private static LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnector.class.getName());
 
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
-  private String connectorName; // unique name of this connector instance
 
   // SnowflakeJDBCWrapper provides methods to interact with user's snowflake
   // account and executes queries
@@ -63,6 +68,12 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // creation, etc.
   // Using setupComplete to synchronize
   private boolean setupComplete;
+
+  // The id of this connector instance. Should only be reset on start
+  private String kcInstanceId;
+
+  // If this connector is configured to use streaming snowpipe ingestion
+  private boolean usesStreamingIngestion;
 
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeSinkConnector() {
@@ -89,7 +100,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
     connectorStartTime = System.currentTimeMillis();
 
     // initialize logging with global instance Id
-    LoggerHandler.setConnectGlobalInstanceId(this.getKcInstanceId(this.connectorStartTime));
+    this.kcInstanceId = this.getKcInstanceId(this.connectorStartTime);
+    LoggerHandler.setConnectGlobalInstanceId(kcInstanceId);
 
     config = new HashMap<>(parsedConfig);
 
@@ -106,6 +118,14 @@ public class SnowflakeSinkConnector extends SinkConnector {
     // create a persisted connection, and validate snowflake connection
     // config as a side effect
     conn = SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
+
+    // check if we are using snowpipe streaming ingestion
+    this.usesStreamingIngestion =
+        config != null
+            && config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT) != null
+            && config
+                .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
+                .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     telemetryClient = conn.getTelemetryClient();
 
@@ -127,6 +147,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
     // set task logging to default
     SnowflakeSinkTask.setTotalTaskCreationCount(-1);
     setupComplete = false;
+
+    IngestSdkProvider.getStreamingClientManager().closeAllStreamingClients();
+
     LOGGER.info("SnowflakeSinkConnector:stop");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
   }
@@ -156,6 +179,13 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public List<Map<String, String>> taskConfigs(final int maxTasks) {
+    // create all necessary clients, evenly mapping tasks to clients
+    // must be done here instead of start() because we need the maxTasks value
+    if (this.usesStreamingIngestion) {
+      IngestSdkProvider.getStreamingClientManager()
+          .createAllStreamingClients(config, kcInstanceId, maxTasks, NUM_TASK_TO_CLIENT);
+    }
+
     // wait for setup to complete
     int counter = 0;
     while (counter < 120) // poll for 120*5 seconds (10 mins) maximum
@@ -176,6 +206,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
       throw SnowflakeErrors.ERROR_5007.getException(telemetryClient);
     }
 
+    // taskIds must be consecutive, the StreamingClientManager relies on this
     List<Map<String, String>> taskConfigs = new ArrayList<>(maxTasks);
     for (int i = 0; i < maxTasks; i++) {
       Map<String, String> conf = new HashMap<>(config);
