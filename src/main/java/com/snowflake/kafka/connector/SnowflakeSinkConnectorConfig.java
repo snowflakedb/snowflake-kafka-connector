@@ -348,7 +348,10 @@ public class SnowflakeSinkConnectorConfig {
             topicToTableValidator,
             Importance.LOW,
             "Map of topics to tables (optional). Format : comma-separated tuples, e.g."
-                + " <topic-1>:<table-1>,<topic-2>:<table-2>,... ",
+                + " <topic-1>:<table-1>,<topic-2>:<table-2>,... \n"
+                + "Generic regex matching is possible using the following syntax:"
+                + Utils.TOPIC_MATCHER_PREFIX + "^[^.]\\w+.\\w+.(.*):$1\n"
+                + "NOTE: topics names cannot contain \":\" or \",\" so the regex should not contain these characters either\n",
             CONNECTOR_CONFIG,
             0,
             ConfigDef.Width.NONE,
