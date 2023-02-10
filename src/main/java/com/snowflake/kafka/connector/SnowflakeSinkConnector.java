@@ -22,6 +22,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -122,9 +123,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
     this.usesStreamingIngestion =
         config != null
             && config.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT) != null
-            && !config
+            && config
                 .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
-                .equalsIgnoreCase(SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE);
+                .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     telemetryClient = conn.getTelemetryClient();
 
