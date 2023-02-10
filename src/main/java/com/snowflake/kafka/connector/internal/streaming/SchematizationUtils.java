@@ -24,8 +24,13 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+
+import org.apache.kafka.connect.data.Date;
+import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Time;
+import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.data.Schema.Type;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
@@ -193,6 +198,24 @@ public class SchematizationUtils {
 
   /** Convert the kafka data type to Snowflake data type */
   private static String convertToSnowflakeType(Type kafkaType, String semanticType) {
+      if (semanticType != null) {
+        switch (semanticType) {
+            case Decimal.LOGICAL_NAME:
+              return "DOUBLE";
+            case Time.LOGICAL_NAME:
+            case Timestamp.LOGICAL_NAME:
+            case "io.debezium.time.ZonedTimestamp":
+            case "io.debezium.time.ZonedTime":
+            case "io.debezium.time.MicroTime":
+            case "io.debezium.time.Timestamp":
+            case "io.debezium.time.MicroTimestamp":
+              return "TIMESTAMP";
+            case Date.LOGICAL_NAME:
+            case "io.debezium.time.Date":
+              return "DATE";
+        }
+    }
+
     switch (kafkaType) {
       case INT8:
         return "BYTEINT";
