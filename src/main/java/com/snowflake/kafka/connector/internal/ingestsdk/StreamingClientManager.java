@@ -138,7 +138,8 @@ public class StreamingClientManager {
 
   /**
    * Gets the number of clients created
-   * @return
+   *
+   * @return the number of clients created
    */
   public int getClientCount() {
     return this.clientCount;

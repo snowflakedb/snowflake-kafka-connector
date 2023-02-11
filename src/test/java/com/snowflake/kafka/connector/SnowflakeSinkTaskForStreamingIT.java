@@ -168,6 +168,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     Mockito.when(logger.isDebugEnabled()).thenReturn(true);
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
 
+    // TODO @rcheng: factor these out, has been a pain updating this test with the dupe code...
     // set up configs
     String task0Id = "0";
     int partition0 = 0;

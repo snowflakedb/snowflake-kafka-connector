@@ -34,7 +34,8 @@ public class StreamingClientManagerTest {
     // [0, 1] -> clientA, [2, 3] -> clientB, [4] -> clientC
     // test
     StreamingClientManager manager = new StreamingClientManager();
-    manager.createAllStreamingClients(TestUtils.getConfForStreaming(), "testkcid", maxTasks, numTasksPerClient);
+    manager.createAllStreamingClients(
+        TestUtils.getConfForStreaming(), "testkcid", maxTasks, numTasksPerClient);
 
     // verify
     KcStreamingIngestClient task0Client = manager.getValidClient(0);
