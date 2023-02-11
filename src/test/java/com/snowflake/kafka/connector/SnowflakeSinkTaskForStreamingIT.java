@@ -23,6 +23,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.internals.Topic;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
@@ -162,44 +163,31 @@ public class SnowflakeSinkTaskForStreamingIT {
 
   @Test
   public void testMultipleSinkTaskWithLogs() throws Exception {
-    // setup log mocking for task1
+    // set up task0, the real one
+    int task0Id = 0;
+    String topicName0 = "topic0";
+    Map<String, String> config0 = this.getConfig(task0Id);
+    ArrayList<TopicPartition> topicPartitions0 = getTopicPartitions(topicName0, 1);
+    SnowflakeSinkTask sinkTask0 = new SnowflakeSinkTask();
+
+    // set up task1, the !real one
+    int task1Id = 1;
+    String topicName1 = "topic1";
+    Map<String, String> config1 = this.getConfig(task1Id);
+    ArrayList<TopicPartition> topicPartitions1 = getTopicPartitions(topicName1, 1);
+    // task1 logging
+    int taskOpen1Count = 0;
     MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
     Mockito.when(logger.isDebugEnabled()).thenReturn(true);
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
-
-    // TODO @rcheng: factor these out, has been a pain updating this test with the dupe code...
-    // set up configs
-    String task0Id = "0";
-    int partition0 = 0;
-    String topicName0 = "topic0";
-    Map<String, String> config0 = TestUtils.getConfForStreaming();
-    config0.put(BUFFER_COUNT_RECORDS, "1"); // override
-    config0.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    SnowflakeSinkConnectorConfig.setDefaultValues(config0);
-    config0.put(Utils.TASK_ID, task0Id);
-    TopicPartition topicPartition0 = new TopicPartition(topicName0, partition0);
-
-    String task1Id = "1";
-    int partition1 = 1;
-    String topicName1 = "topic1";
-    Map<String, String> config1 = TestUtils.getConfForStreaming();
-    config1.put(BUFFER_COUNT_RECORDS, "1"); // override
-    config1.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    SnowflakeSinkConnectorConfig.setDefaultValues(config1);
-    config1.put(Utils.TASK_ID, task1Id);
-    TopicPartition topicPartition1 = new TopicPartition(topicName1, partition1);
-    int taskOpen1Count = 0;
-
-    SnowflakeSinkTask sinkTask0 = new SnowflakeSinkTask();
-
-    sinkTask0.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition0)));
-    sinkTask1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition1)));
-
-    // set up task1 logging tag
     String expectedTask1Tag =
-        TestUtils.getExpectedLogTagWithoutCreationCount(task1Id, taskOpen1Count);
+            TestUtils.getExpectedLogTagWithoutCreationCount(task1Id + "", taskOpen1Count);
     Mockito.doCallRealMethod().when(loggerHandler).setLoggerInstanceTag(expectedTask1Tag);
+
+    // init tasks
+    sinkTask0.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartitions0.get(0))));
+    sinkTask1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartitions1.get(0))));
 
     // start tasks
     sinkTask0.start(config0);
@@ -213,28 +201,19 @@ public class SnowflakeSinkTaskForStreamingIT {
             AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("start")));
 
     // open tasks
-    ArrayList<TopicPartition> topicPartitions0 = new ArrayList<>();
-    topicPartitions0.add(topicPartition0);
-    ArrayList<TopicPartition> topicPartitions1 = new ArrayList<>();
-    topicPartitions1.add(topicPartition1);
-
     sinkTask0.open(topicPartitions0);
     sinkTask1.open(topicPartitions1);
 
-    taskOpen1Count++;
-    expectedTask1Tag = TestUtils.getExpectedLogTagWithoutCreationCount(task1Id, taskOpen1Count);
-
     // verify task1 open logs
+    taskOpen1Count++;
+    expectedTask1Tag = TestUtils.getExpectedLogTagWithoutCreationCount(task1Id + "", taskOpen1Count);
     Mockito.verify(logger, Mockito.times(1))
         .debug(
             AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
 
     // send data to tasks
-    List<SinkRecord> records0 = TestUtils.createJsonStringSinkRecords(0, 1, topicName0, partition0);
-    List<SinkRecord> records1 = TestUtils.createJsonStringSinkRecords(0, 1, topicName1, partition1);
-
-    sinkTask0.put(records0);
-    sinkTask1.put(records1);
+    sinkTask0.put(TestUtils.createJsonStringSinkRecords(0, 1, topicName0, 0));
+    sinkTask1.put(TestUtils.createJsonStringSinkRecords(0, 1, topicName1, 0));
 
     // verify task1 put logs
     Mockito.verify(logger, Mockito.times(1))
@@ -365,5 +344,23 @@ public class SnowflakeSinkTaskForStreamingIT {
         });
 
     assert partitionsInTable.size() == 2;
+  }
+  private Map<String, String> getConfig(int taskId) {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    config.put(BUFFER_COUNT_RECORDS, "1"); // override
+    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    config.put(Utils.TASK_ID, taskId + "");
+
+    return config;
+  }
+
+  private ArrayList<TopicPartition> getTopicPartitions(String topicName, int numPartitions) {
+    ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
+    for (int i = 0; i < numPartitions; i++) {
+      topicPartitions.add(new TopicPartition(topicName, i));
+    }
+
+    return topicPartitions;
   }
 }
