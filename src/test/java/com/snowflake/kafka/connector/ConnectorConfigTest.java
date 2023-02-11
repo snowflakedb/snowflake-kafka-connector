@@ -8,6 +8,7 @@ import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.SnowpipeStreamingFileType;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Locale;
 import java.util.Map;
@@ -620,6 +621,46 @@ public class ConnectorConfigTest {
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testInValidConfigFileTypeForSnowpipe() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE,
+        SnowpipeStreamingFileType.PARQUET.toString());
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testValidFileTypesForSnowpipeStreaming() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+
+    config.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE,
+        SnowpipeStreamingFileType.PARQUET.toString());
+    Utils.validateConfig(config);
+
+    config.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE,
+        SnowpipeStreamingFileType.ARROW.toString());
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testInValidFileTypeForSnowpipeStreaming() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE, "CSV");
     Utils.validateConfig(config);
   }
 }

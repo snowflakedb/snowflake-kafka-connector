@@ -64,7 +64,8 @@ public class SnowflakeSinkServiceV2IT {
   public void afterEach() throws Exception {
     TestUtils.dropTable(table);
     IngestSdkProvider.setStreamingClientManager(
-        new StreamingClientManager(new HashMap<>())); // reset to clean initial manager
+        StreamingClientManager
+            .resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
   }
 
   @Test

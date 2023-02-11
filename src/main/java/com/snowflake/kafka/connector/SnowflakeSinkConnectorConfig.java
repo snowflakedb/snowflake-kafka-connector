@@ -20,6 +20,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.SnowpipeStreamingFileType;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Arrays;
 import java.util.List;
@@ -111,6 +112,13 @@ public class SnowflakeSinkConnectorConfig {
   public static final String INGESTION_METHOD_OPT = "snowflake.ingestion.method";
   public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
       IngestionMethodConfig.SNOWPIPE.toString();
+
+  // This is the streaming bdec file type which can be defined in config, default to Parquet
+  public static final String SNOWPIPE_STREAMING_FILE_TYPE = "snowflake.streaming.file.type";
+
+  // default file type to parquet
+  public static final String SNOWPIPE_STREAMING_FILE_TYPE_DEFAULT =
+      SnowpipeStreamingFileType.PARQUET.toString();
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
@@ -474,6 +482,18 @@ public class SnowflakeSinkConnectorConfig {
             5,
             ConfigDef.Width.NONE,
             INGESTION_METHOD_OPT)
+        .define(
+            SNOWPIPE_STREAMING_FILE_TYPE,
+            Type.STRING,
+            SNOWPIPE_STREAMING_FILE_TYPE_DEFAULT,
+            SnowpipeStreamingFileType.VALIDATOR,
+            Importance.LOW,
+            "Acceptable values for Snowpipe Streaming File Types: ARROW and PARQUET, PARQUET being"
+                + " the default",
+            CONNECTOR_CONFIG,
+            6,
+            ConfigDef.Width.NONE,
+            SNOWPIPE_STREAMING_FILE_TYPE)
         .define(
             ERRORS_TOLERANCE_CONFIG,
             Type.STRING,

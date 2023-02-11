@@ -17,10 +17,14 @@
 
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
+import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
+
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.SnowpipeStreamingFileType;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -60,7 +64,7 @@ public class KcStreamingIngestClientTest {
 
     // test
     KcStreamingIngestClient kcActualClient =
-        new KcStreamingIngestClient(this.properties, this.clientName);
+        new KcStreamingIngestClient(this.properties, null, this.clientName);
 
     // verify
     assert kcActualClient.getName().equals(kcMockClient.getName());
@@ -70,11 +74,30 @@ public class KcStreamingIngestClientTest {
   @Test
   public void testCreateClientFailure() {
     TestUtils.assertExceptionType(
-        ConnectException.class, () -> new KcStreamingIngestClient(null, null));
+        ConnectException.class, () -> new KcStreamingIngestClient(null, null, null));
     TestUtils.assertExceptionType(
-        ConnectException.class, () -> new KcStreamingIngestClient(null, this.clientName));
+        ConnectException.class, () -> new KcStreamingIngestClient(null, null, this.clientName));
     TestUtils.assertExceptionType(
-        ConnectException.class, () -> new KcStreamingIngestClient(this.properties, null));
+        ConnectException.class, () -> new KcStreamingIngestClient(this.properties, null, null));
+  }
+
+  @Test
+  public void testCreateClientWithArrowBDECFileFormat() {
+    // setup
+    Mockito.when(this.mockClient.getName()).thenReturn(this.clientName);
+    KcStreamingIngestClient kcMockClient = new KcStreamingIngestClient(this.mockClient);
+
+    Map<String, Object> parameterOverrides =
+        Collections.singletonMap(
+            BLOB_FORMAT_VERSION, SnowpipeStreamingFileType.ARROW.getBdecVersion());
+
+    // test
+    KcStreamingIngestClient kcActualClient =
+        new KcStreamingIngestClient(this.properties, parameterOverrides, this.clientName);
+
+    // verify
+    assert kcActualClient.getName().equals(kcMockClient.getName());
+    Mockito.verify(this.mockClient, Mockito.times(1)).getName();
   }
 
   @Test

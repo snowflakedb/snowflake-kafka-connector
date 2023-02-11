@@ -16,10 +16,14 @@
  */
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
+import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.streaming.SnowpipeStreamingFileType;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.HashMap;
 import java.util.Map;
@@ -38,7 +42,7 @@ public class StreamingClientManager {
 
   // TESTING ONLY - inject the client map
   @VisibleForTesting
-  public StreamingClientManager(Map<Integer, KcStreamingIngestClient> taskToClientMap) {
+  protected StreamingClientManager(Map<Integer, KcStreamingIngestClient> taskToClientMap) {
     this();
     this.taskToClientMap = taskToClientMap;
     this.clientId = (int) taskToClientMap.values().stream().distinct().count() - 1;
@@ -50,6 +54,17 @@ public class StreamingClientManager {
     this.taskToClientMap = new HashMap<>();
     this.maxTasks = 0;
     this.clientId = -1; // will be incremented when a client is created
+  }
+
+  /** Resets existing streaming clients and get a new client manager used in testing. */
+  public static StreamingClientManager resetAndGetEmptyStreamingClientManager() {
+    Map<Integer, KcStreamingIngestClient> taskToClientMap =
+        IngestSdkProvider.getStreamingClientManager().taskToClientMap;
+    if (taskToClientMap != null && !taskToClientMap.isEmpty()) {
+      taskToClientMap.forEach(
+          (integer, kcStreamingIngestClient) -> kcStreamingIngestClient.close());
+    }
+    return new StreamingClientManager(new HashMap<>());
   }
 
   /**
@@ -72,25 +87,42 @@ public class StreamingClientManager {
     this.maxTasks = maxTasks;
 
     int clientCount = (int) Math.ceil((double) maxTasks / (double) numTasksPerClient);
-    LOGGER.info(
-        "Creating {} clients for {} tasks with max {} tasks per client",
-        clientCount,
-        maxTasks,
-        numTasksPerClient);
 
     Properties clientProperties = new Properties();
     clientProperties.putAll(
         StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig)));
 
+    Map<String, Object> parameterOverrides = new HashMap<>();
+    // default file type is PARQUET defined in Ingest SDK dependency
+    String snowpipeStreamingBdecFileType =
+        connectorConfig.getOrDefault(
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE,
+            SnowpipeStreamingFileType.PARQUET.toString());
+    if (snowpipeStreamingBdecFileType.equalsIgnoreCase(
+        SnowpipeStreamingFileType.ARROW.toString())) {
+      parameterOverrides.put(BLOB_FORMAT_VERSION, SnowpipeStreamingFileType.ARROW.getBdecVersion());
+    }
+
+    LOGGER.info(
+        "Creating {} clients for {} tasks with max {} tasks per client using {} file format",
+        clientCount,
+        maxTasks,
+        numTasksPerClient,
+        snowpipeStreamingBdecFileType);
+
     // put a new client for every tasksToCurrClient taskIds
     int tasksToCurrClient = 0;
     KcStreamingIngestClient createdClient =
         this.getClientHelper(
-            clientProperties, kcInstanceId, 0); // asserted that we have at least 1 task
+            clientProperties,
+            parameterOverrides,
+            kcInstanceId,
+            0); // asserted that we have at least 1 task
 
     for (int taskId = 0; taskId < this.maxTasks; taskId++) {
       if (tasksToCurrClient == numTasksPerClient) {
-        createdClient = this.getClientHelper(clientProperties, kcInstanceId, taskId);
+        createdClient =
+            this.getClientHelper(clientProperties, parameterOverrides, kcInstanceId, taskId);
         tasksToCurrClient = 1;
       } else {
         tasksToCurrClient++;
@@ -102,13 +134,13 @@ public class StreamingClientManager {
 
   // builds the client name and returns the created client. note taskId is used just for logging
   private KcStreamingIngestClient getClientHelper(
-      Properties props, String kcInstanceId, int taskId) {
+      Properties props,Map<String, Object> parameterOverrides, String kcInstanceId, int taskId) {
     this.clientId++;
     String clientName =
         KcStreamingIngestClient.buildStreamingIngestClientName(kcInstanceId, this.clientId);
     LOGGER.debug("Creating client {} for taskid {}", clientName, taskId);
 
-    return new KcStreamingIngestClient(props, clientName);
+    return new KcStreamingIngestClient(props, parameterOverrides, clientName);
   }
 
   /**
