@@ -83,7 +83,7 @@ public class StreamingClientManager {
         StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig)));
 
     // put a new client for every tasksToCurrClient taskIds
-    int tasksToCurrClient = numTasksPerClient;
+    int tasksToCurrClient = 0;
     KcStreamingIngestClient createdClient =
         this.getClientHelper(
             clientProperties, kcInstanceId, 0); // asserted that we have at least 1 task
@@ -134,6 +134,14 @@ public class StreamingClientManager {
     }
 
     return client;
+  }
+
+  /**
+   * Gets the number of clients created
+   * @return
+   */
+  public int getClientCount() {
+    return this.clientCount;
   }
 
   /**
