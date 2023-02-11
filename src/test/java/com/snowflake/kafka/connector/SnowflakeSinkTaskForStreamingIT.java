@@ -162,9 +162,6 @@ public class SnowflakeSinkTaskForStreamingIT {
 
   @Test
   public void testMultipleSinkTaskWithLogs() throws Exception {
-    int partition0 = 0;
-    int partition1 = 1;
-
     // setup log mocking for task1
     MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
@@ -173,20 +170,30 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // set up configs
     String task0Id = "0";
+    int partition0 = 0;
+    String topicName0 = "topic0";
     Map<String, String> config0 = TestUtils.getConfForStreaming();
+    config0.put(BUFFER_COUNT_RECORDS, "1"); // override
+    config0.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     SnowflakeSinkConnectorConfig.setDefaultValues(config0);
     config0.put(Utils.TASK_ID, task0Id);
+    TopicPartition topicPartition0 = new TopicPartition(topicName0, partition0);
 
     String task1Id = "1";
-    int taskOpen1Count = 0;
+    int partition1 = 1;
+    String topicName1 = "topic1";
     Map<String, String> config1 = TestUtils.getConfForStreaming();
+    config1.put(BUFFER_COUNT_RECORDS, "1"); // override
+    config1.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     SnowflakeSinkConnectorConfig.setDefaultValues(config1);
     config1.put(Utils.TASK_ID, task1Id);
+    TopicPartition topicPartition1 = new TopicPartition(topicName1, partition1);
+    int taskOpen1Count = 0;
 
     SnowflakeSinkTask sinkTask0 = new SnowflakeSinkTask();
 
-    sinkTask0.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
-    sinkTask1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
+    sinkTask0.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition0)));
+    sinkTask1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition1)));
 
     // set up task1 logging tag
     String expectedTask1Tag =
@@ -206,9 +213,9 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // open tasks
     ArrayList<TopicPartition> topicPartitions0 = new ArrayList<>();
-    topicPartitions0.add(new TopicPartition(topicName, partition0));
+    topicPartitions0.add(topicPartition0);
     ArrayList<TopicPartition> topicPartitions1 = new ArrayList<>();
-    topicPartitions1.add(new TopicPartition(topicName, partition1));
+    topicPartitions1.add(topicPartition1);
 
     sinkTask0.open(topicPartitions0);
     sinkTask1.open(topicPartitions1);
@@ -222,8 +229,8 @@ public class SnowflakeSinkTaskForStreamingIT {
             AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
 
     // send data to tasks
-    List<SinkRecord> records0 = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition0);
-    List<SinkRecord> records1 = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition1);
+    List<SinkRecord> records0 = TestUtils.createJsonStringSinkRecords(0, 1, topicName0, partition0);
+    List<SinkRecord> records1 = TestUtils.createJsonStringSinkRecords(0, 1, topicName1, partition1);
 
     sinkTask0.put(records0);
     sinkTask1.put(records1);
