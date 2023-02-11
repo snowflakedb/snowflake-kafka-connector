@@ -28,11 +28,12 @@ public class StreamingClientManagerTest {
 
   @Test
   public void testCreateAndGetAllStreamingClientsWithUnevenRatio() {
-    int maxTasks = 5;
-    int numTasksPerClient = 2;
     // test to create the following mapping
     // [0, 1] -> clientA, [2, 3] -> clientB, [4] -> clientC
     // test
+    int maxTasks = 5;
+    int numTasksPerClient = 2;
+
     StreamingClientManager manager = new StreamingClientManager();
     manager.createAllStreamingClients(
         TestUtils.getConfForStreaming(), "testkcid", maxTasks, numTasksPerClient);
@@ -51,7 +52,7 @@ public class StreamingClientManagerTest {
     assert !task4Client.equals(task0Client);
     assert !task4Client.equals(task2Client);
 
-    assert Math.ceil(maxTasks / numTasksPerClient) == manager.getClientCount();
+    assert Math.ceil((double) maxTasks / (double) numTasksPerClient) == manager.getClientCount();
 
     // close clients
     task0Client.close();
@@ -66,8 +67,12 @@ public class StreamingClientManagerTest {
     // test to create the following mapping
     // [0, 1, 2] -> clientA, [3, 4, 5] -> clientB
     // test
+    int maxTasks = 6;
+    int numTasksPerClient = 3;
+
     StreamingClientManager manager = new StreamingClientManager();
-    manager.createAllStreamingClients(TestUtils.getConfForStreaming(), "testkcid", 6, 3);
+    manager.createAllStreamingClients(
+        TestUtils.getConfForStreaming(), "testkcid", maxTasks, numTasksPerClient);
 
     // verify
     KcStreamingIngestClient task0Client = manager.getValidClient(0);
@@ -83,6 +88,8 @@ public class StreamingClientManagerTest {
     assert task4Client.equals(task5Client);
 
     assert !task0Client.equals(task5Client);
+
+    assert Math.ceil((double) maxTasks / (double) numTasksPerClient) == manager.getClientCount();
 
     // close clients
     task0Client.close();
