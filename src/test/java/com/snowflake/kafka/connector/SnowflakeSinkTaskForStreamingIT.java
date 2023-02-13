@@ -23,7 +23,6 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.internals.Topic;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
@@ -182,12 +181,14 @@ public class SnowflakeSinkTaskForStreamingIT {
     Mockito.when(logger.isDebugEnabled()).thenReturn(true);
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
     String expectedTask1Tag =
-            TestUtils.getExpectedLogTagWithoutCreationCount(task1Id + "", taskOpen1Count);
+        TestUtils.getExpectedLogTagWithoutCreationCount(task1Id + "", taskOpen1Count);
     Mockito.doCallRealMethod().when(loggerHandler).setLoggerInstanceTag(expectedTask1Tag);
 
     // init tasks
-    sinkTask0.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartitions0.get(0))));
-    sinkTask1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartitions1.get(0))));
+    sinkTask0.initialize(
+        new InMemorySinkTaskContext(Collections.singleton(topicPartitions0.get(0))));
+    sinkTask1.initialize(
+        new InMemorySinkTaskContext(Collections.singleton(topicPartitions1.get(0))));
 
     // start tasks
     sinkTask0.start(config0);
@@ -206,7 +207,8 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // verify task1 open logs
     taskOpen1Count++;
-    expectedTask1Tag = TestUtils.getExpectedLogTagWithoutCreationCount(task1Id + "", taskOpen1Count);
+    expectedTask1Tag =
+        TestUtils.getExpectedLogTagWithoutCreationCount(task1Id + "", taskOpen1Count);
     Mockito.verify(logger, Mockito.times(1))
         .debug(
             AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
@@ -345,6 +347,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     assert partitionsInTable.size() == 2;
   }
+
   private Map<String, String> getConfig(int taskId) {
     Map<String, String> config = TestUtils.getConfForStreaming();
     config.put(BUFFER_COUNT_RECORDS, "1"); // override
