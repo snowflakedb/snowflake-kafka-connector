@@ -51,8 +51,17 @@ public class SnowflakeSinkTaskForStreamingIT {
   private List<SinkRecord> records;
   private Map<TopicPartition, OffsetAndMetadata> offsetMap;
 
-  // sets up default objects required for sunny day tests
-  // NOTE: topicPartitions, records and corresponding offsetmap have a count of one each
+  // JUST FOR LOGGING TESTING, these should not be used anywhere else
+  @Mock private Logger logger = Mockito.mock(Logger.class);
+
+  @InjectMocks @Spy
+  private LoggerHandler loggerHandler = Mockito.spy(new LoggerHandler(this.getClass().getName()));
+
+  @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
+
+  // sets up default objects for normal testing
+  // NOTE: everything defaults to having one of each (ex: # topic partitions, # tasks, # clients,
+  // etc)
   @Before
   public void setup() throws Exception {
     this.taskId = 0;
@@ -68,8 +77,8 @@ public class SnowflakeSinkTaskForStreamingIT {
     this.offsetMap.put(this.topicPartitions.get(0), new OffsetAndMetadata(10000));
 
     IngestSdkProvider.getStreamingClientManager()
-        .createAllStreamingClients(this.config, "testkcid", 2, 1);
-    assert IngestSdkProvider.getStreamingClientManager().getClientCount() == 2;
+        .createAllStreamingClients(this.config, "testkcid", 1, 1);
+    assert IngestSdkProvider.getStreamingClientManager().getClientCount() == 1;
   }
 
   @After
@@ -165,15 +174,15 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask1.stop();
   }
 
-  @Mock Logger logger = Mockito.mock(Logger.class);
-
-  @InjectMocks @Spy
-  private LoggerHandler loggerHandler = Mockito.spy(new LoggerHandler(this.getClass().getName()));
-
-  @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
-
   @Test
   public void testMultipleSinkTaskWithLogs() throws Exception {
+    // set up two clients
+    IngestSdkProvider.setStreamingClientManager(new StreamingClientManager(new HashMap<>()));
+    // TODO @rcheng: use jay's reset method when merged
+    IngestSdkProvider.getStreamingClientManager()
+        .createAllStreamingClients(this.config, "kcid", 2, 1);
+    assert IngestSdkProvider.getStreamingClientManager().getClientCount() == 2;
+
     // setup task0, the real one, not strictly necessary but makes test more readable
     Map<String, String> config0 = this.config;
     List<TopicPartition> topicPartitions0 = this.topicPartitions;
