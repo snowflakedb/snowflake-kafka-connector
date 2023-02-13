@@ -19,9 +19,16 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.records.RecordService;
+
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import javax.annotation.Nonnull;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 
@@ -88,7 +95,15 @@ public class SchematizationUtils {
 
     // Add columns if needed, ignore any exceptions since other task might be succeeded
     if (extraColNames != null) {
-      Map<String, String> extraColumnsToType = getColumnTypes(record, extraColNames);
+      List<String> fieldNamesOrderedAsOnSource = Stream.concat(
+          record.keySchema().fields().stream().map(f -> f.name()),
+          record.valueSchema().fields().stream().map(f -> f.name())
+        ).collect(Collectors.toList());
+      List<String> extraColNamesOrderedAsOnSource = new ArrayList<>(extraColNames);
+      extraColNamesOrderedAsOnSource.sort(
+        Comparator.comparingInt(fieldNamesOrderedAsOnSource::indexOf));
+      Map<String, String> extraColumnsToType = getColumnTypes(record, extraColNamesOrderedAsOnSource);
+
       try {
         conn.appendColumnsToTable(tableName, extraColumnsToType);
       } catch (SnowflakeKafkaConnectorException e) {
@@ -114,7 +129,7 @@ public class SchematizationUtils {
     if (columnNames == null) {
       return new HashMap<>();
     }
-    Map<String, String> columnToType = new HashMap<>();
+    Map<String, String> columnToType = new LinkedHashMap<>();
     Map<String, String> schemaMap = getSchemaMapFromRecord(record);
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
 
