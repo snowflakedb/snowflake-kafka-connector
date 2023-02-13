@@ -61,13 +61,14 @@ public class SnowflakeSinkTaskForStreamingIT {
     this.config = this.getConfig(this.taskId);
     this.topicPartitions = getTopicPartitions(this.topicName, this.partitionCount);
     this.sinkTask = new SnowflakeSinkTask();
-    this.sinkTaskContext = new InMemorySinkTaskContext(Collections.singleton(this.topicPartitions.get(0)));
+    this.sinkTaskContext =
+        new InMemorySinkTaskContext(Collections.singleton(this.topicPartitions.get(0)));
     this.records = TestUtils.createJsonStringSinkRecords(0, 1, this.topicName, 0);
     this.offsetMap = new HashMap<>();
     this.offsetMap.put(this.topicPartitions.get(0), new OffsetAndMetadata(10000));
 
     IngestSdkProvider.getStreamingClientManager()
-            .createAllStreamingClients(this.config, "testkcid", 2, 1);
+        .createAllStreamingClients(this.config, "testkcid", 2, 1);
     assert IngestSdkProvider.getStreamingClientManager().getClientCount() == 2;
   }
 
@@ -95,8 +96,12 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // verify offset
     TestUtils.assertWithRetry(
-        () -> this.sinkTask.preCommit(this.offsetMap).get(this.topicPartitions.get(0)).offset() == 1, 20, 5);
+        () ->
+            this.sinkTask.preCommit(this.offsetMap).get(this.topicPartitions.get(0)).offset() == 1,
+        20,
+        5);
 
+    // cleanup
     this.sinkTask.close(this.topicPartitions);
     this.sinkTask.stop();
   }
@@ -105,15 +110,12 @@ public class SnowflakeSinkTaskForStreamingIT {
   @Test
   public void testTaskToClientMapping() throws Exception {
     // setup two tasks pointing to one client
-    IngestSdkProvider.setStreamingClientManager(
-            new StreamingClientManager(new HashMap<>()));
+    IngestSdkProvider.setStreamingClientManager(new StreamingClientManager(new HashMap<>()));
     IngestSdkProvider.getStreamingClientManager()
         .createAllStreamingClients(this.config, "kcid", 2, 2);
     assert IngestSdkProvider.getStreamingClientManager().getClientCount() == 1;
 
     // setup task0, not strictly necessary but makes test more readable
-    int taskId0 = this.taskId;
-    String topicName0 = this.topicName;
     Map<String, String> config0 = this.config;
     List<TopicPartition> topicPartitions0 = this.topicPartitions;
     SnowflakeSinkTask sinkTask0 = this.sinkTask;
@@ -127,7 +129,8 @@ public class SnowflakeSinkTaskForStreamingIT {
     Map<String, String> config1 = this.getConfig(taskId1);
     List<TopicPartition> topicPartitions1 = getTopicPartitions(topicName1, 1);
     SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
-    InMemorySinkTaskContext sinkTaskContext1 = new InMemorySinkTaskContext(Collections.singleton(topicPartitions1.get(0)));
+    InMemorySinkTaskContext sinkTaskContext1 =
+        new InMemorySinkTaskContext(Collections.singleton(topicPartitions1.get(0)));
     List<SinkRecord> records1 = TestUtils.createJsonStringSinkRecords(0, 1, topicName1, 0);
     Map<TopicPartition, OffsetAndMetadata> offsetMap1 = new HashMap<>();
     offsetMap1.put(topicPartitions1.get(0), new OffsetAndMetadata(10000));
@@ -161,14 +164,15 @@ public class SnowflakeSinkTaskForStreamingIT {
   }
 
   @Mock Logger logger = Mockito.mock(Logger.class);
+
   @InjectMocks @Spy
   private LoggerHandler loggerHandler = Mockito.spy(new LoggerHandler(this.getClass().getName()));
+
   @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
+
   @Test
   public void testMultipleSinkTaskWithLogs() throws Exception {
     // setup task0, the real one, not strictly necessary but makes test more readable
-    int taskId0 = this.taskId;
-    String topicName0 = this.topicName;
     Map<String, String> config0 = this.config;
     List<TopicPartition> topicPartitions0 = this.topicPartitions;
     SnowflakeSinkTask sinkTask0 = this.sinkTask;
@@ -181,7 +185,8 @@ public class SnowflakeSinkTaskForStreamingIT {
     String topicName1 = "topicName1";
     Map<String, String> config1 = this.getConfig(taskId1);
     List<TopicPartition> topicPartitions1 = getTopicPartitions(topicName1, 1);
-    InMemorySinkTaskContext sinkTaskContext1 = new InMemorySinkTaskContext(Collections.singleton(topicPartitions1.get(0)));
+    InMemorySinkTaskContext sinkTaskContext1 =
+        new InMemorySinkTaskContext(Collections.singleton(topicPartitions1.get(0)));
     List<SinkRecord> records1 = TestUtils.createJsonStringSinkRecords(0, 1, topicName1, 0);
     Map<TopicPartition, OffsetAndMetadata> offsetMap1 = new HashMap<>();
     offsetMap1.put(topicPartitions1.get(0), new OffsetAndMetadata(10000));
@@ -192,7 +197,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     Mockito.when(logger.isDebugEnabled()).thenReturn(true);
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
     String expectedTask1Tag =
-            TestUtils.getExpectedLogTagWithoutCreationCount(taskId1 + "", task1OpenCount);
+        TestUtils.getExpectedLogTagWithoutCreationCount(taskId1 + "", task1OpenCount);
     Mockito.doCallRealMethod().when(loggerHandler).setLoggerInstanceTag(expectedTask1Tag);
 
     // init tasks
@@ -216,7 +221,8 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // verify task1 open logs
     task1OpenCount++;
-    expectedTask1Tag = TestUtils.getExpectedLogTagWithoutCreationCount(taskId1 + "", task1OpenCount);
+    expectedTask1Tag =
+        TestUtils.getExpectedLogTagWithoutCreationCount(taskId1 + "", task1OpenCount);
     Mockito.verify(logger, Mockito.times(1))
         .debug(
             AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
@@ -277,15 +283,18 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // send regular data to partition 0, verify data was committed
     this.sinkTask.put(recordsPart0);
-    TestUtils.assertWithRetry(() -> this.sinkTask.preCommit(this.offsetMap).size() == noOfRecords, 20, 5);
     TestUtils.assertWithRetry(
-        () -> this.sinkTask.preCommit(this.offsetMap).get(this.topicPartitions.get(0)).offset() == noOfRecords,
+        () -> this.sinkTask.preCommit(this.offsetMap).size() == noOfRecords, 20, 5);
+    TestUtils.assertWithRetry(
+        () ->
+            this.sinkTask.preCommit(this.offsetMap).get(this.topicPartitions.get(0)).offset()
+                == noOfRecords,
         20,
         5);
 
     this.sinkTask.close(this.topicPartitions);
 
-    // Add one more partition
+    // Add one more partition and open last partition
     this.partitionCount++;
     this.topicPartitions = this.getTopicPartitions(this.topicName, this.partitionCount);
     this.sinkTask.open(this.topicPartitions);
@@ -300,7 +309,10 @@ public class SnowflakeSinkTaskForStreamingIT {
     // verify precommit for task and each partition
     TestUtils.assertWithRetry(() -> this.sinkTask.preCommit(this.offsetMap).size() == 2, 20, 5);
     TestUtils.assertWithRetry(
-        () -> this.sinkTask.preCommit(this.offsetMap).get(this.topicPartitions.get(0)).offset() == 1, 20, 5);
+        () ->
+            this.sinkTask.preCommit(this.offsetMap).get(this.topicPartitions.get(0)).offset() == 1,
+        20,
+        5);
     TestUtils.assertWithRetry(
         () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(1)).offset() == 1, 20, 5);
 
