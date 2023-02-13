@@ -142,7 +142,7 @@ public class StreamingClientManager {
    * @return the number of clients created
    */
   public int getClientCount() {
-    return this.clientId + 1; // clientid initialized to -1 but count is off by one
+    return this.clientId + 1; // clientid starts at 0, so off by one
   }
 
   /**

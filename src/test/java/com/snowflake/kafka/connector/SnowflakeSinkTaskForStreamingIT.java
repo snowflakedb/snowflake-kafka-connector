@@ -79,6 +79,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     TestUtils.dropTable(topicName);
     IngestSdkProvider.setStreamingClientManager(
         new StreamingClientManager(new HashMap<>())); // reset to clean initial manager
+    // TODO @rcheng: use jay's reset method when merged
   }
 
   @Test
@@ -111,6 +112,7 @@ public class SnowflakeSinkTaskForStreamingIT {
   public void testTaskToClientMapping() throws Exception {
     // setup two tasks pointing to one client
     IngestSdkProvider.setStreamingClientManager(new StreamingClientManager(new HashMap<>()));
+    // TODO @rcheng: use jay's reset method when merged
     IngestSdkProvider.getStreamingClientManager()
         .createAllStreamingClients(this.config, "kcid", 2, 2);
     assert IngestSdkProvider.getStreamingClientManager().getClientCount() == 1;
