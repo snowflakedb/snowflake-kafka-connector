@@ -38,7 +38,6 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
 import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
-import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
@@ -63,8 +62,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -766,10 +763,10 @@ public class TestUtils {
   /** Resets existing streaming clients and get a new client manager used in testing. */
   public static StreamingClientManager resetAndGetEmptyStreamingClientManager() {
     Map<Integer, KcStreamingIngestClient> taskToClientMap =
-            IngestSdkProvider.getStreamingClientManager().getTaskToClientMap();
+        IngestSdkProvider.getStreamingClientManager().getTaskToClientMap();
     if (taskToClientMap != null && !taskToClientMap.isEmpty()) {
       taskToClientMap.forEach(
-              (integer, kcStreamingIngestClient) -> kcStreamingIngestClient.close());
+          (integer, kcStreamingIngestClient) -> kcStreamingIngestClient.close());
     }
     return new StreamingClientManager(new HashMap<>());
   }

@@ -7,7 +7,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
-import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,8 +54,7 @@ public class TopicPartitionChannelIT {
   public void afterEach() throws Exception {
     TestUtils.dropTable(testTableName);
     IngestSdkProvider.setStreamingClientManager(
-        TestUtils
-            .resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
+        TestUtils.resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
   }
 
   @Test
@@ -396,8 +394,7 @@ public class TopicPartitionChannelIT {
   public void testSimpleInsertRowsWithArrowBDECFormat() throws Exception {
     // Wipe off existing clients.
     IngestSdkProvider.setStreamingClientManager(
-        TestUtils
-            .resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
+        TestUtils.resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
 
     // add config which overrides the bdec file format
     Map<String, String> overriddenConfig = new HashMap<>(this.config);

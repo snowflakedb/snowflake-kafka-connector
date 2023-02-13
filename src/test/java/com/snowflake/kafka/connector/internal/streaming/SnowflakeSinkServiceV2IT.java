@@ -9,7 +9,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
-import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
@@ -64,8 +63,7 @@ public class SnowflakeSinkServiceV2IT {
   public void afterEach() throws Exception {
     TestUtils.dropTable(table);
     IngestSdkProvider.setStreamingClientManager(
-        TestUtils
-            .resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
+        TestUtils.resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
   }
 
   @Test

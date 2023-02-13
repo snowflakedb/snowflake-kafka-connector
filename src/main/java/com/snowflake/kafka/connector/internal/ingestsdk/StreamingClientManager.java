@@ -129,7 +129,7 @@ public class StreamingClientManager {
 
   // builds the client name and returns the created client. note taskId is used just for logging
   private KcStreamingIngestClient getClientHelper(
-      Properties props,Map<String, Object> parameterOverrides, String kcInstanceId, int taskId) {
+      Properties props, Map<String, Object> parameterOverrides, String kcInstanceId, int taskId) {
     this.clientId++;
     String clientName =
         KcStreamingIngestClient.buildStreamingIngestClientName(kcInstanceId, this.clientId);
