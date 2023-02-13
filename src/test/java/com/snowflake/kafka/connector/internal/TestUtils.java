@@ -35,6 +35,9 @@ import static com.snowflake.kafka.connector.Utils.SF_USER;
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
+import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
+import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -760,12 +763,14 @@ public class TestUtils {
     return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, taskId, taskOpenCount, "").split("#")[0];
   }
 
-  public static SnowflakeStreamingIngestClient createStreamingClient(
-      Map<String, String> config, String clientName) {
-    Properties clientProperties = new Properties();
-    clientProperties.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
-    return SnowflakeStreamingIngestClientFactory.builder(clientName)
-        .setProperties(clientProperties)
-        .build();
+  /** Resets existing streaming clients and get a new client manager used in testing. */
+  public static StreamingClientManager resetAndGetEmptyStreamingClientManager() {
+    Map<Integer, KcStreamingIngestClient> taskToClientMap =
+            IngestSdkProvider.getStreamingClientManager().getTaskToClientMap();
+    if (taskToClientMap != null && !taskToClientMap.isEmpty()) {
+      taskToClientMap.forEach(
+              (integer, kcStreamingIngestClient) -> kcStreamingIngestClient.close());
+    }
+    return new StreamingClientManager(new HashMap<>());
   }
 }

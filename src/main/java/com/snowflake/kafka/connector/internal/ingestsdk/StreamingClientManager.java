@@ -42,7 +42,7 @@ public class StreamingClientManager {
 
   // TESTING ONLY - inject the client map
   @VisibleForTesting
-  protected StreamingClientManager(Map<Integer, KcStreamingIngestClient> taskToClientMap) {
+  public StreamingClientManager(Map<Integer, KcStreamingIngestClient> taskToClientMap) {
     this();
     this.taskToClientMap = taskToClientMap;
     this.clientId = (int) taskToClientMap.values().stream().distinct().count() - 1;
@@ -56,15 +56,10 @@ public class StreamingClientManager {
     this.clientId = -1; // will be incremented when a client is created
   }
 
-  /** Resets existing streaming clients and get a new client manager used in testing. */
-  public static StreamingClientManager resetAndGetEmptyStreamingClientManager() {
-    Map<Integer, KcStreamingIngestClient> taskToClientMap =
-        IngestSdkProvider.getStreamingClientManager().taskToClientMap;
-    if (taskToClientMap != null && !taskToClientMap.isEmpty()) {
-      taskToClientMap.forEach(
-          (integer, kcStreamingIngestClient) -> kcStreamingIngestClient.close());
-    }
-    return new StreamingClientManager(new HashMap<>());
+  /** Gets the task to client map associated with StreamingClientManager */
+  @VisibleForTesting
+  public Map<Integer, KcStreamingIngestClient> getTaskToClientMap() {
+    return taskToClientMap;
   }
 
   /**

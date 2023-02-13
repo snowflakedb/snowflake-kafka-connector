@@ -123,7 +123,7 @@ public class TopicPartitionChannelTest {
   public void afterEachTest() {
     // need to reset client manager since it is global static variable
     IngestSdkProvider.setStreamingClientManager(
-        StreamingClientManager.resetAndGetEmptyStreamingClientManager());
+        TestUtils.resetAndGetEmptyStreamingClientManager());
 
     // verify the mocks setup above
     Mockito.verify(this.mockStreamingClientManager, Mockito.times(expectedCallGetValidClientCount))

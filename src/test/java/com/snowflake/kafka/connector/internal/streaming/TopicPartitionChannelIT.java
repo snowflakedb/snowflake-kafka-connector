@@ -55,7 +55,7 @@ public class TopicPartitionChannelIT {
   public void afterEach() throws Exception {
     TestUtils.dropTable(testTableName);
     IngestSdkProvider.setStreamingClientManager(
-        StreamingClientManager
+        TestUtils
             .resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
   }
 
@@ -396,7 +396,7 @@ public class TopicPartitionChannelIT {
   public void testSimpleInsertRowsWithArrowBDECFormat() throws Exception {
     // Wipe off existing clients.
     IngestSdkProvider.setStreamingClientManager(
-        StreamingClientManager
+        TestUtils
             .resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
 
     // add config which overrides the bdec file format
