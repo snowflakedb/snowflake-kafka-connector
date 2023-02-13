@@ -34,14 +34,14 @@ public class StreamingClientManager {
   private Map<Integer, KcStreamingIngestClient> taskToClientMap;
   private int maxTasks;
   private final int minTasks = 0;
-  private int clientCount; // this should only ever increase
+  private int clientId; // this should only ever increase
 
   // TESTING ONLY - inject the client map
   @VisibleForTesting
   public StreamingClientManager(Map<Integer, KcStreamingIngestClient> taskToClientMap) {
     this();
     this.taskToClientMap = taskToClientMap;
-    this.clientCount = (int) taskToClientMap.values().stream().distinct().count() - 1;
+    this.clientId = (int) taskToClientMap.values().stream().distinct().count() - 1;
   }
 
   /** Creates a new client manager */
@@ -49,7 +49,7 @@ public class StreamingClientManager {
     LOGGER = new LoggerHandler(this.getClass().getName());
     this.taskToClientMap = new HashMap<>();
     this.maxTasks = 0;
-    this.clientCount = -1; // will be incremented when a client is created
+    this.clientId = -1; // will be incremented when a client is created
   }
 
   /**
@@ -83,7 +83,7 @@ public class StreamingClientManager {
         StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig)));
 
     // put a new client for every tasksToCurrClient taskIds
-    int tasksToCurrClient = numTasksPerClient;
+    int tasksToCurrClient = 0;
     KcStreamingIngestClient createdClient =
         this.getClientHelper(
             clientProperties, kcInstanceId, 0); // asserted that we have at least 1 task
@@ -103,9 +103,9 @@ public class StreamingClientManager {
   // builds the client name and returns the created client. note taskId is used just for logging
   private KcStreamingIngestClient getClientHelper(
       Properties props, String kcInstanceId, int taskId) {
-    this.clientCount++;
+    this.clientId++;
     String clientName =
-        KcStreamingIngestClient.buildStreamingIngestClientName(kcInstanceId, this.clientCount);
+        KcStreamingIngestClient.buildStreamingIngestClientName(kcInstanceId, this.clientId);
     LOGGER.debug("Creating client {} for taskid {}", clientName, taskId);
 
     return new KcStreamingIngestClient(props, clientName);
@@ -124,7 +124,7 @@ public class StreamingClientManager {
               "taskId must be between 0 and {} but was given {}", this.maxTasks, taskId));
     }
 
-    if (this.clientCount < 0) {
+    if (this.clientId < 0) {
       throw SnowflakeErrors.ERROR_3009.getException("call the manager to create the clients");
     }
 
@@ -134,6 +134,15 @@ public class StreamingClientManager {
     }
 
     return client;
+  }
+
+  /**
+   * Gets the number of clients created
+   *
+   * @return the number of clients created
+   */
+  public int getClientCount() {
+    return this.clientId + 1; // clientid starts at 0, so off by one
   }
 
   /**
