@@ -22,7 +22,6 @@ import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.SnowpipeStreamingFileType;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,6 +30,7 @@ import java.util.Properties;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
 import org.junit.Test;
@@ -88,8 +88,7 @@ public class KcStreamingIngestClientTest {
     KcStreamingIngestClient kcMockClient = new KcStreamingIngestClient(this.mockClient);
 
     Map<String, Object> parameterOverrides =
-        Collections.singletonMap(
-            BLOB_FORMAT_VERSION, SnowpipeStreamingFileType.ARROW.getBdecVersion());
+        Collections.singletonMap(BLOB_FORMAT_VERSION, Constants.BdecVersion.ONE);
 
     // test
     KcStreamingIngestClient kcActualClient =

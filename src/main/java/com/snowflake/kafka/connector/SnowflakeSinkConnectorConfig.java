@@ -20,7 +20,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.SnowpipeStreamingFileType;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Arrays;
 import java.util.List;
@@ -28,6 +27,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
@@ -113,12 +113,15 @@ public class SnowflakeSinkConnectorConfig {
   public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
       IngestionMethodConfig.SNOWPIPE.toString();
 
-  // This is the streaming bdec file type which can be defined in config, default to Parquet
+  // This is the streaming bdec file type which can be defined in config
   public static final String SNOWPIPE_STREAMING_FILE_TYPE = "snowflake.streaming.file.type";
 
-  // default file type to parquet
+  /**
+   * default file type to parquet which corresponds to {@link
+   * net.snowflake.ingest.utils.Constants.BdecVersion#THREE}
+   */
   public static final String SNOWPIPE_STREAMING_FILE_TYPE_DEFAULT =
-      SnowpipeStreamingFileType.PARQUET.toString();
+      Constants.BdecVersion.THREE.toString();
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
@@ -486,10 +489,10 @@ public class SnowflakeSinkConnectorConfig {
             SNOWPIPE_STREAMING_FILE_TYPE,
             Type.STRING,
             SNOWPIPE_STREAMING_FILE_TYPE_DEFAULT,
-            SnowpipeStreamingFileType.VALIDATOR,
+            BDEC_VERSION_VALIDATOR,
             Importance.LOW,
-            "Acceptable values for Snowpipe Streaming File Types: ARROW and PARQUET, PARQUET being"
-                + " the default",
+            "Acceptable values for Snowpipe Streaming BDEC Versions: ONE and THREE, THREE (PARQUET)"
+                + " being the default",
             CONNECTOR_CONFIG,
             6,
             ConfigDef.Width.NONE,
@@ -795,4 +798,40 @@ public class SnowflakeSinkConnectorConfig {
           this.validator.ensureValid(name, value);
         }
       };
+
+  /**
+   * Validator to validate {@link
+   * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#SNOWPIPE_STREAMING_FILE_TYPE}
+   */
+  public static final ConfigDef.Validator BDEC_VERSION_VALIDATOR =
+      new ConfigDef.Validator() {
+        private final ConfigDef.ValidString validator =
+            ConfigDef.ValidString.in(allSnowpipeStreamingBdecVersions());
+
+        @Override
+        public void ensureValid(String name, Object value) {
+          if (value instanceof String) {
+            // Converts the input to upper case to match Enum
+            value = ((String) value).toUpperCase(Locale.ROOT);
+          }
+          validator.ensureValid(name, value);
+        }
+
+        @Override
+        public String toString() {
+          return validator.toString();
+        }
+      };
+
+  // All valid enum values
+  public static String[] allSnowpipeStreamingBdecVersions() {
+    Constants.BdecVersion[] bdecVersions = Constants.BdecVersion.values();
+    String[] result = new String[bdecVersions.length];
+
+    for (int i = 0; i < bdecVersions.length; i++) {
+      result[i] = bdecVersions[i].toString();
+    }
+
+    return result;
+  }
 }

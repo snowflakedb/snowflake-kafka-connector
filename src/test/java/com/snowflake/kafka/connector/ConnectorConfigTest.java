@@ -8,10 +8,10 @@ import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.SnowpipeStreamingFileType;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Locale;
 import java.util.Map;
+import net.snowflake.ingest.utils.Constants;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -629,7 +629,7 @@ public class ConnectorConfigTest {
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE,
-        SnowpipeStreamingFileType.PARQUET.toString());
+        Constants.BdecVersion.THREE.toString());
     Utils.validateConfig(config);
   }
 
@@ -643,12 +643,16 @@ public class ConnectorConfigTest {
 
     config.put(
         SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE,
-        SnowpipeStreamingFileType.PARQUET.toString());
+        Constants.BdecVersion.THREE.toString());
     Utils.validateConfig(config);
 
     config.put(
         SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE,
-        SnowpipeStreamingFileType.ARROW.toString());
+        Constants.BdecVersion.ONE.toString());
+    Utils.validateConfig(config);
+
+    // lower case
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE, "threE");
     Utils.validateConfig(config);
   }
 
@@ -660,7 +664,7 @@ public class ConnectorConfigTest {
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
 
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE, "CSV");
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE, "TWO");
     Utils.validateConfig(config);
   }
 }

@@ -23,11 +23,12 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.streaming.SnowpipeStreamingFileType;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
+import net.snowflake.ingest.utils.Constants;
 
 /**
  * Provides access to the streaming ingest clients. This should be the only place to manage clients.
@@ -87,15 +88,19 @@ public class StreamingClientManager {
     clientProperties.putAll(
         StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig)));
 
+    // Override only if bdec version is explicitly set in config, default to the version set inside
+    // Ingest SDK
     Map<String, Object> parameterOverrides = new HashMap<>();
-    // default file type is PARQUET defined in Ingest SDK dependency
-    String snowpipeStreamingBdecFileType =
-        connectorConfig.getOrDefault(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE,
-            SnowpipeStreamingFileType.PARQUET.toString());
-    if (snowpipeStreamingBdecFileType.equalsIgnoreCase(
-        SnowpipeStreamingFileType.ARROW.toString())) {
-      parameterOverrides.put(BLOB_FORMAT_VERSION, SnowpipeStreamingFileType.ARROW.getBdecVersion());
+    // default bdec version is THREE defined in Ingest SDK dependency [THREE corresponds to PARQUET]
+    Optional<String> snowpipeStreamingBdecVersion =
+        Optional.ofNullable(
+            connectorConfig.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE));
+
+    if (snowpipeStreamingBdecVersion.isPresent()
+        && snowpipeStreamingBdecVersion
+            .get()
+            .equalsIgnoreCase(Constants.BdecVersion.ONE.toString())) {
+      parameterOverrides.put(BLOB_FORMAT_VERSION, Constants.BdecVersion.ONE);
     }
 
     LOGGER.info(
@@ -103,7 +108,7 @@ public class StreamingClientManager {
         clientCount,
         maxTasks,
         numTasksPerClient,
-        snowpipeStreamingBdecFileType);
+        snowpipeStreamingBdecVersion);
 
     // put a new client for every tasksToCurrClient taskIds
     int tasksToCurrClient = 0;

@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BDEC_VERSION_VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
@@ -208,9 +209,9 @@ public class StreamingUtils {
             configIsValid = false;
           }
 
-          // validate snowpipe streaming file type
+          // validate snowpipe streaming BDEC Version
           if (inputConfig.containsKey(SNOWPIPE_STREAMING_FILE_TYPE)) {
-            SnowpipeStreamingFileType.VALIDATOR.ensureValid(
+            BDEC_VERSION_VALIDATOR.ensureValid(
                 SNOWPIPE_STREAMING_FILE_TYPE, inputConfig.get(SNOWPIPE_STREAMING_FILE_TYPE));
           }
         }
