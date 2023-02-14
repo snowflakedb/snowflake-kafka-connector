@@ -68,7 +68,7 @@ public class TopicPartitionChannel {
 
   private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 
-  private long initKafkaOffset = -1L ;
+  private long initKafkaOffset = 0L ;
   // last time we invoked insertRows API
   private long previousFlushTimeStampMs;
 
@@ -311,7 +311,7 @@ public class TopicPartitionChannel {
    * a desired offset from kafka.
    *
    * <p>Desired Offset from Kafka = (offset persisted in snowflake + 1)
-   * <p>If the snowflake table is empty, Desired Offset from kafka = init kafka offset.
+   * <p>Or If the snowflake table is empty, Desired Offset from kafka = init kafka offset.
    *
    * <p>Check {link {@link TopicPartitionChannel#resetChannelMetadataAfterRecovery}} for reset logic
    *
