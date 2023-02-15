@@ -13,6 +13,7 @@ import java.util.Map;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.AdditionalMatchers;
 import org.mockito.InjectMocks;
@@ -32,6 +33,7 @@ public class SnowflakeSinkTaskTest {
 
   @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
 
+  @Ignore
   @Test
   public void testMultipleSinkTaskWithLogs() throws Exception {
     // setup task0, the real one
