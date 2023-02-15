@@ -12,7 +12,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
@@ -399,9 +398,7 @@ public class TopicPartitionChannelIT {
 
     // add config which overrides the bdec file format
     Map<String, String> overriddenConfig = new HashMap<>(this.config);
-    overriddenConfig.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
-        Constants.BdecVersion.ONE.toString());
+    overriddenConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
     IngestSdkProvider.getStreamingClientManager()
         .createAllStreamingClients(overriddenConfig, "testkcid", 1, 1);
 

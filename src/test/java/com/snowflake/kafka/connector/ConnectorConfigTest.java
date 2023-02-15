@@ -11,7 +11,6 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Locale;
 import java.util.Map;
-import net.snowflake.ingest.utils.Constants;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -627,9 +626,7 @@ public class ConnectorConfigTest {
   @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testInValidConfigFileTypeForSnowpipe() {
     Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
-        Constants.BdecVersion.THREE.toString());
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "3");
     Utils.validateConfig(config);
   }
 
@@ -641,18 +638,14 @@ public class ConnectorConfigTest {
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
 
-    config.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
-        Constants.BdecVersion.THREE.toString());
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "3");
     Utils.validateConfig(config);
 
-    config.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
-        Constants.BdecVersion.ONE.toString());
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
     Utils.validateConfig(config);
 
     // lower case
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "threE");
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "abcd");
     Utils.validateConfig(config);
   }
 }

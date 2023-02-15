@@ -30,7 +30,6 @@ import java.util.Properties;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Assert;
 import org.junit.Before;
@@ -88,8 +87,7 @@ public class KcStreamingIngestClientTest {
     Mockito.when(this.mockClient.getName()).thenReturn(this.clientName);
     KcStreamingIngestClient kcMockClient = new KcStreamingIngestClient(this.mockClient);
 
-    Map<String, Object> parameterOverrides =
-        Collections.singletonMap(BLOB_FORMAT_VERSION, Constants.BdecVersion.ONE);
+    Map<String, Object> parameterOverrides = Collections.singletonMap(BLOB_FORMAT_VERSION, "1");
 
     // test
     KcStreamingIngestClient kcActualClient =
