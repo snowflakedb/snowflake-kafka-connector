@@ -382,11 +382,11 @@ public class Utils {
             "Schematization is only available with {}.",
             IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
       }
-      if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE)) {
+      if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION)) {
         configIsValid = false;
         LOGGER.error(
             "{} is only available with ingestion type: {}.",
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE,
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
             IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
       }
     }

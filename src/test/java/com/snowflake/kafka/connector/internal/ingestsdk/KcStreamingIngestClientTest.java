@@ -32,6 +32,7 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
@@ -177,5 +178,24 @@ public class KcStreamingIngestClientTest {
     KcStreamingIngestClient kcMockClient = new KcStreamingIngestClient(this.mockClient);
     assert kcMockClient.isClosed() == isClosed;
     Mockito.verify(this.mockClient, Mockito.times(1)).isClosed();
+  }
+
+  @Test
+  public void testInvalidInsertRowsWithInvalidBDECFormat() throws Exception {
+    // Wipe off existing clients.
+    IngestSdkProvider.setStreamingClientManager(
+        TestUtils.resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
+
+    // add config which overrides the bdec file format
+    Map<String, String> overriddenConfig = new HashMap<>(this.config);
+    overriddenConfig.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
+        "TWOO_HUNDRED"); // some random string not supported in enum
+    try {
+      IngestSdkProvider.getStreamingClientManager()
+          .createAllStreamingClients(overriddenConfig, "testkcid", 1, 1);
+    } catch (IllegalArgumentException ex) {
+      Assert.assertEquals(NumberFormatException.class, ex.getCause().getClass());
+    }
   }
 }

@@ -28,7 +28,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import net.snowflake.ingest.utils.Constants;
 
 /**
  * Provides access to the streaming ingest clients. This should be the only place to manage clients.
@@ -91,17 +90,12 @@ public class StreamingClientManager {
     // Override only if bdec version is explicitly set in config, default to the version set inside
     // Ingest SDK
     Map<String, Object> parameterOverrides = new HashMap<>();
-    // default bdec version is THREE defined in Ingest SDK dependency [THREE corresponds to PARQUET]
     Optional<String> snowpipeStreamingBdecVersion =
         Optional.ofNullable(
-            connectorConfig.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE));
+            connectorConfig.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION));
 
-    if (snowpipeStreamingBdecVersion.isPresent()
-        && snowpipeStreamingBdecVersion
-            .get()
-            .equalsIgnoreCase(Constants.BdecVersion.ONE.toString())) {
-      parameterOverrides.put(BLOB_FORMAT_VERSION, Constants.BdecVersion.ONE);
-    }
+    snowpipeStreamingBdecVersion.ifPresent(
+        overriddenValue -> parameterOverrides.put(BLOB_FORMAT_VERSION, overriddenValue));
 
     LOGGER.info(
         "Creating {} clients for {} tasks with max {} tasks per client using {} file format",

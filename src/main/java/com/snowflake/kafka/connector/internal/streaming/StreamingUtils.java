@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BDEC_VERSION_VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
@@ -10,7 +9,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ErrorTolerance;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
 import com.google.common.base.Strings;
@@ -207,12 +205,6 @@ public class StreamingUtils {
           // Valid schematization for Snowpipe Streaming
           if (!validateSchematizationConfig(inputConfig)) {
             configIsValid = false;
-          }
-
-          // validate snowpipe streaming BDEC Version
-          if (inputConfig.containsKey(SNOWPIPE_STREAMING_FILE_TYPE)) {
-            BDEC_VERSION_VALIDATOR.ensureValid(
-                SNOWPIPE_STREAMING_FILE_TYPE, inputConfig.get(SNOWPIPE_STREAMING_FILE_TYPE));
           }
         }
       } catch (ConfigException exception) {

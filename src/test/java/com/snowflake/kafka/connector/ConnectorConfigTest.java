@@ -628,7 +628,7 @@ public class ConnectorConfigTest {
   public void testInValidConfigFileTypeForSnowpipe() {
     Map<String, String> config = getConfig();
     config.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE,
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
         Constants.BdecVersion.THREE.toString());
     Utils.validateConfig(config);
   }
@@ -642,29 +642,17 @@ public class ConnectorConfigTest {
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
 
     config.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE,
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
         Constants.BdecVersion.THREE.toString());
     Utils.validateConfig(config);
 
     config.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE,
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
         Constants.BdecVersion.ONE.toString());
     Utils.validateConfig(config);
 
     // lower case
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE, "threE");
-    Utils.validateConfig(config);
-  }
-
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testInValidFileTypeForSnowpipeStreaming() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE, "TWO");
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "threE");
     Utils.validateConfig(config);
   }
 }

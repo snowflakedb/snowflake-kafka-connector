@@ -400,7 +400,7 @@ public class TopicPartitionChannelIT {
     // add config which overrides the bdec file format
     Map<String, String> overriddenConfig = new HashMap<>(this.config);
     overriddenConfig.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_TYPE,
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
         Constants.BdecVersion.ONE.toString());
     IngestSdkProvider.getStreamingClientManager()
         .createAllStreamingClients(overriddenConfig, "testkcid", 1, 1);
