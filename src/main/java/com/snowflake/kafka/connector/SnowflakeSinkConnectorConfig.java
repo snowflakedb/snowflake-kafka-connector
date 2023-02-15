@@ -113,6 +113,7 @@ public class SnowflakeSinkConnectorConfig {
       IngestionMethodConfig.SNOWPIPE.toString();
 
   // This is the streaming bdec file version which can be defined in config
+  // NOTE: Please do not override this value unless recommended from snowflake
   public static final String SNOWPIPE_STREAMING_FILE_VERSION = "snowflake.streaming.file.version";
 
   // TESTING
@@ -480,7 +481,7 @@ public class SnowflakeSinkConnectorConfig {
         .define(
             SNOWPIPE_STREAMING_FILE_VERSION,
             Type.STRING,
-            ConfigDef.NO_DEFAULT_VALUE, // default is handled in Ingest SDK
+            "", // default is handled in Ingest SDK
             null, // no validator
             Importance.LOW,
             "Acceptable values for Snowpipe Streaming BDEC Versions: ONE and THREE. Check Ingest"
