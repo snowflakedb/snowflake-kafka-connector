@@ -5,7 +5,6 @@ import com.snowflake.kafka.connector.SnowflakeSinkTaskTestForStreamingIT;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
-import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;

@@ -5,7 +5,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
-import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.sql.ResultSet;
@@ -71,7 +70,7 @@ public class SnowflakeSinkTaskTestForStreamingIT {
     this.sinkTask.stop();
     TestUtils.dropTable(topicName);
     IngestSdkProvider.setStreamingClientManager(
-            TestUtils.resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
+        TestUtils.resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
   }
 
   @Test
