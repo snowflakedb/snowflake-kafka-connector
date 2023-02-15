@@ -72,8 +72,7 @@ public class SnowflakeSinkTaskTest {
     Mockito.doCallRealMethod().when(loggerHandler).setLoggerInstanceTag(expectedTask1Tag);
 
     // set up two clients
-    IngestSdkProvider.setStreamingClientManager(new StreamingClientManager(new HashMap<>()));
-    // TODO @rcheng: use jay's reset method when merged
+    IngestSdkProvider.setStreamingClientManager(TestUtils.resetAndGetEmptyStreamingClientManager());
     IngestSdkProvider.getStreamingClientManager().createAllStreamingClients(config0, "kcid", 2, 1);
     assert IngestSdkProvider.getStreamingClientManager().getClientCount() == 2;
 
