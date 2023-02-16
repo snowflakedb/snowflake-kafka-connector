@@ -5,6 +5,8 @@ import static com.snowflake.kafka.connector.internal.InternalUtils.timestampToDa
 
 import java.security.PrivateKey;
 import java.util.*;
+
+import net.snowflake.client.jdbc.internal.apache.tika.utils.ExceptionUtils;
 import net.snowflake.ingest.SimpleIngestManager;
 import net.snowflake.ingest.connection.HistoryRangeResponse;
 import net.snowflake.ingest.connection.HistoryResponse;
@@ -54,6 +56,7 @@ public class SnowflakeIngestionServiceV1 extends Logging implements SnowflakeIng
               port,
               userAgentSuffix);
     } catch (Exception e) {
+      logError(ExceptionUtils.getStackTrace(e));
       throw SnowflakeErrors.ERROR_0002.getException(e);
     }
     logInfo("initialized the pipe connector for pipe {}", pipeName);
