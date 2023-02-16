@@ -10,6 +10,7 @@ jobs:
   build_and_test:
     runs-on: ubuntu-20.04
     strategy:
+      fail-fast: false # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategyfail-fast
       matrix:
         snowflake_cloud: [ 'AWS', 'AZURE', 'GCS' ]
     steps:
