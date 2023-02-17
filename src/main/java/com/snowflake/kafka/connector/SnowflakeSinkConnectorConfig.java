@@ -484,8 +484,8 @@ public class SnowflakeSinkConnectorConfig {
             "", // default is handled in Ingest SDK
             null, // no validator
             Importance.LOW,
-            "Acceptable values for Snowpipe Streaming BDEC Versions: ONE and THREE. Check Ingest"
-                + " SDK for default behavior",
+            "Acceptable values for Snowpipe Streaming BDEC Versions: 1 and 3. Check Ingest"
+                + " SDK for default behavior. Please do not set this unless Absolutely needed. ",
             CONNECTOR_CONFIG,
             6,
             ConfigDef.Width.NONE,
