@@ -5,7 +5,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
-import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.sql.ResultSet;
@@ -71,8 +70,7 @@ public class SnowflakeSinkTaskTestForStreamingIT {
     this.sinkTask.stop();
     TestUtils.dropTable(topicName);
     IngestSdkProvider.setStreamingClientManager(
-        new StreamingClientManager(new HashMap<>())); // reset to clean initial manager
-    // TODO @rcheng: use jay's reset method when merged
+        TestUtils.resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
   }
 
   @Test
@@ -104,8 +102,7 @@ public class SnowflakeSinkTaskTestForStreamingIT {
   @Test
   public void testTaskToClientMapping() throws Exception {
     // setup two tasks pointing to one client
-    IngestSdkProvider.setStreamingClientManager(new StreamingClientManager(new HashMap<>()));
-    // TODO @rcheng: use jay's reset method when merged
+    IngestSdkProvider.setStreamingClientManager(TestUtils.resetAndGetEmptyStreamingClientManager());
     IngestSdkProvider.getStreamingClientManager()
         .createAllStreamingClients(this.config, "kcid", 2, 2);
     assert IngestSdkProvider.getStreamingClientManager().getClientCount() == 1;

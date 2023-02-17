@@ -60,14 +60,17 @@ public class KcStreamingIngestClient {
    * <p>Any exceptions will be passed up, a sfexception will be converted to a connectexception
    *
    * @param streamingClientProps the properties for the client
+   * @param parameterOverrides Helps to override any default parameters in streaming client
    * @param clientName the client name to uniquely identify the client
    */
-  protected KcStreamingIngestClient(Properties streamingClientProps, String clientName) {
+  protected KcStreamingIngestClient(
+      Properties streamingClientProps, Map<String, Object> parameterOverrides, String clientName) {
     try {
       LOGGER.info("Creating Streaming Client: {}", clientName);
       this.client =
           SnowflakeStreamingIngestClientFactory.builder(clientName)
               .setProperties(streamingClientProps)
+              .setParameterOverrides(parameterOverrides)
               .build();
 
       assert this.client != null; // client is final, so never need to do another null check
