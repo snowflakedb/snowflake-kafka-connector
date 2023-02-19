@@ -311,7 +311,7 @@ public class TopicPartitionChannel {
    * a desired offset from kafka.
    *
    * <p>Desired Offset from Kafka = (offset persisted in snowflake + 1)
-   * <p>Or If the snowflake table is empty, Desired Offset from kafka = init kafka offset.
+   * <p>Or If the snowflake table is empty, Desired Offset from kafka = first seen kafka offset.
    *
    * <p>Check {link {@link TopicPartitionChannel#resetChannelMetadataAfterRecovery}} for reset logic
    *
