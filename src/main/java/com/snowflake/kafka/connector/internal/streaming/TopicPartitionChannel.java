@@ -68,7 +68,7 @@ public class TopicPartitionChannel {
 
   private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 
-  private long initKafkaOffset = 0L ;
+  private long firstSeenKafkaOffset = 0L ;
   // last time we invoked insertRows API
   private long previousFlushTimeStampMs;
 
@@ -321,9 +321,9 @@ public class TopicPartitionChannel {
    */
   private boolean shouldIgnoreAddingRecordToBuffer(SinkRecord kafkaSinkRecord) {
     if (this.isOffsetResetInKafka.get()) {
-      if (offsetPersistedInSnowflake.get() == -1L && kafkaSinkRecord.kafkaOffset() == initKafkaOffset) {
+      if (offsetPersistedInSnowflake.get() == -1L && kafkaSinkRecord.kafkaOffset() == firstSeenKafkaOffset) {
         LOGGER.info(
-                "First insert to table, get the desired init offset:{} from Kafka, we can add this offset to buffer for channel:{}",
+                "First seen offset:{} from Kafka, we can add this offset to buffer for channel:{}",
                 kafkaSinkRecord.kafkaOffset(),
                 this.getChannelName());
         this.isOffsetResetInKafka.set(false);
@@ -376,7 +376,7 @@ public class TopicPartitionChannel {
       // after connector starts
       final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
       if(lastCommittedOffsetToken == -1L){
-        initKafkaOffset = record.kafkaOffset();
+        firstSeenKafkaOffset = record.kafkaOffset();
       }
       this.offsetPersistedInSnowflake.set(
           (lastCommittedOffsetToken == -1L)

@@ -1141,6 +1141,107 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
+  @Test
+  public void testSchematizationWithTableCreationAndFirstSeenNonZeroOffset() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(
+            SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+            "org.apache.kafka.connect.json.JsonConverter");
+    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
+    config.put("schemas.enable", "false");
+    // get rid of these at the end
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    SchemaBuilder schemaBuilder =
+            SchemaBuilder.struct()
+                    .field("id_int8", Schema.INT8_SCHEMA)
+                    .field("id_int8_optional", Schema.OPTIONAL_INT8_SCHEMA)
+                    .field("id_int16", Schema.INT16_SCHEMA)
+                    .field("\"id_int32_double_quotes\"", Schema.INT32_SCHEMA)
+                    .field("id_int64", Schema.INT64_SCHEMA)
+                    .field("first_name", Schema.STRING_SCHEMA)
+                    .field("rating_float32", Schema.FLOAT32_SCHEMA)
+                    .field("rating_float64", Schema.FLOAT64_SCHEMA)
+                    .field("approval", Schema.BOOLEAN_SCHEMA)
+                    .field("info_array", SchemaBuilder.array(Schema.STRING_SCHEMA).build())
+                    .field(
+                            "info_map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build());
+
+    Struct original =
+            new Struct(schemaBuilder.build())
+                    .put("id_int8", (byte) 0)
+                    .put("id_int16", (short) 42)
+                    .put("\"id_int32_double_quotes\"", 42)
+                    .put("id_int64", 42L)
+                    .put("first_name", "zekai")
+                    .put("rating_float32", 0.99f)
+                    .put("rating_float64", 0.99d)
+                    .put("approval", true)
+                    .put("info_array", Arrays.asList("a", "b"))
+                    .put("info_map", Collections.singletonMap("field", 3));
+
+    JsonConverter jsonConverter = new JsonConverter();
+    jsonConverter.configure(config, false);
+    byte[] converted = jsonConverter.fromConnectData(topic, original.schema(), original);
+    conn.createTableWithOnlyMetadataColumn(table);
+
+    SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
+
+    long startOffset = 1;
+    long endOffset = 2;
+
+    SinkRecord record1 = new SinkRecord(topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test",
+            jsonInputValue.schema(),
+            jsonInputValue.value(),
+            startOffset);
+    SinkRecord record2 = new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test",
+            jsonInputValue.schema(),
+            jsonInputValue.value(),
+            endOffset);
+
+    List<SinkRecord> jsonRecordValue = Arrays.asList(
+            record1,
+            record2
+    );
+
+    SnowflakeSinkService service =
+            SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+                    .setRecordNumber(1)
+                    .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+                    .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+                    .addTask(table, new TopicPartition(topic, partition))
+                    .build();
+
+    // The first insert rows all should fail and schema evolution will kick in to update the schema
+    service.insert(jsonRecordValue);
+    TestUtils.assertWithRetry(
+            () -> service.getOffset(new TopicPartition(topic, partition)) == 0, 20, 5);
+    TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_JSON_SCHEMA_FOR_TABLE_CREATION);
+
+    // Insert with non first seen offset will fail either, in order to prevent data loss
+    service.insert(record2);
+    TestUtils.assertWithRetry(
+            () -> service.getOffset(new TopicPartition(topic, partition)) == 0, 20, 5);
+
+    // Retry the insert should succeed with first seed offset now with the updated schema
+    service.insert(jsonRecordValue);
+    TestUtils.assertWithRetry(
+            () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
+
+    TestUtils.checkTableContentOneRow(
+            table, SchematizationTestUtils.CONTENT_FOR_JSON_TABLE_CREATION);
+
+    service.closeAll();
+  }
+
   private void createNonNullableColumn(String tableName, String colName) {
     String createTableQuery = "alter table identifier(?) add " + colName + " int not null";
 
