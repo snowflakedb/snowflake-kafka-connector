@@ -23,7 +23,6 @@ import com.snowflake.kafka.connector.internal.LoggerHandler;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Properties;
-
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
