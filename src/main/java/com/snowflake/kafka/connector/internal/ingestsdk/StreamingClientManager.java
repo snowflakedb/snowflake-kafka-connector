@@ -110,13 +110,19 @@ public class StreamingClientManager {
         this.getClientHelper(
             clientProperties,
             parameterOverrides,
+            connectorConfig.get(Utils.NAME),
             kcInstanceId,
             0); // asserted that we have at least 1 task
 
     for (int taskId = 0; taskId < this.maxTasks; taskId++) {
       if (tasksToCurrClient == numTasksPerClient) {
         createdClient =
-            this.getClientHelper(clientProperties, parameterOverrides, kcInstanceId, taskId);
+            this.getClientHelper(
+                clientProperties,
+                parameterOverrides,
+                connectorConfig.get(Utils.NAME),
+                kcInstanceId,
+                taskId);
         tasksToCurrClient = 1;
       } else {
         tasksToCurrClient++;
@@ -128,10 +134,15 @@ public class StreamingClientManager {
 
   // builds the client name and returns the created client. note taskId is used just for logging
   private KcStreamingIngestClient getClientHelper(
-      Properties props, Map<String, Object> parameterOverrides, String kcInstanceId, int taskId) {
+      Properties props,
+      Map<String, Object> parameterOverrides,
+      String connectorName,
+      String kcInstanceId,
+      int taskId) {
     this.clientId++;
     String clientName =
-        KcStreamingIngestClient.buildStreamingIngestClientName(kcInstanceId, this.clientId);
+        KcStreamingIngestClient.buildStreamingIngestClientName(
+            connectorName, kcInstanceId, this.clientId);
     LOGGER.debug("Creating client {} for taskid {}", clientName, taskId);
 
     return new KcStreamingIngestClient(props, parameterOverrides, clientName);
