@@ -17,6 +17,7 @@
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import java.util.Arrays;
@@ -39,12 +40,17 @@ public class KcStreamingIngestClient {
   /**
    * Builds the client's name based on the kc instance and expected client id
    *
+   * @param connectorName Name of the connector supplied in SF Config. This cannot be null or empty.
    * @param kcInstanceId the kafka connector instance id
    * @param clientId the client id
-   * @return the client's name as 'KC_CLIENT_kcInstanceId_clientId'
+   * @return the client's name as 'KC_CLIENT_connectorName_kcInstanceId_clientId'
    */
-  public static String buildStreamingIngestClientName(String kcInstanceId, int clientId) {
-    return Utils.formatString("{}_{}_{}", STREAMING_CLIENT_PREFIX_NAME, kcInstanceId, clientId);
+  public static String buildStreamingIngestClientName(
+      String connectorName, String kcInstanceId, int clientId) {
+    Preconditions.checkNotNull(connectorName, "connectorName cannot be null");
+    Preconditions.checkNotNull(kcInstanceId, "kcInstanceId cannot be null");
+    return Utils.formatString(
+        "{}_{}_{}_{}", STREAMING_CLIENT_PREFIX_NAME, connectorName, kcInstanceId, clientId);
   }
 
   // TESTING ONLY - inject the client
