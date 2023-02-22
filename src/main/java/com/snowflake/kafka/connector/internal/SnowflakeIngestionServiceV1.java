@@ -144,7 +144,13 @@ public class SnowflakeIngestionServiceV1 extends EnableLogging
           if (fileStatus.containsKey(file.getPath())) {
             numOfRecords++;
 
-            fileStatus.put(file.getPath(), convertIngestStatus(file.getStatus()));
+            final InternalUtils.IngestedFileStatus ingestionStatus = convertIngestStatus(file.getStatus());
+            fileStatus.put(file.getPath(), ingestionStatus);
+            // Log errors
+            if (InternalUtils.IngestedFileStatus.FAILED.equals(ingestionStatus) || InternalUtils.IngestedFileStatus.PARTIALLY_LOADED.equals(ingestionStatus)) {
+              LOG_WARN_MSG("Failed to load file {}\n\tError: {}\n\tColumn: {}\n\tChar pos: {}",
+                      file.getPath(), file.getFirstError(), file.getFirstErrorColumnName(), file.getFirstErrorCharacterPos());
+            }
           }
         }
       }
