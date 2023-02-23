@@ -12,7 +12,7 @@
 
     <groupId>com.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>1.8.3</version>
+    <version>1.8.3-CKO</version>
     <packaging>jar</packaging>
     <name>Snowflake Kafka Connector</name>
     <description>Snowflake Kafka Connect Sink Connector</description>
@@ -271,7 +271,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
+            <!-- <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
                 <version>1.6</version>
@@ -284,7 +284,7 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin> -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -314,7 +314,7 @@
         </plugins>
 
         <!-- disable default maven deploy plugin since we are using gpg:sign-and-deploy-file -->
-        <pluginManagement>
+        <!-- <pluginManagement>
             <plugins>
                 <plugin>
                     <artifactId>maven-deploy-plugin</artifactId>
@@ -323,7 +323,7 @@
                     </configuration>
                 </plugin>
             </plugins>
-        </pluginManagement>
+        </pluginManagement> -->
     </build>
     <dependencies>
         <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-fips -->
