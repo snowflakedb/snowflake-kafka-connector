@@ -29,11 +29,11 @@ jobs:
       run: mvn -f pom_confluent.xml -DskipTests clean package
     
     - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
-          prerelease: true
-          title: "Kafka Connect Release"
-          files: |
-            LICENSE.txt
-            target/components/packages/**.zip
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: "Kafka Connect Release"
+        files: |
+          LICENSE.txt
+          target/components/packages/**.zip
