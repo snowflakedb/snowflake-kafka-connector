@@ -694,12 +694,17 @@ public class TopicPartitionChannel {
    * @param insertErrors errors from validation response. (Only if it has errors)
    * @param insertedRecordsToBuffer to map {@link SinkRecord} with insertErrors
    */
+  // TODO: CDP-2854
   private void handleInsertRowsFailures(
       List<InsertValidationResponse.InsertError> insertErrors,
       List<SinkRecord> insertedRecordsToBuffer) {
     if (logErrors) {
       for (InsertValidationResponse.InsertError insertError : insertErrors) {
-        LOGGER.error("Insert Row Error message", insertError.getException());
+        LOGGER.error("Insert Row Error message", insertError.getException(), insertError.getRowContent(), 
+          insertError.getRowIndex(), insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
+      }
+      for (SinkRecord rec : insertedRecordsToBuffer) {
+        LOGGER.error("Buffered insert record", rec.toString(), rec.value(), rec.key(), rec.kafkaOffset());
       }
     }
     if (errorTolerance) {

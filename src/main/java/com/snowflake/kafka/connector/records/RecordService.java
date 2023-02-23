@@ -224,6 +224,7 @@ public class RecordService extends EnableLogging {
     SnowflakeTableRow row = processRecord(record);
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.content.getData()) {
+      // TODO: CDP-2853
       if (enableSchematization) {
         streamingIngestRow.putAll(getMapFromJsonNodeForStreamingIngest(node));
       } else {
@@ -237,6 +238,7 @@ public class RecordService extends EnableLogging {
     return streamingIngestRow;
   }
 
+  // TODO: CDP-2853
   private Map<String, Object> getMapFromJsonNodeForStreamingIngest(JsonNode node)
       throws JsonProcessingException {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
