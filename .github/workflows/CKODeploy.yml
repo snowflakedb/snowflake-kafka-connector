@@ -20,7 +20,7 @@ jobs:
       with:
         java-version: 1.8
         cache: 'maven'
-        distribution: 'oracle'
+        distribution: 'temurin'
     - name: Install Python
       uses: actions/setup-python@v4
       with:
