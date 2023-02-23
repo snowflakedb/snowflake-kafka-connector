@@ -32,9 +32,8 @@ jobs:
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         automatic_release_tag: "latest"
-        prerelease: true
+        prerelease: false
         title: "Kafka Connect Release"
         files: |
           LICENSE.txt
           target/components/packages/**.zip
-          
