@@ -700,11 +700,11 @@ public class TopicPartitionChannel {
       List<SinkRecord> insertedRecordsToBuffer) {
     if (logErrors) {
       for (InsertValidationResponse.InsertError insertError : insertErrors) {
-        LOGGER.error("Insert Row Error message", insertError.getException(), insertError.getRowContent(), 
+        LOGGER.error("Insert Row Error message {} {} {} {} {}", insertError.getException(), insertError.getRowContent(), 
           insertError.getRowIndex(), insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
       }
       for (SinkRecord rec : insertedRecordsToBuffer) {
-        LOGGER.error("Buffered insert record", rec.toString(), rec.value(), rec.key(), rec.kafkaOffset());
+        LOGGER.error("Buffered insert record {} {} {} {}", rec.toString(), rec.value(), rec.key(), rec.kafkaOffset());
       }
     }
     if (errorTolerance) {
