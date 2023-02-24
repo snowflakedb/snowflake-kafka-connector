@@ -1133,8 +1133,6 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(1)
-            .setDeliveryGuarantee(
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -1180,8 +1178,6 @@ public class SinkServiceIT {
     SnowflakeSinkService service2 =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(1)
-            .setDeliveryGuarantee(
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
     offset = 1;
@@ -1225,8 +1221,6 @@ public class SinkServiceIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(1)
-            .setDeliveryGuarantee(
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -1268,8 +1262,6 @@ public class SinkServiceIT {
     SnowflakeSinkService service2 =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(1)
-            .setDeliveryGuarantee(
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
     offset = 0;
@@ -1293,8 +1285,6 @@ public class SinkServiceIT {
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(1)
             .setCustomJMXMetrics(false)
-            .setDeliveryGuarantee(
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -1331,8 +1321,6 @@ public class SinkServiceIT {
     SnowflakeSinkService service2 =
         SnowflakeSinkServiceFactory.builder(conn)
             .setRecordNumber(1)
-            .setDeliveryGuarantee(
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
     offset = 0;

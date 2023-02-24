@@ -295,29 +295,6 @@ public class ConnectorConfigTest {
   }
 
   @Test
-  public void testDeliveryGuarantee_valid_value() {
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "at_least_once");
-    Utils.validateConfig(config);
-
-    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "exactly_once");
-    Utils.validateConfig(config);
-
-    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "");
-    Utils.validateConfig(config);
-
-    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, null);
-    Utils.validateConfig(config);
-  }
-
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testDeliveryGuarantee_invalid_value() {
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "INVALID");
-    Utils.validateConfig(config);
-  }
-
-  @Test
   public void testIngestionTypeConfig_valid_value_snowpipe() {
     Map<String, String> config = getConfig();
     config.put(
@@ -352,32 +329,6 @@ public class ConnectorConfigTest {
   public void testIngestionTypeConfig_invalid_value() {
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, "INVALID_VALUE");
-    Utils.validateConfig(config);
-  }
-
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testIngestionTypeConfig_streaming_invalid_delivery_guarantee() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    config.put(
-        SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE,
-        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name());
-    Utils.validateConfig(config);
-  }
-
-  @Test
-  public void testIngestionTypeConfig_streaming_valid_delivery_guarantee() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString().toUpperCase(Locale.ROOT));
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    config.put(
-        SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE,
-        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.name());
     Utils.validateConfig(config);
   }
 

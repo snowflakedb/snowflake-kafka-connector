@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal.telemetry;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
@@ -70,14 +69,6 @@ public class SnowflakeTelemetryServiceV1Test {
             .asText()
             .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString()));
 
-    Assert.assertTrue(dataNode.has(DELIVERY_GUARANTEE));
-    Assert.assertTrue(
-        dataNode
-            .get(DELIVERY_GUARANTEE)
-            .asText()
-            .equalsIgnoreCase(
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.toString()));
-
     validateBufferProperties(dataNode);
 
     validateKeyAndValueConverter(dataNode);
@@ -87,9 +78,6 @@ public class SnowflakeTelemetryServiceV1Test {
   public void testReportKafkaStartSnowpipeExactlyOnce() {
 
     Map<String, String> userProvidedConfig = getConfig();
-    userProvidedConfig.put(
-        SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE,
-        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.name());
     addKeyAndValueConvertersToConfigMap(userProvidedConfig);
 
     snowflakeTelemetryServiceV1.reportKafkaConnectStart(
@@ -111,14 +99,6 @@ public class SnowflakeTelemetryServiceV1Test {
             .asText()
             .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString()));
 
-    Assert.assertTrue(dataNode.has(DELIVERY_GUARANTEE));
-    Assert.assertTrue(
-        dataNode
-            .get(DELIVERY_GUARANTEE)
-            .asText()
-            .equalsIgnoreCase(
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.toString()));
-
     validateBufferProperties(dataNode);
 
     validateKeyAndValueConverter(dataNode);
@@ -130,9 +110,6 @@ public class SnowflakeTelemetryServiceV1Test {
     Map<String, String> userProvidedConfig = getConfig();
     userProvidedConfig.put(
         INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    userProvidedConfig.put(
-        SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE,
-        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.name());
 
     addKeyAndValueConvertersToConfigMap(userProvidedConfig);
 
