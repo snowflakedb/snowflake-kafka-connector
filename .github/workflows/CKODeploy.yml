@@ -33,9 +33,8 @@ jobs:
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "latest"
-        prerelease: false
-        title: "Kafka Connect Release"
+        automatic_release_tag: "latest-cko"
+        prerelease: true
+        title: "CKO Kafka Connect Release"
         files: |
-          LICENSE.txt
           target/components/packages/**.zip
