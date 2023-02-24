@@ -808,9 +808,11 @@ public class TopicPartitionChannelTest {
     rowContent.put("topLevelKey", "topLevelValue");
     return rowContent;
   }
-    /* Valid response but has errors, error tolerance is ALL. Meaning it will ignore the error.  */
+    /* Valid response but has errors, error tolerance is ALL. Meaning it will ignore the error.
+    *  Ensure the correct message is sent to the DLQ
+    */
   @Test
-  public void testInsertRows_ValidationResponseHasErrors_ErrorTolerance_ALL_DLQ() throws Exception {
+  public void testInsertRows_ValidationResponseHasErrors_ErrorTolerance_ALL_CorrectMessageToDLQ() throws Exception {
     int offset = 5;
       InsertValidationResponse validationResponse = new InsertValidationResponse();
       InsertValidationResponse.InsertError insertErrorWithException =

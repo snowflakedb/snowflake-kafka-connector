@@ -314,7 +314,7 @@
         </plugins>
 
         <!-- disable default maven deploy plugin since we are using gpg:sign-and-deploy-file -->
-        <!-- <pluginManagement>
+        <pluginManagement>
             <plugins>
                 <plugin>
                     <artifactId>maven-deploy-plugin</artifactId>
@@ -323,7 +323,7 @@
                     </configuration>
                 </plugin>
             </plugins>
-        </pluginManagement> -->
+        </pluginManagement>
     </build>
     <dependencies>
         <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-fips -->
