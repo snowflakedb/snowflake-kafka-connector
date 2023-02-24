@@ -9,7 +9,6 @@ import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
-import java.util.Locale;
 import java.util.Map;
 import org.junit.Assert;
 import org.junit.Test;
