@@ -722,11 +722,11 @@ public class TopicPartitionChannel {
           for (InsertValidationResponse.InsertError insertError : insertErrors) {
               // Map error row number to index in sinkRecords list.
               try {
-                  HashMap<String, ?> rowContent = new ObjectMapper().readValue((String) insertError.getRowContent(), HashMap.class);
+                  HashMap<String, ?> rowContent = (HashMap<String, ?>) insertError.getRowContent();
                   // TODO: take out this hack
                   if (rowContent.getOrDefault("RECORD_METADATA", null) != null) {
-                    HashMap<String, String> metadata = new ObjectMapper().readValue((String) rowContent.get("RECORD_METADATA"), HashMap.class);
-                    List<SinkRecord> res = insertedRecordsToBuffer.stream().filter((rec) -> rec.kafkaOffset() ==  Integer.parseInt(metadata.get("offset"))).collect(Collectors.toList());
+                    HashMap<String, Object> metadata = new ObjectMapper().readValue((String) rowContent.get("RECORD_METADATA"), HashMap.class);
+                    List<SinkRecord> res = insertedRecordsToBuffer.stream().filter((rec) -> rec.kafkaOffset() ==  (int) metadata.get("offset")).collect(Collectors.toList());
                     this.kafkaRecordErrorReporter.reportError(res.get(0), insertError.getException());
                   }
               } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
