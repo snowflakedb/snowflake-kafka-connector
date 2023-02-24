@@ -126,8 +126,6 @@ public class SnowflakeSinkConnectorConfig {
   private static final ConfigDef.Validator nonEmptyStringValidator = new ConfigDef.NonEmptyString();
   private static final ConfigDef.Validator topicToTableValidator = new TopicToTableValidator();
   private static final ConfigDef.Validator KAFKA_PROVIDER_VALIDATOR = new KafkaProviderValidator();
-  private static final ConfigDef.Validator DELIVERY_GUARANTEE_VALIDATOR =
-      new DeliveryGuaranteeValidator();
 
   // For error handling
   public static final String ERROR_GROUP = "ERRORS";
@@ -453,14 +451,6 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Importance.HIGH,
             "Whether to enable JMX MBeans for custom SF metrics")
         .define(
-            DELIVERY_GUARANTEE,
-            Type.STRING,
-            IngestionDeliveryGuarantee.AT_LEAST_ONCE.name(),
-            DELIVERY_GUARANTEE_VALIDATOR,
-            Importance.LOW,
-            "Determines the ingest semantics for snowflake connector, currently support"
-                + " at-least-once and exactly-once delivery guarantees")
-        .define(
             REBALANCING,
             Type.BOOLEAN,
             REBALANCING_DEFAULT,
@@ -565,29 +555,6 @@ public class SnowflakeSinkConnectorConfig {
       return "Whether kafka is running on Confluent code, self hosted or other managed service."
           + " Allowed values are:"
           + String.join(",", KafkaProvider.PROVIDER_NAMES);
-    }
-  }
-
-  /* Validator to validate Kafka delivery guarantee types    */
-  public static class DeliveryGuaranteeValidator implements ConfigDef.Validator {
-    public DeliveryGuaranteeValidator() {}
-
-    @Override
-    public void ensureValid(String name, Object value) {
-      assert value instanceof String;
-      final String strValue = (String) value;
-      // The value can be null or empty.
-      try {
-        IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
-            IngestionDeliveryGuarantee.of(strValue);
-      } catch (final IllegalArgumentException e) {
-        throw new ConfigException(PROVIDER_CONFIG, value, e.getMessage());
-      }
-    }
-
-    public String toString() {
-      return "Allowed Delivery guarantee types:"
-          + String.join(",", IngestionDeliveryGuarantee.DELIVERY_GUARANTEE_TYPES);
     }
   }
 
