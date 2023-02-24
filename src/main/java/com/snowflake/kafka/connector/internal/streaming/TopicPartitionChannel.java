@@ -694,17 +694,21 @@ public class TopicPartitionChannel {
    * @param insertErrors errors from validation response. (Only if it has errors)
    * @param insertedRecordsToBuffer to map {@link SinkRecord} with insertErrors
    */
+
   // TODO: CDP-2854
   private void handleInsertRowsFailures(
       List<InsertValidationResponse.InsertError> insertErrors,
       List<SinkRecord> insertedRecordsToBuffer) {
-    if (logErrors) {
-      for (InsertValidationResponse.InsertError insertError : insertErrors) {
-        LOGGER.error("Insert Row Error message {} {} {} {} {}", insertError.getException(), insertError.getRowContent(), 
-          insertError.getRowIndex(), insertedRecordsToBuffer.get((int) insertError.getRowIndex()));
-      }
+      if (logErrors) {
+          for (InsertValidationResponse.InsertError insertError : insertErrors) {
+              LOGGER.error("Insert Row Error message |||| {} |||| {} |||| {}", insertError.getException(), insertError.getRowContent(),
+                           insertError.getRowContent().getClass());
+              LOGGER.error("test", (Map<String, String>) insertError.getRowContent());
+//              insertedRecordsToBuffer.stream().filter((rec) -> rec.kafkaOffset() == ((Map<?, ?>) insertError.getRowContent()).get("RECORD_METADATA").get("offset"));
+          }
+
       for (SinkRecord rec : insertedRecordsToBuffer) {
-        LOGGER.error("Buffered insert record {} {} {} {}", rec.toString(), rec.value(), rec.key(), rec.kafkaOffset());
+          LOGGER.error("Buffered insert record |||| {} |||| {} |||| {} |||| {}", rec.toString(), rec.value(), rec.key(), rec.kafkaOffset());
       }
     }
     if (errorTolerance) {
