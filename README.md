@@ -5,3 +5,7 @@
 [![License](http://img.shields.io/:license-Apache%202-brightgreen.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
 
 Snowflake-kafka-connector is a plugin of Apache Kafka Connect.
+
+
+
+CKO Version
