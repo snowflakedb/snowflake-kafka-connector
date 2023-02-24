@@ -205,7 +205,6 @@ public class SnowflakeSinkTask extends SinkTask {
     KafkaRecordErrorReporter kafkaRecordErrorReporter = noOpKafkaRecordErrorReporter();
 
     // default to snowpipe
-    // If it is snowpipe_streaming, set delivery guarantee to exactly once.
     IngestionMethodConfig ingestionType = IngestionMethodConfig.SNOWPIPE;
     if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
       ingestionType =

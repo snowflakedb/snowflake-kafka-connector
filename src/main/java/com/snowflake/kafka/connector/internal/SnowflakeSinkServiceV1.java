@@ -444,7 +444,7 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
       // recover will only check pipe status and create pipe if it does not exist.
       recover(pipeCreation);
 
-      initClientInfoForExactlyOnceDelivery();
+      initClientInfo();
 
       try {
         startCleaner(recordOffset, pipeCreation);
@@ -458,7 +458,7 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
      * Initialize the client info (clientSequencer and offsetPersistedInSnowflake) by calling
      * ingestion service API configureClient and getClientStatus
      */
-    private void initClientInfoForExactlyOnceDelivery() {
+    private void initClientInfo() {
       ConfigureClientResponse configureClientResponse = ingestionService.configureClient();
       this.clientSequencer.set(configureClientResponse.getClientSequencer());
       ClientStatusResponse clientStatusResponse = ingestionService.getClientStatus();

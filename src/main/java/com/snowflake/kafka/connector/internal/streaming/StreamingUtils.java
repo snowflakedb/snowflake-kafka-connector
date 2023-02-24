@@ -136,8 +136,7 @@ public class StreamingUtils {
 
     boolean configIsValid = true;
 
-    // For snowpipe_streaming, role should be non empty and delivery guarantee should be exactly
-    // once. (Which is default)
+    // For snowpipe_streaming, role should be non empty
     if (inputConfig.containsKey(INGESTION_METHOD_OPT)) {
       try {
         // This throws an exception if config value is invalid.

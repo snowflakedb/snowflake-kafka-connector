@@ -331,16 +331,6 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test
-  public void testIngestionTypeConfig_streaming_default_delivery_guarantee() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    Utils.validateConfig(config);
-  }
-
   /** These error tests are not going to enforce errors if they are not passed as configs. */
   @Test
   public void testErrorTolerance_AllowedValues() {
