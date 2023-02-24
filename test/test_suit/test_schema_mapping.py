@@ -36,7 +36,7 @@ class TestSchemaMapping:
         self.gold = {
             'PERFORMANCE_STRING': 'Excellent',
             'case_sensitive_PERFORMANCE_CHAR': 'A',
-            'PERFORMANCE_HEX': b'\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd',
+            'PERFORMANCE_HEX': b'\xff\xff\xff\xff',
             'RATING_INT': 100,
             'RATING_DOUBLE': 0.99,
             'APPROVAL': True,
