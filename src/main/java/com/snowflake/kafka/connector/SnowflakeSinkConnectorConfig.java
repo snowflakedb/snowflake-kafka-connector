@@ -678,50 +678,6 @@ public class SnowflakeSinkConnectorConfig {
     }
   }
 
-  /**
-   * Enum which represents the type of delivery guarantees that the customer want (either
-   * at_least_once (default) or exactly_once
-   */
-  public enum IngestionDeliveryGuarantee {
-    /**
-     * At-least-once semantics means records received by Snowflake Connector are never lost but
-     * could be ingested multiple times
-     */
-    AT_LEAST_ONCE,
-    /**
-     * Exactly-once semantics means records received by Snowflake Connector are only ingested once
-     */
-    EXACTLY_ONCE,
-    ;
-
-    public static final List<String> DELIVERY_GUARANTEE_TYPES =
-        Arrays.stream(IngestionDeliveryGuarantee.values())
-            .map(deliveryGuarantee -> deliveryGuarantee.name().toLowerCase())
-            .collect(Collectors.toList());
-
-    public static IngestionDeliveryGuarantee of(final String deliveryGuaranteeType) {
-
-      if (Strings.isNullOrEmpty(deliveryGuaranteeType)) {
-        return AT_LEAST_ONCE;
-      }
-
-      for (final IngestionDeliveryGuarantee b : IngestionDeliveryGuarantee.values()) {
-        if (b.name().equalsIgnoreCase(deliveryGuaranteeType)) {
-          return b;
-        }
-      }
-      throw new IllegalArgumentException(
-          String.format(
-              "Unsupported Delivery Guarantee Type: %s. Supported are: %s",
-              deliveryGuaranteeType, String.join(",", DELIVERY_GUARANTEE_TYPES)));
-    }
-
-    @Override
-    public String toString() {
-      return name().toLowerCase(Locale.ROOT);
-    }
-  }
-
   /* https://www.confluent.io/blog/kafka-connect-deep-dive-error-handling-dead-letter-queues/ */
   public enum ErrorTolerance {
 
