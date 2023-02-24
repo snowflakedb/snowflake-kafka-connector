@@ -8,7 +8,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
@@ -212,17 +211,6 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
     dataObjectNode.put(
         INGESTION_METHOD_OPT,
         userProvidedConfig.getOrDefault(INGESTION_METHOD_OPT, INGESTION_METHOD_DEFAULT_SNOWPIPE));
-
-    // put delivery guarantee only when ingestion method is snowpipe.
-    // For SNOWPIPE_STREAMING, delivery guarantee is always EXACTLY_ONCE
-    if (userProvidedConfig
-        .getOrDefault(INGESTION_METHOD_OPT, INGESTION_METHOD_DEFAULT_SNOWPIPE)
-        .equalsIgnoreCase(INGESTION_METHOD_DEFAULT_SNOWPIPE)) {
-      dataObjectNode.put(
-          DELIVERY_GUARANTEE,
-          userProvidedConfig.getOrDefault(
-              DELIVERY_GUARANTEE, IngestionDeliveryGuarantee.AT_LEAST_ONCE.toString()));
-    }
 
     // Key and value converters to gauge if Snowflake Native converters are used.
     dataObjectNode.put(

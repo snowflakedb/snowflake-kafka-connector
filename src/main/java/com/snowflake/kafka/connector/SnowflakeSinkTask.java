@@ -201,13 +201,6 @@ public class SnowflakeSinkTask extends SinkTask {
           Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.JMX_OPT));
     }
 
-    // Get the Delivery guarantee type from config, default to at_least_once
-    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
-        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
-            parsedConfig.getOrDefault(
-                DELIVERY_GUARANTEE,
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
-
     enableRebalancing =
         Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.REBALANCING));
 
@@ -220,11 +213,6 @@ public class SnowflakeSinkTask extends SinkTask {
       ingestionType =
           IngestionMethodConfig.valueOf(
               parsedConfig.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).toUpperCase());
-      if (ingestionType.equals(IngestionMethodConfig.SNOWPIPE_STREAMING)) {
-        ingestionDeliveryGuarantee =
-            SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE;
-        kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
-      }
     }
 
     conn =
@@ -245,7 +233,6 @@ public class SnowflakeSinkTask extends SinkTask {
             .setMetadataConfig(metadataConfig)
             .setBehaviorOnNullValuesConfig(behavior)
             .setCustomJMXMetrics(enableCustomJMXMonitoring)
-            .setDeliveryGuarantee(ingestionDeliveryGuarantee)
             .setErrorReporter(kafkaRecordErrorReporter)
             .setSinkTaskContext(this.context)
             .build();

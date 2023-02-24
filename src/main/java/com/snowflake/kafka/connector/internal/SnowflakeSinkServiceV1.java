@@ -79,11 +79,6 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
 
-  // default is at_least_once semantic for data ingestion unless the configuration provided is
-  // exactly_once
-  private SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
-      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE;
-
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
@@ -321,12 +316,6 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
     return this.behaviorOnNullValues;
   }
 
-  @Override
-  public void setDeliveryGuarantee(
-      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
-    this.ingestionDeliveryGuarantee = ingestionDeliveryGuarantee;
-  }
-
   /**
    * Loop through all pipes in memory and find out the metric registry instance for that pipe. The
    * pipes object's key is not pipeName hence need to loop over.
@@ -455,11 +444,7 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
       // recover will only check pipe status and create pipe if it does not exist.
       recover(pipeCreation);
 
-      // when exactly_once is enabled,fetch clientSequencer and offsetPersistedInSnowflake
-      if (ingestionDeliveryGuarantee
-          == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE) {
-        initClientInfoForExactlyOnceDelivery();
-      }
+      initClientInfoForExactlyOnceDelivery();
 
       try {
         startCleaner(recordOffset, pipeCreation);
@@ -651,11 +636,8 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
       }
       // only get offset token once when service context is initialized
       // ignore ingested files
-      // if ingestionDeliveryGuarantee is AT_LEAST_ONCE, ignore offsetPersistedInSnowflake
-      // else discard the record if the record offset is smaller or equal to server side offset
-      if ((ingestionDeliveryGuarantee
-                  == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE
-              || record.kafkaOffset() > this.offsetPersistedInSnowflake.get())
+      // discard the record if the record offset is smaller or equal to server side offset
+      if (record.kafkaOffset() > this.offsetPersistedInSnowflake.get()
           && record.kafkaOffset() > processedOffset.get()) {
         SinkRecord snowflakeRecord = record;
         if (shouldConvertContent(snowflakeRecord.value())) {
@@ -815,18 +797,13 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
 
       // This api should throw exception if backoff failed.
       // fileNamesCopy after this call is emptied (clears the input list)
-      if (ingestionDeliveryGuarantee
-          == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE) {
-        ingestionService.ingestFilesWithClientInfo(fileNamesCopy, this.clientSequencer.get());
-        String offsetToken = ingestionService.getClientStatus().getOffsetToken();
-        // Update server side offset
-        if (offsetToken == null) {
-          this.offsetPersistedInSnowflake.set(-1);
-        } else {
-          this.offsetPersistedInSnowflake.set(Long.parseLong(offsetToken));
-        }
+      ingestionService.ingestFilesWithClientInfo(fileNamesCopy, this.clientSequencer.get());
+      String offsetToken = ingestionService.getClientStatus().getOffsetToken();
+      // Update server side offset
+      if (offsetToken == null) {
+        this.offsetPersistedInSnowflake.set(-1);
       } else {
-        ingestionService.ingestFiles(fileNamesCopy);
+        this.offsetPersistedInSnowflake.set(Long.parseLong(offsetToken));
       }
 
       // committedOffset should be updated only when ingestFiles has succeeded.

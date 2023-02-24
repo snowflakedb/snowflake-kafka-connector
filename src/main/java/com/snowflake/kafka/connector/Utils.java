@@ -465,17 +465,6 @@ public class Utils {
       }
     }
 
-    try {
-      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
-          config.getOrDefault(
-              DELIVERY_GUARANTEE,
-              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
-    } catch (IllegalArgumentException exception) {
-      LOGGER.error(
-          "Delivery Guarantee config:{} error:{}", DELIVERY_GUARANTEE, exception.getMessage());
-      configIsValid = false;
-    }
-
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
     final boolean isStreamingConfigValid = StreamingUtils.isStreamingSnowpipeConfigValid(config);
 
