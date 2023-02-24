@@ -8,10 +8,13 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MA
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.gson.Gson;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
@@ -29,6 +32,7 @@ import dev.failsafe.function.CheckedSupplier;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -36,6 +40,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -703,13 +710,7 @@ public class TopicPartitionChannel {
           for (InsertValidationResponse.InsertError insertError : insertErrors) {
               LOGGER.error("Insert Row Error message |||| {} |||| {} |||| {}", insertError.getException(), insertError.getRowContent(),
                            insertError.getRowContent().getClass());
-              LOGGER.error("test", (Map<String, String>) insertError.getRowContent());
-//              insertedRecordsToBuffer.stream().filter((rec) -> rec.kafkaOffset() == ((Map<?, ?>) insertError.getRowContent()).get("RECORD_METADATA").get("offset"));
           }
-
-      for (SinkRecord rec : insertedRecordsToBuffer) {
-          LOGGER.error("Buffered insert record |||| {} |||| {} |||| {} |||| {}", rec.toString(), rec.value(), rec.key(), rec.kafkaOffset());
-      }
     }
     if (errorTolerance) {
       if (!isDLQTopicSet) {
@@ -718,13 +719,17 @@ public class TopicPartitionChannel {
             ERRORS_TOLERANCE_CONFIG,
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
       } else {
-        for (InsertValidationResponse.InsertError insertError : insertErrors) {
-          // Map error row number to index in sinkRecords list.
-          int rowIndexToOriginalSinkRecord = (int) insertError.getRowIndex();
-          this.kafkaRecordErrorReporter.reportError(
-              insertedRecordsToBuffer.get(rowIndexToOriginalSinkRecord),
-              insertError.getException());
-        }
+          for (InsertValidationResponse.InsertError insertError : insertErrors) {
+              // Map error row number to index in sinkRecords list.
+              HashMap<String, ?> rowContent = (HashMap<String, ?>) insertError.getRowContent();
+              try {
+                  HashMap<String, String> metadata = new ObjectMapper().readValue((String) rowContent.get("RECORD_METADATA"), HashMap.class);
+                  List<SinkRecord> res = insertedRecordsToBuffer.stream().filter((rec) -> rec.kafkaOffset() ==  Integer.parseInt(metadata.get("offset"))).collect(Collectors.toList());
+                  this.kafkaRecordErrorReporter.reportError(res.get(0), insertError.getException());
+              } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                  throw new RuntimeException(e);
+              }
+          }
       }
     } else {
       throw new DataException(
