@@ -86,17 +86,12 @@ class TestSchemaMapping:
         for field in res_col:
             print("Field:", field)
             if field == "RECORD_METADATA":
-                continue;
+                continue
             if type(res[res_col[field]]) == str:
-                print(res[res_col[field]])
-                print(self.gold[field])
                 # removing the formating created by sf
-                assert ''.join(res[res_col[field]].split()) == self.gold[field]
+                assert ''.join(res[res_col[field]].split()) == self.gold[field], f"expected:{self.gold[field]}, actual:{res[res_col[field]]}"
             else:
-                print(type(res[res_col[field]]))
-                print(res[res_col[field]])
-                print(self.gold[field])
-                assert res[res_col[field]] == self.gold[field]
+                assert res[res_col[field]] == self.gold[field], f"expected:{self.gold[field]}, actual:{res[res_col[field]]}"
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)
