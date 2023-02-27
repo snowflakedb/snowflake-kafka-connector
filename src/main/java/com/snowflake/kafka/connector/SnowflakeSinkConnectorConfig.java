@@ -74,6 +74,9 @@ public class SnowflakeSinkConnectorConfig {
   public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
   public static final String ENABLE_SCHEMATIZATION_DEFAULT = "false";
 
+  public static final String SCHEMATIZATION_NESTED_DEPTH_CONFIG = "snowflake.schematization.nested.depth";
+  public static final String SCHEMATIZATION_NESTED_DEPTH_DEFAULT = "1";
+
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
   public static final String JVM_PROXY_HOST = "jvm.proxy.host";

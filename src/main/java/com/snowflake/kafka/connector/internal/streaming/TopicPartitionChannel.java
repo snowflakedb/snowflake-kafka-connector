@@ -74,6 +74,7 @@ public class TopicPartitionChannel {
       new LoggerHandler(TopicPartitionChannel.class.getName());
 
   private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
+  private final int nestDepth;
 
   // last time we invoked insertRows API
   private long previousFlushTimeStampMs;
@@ -240,6 +241,8 @@ public class TopicPartitionChannel {
     /* Schematization related properties */
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
+    this.nestDepth =
+            this.recordService.setAndGetNestDepthFromConfig(sfConnectorConfig);
     this.enableSchemaEvolution =
         this.enableSchematization
             && this.conn != null
