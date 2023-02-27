@@ -43,6 +43,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private static final LoggerHandler LOGGER =
       new LoggerHandler(SnowflakeSinkServiceV2.class.getName());
+  private final int nestDepth;
 
   // Assume next three values are a threshold after which we will call insertRows API
   // Set in config (Time based flush) in seconds
@@ -118,6 +119,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
+
+    this.nestDepth =
+            this.recordService.setAndGetNestDepthFromConfig(this.connectorConfig);
 
     this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
     this.partitionsToChannel = new HashMap<>();
