@@ -84,6 +84,7 @@ public class SchematizationUtils {
     // Add columns if needed, ignore any exceptions since other task might be succeeded
     if (extraColNames != null) {
       Map<String, String> extraColumnsToType = getColumnTypes(record, extraColNames);
+      LOGGER.info("CAFLOG ||| {} ||| {} ||| {}", extraColumnsToType, record, extraColNames);
       try {
         conn.appendColumnsToTable(tableName, extraColumnsToType);
       } catch (SnowflakeKafkaConnectorException e) {
@@ -98,6 +99,44 @@ public class SchematizationUtils {
     }
   }
 
+//  public static void evolveSchemaIfNeededNested(
+//          @Nonnull SnowflakeConnectionService conn,
+//          String tableName,
+//          List<String> nonNullableColumns,
+//          List<String> extraColNames,
+//          Map<String, Object> record) {
+//    // Update nullability if needed, ignore any exceptions since other task might be succeeded
+//    if (nonNullableColumns != null) {
+//      try {
+//        conn.alterNonNullableColumns(tableName, nonNullableColumns);
+//      } catch (SnowflakeKafkaConnectorException e) {
+//        LOGGER.warn(
+//                String.format(
+//                        "Failure altering table to update nullability: %s, this could happen when multiple"
+//                                + " partitions try to alter the table at the same time and the warning could be"
+//                                + " ignored",
+//                        tableName),
+//                e);
+//      }
+//    }
+//
+//    // Add columns if needed, ignore any exceptions since other task might be succeeded
+//    if (extraColNames != null) {
+//      Map<String, String> extraColumnsToType = getColumnTypesAfterNesting(record, extraColNames);
+//      try {
+//        conn.appendColumnsToTable(tableName, extraColumnsToType);
+//      } catch (SnowflakeKafkaConnectorException e) {
+//        LOGGER.warn(
+//                String.format(
+//                        "Failure altering table to add column: %s, this could happen when multiple"
+//                                + " partitions try to alter the table at the same time and the warning could be"
+//                                + " ignored",
+//                        tableName),
+//                e);
+//      }
+//    }
+//  }
+
   /**
    * With the list of columns, collect their data types from either the schema or the data itself
    *
@@ -105,6 +144,7 @@ public class SchematizationUtils {
    * @param columnNames the names of the extra columns
    * @return a Map object where the key is column name and value is Snowflake data type
    */
+//  TODO: CDP-2873
   static Map<String, String> getColumnTypes(SinkRecord record, List<String> columnNames) {
     if (columnNames == null) {
       return new HashMap<>();
@@ -133,6 +173,35 @@ public class SchematizationUtils {
     }
     return columnToType;
   }
+
+//  static Map<String, String> getColumnTypesAfterNesting(Map<String, Object> record, List<String> columnNames) {
+//    if (columnNames == null) {
+//      return new HashMap<>();
+//    }
+//    Map<String, String> columnToType = new HashMap<>();
+//    Map<String, String> schemaMap = getSchemaMapFromRecord(record);
+//    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
+//
+//    for (String columnName : columnNames) {
+//      if (!columnToType.containsKey(columnName)) {
+//        String type;
+//        if (schemaMap.isEmpty()) {
+//          // No schema associated with the record, we will try to infer it based on the data
+//          type = inferDataTypeFromJsonObject(recordNode.get(columnName));
+//        } else {
+//          // Get from the schema
+//          type = schemaMap.get(columnName);
+//          if (type == null) {
+//            // only when the type of the value is unrecognizable for JAVA
+//            throw SnowflakeErrors.ERROR_5022.getException(
+//                    "column: " + columnName + " schemaMap: " + schemaMap);
+//          }
+//        }
+//        columnToType.put(columnName, type);
+//      }
+//    }
+//    return columnToType;
+//  }
 
   /**
    * Given a SinkRecord, get the schema information from it

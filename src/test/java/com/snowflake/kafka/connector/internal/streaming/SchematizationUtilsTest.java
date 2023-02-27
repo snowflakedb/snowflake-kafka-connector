@@ -6,6 +6,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+
+import com.snowflake.kafka.connector.records.RecordService;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.record.TimestampType;
@@ -91,5 +93,44 @@ public class SchematizationUtilsTest {
             recordWithoutSchema, Arrays.asList(columnName1, columnName2));
     Assert.assertEquals("VARCHAR", columnToTypes.get(columnName1));
     Assert.assertEquals("VARCHAR", columnToTypes.get(columnName2));
+  }
+
+//  private void test() {
+//    RecordService service = new RecordService();
+//    Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
+//  }
+  @Test
+  public void testGetColumnTypesWithoutSchema2() throws JsonProcessingException {
+    JsonConverter jsonConverter = new JsonConverter();
+    Map<String, ?> config = Collections.singletonMap("schemas.enable", false);
+    jsonConverter.configure(config, false);
+
+    String value = "{\"outer_struct\": {\"name\":\"sf\",\"answer\":42}}";
+    byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
+
+    SchemaAndValue schemaAndValue =
+            jsonConverter.toConnectData("topic", valueContents);
+    SinkRecord recordWithoutSchema =
+            new SinkRecord(
+                    "topic",
+                    0,
+                    null,
+                    null,
+                    schemaAndValue.schema(),
+                    schemaAndValue.value(),
+                    0,
+                    System.currentTimeMillis(),
+                    TimestampType.CREATE_TIME);
+
+    assert recordWithoutSchema != null;
+//    Map<String, String> columnToTypes =
+//            SchematizationUtils.getColumnTypes(
+//                    recordWithoutSchema, Collections.singletonList(columnName));
+//    Assert.assertEquals("VARCHAR", columnToTypes.get(columnName));
+//    // Get non-existing column name should return VARIANT data type
+//    columnToTypes =
+//            SchematizationUtils.getColumnTypes(
+//                    recordWithoutSchema, Collections.singletonList("random"));
+//    Assert.assertEquals("VARIANT", columnToTypes.get("random"));
   }
 }

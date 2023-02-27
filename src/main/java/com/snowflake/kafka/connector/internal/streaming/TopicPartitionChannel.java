@@ -565,7 +565,7 @@ public class TopicPartitionChannel {
     return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
         .get(
             new InsertRowsApiResponseSupplier(
-                this.channel, buffer, this.enableSchemaEvolution, this.conn));
+                this.channel, buffer, this.enableSchemaEvolution, this.conn, this.nestDepth > 1));
   }
 
   /** Invokes the API given the channel and streaming Buffer. */
@@ -581,6 +581,8 @@ public class TopicPartitionChannel {
     // Whether the schema evolution is enabled
     private final boolean enableSchemaEvolution;
 
+    private final boolean enableNesting;
+
     // Connection service which will be used to do the ALTER TABLE command for schema evolution
     private final SnowflakeConnectionService conn;
 
@@ -588,11 +590,13 @@ public class TopicPartitionChannel {
         SnowflakeStreamingIngestChannel channelForInsertRows,
         StreamingBuffer insertRowsStreamingBuffer,
         boolean enableSchemaEvolution,
-        SnowflakeConnectionService conn) {
+        SnowflakeConnectionService conn,
+        boolean enableNesting) {
       this.channel = channelForInsertRows;
       this.insertRowsStreamingBuffer = insertRowsStreamingBuffer;
       this.enableSchemaEvolution = enableSchemaEvolution;
       this.conn = conn;
+      this.enableNesting = enableNesting;
     }
 
     @Override
@@ -613,6 +617,8 @@ public class TopicPartitionChannel {
                 records, Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
       } else {
         for (int idx = 0; idx < records.size(); idx++) {
+//          TODO: CF
+
           // For schema evolution, we need to call the insertRows API row by row in order to
           // preserve the original order, for anything after the first schema mismatch error we will
           // retry after the evolution
@@ -634,12 +640,27 @@ public class TopicPartitionChannel {
               // Simply added to the final response if it's not schema related errors
               finalResponse.addError(insertError);
             } else {
-              SchematizationUtils.evolveSchemaIfNeeded(
-                  this.conn,
-                  this.channel.getTableName(),
-                  nonNullableColumns,
-                  extraColNames,
-                  this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
+//              if (this.enableNesting) {
+//                SchematizationUtils.evolveSchemaIfNeededNested(
+//                        this.conn,
+//                        this.channel.getTableName(),
+//                        nonNullableColumns,
+//                        extraColNames,
+//                        records.get(idx)
+//                );
+//              } else {
+              LOGGER.info("CAFLOG ||| {} ||| {} ||| {}",
+                      this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx),
+                      extraColNames,
+                      records.get(idx));
+
+                SchematizationUtils.evolveSchemaIfNeeded(
+                        this.conn,
+                        this.channel.getTableName(),
+                        nonNullableColumns,
+                        extraColNames,
+                        this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
+//              }
               // Offset reset needed since it's possible that we successfully ingested partial batch
               needToResetOffset = true;
               break;
