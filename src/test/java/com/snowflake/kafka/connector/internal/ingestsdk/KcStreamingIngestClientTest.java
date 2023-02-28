@@ -17,10 +17,13 @@
 
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
+import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
+
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -28,6 +31,7 @@ import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
@@ -42,9 +46,10 @@ public class KcStreamingIngestClientTest {
 
   @Before
   public void setup() {
-    this.clientName = KcStreamingIngestClient.buildStreamingIngestClientName("testKcId", 0);
-
     this.config = TestUtils.getConfForStreaming();
+    this.clientName =
+        KcStreamingIngestClient.buildStreamingIngestClientName(
+            config.getOrDefault(Utils.NAME, "TEST_CONNECTOR_NAME"), "testKcId", 0);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     this.properties = new Properties();
     this.properties.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
@@ -60,21 +65,39 @@ public class KcStreamingIngestClientTest {
 
     // test
     KcStreamingIngestClient kcActualClient =
-        new KcStreamingIngestClient(this.properties, this.clientName);
+        new KcStreamingIngestClient(this.properties, null, this.clientName);
 
     // verify
     assert kcActualClient.getName().equals(kcMockClient.getName());
+    Assert.assertTrue(kcActualClient.getName().contains(this.config.get(Utils.NAME)));
     Mockito.verify(this.mockClient, Mockito.times(1)).getName();
   }
 
   @Test
   public void testCreateClientFailure() {
     TestUtils.assertExceptionType(
-        ConnectException.class, () -> new KcStreamingIngestClient(null, null));
+        ConnectException.class, () -> new KcStreamingIngestClient(null, null, null));
     TestUtils.assertExceptionType(
-        ConnectException.class, () -> new KcStreamingIngestClient(null, this.clientName));
+        ConnectException.class, () -> new KcStreamingIngestClient(null, null, this.clientName));
     TestUtils.assertExceptionType(
-        ConnectException.class, () -> new KcStreamingIngestClient(this.properties, null));
+        ConnectException.class, () -> new KcStreamingIngestClient(this.properties, null, null));
+  }
+
+  @Test
+  public void testCreateClientWithArrowBDECFileFormat() {
+    // setup
+    Mockito.when(this.mockClient.getName()).thenReturn(this.clientName);
+    KcStreamingIngestClient kcMockClient = new KcStreamingIngestClient(this.mockClient);
+
+    Map<String, Object> parameterOverrides = Collections.singletonMap(BLOB_FORMAT_VERSION, "1");
+
+    // test
+    KcStreamingIngestClient kcActualClient =
+        new KcStreamingIngestClient(this.properties, parameterOverrides, this.clientName);
+
+    // verify
+    assert kcActualClient.getName().equals(kcMockClient.getName());
+    Mockito.verify(this.mockClient, Mockito.times(1)).getName();
   }
 
   @Test
@@ -155,5 +178,24 @@ public class KcStreamingIngestClientTest {
     KcStreamingIngestClient kcMockClient = new KcStreamingIngestClient(this.mockClient);
     assert kcMockClient.isClosed() == isClosed;
     Mockito.verify(this.mockClient, Mockito.times(1)).isClosed();
+  }
+
+  @Test
+  public void testInvalidInsertRowsWithInvalidBDECFormat() throws Exception {
+    // Wipe off existing clients.
+    IngestSdkProvider.setStreamingClientManager(
+        TestUtils.resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
+
+    // add config which overrides the bdec file format
+    Map<String, String> overriddenConfig = new HashMap<>(this.config);
+    overriddenConfig.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
+        "TWOO_HUNDRED"); // some random string not supported in enum
+    try {
+      IngestSdkProvider.getStreamingClientManager()
+          .createAllStreamingClients(overriddenConfig, "testkcid", 1, 1);
+    } catch (IllegalArgumentException ex) {
+      Assert.assertEquals(NumberFormatException.class, ex.getCause().getClass());
+    }
   }
 }

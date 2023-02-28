@@ -17,6 +17,7 @@
 package com.snowflake.kafka.connector.internal.ingestsdk;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import java.util.Arrays;
@@ -39,12 +40,17 @@ public class KcStreamingIngestClient {
   /**
    * Builds the client's name based on the kc instance and expected client id
    *
+   * @param connectorName Name of the connector supplied in SF Config. This cannot be null or empty.
    * @param kcInstanceId the kafka connector instance id
    * @param clientId the client id
-   * @return the client's name as 'KC_CLIENT_kcInstanceId_clientId'
+   * @return the client's name as 'KC_CLIENT_connectorName_kcInstanceId_clientId'
    */
-  public static String buildStreamingIngestClientName(String kcInstanceId, int clientId) {
-    return Utils.formatString("{}_{}_{}", STREAMING_CLIENT_PREFIX_NAME, kcInstanceId, clientId);
+  public static String buildStreamingIngestClientName(
+      String connectorName, String kcInstanceId, int clientId) {
+    Preconditions.checkNotNull(connectorName, "connectorName cannot be null");
+    Preconditions.checkNotNull(kcInstanceId, "kcInstanceId cannot be null");
+    return Utils.formatString(
+        "{}_{}_{}_{}", STREAMING_CLIENT_PREFIX_NAME, connectorName, kcInstanceId, clientId);
   }
 
   // TESTING ONLY - inject the client
@@ -60,14 +66,17 @@ public class KcStreamingIngestClient {
    * <p>Any exceptions will be passed up, a sfexception will be converted to a connectexception
    *
    * @param streamingClientProps the properties for the client
+   * @param parameterOverrides Helps to override any default parameters in streaming client
    * @param clientName the client name to uniquely identify the client
    */
-  protected KcStreamingIngestClient(Properties streamingClientProps, String clientName) {
+  protected KcStreamingIngestClient(
+      Properties streamingClientProps, Map<String, Object> parameterOverrides, String clientName) {
     try {
       LOGGER.info("Creating Streaming Client: {}", clientName);
       this.client =
           SnowflakeStreamingIngestClientFactory.builder(clientName)
               .setProperties(streamingClientProps)
+              .setParameterOverrides(parameterOverrides)
               .build();
 
       assert this.client != null; // client is final, so never need to do another null check

@@ -7,7 +7,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
-import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,7 +54,7 @@ public class TopicPartitionChannelIT {
   public void afterEach() throws Exception {
     TestUtils.dropTable(testTableName);
     IngestSdkProvider.setStreamingClientManager(
-        new StreamingClientManager(new HashMap<>())); // reset to clean initial manager
+        TestUtils.resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
   }
 
   @Test
@@ -388,5 +387,42 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 2;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (recordsInPartition1 + anotherSetOfRecords - 1);
+  }
+
+  /* This will automatically open the channel. */
+  @Test
+  public void testSimpleInsertRowsWithArrowBDECFormat() throws Exception {
+    // Wipe off existing clients.
+    IngestSdkProvider.setStreamingClientManager(
+        TestUtils.resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
+
+    // add config which overrides the bdec file format
+    Map<String, String> overriddenConfig = new HashMap<>(this.config);
+    overriddenConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
+    IngestSdkProvider.getStreamingClientManager()
+        .createAllStreamingClients(overriddenConfig, "testkcid", 1, 1);
+
+    InMemorySinkTaskContext inMemorySinkTaskContext =
+        new InMemorySinkTaskContext(Collections.singleton(topicPartition));
+
+    // This will automatically create a channel for topicPartition.
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(inMemorySinkTaskContext)
+            .addTask(testTableName, topicPartition)
+            .build();
+
+    final long noOfRecords = 1;
+
+    // send regular data
+    List<SinkRecord> records =
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, PARTITION);
+
+    service.insert(records);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords, 20, 5);
   }
 }
