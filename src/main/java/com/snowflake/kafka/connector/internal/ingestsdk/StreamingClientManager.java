@@ -124,12 +124,13 @@ public class StreamingClientManager {
                 kcInstanceId,
                 taskId);
         tasksToCurrClient = 1;
-      } else {
-        tasksToCurrClient++;
-      }
+            } else {
+                tasksToCurrClient++;
+            }
+            LOGGER.info("Created task for {}", taskId);
 
-      this.taskToClientMap.put(taskId, createdClient);
-    }
+            this.taskToClientMap.put(taskId, createdClient);
+        }
   }
 
   // builds the client name and returns the created client. note taskId is used just for logging
@@ -165,12 +166,13 @@ public class StreamingClientManager {
       throw SnowflakeErrors.ERROR_3009.getException("call the manager to create the clients");
     }
 
-    KcStreamingIngestClient client = this.taskToClientMap.get(taskId);
-    if (client == null || client.isClosed()) {
-      throw SnowflakeErrors.ERROR_3009.getException();
-    }
+        KcStreamingIngestClient client = this.taskToClientMap.get(taskId);
+        if (client == null || client.isClosed()) {
+            LOGGER.info("CAFLOG4 ||| {} {}", this.taskToClientMap.toString(), this.clientId);
+            throw SnowflakeErrors.ERROR_3009.getException("client is null or closed for task id " + taskId + " ~~~~ " + client);
+        }
 
-    return client;
+        return client;
   }
 
   /**
