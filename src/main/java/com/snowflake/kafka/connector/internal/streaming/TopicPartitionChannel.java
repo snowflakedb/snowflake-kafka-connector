@@ -601,6 +601,7 @@ public class TopicPartitionChannel {
 
     @Override
     public InsertRowsResponse get() throws Throwable {
+
       LOGGER.debug(
           "Invoking insertRows API for channel:{}, streamingBuffer:{}",
           this.channel.getFullyQualifiedName(),
@@ -640,15 +641,21 @@ public class TopicPartitionChannel {
               // Simply added to the final response if it's not schema related errors
               finalResponse.addError(insertError);
             } else {
-//              if (this.enableNesting) {
-//                SchematizationUtils.evolveSchemaIfNeededNested(
-//                        this.conn,
-//                        this.channel.getTableName(),
-//                        nonNullableColumns,
-//                        extraColNames,
-//                        records.get(idx)
-//                );
-//              } else {
+              if (this.enableNesting) {
+                SinkRecord unflattenedRec = this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx);
+                LOGGER.info("CAFLOG 2 ||| {} ||| {} ||| {}",
+                        this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx),
+                        extraColNames,
+                        records.get(idx));
+                SchematizationUtils.evolveSchemaIfNeeded(
+                        this.conn,
+                        this.channel.getTableName(),
+                        nonNullableColumns,
+                        extraColNames,
+                        new SinkRecord(unflattenedRec.topic(), unflattenedRec.kafkaPartition(), unflattenedRec.keySchema(), unflattenedRec.key(), unflattenedRec.valueSchema(), records.get(idx), unflattenedRec.kafkaOffset(),
+                                unflattenedRec.timestamp(), unflattenedRec.timestampType()));
+
+              } else {
               LOGGER.info("CAFLOG ||| {} ||| {} ||| {}",
                       this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx),
                       extraColNames,
@@ -659,8 +666,9 @@ public class TopicPartitionChannel {
                         this.channel.getTableName(),
                         nonNullableColumns,
                         extraColNames,
-                        this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
-//              }
+                        this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx)
+                        );
+              }
               // Offset reset needed since it's possible that we successfully ingested partial batch
               needToResetOffset = true;
               break;
