@@ -22,7 +22,7 @@ class TestSchemaNotSupportedConverter:
             'RATING_INT': 100,
             'RATING_DOUBLE': 0.99,
             'APPROVAL': 'true',
-            'APPROVAL_DATE': '2022-06-15',
+            'APPROVAL_DATE': '15-Jun-2022',
             'APPROVAL_TIME': '23:59:59.999999',
             'INFO_ARRAY': ['HELLO', 'WORLD'],
             'INFO': {
