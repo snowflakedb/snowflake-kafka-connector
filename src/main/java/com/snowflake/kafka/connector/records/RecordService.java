@@ -118,7 +118,6 @@ public class RecordService extends EnableLogging {
       this.enableSchematization =
           Boolean.parseBoolean(
               connectorConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
-      this.nestDepth = Integer.parseInt(connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_DEPTH_CONFIG));
     }
     return this.enableSchematization;
   }

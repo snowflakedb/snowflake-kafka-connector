@@ -116,6 +116,9 @@ public class TopicPartitionChannelTest {
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
         Boolean.toString(this.enableSchematization));
 
+    this.sfConnectorConfig.put(
+            SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_DEPTH_CONFIG, "2");
+
     IngestSdkProvider.setStreamingClientManager(this.mockStreamingClientManager);
   }
 
@@ -806,6 +809,14 @@ public class TopicPartitionChannelTest {
     Map<String, Object> rowContent = new HashMap<>();
     rowContent.put("RECORD_METADATA", "{\"topic\":\"test_insert_rows\",\"offset\":" + offset + ",\"partition\":0,\"CreateTime\":1677237623225,\"key\":\"1487335261\",\"headers\":{\"current.iteration\":148733526}}");
     rowContent.put("topLevelKey", "topLevelValue");
+    return rowContent;
+  }
+
+  public Object getInsertErrorRowContentNested(int offset) {
+    Map<String, Object> rowContent = new HashMap<>();
+    rowContent.put("RECORD_METADATA", "{\"topic\":\"test_insert_rows\",\"offset\":" + offset + ",\"partition\":0,\"CreateTime\":1677237623225,\"key\":\"1487335261\",\"headers\":{\"current.iteration\":148733526}}");
+    rowContent.put("topLevelKey", "topLevelValue");
+    rowContent.put("topLevelKeyNest", "{\"topLevelValueNested\": {\"test\":\"test\"}}");
     return rowContent;
   }
     /* Valid response but has errors, error tolerance is ALL. Meaning it will ignore the error.
