@@ -84,6 +84,7 @@ public class SchematizationUtils {
     // Add columns if needed, ignore any exceptions since other task might be succeeded
     if (extraColNames != null) {
       Map<String, String> extraColumnsToType = getColumnTypes(record, extraColNames);
+      LOGGER.info("CAFLOG3 ||| {} ||| {} ||| {}", extraColumnsToType, record, extraColNames);
       try {
         conn.appendColumnsToTable(tableName, extraColumnsToType);
       } catch (SnowflakeKafkaConnectorException e) {
@@ -105,13 +106,16 @@ public class SchematizationUtils {
    * @param columnNames the names of the extra columns
    * @return a Map object where the key is column name and value is Snowflake data type
    */
+//  TODO: CDP-2873
   static Map<String, String> getColumnTypes(SinkRecord record, List<String> columnNames) {
     if (columnNames == null) {
       return new HashMap<>();
     }
     Map<String, String> columnToType = new HashMap<>();
     Map<String, String> schemaMap = getSchemaMapFromRecord(record);
+
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
+
 
     for (String columnName : columnNames) {
       if (!columnToType.containsKey(columnName)) {

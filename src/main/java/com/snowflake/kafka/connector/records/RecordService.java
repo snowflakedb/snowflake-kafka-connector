@@ -72,6 +72,8 @@ public class RecordService extends EnableLogging {
 
   private boolean enableSchematization = false;
 
+  private int nestDepth = 1;
+
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
   static final ThreadLocal<SimpleDateFormat> ISO_DATE_TIME_FORMAT =
@@ -121,6 +123,22 @@ public class RecordService extends EnableLogging {
   }
 
   /**
+   * extract enableSchematization from the connector config and set the value for the recordService
+   *
+   * <p>The extracted boolean is returned for external usage.
+   *
+   * @param connectorConfig the connector config map
+   * @return a boolean indicating whether schematization is enabled
+   */
+  public int setAndGetNestDepthFromConfig(
+          final Map<String, String> connectorConfig) {
+    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_DEPTH_CONFIG)) {
+      this.nestDepth = Integer.parseInt(connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_DEPTH_CONFIG));
+    }
+    return this.nestDepth;
+  }
+
+  /**
    * Directly set the enableSchematization through param
    *
    * <p>This method is only for testing
@@ -130,6 +148,18 @@ public class RecordService extends EnableLogging {
   @VisibleForTesting
   public void setEnableSchematization(final boolean enableSchematization) {
     this.enableSchematization = enableSchematization;
+  }
+
+  /**
+   * Directly set the enableSchematization through param
+   *
+   * <p>This method is only for testing
+   *
+   * @param nestDepth whether we should enable schematization or not
+   */
+  @VisibleForTesting
+  public void setNestDepth(final int nestDepth) {
+    this.nestDepth = nestDepth;
   }
 
   /**
@@ -224,6 +254,7 @@ public class RecordService extends EnableLogging {
     SnowflakeTableRow row = processRecord(record);
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.content.getData()) {
+      // TODO: CDP-2853
       if (enableSchematization) {
         streamingIngestRow.putAll(getMapFromJsonNodeForStreamingIngest(node));
       } else {
@@ -237,9 +268,11 @@ public class RecordService extends EnableLogging {
     return streamingIngestRow;
   }
 
+  // TODO: CDP-2853
   private Map<String, Object> getMapFromJsonNodeForStreamingIngest(JsonNode node)
       throws JsonProcessingException {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
+    int depth = 1;
     Iterator<String> columnNames = node.fieldNames();
     while (columnNames.hasNext()) {
       String columnName = columnNames.next();
@@ -252,6 +285,10 @@ public class RecordService extends EnableLogging {
           itemList.add(e.isTextual() ? e.textValue() : MAPPER.writeValueAsString(e));
         }
         columnValue = itemList;
+      } else if (columnNode.isObject() && this.nestDepth > depth) {
+        depth++;
+        streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(columnNode, columnName, depth));
+        continue;
       } else if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
       } else if (columnNode.isNull()) {
@@ -267,6 +304,44 @@ public class RecordService extends EnableLogging {
     if (streamingIngestRow.isEmpty()) {
       throw SnowflakeErrors.ERROR_0010.getException(
           "Not able to convert node to Snowpipe Streaming input format");
+    }
+    return streamingIngestRow;
+  }
+
+  private Map<String, Object> getMapFromJsonNodeForStreamingIngest(JsonNode node, String outerColumn, int depth)
+          throws JsonProcessingException {
+    final Map<String, Object> streamingIngestRow = new HashMap<>();
+    Iterator<String> columnNames = node.fieldNames();
+    while (columnNames.hasNext()) {
+      String columnName = columnNames.next();
+      JsonNode columnNode = node.get(columnName);
+      Object columnValue;
+      if (columnNode.isArray()) {
+        List<String> itemList = new ArrayList<>();
+        ArrayNode arrayNode = (ArrayNode) columnNode;
+        for (JsonNode e : arrayNode) {
+          itemList.add(e.isTextual() ? e.textValue() : MAPPER.writeValueAsString(e));
+        }
+        columnValue = itemList;
+      } else if (columnNode.isObject() && this.nestDepth > depth) {
+        depth++;
+        streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(columnNode, outerColumn + "_" + columnName, depth));
+        continue;
+      } else if (columnNode.isTextual()) {
+        columnValue = columnNode.textValue();
+      } else if (columnNode.isNull()) {
+        columnValue = null;
+      } else {
+        columnValue = MAPPER.writeValueAsString(columnNode);
+      }
+      // while the value is always dumped into a string, the Streaming Ingest SDK
+      // will transform the value according to its type in the table
+      streamingIngestRow.put(outerColumn + "_" + columnName, columnValue);
+    }
+    // Thrown an exception if the input JsonNode is not in the expected format
+    if (streamingIngestRow.isEmpty()) {
+      throw SnowflakeErrors.ERROR_0010.getException(
+              "Not able to convert node to Snowpipe Streaming input format");
     }
     return streamingIngestRow;
   }

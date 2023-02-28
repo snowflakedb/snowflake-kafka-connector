@@ -8,10 +8,13 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MA
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.gson.Gson;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
@@ -29,6 +32,7 @@ import dev.failsafe.function.CheckedSupplier;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -36,6 +40,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -67,6 +74,7 @@ public class TopicPartitionChannel {
       new LoggerHandler(TopicPartitionChannel.class.getName());
 
   private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
+  private final int nestDepth;
 
   // last time we invoked insertRows API
   private long previousFlushTimeStampMs;
@@ -233,6 +241,8 @@ public class TopicPartitionChannel {
     /* Schematization related properties */
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
+    this.nestDepth =
+            this.recordService.setAndGetNestDepthFromConfig(sfConnectorConfig);
     this.enableSchemaEvolution =
         this.enableSchematization
             && this.conn != null
@@ -555,7 +565,7 @@ public class TopicPartitionChannel {
     return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
         .get(
             new InsertRowsApiResponseSupplier(
-                this.channel, buffer, this.enableSchemaEvolution, this.conn));
+                this.channel, buffer, this.enableSchemaEvolution, this.conn, this.nestDepth > 1));
   }
 
   /** Invokes the API given the channel and streaming Buffer. */
@@ -571,6 +581,8 @@ public class TopicPartitionChannel {
     // Whether the schema evolution is enabled
     private final boolean enableSchemaEvolution;
 
+    private final boolean enableNesting;
+
     // Connection service which will be used to do the ALTER TABLE command for schema evolution
     private final SnowflakeConnectionService conn;
 
@@ -578,15 +590,18 @@ public class TopicPartitionChannel {
         SnowflakeStreamingIngestChannel channelForInsertRows,
         StreamingBuffer insertRowsStreamingBuffer,
         boolean enableSchemaEvolution,
-        SnowflakeConnectionService conn) {
+        SnowflakeConnectionService conn,
+        boolean enableNesting) {
       this.channel = channelForInsertRows;
       this.insertRowsStreamingBuffer = insertRowsStreamingBuffer;
       this.enableSchemaEvolution = enableSchemaEvolution;
       this.conn = conn;
+      this.enableNesting = enableNesting;
     }
 
     @Override
     public InsertRowsResponse get() throws Throwable {
+
       LOGGER.debug(
           "Invoking insertRows API for channel:{}, streamingBuffer:{}",
           this.channel.getFullyQualifiedName(),
@@ -603,6 +618,8 @@ public class TopicPartitionChannel {
                 records, Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
       } else {
         for (int idx = 0; idx < records.size(); idx++) {
+//          TODO: CF
+
           // For schema evolution, we need to call the insertRows API row by row in order to
           // preserve the original order, for anything after the first schema mismatch error we will
           // retry after the evolution
@@ -624,12 +641,34 @@ public class TopicPartitionChannel {
               // Simply added to the final response if it's not schema related errors
               finalResponse.addError(insertError);
             } else {
-              SchematizationUtils.evolveSchemaIfNeeded(
-                  this.conn,
-                  this.channel.getTableName(),
-                  nonNullableColumns,
-                  extraColNames,
-                  this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
+              if (this.enableNesting) {
+                SinkRecord unflattenedRec = this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx);
+                LOGGER.info("CAFLOG 2 ||| {} ||| {} ||| {}",
+                        this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx),
+                        extraColNames,
+                        records.get(idx));
+                SchematizationUtils.evolveSchemaIfNeeded(
+                        this.conn,
+                        this.channel.getTableName(),
+                        nonNullableColumns,
+                        extraColNames,
+                        new SinkRecord(unflattenedRec.topic(), unflattenedRec.kafkaPartition(), unflattenedRec.keySchema(), unflattenedRec.key(), unflattenedRec.valueSchema(), records.get(idx), unflattenedRec.kafkaOffset(),
+                                unflattenedRec.timestamp(), unflattenedRec.timestampType()));
+
+              } else {
+              LOGGER.info("CAFLOG ||| {} ||| {} ||| {}",
+                      this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx),
+                      extraColNames,
+                      records.get(idx));
+
+                SchematizationUtils.evolveSchemaIfNeeded(
+                        this.conn,
+                        this.channel.getTableName(),
+                        nonNullableColumns,
+                        extraColNames,
+                        this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx)
+                        );
+              }
               // Offset reset needed since it's possible that we successfully ingested partial batch
               needToResetOffset = true;
               break;
@@ -694,13 +733,16 @@ public class TopicPartitionChannel {
    * @param insertErrors errors from validation response. (Only if it has errors)
    * @param insertedRecordsToBuffer to map {@link SinkRecord} with insertErrors
    */
+
+  // TODO: CDP-2854
   private void handleInsertRowsFailures(
       List<InsertValidationResponse.InsertError> insertErrors,
       List<SinkRecord> insertedRecordsToBuffer) {
-    if (logErrors) {
-      for (InsertValidationResponse.InsertError insertError : insertErrors) {
-        LOGGER.error("Insert Row Error message", insertError.getException());
-      }
+      if (logErrors) {
+          for (InsertValidationResponse.InsertError insertError : insertErrors) {
+              LOGGER.error("Insert Row Error message |||| {} |||| {} |||| {}", insertError.getException(), insertError.getRowContent(),
+                           insertError.getRowContent().getClass());
+          }
     }
     if (errorTolerance) {
       if (!isDLQTopicSet) {
@@ -709,13 +751,20 @@ public class TopicPartitionChannel {
             ERRORS_TOLERANCE_CONFIG,
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
       } else {
-        for (InsertValidationResponse.InsertError insertError : insertErrors) {
-          // Map error row number to index in sinkRecords list.
-          int rowIndexToOriginalSinkRecord = (int) insertError.getRowIndex();
-          this.kafkaRecordErrorReporter.reportError(
-              insertedRecordsToBuffer.get(rowIndexToOriginalSinkRecord),
-              insertError.getException());
-        }
+          for (InsertValidationResponse.InsertError insertError : insertErrors) {
+              // Map error row number to index in sinkRecords list.
+              try {
+                  HashMap<String, ?> rowContent = (HashMap<String, ?>) insertError.getRowContent();
+                  // TODO: take out this hack
+                  if (rowContent.getOrDefault("RECORD_METADATA", null) != null) {
+                    HashMap<String, Object> metadata = new ObjectMapper().readValue((String) rowContent.get("RECORD_METADATA"), HashMap.class);
+                    List<SinkRecord> res = insertedRecordsToBuffer.stream().filter((rec) -> rec.kafkaOffset() ==  (int) metadata.get("offset")).collect(Collectors.toList());
+                    this.kafkaRecordErrorReporter.reportError(res.get(0), insertError.getException());
+                  }
+              } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                  throw new RuntimeException(e);
+              }
+          }
       }
     } else {
       throw new DataException(

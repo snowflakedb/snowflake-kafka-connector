@@ -516,7 +516,7 @@ public class TestUtils {
       final long startOffset, final long noOfRecords, final String topicName, final int partitionNo)
       throws Exception {
     ArrayList<SinkRecord> records = new ArrayList<>();
-    String json = "{ \"f1\" : \"v1\" } ";
+    String json = "{ \"f1\" : \"v1\", \"RECORD_METADATA\" : \"{\\\"f2\\\": \\\"v2\\\"}\" } ";
     ObjectMapper objectMapper = new ObjectMapper();
     Schema snowflakeSchema = new SnowflakeJsonSchema();
     SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));

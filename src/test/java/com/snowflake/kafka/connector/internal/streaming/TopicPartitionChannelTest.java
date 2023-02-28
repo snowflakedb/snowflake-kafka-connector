@@ -116,6 +116,9 @@ public class TopicPartitionChannelTest {
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
         Boolean.toString(this.enableSchematization));
 
+    this.sfConnectorConfig.put(
+            SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_DEPTH_CONFIG, "2");
+
     IngestSdkProvider.setStreamingClientManager(this.mockStreamingClientManager);
   }
 
@@ -528,8 +531,9 @@ public class TopicPartitionChannelTest {
 
       // this response should get row sent to dlq
       InsertValidationResponse failureResponse = new InsertValidationResponse();
+
       InsertValidationResponse.InsertError insertError1 =
-          new InsertValidationResponse.InsertError("CONTENT", noOfRecords);
+          new InsertValidationResponse.InsertError(getInsertErrorRowContent(noOfRecords), noOfRecords);
       insertError1.setException(SF_EXCEPTION);
       failureResponse.addError(insertError1);
       SinkRecord failureRecord =
@@ -539,7 +543,7 @@ public class TopicPartitionChannelTest {
       // this response should make schema evolve
       InsertValidationResponse evolveSchemaResponse = new InsertValidationResponse();
       InsertValidationResponse.InsertError insertError2 =
-          new InsertValidationResponse.InsertError("CONTENT", noOfRecords);
+          new InsertValidationResponse.InsertError(getInsertErrorRowContent(noOfRecords), noOfRecords);
       insertError2.setException(SF_EXCEPTION);
       insertError2.setExtraColNames(Collections.singletonList("gender")); // will evolve schema
       evolveSchemaResponse.addError(insertError2);
@@ -686,7 +690,7 @@ public class TopicPartitionChannelTest {
   public void testInsertRows_ValidationResponseHasErrors_NoErrorTolerance() throws Exception {
     InsertValidationResponse validationResponse = new InsertValidationResponse();
     InsertValidationResponse.InsertError insertErrorWithException =
-        new InsertValidationResponse.InsertError("CONTENT", 0);
+        new InsertValidationResponse.InsertError(getInsertErrorRowContent(0), 0);
     insertErrorWithException.setException(SF_EXCEPTION);
     validationResponse.addError(insertErrorWithException);
     Mockito.when(
@@ -723,7 +727,7 @@ public class TopicPartitionChannelTest {
   public void testInsertRows_ValidationResponseHasErrors_ErrorTolerance_ALL() throws Exception {
     InsertValidationResponse validationResponse = new InsertValidationResponse();
     InsertValidationResponse.InsertError insertErrorWithException =
-        new InsertValidationResponse.InsertError("CONTENT", 0);
+        new InsertValidationResponse.InsertError(getInsertErrorRowContent(0), 0);
     insertErrorWithException.setException(SF_EXCEPTION);
     validationResponse.addError(insertErrorWithException);
     Mockito.when(
@@ -764,7 +768,7 @@ public class TopicPartitionChannelTest {
       throws Exception {
     InsertValidationResponse validationResponse = new InsertValidationResponse();
     InsertValidationResponse.InsertError insertErrorWithException =
-        new InsertValidationResponse.InsertError("CONTENT", 0);
+        new InsertValidationResponse.InsertError(getInsertErrorRowContent(0), 0);
     insertErrorWithException.setException(SF_EXCEPTION);
     validationResponse.addError(insertErrorWithException);
     Mockito.when(
@@ -798,6 +802,63 @@ public class TopicPartitionChannelTest {
     Mockito.verify(this.mockKafkaRecordErrorReporter, Mockito.times(1))
         .reportError(Mockito.refEq(records.get(0)), ArgumentMatchers.any(SFException.class));
     Mockito.verify(mockStreamingChannel, Mockito.times(1))
+        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+  }
+
+  public Object getInsertErrorRowContent(int offset) {
+    Map<String, Object> rowContent = new HashMap<>();
+    rowContent.put("RECORD_METADATA", "{\"topic\":\"test_insert_rows\",\"offset\":" + offset + ",\"partition\":0,\"CreateTime\":1677237623225,\"key\":\"1487335261\",\"headers\":{\"current.iteration\":148733526}}");
+    rowContent.put("topLevelKey", "topLevelValue");
+    return rowContent;
+  }
+
+  public Object getInsertErrorRowContentNested(int offset) {
+    Map<String, Object> rowContent = new HashMap<>();
+    rowContent.put("RECORD_METADATA", "{\"topic\":\"test_insert_rows\",\"offset\":" + offset + ",\"partition\":0,\"CreateTime\":1677237623225,\"key\":\"1487335261\",\"headers\":{\"current.iteration\":148733526}}");
+    rowContent.put("topLevelKey", "topLevelValue");
+    rowContent.put("topLevelKeyNest", "{\"topLevelValueNested\": {\"test\":\"test\"}}");
+    return rowContent;
+  }
+    /* Valid response but has errors, error tolerance is ALL. Meaning it will ignore the error.
+    *  Ensure the correct message is sent to the DLQ
+    */
+  @Test
+  public void testInsertRows_ValidationResponseHasErrors_ErrorTolerance_ALL_CorrectMessageToDLQ() throws Exception {
+    int offset = 5;
+      InsertValidationResponse validationResponse = new InsertValidationResponse();
+      InsertValidationResponse.InsertError insertErrorWithException =
+        new InsertValidationResponse.InsertError(getInsertErrorRowContent(offset), 0);
+      insertErrorWithException.setException(SF_EXCEPTION);
+      validationResponse.addError(insertErrorWithException);
+      Mockito.when(
+              this.mockStreamingChannel.insertRows(
+                      ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+        .thenReturn(validationResponse);
+
+      this.sfConnectorConfig.put(
+              ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
+      this.sfConnectorConfig.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
+      TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+                this.topicPartition,
+                TEST_CHANNEL_NAME,
+                TEST_TABLE_NAME,
+                this.mockStreamingBufferThreshold,
+                this.sfConnectorConfig,
+                this.mockKafkaRecordErrorReporter,
+                this.mockSinkTaskContext,
+                this.mockConn);
+
+      List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, offset * 2, TOPIC, PARTITION);
+
+      TopicPartitionChannel.StreamingBuffer streamingBuffer =
+        topicPartitionChannel.new StreamingBuffer();
+      streamingBuffer.insert(records.get(offset));
+
+      assert topicPartitionChannel.insertBufferedRecords(streamingBuffer).hasErrors();
+      Mockito.verify(this.mockKafkaRecordErrorReporter, Mockito.times(1))
+        .reportError(Mockito.refEq(records.get(offset)), ArgumentMatchers.any(SFException.class));
+      Mockito.verify(this.mockStreamingChannel, Mockito.times(1))
         .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
   }
 

@@ -1,17 +1,5 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_DEFAULT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.EnableLogging;
@@ -24,6 +12,8 @@ import net.snowflake.client.jdbc.telemetry.Telemetry;
 import net.snowflake.client.jdbc.telemetry.TelemetryClient;
 import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
 import org.apache.kafka.common.utils.AppInfoParser;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 
 public class SnowflakeTelemetryServiceV1 extends EnableLogging
     implements SnowflakeTelemetryService {
@@ -235,6 +225,12 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
         ENABLE_SCHEMATIZATION_CONFIG,
         userProvidedConfig.getOrDefault(
             ENABLE_SCHEMATIZATION_CONFIG, ENABLE_SCHEMATIZATION_DEFAULT));
+
+    // Record whether nested json flattening is used
+    dataObjectNode.put(
+            SCHEMATIZATION_NESTED_DEPTH_CONFIG,
+            userProvidedConfig.getOrDefault(
+                    SCHEMATIZATION_NESTED_DEPTH_CONFIG, SCHEMATIZATION_NESTED_DEPTH_DEFAULT));
   }
 
   private enum TelemetryType {
