@@ -127,7 +127,7 @@ public class StreamingClientManager {
             } else {
                 tasksToCurrClient++;
             }
-            LOGGER.info("Created task for {}", taskId);
+            LOGGER.info("CAFLOG 5 Created task for {} || {}", taskId, this.taskToClientMap);
 
             this.taskToClientMap.put(taskId, createdClient);
         }
@@ -152,23 +152,25 @@ public class StreamingClientManager {
   /**
    * Gets the client corresponding to the task id and validates it (not null and is closed)
    *
-   * @param taskId the task id to get the corresponding client
-   * @return The streaming client, throws an exception if no client was initialized
-   */
-  public KcStreamingIngestClient getValidClient(int taskId) {
-    if (taskId > this.maxTasks || taskId < this.minTasks) {
-      throw SnowflakeErrors.ERROR_3010.getException(
+     * @param taskId the task id to get the corresponding client
+     * @return The streaming client, throws an exception if no client was initialized
+     */
+//    TODO: Not sure how this got past testing as `this.taskToClientMap` is per-task.. i.e. there'll only ever be 1 task in it
+    public KcStreamingIngestClient getValidClient(int taskId) {
+        if (taskId > this.maxTasks || taskId < this.minTasks) {
+            throw SnowflakeErrors.ERROR_3010.getException(
           Utils.formatString(
               "taskId must be between 0 and {} but was given {}", this.maxTasks, taskId));
     }
 
     if (this.clientId < 0) {
-      throw SnowflakeErrors.ERROR_3009.getException("call the manager to create the clients");
-    }
+            throw SnowflakeErrors.ERROR_3009.getException("call the manager to create the clients");
+        }
 
-        KcStreamingIngestClient client = this.taskToClientMap.get(taskId);
+//        Hardcode this to 0 was this.taskToClientMap is per task
+        KcStreamingIngestClient client = this.taskToClientMap.get(0);
+        LOGGER.info("CAFLOG4 ||| {} {} {}", this.taskToClientMap.toString(), this.clientId, taskId);
         if (client == null || client.isClosed()) {
-            LOGGER.info("CAFLOG4 ||| {} {}", this.taskToClientMap.toString(), this.clientId);
             throw SnowflakeErrors.ERROR_3009.getException("client is null or closed for task id " + taskId + " ~~~~ " + client);
         }
 
