@@ -35,9 +35,7 @@ import static com.snowflake.kafka.connector.Utils.SF_USER;
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
-import com.snowflake.kafka.connector.internal.ingestsdk.KcStreamingIngestClient;
-import com.snowflake.kafka.connector.internal.ingestsdk.StreamingClientManager;
+import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
@@ -62,6 +60,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -165,7 +165,6 @@ public class TestUtils {
     configuration.put(Utils.SF_URL, getProfile(profileFileName).get(HOST).asText());
     configuration.put(Utils.SF_WAREHOUSE, getProfile(profileFileName).get(WAREHOUSE).asText());
     configuration.put(Utils.SF_PRIVATE_KEY, getProfile(profileFileName).get(PRIVATE_KEY).asText());
-    // configuration.put(Utils.SF_ROLE, getProfile(profileFileName).get(ROLE).asText());
 
     configuration.put(Utils.NAME, TEST_CONNECTOR_NAME);
 
@@ -373,28 +372,9 @@ public class TestUtils {
     return false;
   }
 
-  /**
-   * Check Snowflake Error Code in test
-   *
-   * @param error Snowflake error
-   * @param func function throwing exception
-   * @return true is error code is correct, otherwise, false
-   */
-  public static boolean assertExceptionType(Class exceptionClass, Runnable func) {
-    try {
-      func.run();
-    } catch (Exception ex) {
-      return ex.getClass().equals(exceptionClass);
-    }
-    return false;
-  }
-
   /** @return snowflake connection for test */
   public static SnowflakeConnectionService getConnectionService() {
-    return SnowflakeConnectionServiceFactory.builder()
-        .setProperties(getConf())
-        .setTaskID("0")
-        .build();
+    return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
   }
 
   /**
@@ -544,15 +524,6 @@ public class TestUtils {
       final int partitionNo) {
     ArrayList<SinkRecord> records = new ArrayList<>();
 
-    for (long i = startOffset; i < startOffset + noOfRecords; ++i) {
-      records.add(createNativeJsonSinkRecord(i, topicName, partitionNo));
-    }
-
-    return records;
-  }
-
-  public static SinkRecord createNativeJsonSinkRecord(
-      final long offset, final String topicName, final int partitionNo) {
     JsonConverter converter = new JsonConverter();
     HashMap<String, String> converterConfig = new HashMap<>();
     converterConfig.put("schemas.enable", "true");
@@ -561,14 +532,18 @@ public class TestUtils {
         converter.toConnectData(
             "test", TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
 
-    return new SinkRecord(
-        topicName,
-        partitionNo,
-        Schema.STRING_SCHEMA,
-        "test",
-        schemaInputValue.schema(),
-        schemaInputValue.value(),
-        offset);
+    for (long i = startOffset; i < startOffset + noOfRecords; ++i) {
+      records.add(
+          new SinkRecord(
+              topicName,
+              partitionNo,
+              Schema.STRING_SCHEMA,
+              "test",
+              schemaInputValue.schema(),
+              schemaInputValue.value(),
+              i));
+    }
+    return records;
   }
 
   /* Generate (noOfRecords - startOffset) for a given topic and partition which were essentially avro records */
@@ -760,14 +735,12 @@ public class TestUtils {
     return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, taskId, taskOpenCount, "").split("#")[0];
   }
 
-  /** Resets existing streaming clients and get a new client manager used in testing. */
-  public static StreamingClientManager resetAndGetEmptyStreamingClientManager() {
-    Map<Integer, KcStreamingIngestClient> taskToClientMap =
-        IngestSdkProvider.getStreamingClientManager().getTaskToClientMap();
-    if (taskToClientMap != null && !taskToClientMap.isEmpty()) {
-      taskToClientMap.forEach(
-          (integer, kcStreamingIngestClient) -> kcStreamingIngestClient.close());
-    }
-    return new StreamingClientManager(new HashMap<>());
+  public static SnowflakeStreamingIngestClient createStreamingClient(
+      Map<String, String> config, String clientName) {
+    Properties clientProperties = new Properties();
+    clientProperties.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
+    return SnowflakeStreamingIngestClientFactory.builder(clientName)
+        .setProperties(clientProperties)
+        .build();
   }
 }

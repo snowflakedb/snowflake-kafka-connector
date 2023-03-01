@@ -85,7 +85,6 @@ public class SnowflakeSinkConnectorConfig {
   private static final String PROXY_INFO = "Proxy Info";
   public static final String JVM_PROXY_HOST = "jvm.proxy.host";
   public static final String JVM_PROXY_PORT = "jvm.proxy.port";
-  public static final String JVM_NON_PROXY_HOSTS = "jvm.nonProxy.hosts";
   public static final String JVM_PROXY_USERNAME = "jvm.proxy.username";
   public static final String JVM_PROXY_PASSWORD = "jvm.proxy.password";
 
@@ -118,10 +117,6 @@ public class SnowflakeSinkConnectorConfig {
   public static final String INGESTION_METHOD_OPT = "snowflake.ingestion.method";
   public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
       IngestionMethodConfig.SNOWPIPE.toString();
-
-  // This is the streaming bdec file version which can be defined in config
-  // NOTE: Please do not override this value unless recommended from snowflake
-  public static final String SNOWPIPE_STREAMING_FILE_VERSION = "snowflake.streaming.file.version";
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
@@ -315,23 +310,13 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Width.NONE,
             JVM_PROXY_PORT)
         .define(
-            JVM_NON_PROXY_HOSTS,
-            Type.STRING,
-            "",
-            Importance.LOW,
-            "JVM option: http.nonProxyHosts",
-            PROXY_INFO,
-            2,
-            ConfigDef.Width.NONE,
-            JVM_NON_PROXY_HOSTS)
-        .define(
             JVM_PROXY_USERNAME,
             Type.STRING,
             "",
             Importance.LOW,
             "JVM proxy username",
             PROXY_INFO,
-            3,
+            2,
             ConfigDef.Width.NONE,
             JVM_PROXY_USERNAME)
         .define(
@@ -341,7 +326,7 @@ public class SnowflakeSinkConnectorConfig {
             Importance.LOW,
             "JVM proxy password",
             PROXY_INFO,
-            4,
+            3,
             ConfigDef.Width.NONE,
             JVM_PROXY_PASSWORD)
         // Connector Config
@@ -488,18 +473,6 @@ public class SnowflakeSinkConnectorConfig {
             5,
             ConfigDef.Width.NONE,
             INGESTION_METHOD_OPT)
-        .define(
-            SNOWPIPE_STREAMING_FILE_VERSION,
-            Type.STRING,
-            "", // default is handled in Ingest SDK
-            null, // no validator
-            Importance.LOW,
-            "Acceptable values for Snowpipe Streaming BDEC Versions: 1 and 3. Check Ingest"
-                + " SDK for default behavior. Please do not set this unless Absolutely needed. ",
-            CONNECTOR_CONFIG,
-            6,
-            ConfigDef.Width.NONE,
-            SNOWPIPE_STREAMING_FILE_VERSION)
         .define(
             ERRORS_TOLERANCE_CONFIG,
             Type.STRING,
