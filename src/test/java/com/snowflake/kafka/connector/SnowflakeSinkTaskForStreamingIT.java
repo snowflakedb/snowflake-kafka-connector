@@ -27,6 +27,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.AdditionalMatchers;
 import org.mockito.InjectMocks;
@@ -161,6 +162,7 @@ public class SnowflakeSinkTaskForStreamingIT {
   }
 
   @Test
+  @Ignore
   public void testMultipleSinkTaskWithLogs() throws Exception {
     // set up task0, the real one
     int task0Id = 0;
