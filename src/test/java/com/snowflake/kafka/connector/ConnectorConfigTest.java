@@ -593,4 +593,32 @@ public class ConnectorConfigTest {
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     Utils.validateConfig(config);
   }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testSchematizationWithUnsupportedConverter() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+        "org.apache.kafka.connect.storage.StringConverter");
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testDisabledSchematizationWithUnsupportedConverter() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "false");
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+        "org.apache.kafka.connect.storage.StringConverter");
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+  }
 }
