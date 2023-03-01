@@ -161,7 +161,7 @@ public class SnowflakeSinkTask extends SinkTask {
 
     this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskLoggingTag());
 
-    this.DYNAMIC_LOGGER.info("starting task...");
+    this.DYNAMIC_LOGGER.debug("starting task...");
 
     // generate topic to table map
     this.topic2table = getTopicToTableMap(parsedConfig);
@@ -250,7 +250,7 @@ public class SnowflakeSinkTask extends SinkTask {
             .setSinkTaskContext(this.context)
             .build();
 
-    DYNAMIC_LOGGER.info(
+    DYNAMIC_LOGGER.debug(
         "task started, execution time: {} seconds",
         this.taskConfigId,
         getExecutionTimeSec(this.taskStartTime, System.currentTimeMillis()));
@@ -266,7 +266,7 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.setIsStoppedToTrue(); // close cleaner thread
     }
 
-    this.DYNAMIC_LOGGER.info(
+    this.DYNAMIC_LOGGER.debug(
         "task stopped, total task runtime: {} seconds",
         getExecutionTimeSec(this.taskStartTime, System.currentTimeMillis()));
     this.DYNAMIC_LOGGER.clearLoggerInstanceIdTag();
@@ -283,11 +283,11 @@ public class SnowflakeSinkTask extends SinkTask {
     this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskLoggingTag());
 
     long startTime = System.currentTimeMillis();
-    this.DYNAMIC_LOGGER.info("opening task with TopicPartition number: {}", partitions.size());
     partitions.forEach(
         tp -> this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp));
-    this.DYNAMIC_LOGGER.info(
-        "task opened, execution time: {} seconds",
+    this.DYNAMIC_LOGGER.debug(
+        "task opened with {} partitions, execution time: {} seconds",
+        partitions.size(),
         getExecutionTimeSec(startTime, System.currentTimeMillis()));
   }
 
@@ -302,12 +302,11 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void close(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    this.DYNAMIC_LOGGER.info("closing task...");
     if (this.sink != null) {
       this.sink.close(partitions);
     }
 
-    this.DYNAMIC_LOGGER.info(
+    this.DYNAMIC_LOGGER.debug(
         "task closed, execution time: {} seconds",
         this.taskConfigId,
         getExecutionTimeSec(startTime, System.currentTimeMillis()));
@@ -325,7 +324,6 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     long startTime = System.currentTimeMillis();
-    this.DYNAMIC_LOGGER.info("calling put with {} records", records.size());
 
     getSink().insert(records);
 
@@ -346,8 +344,6 @@ public class SnowflakeSinkTask extends SinkTask {
   public Map<TopicPartition, OffsetAndMetadata> preCommit(
       Map<TopicPartition, OffsetAndMetadata> offsets) throws RetriableException {
     long startTime = System.currentTimeMillis();
-    this.DYNAMIC_LOGGER.info(
-        "calling precommit with {} offsets", this.taskConfigId, offsets.size());
 
     // return an empty map means that offset commitment is not desired
     if (sink == null || sink.isClosed()) {
@@ -436,7 +432,7 @@ public class SnowflakeSinkTask extends SinkTask {
           size,
           executionTime);
     } else {
-      this.DYNAMIC_LOGGER.info(
+      this.DYNAMIC_LOGGER.debug(
           "successfully called {} with {} records, execution time: {} seconds",
           apiName,
           size,
