@@ -46,10 +46,9 @@ public class KcStreamingIngestClientTest {
 
   @Before
   public void setup() {
+    this.clientName = KcStreamingIngestClient.buildStreamingIngestClientName("testKcId", 0);
+
     this.config = TestUtils.getConfForStreaming();
-    this.clientName =
-        KcStreamingIngestClient.buildStreamingIngestClientName(
-            config.getOrDefault(Utils.NAME, "TEST_CONNECTOR_NAME"), "testKcId", 0);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     this.properties = new Properties();
     this.properties.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
@@ -69,7 +68,6 @@ public class KcStreamingIngestClientTest {
 
     // verify
     assert kcActualClient.getName().equals(kcMockClient.getName());
-    Assert.assertTrue(kcActualClient.getName().contains(this.config.get(Utils.NAME)));
     Mockito.verify(this.mockClient, Mockito.times(1)).getName();
   }
 
