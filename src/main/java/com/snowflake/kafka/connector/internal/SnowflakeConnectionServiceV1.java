@@ -1001,9 +1001,4 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
   public SnowflakeInternalStage getInternalStage() {
     return this.internalStage;
   }
-
-  @Override
-  public int getTaskId() {
-    return Integer.parseInt(this.taskID);
-  }
 }
