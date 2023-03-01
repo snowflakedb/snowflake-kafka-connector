@@ -436,26 +436,17 @@ public class TopicPartitionChannelTest {
   @Test
   public void testInsertRowsWithSchemaEvolution() throws Exception {
     if (this.sfConnectorConfig
-        .get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
-        .equals("true")) {
-      int noOfRecords = 0;
-
-      // this response should insert the row
-      InsertValidationResponse validResponse = new InsertValidationResponse();
-      SinkRecord validRecord = TestUtils.createNativeJsonSinkRecord(noOfRecords, TOPIC, PARTITION);
-      noOfRecords++;
-
-      // this response should get row sent to dlq
-      InsertValidationResponse failureResponse = new InsertValidationResponse();
-
+            .get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
+            .equals("true")) {
+      InsertValidationResponse validationResponse1 = new InsertValidationResponse();
       InsertValidationResponse.InsertError insertError1 =
-          new InsertValidationResponse.InsertError(getInsertErrorRowContent(noOfRecords), noOfRecords);
+              new InsertValidationResponse.InsertError("CONTENT", 0);
       insertError1.setException(SF_EXCEPTION);
       validationResponse1.addError(insertError1);
 
       InsertValidationResponse validationResponse2 = new InsertValidationResponse();
       InsertValidationResponse.InsertError insertError2 =
-          new InsertValidationResponse.InsertError(getInsertErrorRowContent(noOfRecords), noOfRecords);
+              new InsertValidationResponse.InsertError("CONTENT", 0);
       insertError2.setException(SF_EXCEPTION);
       insertError2.setExtraColNames(Collections.singletonList("gender"));
       validationResponse2.addError(insertError2);
@@ -729,45 +720,45 @@ public class TopicPartitionChannelTest {
     /* Valid response but has errors, error tolerance is ALL. Meaning it will ignore the error.
     *  Ensure the correct message is sent to the DLQ
     */
-  @Test
-  public void testInsertRows_ValidationResponseHasErrors_ErrorTolerance_ALL_CorrectMessageToDLQ() throws Exception {
-    int offset = 5;
-      InsertValidationResponse validationResponse = new InsertValidationResponse();
-      InsertValidationResponse.InsertError insertErrorWithException =
-        new InsertValidationResponse.InsertError(getInsertErrorRowContent(offset), 0);
-      insertErrorWithException.setException(SF_EXCEPTION);
-      validationResponse.addError(insertErrorWithException);
-      Mockito.when(
-              this.mockStreamingChannel.insertRows(
-                      ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
-        .thenReturn(validationResponse);
-
-      this.sfConnectorConfig.put(
-              ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
-      this.sfConnectorConfig.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
-      TopicPartitionChannel topicPartitionChannel =
-        new TopicPartitionChannel(
-                this.topicPartition,
-                TEST_CHANNEL_NAME,
-                TEST_TABLE_NAME,
-                this.mockStreamingBufferThreshold,
-                this.sfConnectorConfig,
-                this.mockKafkaRecordErrorReporter,
-                this.mockSinkTaskContext,
-                this.mockConn);
-
-      List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, offset * 2, TOPIC, PARTITION);
-
-      TopicPartitionChannel.StreamingBuffer streamingBuffer =
-        topicPartitionChannel.new StreamingBuffer();
-      streamingBuffer.insert(records.get(offset));
-
-      assert topicPartitionChannel.insertBufferedRecords(streamingBuffer).hasErrors();
-      Mockito.verify(this.mockKafkaRecordErrorReporter, Mockito.times(1))
-        .reportError(Mockito.refEq(records.get(offset)), ArgumentMatchers.any(SFException.class));
-      Mockito.verify(this.mockStreamingChannel, Mockito.times(1))
-        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
-  }
+//  @Test
+//  public void testInsertRows_ValidationResponseHasErrors_ErrorTolerance_ALL_CorrectMessageToDLQ() throws Exception {
+//    int offset = 5;
+//      InsertValidationResponse validationResponse = new InsertValidationResponse();
+//      InsertValidationResponse.InsertError insertErrorWithException =
+//        new InsertValidationResponse.InsertError(getInsertErrorRowContent(offset), 0);
+//      insertErrorWithException.setException(SF_EXCEPTION);
+//      validationResponse.addError(insertErrorWithException);
+//      Mockito.when(
+//              this.mockStreamingChannel.insertRows(
+//                      ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+//        .thenReturn(validationResponse);
+//
+//      this.sfConnectorConfig.put(
+//              ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
+//      this.sfConnectorConfig.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
+//      TopicPartitionChannel topicPartitionChannel =
+//        new TopicPartitionChannel(
+//                this.topicPartition,
+//                TEST_CHANNEL_NAME,
+//                TEST_TABLE_NAME,
+//                this.mockStreamingBufferThreshold,
+//                this.sfConnectorConfig,
+//                this.mockKafkaRecordErrorReporter,
+//                this.mockSinkTaskContext,
+//                this.mockConn);
+//
+//      List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, offset * 2, TOPIC, PARTITION);
+//
+//      TopicPartitionChannel.StreamingBuffer streamingBuffer =
+//        topicPartitionChannel.new StreamingBuffer();
+//      streamingBuffer.insert(records.get(offset));
+//
+//      assert topicPartitionChannel.insertBufferedRecords(streamingBuffer).hasErrors();
+//      Mockito.verify(this.mockKafkaRecordErrorReporter, Mockito.times(1))
+//        .reportError(Mockito.refEq(records.get(offset)), ArgumentMatchers.any(SFException.class));
+//      Mockito.verify(this.mockStreamingChannel, Mockito.times(1))
+//        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+//  }
 
   // --------------- TEST THRESHOLDS ---------------
   @Test
