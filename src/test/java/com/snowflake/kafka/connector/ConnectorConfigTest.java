@@ -573,6 +573,32 @@ public class ConnectorConfigTest {
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testInValidConfigFileTypeForSnowpipe() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "3");
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testValidFileTypesForSnowpipeStreaming() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "3");
+    Utils.validateConfig(config);
+
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
+    Utils.validateConfig(config);
+
+    // lower case
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "abcd");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testInvalidSchematizationForSnowpipe() {
     Map<String, String> config = getConfig();
     config.put(
