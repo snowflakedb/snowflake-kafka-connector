@@ -282,11 +282,4 @@ public interface SnowflakeConnectionService {
    * @param tableName table name
    */
   void createTableWithOnlyMetadataColumn(String tableName);
-
-  /**
-   * Gets the task id for this snowflake connection
-   *
-   * @return The task id for the snowflake connection
-   */
-  int getTaskId();
 }
