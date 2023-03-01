@@ -407,7 +407,6 @@
             <artifactId>kafka-connect-avro-converter</artifactId>
             <version>7.2.1</version>
         </dependency>
-
         <!-- https://mvnrepository.com/artifact/io.dropwizard.metrics/metrics-core -->
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
