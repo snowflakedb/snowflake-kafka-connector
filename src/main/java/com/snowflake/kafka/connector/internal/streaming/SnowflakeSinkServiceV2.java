@@ -1,8 +1,10 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
+import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
@@ -473,10 +475,23 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     streamingClientProps.putAll(streamingPropertiesMap);
     if (this.streamingIngestClient == null || this.streamingIngestClient.isClosed()) {
       try {
+        // Override only if bdec version is explicitly set in config, default to the version set
+        // inside
+        // Ingest SDK
+        Map<String, Object> parameterOverrides = new HashMap<>();
+        Optional<String> snowpipeStreamingBdecVersion =
+            Optional.ofNullable(this.connectorConfig.get(SNOWPIPE_STREAMING_FILE_VERSION));
+        snowpipeStreamingBdecVersion.ifPresent(
+            overriddenValue -> {
+              LOGGER.info("Config is overridden for {} ", SNOWPIPE_STREAMING_FILE_VERSION);
+              parameterOverrides.put(BLOB_FORMAT_VERSION, overriddenValue);
+            });
+
         LOGGER.info("Initializing Streaming Client. ClientName:{}", this.streamingIngestClientName);
         this.streamingIngestClient =
             SnowflakeStreamingIngestClientFactory.builder(this.streamingIngestClientName)
                 .setProperties(streamingClientProps)
+                .setParameterOverrides(parameterOverrides)
                 .build();
       } catch (SFException ex) {
         LOGGER.error(
