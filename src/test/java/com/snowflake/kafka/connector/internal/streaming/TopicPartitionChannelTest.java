@@ -103,7 +103,6 @@ public class TopicPartitionChannelTest {
     this.sfConnectorConfig.put(
             SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_DEPTH_CONFIG, "2");
 
-    IngestSdkProvider.setStreamingClientManager(this.mockStreamingClientManager);
   }
 
   @Test(expected = IllegalStateException.class)
