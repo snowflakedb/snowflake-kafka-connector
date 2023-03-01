@@ -100,7 +100,6 @@ public class TopicPartitionChannelTest {
         Boolean.toString(this.enableSchematization));
   }
 
-
   @Test(expected = IllegalStateException.class)
   public void testTopicPartitionChannelInit_streamingClientClosed() {
     Mockito.when(mockStreamingClient.isClosed()).thenReturn(true);
