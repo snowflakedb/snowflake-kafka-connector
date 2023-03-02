@@ -170,6 +170,7 @@ public class RecordService extends EnableLogging {
    */
   private SnowflakeTableRow processRecord(SinkRecord record) {
     if (record.value() == null || record.valueSchema() == null) {
+      LOGGER.error("CAFLOG_NULL - {} ||| {} ||| {}", record, record.kafkaOffset(), record.toString());
       throw SnowflakeErrors.ERROR_5016.getException();
     }
     if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME)) {
