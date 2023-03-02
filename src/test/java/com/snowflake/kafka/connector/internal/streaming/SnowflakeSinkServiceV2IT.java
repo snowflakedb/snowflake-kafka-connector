@@ -35,6 +35,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class SnowflakeSinkServiceV2IT {
@@ -1126,6 +1127,30 @@ public class SnowflakeSinkServiceV2IT {
         () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
 
     service.closeAll();
+  }
+
+  @Test
+  public void testStreamingIngestion_invalid_file_version() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    Map<String, String> overriddenConfig = new HashMap<>(config);
+    overriddenConfig.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "TWOO_HUNDRED");
+
+    conn.createTable(table);
+
+    try {
+      // This will fail in creation of client
+      SnowflakeSinkServiceFactory.builder(
+              conn, IngestionMethodConfig.SNOWPIPE_STREAMING, overriddenConfig)
+          .setRecordNumber(1)
+          .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+          .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+          .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
+          .build();
+    } catch (IllegalArgumentException ex) {
+      Assert.assertEquals(NumberFormatException.class, ex.getCause().getClass());
+    }
   }
 
   private void createNonNullableColumn(String tableName, String colName) {

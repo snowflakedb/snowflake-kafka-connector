@@ -50,7 +50,7 @@ import org.apache.kafka.common.config.ConfigValue;
 public class Utils {
 
   // Connector version, change every release
-  public static final String VERSION = "1.9.0";
+  public static final String VERSION = "1.9.1";
 
   // connector parameter list
   public static final String NAME = "name";
@@ -363,6 +363,13 @@ public class Utils {
         configIsValid = false;
         LOGGER.error(
             "Schematization is only available with {}.",
+            IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+      }
+      if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION)) {
+        configIsValid = false;
+        LOGGER.error(
+            "{} is only available with ingestion type: {}.",
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
             IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
       }
     }
