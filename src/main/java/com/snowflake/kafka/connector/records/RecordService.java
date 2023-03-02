@@ -19,6 +19,7 @@ package com.snowflake.kafka.connector.records;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.EnableLogging;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
@@ -292,6 +293,13 @@ public class RecordService extends EnableLogging {
         continue;
       } else if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
+        try {
+          if (MAPPER.readTree(columnNode.textValue()).isObject()) {
+            depth++;
+            streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), columnName, depth));
+            continue;
+          }
+        } catch(JsonProcessingException ignored) {}
       } else if (columnNode.isNull()) {
         columnValue = null;
       } else {
