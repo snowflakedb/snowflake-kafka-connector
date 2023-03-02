@@ -338,6 +338,13 @@ public class RecordService extends EnableLogging {
         continue;
       } else if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
+        try {
+          if (MAPPER.readTree(columnNode.textValue()).isObject()) {
+            depth++;
+            streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), columnName, depth));
+            continue;
+          }
+        } catch(JsonProcessingException ignored) {}
       } else if (columnNode.isNull()) {
         columnValue = null;
       } else {
