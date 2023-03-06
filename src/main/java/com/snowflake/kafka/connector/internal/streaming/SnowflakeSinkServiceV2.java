@@ -1,8 +1,10 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
+import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
@@ -16,11 +18,17 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
+import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
@@ -43,6 +51,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private static final LoggerHandler LOGGER =
       new LoggerHandler(SnowflakeSinkServiceV2.class.getName());
+
+  private static String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 
   // Assume next three values are a threshold after which we will call insertRows API
   // Set in config (Time based flush) in seconds
@@ -78,10 +88,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private SinkTaskContext sinkTaskContext;
 
   // ------ Streaming Ingest ------ //
+  // needs url, username. p8 key, role name
+  private SnowflakeStreamingIngestClient streamingIngestClient;
+
   // Config set in JSON
   private final Map<String, String> connectorConfig;
 
   private final String taskId;
+
+  private final String streamingIngestClientName;
 
   private boolean enableSchematization;
 
@@ -116,6 +131,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
 
     this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
+    this.streamingIngestClientName =
+        STREAMING_CLIENT_PREFIX_NAME + conn.getConnectorName() + "_" + taskId;
+    initStreamingClient();
     this.partitionsToChannel = new HashMap<>();
   }
 
@@ -151,6 +169,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     partitionsToChannel.put(
         partitionChannelKey,
         new TopicPartitionChannel(
+            this.streamingIngestClient,
             topicPartition,
             partitionChannelKey, // Streaming channel name
             tableName,
@@ -249,6 +268,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           topicPartitionChannel.closeChannel();
         });
     partitionsToChannel.clear();
+    closeStreamingClient();
   }
 
   /**
@@ -414,6 +434,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     return topic + "_" + partition;
   }
 
+  /* Used for testing */
+  @VisibleForTesting
+  SnowflakeStreamingIngestClient getStreamingIngestClient() {
+    return this.streamingIngestClient;
+  }
+
   /**
    * Used for testing Only
    *
@@ -428,6 +454,55 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   // ------ Streaming Ingest Related Functions ------ //
+
+  /* Init Streaming client. If is also used to re-init the client if client was closed before. */
+  private void initStreamingClient() {
+    Map<String, String> streamingPropertiesMap =
+        StreamingUtils.convertConfigForStreamingClient(new HashMap<>(this.connectorConfig));
+    Properties streamingClientProps = new Properties();
+    streamingClientProps.putAll(streamingPropertiesMap);
+    if (this.streamingIngestClient == null || this.streamingIngestClient.isClosed()) {
+      try {
+        // Override only if bdec version is explicitly set in config, default to the version set
+        // inside
+        // Ingest SDK
+        Map<String, Object> parameterOverrides = new HashMap<>();
+        Optional<String> snowpipeStreamingBdecVersion =
+            Optional.ofNullable(this.connectorConfig.get(SNOWPIPE_STREAMING_FILE_VERSION));
+        snowpipeStreamingBdecVersion.ifPresent(
+            overriddenValue -> {
+              LOGGER.info("Config is overridden for {} ", SNOWPIPE_STREAMING_FILE_VERSION);
+              parameterOverrides.put(BLOB_FORMAT_VERSION, overriddenValue);
+            });
+
+        LOGGER.info("Initializing Streaming Client. ClientName:{}", this.streamingIngestClientName);
+        this.streamingIngestClient =
+            SnowflakeStreamingIngestClientFactory.builder(this.streamingIngestClientName)
+                .setProperties(streamingClientProps)
+                .setParameterOverrides(parameterOverrides)
+                .build();
+      } catch (SFException ex) {
+        LOGGER.error(
+            "Exception creating streamingIngestClient with name:{}",
+            this.streamingIngestClientName);
+        throw new ConnectException(ex);
+      }
+    }
+  }
+
+  /** Closes the streaming client. */
+  private void closeStreamingClient() {
+    LOGGER.info("Closing Streaming Client:{}", this.streamingIngestClientName);
+    try {
+      streamingIngestClient.close();
+    } catch (Exception e) {
+      LOGGER.error(
+          "Failure closing Streaming client msg:{}, cause:{}",
+          e.getMessage(),
+          Arrays.toString(e.getCause().getStackTrace()));
+    }
+  }
+
   private void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
       if (!this.enableSchematization) {

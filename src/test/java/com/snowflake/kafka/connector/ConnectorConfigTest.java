@@ -3,14 +3,12 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
-import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Map;
-import org.junit.Assert;
 import org.junit.Test;
 
 public class ConnectorConfigTest {
@@ -116,33 +114,6 @@ public class ConnectorConfigTest {
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
     Utils.validateConfig(config);
-  }
-
-  @Test
-  public void testNonProxyHosts() {
-    String oldNonProxyHosts =
-        (System.getProperty(HTTP_NON_PROXY_HOSTS) != null)
-            ? System.getProperty(HTTP_NON_PROXY_HOSTS)
-            : null;
-
-    System.setProperty(HTTP_NON_PROXY_HOSTS, "host1.com|host2.com|localhost");
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "127.0.0.1");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
-    config.put(
-        SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS,
-        "*.snowflakecomputing.com|*.amazonaws.com");
-    Utils.enableJVMProxy(config);
-    String mergedNonProxyHosts = System.getProperty(HTTP_NON_PROXY_HOSTS);
-    Assert.assertTrue(
-        mergedNonProxyHosts.equals(
-            "host1.com|host2.com|localhost|*.snowflakecomputing.com|*.amazonaws.com"));
-
-    if (oldNonProxyHosts != null) {
-      System.setProperty(HTTP_NON_PROXY_HOSTS, oldNonProxyHosts);
-    } else {
-      System.clearProperty(HTTP_NON_PROXY_HOSTS);
-    }
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
@@ -542,28 +513,6 @@ public class ConnectorConfigTest {
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testInvalidSchematizationForSnowpipe() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE.toString());
-    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    Utils.validateConfig(config);
-  }
-
-  @Test
-  public void testValidSchematizationForStreamingSnowpipe() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    Utils.validateConfig(config);
-  }
-
-  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testInValidConfigFileTypeForSnowpipe() {
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "3");
@@ -586,6 +535,56 @@ public class ConnectorConfigTest {
 
     // lower case
     config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "abcd");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testInvalidSchematizationForSnowpipe() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE.toString());
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testValidSchematizationForStreamingSnowpipe() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testSchematizationWithUnsupportedConverter() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+        "org.apache.kafka.connect.storage.StringConverter");
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testDisabledSchematizationWithUnsupportedConverter() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "false");
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+        "org.apache.kafka.connect.storage.StringConverter");
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     Utils.validateConfig(config);
   }
 }

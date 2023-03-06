@@ -1,17 +1,19 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.ingestsdk.IngestSdkProvider;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.snowflake.ingest.streaming.OpenChannelRequest;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
@@ -20,7 +22,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TopicPartitionChannelIT {
-  private final String clientName = "testclient";
 
   private SnowflakeConnectionService conn = TestUtils.getConnectionService();
   private String testTableName;
@@ -30,35 +31,29 @@ public class TopicPartitionChannelIT {
   private TopicPartition topicPartition, topicPartition2;
   private String testChannelName, testChannelName2;
 
-  private Map<String, String> config;
-
   @Before
   public void beforeEach() {
     testTableName = TestUtils.randomTableName();
     topic = testTableName;
-
     topicPartition = new TopicPartition(topic, PARTITION);
+
     topicPartition2 = new TopicPartition(topic, PARTITION_2);
 
     testChannelName = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION);
+
     testChannelName2 = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION_2);
-
-    this.config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(this.config);
-
-    IngestSdkProvider.getStreamingClientManager()
-        .createAllStreamingClients(this.config, "testkcid", 2, 1);
   }
 
   @After
-  public void afterEach() throws Exception {
+  public void afterEach() {
     TestUtils.dropTable(testTableName);
-    IngestSdkProvider.setStreamingClientManager(
-        TestUtils.resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
   }
 
   @Test
   public void testAutoChannelReopenOn_OffsetTokenSFException() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
 
@@ -87,14 +82,14 @@ public class TopicPartitionChannelIT {
     // Ctor of TopicPartitionChannel tries to open the channel.
     TopicPartitionChannel channel =
         new TopicPartitionChannel(
+            snowflakeSinkServiceV2.getStreamingIngestClient(),
             topicPartition,
             testChannelName,
             testTableName,
             new StreamingBufferThreshold(10, 10_000, 1),
             config,
             new InMemoryKafkaRecordErrorReporter(),
-            new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
-            conn);
+            new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
 
     // since channel is updated, try to insert data again or may be call getOffsetToken
     // We will reopen the channel in since the older channel in service is stale because we
@@ -109,6 +104,9 @@ public class TopicPartitionChannelIT {
   /* This will automatically open the channel. */
   @Test
   public void testInsertRowsOnChannelClosed() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
 
@@ -164,6 +162,9 @@ public class TopicPartitionChannelIT {
    */
   @Test
   public void testAutoChannelReopen_InsertRowsSFException() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
 
@@ -224,7 +225,7 @@ public class TopicPartitionChannelIT {
   }
 
   /**
-   * Two partitions for a topic Partition 1 -> 10(0-9) records -> Success Partition 2 -> 10(0-9)
+   * Two partions for a topic Partition 1 -> 10(0-9) records -> Success Partition 2 -> 10(0-9)
    * records -> Success
    *
    * <p>Partition 1 -> Channel 1 -> open with same client Client sequencer for channel 1 - 1
@@ -238,13 +239,15 @@ public class TopicPartitionChannelIT {
    */
   @Test
   public void testAutoChannelReopen_MultiplePartitionsInsertRowsSFException() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
 
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, this.config)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(5)
             .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
@@ -276,10 +279,18 @@ public class TopicPartitionChannelIT {
         20,
         5);
 
+    SnowflakeStreamingIngestClient client =
+        ((SnowflakeSinkServiceV2) service).getStreamingIngestClient();
+    OpenChannelRequest channelRequest =
+        OpenChannelRequest.builder(testChannelName)
+            .setDBName(config.get(Utils.SF_DATABASE))
+            .setSchemaName(config.get(Utils.SF_SCHEMA))
+            .setTableName(this.testTableName)
+            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
+            .build();
+
     // Open a channel with same name will bump up the client sequencer number for this channel
-    IngestSdkProvider.getStreamingClientManager()
-        .getValidClient(0)
-        .openChannel(testChannelName, config, testTableName);
+    client.openChannel(channelRequest);
 
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
 
@@ -334,6 +345,9 @@ public class TopicPartitionChannelIT {
 
   @Test
   public void testAutoChannelReopen_SinglePartitionsInsertRowsSFException() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
 
@@ -360,9 +374,16 @@ public class TopicPartitionChannelIT {
         20,
         5);
 
-    IngestSdkProvider.getStreamingClientManager()
-        .getValidClient(0)
-        .openChannel(testChannelName, config, testTableName);
+    SnowflakeStreamingIngestClient client =
+        ((SnowflakeSinkServiceV2) service).getStreamingIngestClient();
+    OpenChannelRequest channelRequest =
+        OpenChannelRequest.builder(testChannelName)
+            .setDBName(config.get(Utils.SF_DATABASE))
+            .setSchemaName(config.get(Utils.SF_SCHEMA))
+            .setTableName(this.testTableName)
+            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
+            .build();
+    client.openChannel(channelRequest);
     Thread.sleep(5_000);
 
     // send offset 10 - 19
@@ -389,25 +410,19 @@ public class TopicPartitionChannelIT {
         == (recordsInPartition1 + anotherSetOfRecords - 1);
   }
 
-  /* This will automatically open the channel. */
   @Test
   public void testSimpleInsertRowsWithArrowBDECFormat() throws Exception {
-    // Wipe off existing clients.
-    IngestSdkProvider.setStreamingClientManager(
-        TestUtils.resetAndGetEmptyStreamingClientManager()); // reset to clean initial manager
-
     // add config which overrides the bdec file format
-    Map<String, String> overriddenConfig = new HashMap<>(this.config);
+    Map<String, String> overriddenConfig = new HashMap<>(TestUtils.getConfForStreaming());
     overriddenConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
-    IngestSdkProvider.getStreamingClientManager()
-        .createAllStreamingClients(overriddenConfig, "testkcid", 1, 1);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
 
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, overriddenConfig)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
