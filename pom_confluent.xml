@@ -328,10 +328,11 @@
     <dependencies>
         <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-fips -->
         <dependency>
+            <!-- Do not match this with pom.xml-->
+            <!-- This dependency won't be present in the kafka connect runtime, hence we are packaging this in an uber jar -->
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-fips</artifactId>
             <version>1.0.3</version>
-            <scope>provided</scope>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.apache.kafka/connect-api -->
