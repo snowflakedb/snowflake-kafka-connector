@@ -341,7 +341,7 @@ public class RecordService extends EnableLogging {
         try {
           if (MAPPER.readTree(columnNode.textValue()).isObject()) {
             depth++;
-            streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), columnName, depth));
+            streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), outerColumn + "_" + columnName, depth));
             continue;
           }
         } catch(JsonProcessingException ignored) {}
@@ -356,6 +356,7 @@ public class RecordService extends EnableLogging {
     }
     // Thrown an exception if the input JsonNode is not in the expected format
     if (streamingIngestRow.isEmpty()) {
+      LOGGER.error("{} ||| {} ||| [} ", node.toString(), outerColumn, Integer.toString(depth));
       throw SnowflakeErrors.ERROR_0010.getException(
               "Not able to convert node to Snowpipe Streaming input format");
     }
