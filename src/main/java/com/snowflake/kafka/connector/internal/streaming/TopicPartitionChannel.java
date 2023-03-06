@@ -77,6 +77,7 @@ public class TopicPartitionChannel {
   private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
   private final int nestDepth;
 
+  private long firstSeenKafkaOffset = 0L ;
   // last time we invoked insertRows API
   private long previousFlushTimeStampMs;
 
@@ -342,6 +343,7 @@ public class TopicPartitionChannel {
    * a desired offset from kafka.
    *
    * <p>Desired Offset from Kafka = (offset persisted in snowflake + 1)
+   * <p>Or If the snowflake table is empty, Desired Offset from kafka = first seen kafka offset.
    *
    * <p>Check {link {@link TopicPartitionChannel#resetChannelMetadataAfterRecovery}} for reset logic
    *
@@ -351,6 +353,14 @@ public class TopicPartitionChannel {
    */
   private boolean shouldIgnoreAddingRecordToBuffer(SinkRecord kafkaSinkRecord) {
     if (this.isOffsetResetInKafka.get()) {
+      if (offsetPersistedInSnowflake.get() == -1L && kafkaSinkRecord.kafkaOffset() == firstSeenKafkaOffset) {
+        LOGGER.info(
+                "First seen offset:{} from Kafka, we can add this offset to buffer for channel:{}",
+                kafkaSinkRecord.kafkaOffset(),
+                this.getChannelName());
+        this.isOffsetResetInKafka.set(false);
+        return false;
+      }
       if ((kafkaSinkRecord.kafkaOffset() - offsetPersistedInSnowflake.get()) != 1L) {
         // ignore
         LOGGER.debug(
@@ -397,9 +407,12 @@ public class TopicPartitionChannel {
       // This will only be called once at the beginning when an offset arrives for first time
       // after connector starts
       final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
+      if(lastCommittedOffsetToken == -1L){
+        firstSeenKafkaOffset = record.kafkaOffset();
+      }
       this.offsetPersistedInSnowflake.set(
-          (lastCommittedOffsetToken == -1L)
-              ? NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+              (lastCommittedOffsetToken == -1L)
+                      ? NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
               : lastCommittedOffsetToken);
       this.hasChannelReceivedAnyRecordsBefore = true;
     }
