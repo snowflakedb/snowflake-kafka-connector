@@ -382,9 +382,6 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
 
     // exactly once semantics
     private final AtomicLong clientSequencer = new AtomicLong(-1);
-    // This offset is updated when Snowflake has received offset from ingest file and has queued it
-    // For verifying the ingestion status, we use the insertReport api
-    private final AtomicLong offsetPersistedInSnowflake = new AtomicLong(-1);
 
     private ServiceContext(
         String tableName,
@@ -461,27 +458,6 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
     private void initClientInfo() {
       ConfigureClientResponse configureClientResponse = ingestionService.configureClient();
       this.clientSequencer.set(configureClientResponse.getClientSequencer());
-      ClientStatusResponse clientStatusResponse = ingestionService.getClientStatus();
-      String offsetToken = clientStatusResponse.getOffsetToken();
-      try {
-        if (offsetToken == null) {
-          this.offsetPersistedInSnowflake.set(-1);
-        } else {
-          this.offsetPersistedInSnowflake.set(Long.parseLong(offsetToken));
-        }
-        LOG_INFO_MSG(
-            "Initialized client info for pipe:{}, clientSequencer:{}, offsetToken:{}.",
-            this.pipeName,
-            this.clientSequencer.get(),
-            this.offsetPersistedInSnowflake.get());
-      } catch (NumberFormatException e) {
-        LOG_ERROR_MSG(
-            "The offsetToken string does not contain a parsable long. pipe:{}, ,"
-                + " clientSequencer:{}, offsetToken:{}. ",
-            this.pipeName,
-            this.clientSequencer.get(),
-            this.offsetPersistedInSnowflake.get());
-      }
     }
 
     private boolean resetCleanerFiles() {
@@ -637,8 +613,7 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
       // only get offset token once when service context is initialized
       // ignore ingested files
       // discard the record if the record offset is smaller or equal to server side offset
-      if (record.kafkaOffset() > this.offsetPersistedInSnowflake.get()
-          && record.kafkaOffset() > processedOffset.get()) {
+      if (record.kafkaOffset() > processedOffset.get()) {
         SinkRecord snowflakeRecord = record;
         if (shouldConvertContent(snowflakeRecord.value())) {
           snowflakeRecord = handleNativeRecord(snowflakeRecord, false);
@@ -794,17 +769,6 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
       }
 
       LOG_INFO_MSG("pipe {}, ingest files: {}", pipeName, fileNamesCopy);
-
-      // This api should throw exception if backoff failed.
-      // fileNamesCopy after this call is emptied (clears the input list)
-      ingestionService.ingestFilesWithClientInfo(fileNamesCopy, this.clientSequencer.get());
-      String offsetToken = ingestionService.getClientStatus().getOffsetToken();
-      // Update server side offset
-      if (offsetToken == null) {
-        this.offsetPersistedInSnowflake.set(-1);
-      } else {
-        this.offsetPersistedInSnowflake.set(Long.parseLong(offsetToken));
-      }
 
       // committedOffset should be updated only when ingestFiles has succeeded.
       committedOffset.set(flushedOffset.get());
