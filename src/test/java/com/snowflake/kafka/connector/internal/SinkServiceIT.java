@@ -47,6 +47,7 @@ public class SinkServiceIT {
     conn.dropPipe(pipe);
     conn.dropPipe(pipe1);
     TestUtils.dropTable(table);
+    // this is just a test
   }
 
   @Test
