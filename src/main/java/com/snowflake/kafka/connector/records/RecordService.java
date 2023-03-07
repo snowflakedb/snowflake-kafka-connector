@@ -296,6 +296,7 @@ public class RecordService extends EnableLogging {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
       Object columnValue;
+      String sflColumnName = columnName.replaceAll(" ", "_").toLowerCase();
       if (columnNode.isArray()) {
         List<String> itemList = new ArrayList<>();
         ArrayNode arrayNode = (ArrayNode) columnNode;
@@ -305,14 +306,14 @@ public class RecordService extends EnableLogging {
         columnValue = itemList;
       } else if (columnNode.isObject() && this.nestDepth > depth && !this.nestColExcl.contains(columnName)) {
         depth++;
-        streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(columnNode, columnName, depth));
+        streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(columnNode, sflColumnName, depth));
         continue;
       } else if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
         try {
           if (MAPPER.readTree(columnNode.textValue()).isObject() && !this.nestColExcl.contains(columnName)) {
             depth++;
-            streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), columnName, depth));
+            streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), sflColumnName, depth));
             continue;
           }
         } catch(JsonProcessingException ignored) {}
@@ -323,7 +324,7 @@ public class RecordService extends EnableLogging {
       }
       // while the value is always dumped into a string, the Streaming Ingest SDK
       // will transform the value according to its type in the table
-      streamingIngestRow.put(columnName, columnValue);
+      streamingIngestRow.put(sflColumnName, columnValue);
     }
     // Thrown an exception if the input JsonNode is not in the expected format
     if (streamingIngestRow.isEmpty()) {
@@ -341,6 +342,7 @@ public class RecordService extends EnableLogging {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
       Object columnValue;
+      String sflColumnName = outerColumn + "_" + columnName.replaceAll(" ", "_").toLowerCase();
       if (columnNode.isArray()) {
         List<String> itemList = new ArrayList<>();
         ArrayNode arrayNode = (ArrayNode) columnNode;
@@ -350,14 +352,14 @@ public class RecordService extends EnableLogging {
         columnValue = itemList;
       } else if (columnNode.isObject() && this.nestDepth > depth && !this.nestColExcl.contains(columnName)) {
         depth++;
-        streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(columnNode, outerColumn + "_" + columnName, depth));
+        streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(columnNode, sflColumnName, depth));
         continue;
       } else if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
         try {
           if (MAPPER.readTree(columnNode.textValue()).isObject() && !this.nestColExcl.contains(columnName)) {
             depth++;
-            streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), outerColumn + "_" + columnName, depth));
+            streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), sflColumnName, depth));
             continue;
           }
         } catch(JsonProcessingException ignored) {}
@@ -368,7 +370,7 @@ public class RecordService extends EnableLogging {
       }
       // while the value is always dumped into a string, the Streaming Ingest SDK
       // will transform the value according to its type in the table
-      streamingIngestRow.put(outerColumn + "_" + columnName, columnValue);
+      streamingIngestRow.put(sflColumnName, columnValue);
     }
 
     //        If we're dealing with nesting, we actually don't mind skipping here as we've seen cases of:
