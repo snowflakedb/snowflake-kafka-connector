@@ -379,9 +379,6 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
     private boolean hasInitialized = false;
     private boolean forceCleanerFileReset = false;
 
-    // exactly once semantics
-    private final AtomicLong clientSequencer = new AtomicLong(-1);
-
     private ServiceContext(
         String tableName,
         String stageName,
@@ -440,23 +437,12 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
       // recover will only check pipe status and create pipe if it does not exist.
       recover(pipeCreation);
 
-      initClientInfo();
-
       try {
         startCleaner(recordOffset, pipeCreation);
         telemetryService.reportKafkaPartitionStart(pipeCreation);
       } catch (Exception e) {
         LOG_WARN_MSG("Cleaner and Flusher threads shut down before initialization");
       }
-    }
-
-    /**
-     * Initialize the client info (clientSequencer and offsetPersistedInSnowflake) by calling
-     * ingestion service API configureClient and getClientStatus
-     */
-    private void initClientInfo() {
-      ConfigureClientResponse configureClientResponse = ingestionService.configureClient();
-      this.clientSequencer.set(configureClientResponse.getClientSequencer());
     }
 
     private boolean resetCleanerFiles() {
