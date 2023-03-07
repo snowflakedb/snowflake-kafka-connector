@@ -798,8 +798,8 @@ public class TopicPartitionChannel {
                   // TODO: take out this hack
                   if (rowContent.getOrDefault("RECORD_METADATA", null) != null) {
                     HashMap<String, Object> metadata = new ObjectMapper().readValue((String) rowContent.get("RECORD_METADATA"), HashMap.class);
-                    LOGGER.info("Metadata {}", metadata.toString());
-                    List<SinkRecord> res = insertedRecordsToBuffer.stream().filter((rec) -> ((Long) rec.kafkaOffset()).equals((Long) metadata.get("offset"))).collect(Collectors.toList());
+                    LOGGER.info("CAFLOGMetadata {}", metadata.toString());
+                    List<SinkRecord> res = insertedRecordsToBuffer.stream().filter((rec) -> ((Long) rec.kafkaOffset()).longValue() == ((Number) metadata.get("offset")).longValue()).collect(Collectors.toList());
                     this.kafkaRecordErrorReporter.reportError(res.get(0), insertError.getException());
                   }
               } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
