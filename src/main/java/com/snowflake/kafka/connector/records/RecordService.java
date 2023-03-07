@@ -354,19 +354,14 @@ public class RecordService extends EnableLogging {
       // will transform the value according to its type in the table
       streamingIngestRow.put(outerColumn + "_" + columnName, columnValue);
     }
-    // Thrown an exception if the input JsonNode is not in the expected format
-    if (streamingIngestRow.isEmpty()) {
-//      LOGGER.error("CAFLOG5 Node: {} ||| Col: {} ||| Depth: [} ||| Fields: {}", node.toString(), outerColumn, depth, node.fields().toString());
-      LOGGER.error("CAFLOG5 Node {}", node.toString());
-      LOGGER.error("CAFLOG5 Col {}", outerColumn);
-      LOGGER.error("CAFLOG5 Depth {}", depth);
-      LOGGER.error("CAFLOG5 Object {}", node.isObject());
-      LOGGER.error("CAFLOG5 Null {}", node.isNull());
-      LOGGER.error("CAFLOG5 Map {}", streamingIngestRow.toString());
-//      If we're dealing with nesting, we actually don't mind skipping here
-//      throw SnowflakeErrors.ERROR_0010.getException(
-//              "Not able to convert node to Snowpipe Streaming input format");
-    }
+
+    //        If we're dealing with nesting, we actually don't mind skipping here as we've seen cases of:
+    //        { "obj": { "obj2: {} } }
+
+//    if (streamingIngestRow.isEmpty()) {
+////      throw SnowflakeErrors.ERROR_0010.getException(
+////              "Not able to convert node to Snowpipe Streaming input format");
+//    }
     return streamingIngestRow;
   }
 
