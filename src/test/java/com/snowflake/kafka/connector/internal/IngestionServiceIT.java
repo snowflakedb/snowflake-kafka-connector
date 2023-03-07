@@ -1,11 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import net.snowflake.ingest.connection.ClientStatusResponse;
-import net.snowflake.ingest.connection.ConfigureClientResponse;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
