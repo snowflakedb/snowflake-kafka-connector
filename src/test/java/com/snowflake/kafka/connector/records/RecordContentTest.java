@@ -350,4 +350,57 @@ public class RecordContentTest {
         assert got.get("json_string_PartitionKey_s").equals("MT942_BankStatement_2023013009063451.pgp");
     }
 
+
+//    Any fields include "NestColExcl" should NOT be flattened
+    @Test
+    public void testSchematizationNestedExclField() throws JsonProcessingException {
+        RecordService service = new RecordService();
+        SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
+
+        service.setEnableSchematization(true);
+        service.setNestDepth(2);
+        service.setNestColExcl("exclme,answer");
+        String value = "{\"outer_struct\": {\"name\":\"sf\",\"answer\":42, \"exclme\": \"imnothere\"}}";
+        byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
+        SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
+
+        SinkRecord record =
+                new SinkRecord(
+                        topic, partition, Schema.STRING_SCHEMA, "string", sv.schema(), sv.value(), partition);
+
+        Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
+        // each field should be dumped into string format
+        // json string should not be enclosed in additional brackets
+        // a non-double-quoted column name will be transformed into uppercase
+
+        assert got.get("outer_struct_name").equals("sf");
+        assert got.containsKey("outer_struct_answer");
+        assert got.containsKey("outer_struct_exclme");
+    }
+
+    @Test
+    public void testSchematizationNestedExclField__2() throws JsonProcessingException {
+        RecordService service = new RecordService();
+        SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
+
+        service.setEnableSchematization(true);
+        service.setNestDepth(3);
+        service.setNestColExcl("exclme,answer");
+        String value = "{\"outer_2_struct\": {\"outer_struct\": {\"name\":\"sf\",\"answer\":42, \"exclme\": { \"test\":1}}}}";
+        byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
+        SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
+
+        SinkRecord record =
+                new SinkRecord(
+                        topic, partition, Schema.STRING_SCHEMA, "string", sv.schema(), sv.value(), partition);
+
+        Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
+        // each field should be dumped into string format
+        // json string should not be enclosed in additional brackets
+        // a non-double-quoted column name will be transformed into uppercase
+
+        assert got.get("outer_2_struct_outer_struct_name").equals("sf");
+        assert got.get("outer_2_struct_outer_struct_answer").equals("42");
+        assert got.get("outer_2_struct_outer_struct_exclme").equals("{\"test\":1}");
+    }
 }

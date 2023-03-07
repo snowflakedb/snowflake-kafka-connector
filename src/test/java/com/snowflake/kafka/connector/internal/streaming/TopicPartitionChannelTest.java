@@ -103,6 +103,9 @@ public class TopicPartitionChannelTest {
     this.sfConnectorConfig.put(
             SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_DEPTH_CONFIG, "2");
 
+    this.sfConnectorConfig.put(
+            SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_EXC_COLS_CONFIG, "col_to_exclude1");
+
   }
 
   @Test(expected = IllegalStateException.class)

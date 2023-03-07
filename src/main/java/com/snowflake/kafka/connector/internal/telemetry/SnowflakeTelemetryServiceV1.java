@@ -231,6 +231,12 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
             SCHEMATIZATION_NESTED_DEPTH_CONFIG,
             userProvidedConfig.getOrDefault(
                     SCHEMATIZATION_NESTED_DEPTH_CONFIG, SCHEMATIZATION_NESTED_DEPTH_DEFAULT));
+
+    // Record whether any cols should be excluded from nested json flattening is used
+    dataObjectNode.put(
+            SCHEMATIZATION_NESTED_EXC_COLS_CONFIG,
+            userProvidedConfig.getOrDefault(
+                    SCHEMATIZATION_NESTED_EXC_COLS_CONFIG, SCHEMATIZATION_NESTED_EXC_COLS_DEFAULT));
   }
 
   private enum TelemetryType {

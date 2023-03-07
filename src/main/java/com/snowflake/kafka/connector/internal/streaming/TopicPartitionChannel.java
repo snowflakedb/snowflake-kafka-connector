@@ -8,14 +8,12 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MA
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.Utils;
-import com.google.gson.Gson;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
@@ -40,7 +38,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
@@ -76,6 +73,7 @@ public class TopicPartitionChannel {
 
   private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
   private final int nestDepth;
+  private final List<String> nestColExcl;
 
   private long firstSeenKafkaOffset = 0L ;
   // last time we invoked insertRows API
@@ -264,8 +262,13 @@ public class TopicPartitionChannel {
     /* Schematization related properties */
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
+
     this.nestDepth =
             this.recordService.setAndGetNestDepthFromConfig(sfConnectorConfig);
+
+    this.nestColExcl =
+            this.recordService.setAndGetNestColExclFromConfig(sfConnectorConfig);
+
     this.enableSchemaEvolution =
         this.enableSchematization
             && this.conn != null
@@ -600,7 +603,7 @@ public class TopicPartitionChannel {
     return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
         .get(
             new InsertRowsApiResponseSupplier(
-                this.channel, buffer, this.enableSchemaEvolution, this.conn, this.nestDepth > 1));
+                this.channel, buffer, this.enableSchemaEvolution, this.conn, this.nestDepth > 1, nestColExcl));
   }
 
   /** Invokes the API given the channel and streaming Buffer. */
@@ -620,18 +623,20 @@ public class TopicPartitionChannel {
 
     // Connection service which will be used to do the ALTER TABLE command for schema evolution
     private final SnowflakeConnectionService conn;
+    private final List<String> nestColExcl;
 
     private InsertRowsApiResponseSupplier(
-        SnowflakeStreamingIngestChannel channelForInsertRows,
-        StreamingBuffer insertRowsStreamingBuffer,
-        boolean enableSchemaEvolution,
-        SnowflakeConnectionService conn,
-        boolean enableNesting) {
+            SnowflakeStreamingIngestChannel channelForInsertRows,
+            StreamingBuffer insertRowsStreamingBuffer,
+            boolean enableSchemaEvolution,
+            SnowflakeConnectionService conn,
+            boolean enableNesting, List<String> nestColExcl) {
       this.channel = channelForInsertRows;
       this.insertRowsStreamingBuffer = insertRowsStreamingBuffer;
       this.enableSchemaEvolution = enableSchemaEvolution;
       this.conn = conn;
       this.enableNesting = enableNesting;
+      this.nestColExcl = nestColExcl;
     }
 
     @Override

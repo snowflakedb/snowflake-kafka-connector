@@ -75,6 +75,8 @@ public class RecordService extends EnableLogging {
 
   private int nestDepth = 1;
 
+  private List<String> nestColExcl = new ArrayList<>();
+
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
   static final ThreadLocal<SimpleDateFormat> ISO_DATE_TIME_FORMAT =
@@ -139,6 +141,15 @@ public class RecordService extends EnableLogging {
     return this.nestDepth;
   }
 
+  public List<String> setAndGetNestColExclFromConfig(
+          final Map<String, String> connectorConfig) {
+    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_EXC_COLS_CONFIG)) {
+      this.nestColExcl = Arrays.asList(connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_DEPTH_DEFAULT).split(","));
+    }
+    return this.nestColExcl;
+  }
+
+
   /**
    * Directly set the enableSchematization through param
    *
@@ -161,6 +172,11 @@ public class RecordService extends EnableLogging {
   @VisibleForTesting
   public void setNestDepth(final int nestDepth) {
     this.nestDepth = nestDepth;
+  }
+
+  @VisibleForTesting
+  public void setNestColExcl(final String nestColExcl) {
+    this.nestColExcl = Arrays.asList(nestColExcl.split(","));;
   }
 
   /**
@@ -287,14 +303,14 @@ public class RecordService extends EnableLogging {
           itemList.add(e.isTextual() ? e.textValue() : MAPPER.writeValueAsString(e));
         }
         columnValue = itemList;
-      } else if (columnNode.isObject() && this.nestDepth > depth) {
+      } else if (columnNode.isObject() && this.nestDepth > depth && !this.nestColExcl.contains(columnName)) {
         depth++;
         streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(columnNode, columnName, depth));
         continue;
       } else if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
         try {
-          if (MAPPER.readTree(columnNode.textValue()).isObject()) {
+          if (MAPPER.readTree(columnNode.textValue()).isObject() && !this.nestColExcl.contains(columnName)) {
             depth++;
             streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), columnName, depth));
             continue;
@@ -332,14 +348,14 @@ public class RecordService extends EnableLogging {
           itemList.add(e.isTextual() ? e.textValue() : MAPPER.writeValueAsString(e));
         }
         columnValue = itemList;
-      } else if (columnNode.isObject() && this.nestDepth > depth) {
+      } else if (columnNode.isObject() && this.nestDepth > depth && !this.nestColExcl.contains(columnName)) {
         depth++;
         streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(columnNode, outerColumn + "_" + columnName, depth));
         continue;
       } else if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
         try {
-          if (MAPPER.readTree(columnNode.textValue()).isObject()) {
+          if (MAPPER.readTree(columnNode.textValue()).isObject() && !this.nestColExcl.contains(columnName)) {
             depth++;
             streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), outerColumn + "_" + columnName, depth));
             continue;
