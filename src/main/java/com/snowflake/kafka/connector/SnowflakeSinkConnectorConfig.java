@@ -72,6 +72,7 @@ public class SnowflakeSinkConnectorConfig {
   // For Snowpipe Streaming client
   public static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
   public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
+  public static final String ENABLE_SCHEMATIZATION_DEFAULT = "false";
 
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
@@ -109,6 +110,10 @@ public class SnowflakeSinkConnectorConfig {
   public static final String INGESTION_METHOD_OPT = "snowflake.ingestion.method";
   public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
       IngestionMethodConfig.SNOWPIPE.toString();
+
+  // This is the streaming bdec file version which can be defined in config
+  // NOTE: Please do not override this value unless recommended from snowflake
+  public static final String SNOWPIPE_STREAMING_FILE_VERSION = "snowflake.streaming.file.version";
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
@@ -462,6 +467,18 @@ public class SnowflakeSinkConnectorConfig {
             5,
             ConfigDef.Width.NONE,
             INGESTION_METHOD_OPT)
+        .define(
+            SNOWPIPE_STREAMING_FILE_VERSION,
+            Type.STRING,
+            "", // default is handled in Ingest SDK
+            null, // no validator
+            Importance.LOW,
+            "Acceptable values for Snowpipe Streaming BDEC Versions: 1 and 3. Check Ingest"
+                + " SDK for default behavior. Please do not set this unless Absolutely needed. ",
+            CONNECTOR_CONFIG,
+            6,
+            ConfigDef.Width.NONE,
+            SNOWPIPE_STREAMING_FILE_VERSION)
         .define(
             ERRORS_TOLERANCE_CONFIG,
             Type.STRING,
