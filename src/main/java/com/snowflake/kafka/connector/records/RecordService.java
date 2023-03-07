@@ -144,7 +144,7 @@ public class RecordService extends EnableLogging {
   public List<String> setAndGetNestColExclFromConfig(
           final Map<String, String> connectorConfig) {
     if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_EXC_COLS_CONFIG)) {
-      this.nestColExcl = Arrays.asList(connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_DEPTH_DEFAULT).split(","));
+      this.nestColExcl = Arrays.asList(connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_EXC_COLS_DEFAULT).split(","));
     }
     return this.nestColExcl;
   }
