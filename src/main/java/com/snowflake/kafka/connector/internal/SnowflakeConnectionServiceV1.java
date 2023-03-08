@@ -495,7 +495,9 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
         logColumn.append(",");
       }
       appendColumnQuery
+          .append("\"")
           .append(columnName)
+          .append("\"")
           .append(" ")
           .append(columnToType.get(columnName))
           .append(" comment 'column created by schema evolution from Snowflake Kafka Connector'");

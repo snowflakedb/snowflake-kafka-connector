@@ -347,7 +347,7 @@ public class RecordContentTest {
         // a non-double-quoted column name will be transformed into uppercase
         assert got.get("outer_struct_name").equals("sf");
         assert got.get("outer_struct_answer").equals("42");
-        assert got.get("json_string_PartitionKey_s").equals("MT942_BankStatement_2023013009063451.pgp");
+        assert got.get("json_string_partitionkey_s").equals("MT942_BankStatement_2023013009063451.pgp");
     }
 
 
