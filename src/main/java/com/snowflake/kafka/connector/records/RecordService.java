@@ -296,7 +296,7 @@ public class RecordService extends EnableLogging {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
       Object columnValue;
-      String sflColumnName = columnName.replaceAll(" ", "_").toLowerCase();
+      String sflColumnName = columnName.replaceAll(" ", "_").toUpperCase();
       if (columnNode.isArray()) {
         List<String> itemList = new ArrayList<>();
         ArrayNode arrayNode = (ArrayNode) columnNode;
@@ -342,7 +342,7 @@ public class RecordService extends EnableLogging {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
       Object columnValue;
-      String sflColumnName = outerColumn + "_" + columnName.replaceAll(" ", "_").toLowerCase();
+      String sflColumnName = outerColumn + "_" + columnName.replaceAll(" ", "_").toUpperCase();
       if (columnNode.isArray()) {
         List<String> itemList = new ArrayList<>();
         ArrayNode arrayNode = (ArrayNode) columnNode;
