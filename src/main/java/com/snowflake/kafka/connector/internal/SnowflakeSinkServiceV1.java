@@ -764,6 +764,8 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
           name ->
               pipeStatus.updateCommitLag(currentTime - FileNameUtils.fileNameToTimeIngested(name)));
 
+      ingestionService.ingestFiles(fileNamesCopy);
+
       return committedOffset.get();
     }
 
