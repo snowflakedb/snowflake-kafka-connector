@@ -553,9 +553,9 @@ public class TopicPartitionChannel {
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
       LOGGER.warn(
-          String.format(
-              "[INSERT_BUFFERED_RECORDS] Failure inserting buffer:%s for channel:%s",
-              streamingBufferToInsert, this.getChannelName()),
+              "[INSERT_BUFFERED_RECORDS] Failure inserting buffer {} for channel: {} {} {}",
+              streamingBufferToInsert, this.getChannelName(),
+              streamingBufferToInsert.getSinkRecords().stream().map(rec -> rec.value().toString()).collect(Collectors.joining()),
           ex);
     }
     return response;
@@ -587,8 +587,7 @@ public class TopicPartitionChannel {
             .onFailedAttempt(
                 event ->
                     LOGGER.warn(
-                            "Failed Attempt to invoke the insertRows API for buffer: Buffer: {} \n Recs: {} \n LastExcep: {} \n LastRes: {}", buffer,
-                            buffer.getSinkRecords().stream().map(SinkRecord::toString).collect(Collectors.joining()),
+                            "Failed Attempt to invoke the insertRows API for buffer: Buffer: {} \n LastExcep: {} \n LastRes: {}", buffer,
                             event.getLastException().toString(),
                             event.getLastResult().toString()))
             .onFailure(
@@ -684,10 +683,6 @@ public class TopicPartitionChannel {
             } else {
               if (this.enableNesting) {
                 SinkRecord unflattenedRec = this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx);
-                LOGGER.info("CAFLOG 2 ||| {} ||| {} ||| {}",
-                        this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx),
-                        extraColNames,
-                        records.get(idx));
                 SchematizationUtils.evolveSchemaIfNeeded(
                         this.conn,
                         this.channel.getTableName(),
@@ -697,11 +692,6 @@ public class TopicPartitionChannel {
                                 unflattenedRec.timestamp(), unflattenedRec.timestampType()));
 
               } else {
-              LOGGER.info("CAFLOG ||| {} ||| {} ||| {}",
-                      this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx),
-                      extraColNames,
-                      records.get(idx));
-
                 SchematizationUtils.evolveSchemaIfNeeded(
                         this.conn,
                         this.channel.getTableName(),
@@ -799,7 +789,6 @@ public class TopicPartitionChannel {
                   // TODO: take out this hack
                   if (rowContent.getOrDefault("RECORD_METADATA", null) != null) {
                     HashMap<String, Object> metadata = new ObjectMapper().readValue((String) rowContent.get("RECORD_METADATA"), HashMap.class);
-                    LOGGER.info("CAFLOGMetadata {}", metadata.toString());
                     List<SinkRecord> res = insertedRecordsToBuffer.stream().filter((rec) -> ((Long) rec.kafkaOffset()).longValue() == ((Number) metadata.get("offset")).longValue()).collect(Collectors.toList());
                     this.kafkaRecordErrorReporter.reportError(res.get(0), insertError.getException());
                   }
