@@ -552,11 +552,20 @@ public class TopicPartitionChannel {
       return response;
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
-      LOGGER.warn(
-              "[INSERT_BUFFERED_RECORDS] Failure inserting buffer {} for channel: {} {} {}",
-              streamingBufferToInsert, this.getChannelName(),
-              streamingBufferToInsert.getSinkRecords().stream().map(rec -> rec.value().toString()).collect(Collectors.joining()),
-          ex);
+      if (response != null) {
+        LOGGER.warn(
+                "[INSERT_BUFFERED_RECORDS] Failure inserting buffer {} for channel: {}\n {}\n {}\n {}\n {}",
+                streamingBufferToInsert, this.getChannelName(), ex, response.getInsertErrors().toString(),
+                streamingBufferToInsert.getSinkRecords().stream().map(rec -> Long.toString(rec.kafkaOffset())).collect(Collectors.joining()),
+                streamingBufferToInsert.getSinkRecords().stream().map(rec -> rec.headers().toString()).collect(Collectors.joining())
+        );
+      } else {
+        LOGGER.warn(
+                "[INSERT_BUFFERED_RECORDS] Failure inserting buffer {} for channel: {} {} {} {}",
+                streamingBufferToInsert, this.getChannelName(), ex,
+                streamingBufferToInsert.getSinkRecords().stream().map(rec -> rec.headers().toString()).collect(Collectors.joining()),
+                streamingBufferToInsert.getSinkRecords().stream().map(rec -> Long.toString(rec.kafkaOffset())).collect(Collectors.joining())
+      }
     }
     return response;
   }
@@ -587,9 +596,8 @@ public class TopicPartitionChannel {
             .onFailedAttempt(
                 event ->
                     LOGGER.warn(
-                            "Failed Attempt to invoke the insertRows API for buffer: Buffer: {} \n LastExcep: {} \n LastRes: {}", buffer,
-                            event.getLastException().toString(),
-                            event.getLastResult().toString()))
+                            "Failed Attempt to invoke the insertRows API for buffer: Buffer: {} \n LastExcep: {} \n LastRes: {}", buffer.toString(),
+                            event.getLastException().toString()))
             .onFailure(
                 event ->
                     LOGGER.error(
