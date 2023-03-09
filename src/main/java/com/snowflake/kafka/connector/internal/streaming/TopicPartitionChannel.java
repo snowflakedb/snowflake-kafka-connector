@@ -587,9 +587,10 @@ public class TopicPartitionChannel {
             .onFailedAttempt(
                 event ->
                     LOGGER.warn(
-                        String.format(
-                            "Failed Attempt to invoke the insertRows API for buffer:%s", buffer),
-                        event.getLastException()))
+                            "Failed Attempt to invoke the insertRows API for buffer: Buffer: {} \n Recs: {} \n LastExcep: {} \n LastRes: {}", buffer,
+                            buffer.getSinkRecords().stream().map(SinkRecord::toString).collect(Collectors.joining()),
+                            event.getLastException().toString(),
+                            event.getLastResult().toString()))
             .onFailure(
                 event ->
                     LOGGER.error(
