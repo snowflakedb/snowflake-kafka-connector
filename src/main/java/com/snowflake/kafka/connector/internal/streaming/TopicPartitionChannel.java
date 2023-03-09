@@ -564,7 +564,7 @@ public class TopicPartitionChannel {
                 "[INSERT_BUFFERED_RECORDS] Failure inserting buffer {} for channel: {} {} {} {}",
                 streamingBufferToInsert, this.getChannelName(), ex,
                 streamingBufferToInsert.getSinkRecords().stream().map(rec -> rec.headers().toString()).collect(Collectors.joining()),
-                streamingBufferToInsert.getSinkRecords().stream().map(rec -> Long.toString(rec.kafkaOffset())).collect(Collectors.joining())
+                streamingBufferToInsert.getSinkRecords().stream().map(rec -> Long.toString(rec.kafkaOffset())).collect(Collectors.joining()));
       }
     }
     return response;
