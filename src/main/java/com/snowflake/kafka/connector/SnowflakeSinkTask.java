@@ -52,23 +52,18 @@ import org.apache.kafka.connect.sink.SinkTask;
  * Snowflake via Sink service
  */
 public class SnowflakeSinkTask extends SinkTask {
-  // SfTask[ID:taskId.taskOpenCount, #totalTaskCreationCount]
-  // Example: SfTask[ID:0.1, #2] would indicate that this is a task with id 0, it has been opened
-  // once, and that
-  // this instance of KC has created two tasks
-  public static final String TASK_INSTANCE_TAG_FORMAT = "SfTask[ID:{}.{}, #{}]";
-
   private static final long WAIT_TIME = 5 * 1000; // 5 sec
   private static final int REPEAT_TIME = 12; // 60 sec
-
-  // tracks total number of tasks created in this kc instance, default (when KC isn't running) is -1
-  private static int totalTaskCreationCount = -1;
 
   // the dynamic logger is intended to be attached per task instance. the instance id will be set
   // during task start, however if it is not set, it falls back to the static logger
   private static final LoggerHandler STATIC_LOGGER =
       new LoggerHandler(SnowflakeSinkTask.class.getName() + "_STATIC");
   private LoggerHandler DYNAMIC_LOGGER;
+
+  // [TASK:taskId.creationtimestamp]
+  // Example: [TASK:0.1678386676] indicates task 0 was started at 1678386676
+  public static final String TASK_INSTANCE_TAG_FORMAT = "[TASK:{}.{}]";
 
   // After 5 put operations, we will insert a sleep which will cause a rebalance since heartbeat is
   // not found
@@ -96,20 +91,9 @@ public class SnowflakeSinkTask extends SinkTask {
 
   private long taskStartTime;
 
-  private long taskOpenCount;
-
-  public static void setTotalTaskCreationCount(int newCreationCount) {
-    STATIC_LOGGER.info("Setting task creation count to {} for logging", newCreationCount);
-    totalTaskCreationCount = newCreationCount;
-  }
-
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
     DYNAMIC_LOGGER = new LoggerHandler(this.getClass().getName());
-    // only increment task creation count if we know kc has been started
-    totalTaskCreationCount =
-        totalTaskCreationCount != -1 ? totalTaskCreationCount + 1 : totalTaskCreationCount;
-    this.taskOpenCount = 0;
   }
 
   private SnowflakeConnectionService getConnection() {
@@ -147,19 +131,15 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
+    // get task id and start time
     this.taskStartTime = System.currentTimeMillis();
-
-    // connector configuration
     this.taskConfigId = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
 
     // setup logging
-    this.DYNAMIC_LOGGER.info(
-        "Defining SnowflakeSinkTask instance tag to SfTask[ID:{taskId}.{taskOpenCount},"
-            + " #{totalTaskCreationCount}], where taskId is pulled from the config, taskOpenCount"
-            + " is the number of times this task has been opened and totalTaskCreationCount is the"
-            + " total number of tasks created during this run of Snowflake Kafka Connector");
-
-    this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskLoggingTag());
+    String taskInstanceTag = this.getTaskLoggingTag();
+    this.DYNAMIC_LOGGER.debug(
+        "Starting SnowflakeSinkTask with instance tag [TASK:taskId.taskCreationTime] = {}", taskInstanceTag);
+    this.DYNAMIC_LOGGER.setLoggerInstanceTag(taskInstanceTag);
 
     this.DYNAMIC_LOGGER.debug("starting task...");
 
@@ -279,9 +259,6 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void open(final Collection<TopicPartition> partitions) {
-    this.taskOpenCount++;
-    this.DYNAMIC_LOGGER.setLoggerInstanceTag(this.getTaskLoggingTag());
-
     long startTime = System.currentTimeMillis();
     partitions.forEach(
         tp -> this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp));
@@ -485,16 +462,8 @@ public class SnowflakeSinkTask extends SinkTask {
   }
 
   private String getTaskLoggingTag() {
-    int countThreshold = 999;
-
-    if (totalTaskCreationCount > countThreshold) {
-      this.DYNAMIC_LOGGER.warn(
-          "More than {} tasks have been created. Resetting to 0", countThreshold);
-      totalTaskCreationCount = 0;
-    }
-
     return Utils.formatString(
-        TASK_INSTANCE_TAG_FORMAT, this.taskConfigId, this.taskOpenCount, totalTaskCreationCount);
+        TASK_INSTANCE_TAG_FORMAT, this.taskConfigId, this.taskStartTime);
   }
 
   /**

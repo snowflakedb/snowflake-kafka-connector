@@ -53,7 +53,7 @@ public class LoggerHandlerTest {
 
   @Test
   public void testAllLogMessageKcGlobalInstanceId() {
-    LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
+    LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId.toString());
     MockitoAnnotations.initMocks(this);
 
     // [kc:id]
@@ -79,7 +79,7 @@ public class LoggerHandlerTest {
   public void testAllLogMessageAllInstanceIds() {
     String logTag = "TEST";
 
-    LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
+    LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId.toString());
     loggerHandler = new LoggerHandler(name);
     this.loggerHandler.setLoggerInstanceTag(logTag);
     MockitoAnnotations.initMocks(this);
