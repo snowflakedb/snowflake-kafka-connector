@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
@@ -82,7 +81,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
     connectorStartTime = System.currentTimeMillis();
 
     // initialize logging with global instance Id
-    LoggerHandler.setKcGlobalInstanceId(LoggerHandler.getFormattedKcGlobalInstanceId(this.connectorStartTime));
+    LoggerHandler.setKcGlobalInstanceId(
+        LoggerHandler.getFormattedKcGlobalInstanceId(this.connectorStartTime));
     LOGGER.info("SnowflakeSinkConnector:starting...");
 
     Utils.checkConnectorVersion();

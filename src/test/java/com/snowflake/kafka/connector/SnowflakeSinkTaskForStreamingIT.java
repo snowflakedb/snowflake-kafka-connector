@@ -127,7 +127,8 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
 
     // set up task1 logging tag
-    String expectedTask1Tag = LoggerHandler.getFormattedTaskLoggingTag(task1Id, System.currentTimeMillis());
+    String expectedTask1Tag =
+        LoggerHandler.getFormattedTaskLoggingTag(task1Id, System.currentTimeMillis());
     Mockito.doCallRealMethod().when(loggerHandler).setLoggerInstanceTag(expectedTask1Tag);
 
     // start tasks

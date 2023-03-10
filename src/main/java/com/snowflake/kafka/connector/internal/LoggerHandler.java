@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,7 +14,6 @@ public class LoggerHandler {
   // [TASK:taskId.creationtimestamp]
   // Example: [TASK:0.1678386676] indicates task 0 was started at 1678386676
   private static final String TASK_INSTANCE_TAG_FORMAT = "[TASK:{}.{}]";
-
 
   private static String kcGlobalInstanceId = "";
 
@@ -44,6 +42,7 @@ public class LoggerHandler {
 
   /**
    * Returns the instance id as the hashcode of the kc start time
+   *
    * @param startTime the start time
    * @return the formatted instance id
    */
@@ -53,13 +52,14 @@ public class LoggerHandler {
 
   /**
    * Returns a formatted task logging tag as the taskid with a hash of the task start time
+   *
    * @param taskId the task id
    * @param startTime the task start time
    * @return the formatted task logging tag
    */
   public static String getFormattedTaskLoggingTag(String taskId, long startTime) {
     return Utils.formatString(
-            TASK_INSTANCE_TAG_FORMAT, taskId, Math.abs(("" + startTime).hashCode()));
+        TASK_INSTANCE_TAG_FORMAT, taskId, Math.abs(("" + startTime).hashCode()));
   }
 
   private Logger logger;

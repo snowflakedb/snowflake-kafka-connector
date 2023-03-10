@@ -209,7 +209,8 @@ public class SinkTaskIT {
     task1Config.put(Utils.TASK_ID, task1Id);
 
     // set up task1 logging tag
-    String expectedTask1Tag = LoggerHandler.getFormattedTaskLoggingTag(task1Id, System.currentTimeMillis());
+    String expectedTask1Tag =
+        LoggerHandler.getFormattedTaskLoggingTag(task1Id, System.currentTimeMillis());
 
     // start tasks
     task0.start(task0Config);
