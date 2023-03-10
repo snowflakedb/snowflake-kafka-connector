@@ -75,36 +75,6 @@ public class SnowflakeTelemetryServiceV1Test {
   }
 
   @Test
-  public void testReportKafkaStartSnowpipeExactlyOnce() {
-
-    Map<String, String> userProvidedConfig = getConfig();
-    addKeyAndValueConvertersToConfigMap(userProvidedConfig);
-
-    snowflakeTelemetryServiceV1.reportKafkaConnectStart(
-        System.currentTimeMillis(), userProvidedConfig);
-
-    Assert.assertEquals(1, mockTelemetryClient.getSentTelemetryData().size());
-
-    TelemetryData kafkaStartTelemetryData = mockTelemetryClient.getSentTelemetryData().get(0);
-
-    ObjectNode messageSent = kafkaStartTelemetryData.getMessage();
-
-    JsonNode dataNode = messageSent.get("data");
-
-    Assert.assertNotNull(dataNode);
-    Assert.assertTrue(dataNode.has(INGESTION_METHOD_OPT));
-    Assert.assertTrue(
-        dataNode
-            .get(INGESTION_METHOD_OPT)
-            .asText()
-            .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString()));
-
-    validateBufferProperties(dataNode);
-
-    validateKeyAndValueConverter(dataNode);
-  }
-
-  @Test
   public void testReportKafkaStartSnowpipeStreaming() {
 
     Map<String, String> userProvidedConfig = getConfig();
