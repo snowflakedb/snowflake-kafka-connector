@@ -20,8 +20,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.AdditionalMatchers;
-import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -214,10 +212,8 @@ public class SinkTaskIT {
     task1.start(task1Config);
 
     // verify task1 start logs
-    Mockito.verify(loggerHandler, Mockito.times(1))
-        .setLoggerInstanceTag(Mockito.contains("TASK"));
-    Mockito.verify(logger, Mockito.times(2))
-        .debug(Mockito.contains("start"));
+    Mockito.verify(loggerHandler, Mockito.times(1)).setLoggerInstanceTag(Mockito.contains("TASK"));
+    Mockito.verify(logger, Mockito.times(2)).debug(Mockito.contains("start"));
 
     // open tasks
     ArrayList<TopicPartition> topicPartitions0 = new ArrayList<>();
@@ -229,8 +225,7 @@ public class SinkTaskIT {
     task1.open(topicPartitions1);
 
     // verify task1 open logs
-    Mockito.verify(logger, Mockito.times(1))
-        .debug(Mockito.contains("open"));
+    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("open"));
 
     // put regular data to tasks
     ArrayList<SinkRecord> records = new ArrayList<>();
@@ -256,8 +251,7 @@ public class SinkTaskIT {
     task1.put(records);
 
     // verify task1 put logs
-    Mockito.verify(logger, Mockito.times(1))
-        .debug(Mockito.contains("put"));
+    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("put"));
 
     // send broken data to task1
     String brokenJson = "{ broken json";
@@ -277,8 +271,7 @@ public class SinkTaskIT {
     task1.put(records);
 
     // verify task1 broken put logs, 4 bc in addition to last call
-    Mockito.verify(logger, Mockito.times(2))
-        .debug(Mockito.contains("put"));
+    Mockito.verify(logger, Mockito.times(2)).debug(Mockito.contains("put"));
 
     // commit offset
     Map<TopicPartition, OffsetAndMetadata> offsetMap0 = new HashMap<>();
@@ -290,23 +283,20 @@ public class SinkTaskIT {
     offsetMap1 = task1.preCommit(offsetMap1);
 
     // verify task1 precommit logs
-    Mockito.verify(logger, Mockito.times(1))
-        .debug(Mockito.contains("precommit"));
+    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("precommit"));
 
     // close tasks
     task0.close(topicPartitions0);
     task1.close(topicPartitions1);
 
     // verify task1 close logs
-    Mockito.verify(logger, Mockito.times(1))
-        .debug(Mockito.contains("closed"));
+    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("closed"));
     // stop tasks
     task0.stop();
     task1.stop();
 
     // verify task1 stop logs
-    Mockito.verify(logger, Mockito.times(1))
-        .debug(Mockito.contains("stop"));
+    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("stop"));
 
     assert offsetMap1.get(topicPartitions0.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
     assert offsetMap0.get(topicPartitions1.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
