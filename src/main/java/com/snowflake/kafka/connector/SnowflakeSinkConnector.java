@@ -78,7 +78,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
   @Override
   public void start(final Map<String, String> parsedConfig) {
     // initialize logging with global instance Id
-    LoggerHandler.setKcGlobalInstanceId(LoggerHandler.getFormattedKcGlobalInstanceId(this.connectorStartTime));
+    LoggerHandler.setKcGlobalInstanceId(
+        LoggerHandler.getFormattedKcGlobalInstanceId(this.connectorStartTime));
     LOGGER.info("SnowflakeSinkConnector:starting...");
 
     Utils.checkConnectorVersion();
@@ -106,7 +107,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     telemetryClient.reportKafkaConnectStart(connectorStartTime, this.config);
 
     setupComplete = true;
-    
+
     LOGGER.info("SnowflakeSinkConnector:started");
   }
 
