@@ -77,17 +77,16 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
-    setupComplete = false;
-    connectorStartTime = System.currentTimeMillis();
-
     // initialize logging with global instance Id
-    LoggerHandler.setKcGlobalInstanceId(
-        LoggerHandler.getFormattedKcGlobalInstanceId(this.connectorStartTime));
+    LoggerHandler.setKcGlobalInstanceId(LoggerHandler.getFormattedKcGlobalInstanceId(this.connectorStartTime));
     LOGGER.info("SnowflakeSinkConnector:starting...");
 
     Utils.checkConnectorVersion();
 
+    setupComplete = false;
+    connectorStartTime = System.currentTimeMillis();
     config = new HashMap<>(parsedConfig);
+
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     // modify invalid connector name
@@ -102,11 +101,13 @@ public class SnowflakeSinkConnector extends SinkConnector {
     // config as a side effect
     conn = SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
 
-    // setup telemetry
     telemetryClient = conn.getTelemetryClient();
+
     telemetryClient.reportKafkaConnectStart(connectorStartTime, this.config);
 
     setupComplete = true;
+    
+    LOGGER.info("SnowflakeSinkConnector:started");
   }
 
   /**
