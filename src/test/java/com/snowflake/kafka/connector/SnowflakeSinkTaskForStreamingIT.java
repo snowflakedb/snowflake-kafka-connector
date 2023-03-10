@@ -115,7 +115,6 @@ public class SnowflakeSinkTaskForStreamingIT {
     config0.put(Utils.TASK_ID, task0Id);
 
     String task1Id = "1";
-    int taskOpen1Count = 0;
     Map<String, String> config1 = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config1);
     config1.put(BUFFER_COUNT_RECORDS, "1"); // override
@@ -128,8 +127,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
 
     // set up task1 logging tag
-    String expectedTask1Tag =
-        TestUtils.getExpectedLogTagWithoutCreationCount(task1Id, taskOpen1Count);
+    String expectedTask1Tag = LoggerHandler.getFormattedTaskLoggingTag(task1Id, System.currentTimeMillis());
     Mockito.doCallRealMethod().when(loggerHandler).setLoggerInstanceTag(expectedTask1Tag);
 
     // start tasks
@@ -151,9 +149,6 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     sinkTask0.open(topicPartitions0);
     sinkTask1.open(topicPartitions1);
-
-    taskOpen1Count++;
-    expectedTask1Tag = TestUtils.getExpectedLogTagWithoutCreationCount(task1Id, taskOpen1Count);
 
     // verify task1 open logs
     Mockito.verify(logger, Mockito.times(1))

@@ -43,27 +43,23 @@ public class LoggerHandler {
   }
 
   /**
-   * Returns the instance id as the hashcode of a random uuid + kc start time
+   * Returns the instance id as the hashcode of the kc start time
    * @param startTime the start time
    * @return the formatted instance id
    */
   public static String getFormattedKcGlobalInstanceId(long startTime) {
-    // 9-10 char
-    String combinedId = UUID.randomUUID().toString() + startTime;
-    int unsignedHashCode = Math.abs(combinedId.hashCode());
-
-    return Utils.formatString(KC_GLOBAL_INSTANCEID_FORMAT, unsignedHashCode);
+    return Utils.formatString(KC_GLOBAL_INSTANCEID_FORMAT, Math.abs(("" + startTime).hashCode()));
   }
 
   /**
-   * Returns a formatted task logging tag
+   * Returns a formatted task logging tag as the taskid with a hash of the task start time
    * @param taskId the task id
    * @param startTime the task start time
    * @return the formatted task logging tag
    */
   public static String getFormattedTaskLoggingTag(String taskId, long startTime) {
     return Utils.formatString(
-            TASK_INSTANCE_TAG_FORMAT, taskId, startTime);
+            TASK_INSTANCE_TAG_FORMAT, taskId, Math.abs(("" + startTime).hashCode()));
   }
 
   private Logger logger;

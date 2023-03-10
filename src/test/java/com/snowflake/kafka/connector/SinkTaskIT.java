@@ -204,14 +204,12 @@ public class SinkTaskIT {
     SnowflakeSinkTask task0 = new SnowflakeSinkTask();
 
     String task1Id = "1";
-    int task1OpenCount = 0;
     Map<String, String> task1Config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(task1Config);
     task1Config.put(Utils.TASK_ID, task1Id);
 
     // set up task1 logging tag
-    String expectedTask1Tag =
-        TestUtils.getExpectedLogTagWithoutCreationCount(task1Id, task1OpenCount);
+    String expectedTask1Tag = LoggerHandler.getFormattedTaskLoggingTag(task1Id, System.currentTimeMillis());
 
     // start tasks
     task0.start(task0Config);
@@ -232,8 +230,6 @@ public class SinkTaskIT {
     ArrayList<TopicPartition> topicPartitions1 = new ArrayList<>();
     topicPartitions1.add(new TopicPartition(topicName, partition));
     task1.open(topicPartitions1);
-    task1OpenCount++;
-    expectedTask1Tag = TestUtils.getExpectedLogTagWithoutCreationCount(task1Id, task1OpenCount);
 
     // verify task1 open logs
     Mockito.verify(logger, Mockito.times(1))

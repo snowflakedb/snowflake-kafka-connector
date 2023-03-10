@@ -110,6 +110,23 @@ public class LoggerHandlerTest {
     Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(msg));
   }
 
+  @Test
+  public void testGetFormattedKcGlobalInstanceId() {
+    long startTime = 123;
+    String expectedId = "[KC:" + Math.abs(("" + 123).hashCode()) + "]";
+    String gotId = LoggerHandler.getFormattedKcGlobalInstanceId(startTime);
+    assert expectedId.equals(gotId);
+  }
+
+  @Test
+  public void testGetFormattedTaskLoggingTag() {
+    String taskId = "taskid";
+    long startTime = 123;
+    String expectedId = "[TASK:" + taskId + "." + Math.abs(("" + 123).hashCode()) + "]";
+    String gotId = LoggerHandler.getFormattedTaskLoggingTag(taskId, startTime);
+    assert expectedId.equals(gotId);
+  }
+
   private void testAllLogMessagesRunner(String expectedTag) {
     String msg = "super useful logging msg";
     String formatMsg = "super {} useful {} logging {} msg {}";
