@@ -7,11 +7,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
@@ -20,6 +15,12 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class TopicPartitionChannelIT {
 
@@ -99,6 +100,8 @@ public class TopicPartitionChannelIT {
     assert service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords;
     assert inMemorySinkTaskContext.offsets().size() == 1;
     assert inMemorySinkTaskContext.offsets().get(topicPartition) == 1;
+    assert TestUtils.tableSize(testTableName) == noOfRecords
+        : "expected: " + noOfRecords + " actual: " + TestUtils.tableSize(testTableName);
   }
 
   /* This will automatically open the channel. */
@@ -150,6 +153,11 @@ public class TopicPartitionChannelIT {
 
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+    assert TestUtils.tableSize(testTableName) == noOfRecords + noOfRecords
+        : "expected: "
+            + (noOfRecords + noOfRecords)
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
   }
 
   /**
@@ -222,13 +230,18 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (anotherSetOfRecords + noOfRecords - 1);
+    assert TestUtils.tableSize(testTableName) == noOfRecords + anotherSetOfRecords
+        : "expected: "
+            + (noOfRecords + anotherSetOfRecords)
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
   }
 
   /**
-   * Two partions for a topic Partition 1 -> 10(0-9) records -> Success Partition 2 -> 10(0-9)
+   * Two partitions for a topic Partition 1 -> 10(0-9) records -> Success Partition 2 -> 10(0-9)
    * records -> Success
    *
-   * <p>Partition 1 -> Channel 1 -> open with same client Client sequencer for channel 1 - 1
+   * <p>Partition 1 -> Channel 1 -> open with same client sequencer for channel 1 - 1
    *
    * <p>Partition 1 -> 10(10-19) records -> Failure -> reopen -> fetch offset token Client sequencer
    * for channel 1 - 2
@@ -337,10 +350,21 @@ public class TopicPartitionChannelIT {
 
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName2) == 0;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName2)
-        == (recordsInPartition2 + anotherSetOfRecords - 1);
+            == (recordsInPartition2 + anotherSetOfRecords - 1)
+        : "expected: "
+            + (recordsInPartition2 + anotherSetOfRecords - 1)
+            + " actual: "
+            + TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName2);
 
     assert TestUtils.tableSize(testTableName)
-        == recordsInPartition1 + anotherSetOfRecords + recordsInPartition2 + anotherSetOfRecords;
+            == recordsInPartition1 + anotherSetOfRecords + recordsInPartition2 + anotherSetOfRecords
+        : "expected: "
+            + (recordsInPartition1
+                + anotherSetOfRecords
+                + recordsInPartition2
+                + anotherSetOfRecords)
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
   }
 
   @Test
@@ -408,6 +432,12 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 2;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (recordsInPartition1 + anotherSetOfRecords - 1);
+
+    assert TestUtils.tableSize(testTableName) == recordsInPartition1 + anotherSetOfRecords
+        : "expected: "
+            + (recordsInPartition1 + anotherSetOfRecords)
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
   }
 
   @Test
