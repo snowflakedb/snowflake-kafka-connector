@@ -10,6 +10,13 @@ public class LoggerHandler {
   // static properties and methods
   private static final Logger META_LOGGER = LoggerFactory.getLogger(LoggerHandler.class.getName());
 
+  // [KC:instanceid] where instanceid is a hash of a random uuid and the current time
+  private static final String KC_GLOBAL_INSTANCEID_FORMAT = "[KC:{}]";
+  // [TASK:taskId.creationtimestamp]
+  // Example: [TASK:0.1678386676] indicates task 0 was started at 1678386676
+  private static final String TASK_INSTANCE_TAG_FORMAT = "[TASK:{}.{}]";
+
+
   private static String kcGlobalInstanceId = "";
 
   /**
@@ -22,7 +29,7 @@ public class LoggerHandler {
    *
    * @param id String attached to every log
    */
-  public static void setConnectGlobalInstanceId(String id) {
+  public static void setKcGlobalInstanceId(String id) {
     if (id != null && !id.isEmpty()) {
       kcGlobalInstanceId = id;
       META_LOGGER.info(
@@ -33,6 +40,30 @@ public class LoggerHandler {
               + " without it");
       kcGlobalInstanceId = "";
     }
+  }
+
+  /**
+   * Returns the instance id as the hashcode of a random uuid + kc start time
+   * @param startTime the start time
+   * @return the formatted instance id
+   */
+  public static String getFormattedKcGlobalInstanceId(long startTime) {
+    // 9-10 char
+    String combinedId = UUID.randomUUID().toString() + startTime;
+    int unsignedHashCode = Math.abs(combinedId.hashCode());
+
+    return Utils.formatString(KC_GLOBAL_INSTANCEID_FORMAT, unsignedHashCode);
+  }
+
+  /**
+   * Returns a formatted task logging tag
+   * @param taskId the task id
+   * @param startTime the task start time
+   * @return the formatted task logging tag
+   */
+  public static String getFormattedTaskLoggingTag(String taskId, long startTime) {
+    return Utils.formatString(
+            TASK_INSTANCE_TAG_FORMAT, taskId, startTime);
   }
 
   private Logger logger;

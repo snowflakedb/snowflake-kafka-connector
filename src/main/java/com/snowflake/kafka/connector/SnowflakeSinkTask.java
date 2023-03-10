@@ -61,10 +61,6 @@ public class SnowflakeSinkTask extends SinkTask {
       new LoggerHandler(SnowflakeSinkTask.class.getName() + "_STATIC");
   private LoggerHandler DYNAMIC_LOGGER;
 
-  // [TASK:taskId.creationtimestamp]
-  // Example: [TASK:0.1678386676] indicates task 0 was started at 1678386676
-  public static final String TASK_INSTANCE_TAG_FORMAT = "[TASK:{}.{}]";
-
   // After 5 put operations, we will insert a sleep which will cause a rebalance since heartbeat is
   // not found
   private final int REBALANCING_THRESHOLD = 10;
@@ -136,7 +132,7 @@ public class SnowflakeSinkTask extends SinkTask {
     this.taskConfigId = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
 
     // setup logging
-    String taskInstanceTag = this.getTaskLoggingTag();
+    String taskInstanceTag = LoggerHandler.getFormattedTaskLoggingTag(this.taskConfigId, this.taskStartTime);
     this.DYNAMIC_LOGGER.debug(
         "Starting SnowflakeSinkTask with instance tag [TASK:taskId.taskCreationTime] = {}", taskInstanceTag);
     this.DYNAMIC_LOGGER.setLoggerInstanceTag(taskInstanceTag);
@@ -459,11 +455,6 @@ public class SnowflakeSinkTask extends SinkTask {
       }
     }
     return result;
-  }
-
-  private String getTaskLoggingTag() {
-    return Utils.formatString(
-        TASK_INSTANCE_TAG_FORMAT, this.taskConfigId, this.taskStartTime);
   }
 
   /**

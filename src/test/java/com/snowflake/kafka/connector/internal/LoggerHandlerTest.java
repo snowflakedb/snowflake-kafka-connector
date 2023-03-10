@@ -17,7 +17,6 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
-import java.util.UUID;
 import org.junit.After;
 import org.junit.Test;
 import org.mockito.InjectMocks;
@@ -40,7 +39,7 @@ public class LoggerHandlerTest {
 
   @After
   public void close() {
-    LoggerHandler.setConnectGlobalInstanceId("");
+    LoggerHandler.setKcGlobalInstanceId("");
     this.loggerHandler = new LoggerHandler(this.name);
   }
 
@@ -54,7 +53,7 @@ public class LoggerHandlerTest {
 
   @Test
   public void testAllLogMessageKcGlobalInstanceId() {
-    LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
+    LoggerHandler.setKcGlobalInstanceId(this.kcGlobalInstanceId);
     MockitoAnnotations.initMocks(this);
 
     // [kc:id] with space at end
@@ -76,7 +75,7 @@ public class LoggerHandlerTest {
 
   @Test
   public void testAllLogMessageAllInstanceIds() {
-    LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
+    LoggerHandler.setKcGlobalInstanceId(this.kcGlobalInstanceId);
     loggerHandler = new LoggerHandler(name);
     this.loggerHandler.setLoggerInstanceTag(this.taskLoggerTag);
     MockitoAnnotations.initMocks(this);
@@ -89,7 +88,7 @@ public class LoggerHandlerTest {
   public void testInvalidKcId() {
     String msg = "super useful logging msg";
 
-    LoggerHandler.setConnectGlobalInstanceId("");
+    LoggerHandler.setKcGlobalInstanceId("");
     MockitoAnnotations.initMocks(this);
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
 

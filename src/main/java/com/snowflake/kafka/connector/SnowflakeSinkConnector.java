@@ -26,7 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
@@ -82,7 +82,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     connectorStartTime = System.currentTimeMillis();
 
     // initialize logging with global instance Id
-    LoggerHandler.setConnectGlobalInstanceId(this.getKcInstanceId(this.connectorStartTime));
+    LoggerHandler.setKcGlobalInstanceId(LoggerHandler.getFormattedKcGlobalInstanceId(this.connectorStartTime));
     LOGGER.info("SnowflakeSinkConnector:starting...");
 
     Utils.checkConnectorVersion();
@@ -299,14 +299,5 @@ public class SnowflakeSinkConnector extends SinkConnector {
   @Override
   public String version() {
     return Utils.VERSION;
-  }
-
-  // returns the instance id as the hashcode of a random uuid + kc start time
-  private String getKcInstanceId(long currTime) {
-    // 9-10 char
-    String combinedId = UUID.randomUUID().toString() + currTime;
-    int unsignedHashCode = Math.abs(combinedId.hashCode());
-
-    return Utils.formatString("[KC:{}]", unsignedHashCode);
   }
 }
