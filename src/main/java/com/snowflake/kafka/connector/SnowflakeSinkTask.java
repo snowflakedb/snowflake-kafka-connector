@@ -132,7 +132,8 @@ public class SnowflakeSinkTask extends SinkTask {
     this.taskConfigId = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
 
     // setup logging
-    this.DYNAMIC_LOGGER.setLoggerInstanceTag(LoggerHandler.getFormattedTaskLoggingTag(this.taskConfigId, this.taskStartTime));
+    this.DYNAMIC_LOGGER.setLoggerInstanceTag(
+        LoggerHandler.getFormattedTaskLoggingTag(this.taskConfigId, this.taskStartTime));
     this.DYNAMIC_LOGGER.debug("starting task...");
 
     // generate topic to table map
