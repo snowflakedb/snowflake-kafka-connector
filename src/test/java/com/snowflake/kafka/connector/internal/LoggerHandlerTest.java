@@ -29,7 +29,8 @@ import org.slf4j.Logger;
 public class LoggerHandlerTest {
   // test constants
   private final String name = "test.logger.name";
-  private final UUID kcGlobalInstanceId = UUID.randomUUID();
+  private final String kcGlobalInstanceId = "[KC:testid123]";
+  private final String taskLoggerTag = "[TASK:testid123.123]";
 
   // mock and test setup, inject logger into loggerHandler
   @Mock(name = "logger")
@@ -53,23 +54,21 @@ public class LoggerHandlerTest {
 
   @Test
   public void testAllLogMessageKcGlobalInstanceId() {
-    LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId.toString());
+    LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
     MockitoAnnotations.initMocks(this);
 
-    // [kc:id]
-    testAllLogMessagesRunner("[KC:" + kcGlobalInstanceId + "] ");
+    // [kc:id] with space at end
+    testAllLogMessagesRunner(this.kcGlobalInstanceId + " ");
   }
 
   @Test
   public void testAllLogMessageLoggingTag() {
-    String logTag = "TEST";
-
     this.loggerHandler = new LoggerHandler(this.name);
-    this.loggerHandler.setLoggerInstanceTag(logTag);
+    this.loggerHandler.setLoggerInstanceTag(this.taskLoggerTag);
     MockitoAnnotations.initMocks(this);
 
-    // [logtag]
-    testAllLogMessagesRunner(Utils.formatString("[{}] ", logTag));
+    // [task:id.creationtime] with space at end
+    testAllLogMessagesRunner(this.taskLoggerTag + " ");
 
     this.loggerHandler.clearLoggerInstanceIdTag();
     testAllLogMessagesRunner("");
@@ -77,15 +76,13 @@ public class LoggerHandlerTest {
 
   @Test
   public void testAllLogMessageAllInstanceIds() {
-    String logTag = "TEST";
-
-    LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId.toString());
+    LoggerHandler.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
     loggerHandler = new LoggerHandler(name);
-    this.loggerHandler.setLoggerInstanceTag(logTag);
+    this.loggerHandler.setLoggerInstanceTag(this.taskLoggerTag);
     MockitoAnnotations.initMocks(this);
 
-    // [kc:id|tag]
-    testAllLogMessagesRunner(Utils.formatString("[KC:{}|{}] ", kcGlobalInstanceId, logTag));
+    // [kc:id] [task:id.creationtime] with space at end
+    testAllLogMessagesRunner(this.kcGlobalInstanceId + " " + this.taskLoggerTag + " ");
   }
 
   @Test

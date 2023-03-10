@@ -47,7 +47,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
-  private String connectorName; // unique name of this connector instance
 
   // SnowflakeJDBCWrapper provides methods to interact with user's snowflake
   // account and executes queries
@@ -308,6 +307,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
     String combinedId = UUID.randomUUID().toString() + currTime;
     int unsignedHashCode = Math.abs(combinedId.hashCode());
 
-    return "" + unsignedHashCode;
+    return Utils.formatString("[KC:{}]", unsignedHashCode);
   }
 }

@@ -149,14 +149,17 @@ public class LoggerHandler {
    * @return The fully formatted string to be logged
    */
   private String getFormattedMsg(String msg, Object... vars) {
+    String tag = "";
+
     // instance id and tag should be empty if uninitialized
-    String tag = kcGlobalInstanceId + this.loggerInstanceTag;
+    if (!kcGlobalInstanceId.equals("")) {
+      tag += kcGlobalInstanceId + " ";
+    }
 
-    // add space if tag exists
-    tag = tag.isEmpty() ? tag
-            : tag + " ";
+    if (!this.loggerInstanceTag.equals("")) {
+      tag += this.loggerInstanceTag + " ";
+    }
 
-    // add space between tag and msg format
     return Utils.formatLogMessage(tag + msg, vars);
   }
 }
