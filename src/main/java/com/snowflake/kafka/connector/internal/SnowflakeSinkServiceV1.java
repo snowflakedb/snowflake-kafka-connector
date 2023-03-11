@@ -754,6 +754,8 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
 
       LOG_INFO_MSG("pipe {}, ingest files: {}", pipeName, fileNamesCopy);
 
+      ingestionService.ingestFiles(fileNamesCopy);
+
       // committedOffset should be updated only when ingestFiles has succeeded.
       committedOffset.set(flushedOffset.get());
       // update telemetry data
@@ -763,8 +765,6 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
       fileNamesForMetrics.forEach(
           name ->
               pipeStatus.updateCommitLag(currentTime - FileNameUtils.fileNameToTimeIngested(name)));
-
-      ingestionService.ingestFiles(fileNamesCopy);
 
       return committedOffset.get();
     }
