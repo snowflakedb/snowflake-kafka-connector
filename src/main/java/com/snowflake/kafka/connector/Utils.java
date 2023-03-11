@@ -339,9 +339,11 @@ public class Utils {
     // unique name of this connector instance
     String connectorName = config.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "");
     if (connectorName.isEmpty() || !isValidSnowflakeApplicationName(connectorName)) {
-      invalidConfigParams.put(SnowflakeSinkConnectorConfig.NAME, Utils.formatString(
-              "{} is empty or invalid. It should match Snowflake object identifier syntax. Please see "
-                      + "the documentation.",
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.NAME,
+          Utils.formatString(
+              "{} is empty or invalid. It should match Snowflake object identifier syntax. Please"
+                  + " see the documentation.",
               SnowflakeSinkConnectorConfig.NAME));
     }
 
@@ -352,17 +354,22 @@ public class Utils {
         || config
             .get(INGESTION_METHOD_OPT)
             .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString())) {
-      invalidConfigParams.putAll(BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE));
+      invalidConfigParams.putAll(
+          BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE));
 
       if (config.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
           && Boolean.parseBoolean(
               config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG))) {
-        invalidConfigParams.put(IngestionMethodConfig.SNOWPIPE_STREAMING.toString(), Utils.formatString(
+        invalidConfigParams.put(
+            IngestionMethodConfig.SNOWPIPE_STREAMING.toString(),
+            Utils.formatString(
                 "Schematization is only available with {}.",
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
       if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION)) {
-        invalidConfigParams.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, Utils.formatString(
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
+            Utils.formatString(
                 "{} is only available with ingestion type: {}.",
                 SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
@@ -372,35 +379,53 @@ public class Utils {
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)
         && parseTopicToTableMap(config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
             == null) {
-      invalidConfigParams.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, Utils.formatString("Invalid {} config format: {}", SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)));
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
+          Utils.formatString(
+              "Invalid {} config format: {}",
+              SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
+              config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)));
     }
 
     // sanity check
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE)) {
-      invalidConfigParams.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE, Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE));
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE,
+          Utils.formatString(
+              "{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE));
     }
 
     // sanity check
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA)) {
-      invalidConfigParams.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA, Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA,
+          Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY)) {
-      invalidConfigParams.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY));
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
+          Utils.formatString(
+              "{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY));
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER)) {
-      invalidConfigParams.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER, Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_USER));
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.SNOWFLAKE_USER,
+          Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_USER));
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL)) {
-      invalidConfigParams.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL, Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_URL));
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
+          Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_URL));
     }
     // jvm proxy settings
     try {
       validateProxySetting(config);
     } catch (SnowflakeKafkaConnectorException e) {
-      invalidConfigParams.put("Proxy info", Utils.formatString("Proxy settings error: ", e.getMessage()));
+      invalidConfigParams.put(
+          "Proxy info", Utils.formatString("Proxy settings error: ", e.getMessage()));
     }
 
     // set jdbc logging directory
@@ -412,7 +437,9 @@ public class Utils {
         SnowflakeSinkConnectorConfig.KafkaProvider.of(
             config.get(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG));
       } catch (IllegalArgumentException exception) {
-        invalidConfigParams.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, Utils.formatString("Kafka provider config error:{}", exception.getMessage()));
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.PROVIDER_CONFIG,
+            Utils.formatString("Kafka provider config error:{}", exception.getMessage()));
       }
     }
 
@@ -422,14 +449,20 @@ public class Utils {
         VALIDATOR.ensureValid(
             BEHAVIOR_ON_NULL_VALUES_CONFIG, config.get(BEHAVIOR_ON_NULL_VALUES_CONFIG));
       } catch (ConfigException exception) {
-        invalidConfigParams.put(BEHAVIOR_ON_NULL_VALUES_CONFIG, Utils.formatString("Kafka config:{} error:{}", BEHAVIOR_ON_NULL_VALUES_CONFIG, exception.getMessage()));
+        invalidConfigParams.put(
+            BEHAVIOR_ON_NULL_VALUES_CONFIG,
+            Utils.formatString(
+                "Kafka config:{} error:{}",
+                BEHAVIOR_ON_NULL_VALUES_CONFIG,
+                exception.getMessage()));
       }
     }
 
     if (config.containsKey(JMX_OPT)) {
       if (!(config.get(JMX_OPT).equalsIgnoreCase("true")
           || config.get(JMX_OPT).equalsIgnoreCase("false"))) {
-        invalidConfigParams.put(JMX_OPT, Utils.formatString("Kafka config:{} should either be true or false", JMX_OPT));
+        invalidConfigParams.put(
+            JMX_OPT, Utils.formatString("Kafka config:{} should either be true or false", JMX_OPT));
       }
     }
 
@@ -439,7 +472,10 @@ public class Utils {
               DELIVERY_GUARANTEE,
               SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
     } catch (IllegalArgumentException exception) {
-      invalidConfigParams.put(DELIVERY_GUARANTEE, Utils.formatString("Delivery Guarantee config:{} error:{}", DELIVERY_GUARANTEE, exception.getMessage()));
+      invalidConfigParams.put(
+          DELIVERY_GUARANTEE,
+          Utils.formatString(
+              "Delivery Guarantee config:{} error:{}", DELIVERY_GUARANTEE, exception.getMessage()));
     }
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
@@ -451,7 +487,9 @@ public class Utils {
 
       for (String invalidKey : invalidConfigParams.keySet()) {
         String invalidValue = invalidConfigParams.get(invalidKey);
-        String errorMessage = Utils.formatString("Config value '{}' is invalid. Error message: '{}'", invalidKey, invalidValue);
+        String errorMessage =
+            Utils.formatString(
+                "Config value '{}' is invalid. Error message: '{}'", invalidKey, invalidValue);
         invalidParamsMessage += errorMessage + "\n";
         LOGGER.error(errorMessage);
       }

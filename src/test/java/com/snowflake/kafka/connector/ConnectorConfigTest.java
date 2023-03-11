@@ -461,8 +461,8 @@ public class ConnectorConfigTest {
     try {
       Map<String, String> config = getConfig();
       config.put(
-              SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-              IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+          SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+          IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
       config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
       config.remove(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
       Utils.validateConfig(config);
