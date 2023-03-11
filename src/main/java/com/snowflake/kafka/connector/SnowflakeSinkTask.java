@@ -17,6 +17,7 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
+import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -361,7 +362,7 @@ public class SnowflakeSinkTask extends SinkTask {
       offsets.forEach(
           (topicPartition, offsetAndMetadata) -> {
             long offSet = sink.getOffset(topicPartition);
-            if (offSet != 0) {
+            if (offSet != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
               committedOffsets.put(topicPartition, new OffsetAndMetadata(offSet));
             }
           });

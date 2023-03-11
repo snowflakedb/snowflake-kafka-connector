@@ -638,12 +638,14 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(brokenKeyValue);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 0, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == -1, 20, 5);
 
     List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedData =
         errorReporter.getReportedRecords();
 
     assert reportedData.size() == 3;
+    assert TestUtils.tableSize(table) == 0
+        : "expected: " + 0 + " actual: " + TestUtils.tableSize(table);
   }
 
   @Test
@@ -691,6 +693,8 @@ public class SnowflakeSinkServiceV2IT {
         errorReporter.getReportedRecords();
 
     assert reportedData.size() == 2;
+    assert TestUtils.tableSize(table) == 1
+        : "expected: " + 1 + " actual: " + TestUtils.tableSize(table);
 
     service.closeAll();
   }
@@ -1090,7 +1094,6 @@ public class SnowflakeSinkServiceV2IT {
     SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
 
     long startOffset = 0;
-    long endOffset = 0;
 
     SinkRecord jsonRecordValue =
         new SinkRecord(
@@ -1110,21 +1113,10 @@ public class SnowflakeSinkServiceV2IT {
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // The first insert should fail and schema evolution will kick in to add the column
+    // The insert should retry internally to update the schema and then insert the row
     service.insert(jsonRecordValue);
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset, 20, 5);
-
-    // The second insert should fail again and schema evolution will kick in to update the
-    // nullability
-    service.insert(jsonRecordValue);
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset, 20, 5);
-
-    // Retry the insert should succeed now with the updated schema
-    service.insert(jsonRecordValue);
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
 
     service.closeAll();
   }

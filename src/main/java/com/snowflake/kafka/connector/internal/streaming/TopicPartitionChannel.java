@@ -66,7 +66,7 @@ public class TopicPartitionChannel {
   private static final LoggerHandler LOGGER =
       new LoggerHandler(TopicPartitionChannel.class.getName());
 
-  private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
+  public static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 
   // last time we invoked insertRows API
   private long previousFlushTimeStampMs;
@@ -117,13 +117,6 @@ public class TopicPartitionChannel {
    * utility methods.
    */
   private final SinkTaskContext sinkTaskContext;
-
-  // ------- Kafka record related properties ------- //
-  // Offset number we would want to commit back to kafka
-  // This value is + 1 of what we find in snowflake.
-  // It tells kafka to start sending offsets from this offset because earlier ones have been
-  // ingested. (Hence it +1)
-  private final AtomicLong offsetSafeToCommitToKafka;
 
   /* Error related properties */
 
@@ -208,7 +201,6 @@ public class TopicPartitionChannel {
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
     this.streamingBuffer = new StreamingBuffer();
-    this.offsetSafeToCommitToKafka = new AtomicLong(0);
 
     /* Error properties */
     this.errorTolerance = StreamingUtils.tolerateErrors(this.sfConnectorConfig);
@@ -419,8 +411,12 @@ public class TopicPartitionChannel {
 
       // Check whether we need to reset the offset due to schema evolution
       if (response.needToResetOffset()) {
-        streamingApiFallbackSupplier(
-            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
+        final long offsetRecoveredFromSnowflake =
+            streamingApiFallbackSupplier(
+                StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
+        if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+          insertBufferedRecords(streamingBufferToInsert);
+        }
       }
       return response;
     } catch (TopicPartitionChannelInsertionException ex) {
@@ -562,7 +558,7 @@ public class TopicPartitionChannel {
     }
   }
 
-  // A class that wraps around the InsertValidationResponse from the Ingest SDK plus some additional
+  // A class that wraps around the InsertValidationResponse from Ingest SDK plus some additional
   // information
   static class InsertRowsResponse {
     private final InsertValidationResponse response;
@@ -669,14 +665,12 @@ public class TopicPartitionChannel {
   public long getOffsetSafeToCommitToKafka() {
     final long committedOffsetInSnowflake = fetchOffsetTokenWithRetry();
     if (committedOffsetInSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      // tzhang: should return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE? And here means we won't
-      // commit any offset?
       return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
     } else {
       // Return an offset which is + 1 of what was present in snowflake.
       // Idea of sending + 1 back to Kafka is that it should start sending offsets after task
       // restart from this offset
-      return offsetSafeToCommitToKafka.updateAndGet(operand -> committedOffsetInSnowflake + 1);
+      return committedOffsetInSnowflake + 1;
     }
   }
 
@@ -788,7 +782,6 @@ public class TopicPartitionChannel {
   private void resetChannelMetadataAfterRecovery(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
       final long offsetRecoveredFromSnowflake) {
-    // tzhang: do we need to set isOffsetResetInKafka to true?
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       return;
     }
@@ -860,7 +853,9 @@ public class TopicPartitionChannel {
     try {
       offsetToken = this.channel.getLatestCommittedOffsetToken();
       if (offsetToken == null) {
-        LOGGER.info("OffsetToken not present for channelName:{}", this.getChannelName());
+        LOGGER.warn(
+            "OffsetToken not present for channelName:{}, will use kafka offset instead",
+            this.getChannelName());
         return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
       } else {
         long latestCommittedOffsetInSnowflake = Long.parseLong(offsetToken);
@@ -946,7 +941,6 @@ public class TopicPartitionChannel {
         .add("previousFlushTimeStampMs", this.previousFlushTimeStampMs)
         .add("offsetPersistedInSnowflake", this.offsetPersistedInSnowflake)
         .add("channelName", this.getChannelName())
-        .add("offsetSafeToCommitToKafka", this.offsetSafeToCommitToKafka.get())
         .add("isStreamingIngestClientClosed", this.streamingIngestClient.isClosed())
         .toString();
   }

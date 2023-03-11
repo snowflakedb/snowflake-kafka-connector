@@ -459,6 +459,8 @@ public class TopicPartitionChannelTest {
           .thenReturn(validationResponse1)
           .thenReturn(validationResponse2);
 
+      Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenReturn("0");
+
       SnowflakeConnectionService conn = Mockito.mock(SnowflakeConnectionService.class);
       Mockito.when(
               conn.hasSchemaEvolutionPermission(ArgumentMatchers.any(), ArgumentMatchers.any()))
