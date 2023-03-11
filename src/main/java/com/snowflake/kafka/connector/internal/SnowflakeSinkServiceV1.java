@@ -595,8 +595,7 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
         this.hasInitialized = true;
       }
       // only get offset token once when service context is initialized
-      // ignore ingested files
-      // discard the record if the record offset is smaller or equal to server side offset
+      // ignore ingested filesg
       if (record.kafkaOffset() > processedOffset.get()) {
         SinkRecord snowflakeRecord = record;
         if (shouldConvertContent(snowflakeRecord.value())) {
