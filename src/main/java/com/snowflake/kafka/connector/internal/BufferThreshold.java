@@ -5,7 +5,10 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.ST
 
 import com.google.common.base.MoreObjects;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -123,19 +126,22 @@ public abstract class BufferThreshold {
    * @param ingestionMethodConfig ingestion method used. Check {@link IngestionMethodConfig}
    * @return true if all thresholds are valid.
    */
-  public static boolean validateBufferThreshold(
+  public static Map<String, String> validateBufferThreshold(
       Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
-    return verifyBufferFlushTimeThreshold(providedSFConnectorConfig, ingestionMethodConfig)
-        && verifyBufferCountThreshold(providedSFConnectorConfig)
-        && verifyBufferBytesThreshold(providedSFConnectorConfig);
+    Map<String, String> invalidConfigParams = new HashMap<>();
+    invalidConfigParams.putAll(verifyBufferFlushTimeThreshold(providedSFConnectorConfig, ingestionMethodConfig));
+    invalidConfigParams.putAll(verifyBufferCountThreshold(providedSFConnectorConfig));
+    invalidConfigParams.putAll(verifyBufferBytesThreshold(providedSFConnectorConfig));
+    return invalidConfigParams;
   }
 
-  private static boolean verifyBufferFlushTimeThreshold(
+  private static Map<String, String> verifyBufferFlushTimeThreshold(
       Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
+    Map<String, String> invalidConfigParams = new HashMap();
+
     if (!providedSFConnectorConfig.containsKey(
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC)) {
-      LOGGER.error("Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
-      return false;
+      invalidConfigParams.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, Utils.formatString("Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
     } else {
       String providedFlushTimeSecondsInStr =
           providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
@@ -148,29 +154,29 @@ public abstract class BufferThreshold {
                 ? BUFFER_FLUSH_TIME_SEC_MIN
                 : STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC;
         if (providedFlushTimeSecondsInConfig < thresholdTimeToCompare) {
-          LOGGER.error(
-              "{} is {}, it should be greater than {}",
-              SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-              providedFlushTimeSecondsInConfig,
-              thresholdTimeToCompare);
-          return false;
+          invalidConfigParams.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, Utils.formatString(
+                  "{} is {}, it should be greater than {}",
+                  SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+                  providedFlushTimeSecondsInConfig,
+                  thresholdTimeToCompare));
         }
       } catch (NumberFormatException e) {
-        LOGGER.error(
-            "{} should be an integer. Invalid integer was provided:{}",
-            SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-            providedFlushTimeSecondsInStr);
-        return false;
+        invalidConfigParams.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, Utils.formatString(
+                "{} should be an integer. Invalid integer was provided:{}",
+                SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+                providedFlushTimeSecondsInStr));
       }
     }
-    return true;
+
+    return invalidConfigParams;
   }
 
-  private static boolean verifyBufferBytesThreshold(Map<String, String> providedSFConnectorConfig) {
+  private static Map<String, String> verifyBufferBytesThreshold(Map<String, String> providedSFConnectorConfig) {
+    Map<String, String> invalidConfigParams = new HashMap();
+
     // verify buffer.size.bytes
     if (!providedSFConnectorConfig.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES)) {
-      LOGGER.error("Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
-      return false;
+      invalidConfigParams.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, Utils.formatString("Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
     } else {
       final String providedBufferSizeBytesStr =
           providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
@@ -179,50 +185,47 @@ public abstract class BufferThreshold {
         if (providedBufferSizeBytesConfig
             < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN) // 1 byte
         {
-          LOGGER.error(
-              "{} is too low at {}. It must be {} or greater.",
-              SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-              providedBufferSizeBytesConfig,
-              SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN);
-          return false;
+          invalidConfigParams.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, Utils.formatString(
+                  "{} is too low at {}. It must be {} or greater.",
+                  SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+                  providedBufferSizeBytesConfig,
+                  SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN));
         }
       } catch (NumberFormatException e) {
-        LOGGER.error(
-            "Config {} should be an integer. Provided:{}",
-            SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-            providedBufferSizeBytesStr);
-        return false;
+        invalidConfigParams.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, Utils.formatString(
+                "Config {} should be an integer. Provided:{}",
+                SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+                providedBufferSizeBytesStr));
       }
     }
-    return true;
+    return invalidConfigParams;
   }
 
-  private static boolean verifyBufferCountThreshold(Map<String, String> providedSFConnectorConfig) {
+  private static Map<String, String> verifyBufferCountThreshold(Map<String, String> providedSFConnectorConfig) {
+    Map<String, String> invalidConfigParams = new HashMap();
+
     // verify buffer.count.records
     if (!providedSFConnectorConfig.containsKey(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS)) {
-      LOGGER.error("Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
-      return false;
+      invalidConfigParams.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, Utils.formatString("Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
     } else {
       final String providedBufferCountRecordsStr =
           providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
       try {
         long providedBufferCountRecords = Long.parseLong(providedBufferCountRecordsStr);
         if (providedBufferCountRecords <= 0) {
-          LOGGER.error(
-              "Config {} is {}, it should at least 1",
-              SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-              providedBufferCountRecords);
-          return false;
+          invalidConfigParams.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, Utils.formatString(
+                  "Config {} is {}, it should at least 1",
+                  SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+                  providedBufferCountRecords));
         }
       } catch (NumberFormatException e) {
-        LOGGER.error(
-            "Config {} should be a positive integer. Provided:{}",
-            SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-            providedBufferCountRecordsStr);
-        return false;
+        invalidConfigParams.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, Utils.formatString(
+                "Config {} should be a positive integer. Provided:{}",
+                SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+                providedBufferCountRecordsStr));
       }
     }
-    return true;
+    return invalidConfigParams;
   }
 
   @Override

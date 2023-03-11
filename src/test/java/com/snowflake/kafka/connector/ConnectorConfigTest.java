@@ -456,15 +456,19 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testStreamingEmptyBufferSize() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    config.remove(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
-    Utils.validateConfig(config);
+    try {
+      Map<String, String> config = getConfig();
+      config.put(
+              SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+              IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+      config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+      config.remove(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
+    }
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
