@@ -94,9 +94,9 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
     this.flushTime = SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT;
     this.pipes = new HashMap<>();
     this.conn = conn;
-    this.recordService = new RecordService();
     isStopped = false;
     this.telemetryService = conn.getTelemetryClient();
+    this.recordService = new RecordService(this.telemetryService);
     this.topic2TableMap = new HashMap<>();
 
     // Setting the default value in constructor

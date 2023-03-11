@@ -23,6 +23,7 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.EnableLogging;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
@@ -90,13 +91,26 @@ public class RecordService extends EnableLogging {
   // This class is designed to work with empty metadata config map
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
 
+  /** Send Telemetry Data to Snowflake */
+  private final SnowflakeTelemetryService telemetryService;
+
   /**
    * process records output JSON format: { "meta": { "offset": 123, "topic": "topic name",
    * "partition": 123, "key":"key name" } "content": "record content" }
    *
    * <p>create a JsonRecordService instance
+   *
+   * @param telemetryService Telemetry Service Instance. Can be null.
    */
-  public RecordService() {}
+  public RecordService(SnowflakeTelemetryService telemetryService) {
+    this.telemetryService = telemetryService;
+  }
+
+  /** Record service with null telemetry Service, only use it for testing. */
+  @VisibleForTesting
+  public RecordService() {
+    this.telemetryService = null;
+  }
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
     metadataConfig = metadataConfigIn;
