@@ -973,7 +973,7 @@ public class SnowflakeSinkServiceV2IT {
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // The first insert should fail and schema evolution will kick in to update the schema
+    // Schema evolution should kick in to update the schema and then the rows should be ingested
     service.insert(avroRecordValue);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
@@ -1053,7 +1053,7 @@ public class SnowflakeSinkServiceV2IT {
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // The first insert should fail and schema evolution will kick in to update the schema
+    // Schema evolution should kick in to update the schema and then the rows should be ingested
     service.insert(jsonRecordValue);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
@@ -1107,7 +1107,7 @@ public class SnowflakeSinkServiceV2IT {
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // The insert should retry internally to update the schema and then insert the row
+    // Schema evolution should kick in to update the schema and then the rows should be ingested
     service.insert(jsonRecordValue);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);

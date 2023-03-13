@@ -272,17 +272,15 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
 
+    int expectedRetries = MAX_GET_OFFSET_TOKEN_RETRIES;
     Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
-    Mockito.verify(
-            topicPartitionChannel.getChannel(), Mockito.times(MAX_GET_OFFSET_TOKEN_RETRIES + 1))
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(++expectedRetries))
         .getLatestCommittedOffsetToken();
 
     Assert.assertEquals(
         Long.parseLong(offsetTokenAfterMaxAttempts),
         topicPartitionChannel.fetchOffsetTokenWithRetry());
-    Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
-    Mockito.verify(
-            topicPartitionChannel.getChannel(), Mockito.times(MAX_GET_OFFSET_TOKEN_RETRIES + 1 + 1))
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(++expectedRetries))
         .getLatestCommittedOffsetToken();
   }
 
@@ -401,34 +399,23 @@ public class TopicPartitionChannelTest {
 
     records.forEach(topicPartitionChannel::insertRecordToBuffer);
 
-    Mockito.verify(mockStreamingClient, Mockito.times(noOfRecords + 1))
-        .openChannel(ArgumentMatchers.any());
-    // insert rows is only called once.
     Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(noOfRecords))
         .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
-
-    // get offset token is called once after channel re-open + once before a new partition is just
-    // created (In Precomputation)
+    Mockito.verify(mockStreamingClient, Mockito.times(noOfRecords + 1))
+        .openChannel(ArgumentMatchers.any());
     Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(noOfRecords + 1))
         .getLatestCommittedOffsetToken();
-    //
-    //    // Now, it should be successful
-    //    Mockito.when(
-    //            mockStreamingChannel.insertRows(
-    //                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
-    //        .thenReturn(new InsertValidationResponse());
-    //
-    //    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
-    //        .thenReturn(Long.toString(noOfRecords - 1));
-    //
-    //    // We will mimick the retry strategy now
-    //    // This time since record 0 is again trying to insert, we will call insertFiles
-    // noOfRecords
-    //    // times
+
+    // Now, it should be successful
+    Mockito.when(
+            mockStreamingChannel.insertRows(
+                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+        .thenReturn(new InsertValidationResponse());
+
+    // Retry the insert again, now everything should be ingested and the offset token should be
+    // noOfRecords-1
     //    records.forEach(topicPartitionChannel::insertRecordToBuffer);
-    //    Mockito.verify(
-    //            topicPartitionChannel.getChannel(),
-    //            Mockito.times(noOfRecords + 1)) // noOfRecords + 1 (before retry)
+    //    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(noOfRecords))
     //        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
     //
     //    Assert.assertEquals(noOfRecords - 1, topicPartitionChannel.fetchOffsetTokenWithRetry());
