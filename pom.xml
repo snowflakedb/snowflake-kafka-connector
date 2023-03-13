@@ -68,6 +68,10 @@
                 <enabled>true</enabled>
             </snapshots>
         </repository>
+        <repository>
+            <id>local-maven-repo</id>
+            <url>file:///Users/japatel/Desktop/Kafka-Connector/snowflake-kafka-connector/local-maven-repo</url>
+        </repository>
     </repositories>
 
     <distributionManagement>
@@ -250,6 +254,10 @@
                         </goals>
                     </execution>
                 </executions>
+                <configuration>
+                    <detectJavaApiLink>false</detectJavaApiLink>
+                </configuration>
+
             </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
@@ -401,6 +409,13 @@
             <artifactId>snowflake-jdbc</artifactId>
             <version>3.13.14</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.example</groupId>
+            <artifactId>snowflake-log-collector</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
 
         <!-- https://mvnrepository.com/artifact/io.dropwizard.metrics/metrics-core -->
         <dependency>
