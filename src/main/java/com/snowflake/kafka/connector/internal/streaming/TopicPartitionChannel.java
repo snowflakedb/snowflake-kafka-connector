@@ -400,16 +400,19 @@ public class TopicPartitionChannel {
       this.previousFlushTimeStampMs = System.currentTimeMillis();
 
       LOGGER.info(
-          "Successfully called insertRows for channel:{}, buffer:{}, insertResponseHasErrors:{}",
+          "Successfully called insertRows for channel:{}, buffer:{}, insertResponseHasErrors:{},"
+              + " needToResetOffset:{}",
           this.getChannelName(),
           streamingBufferToInsert,
-          response.hasErrors());
+          response.hasErrors(),
+          response.needToResetOffset());
       if (response.hasErrors()) {
         handleInsertRowsFailures(
             response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
       }
 
-      // Check whether we need to reset the offset due to schema evolution
+      // Due to schema evolution, we may need to reset the offset in kafka since not all rows are
+      // ingested
       if (response.needToResetOffset()) {
         final long offsetRecoveredFromSnowflake =
             streamingApiFallbackSupplier(
@@ -553,6 +556,7 @@ public class TopicPartitionChannel {
             }
           }
         }
+        Thread.sleep(2000);
       }
       return new InsertRowsResponse(finalResponse, needToResetOffset);
     }
@@ -727,9 +731,9 @@ public class TopicPartitionChannel {
                 event ->
                     LOGGER.error(
                         "[OFFSET_TOKEN_FALLBACK] Failed to open Channel/fetch offsetToken for"
-                            + " channel:{}",
+                            + " channel:{}, exception:{}",
                         this.getChannelName(),
-                        event.getException()))
+                        event.getException().toString()))
             .build();
 
     // Read it from reverse order. Fetch offsetToken, apply retry policy and then fallback.
