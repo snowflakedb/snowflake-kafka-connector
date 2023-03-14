@@ -739,7 +739,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
       try {
         file = sfconn.downloadStream(stageName, name, true);
       } catch (Exception e) {
-        throw SnowflakeErrors.ERROR_2002.getException(e);
+        throw SnowflakeErrors.ERROR_2002.getException(e, this.telemetry);
       }
       // put
       try {
@@ -750,7 +750,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
             FileNameUtils.removePrefixAndGZFromFileName(name),
             true);
       } catch (SQLException e) {
-        throw SnowflakeErrors.ERROR_2003.getException(e);
+        throw SnowflakeErrors.ERROR_2003.getException(e, this.telemetry);
       }
       LOG_INFO_MSG("moved file: {} from stage: {} to table stage: {}", name, stageName, tableName);
       // remove
@@ -792,7 +792,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
       stmt.close();
       resultSet.close();
     } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
+      throw SnowflakeErrors.ERROR_2001.getException(e, this.telemetry);
     }
     LOG_INFO_MSG("list stage {} retrieved {} file names", stageName, result.size());
     return result;
@@ -850,7 +850,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
           stageName,
           stageType,
           fileName);
-      throw SnowflakeErrors.ERROR_2011.getException(e);
+      throw SnowflakeErrors.ERROR_2011.getException(e, this.telemetry);
     }
   }
 
@@ -874,7 +874,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
             return true;
           });
     } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_2003.getException(e);
+      throw SnowflakeErrors.ERROR_2003.getException(e, this.telemetry);
     }
     LOG_INFO_MSG("put file: {} to table stage: {}", fileName, tableName);
   }
@@ -889,7 +889,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
     try {
       conn.close();
     } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2005.getException(e);
+      throw SnowflakeErrors.ERROR_2005.getException(e, this.telemetry);
     }
 
     LOG_INFO_MSG("snowflake connection closed");
@@ -900,7 +900,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
     try {
       return conn.isClosed();
     } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2006.getException(e);
+      throw SnowflakeErrors.ERROR_2006.getException(e, this.telemetry);
     }
   }
 
@@ -947,7 +947,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
         throw SnowflakeErrors.ERROR_1003.getException();
       }
     } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_1003.getException(e);
+      throw SnowflakeErrors.ERROR_1003.getException(e, this.telemetry);
     }
   }
 
@@ -988,7 +988,7 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
             return true;
           });
     } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
+      throw SnowflakeErrors.ERROR_2001.getException(e, this.telemetry);
     }
     LOG_DEBUG_MSG("deleted {} from stage {}", fileName, stageName);
   }
