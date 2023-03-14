@@ -13,6 +13,7 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.records.RecordService;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
@@ -481,7 +482,8 @@ public class TopicPartitionChannelTest {
               sfConnectorConfigWithErrors,
               kafkaRecordErrorReporter,
               mockSinkTaskContext,
-              conn);
+              conn,
+              new RecordService());
 
       final int noOfRecords = 3;
       List<SinkRecord> records =
