@@ -121,8 +121,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.recordNum = StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
     this.flushTimeSeconds = StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
     this.conn = conn;
-    this.recordService = new RecordService();
     this.telemetryService = conn.getTelemetryClient();
+    this.recordService = new RecordService(this.telemetryService);
     this.topicToTableMap = new HashMap<>();
 
     // Setting the default value in constructor
@@ -181,7 +181,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.connectorConfig,
             this.kafkaRecordErrorReporter,
             this.sinkTaskContext,
-            this.conn));
+            this.conn,
+            this.recordService));
   }
 
   /**
@@ -521,7 +522,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         if (this.conn.isTableCompatible(tableName)) {
           LOGGER.info("Using existing table {}.", tableName);
         } else {
-          throw SnowflakeErrors.ERROR_5003.getException("table name: " + tableName);
+          throw SnowflakeErrors.ERROR_5003.getException(
+              "table name: " + tableName, this.telemetryService);
         }
       } else {
         this.conn.appendMetaColIfNotExist(tableName);
