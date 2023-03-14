@@ -218,8 +218,7 @@ public class TopicPartitionChannel {
             && this.conn.hasSchemaEvolutionPermission(
                 tableName, sfConnectorConfig.get(SNOWFLAKE_ROLE));
 
-    // Open channel and reset the offset in kafka when we have a valid offset token stored in
-    // Snowflake
+    // Open channel and reset the offset in kafka
     this.channel = Preconditions.checkNotNull(openChannelForTable());
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
@@ -244,8 +243,8 @@ public class TopicPartitionChannel {
   public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
-    // Accept the record if we don't have a valid offset token at server side, or the record offset
-    // is 1 + the processed offset
+    // Accept the record only if we don't have a valid offset token at server side, or the record
+    // offset is 1 + the processed offset
     if (currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
         || kafkaSinkRecord.kafkaOffset() == currentProcessedOffset + 1) {
       StreamingBuffer copiedStreamingBuffer = null;
@@ -420,8 +419,8 @@ public class TopicPartitionChannel {
         final long offsetRecoveredFromSnowflake =
             streamingApiFallbackSupplier(
                 StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
+        // If there is no valid offset token at server side even after the reset, retry it again
         if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-          // If there is no valid offset token at server side even after the reset, retry it again
           insertBufferedRecords(streamingBufferToInsert);
         }
       }
@@ -560,8 +559,8 @@ public class TopicPartitionChannel {
             }
           }
         }
-        // TODO SNOW-758492: Sleep a few seconds after the insert to avoid combining channels with
-        // different schema
+        // TODO SNOW-758492: for schematization, sleep a few seconds after the insert to avoid
+        // combining channels with different schemas
         Thread.sleep(2000);
       }
       return new InsertRowsResponse(finalResponse, needToResetOffset);
@@ -794,7 +793,8 @@ public class TopicPartitionChannel {
   private void resetChannelMetadataAfterRecovery(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
       final long offsetRecoveredFromSnowflake) {
-    // Do nothing if we don't get a valid offset token from server side
+    // If we don't get a valid offset token from server side, reset the processed offset to invalid
+    // and rely on kafka to send us the correct data
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.offsetPersistedInSnowflake.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
       this.processedOffset.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);

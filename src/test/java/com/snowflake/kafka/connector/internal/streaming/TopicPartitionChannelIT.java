@@ -93,7 +93,7 @@ public class TopicPartitionChannelIT {
 
     // since channel is updated, try to insert data again or may be call getOffsetToken
     // We will reopen the channel in since the older channel in service is stale because we
-    // externally created a new channel but didnt update the partitionsToChannel cache.
+    // externally created a new channel but did not update the partitionsToChannel cache.
     // This will retry three times, reopen the channel, replace the newly created channel in cache
     // and fetch the offset again.
     assert service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords;
@@ -228,6 +228,8 @@ public class TopicPartitionChannelIT {
 
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
+        == (anotherSetOfRecords + noOfRecords - 1);
+    assert topicPartitionChannel.fetchOffsetTokenWithRetry()
         == (anotherSetOfRecords + noOfRecords - 1);
     assert TestUtils.tableSize(testTableName) == noOfRecords + anotherSetOfRecords
         : "expected: "

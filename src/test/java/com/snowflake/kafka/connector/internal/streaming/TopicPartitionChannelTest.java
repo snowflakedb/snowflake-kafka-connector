@@ -222,11 +222,7 @@ public class TopicPartitionChannelTest {
   /* Only SFExceptions are retried and goes into fallback. */
   @Test(expected = SFException.class)
   public void testFetchOffsetTokenWithRetry_SFException() {
-    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
-        .thenThrow(SF_EXCEPTION)
-        .thenThrow(SF_EXCEPTION)
-        .thenThrow(SF_EXCEPTION)
-        .thenThrow(SF_EXCEPTION);
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenThrow(SF_EXCEPTION);
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
@@ -412,13 +408,16 @@ public class TopicPartitionChannelTest {
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
         .thenReturn(new InsertValidationResponse());
 
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
+        .thenReturn(Long.toString(noOfRecords - 1));
+
     // Retry the insert again, now everything should be ingested and the offset token should be
     // noOfRecords-1
-    //    records.forEach(topicPartitionChannel::insertRecordToBuffer);
-    //    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(noOfRecords))
-    //        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
-    //
-    //    Assert.assertEquals(noOfRecords - 1, topicPartitionChannel.fetchOffsetTokenWithRetry());
+    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(noOfRecords * 2))
+        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+
+    Assert.assertEquals(noOfRecords - 1, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
 
   @Test
