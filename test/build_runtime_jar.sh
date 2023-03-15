@@ -110,12 +110,9 @@ cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $KAFKA_CONNECT_PLUGIN_PATH || t
 echo -e "copied SF Plugin Connector to $KAFKA_CONNECT_PLUGIN_PATH"
 
 if [[ $BUILD_FOR_RUNTIME == "confluent" ]]; then
-    echo "For confluent RUNTIME: Copying Lib directory of the Confluent Generated Zip package to $KAFKA_CONNECT_PLUGIN_PATH"
-    ls $SNOWFLAKE_PLUGIN_PATH/components/packages/*/*/lib/*
-    echo "list KAFKA_CONNECT_PLUGIN_PATH"
-    ls $KAFKA_CONNECT_PLUGIN_PATH
-    echo "Performing Recursive Copy"
-    cp -R $SNOWFLAKE_PLUGIN_PATH/components/packages/*/*/lib/* $KAFKA_CONNECT_PLUGIN_PATH
+    echo "For confluent RUNTIME: Copying Kafka Connect Maven Generated Zip file to a temporary location"
+    cp $SNOWFLAKE_PLUGIN_PATH/components/packages/snowflakeinc-snowflake-kafka-connector-*.zip /tmp/sf-kafka-connect-plugin.zip
+    ls /tmp/sf-kafka-connect-plugin*
 fi
 
 KAFKA_CONNECT_DOCKER_JAR_PATH="$SNOWFLAKE_CONNECTOR_PATH/docker-setup/snowflake-kafka-docker/jars"
