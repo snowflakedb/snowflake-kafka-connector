@@ -165,11 +165,15 @@ if [[ $CONFLUENT_VERSION == *"7."* ]]; then
     # This jar is built using pom_confluent.xml file
     echo "\n=== Confluent Version is: $CONFLUENT_VERSION ==="
     confluentHubFile=$CONFLUENT_FOLDER_NAME/bin/confluent-hub
-    if [[ -f "$confluentHubFile" ]]; then
+    if [ -e "$confluentHubFile" ]; then
         echo "\n=== Confluent-hub file exists $confluentHubFile ==="
         echo -e "\n=== Installing Snowflake Kafka Connect through Confluent hub==="
         $confluentHubFile install --no-prompt /tmp/sf-kafka-connect-plugin.zip
+    else
+        echo "File $confluentHubFile doesnt exist"
+        ls $CONFLUENT_FOLDER_NAME/bin/
     fi
+
 fi
 sleep 10
 echo -e "\n=== Start Schema Registry ==="
