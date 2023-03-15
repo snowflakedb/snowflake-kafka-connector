@@ -107,11 +107,15 @@ echo -e "\nbuilt connector name: $SNOWFLAKE_PLUGIN_NAME"
 mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH || \
 sudo mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH 
 cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $KAFKA_CONNECT_PLUGIN_PATH || true
-echo -e "copied connector to $KAFKA_CONNECT_PLUGIN_PATH"
+echo -e "copied SF Plugin Connector to $KAFKA_CONNECT_PLUGIN_PATH"
 
 if [[ $BUILD_FOR_RUNTIME == "confluent" ]]; then
     echo "For confluent RUNTIME: Copying Lib directory of the Confluent Generated Zip package to $KAFKA_CONNECT_PLUGIN_PATH"
-    cp -R $SNOWFLAKE_PLUGIN_PATH/components/packages/*/*/lib/ $KAFKA_CONNECT_PLUGIN_PATH
+    ls $SNOWFLAKE_PLUGIN_PATH/components/packages/*/*/lib/*
+    echo "list KAFKA_CONNECT_PLUGIN_PATH"
+    ls $KAFKA_CONNECT_PLUGIN_PATH
+    echo "Performing Recursive Copy"
+    cp -R $SNOWFLAKE_PLUGIN_PATH/components/packages/*/*/lib/* $KAFKA_CONNECT_PLUGIN_PATH
 fi
 
 KAFKA_CONNECT_DOCKER_JAR_PATH="$SNOWFLAKE_CONNECTOR_PATH/docker-setup/snowflake-kafka-docker/jars"
