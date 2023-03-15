@@ -155,6 +155,7 @@ $CONFLUENT_FOLDER_NAME/bin/kafka-server-start $SNOWFLAKE_APACHE_CONFIG_PATH/$SNO
 sleep 10
 echo -e "\n=== Start Kafka Connect ==="
 KAFKA_HEAP_OPTS="-Xms512m -Xmx6g" $CONFLUENT_FOLDER_NAME/bin/connect-distributed $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_KAFKA_CONNECT_CONFIG > $APACHE_LOG_PATH/kc.log 2>&1 &
+sleep 10
 if [[ $CONFLUENT_VERSION == *"7."* ]]; then
     # Fips jars are required for encrypted private key
     # But No specific installation is required for Confluent.
@@ -162,10 +163,11 @@ if [[ $CONFLUENT_VERSION == *"7."* ]]; then
     # Maven plugin: kafka-connect-maven-plugin creates a zip file https://docs.confluent.io/platform/current/connect/kafka-connect-maven-plugin/site/plugin-info.html
     # which includes all jars necessary to run Snowflake Kafka Connector plugin in Confluent Runtime
     # This jar is built using pom_confluent.xml file
+    echo "\n=== Confluent Version is: $CONFLUENT_VERSION ==="
     confluentHubFile=$CONFLUENT_FOLDER_NAME/bin/confluent-hub
-    if [ -f "$confluentHubFile" ]; then
-        echo "\n=== Confluent Version is: $CONFLUENT_VERSION and confluent-hub file exists ==="
-        echo -e "\n=== Installing Snowflake Kafka Connect ==="
+    if [[ -f "$confluentHubFile" ]]; then
+        echo "\n=== Confluent-hub file exists $confluentHubFile ==="
+        echo -e "\n=== Installing Snowflake Kafka Connect through Confluent hub==="
         $confluentHubFile install --no-prompt /tmp/sf-kafka-connect-plugin.zip
     fi
 fi
