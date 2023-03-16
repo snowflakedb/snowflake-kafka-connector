@@ -703,6 +703,6 @@ if __name__ == "__main__":
                           testVersion,
                           enableSSL,
                           snowflakeCloudPlatform,
-                          False) # Disable delivery guarantee tests
+                          False)
 
     runTestSet(kafkaTest, testSet, nameSalt, pressure)
