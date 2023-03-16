@@ -5,7 +5,7 @@ from confluent_kafka import avro
 class TestNativeStringAvrosr:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_native_string_avrosr"
+        self.fileName = "native_string_avrosr"
         self.topic = self.fileName + nameSalt
 
         ValueSchemaStr = """

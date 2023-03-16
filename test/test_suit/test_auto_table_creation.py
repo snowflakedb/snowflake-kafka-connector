@@ -9,7 +9,7 @@ from confluent_kafka.schema_registry import Schema
 class TestAutoTableCreation:
     def __init__(self, driver, nameSalt, schemaRegistryAddress, testSet):
         self.driver = driver
-        self.fileName = "travis_correct_auto_table_creation"
+        self.fileName = "auto_table_creation"
         self.topic = self.fileName + nameSalt
 
         self.topicNum = 1

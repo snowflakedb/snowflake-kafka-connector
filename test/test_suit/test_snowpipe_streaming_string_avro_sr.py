@@ -7,7 +7,7 @@ from confluent_kafka import avro
 class TestSnowpipeStreamingStringAvroSR:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_snowpipe_streaming_string_avro_sr"
+        self.fileName = "snowpipe_streaming_string_avro_sr"
         self.topic = self.fileName + nameSalt
 
         self.topicNum = 1

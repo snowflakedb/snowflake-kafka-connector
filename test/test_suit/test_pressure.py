@@ -12,7 +12,7 @@ class TestPressure:
         self.recordNum = 10000
         self.curTest = 0
         self.threadCount = 10
-        self.fileName = "travis_pressure_string_json"
+        self.fileName = "pressure_string_json"
         self.connectorName = self.fileName + nameSalt
         for i in range(self.topicNum):
             self.topics.append(self.fileName + str(i) + nameSalt)

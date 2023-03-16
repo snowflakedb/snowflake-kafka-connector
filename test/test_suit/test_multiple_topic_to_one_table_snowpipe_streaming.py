@@ -7,7 +7,7 @@ import json
 class TestMultipleTopicToOneTableSnowpipeStreaming:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_multiple_topic_to_one_table_snowpipe_streaming"
+        self.fileName = "multiple_topic_to_one_table_snowpipe_streaming"
         self.topics = []
         self.topicNum = 3
         self.partitionNum = 3

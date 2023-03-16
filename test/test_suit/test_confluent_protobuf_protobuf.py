@@ -9,7 +9,7 @@ import time
 class TestConfluentProtobufProtobuf:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_confluent_protobuf_protobuf"
+        self.fileName = "confluent_protobuf_protobuf"
         self.topic = self.fileName + nameSalt
 
         self.sensor = sensor_pb2.SensorReading()

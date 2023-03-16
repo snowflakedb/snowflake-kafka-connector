@@ -4,7 +4,7 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 class TestAvroAvro:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_avro_avro"
+        self.fileName = "avro_avro"
         self.topic = self.fileName + nameSalt
 
     def getConfigFileName(self):

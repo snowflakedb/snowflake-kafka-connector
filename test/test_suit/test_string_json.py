@@ -5,7 +5,7 @@ import json
 class TestStringJson:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_string_json"
+        self.fileName = "string_json"
         self.topic = self.fileName + nameSalt
 
     def getConfigFileName(self):

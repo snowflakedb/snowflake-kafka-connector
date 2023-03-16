@@ -8,7 +8,7 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 class TestSchemaEvolutionJson:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_evolution_json"
+        self.fileName = "schema_evolution_json"
         self.topics = []
         self.table = self.fileName + nameSalt
         self.recordNum = 100

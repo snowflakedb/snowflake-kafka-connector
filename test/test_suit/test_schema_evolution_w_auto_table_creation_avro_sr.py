@@ -12,7 +12,7 @@ from confluent_kafka.schema_registry import Schema
 class TestSchemaEvolutionWithAutoTableCreationAvroSR:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_evolution_w_auto_table_creation_avro_sr"
+        self.fileName = "schema_evolution_w_auto_table_creation_avro_sr"
         self.topics = []
         self.table = self.fileName + nameSalt
         self.recordNum = 100

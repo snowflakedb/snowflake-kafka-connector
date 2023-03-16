@@ -7,7 +7,7 @@ import datetime
 class TestSchemaMapping:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_mapping"
+        self.fileName = "schema_mapping"
         self.topic = self.fileName + nameSalt
 
         self.driver.snowflake_conn.cursor().execute(

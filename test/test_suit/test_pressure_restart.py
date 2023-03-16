@@ -11,7 +11,7 @@ class TestPressureRestart:
         self.recordNum = 200000
         self.curTest = 0
         self.configIncreamental = 0
-        self.fileName = "travis_pressure_restart"
+        self.fileName = "pressure_restart"
         self.connectorName = self.fileName + nameSalt
         self.nameSalt = nameSalt
         for i in range(self.topicNum):

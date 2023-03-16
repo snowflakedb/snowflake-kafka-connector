@@ -5,7 +5,7 @@ import json, os
 class TestStringJsonProxy:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_string_proxy"
+        self.fileName = "correct_string_proxy"
         self.topic = self.fileName + nameSalt
 
     def getConfigFileName(self):

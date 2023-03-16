@@ -9,7 +9,7 @@ import datetime
 class TestSchemaEvolutionWithAutoTableCreationJson:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_evolution_w_auto_table_creation_json"
+        self.fileName = "schema_evolution_w_auto_table_creation_json"
         self.topics = []
         self.table = self.fileName + nameSalt
         self.recordNum = 100

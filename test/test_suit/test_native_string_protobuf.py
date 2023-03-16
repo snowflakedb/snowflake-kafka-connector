@@ -4,7 +4,7 @@ import test_data.sensor_pb2 as sensor_pb2
 class TestNativeStringProtobuf:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_native_string_protobuf"
+        self.fileName = "native_string_protobuf"
         self.topic = self.fileName + nameSalt
 
         self.sensor = sensor_pb2.SensorReading()

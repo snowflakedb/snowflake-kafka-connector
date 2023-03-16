@@ -7,7 +7,7 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 class TestSchemaEvolutionAvroSR:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_evolution_avro_sr"
+        self.fileName = "schema_evolution_avro_sr"
         self.topics = []
         self.table = self.fileName + nameSalt
         self.recordNum = 100

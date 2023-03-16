@@ -8,7 +8,7 @@ from test_suit.test_utils import NonRetryableError
 class TestSchemaNotSupportedConverter:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_not_supported_converter"
+        self.fileName = "schema_not_supported_converter"
         self.topic = self.fileName + nameSalt
 
         self.driver.snowflake_conn.cursor().execute(

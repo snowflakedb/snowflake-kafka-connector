@@ -5,7 +5,7 @@ from confluent_kafka import avro
 class TestAvrosrAvrosr:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_avrosr_avrosr"
+        self.fileName = "avrosr_avrosr"
         self.topic = self.fileName + nameSalt
 
         KeySchemaStr = """

@@ -7,7 +7,7 @@ from time import sleep
 class TestSnowpipeStreamingStringJson:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_snowpipe_streaming_string_json"
+        self.fileName = "snowpipe_streaming_string_json"
         self.topic = self.fileName + nameSalt
 
         self.topicNum = 1
