@@ -16,9 +16,6 @@
  */
 package com.snowflake.kafka.connector.records;
 
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
-
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.EnableLogging;
@@ -54,6 +51,8 @@ import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
+
+import static com.snowflake.kafka.connector.Utils.*;
 
 public class RecordService extends EnableLogging {
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -272,15 +271,17 @@ public class RecordService extends EnableLogging {
     SnowflakeTableRow row = processRecord(record);
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.content.getData()) {
-      // TODO: CDP-2853
       if (enableSchematization) {
         streamingIngestRow.putAll(getMapFromJsonNodeForStreamingIngest(node));
+        streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));
       } else {
         streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));
       }
       if (metadataConfig.allFlag) {
         streamingIngestRow.put(TABLE_COLUMN_METADATA, MAPPER.writeValueAsString(row.metadata));
       }
+      streamingIngestRow.put(TABLE_COLUMN_OFFSET, record.kafkaOffset());
+      streamingIngestRow.put(TABLE_COLUMN_INGESTION_TIMESTAMP, new java.sql.Timestamp(System.currentTimeMillis()).toString());
     }
 
     return streamingIngestRow;
