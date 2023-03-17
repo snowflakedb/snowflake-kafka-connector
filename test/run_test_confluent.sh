@@ -108,30 +108,10 @@ rm -rf /tmp/kafka-logs /tmp/zookeeper || true
 
 KAFKA_CONNECT_PLUGIN_PATH="/usr/local/share/kafka/plugins"
 
-echo "list KAFKA_CONNECT_PLUGIN_PATH: $KAFKA_CONNECT_PLUGIN_PATH"
-ls $KAFKA_CONNECT_PLUGIN_PATH
-
-# Fips Jar installation for version 5.x.x and 6.x.x, required for encrypted private key
-#if [[ ( $CONFLUENT_VERSION == *"5."* ) || ( $CONFLUENT_VERSION == *"6."* ) ]]; then
-#    fipsInstallDirectory=$CONFLUENT_FOLDER_NAME/"share/java/kafka"
-#    lsCommand=$(ls $fipsInstallDirectory | grep fips | wc -l)
-#    echo "Jars count with fips Libraries $lsCommand"
-#
-#    if [ $lsCommand == 0 ]; then
-#        echo "Installing fips Jars in:"$fipsInstallDirectory
-#        wget -P $fipsInstallDirectory https://repo1.maven.org/maven2/org/bouncycastle/bcpkix-fips/1.0.3/bcpkix-fips-1.0.3.jar
-#        wget -P $fipsInstallDirectory https://repo1.maven.org/maven2/org/bouncycastle/bc-fips/1.0.2/bc-fips-1.0.2.jar
-#        cp $fipsInstallDirectory/bcpkix-fips-1.0.3.jar $KAFKA_CONNECT_PLUGIN_PATH
-#        cp $fipsInstallDirectory/bc-fips-1.0.2.jar $KAFKA_CONNECT_PLUGIN_PATH
-#        echo "list KAFKA_CONNECT_PLUGIN_PATH: $KAFKA_CONNECT_PLUGIN_PATH"
-#        ls $KAFKA_CONNECT_PLUGIN_PATH
-#    else
-#        echo "No need to download Fips Libraries"
-#    fi
-#fi
 # this is the built jar
-echo "Built zip file:"
+echo "Built zip file using kafka connect maven plugin:"
 ls /tmp/sf-kafka-connect-plugin*
+# Plugin path is used by kafka connect to install plugin, in our case, SF Kafka Connector
 unzip /tmp/sf-kafka-connect-plugin.zip -d $KAFKA_CONNECT_PLUGIN_PATH
 echo "list KAFKA_CONNECT_PLUGIN_PATH: $KAFKA_CONNECT_PLUGIN_PATH"
 ls $KAFKA_CONNECT_PLUGIN_PATH
@@ -162,25 +142,6 @@ sleep 10
 echo -e "\n=== Start Kafka Connect ==="
 KAFKA_HEAP_OPTS="-Xms512m -Xmx6g" $CONFLUENT_FOLDER_NAME/bin/connect-distributed $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_KAFKA_CONNECT_CONFIG > $APACHE_LOG_PATH/kc.log 2>&1 &
 sleep 10
-#if [[ $CONFLUENT_VERSION == *"7."* ]]; then
-#    # Fips jars are required for encrypted private key
-#    # But No specific installation is required for Confluent.
-#    # Just Install using confluent-hub executable
-#    # Maven plugin: kafka-connect-maven-plugin creates a zip file https://docs.confluent.io/platform/current/connect/kafka-connect-maven-plugin/site/plugin-info.html
-#    # which includes all jars necessary to run Snowflake Kafka Connector plugin in Confluent Runtime
-#    # This jar is built using pom_confluent.xml file
-#    echo "\n=== Confluent Version is: $CONFLUENT_VERSION ==="
-#    confluentHubFile=$CONFLUENT_FOLDER_NAME/bin/confluent-hub
-#    if [ -e "$confluentHubFile" ]; then
-#        echo "\n=== Confluent-hub file exists $confluentHubFile ==="
-#        echo -e "\n=== Installing Snowflake Kafka Connect through Confluent hub==="
-#        $confluentHubFile install --no-prompt /tmp/sf-kafka-connect-plugin.zip
-#    else
-#        echo "File $confluentHubFile doesnt exist"
-#        ls $CONFLUENT_FOLDER_NAME/bin/
-#    fi
-#
-#fi
 echo -e "\n=== Start Schema Registry ==="
 $CONFLUENT_FOLDER_NAME/bin/schema-registry-start $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_SCHEMA_REGISTRY_CONFIG > $APACHE_LOG_PATH/sc.log 2>&1 &
 sleep 30
