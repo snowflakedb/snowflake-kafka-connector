@@ -283,7 +283,7 @@ public class RecordService extends EnableLogging {
 
       java.sql.Timestamp timestamp = new java.sql.Timestamp(System.currentTimeMillis());
       streamingIngestRow.put(TABLE_COLUMN_OFFSET, MAPPER.writeValueAsString((record.kafkaOffset())));
-      streamingIngestRow.put(TABLE_COLUMN_INGESTION_TIMESTAMP, MAPPER.writeValueAsString(timestamp));
+      streamingIngestRow.put(TABLE_COLUMN_INGESTION_TIMESTAMP, MAPPER.writeValueAsString(timestamp.toString()));
     }
 
     return streamingIngestRow;
