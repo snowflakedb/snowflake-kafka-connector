@@ -554,10 +554,8 @@ public class TopicPartitionChannel {
       // Suppressing the exception because other channels might still continue to ingest
       if (response != null) {
         LOGGER.warn(
-                "[INSERT_BUFFERED_RECORDS] Failure inserting buffer {} for channel: {}\n {}\n {}\n {}\n {}",
-                streamingBufferToInsert, this.getChannelName(), ex, response.getInsertErrors().toString(),
-                streamingBufferToInsert.getSinkRecords().stream().map(rec -> Long.toString(rec.kafkaOffset())).collect(Collectors.joining()),
-                streamingBufferToInsert.getSinkRecords().stream().map(rec -> rec.headers().toString()).collect(Collectors.joining())
+                "[INSERT_BUFFERED_RECORDS] Failure inserting buffer {} for channel: {}\n {}\n {}",
+                streamingBufferToInsert, this.getChannelName(), ex, response.getInsertErrors().toString()
         );
       } else {
         LOGGER.warn(
