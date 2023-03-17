@@ -1058,7 +1058,7 @@ public class TopicPartitionChannel {
             .setDBName(this.sfConnectorConfig.get(Utils.SF_DATABASE))
             .setSchemaName(this.sfConnectorConfig.get(Utils.SF_SCHEMA))
             .setTableName(this.tableName)
-            .setOnErrorOption(OpenChannelRequest.OnErrorOption.ABORT)
+            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
             .build();
     LOGGER.info(
         "Opening a channel with name:{} for table name:{}", this.channelName, this.tableName);
