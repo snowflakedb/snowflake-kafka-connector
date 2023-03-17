@@ -132,7 +132,7 @@ ls $KAFKA_CONNECT_PLUGIN_PATH
 # this is the built jar
 echo "Built zip file:"
 ls /tmp/sf-kafka-connect-plugin*
-tar -xvzf /tmp/sf-kafka-connect-plugin* --directory $KAFKA_CONNECT_PLUGIN_PATH
+tar -xvzf /tmp/sf-kafka-connect-plugin.zip --directory $KAFKA_CONNECT_PLUGIN_PATH
 echo "list KAFKA_CONNECT_PLUGIN_PATH: $KAFKA_CONNECT_PLUGIN_PATH"
 ls $KAFKA_CONNECT_PLUGIN_PATH
 
