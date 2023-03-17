@@ -280,7 +280,7 @@ public class RecordService extends EnableLogging {
       if (metadataConfig.allFlag) {
         streamingIngestRow.put(TABLE_COLUMN_METADATA, MAPPER.writeValueAsString(row.metadata));
       }
-      streamingIngestRow.put(TABLE_COLUMN_OFFSET, record.kafkaOffset());
+      streamingIngestRow.put(TABLE_COLUMN_OFFSET, record.kafkaOffset()+"");
       streamingIngestRow.put(TABLE_COLUMN_INGESTION_TIMESTAMP, new java.sql.Timestamp(System.currentTimeMillis()).toString());
     }
 
