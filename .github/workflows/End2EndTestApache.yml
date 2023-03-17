@@ -56,14 +56,14 @@ jobs:
         sudo mv .github/scripts/squid.conf /etc/squid/squid.conf
         sudo service squid start
     
-    - name: Build with Unit Test
+    - name: Build with Unit Test for Apache
       env:
         JACOCO_COVERAGE: true
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SHELL: "/bin/bash"
       run: |
         cd test
-        ./build_apache.sh ../../snowflake-kafka-connector package
+        ./build_runtime_jar.sh ../../snowflake-kafka-connector package
 
     - name: End to End Test of Apache Platform ${{ matrix.apache_kafka_version }} against Snowflake in ${{ matrix.snowflake_cloud }}
       env:

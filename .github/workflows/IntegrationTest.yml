@@ -61,7 +61,7 @@ jobs:
         SHELL: "/bin/bash"
       run: |
         cd test
-        ./build_apache.sh ../../snowflake-kafka-connector
+        ./build_runtime_jar.sh ../../snowflake-kafka-connector
       
     - name: Code Coverage
       uses: codecov/codecov-action@v1
