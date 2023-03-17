@@ -88,7 +88,7 @@ public class TestUtils {
       Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(key|value)_(\\d+)\\.gz$");
 
   // profile path
-  private static final String PROFILE_PATH = "profile.json";
+  public static final String PROFILE_PATH = "profile.json";
 
   private static final ObjectMapper mapper = new ObjectMapper();
 

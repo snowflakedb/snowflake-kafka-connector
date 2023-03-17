@@ -11,6 +11,9 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 public class SinkTaskProxyIT {
+  {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
+  }
 
   @After
   public void testCleanup() {

@@ -13,6 +13,7 @@ import org.junit.Test;
 public class InternalUtilsTest {
   @Test
   public void testPrivateKey() {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_0002, () -> InternalUtils.parsePrivateKey("adfsfsaff"));
 
@@ -76,6 +77,7 @@ public class InternalUtilsTest {
 
   @Test
   public void testCreateProperties() {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
     Map<String, String> config = TestUtils.getConf();
     SnowflakeURL url = TestUtils.getUrl();
     Properties prop = InternalUtils.createProperties(config, url.sslEnabled());

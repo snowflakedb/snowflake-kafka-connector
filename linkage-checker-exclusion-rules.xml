@@ -1,0 +1,7 @@
+<LinkageCheckerFilter>
+  <!-- <LinkageError>
+    <Source><Package name=""/></Source>
+    <Target><Package name=""/></Target>
+    <Reason></Reason>
+  </LinkageError> -->
+</LinkageCheckerFilter>

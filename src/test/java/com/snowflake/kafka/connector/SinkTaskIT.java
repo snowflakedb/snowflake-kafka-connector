@@ -29,6 +29,10 @@ import org.mockito.Spy;
 import org.slf4j.Logger;
 
 public class SinkTaskIT {
+  {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
+  }
+
   private String topicName;
   private SnowflakeConnectionService snowflakeConnectionService;
   private static int partition = 0;

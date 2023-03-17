@@ -41,6 +41,10 @@ import org.slf4j.Logger;
  */
 public class SnowflakeSinkTaskForStreamingIT {
 
+  {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
+  }
+
   private String topicName;
   private static int partition = 0;
   private TopicPartition topicPartition;

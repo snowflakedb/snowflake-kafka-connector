@@ -23,6 +23,10 @@ import org.junit.Test;
 
 public class TopicPartitionChannelIT {
 
+  {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
+  }
+
   private SnowflakeConnectionService conn = TestUtils.getConnectionService();
   private String testTableName;
 

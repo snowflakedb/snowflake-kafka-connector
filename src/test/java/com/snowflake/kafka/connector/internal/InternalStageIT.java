@@ -19,7 +19,6 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 public class InternalStageIT {
-
   private static SnowflakeConnectionService service;
   private static final String stageName1 = TestUtils.randomStageName();
   private static final String stageName2 = TestUtils.randomStageName();
@@ -35,6 +34,7 @@ public class InternalStageIT {
 
   @BeforeClass
   public static void beforeAllClasses() {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
     service = TestUtils.getConnectionService();
     service.createStage(stageName1);
     service.createStage(stageName2);
@@ -49,6 +49,9 @@ public class InternalStageIT {
 
   @AfterClass
   public static void afterAllClasses() {
+    if (!java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists()) {
+      return;
+    }
     service.dropStage(stageName1);
     service.dropStage(stageName2);
     service.dropStage(stageNameGCSPut);

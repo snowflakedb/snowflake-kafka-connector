@@ -6,6 +6,7 @@ import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NA
 import static com.snowflake.kafka.connector.internal.TestUtils.getConf;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -15,6 +16,10 @@ import org.junit.Assert;
 import org.junit.Test;
 
 public class ConnectorIT {
+  {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
+  }
+
   static final String allPropertiesList[] = {
     SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
     SnowflakeSinkConnectorConfig.SNOWFLAKE_USER,

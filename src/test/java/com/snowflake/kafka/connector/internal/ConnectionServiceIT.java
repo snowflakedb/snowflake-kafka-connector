@@ -20,6 +20,10 @@ import org.junit.Assert;
 import org.junit.Test;
 
 public class ConnectionServiceIT {
+  {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
+  }
+
   private final SnowflakeConnectionService conn = TestUtils.getConnectionService();
 
   private final String tableName = TestUtils.randomTableName();

@@ -17,6 +17,7 @@ import org.junit.Test;
 public class FIPSTest {
   @Test
   public void testFips() throws IOException, OperatorCreationException {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
     PrivateKey key = InternalUtils.parsePrivateKey(TestUtils.getKeyString());
     String password = "sfdsfs1312AAAFDSf121!!!";
     String AESKey = generateAESKey(key, password.toCharArray());

@@ -15,6 +15,10 @@ import org.junit.After;
 import org.junit.Test;
 
 public class MetaColumnIT {
+  {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
+  }
+
   private String topic = "test";
   private int partition = 0;
   private String tableName = TestUtils.randomTableName();

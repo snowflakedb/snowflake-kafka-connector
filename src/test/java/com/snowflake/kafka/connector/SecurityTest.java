@@ -17,6 +17,7 @@ public class SecurityTest {
 
   @Test
   public void testRSAPasswordOutput() throws IOException, OperatorCreationException {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
     String testPasswd = "TestPassword1234!";
     String testKey = FIPSTest.generateAESKey(TestUtils.getPrivateKey(), testPasswd.toCharArray());
     Map<String, String> testConf = getConfig();

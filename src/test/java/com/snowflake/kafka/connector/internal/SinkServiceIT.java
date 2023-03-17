@@ -31,6 +31,11 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 public class SinkServiceIT {
+
+  {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
+  }
+
   private SnowflakeConnectionService conn = TestUtils.getConnectionService();
   private String table = TestUtils.randomTableName();
   private String stage = Utils.stageName(TestUtils.TEST_CONNECTOR_NAME, table);

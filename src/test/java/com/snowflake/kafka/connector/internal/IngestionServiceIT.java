@@ -11,6 +11,9 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class IngestionServiceIT {
+  {
+    org.junit.Assume.assumeTrue(java.nio.file.Path.of(TestUtils.PROFILE_PATH).toFile().exists());
+  }
 
   private SnowflakeIngestionService ingestService = null;
   private final SnowflakeConnectionService conn =
