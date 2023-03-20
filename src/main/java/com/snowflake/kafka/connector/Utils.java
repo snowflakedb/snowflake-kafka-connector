@@ -98,7 +98,7 @@ public class Utils {
       "https://repo1.maven.org/maven2/com/snowflake/snowflake-kafka-connector/";
 
   public static final String TABLE_COLUMN_CONTENT = "RECORD_CONTENT";
-  public static final String TABLE_COLUMN_INGESTION_TIMESTAMP = "INGESTION_TIMESTAMP";
+  public static final String TABLE_COLUMN_KAFKA_TIMESTAMP = "_KAFKA_TIMESTAMP";
   public static final String TABLE_COLUMN_OFFSET = "_KAFKA_OFFSET";
   public static final String TABLE_COLUMN_METADATA = "RECORD_METADATA";
 

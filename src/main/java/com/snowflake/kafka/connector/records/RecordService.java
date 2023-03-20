@@ -16,7 +16,6 @@
  */
 package com.snowflake.kafka.connector.records;
 
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.EnableLogging;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
@@ -281,9 +280,8 @@ public class RecordService extends EnableLogging {
         streamingIngestRow.put(TABLE_COLUMN_METADATA, MAPPER.writeValueAsString(row.metadata));
       }
 
-      java.sql.Timestamp timestamp = new java.sql.Timestamp(System.currentTimeMillis());
+      streamingIngestRow.put(TABLE_COLUMN_KAFKA_TIMESTAMP, MAPPER.writeValueAsString(new java.sql.Timestamp(System.currentTimeMillis()).toString()));
       streamingIngestRow.put(TABLE_COLUMN_OFFSET, MAPPER.writeValueAsString((record.kafkaOffset())));
-      streamingIngestRow.put(TABLE_COLUMN_INGESTION_TIMESTAMP, MAPPER.writeValueAsString(timestamp.toString()));
     }
 
     return streamingIngestRow;
