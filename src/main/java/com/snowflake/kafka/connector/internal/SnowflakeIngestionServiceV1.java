@@ -1,18 +1,15 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.internal.InternalUtils.convertIngestStatus;
-import static com.snowflake.kafka.connector.internal.InternalUtils.timestampToDate;
-
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import net.snowflake.ingest.SimpleIngestManager;
+import net.snowflake.ingest.connection.*;
+import net.snowflake.ingest.utils.StagedFileWrapper;
+
 import java.security.PrivateKey;
 import java.util.*;
-import net.snowflake.ingest.SimpleIngestManager;
-import net.snowflake.ingest.connection.ClientStatusResponse;
-import net.snowflake.ingest.connection.ConfigureClientResponse;
-import net.snowflake.ingest.connection.HistoryRangeResponse;
-import net.snowflake.ingest.connection.HistoryResponse;
-import net.snowflake.ingest.connection.InsertFilesClientInfo;
-import net.snowflake.ingest.utils.StagedFileWrapper;
+
+import static com.snowflake.kafka.connector.internal.InternalUtils.convertIngestStatus;
+import static com.snowflake.kafka.connector.internal.InternalUtils.timestampToDate;
 
 /**
  * Implementation of Snowpipe API calls. i.e handshake between KC and Snowpipe API's.
@@ -148,8 +145,11 @@ public class SnowflakeIngestionServiceV1 extends EnableLogging
             fileStatus.put(file.getPath(), ingestionStatus);
             // Log errors
             if (InternalUtils.IngestedFileStatus.FAILED.equals(ingestionStatus) || InternalUtils.IngestedFileStatus.PARTIALLY_LOADED.equals(ingestionStatus)) {
+              final String firstError = file.getFirstError() != null ? file.getFirstError() : "NO ERROR";
+              final String firstErrorColumnName = file.getFirstErrorColumnName() != null ? file.getFirstErrorColumnName() : "N/A";
+              final String firstErrorCharacterPos = file.getFirstErrorCharacterPos() != null ? file.getFirstErrorCharacterPos().toString() : "N/A";
               LOG_WARN_MSG("Failed to load file {}\n\tError: {}\n\tColumn: {}\n\tChar pos: {}",
-                      file.getPath(), file.getFirstError(), file.getFirstErrorColumnName(), file.getFirstErrorCharacterPos());
+                      file.getPath(), firstError, firstErrorColumnName, firstErrorCharacterPos);
             }
           }
         }
