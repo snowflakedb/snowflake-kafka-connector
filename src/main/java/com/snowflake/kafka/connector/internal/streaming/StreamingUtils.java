@@ -250,7 +250,9 @@ public class StreamingUtils {
           SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
           inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
 
-      if (inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD) != null
+      if (Boolean.parseBoolean(
+              inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG))
+          && inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD) != null
           && (inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD).contains(STRING_CONVERTER_KEYWORD)
               || inputConfig
                   .get(VALUE_CONVERTER_CONFIG_FIELD)
