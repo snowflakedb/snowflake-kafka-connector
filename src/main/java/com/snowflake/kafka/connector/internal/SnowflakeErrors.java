@@ -18,7 +18,9 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import java.util.Optional;
 
 public enum SnowflakeErrors {
 
@@ -292,6 +294,10 @@ public enum SnowflakeErrors {
     return getException(e, null);
   }
 
+  public SnowflakeKafkaConnectorException getExceptionForStreamingKC(Exception e, SnowflakeTelemetryService telemetryService) {
+    getException(e, telemetryService, Optional.of(IngestionMethodConfig.SNOWPIPE_STREAMING));
+  }
+
   public SnowflakeKafkaConnectorException getException(
       Exception e, SnowflakeTelemetryService telemetryService) {
     StringBuilder str = new StringBuilder();
@@ -303,7 +309,7 @@ public enum SnowflakeErrors {
   }
 
   public SnowflakeKafkaConnectorException getException(SnowflakeTelemetryService telemetryService) {
-    return getException("", telemetryService);
+    return getException("", telemetryService, Optional.empty());
   }
 
   /**
@@ -317,10 +323,12 @@ public enum SnowflakeErrors {
    * @return Exception wrapped in Snowflake Connector Exception
    */
   public SnowflakeKafkaConnectorException getException(
-      String msg, SnowflakeTelemetryService telemetryService) {
+      String msg,
+      SnowflakeTelemetryService telemetryService,
+      Optional<IngestionMethodConfig> ingestionMethodConfig) {
     if (telemetryService != null) {
       telemetryService.reportKafkaConnectFatalError(
-          getCode() + msg.substring(0, Math.min(msg.length(), 500)));
+          getCode() + msg.substring(0, Math.min(msg.length(), 500)), ingestionMethodConfig);
     }
 
     if (msg == null || msg.isEmpty()) {

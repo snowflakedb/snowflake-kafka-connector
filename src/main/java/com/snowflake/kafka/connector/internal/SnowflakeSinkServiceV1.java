@@ -570,7 +570,7 @@ class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkServi
                     e.getClass(),
                     e.getMessage(),
                     e.getStackTrace());
-                telemetryService.reportKafkaConnectFatalError(e.getMessage());
+                telemetryService.reportKafkaConnectFatalError(e.getMessage(), Optional.empty());
                 forceCleanerFileReset = true;
               }
             }

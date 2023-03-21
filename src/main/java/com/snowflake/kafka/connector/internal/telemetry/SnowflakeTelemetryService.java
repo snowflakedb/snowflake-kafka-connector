@@ -1,6 +1,9 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+
 import java.util.Map;
+import java.util.Optional;
 
 public interface SnowflakeTelemetryService {
 
@@ -38,7 +41,7 @@ public interface SnowflakeTelemetryService {
    *
    * @param errorDetail error message
    */
-  void reportKafkaConnectFatalError(String errorDetail);
+  void reportKafkaConnectFatalError(String errorDetail, Optional<IngestionMethodConfig> ingestionMethodConfig);
 
   /**
    * report connector's partition usage.

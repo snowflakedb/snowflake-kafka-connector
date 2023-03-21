@@ -114,7 +114,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
     if (conn == null || conn.isClosed()) {
-      throw SnowflakeErrors.ERROR_5010.getException();
+      throw SnowflakeConnectorErrorCode.ERROR_5010.getException();
     }
 
     this.fileSizeBytes = StreamingUtils.STREAMING_BUFFER_BYTES_DEFAULT;

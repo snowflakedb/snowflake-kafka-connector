@@ -17,6 +17,9 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.EnableLogging;
 import java.sql.Connection;
 import java.util.Map;
+import java.util.Optional;
+
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
@@ -56,16 +59,6 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
   @VisibleForTesting
   SnowflakeTelemetryServiceV1(Telemetry telemetry) {
     this.telemetry = telemetry;
-  }
-
-  @Override
-  public void setAppName(final String name) {
-    this.name = name;
-  }
-
-  @Override
-  public void setTaskID(final String taskID) {
-    this.taskID = taskID;
   }
 
   /**
@@ -110,11 +103,14 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
   }
 
   @Override
-  public void reportKafkaConnectFatalError(final String errorDetail) {
+  public void reportKafkaConnectFatalError(final String errorDetail, Optional<IngestionMethodConfig> ingestionMethodConfigOpt) {
     ObjectNode msg = getObjectNode();
 
     msg.put(TIME, System.currentTimeMillis());
     msg.put(ERROR_NUMBER, errorDetail);
+    if (ingestionMethodConfigOpt.isPresent() && ingestionMethodConfigOpt.get().equals(IngestionMethodConfig.SNOWPIPE_STREAMING)) {
+      msg.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    }
 
     send(TelemetryType.KAFKA_FATAL_ERROR, msg);
   }
@@ -185,12 +181,22 @@ public class SnowflakeTelemetryServiceV1 extends EnableLogging
     return name;
   }
 
+  @Override
+  public void setAppName(final String name) {
+    this.name = name;
+  }
+
   private String getTaskID() {
     if (taskID == null || taskID.isEmpty()) {
       LOG_WARN_MSG("taskID in telemetry service is empty");
       return "empty_taskID";
     }
     return taskID;
+  }
+
+  @Override
+  public void setTaskID(final String taskID) {
+    this.taskID = taskID;
   }
 
   /**
