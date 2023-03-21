@@ -1,15 +1,18 @@
 package com.snowflake.kafka.connector.internal;
 
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import net.snowflake.ingest.SimpleIngestManager;
-import net.snowflake.ingest.connection.*;
-import net.snowflake.ingest.utils.StagedFileWrapper;
-
-import java.security.PrivateKey;
-import java.util.*;
-
 import static com.snowflake.kafka.connector.internal.InternalUtils.convertIngestStatus;
 import static com.snowflake.kafka.connector.internal.InternalUtils.timestampToDate;
+
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import java.security.PrivateKey;
+import java.util.*;
+import net.snowflake.ingest.SimpleIngestManager;
+import net.snowflake.ingest.connection.ClientStatusResponse;
+import net.snowflake.ingest.connection.ConfigureClientResponse;
+import net.snowflake.ingest.connection.HistoryRangeResponse;
+import net.snowflake.ingest.connection.HistoryResponse;
+import net.snowflake.ingest.connection.InsertFilesClientInfo;
+import net.snowflake.ingest.utils.StagedFileWrapper;
 
 /**
  * Implementation of Snowpipe API calls. i.e handshake between KC and Snowpipe API's.
