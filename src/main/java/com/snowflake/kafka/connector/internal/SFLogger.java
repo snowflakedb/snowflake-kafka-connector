@@ -17,14 +17,10 @@
 
 package com.snowflake.kafka.connector.internal;
 
-// The purpose of this class is for non-static inheritors to easily log information
+// The purpose of this interface is for non-static inheritors to easily log information
 public interface SFLogger {
   default LoggerHandler getLogger() {
     return new LoggerHandler(this.getClass().getName());
-  }
-
-  default void LOG_TRACE_MSG(String format) {
-    getLogger().trace(format);
   }
 
   default void LOG_INFO_MSG(String format) {
@@ -41,10 +37,6 @@ public interface SFLogger {
 
   default void LOG_ERROR_MSG(String format) {
     getLogger().error(format);
-  }
-
-  default void LOG_TRACE_MSG(String format, Object... vars) {
-    getLogger().trace(format, vars);
   }
 
   default void LOG_INFO_MSG(String format, Object... vars) {
