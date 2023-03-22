@@ -492,6 +492,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
 
         from test_suit.test_schema_not_supported_converter import TestSchemaNotSupportedConverter
 
+        from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTable
+
         testStringJson = TestStringJson(driver, nameSalt)
         testJsonJson = TestJsonJson(driver, nameSalt)
         testStringAvro = TestStringAvro(driver, nameSalt)
@@ -534,6 +536,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
 
         testSchemaNotSupportedConverter = TestSchemaNotSupportedConverter(driver, nameSalt)
 
+        testSchemaEvolutionDropTable = TestSchemaEvolutionDropTable(driver, nameSalt)
+
         ############################ round 1 ############################
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
         testSuitList1 = [
@@ -547,7 +551,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
             testSchemaEvolutionJson, testSchemaEvolutionAvroSR,
             testSchemaEvolutionWithAutoTableCreationJson, testSchemaEvolutionWithAutoTableCreationAvroSR,
             testSchemaEvolutionNonNullableJson,
-            testSchemaNotSupportedConverter
+            testSchemaNotSupportedConverter,
+            testSchemaEvolutionDropTable
         ]
 
         # Adding StringJsonProxy test at the end
@@ -559,7 +564,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
             True, True,
             True, True,
             True, True,
-            True, True
+            True, True,
+            True
         ]
         testSuitEnableList1 = []
         if testSet == "confluent":
@@ -571,7 +577,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
                 True, True,
                 True, True,
                 True, True,
-                True, True
+                True, True,
+                True
             ]
         elif testSet == "apache":
             testSuitEnableList1 = [
@@ -582,7 +589,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
                 False, False,
                 True, False,
                 True, False,
-                True, True
+                True, True,
+                True
             ]
         elif testSet != "clean":
             errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))

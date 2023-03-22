@@ -368,7 +368,6 @@ public class SnowflakeSinkTask extends SinkTask {
           });
     } catch (Exception e) {
       this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
-      return new HashMap<>();
     }
 
     logWarningForPutAndPrecommit(startTime, offsets.size(), "precommit");
