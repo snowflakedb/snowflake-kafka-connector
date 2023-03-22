@@ -22,7 +22,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Snowflake URL Object https://account.region.snowflakecomputing.com:443 */
-public class SnowflakeURL extends EnableLogging {
+public class SnowflakeURL implements SFLogger {
 
   private String jdbcUrl;
 

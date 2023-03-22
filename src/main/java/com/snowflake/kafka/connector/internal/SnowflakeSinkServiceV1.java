@@ -49,7 +49,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
  * com.snowflake.kafka.connector.SnowflakeSinkTask#put(Collection)} and {@link
  * com.snowflake.kafka.connector.SnowflakeSinkTask#preCommit(Map)} APIs are called.
  */
-class SnowflakeSinkServiceV1 extends EnableLogging implements SnowflakeSinkService {
+class SnowflakeSinkServiceV1 implements SFLogger, SnowflakeSinkService {
   private static final LoggerHandler LOGGER =
       new LoggerHandler(SnowflakeSinkServiceV1.class.getName());
 

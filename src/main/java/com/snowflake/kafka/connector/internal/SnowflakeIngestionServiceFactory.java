@@ -29,7 +29,7 @@ public class SnowflakeIngestionServiceFactory {
   }
 
   /** Builder class to create instance of {@link SnowflakeIngestionService} */
-  static class SnowflakeIngestionServiceBuilder extends EnableLogging {
+  static class SnowflakeIngestionServiceBuilder implements SFLogger {
     private final SnowflakeIngestionService service;
 
     private SnowflakeIngestionServiceBuilder(

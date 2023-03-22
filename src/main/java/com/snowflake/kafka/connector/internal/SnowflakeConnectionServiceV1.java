@@ -29,8 +29,7 @@ import net.snowflake.client.jdbc.cloud.storage.StageInfo;
  * Implementation of Snowflake Connection Service interface which includes all handshake between KC
  * and SF through JDBC connection.
  */
-public class SnowflakeConnectionServiceV1 extends EnableLogging
-    implements SnowflakeConnectionService {
+public class SnowflakeConnectionServiceV1 implements SFLogger, SnowflakeConnectionService {
   private final Connection conn;
   private final SnowflakeTelemetryService telemetry;
   private final String connectorName;

@@ -37,7 +37,7 @@ public class SnowflakeSinkServiceFactory {
   }
 
   /** Builder class to create instance of {@link SnowflakeSinkService} */
-  public static class SnowflakeSinkServiceBuilder extends EnableLogging {
+  public static class SnowflakeSinkServiceBuilder implements SFLogger {
     private final SnowflakeSinkService service;
 
     private SnowflakeSinkServiceBuilder(
