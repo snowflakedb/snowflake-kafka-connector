@@ -26,7 +26,9 @@ import net.snowflake.ingest.utils.StagedFileWrapper;
  * <p>The difference between above two APIs @see <a
  * href="https://docs.snowflake.com/en/user-guide/data-load-snowpipe-rest-apis.html">here</a>
  */
-public class SnowflakeIngestionServiceV1 implements SFLogger, SnowflakeIngestionService {
+public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
+
+  private final SFLogger LOGGER = new SFLogger(SnowflakeIngestionServiceV1.class);
   private static final long ONE_HOUR = 60 * 60 * 1000;
 
   private final String stageName;
@@ -60,7 +62,7 @@ public class SnowflakeIngestionServiceV1 implements SFLogger, SnowflakeIngestion
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_0002.getException(e, this.telemetry);
     }
-    LOG_INFO_MSG("initialized the pipe connector for pipe {}", pipeName);
+    LOGGER.LOG_INFO_MSG("initialized the pipe connector for pipe {}", pipeName);
   }
 
   @Override
@@ -78,7 +80,7 @@ public class SnowflakeIngestionServiceV1 implements SFLogger, SnowflakeIngestion
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_3001.getException(e, this.telemetry);
     }
-    LOG_DEBUG_MSG("ingest file: {}", fileName);
+    LOGGER.LOG_DEBUG_MSG("ingest file: {}", fileName);
   }
 
   @Override
@@ -86,7 +88,7 @@ public class SnowflakeIngestionServiceV1 implements SFLogger, SnowflakeIngestion
     if (fileNames.isEmpty()) {
       return;
     }
-    LOG_DEBUG_MSG("ingest files: {}", Arrays.toString(fileNames.toArray()));
+    LOGGER.LOG_DEBUG_MSG("ingest files: {}", Arrays.toString(fileNames.toArray()));
     try {
       InternalUtils.backoffAndRetry(
           telemetry,
@@ -149,7 +151,7 @@ public class SnowflakeIngestionServiceV1 implements SFLogger, SnowflakeIngestion
       }
     }
 
-    LOG_INFO_MSG("searched {} files in ingest report, found {}", files.size(), numOfRecords);
+    LOGGER.LOG_INFO_MSG("searched {} files in ingest report, found {}", files.size(), numOfRecords);
 
     return fileStatus;
   }
@@ -218,7 +220,7 @@ public class SnowflakeIngestionServiceV1 implements SFLogger, SnowflakeIngestion
             "the response of load history is null", this.telemetry);
       }
 
-      LOG_INFO_MSG(
+      LOGGER.LOG_INFO_MSG(
           "read load history between {} and {}. retrieved {} records.",
           startTimeInclusive,
           endTimeExclusive,
@@ -234,9 +236,9 @@ public class SnowflakeIngestionServiceV1 implements SFLogger, SnowflakeIngestion
     try {
       ingestManager.close();
     } catch (Exception e) {
-      LOG_ERROR_MSG("Failed to close ingestManager: " + e.getMessage());
+      LOGGER.LOG_ERROR_MSG("Failed to close ingestManager: " + e.getMessage());
     }
-    LOG_INFO_MSG("IngestService Closed");
+    LOGGER.LOG_INFO_MSG("IngestService Closed");
   }
 
   /**
@@ -317,7 +319,7 @@ public class SnowflakeIngestionServiceV1 implements SFLogger, SnowflakeIngestion
               int toIndex = Math.min(4000, fileNames.size());
               List<String> fileNamesBatch = fileNames.subList(0, toIndex);
               String offsetToken = getLastOffsetTokenFromBatch(fileNamesBatch);
-              LOG_DEBUG_MSG(
+              LOGGER.LOG_DEBUG_MSG(
                   "ingest files with client info: {}, clientSequencer: {}, offsetToken: {} ",
                   Arrays.toString(fileNamesBatch.toArray()),
                   clientSequencer,
@@ -351,7 +353,7 @@ public class SnowflakeIngestionServiceV1 implements SFLogger, SnowflakeIngestion
     for (String fileName : fileNameBatch) {
       if (lastFileEndOffset < FileNameUtils.fileNameToEndOffset(fileName)) {
         lastFileEndOffset = FileNameUtils.fileNameToEndOffset(fileName);
-        LOG_WARN_MSG("The fileName list is not sequential.");
+        LOGGER.LOG_WARN_MSG("The fileName list is not sequential.");
       }
     }
     return lastFileEndOffset.toString();

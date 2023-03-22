@@ -14,7 +14,7 @@ public class SnowflakeTelemetryServiceFactory {
   }
 
   /** Builder for TelemetryService */
-  public static class SnowflakeTelemetryServiceBuilder implements SFLogger {
+  public static class SnowflakeTelemetryServiceBuilder {
     private final SnowflakeTelemetryService service;
 
     /** @param conn snowflake connection is required for telemetry service */

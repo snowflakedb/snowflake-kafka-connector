@@ -26,7 +26,9 @@ import org.apache.kafka.common.utils.AppInfoParser;
  * Abstract class handling basics of sending telemetry information to snowflake. Please note, this
  * is only for debugging purposes and data is not exposed to customers.
  */
-public abstract class SnowflakeTelemetryService implements SFLogger {
+public abstract class SnowflakeTelemetryService {
+
+  private final SFLogger LOGGER = new SFLogger(SnowflakeTelemetryService.class);
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -188,17 +190,17 @@ public abstract class SnowflakeTelemetryService implements SFLogger {
     msg.put(VERSION, Utils.VERSION); // version number
     try {
       telemetry.addLogToBatch(TelemetryUtil.buildJobData(msg));
-      LOG_DEBUG_MSG("sending telemetry data: {} of type:{}", data.toString(), type.toString());
+      LOGGER.LOG_DEBUG_MSG("sending telemetry data: {} of type:{}", data.toString(), type.toString());
       telemetry.sendBatchAsync();
     } catch (Exception e) {
-      LOG_ERROR_MSG(
+      LOGGER.LOG_ERROR_MSG(
           "Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
     }
   }
 
   private String getAppName() {
     if (name == null || name.isEmpty()) {
-      LOG_WARN_MSG("appName in telemetry service is empty");
+      LOGGER.LOG_WARN_MSG("appName in telemetry service is empty");
       return "empty_appName";
     }
     return name;
@@ -206,7 +208,7 @@ public abstract class SnowflakeTelemetryService implements SFLogger {
 
   private String getTaskID() {
     if (taskID == null || taskID.isEmpty()) {
-      LOG_WARN_MSG("taskID in telemetry service is empty");
+      LOGGER.LOG_WARN_MSG("taskID in telemetry service is empty");
       return "empty_taskID";
     }
     return taskID;

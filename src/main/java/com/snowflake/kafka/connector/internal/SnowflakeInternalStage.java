@@ -27,7 +27,7 @@ import net.snowflake.client.jdbc.internal.apache.commons.io.FilenameUtils;
  * <p>For GCS, we dont have any cache, we will make a call to GS for every put API since we require
  * presignedURL
  */
-public class SnowflakeInternalStage implements SFLogger {
+public class SnowflakeInternalStage {
 
   private static class SnowflakeMetadataWithExpiration {
 
@@ -51,6 +51,8 @@ public class SnowflakeInternalStage implements SFLogger {
       return this.stageType;
     }
   }
+
+  private final SFLogger LOGGER = new SFLogger(SnowflakeInternalStage.class);
 
   // Any operation on the map should be atomic
   private final ConcurrentMap<String, SnowflakeMetadataWithExpiration> storageInfoCache =
@@ -147,14 +149,14 @@ public class SnowflakeInternalStage implements SFLogger {
 
       if (!isCredentialValid(credential, stageType)) {
         // This should always be executed in GCS
-        LOG_DEBUG_MSG(
+        LOGGER.LOG_DEBUG_MSG(
             "Query credential(Refreshing Credentials) for stageName:{}, filePath:{}",
             stageName,
             fullFilePath);
         refreshCredentials(stageName, stageType, fullFilePath);
       }
     } catch (Exception e) {
-      LOG_WARN_MSG(
+      LOGGER.LOG_WARN_MSG(
           "Failed to refresh Credentials for stageName:{}, filePath:{}", stageName, fullFilePath);
       throw SnowflakeErrors.ERROR_5018.getException(e.getMessage());
     }
@@ -182,7 +184,7 @@ public class SnowflakeInternalStage implements SFLogger {
               .setOcspMode(OCSPMode.FAIL_OPEN)
               .setProxyProperties(proxyProperties)
               .build());
-      LOG_INFO_MSG(
+      LOGGER.LOG_INFO_MSG(
           "uploadWithoutConnection successful for stageName:{}, filePath:{}",
           stageName,
           fullFilePath,
@@ -190,7 +192,7 @@ public class SnowflakeInternalStage implements SFLogger {
     } catch (Exception e) {
       // If this api encounters error, invalidate the cached credentials
       // Caller will retry this function
-      LOG_WARN_MSG(
+      LOGGER.LOG_WARN_MSG(
           "uploadWithoutConnection encountered an exception:{} for filePath:{} in Storage:{}",
           e.getMessage(),
           fullFilePath,
@@ -236,7 +238,7 @@ public class SnowflakeInternalStage implements SFLogger {
     SnowflakeFileTransferMetadataV1 fileTransferMetadata =
         (SnowflakeFileTransferMetadataV1) agent.getFileTransferMetadatas().get(0);
     if (fileTransferMetadata.getStageInfo().getStageType() == StageInfo.StageType.LOCAL_FS) {
-      LOG_ERROR_MSG(
+      LOGGER.LOG_ERROR_MSG(
           "StageName:{} is not a valid stageType:{}",
           stageName,
           fileTransferMetadata.getStageInfo().getStageType());
@@ -248,7 +250,7 @@ public class SnowflakeInternalStage implements SFLogger {
       // Caching it here since we require to fetch the credential(Metadata) in the caller function
       // again.
       storageInfoCache.put(stageName, credential);
-      LOG_DEBUG_MSG("Caching credential successful for stage:{}", stageName);
+      LOGGER.LOG_DEBUG_MSG("Caching credential successful for stage:{}", stageName);
     }
   }
 

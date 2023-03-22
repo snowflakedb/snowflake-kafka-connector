@@ -17,41 +17,94 @@
 
 package com.snowflake.kafka.connector.internal;
 
-// The purpose of this interface is for non-static inheritors to easily log information
-public interface SFLogger {
-  default LoggerHandler getLogger() {
-    return new LoggerHandler(this.getClass().getName());
+/**
+ * This class provides an easy way for non-static inheritors to log information.
+ */
+public class SFLogger {
+  private final LoggerHandler logger;
+
+  /**
+   * Constructs an SFLogger instance for the given class.
+   *
+   * @param clazz the class for which the logger is intended
+   */
+  public SFLogger(Class<?> clazz) {
+    this.logger = new LoggerHandler(clazz.getName());
   }
 
-  default void LOG_INFO_MSG(String format) {
-    getLogger().info(format);
+  /**
+   * Logs an info-level message.
+   *
+   * @param format the message format
+   */
+  public void LOG_INFO_MSG(String format) {
+    logger.info(format);
   }
 
-  default void LOG_WARN_MSG(String format) {
-    getLogger().warn(format);
+  /**
+   * Logs a warning-level message.
+   *
+   * @param format the message format
+   */
+  public void LOG_WARN_MSG(String format) {
+    logger.warn(format);
   }
 
-  default void LOG_DEBUG_MSG(String format) {
-    getLogger().debug(format);
+  /**
+   * Logs a debug-level message.
+   *
+   * @param format the message format
+   */
+  public void LOG_DEBUG_MSG(String format) {
+    logger.debug(format);
   }
 
-  default void LOG_ERROR_MSG(String format) {
-    getLogger().error(format);
+  /**
+   * Logs an error-level message.
+   *
+   * @param format the message format
+   */
+  public void LOG_ERROR_MSG(String format) {
+    logger.error(format);
   }
 
-  default void LOG_INFO_MSG(String format, Object... vars) {
-    getLogger().info(format, vars);
+  /**
+   * Logs an info-level message with additional variables.
+   *
+   * @param format the message format
+   * @param vars   the variables to be included in the message
+   */
+  public void LOG_INFO_MSG(String format, Object... vars) {
+    logger.info(format, vars);
   }
 
-  default void LOG_WARN_MSG(String format, Object... vars) {
-    getLogger().warn(format, vars);
+  /**
+   * Logs a warning-level message with additional variables.
+   *
+   * @param format the message format
+   * @param vars   the variables to be included in the message
+   */
+  public void LOG_WARN_MSG(String format, Object... vars) {
+    logger.warn(format, vars);
   }
 
-  default void LOG_DEBUG_MSG(String format, Object... vars) {
-    getLogger().debug(format, vars);
+  /**
+   * Logs a debug-level message with additional variables.
+   *
+   * @param format the message format
+   * @param vars   the variables to be included in the message
+   */
+  public void LOG_DEBUG_MSG(String format, Object... vars) {
+    logger.debug(format, vars);
   }
 
-  default void LOG_ERROR_MSG(String format, Object... vars) {
-    getLogger().error(format, vars);
+  /**
+   * Logs an error-level message with additional variables.
+   *
+   * @param format the message format
+   * @param vars   the variables to be included in the message
+   */
+  public void LOG_ERROR_MSG(String format, Object... vars) {
+    logger.error(format, vars);
   }
 }

@@ -9,7 +9,8 @@ import net.snowflake.client.jdbc.telemetry.TelemetryClient;
 
 /** Implementation of Snowflake Telemetry Service specific for Snowpipe telemetries. */
 public class SnowflakeTelemetryServiceV1 extends SnowflakeTelemetryService
-    implements SFLogger {
+{
+
 
   SnowflakeTelemetryServiceV1(Connection conn) {
     this.telemetry = TelemetryClient.createTelemetry(conn);
