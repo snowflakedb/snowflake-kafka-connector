@@ -162,7 +162,8 @@ public class TopicPartitionChannel {
         sfConnectorConfig,
         kafkaRecordErrorReporter,
         sinkTaskContext,
-        null);
+        null, /* Null Connection */
+        new RecordService(null /* Null Telemetry Service*/));
   }
 
   /**
@@ -176,6 +177,7 @@ public class TopicPartitionChannel {
    * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
    * @param sinkTaskContext context on Kafka Connect's runtime
    * @param conn the snowflake connection service
+   * @param recordService record service for processing incoming offsets from Kafka
    */
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
@@ -186,7 +188,8 @@ public class TopicPartitionChannel {
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
-      SnowflakeConnectionService conn) {
+      SnowflakeConnectionService conn,
+      RecordService recordService) {
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
     Preconditions.checkState(!streamingIngestClient.isClosed());
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
@@ -198,7 +201,7 @@ public class TopicPartitionChannel {
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.conn = conn;
 
-    this.recordService = new RecordService();
+    this.recordService = recordService;
 
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
