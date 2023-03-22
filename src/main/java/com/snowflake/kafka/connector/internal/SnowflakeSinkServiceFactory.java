@@ -127,7 +127,8 @@ public class SnowflakeSinkServiceFactory {
     public SnowflakeSinkServiceBuilder setDeliveryGuarantee(
         SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
       this.service.setDeliveryGuarantee(ingestionDeliveryGuarantee);
-      LOGGER.LOG_INFO_MSG("Config Delivery Guarantee type {}.", ingestionDeliveryGuarantee.toString());
+      LOGGER.LOG_INFO_MSG(
+          "Config Delivery Guarantee type {}.", ingestionDeliveryGuarantee.toString());
       return this;
     }
 

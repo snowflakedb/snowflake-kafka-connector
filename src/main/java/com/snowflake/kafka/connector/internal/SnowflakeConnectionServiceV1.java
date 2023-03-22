@@ -73,7 +73,8 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       if (proxyProperties != null && !proxyProperties.isEmpty()) {
         Properties combinedProperties =
             mergeProxyAndConnectionProperties(this.prop, this.proxyProperties);
-        LOGGER.LOG_DEBUG_MSG("Proxy properties are set, passing in JDBC while creating the connection");
+        LOGGER.LOG_DEBUG_MSG(
+            "Proxy properties are set, passing in JDBC while creating the connection");
         this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), combinedProperties);
       } else {
         LOGGER.LOG_INFO_MSG("Establishing a JDBC connection with url:{}", url.getJdbcUrl());
@@ -754,7 +755,8 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       } catch (SQLException e) {
         throw SnowflakeErrors.ERROR_2003.getException(e, this.telemetry);
       }
-      LOGGER.LOG_INFO_MSG("moved file: {} from stage: {} to table stage: {}", name, stageName, tableName);
+      LOGGER.LOG_INFO_MSG(
+          "moved file: {} from stage: {} to table stage: {}", name, stageName, tableName);
       // remove
       removeFile(stageName, name);
     }

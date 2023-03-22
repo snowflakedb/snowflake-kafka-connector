@@ -21,7 +21,6 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.SFLogger;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.math.BigDecimal;

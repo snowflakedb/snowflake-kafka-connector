@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
-import com.snowflake.kafka.connector.internal.SFLogger;
 import java.sql.Connection;
 
 /**

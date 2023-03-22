@@ -437,7 +437,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             this.metricRegistry.histogram(
                 MetricsUtil.constructMetricName(pipeName, BUFFER_SUB_DOMAIN, BUFFER_SIZE_BYTES));
         LOGGER.LOG_INFO_MSG(
-                "Registered {} metrics for pipeName:{}", metricRegistry.getMetrics().size(), pipeName);
+            "Registered {} metrics for pipeName:{}", metricRegistry.getMetrics().size(), pipeName);
       }
 
       LOGGER.LOG_INFO_MSG("pipe: {} - service started", pipeName);

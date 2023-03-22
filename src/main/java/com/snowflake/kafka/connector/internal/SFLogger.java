@@ -17,9 +17,7 @@
 
 package com.snowflake.kafka.connector.internal;
 
-/**
- * This class provides an easy way for non-static inheritors to log information.
- */
+/** This class provides an easy way for non-static inheritors to log information. */
 public class SFLogger {
   private final LoggerHandler logger;
 
@@ -72,7 +70,7 @@ public class SFLogger {
    * Logs an info-level message with additional variables.
    *
    * @param format the message format
-   * @param vars   the variables to be included in the message
+   * @param vars the variables to be included in the message
    */
   public void LOG_INFO_MSG(String format, Object... vars) {
     logger.info(format, vars);
@@ -82,7 +80,7 @@ public class SFLogger {
    * Logs a warning-level message with additional variables.
    *
    * @param format the message format
-   * @param vars   the variables to be included in the message
+   * @param vars the variables to be included in the message
    */
   public void LOG_WARN_MSG(String format, Object... vars) {
     logger.warn(format, vars);
@@ -92,7 +90,7 @@ public class SFLogger {
    * Logs a debug-level message with additional variables.
    *
    * @param format the message format
-   * @param vars   the variables to be included in the message
+   * @param vars the variables to be included in the message
    */
   public void LOG_DEBUG_MSG(String format, Object... vars) {
     logger.debug(format, vars);
@@ -102,7 +100,7 @@ public class SFLogger {
    * Logs an error-level message with additional variables.
    *
    * @param format the message format
-   * @param vars   the variables to be included in the message
+   * @param vars the variables to be included in the message
    */
   public void LOG_ERROR_MSG(String format, Object... vars) {
     logger.error(format, vars);

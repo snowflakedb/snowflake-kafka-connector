@@ -190,7 +190,8 @@ public abstract class SnowflakeTelemetryService {
     msg.put(VERSION, Utils.VERSION); // version number
     try {
       telemetry.addLogToBatch(TelemetryUtil.buildJobData(msg));
-      LOGGER.LOG_DEBUG_MSG("sending telemetry data: {} of type:{}", data.toString(), type.toString());
+      LOGGER.LOG_DEBUG_MSG(
+          "sending telemetry data: {} of type:{}", data.toString(), type.toString());
       telemetry.sendBatchAsync();
     } catch (Exception e) {
       LOGGER.LOG_ERROR_MSG(
