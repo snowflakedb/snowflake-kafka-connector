@@ -28,6 +28,7 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Schema.Type;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -132,6 +133,10 @@ public class SchematizationUtils {
                 "column: " + columnName + " schemaMap: " + schemaMap);
           }
         }
+        if (type == null) {
+          LOGGER.warn("[CANT-INFER] Skipping column {} as could not parse type from {}", columnName, recordNode.get(columnName));
+          continue;
+        }
         columnToType.put(columnName, type);
       }
     }
@@ -158,17 +163,17 @@ public class SchematizationUtils {
   /** Try to infer the data type from the data */
   private static String inferDataTypeFromJsonObject(JsonNode value) {
     Type schemaType = convertJsonNodeTypeToKafkaType(value);
-    if (schemaType == null) {
-      // only when the type of the value is unrecognizable for JAVA
-      throw SnowflakeErrors.ERROR_5021.getException("class: " + value.getClass());
-    }
-    return convertToSnowflakeType(schemaType);
+//    if (schemaType == null) {
+//      // only when the type of the value is unrecognizable for JAVA
+//      throw SnowflakeErrors.ERROR_5021.getException("class: " + value.getClass());
+//    }
+    return schemaType != null ? convertToSnowflakeType(schemaType) : null;
   }
 
   /** Convert a json node type to kafka data type */
   private static Type convertJsonNodeTypeToKafkaType(JsonNode value) {
     if (value == null || value.isNull()) {
-      return STRUCT;
+      return null;
     } else if (value.isNumber()) {
       if (value.isShort()) {
         return INT16;
