@@ -670,9 +670,7 @@ public class TopicPartitionChannel {
           InsertValidationResponse response =
               this.channel.insertRow(records.get(idx), Long.toString(offsets.get(idx)));
           if (response.hasErrors()) {
-            LOGGER.info("[INSERT-ERROR-1] {}", response.getInsertErrors().get(0).getMessage());
-            LOGGER.info("[INSERT-ERROR-2] {}", response.getInsertErrors().get(0).getException().getMessage());
-            LOGGER.info("[INSERT-ERROR-3] {}", response.getInsertErrors().get(0).toString());
+            LOGGER.info("[INSERT-ERROR] {}", response.getInsertErrors().get(0).getMessage());
             InsertValidationResponse.InsertError insertError = response.getInsertErrors().get(0);
             List<String> extraColNames = insertError.getExtraColNames();
             List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
@@ -688,18 +686,19 @@ public class TopicPartitionChannel {
               // Simply added to the final response if it's not schema related errors
               finalResponse.addError(insertError);
             } else {
+              boolean changesApplied;
+
               if (this.enableNesting) {
                 SinkRecord unflattenedRec = this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx);
-                SchematizationUtils.evolveSchemaIfNeeded(
+                changesApplied = SchematizationUtils.evolveSchemaIfNeeded(
                         this.conn,
                         this.channel.getTableName(),
                         nonNullableColumns,
                         extraColNames,
                         new SinkRecord(unflattenedRec.topic(), unflattenedRec.kafkaPartition(), unflattenedRec.keySchema(), unflattenedRec.key(), unflattenedRec.valueSchema(), records.get(idx), unflattenedRec.kafkaOffset(),
                                 unflattenedRec.timestamp(), unflattenedRec.timestampType()));
-
               } else {
-                SchematizationUtils.evolveSchemaIfNeeded(
+                changesApplied = SchematizationUtils.evolveSchemaIfNeeded(
                         this.conn,
                         this.channel.getTableName(),
                         nonNullableColumns,
@@ -707,9 +706,16 @@ public class TopicPartitionChannel {
                         this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx)
                         );
               }
-              // Offset reset needed since it's possible that we successfully ingested partial batch
-              needToResetOffset = true;
-              break;
+//                Run through the records until we apply changes
+//                This is needed for cases where we're finding new cols
+//                But the first message/row we process only has NULLs; which means we can't infer type
+              if (changesApplied) {
+                // Offset reset needed since it's possible that we successfully ingested partial batch
+                needToResetOffset = true;
+                break;
+              } else {
+                LOGGER.info("[NO-APPLY] Continuing through buffer [{}] to find apply-able changes..", idx);
+              }
             }
           }
         }

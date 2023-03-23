@@ -60,16 +60,18 @@ public class SchematizationUtils {
    * @param extraColNames a list of columns that needs to be updated
    * @param record the sink record that contains the schema and actual data
    */
-  public static void evolveSchemaIfNeeded(
+  public static boolean evolveSchemaIfNeeded(
       @Nonnull SnowflakeConnectionService conn,
       String tableName,
       List<String> nonNullableColumns,
       List<String> extraColNames,
       SinkRecord record) {
+    boolean changesApplied = false;
     // Update nullability if needed, ignore any exceptions since other task might be succeeded
     if (nonNullableColumns != null) {
       try {
         conn.alterNonNullableColumns(tableName, nonNullableColumns);
+        changesApplied = true;
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             String.format(
@@ -86,8 +88,10 @@ public class SchematizationUtils {
       Map<String, String> extraColumnsToType = getColumnTypes(record, extraColNames);
       LOGGER.info("CAFLOG3 ||| {} ||| {} ||| {}", extraColumnsToType, record, extraColNames);
       try {
-        if (extraColumnsToType.size() > 0)
+        if (extraColumnsToType.size() > 0) {
           conn.appendColumnsToTable(tableName, extraColumnsToType);
+          changesApplied = true;
+        }
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             String.format(
@@ -98,6 +102,7 @@ public class SchematizationUtils {
             e);
       }
     }
+    return changesApplied;
   }
 
   /**
