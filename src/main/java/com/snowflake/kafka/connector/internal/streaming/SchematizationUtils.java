@@ -86,7 +86,8 @@ public class SchematizationUtils {
       Map<String, String> extraColumnsToType = getColumnTypes(record, extraColNames);
       LOGGER.info("CAFLOG3 ||| {} ||| {} ||| {}", extraColumnsToType, record, extraColNames);
       try {
-        conn.appendColumnsToTable(tableName, extraColumnsToType);
+        if (extraColumnsToType.size() > 0)
+          conn.appendColumnsToTable(tableName, extraColumnsToType);
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             String.format(
