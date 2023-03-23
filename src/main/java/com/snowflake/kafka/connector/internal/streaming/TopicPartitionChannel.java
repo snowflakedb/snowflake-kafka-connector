@@ -670,6 +670,9 @@ public class TopicPartitionChannel {
           InsertValidationResponse response =
               this.channel.insertRow(records.get(idx), Long.toString(offsets.get(idx)));
           if (response.hasErrors()) {
+            LOGGER.info("[INSERT-ERROR-1] {}", response.getInsertErrors().get(0).getMessage());
+            LOGGER.info("[INSERT-ERROR-2] {}", response.getInsertErrors().get(0).getException().getMessage());
+            LOGGER.info("[INSERT-ERROR-3] {}", response.getInsertErrors().get(0).toString());
             InsertValidationResponse.InsertError insertError = response.getInsertErrors().get(0);
             List<String> extraColNames = insertError.getExtraColNames();
             List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
