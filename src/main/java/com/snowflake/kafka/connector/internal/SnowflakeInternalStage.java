@@ -149,14 +149,14 @@ public class SnowflakeInternalStage {
 
       if (!isCredentialValid(credential, stageType)) {
         // This should always be executed in GCS
-        LOGGER.LOG_DEBUG_MSG(
+        LOGGER.LOG_DEBUG(
             "Query credential(Refreshing Credentials) for stageName:{}, filePath:{}",
             stageName,
             fullFilePath);
         refreshCredentials(stageName, stageType, fullFilePath);
       }
     } catch (Exception e) {
-      LOGGER.LOG_WARN_MSG(
+      LOGGER.LOG_WARN(
           "Failed to refresh Credentials for stageName:{}, filePath:{}", stageName, fullFilePath);
       throw SnowflakeErrors.ERROR_5018.getException(e.getMessage());
     }
@@ -184,7 +184,7 @@ public class SnowflakeInternalStage {
               .setOcspMode(OCSPMode.FAIL_OPEN)
               .setProxyProperties(proxyProperties)
               .build());
-      LOGGER.LOG_INFO_MSG(
+      LOGGER.LOG_INFO(
           "uploadWithoutConnection successful for stageName:{}, filePath:{}",
           stageName,
           fullFilePath,
@@ -192,7 +192,7 @@ public class SnowflakeInternalStage {
     } catch (Exception e) {
       // If this api encounters error, invalidate the cached credentials
       // Caller will retry this function
-      LOGGER.LOG_WARN_MSG(
+      LOGGER.LOG_WARN(
           "uploadWithoutConnection encountered an exception:{} for filePath:{} in Storage:{}",
           e.getMessage(),
           fullFilePath,
@@ -238,7 +238,7 @@ public class SnowflakeInternalStage {
     SnowflakeFileTransferMetadataV1 fileTransferMetadata =
         (SnowflakeFileTransferMetadataV1) agent.getFileTransferMetadatas().get(0);
     if (fileTransferMetadata.getStageInfo().getStageType() == StageInfo.StageType.LOCAL_FS) {
-      LOGGER.LOG_ERROR_MSG(
+      LOGGER.LOG_ERROR(
           "StageName:{} is not a valid stageType:{}",
           stageName,
           fileTransferMetadata.getStageInfo().getStageType());
@@ -250,7 +250,7 @@ public class SnowflakeInternalStage {
       // Caching it here since we require to fetch the credential(Metadata) in the caller function
       // again.
       storageInfoCache.put(stageName, credential);
-      LOGGER.LOG_DEBUG_MSG("Caching credential successful for stage:{}", stageName);
+      LOGGER.LOG_DEBUG("Caching credential successful for stage:{}", stageName);
     }
   }
 

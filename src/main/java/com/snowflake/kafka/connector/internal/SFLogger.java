@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Snowflake Inc. All rights reserved.
+ * Copyright (c) 2023 Snowflake Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
@@ -35,7 +35,7 @@ public class SFLogger {
    *
    * @param format the message format
    */
-  public void LOG_INFO_MSG(String format) {
+  public void LOG_INFO(String format) {
     logger.info(format);
   }
 
@@ -44,7 +44,7 @@ public class SFLogger {
    *
    * @param format the message format
    */
-  public void LOG_WARN_MSG(String format) {
+  public void LOG_WARN(String format) {
     logger.warn(format);
   }
 
@@ -53,7 +53,7 @@ public class SFLogger {
    *
    * @param format the message format
    */
-  public void LOG_DEBUG_MSG(String format) {
+  public void LOG_DEBUG(String format) {
     logger.debug(format);
   }
 
@@ -62,7 +62,7 @@ public class SFLogger {
    *
    * @param format the message format
    */
-  public void LOG_ERROR_MSG(String format) {
+  public void LOG_ERROR(String format) {
     logger.error(format);
   }
 
@@ -72,7 +72,7 @@ public class SFLogger {
    * @param format the message format
    * @param vars the variables to be included in the message
    */
-  public void LOG_INFO_MSG(String format, Object... vars) {
+  public void LOG_INFO(String format, Object... vars) {
     logger.info(format, vars);
   }
 
@@ -82,7 +82,7 @@ public class SFLogger {
    * @param format the message format
    * @param vars the variables to be included in the message
    */
-  public void LOG_WARN_MSG(String format, Object... vars) {
+  public void LOG_WARN(String format, Object... vars) {
     logger.warn(format, vars);
   }
 
@@ -92,7 +92,7 @@ public class SFLogger {
    * @param format the message format
    * @param vars the variables to be included in the message
    */
-  public void LOG_DEBUG_MSG(String format, Object... vars) {
+  public void LOG_DEBUG(String format, Object... vars) {
     logger.debug(format, vars);
   }
 
@@ -102,7 +102,7 @@ public class SFLogger {
    * @param format the message format
    * @param vars the variables to be included in the message
    */
-  public void LOG_ERROR_MSG(String format, Object... vars) {
+  public void LOG_ERROR(String format, Object... vars) {
     logger.error(format, vars);
   }
 }

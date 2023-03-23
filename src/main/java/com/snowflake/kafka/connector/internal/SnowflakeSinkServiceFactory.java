@@ -52,7 +52,7 @@ public class SnowflakeSinkServiceFactory {
         this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
       }
 
-      LOGGER.LOG_INFO_MSG("{} created", this.service.getClass().getName());
+      LOGGER.LOG_INFO("{} created", this.service.getClass().getName());
     }
 
     private SnowflakeSinkServiceBuilder(SnowflakeConnectionService conn) {
@@ -69,7 +69,7 @@ public class SnowflakeSinkServiceFactory {
      */
     public SnowflakeSinkServiceBuilder addTask(String tableName, TopicPartition topicPartition) {
       this.service.startTask(tableName, topicPartition);
-      LOGGER.LOG_INFO_MSG(
+      LOGGER.LOG_INFO(
           "create new task in {} - table: {}, topicPartition: {}",
           SnowflakeSinkService.class.getName(),
           tableName,
@@ -79,19 +79,19 @@ public class SnowflakeSinkServiceFactory {
 
     public SnowflakeSinkServiceBuilder setRecordNumber(long num) {
       this.service.setRecordNumber(num);
-      LOGGER.LOG_INFO_MSG("record number is limited to {}", num);
+      LOGGER.LOG_INFO("record number is limited to {}", num);
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setFileSize(long size) {
       this.service.setFileSize(size);
-      LOGGER.LOG_INFO_MSG("file size is limited to {}", size);
+      LOGGER.LOG_INFO("file size is limited to {}", size);
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setFlushTime(long time) {
       this.service.setFlushTime(time);
-      LOGGER.LOG_INFO_MSG("flush time is limited to {}", time);
+      LOGGER.LOG_INFO("flush time is limited to {}", time);
       return this;
     }
 
@@ -101,34 +101,33 @@ public class SnowflakeSinkServiceFactory {
       for (Map.Entry<String, String> entry : topic2TableMap.entrySet()) {
         map.append(entry.getKey()).append(" -> ").append(entry.getValue()).append("\n");
       }
-      LOGGER.LOG_INFO_MSG("set topic 2 table map \n {}", map.toString());
+      LOGGER.LOG_INFO("set topic 2 table map \n {}", map.toString());
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setMetadataConfig(SnowflakeMetadataConfig configMap) {
       this.service.setMetadataConfig(configMap);
-      LOGGER.LOG_INFO_MSG("metadata config map is {}", configMap.toString());
+      LOGGER.LOG_INFO("metadata config map is {}", configMap.toString());
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setBehaviorOnNullValuesConfig(
         SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
       this.service.setBehaviorOnNullValuesConfig(behavior);
-      LOGGER.LOG_INFO_MSG("Config Behavior on null value is {}", behavior.toString());
+      LOGGER.LOG_INFO("Config Behavior on null value is {}", behavior.toString());
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setCustomJMXMetrics(final boolean enableJMX) {
       this.service.setCustomJMXMetrics(enableJMX);
-      LOGGER.LOG_INFO_MSG("Config JMX value {}. (true = Enabled, false = Disabled)", enableJMX);
+      LOGGER.LOG_INFO("Config JMX value {}. (true = Enabled, false = Disabled)", enableJMX);
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setDeliveryGuarantee(
         SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
       this.service.setDeliveryGuarantee(ingestionDeliveryGuarantee);
-      LOGGER.LOG_INFO_MSG(
-          "Config Delivery Guarantee type {}.", ingestionDeliveryGuarantee.toString());
+      LOGGER.LOG_INFO("Config Delivery Guarantee type {}.", ingestionDeliveryGuarantee.toString());
       return this;
     }
 
@@ -150,7 +149,7 @@ public class SnowflakeSinkServiceFactory {
     }
 
     public SnowflakeSinkService build() {
-      LOGGER.LOG_INFO_MSG("{} created", SnowflakeSinkService.class.getName());
+      LOGGER.LOG_INFO("{} created", SnowflakeSinkService.class.getName());
       return service;
     }
   }

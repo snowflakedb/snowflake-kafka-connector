@@ -73,11 +73,10 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       if (proxyProperties != null && !proxyProperties.isEmpty()) {
         Properties combinedProperties =
             mergeProxyAndConnectionProperties(this.prop, this.proxyProperties);
-        LOGGER.LOG_DEBUG_MSG(
-            "Proxy properties are set, passing in JDBC while creating the connection");
+        LOGGER.LOG_DEBUG("Proxy properties are set, passing in JDBC while creating the connection");
         this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), combinedProperties);
       } else {
-        LOGGER.LOG_INFO_MSG("Establishing a JDBC connection with url:{}", url.getJdbcUrl());
+        LOGGER.LOG_INFO("Establishing a JDBC connection with url:{}", url.getJdbcUrl());
         this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), prop);
       }
     } catch (SQLException e) {
@@ -92,7 +91,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
             .setAppName(this.connectorName)
             .setTaskID(this.taskID)
             .build();
-    LOGGER.LOG_INFO_MSG("initialized the snowflake connection");
+    LOGGER.LOG_INFO("initialized the snowflake connection");
   }
 
   /* Merges the two properties. */
@@ -129,7 +128,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       throw SnowflakeErrors.ERROR_2007.getException(e);
     }
 
-    LOGGER.LOG_INFO_MSG("create table {}", tableName);
+    LOGGER.LOG_INFO("create table {}", tableName);
   }
 
   @Override
@@ -163,11 +162,11 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       stmt.executeQuery();
     } catch (SQLException e) {
       // Skip the error given that schema evolution is still under PrPr
-      LOGGER.LOG_WARN_MSG(
+      LOGGER.LOG_WARN(
           "Enable schema evolution failed on table: {}, message: {}", tableName, e.getMessage());
     }
 
-    LOGGER.LOG_INFO_MSG("Created table {} with only RECORD_METADATA column", tableName);
+    LOGGER.LOG_INFO("Created table {} with only RECORD_METADATA column", tableName);
   }
 
   @Override
@@ -196,7 +195,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2009.getException(e);
     }
-    LOGGER.LOG_INFO_MSG("create pipe: {}", pipeName);
+    LOGGER.LOG_INFO("create pipe: {}", pipeName);
   }
 
   @Override
@@ -223,7 +222,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2008.getException(e);
     }
-    LOGGER.LOG_INFO_MSG("create stage {}", stageName);
+    LOGGER.LOG_INFO("create stage {}", stageName);
   }
 
   @Override
@@ -244,7 +243,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       stmt.execute();
       exist = true;
     } catch (Exception e) {
-      LOGGER.LOG_DEBUG_MSG("table {} doesn't exist", tableName);
+      LOGGER.LOG_DEBUG("table {} doesn't exist", tableName);
       exist = false;
     } finally {
       if (stmt != null) {
@@ -271,7 +270,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       stmt.execute();
       exist = true;
     } catch (SQLException e) {
-      LOGGER.LOG_DEBUG_MSG("stage {} doesn't exists", stageName);
+      LOGGER.LOG_DEBUG("stage {} doesn't exists", stageName);
       exist = false;
     } finally {
       if (stmt != null) {
@@ -298,7 +297,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       stmt.execute();
       exist = true;
     } catch (SQLException e) {
-      LOGGER.LOG_DEBUG_MSG("pipe {} doesn't exist", pipeName);
+      LOGGER.LOG_DEBUG("pipe {} doesn't exist", pipeName);
       exist = false;
     } finally {
       if (stmt != null) {
@@ -347,7 +346,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       }
       compatible = hasMeta && hasContent && allNullable;
     } catch (SQLException e) {
-      LOGGER.LOG_DEBUG_MSG("table {} doesn't exist", tableName);
+      LOGGER.LOG_DEBUG("table {} doesn't exist", tableName);
       compatible = false;
     } finally {
       try {
@@ -472,7 +471,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     }
 
     boolean hasPermission = hasRolePrivilege && hasTableOptionEnabled;
-    LOGGER.LOG_INFO_MSG(
+    LOGGER.LOG_INFO(
         String.format("Table: %s has schema evolution permission: %s", tableName, hasPermission));
     return hasPermission;
   }
@@ -505,7 +504,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       logColumn.append(columnName).append(" (").append(columnToType.get(columnName)).append(")");
     }
     try {
-      LOGGER.LOG_INFO_MSG("Trying to run query: {}", appendColumnQuery.toString());
+      LOGGER.LOG_INFO("Trying to run query: {}", appendColumnQuery.toString());
       PreparedStatement stmt = conn.prepareStatement(appendColumnQuery.toString());
       stmt.setString(1, tableName);
       stmt.execute();
@@ -515,7 +514,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     }
 
     logColumn.insert(0, "Following columns created for table {}:\n").append("]");
-    LOGGER.LOG_INFO_MSG(logColumn.toString(), tableName);
+    LOGGER.LOG_INFO(logColumn.toString(), tableName);
   }
 
   /**
@@ -548,7 +547,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       logColumn.append(columnName);
     }
     try {
-      LOGGER.LOG_INFO_MSG("Trying to run query: {}", dropNotNullQuery.toString());
+      LOGGER.LOG_INFO("Trying to run query: {}", dropNotNullQuery.toString());
       PreparedStatement stmt = conn.prepareStatement(dropNotNullQuery.toString());
       stmt.setString(1, tableName);
       stmt.execute();
@@ -560,7 +559,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     logColumn
         .insert(0, "Following columns' non-nullabilty was dropped for table {}:\n")
         .append("]");
-    LOGGER.LOG_INFO_MSG(logColumn.toString(), tableName);
+    LOGGER.LOG_INFO(logColumn.toString(), tableName);
   }
 
   @Override
@@ -568,13 +567,13 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     checkConnection();
     InternalUtils.assertNotEmpty("stageName", stageName);
     if (!stageExist(stageName)) {
-      LOGGER.LOG_DEBUG_MSG("stage {} doesn't exists", stageName);
+      LOGGER.LOG_DEBUG("stage {} doesn't exists", stageName);
       return false;
     }
     List<String> files = listStage(stageName, "");
     for (String name : files) {
       if (!FileNameUtils.verifyFileName(name)) {
-        LOGGER.LOG_DEBUG_MSG("file name {} in stage {} is not valid", name, stageName);
+        LOGGER.LOG_DEBUG("file name {} in stage {} is not valid", name, stageName);
         return false;
       }
     }
@@ -604,12 +603,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
         compatible = false;
       } else {
         String definition = result.getString("definition");
-        LOGGER.LOG_DEBUG_MSG("pipe {} definition: {}", pipeName, definition);
+        LOGGER.LOG_DEBUG("pipe {} definition: {}", pipeName, definition);
         compatible = definition.equalsIgnoreCase(pipeDefinition(tableName, stageName));
       }
 
     } catch (SQLException e) {
-      LOGGER.LOG_DEBUG_MSG("pipe {} doesn't exists ", pipeName);
+      LOGGER.LOG_DEBUG("pipe {} doesn't exists ", pipeName);
       compatible = false;
     } finally {
       try {
@@ -640,7 +639,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
 
-    LOGGER.LOG_INFO_MSG("database {} exists", databaseName);
+    LOGGER.LOG_INFO("database {} exists", databaseName);
   }
 
   @Override
@@ -657,7 +656,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
 
-    LOGGER.LOG_INFO_MSG("schema {} exists", schemaName);
+    LOGGER.LOG_INFO("schema {} exists", schemaName);
   }
 
   @Override
@@ -675,7 +674,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
 
-    LOGGER.LOG_INFO_MSG("pipe {} dropped", pipeName);
+    LOGGER.LOG_INFO("pipe {} dropped", pipeName);
   }
 
   @Override
@@ -700,7 +699,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
-    LOGGER.LOG_INFO_MSG("stage {} can't be dropped because it is not empty", stageName);
+    LOGGER.LOG_INFO("stage {} can't be dropped because it is not empty", stageName);
     return false;
   }
 
@@ -717,7 +716,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
-    LOGGER.LOG_INFO_MSG("stage {} dropped", stageName);
+    LOGGER.LOG_INFO("stage {} dropped", stageName);
   }
 
   @Override
@@ -726,7 +725,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     for (String fileName : files) {
       removeFile(stageName, fileName);
     }
-    LOGGER.LOG_INFO_MSG("purge {} files from stage: {}", files.size(), stageName);
+    LOGGER.LOG_INFO("purge {} files from stage: {}", files.size(), stageName);
   }
 
   @Override
@@ -755,7 +754,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       } catch (SQLException e) {
         throw SnowflakeErrors.ERROR_2003.getException(e, this.telemetry);
       }
-      LOGGER.LOG_INFO_MSG(
+      LOGGER.LOG_INFO(
           "moved file: {} from stage: {} to table stage: {}", name, stageName, tableName);
       // remove
       removeFile(stageName, name);
@@ -798,7 +797,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2001.getException(e, this.telemetry);
     }
-    LOGGER.LOG_INFO_MSG("list stage {} retrieved {} file names", stageName, result.size());
+    LOGGER.LOG_INFO("list stage {} retrieved {} file names", stageName, result.size());
     return result;
   }
 
@@ -830,7 +829,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_2003.getException(e);
     }
-    LOGGER.LOG_DEBUG_MSG("put file {} to stage {}", fileName, stageName);
+    LOGGER.LOG_DEBUG("put file {} to stage {}", fileName, stageName);
   }
 
   @Override
@@ -848,7 +847,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
             return true;
           });
     } catch (Exception e) {
-      LOGGER.LOG_ERROR_MSG(
+      LOGGER.LOG_ERROR(
           "Put With Cache(uploadWithoutConnection) failed after multiple retries for stageName:{},"
               + " stageType:{}, fullFilePath:{}",
           stageName,
@@ -880,7 +879,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_2003.getException(e, this.telemetry);
     }
-    LOGGER.LOG_INFO_MSG("put file: {} to table stage: {}", fileName, tableName);
+    LOGGER.LOG_INFO("put file: {} to table stage: {}", fileName, tableName);
   }
 
   @Override
@@ -896,7 +895,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       throw SnowflakeErrors.ERROR_2005.getException(e, this.telemetry);
     }
 
-    LOGGER.LOG_INFO_MSG("snowflake connection closed");
+    LOGGER.LOG_INFO("snowflake connection closed");
   }
 
   @Override
@@ -994,7 +993,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_2001.getException(e, this.telemetry);
     }
-    LOGGER.LOG_DEBUG_MSG("deleted {} from stage {}", fileName, stageName);
+    LOGGER.LOG_DEBUG("deleted {} from stage {}", fileName, stageName);
   }
 
   @Override

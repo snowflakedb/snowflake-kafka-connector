@@ -536,7 +536,7 @@ public class RecordService {
         if (record.value() instanceof SnowflakeRecordContent) {
           SnowflakeRecordContent recordValueContent = (SnowflakeRecordContent) record.value();
           if (recordValueContent.isRecordContentValueNull()) {
-            LOGGER.LOG_DEBUG_MSG(
+            LOGGER.LOG_DEBUG(
                 "Record value schema is:{} and value is Empty Json Node for topic {}, partition {}"
                     + " and offset {}",
                 valueSchema.getClass().getName(),
@@ -551,7 +551,7 @@ public class RecordService {
         // Tombstone handler SMT can be used but we need to check here if value is null if SMT is
         // not used
         if (record.value() == null) {
-          LOGGER.LOG_DEBUG_MSG(
+          LOGGER.LOG_DEBUG(
               "Record value is null for topic {}, partition {} and offset {}",
               record.topic(),
               record.kafkaPartition(),
@@ -560,7 +560,7 @@ public class RecordService {
         }
       }
       if (isRecordValueNull) {
-        LOGGER.LOG_DEBUG_MSG(
+        LOGGER.LOG_DEBUG(
             "Null valued record from topic '{}', partition {} and offset {} was skipped.",
             record.topic(),
             record.kafkaPartition(),
