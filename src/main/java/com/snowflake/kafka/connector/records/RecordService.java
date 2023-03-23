@@ -306,15 +306,13 @@ public class RecordService extends EnableLogging {
         }
         columnValue = itemList;
       } else if (columnNode.isObject() && this.nestDepth > depth && !this.nestColExcl.contains(columnName)) {
-        depth++;
-        streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(columnNode, sflColumnName, depth));
+        streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(columnNode, sflColumnName, depth + 1));
         continue;
       } else if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
         try {
           if (MAPPER.readTree(columnNode.textValue()).isObject() && !this.nestColExcl.contains(columnName)) {
-            depth++;
-            streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), sflColumnName, depth));
+            streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), sflColumnName, depth+1));
             continue;
           }
         } catch(JsonProcessingException ignored) {}
@@ -352,15 +350,14 @@ public class RecordService extends EnableLogging {
         }
         columnValue = itemList;
       } else if (columnNode.isObject() && this.nestDepth > depth && !this.nestColExcl.contains(columnName)) {
-        depth++;
-        streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(columnNode, sflColumnName, depth));
+        streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(columnNode, sflColumnName, depth+1));
         continue;
       } else if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
         try {
           if (MAPPER.readTree(columnNode.textValue()).isObject() && !this.nestColExcl.contains(columnName)) {
             depth++;
-            streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), sflColumnName, depth));
+            streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), sflColumnName, depth+1));
             continue;
           }
         } catch(JsonProcessingException ignored) {}
