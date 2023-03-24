@@ -250,6 +250,11 @@ class KafkaTest:
 
         return messages_consumed_count
 
+    # returns kafka or confluent version
+    def get_kafka_version(self):
+        return self.testVersion
+
+
     def cleanTableStagePipe(self, connectorName, topicName="", partitionNumber=1):
         if topicName == "":
             topicName = connectorName
@@ -397,7 +402,6 @@ class KafkaTest:
 
         print("Post HTTP request to Create Connector:{0}".format(post_url))
         r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
-        print("Response Content Json " + json.dumps(r.json()))
         print(datetime.now().strftime("%H:%M:%S "), r.status_code)
         getConnectorResponse = requests.get(post_url)
         print("Get Connectors status:{0}, response:{1}".format(getConnectorResponse.status_code,

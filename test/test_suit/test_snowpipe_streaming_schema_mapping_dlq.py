@@ -4,6 +4,8 @@ import datetime
 
 # Test if incorrect data with a schematized column gets send to DLQ
 # It sends a String to a column with number data type - Expectation is that we send it to DLQ
+# This test is only running in kafka versions > 2.6.1 since DLQ apis are available only in later versions
+# Check createKafkaRecordErrorReporter in Java code
 class TestSnowpipeStreamingSchemaMappingDLQ:
     def __init__(self, driver, nameSalt):
         self.driver = driver
@@ -60,13 +62,16 @@ class TestSnowpipeStreamingSchemaMappingDLQ:
         if res != 0:
             raise RetryableError()
 
-        # Last offset number in dlq is one less than count of messages sent
-        offsets_in_dlq = self.driver.consume_messages_dlq(self.fileName, 0, self.expected_record_count_in_dlq - 1)
-
-        if offsets_in_dlq == self.expected_record_count_in_dlq:
-            print("Offsets in DLQ:{}".format(str(offsets_in_dlq)))
+        if self.driver.get_kafka_version() == "5.5.11" or self.driver.get_kafka_version() == "2.5.1":
+            print("Data cannot be verified in DLQ in old versions. Putting Data from Kafka Connect to DLQ is only supported in versions >= 2.6")
         else:
-            raise NonRetryableError("Offsets count found in DLQ:{}".format(offsets_in_dlq))
+            # Last offset number in dlq is one less than count of messages sent
+            offsets_in_dlq = self.driver.consume_messages_dlq(self.fileName, 0, self.expected_record_count_in_dlq - 1)
+
+            if offsets_in_dlq == self.expected_record_count_in_dlq:
+                print("Offsets in DLQ:{}".format(str(offsets_in_dlq)))
+            else:
+                raise NonRetryableError("Offsets count found in DLQ:{}".format(offsets_in_dlq))
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

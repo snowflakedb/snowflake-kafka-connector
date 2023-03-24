@@ -27,8 +27,6 @@ class TestSnowpipeStreamingStringJsonDLQ:
         print("Partition count:" + str(self.partitionNum))
         print("Topic:", self.topic)
 
-        self.driver.describeTopic(self.topic)
-
         for p in range(self.partitionNum):
             print("Sending Incorrect Data in Partition:" + str(p))
             key = []
