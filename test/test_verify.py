@@ -247,8 +247,6 @@ class KafkaTest:
                         break
         except KafkaError as e:
             print('Kafka error: {}'.format(e))
-        finally:
-            self.consumer.close()
 
         return messages_consumed_count
 
