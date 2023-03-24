@@ -47,7 +47,7 @@ class KafkaTest:
         self.httpHeader = {'Content-type': 'application/json', 'Accept': 'application/json'}
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
-        self.VERIFY_INTERVAL = 10  # verify every 60 secs
+        self.VERIFY_INTERVAL = 60  # verify every 60 secs
         self.MAX_RETRY = 30  # max wait time 30 mins
         self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 10000 data was in the queue
 
@@ -548,6 +548,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
 
         from test_suit.test_schema_not_supported_converter import TestSchemaNotSupportedConverter
 
+        from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
+
         testStringJson = TestStringJson(driver, nameSalt)
         testJsonJson = TestJsonJson(driver, nameSalt)
         testStringAvro = TestStringAvro(driver, nameSalt)
@@ -577,6 +579,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
 
         testSchemaMapping = TestSchemaMapping(driver, nameSalt)
 
+        testSnowpipeStreamingSchemaMappingDLQ = TestSnowpipeStreamingSchemaMappingDLQ(driver, nameSalt)
+
         testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet)
         testAutoTableCreationTopic2Table = TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress,
                                                                             testSet)
@@ -601,7 +605,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
             testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
             testSnowpipeStreamingStringJsonDLQ,
             testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe,
-            testSchemaMapping,
+            testSchemaMapping, testSnowpipeStreamingSchemaMappingDLQ,
             testAutoTableCreation, testAutoTableCreationTopic2Table,
             testSchemaEvolutionJson, testSchemaEvolutionAvroSR,
             testSchemaEvolutionWithAutoTableCreationJson, testSchemaEvolutionWithAutoTableCreationAvroSR,
@@ -615,7 +619,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
             True, True,
             True,
             True, True,
-            True,
+            True, True,
             True, True,
             True, True,
             True, True,
@@ -628,7 +632,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
                 True, True,
                 True,
                 True, True,
-                True,
+                True, True,
                 True, True,
                 True, True,
                 True, True,
@@ -640,7 +644,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
                 True, False,
                 True,
                 True, True,
-                True,
+                True, True,
                 False, False,
                 True, False,
                 True, False,
