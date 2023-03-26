@@ -103,6 +103,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final String streamingIngestClientName;
 
   private boolean enableSchematization;
+  private boolean autoSchematization;
 
   /**
    * Key is formulated in {@link #partitionChannelKey(String, int)} }
@@ -133,6 +134,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
+    this.autoSchematization =
+        this.recordService.setAndGetAutoSchematizationFromConfig(this.connectorConfig);
 
     this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
     this.streamingIngestClientName =
@@ -533,7 +536,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       if (this.enableSchematization) {
         // Always create the table with RECORD_METADATA only and rely on schema evolution to update
         // the schema
-        this.conn.createTableWithOnlyMetadataColumn(tableName);
+        this.conn.createTableWithOnlyMetadataColumn(tableName, this.autoSchematization);
       } else {
         this.conn.createTable(tableName);
       }

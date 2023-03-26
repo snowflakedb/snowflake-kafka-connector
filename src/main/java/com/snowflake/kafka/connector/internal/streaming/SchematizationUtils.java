@@ -19,13 +19,25 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.records.RecordService;
+
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import javax.annotation.Nonnull;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+
+import org.apache.kafka.connect.data.Date;
+import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Time;
+import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.data.Schema.Type;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
@@ -83,7 +95,15 @@ public class SchematizationUtils {
 
     // Add columns if needed, ignore any exceptions since other task might be succeeded
     if (extraColNames != null) {
-      Map<String, String> extraColumnsToType = getColumnTypes(record, extraColNames);
+      List<String> fieldNamesOrderedAsOnSource = Stream.concat(
+          record.keySchema().fields().stream().map(f -> f.name()),
+          record.valueSchema().fields().stream().map(f -> f.name())
+        ).collect(Collectors.toList());
+      List<String> extraColNamesOrderedAsOnSource = new ArrayList<>(extraColNames);
+      extraColNamesOrderedAsOnSource.sort(
+        Comparator.comparingInt(fieldNamesOrderedAsOnSource::indexOf));
+      Map<String, String> extraColumnsToType = getColumnTypes(record, extraColNamesOrderedAsOnSource);
+
       try {
         conn.appendColumnsToTable(tableName, extraColumnsToType);
       } catch (SnowflakeKafkaConnectorException e) {
@@ -109,7 +129,7 @@ public class SchematizationUtils {
     if (columnNames == null) {
       return new HashMap<>();
     }
-    Map<String, String> columnToType = new HashMap<>();
+    Map<String, String> columnToType = new LinkedHashMap<>();
     Map<String, String> schemaMap = getSchemaMapFromRecord(record);
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
 
@@ -145,7 +165,7 @@ public class SchematizationUtils {
     Schema schema = record.valueSchema();
     if (schema != null) {
       for (Field field : schema.fields()) {
-        schemaMap.put(field.name(), convertToSnowflakeType(field.schema().type()));
+        schemaMap.put(field.name(), convertToSnowflakeType(field.schema().type(), field.schema().name()));
       }
     }
     return schemaMap;
@@ -158,7 +178,7 @@ public class SchematizationUtils {
       // only when the type of the value is unrecognizable for JAVA
       throw SnowflakeErrors.ERROR_5021.getException("class: " + value.getClass());
     }
-    return convertToSnowflakeType(schemaType);
+    return convertToSnowflakeType(schemaType, null);
   }
 
   /** Convert a json node type to kafka data type */
@@ -192,7 +212,25 @@ public class SchematizationUtils {
   }
 
   /** Convert the kafka data type to Snowflake data type */
-  private static String convertToSnowflakeType(Type kafkaType) {
+  private static String convertToSnowflakeType(Type kafkaType, String semanticType) {
+      if (semanticType != null) {
+        switch (semanticType) {
+            case Decimal.LOGICAL_NAME:
+              return "DOUBLE";
+            case Time.LOGICAL_NAME:
+            case Timestamp.LOGICAL_NAME:
+            case "io.debezium.time.ZonedTimestamp":
+            case "io.debezium.time.ZonedTime":
+            case "io.debezium.time.MicroTime":
+            case "io.debezium.time.Timestamp":
+            case "io.debezium.time.MicroTimestamp":
+              return "TIMESTAMP";
+            case Date.LOGICAL_NAME:
+            case "io.debezium.time.Date":
+              return "DATE";
+        }
+    }
+
     switch (kafkaType) {
       case INT8:
         return "BYTEINT";
@@ -209,6 +247,9 @@ public class SchematizationUtils {
       case BOOLEAN:
         return "BOOLEAN";
       case STRING:
+        if (semanticType != null && semanticType.equals("io.debezium.data.Json")) {
+          return "VARIANT";
+        }
         return "VARCHAR";
       case BYTES:
         return "BINARY";

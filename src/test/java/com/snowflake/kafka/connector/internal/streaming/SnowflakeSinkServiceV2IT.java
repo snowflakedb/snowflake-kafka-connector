@@ -938,7 +938,7 @@ public class SnowflakeSinkServiceV2IT {
     avroConverter.configure(
         Collections.singletonMap("schema.registry.url", "http://fake-url"), false);
     byte[] converted = avroConverter.fromConnectData(topic, original.schema(), original);
-    conn.createTableWithOnlyMetadataColumn(table);
+    conn.createTableWithOnlyMetadataColumn(table, true);
 
     SchemaAndValue avroInputValue = avroConverter.toConnectData(topic, converted);
 
@@ -1024,7 +1024,7 @@ public class SnowflakeSinkServiceV2IT {
     JsonConverter jsonConverter = new JsonConverter();
     jsonConverter.configure(config, false);
     byte[] converted = jsonConverter.fromConnectData(topic, original.schema(), original);
-    conn.createTableWithOnlyMetadataColumn(table);
+    conn.createTableWithOnlyMetadataColumn(table, true);
 
     SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
 
@@ -1084,7 +1084,7 @@ public class SnowflakeSinkServiceV2IT {
     JsonConverter jsonConverter = new JsonConverter();
     jsonConverter.configure(config, false);
     byte[] converted = jsonConverter.fromConnectData(topic, original.schema(), original);
-    conn.createTableWithOnlyMetadataColumn(table);
+    conn.createTableWithOnlyMetadataColumn(table, true);
     createNonNullableColumn(table, "id_int8_non_nullable");
 
     SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
