@@ -6,9 +6,9 @@ import traceback
 from datetime import datetime
 from time import sleep
 
-import requests
+import requests, uuid
 import snowflake.connector
-from confluent_kafka import Producer
+from confluent_kafka import Producer, Consumer, KafkaError
 from confluent_kafka.admin import AdminClient, NewTopic, ConfigResource, NewPartitions
 from confluent_kafka.avro import AvroProducer
 
@@ -72,6 +72,10 @@ class KafkaTest:
 
         self.adminClient = AdminClient(self.client_config)
         self.producer = Producer(self.client_config)
+        consumer_config = self.client_config.copy()
+        consumer_config['group.id'] = 'my-group-' + str(uuid.uuid4())
+        consumer_config['auto.offset.reset'] = 'earliest'
+        self.consumer = Consumer(consumer_config)
         sc_config = self.client_config
         sc_config['schema.registry.url'] = schemaRegistryAddress
         self.avroProducer = AvroProducer(sc_config)
@@ -196,6 +200,60 @@ class KafkaTest:
                 if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
                     self.producer.flush()
         self.avroProducer.flush()
+
+    def consume_messages_dlq(self, fileName, partition_no, target_dlq_offset_number):
+        '''
+
+        :param fileName: File name to find out DLQ topic name from json config
+        :param partition_no: partition no to search for target offset
+        :param target_dlq_offset_number: Target offset number to find which stops finding any more offsets in DLQ
+        :return: count of offsets
+        '''
+        with open('./rest_request_generated/' + fileName + '.json') as f:
+            c = json.load(f)
+            config = c['config']
+
+        dlq_topic_name = config['errors.deadletterqueue.topic.name']
+        return self.consume_messages(dlq_topic_name, partition_no, target_dlq_offset_number)
+
+    def consume_messages(self, topic_name, partition_no, target_offset):
+        '''
+        Consumes messages from a topic and returns how many consumed.
+        This function stops when target_offset number is reached
+        :param topic_name: name of topic
+        :param target_offset: Stops function when this offset is reached for partition 0
+        :return: Count of messages consumed
+        '''
+
+        self.consumer.subscribe([topic_name])
+
+        messages_consumed_count = 0
+        try:
+            while True:
+                msg = self.consumer.poll(10.0)  # Time out in seconds
+                if msg is None:
+                    continue
+                if msg.error():
+                    if msg.error().code() == KafkaError._PARTITION_EOF:
+                        print('Reached end of partition')
+                    else:
+                        print('Error while consuming message: {}'.format(msg.error()))
+                else:
+                    messages_consumed_count += 1
+                    print('Received message: key={}, value={}, partition={}, offset={}'
+                          .format(msg.key(), msg.value(), msg.partition(), msg.offset()))
+                    if msg.partition() == partition_no and msg.offset() >= target_offset:
+                        print('Reached target offset of {} for Topic:{}'.format(target_offset, topic_name))
+                        break
+        except KafkaError as e:
+            print('Kafka error: {}'.format(e))
+
+        return messages_consumed_count
+
+    # returns kafka or confluent version
+    def get_kafka_version(self):
+        return self.testVersion
+
 
     def cleanTableStagePipe(self, connectorName, topicName="", partitionNumber=1):
         if topicName == "":
@@ -344,7 +402,6 @@ class KafkaTest:
 
         print("Post HTTP request to Create Connector:{0}".format(post_url))
         r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
-        print("Response Content Json " + json.dumps(r.json()))
         print(datetime.now().strftime("%H:%M:%S "), r.status_code)
         getConnectorResponse = requests.get(post_url)
         print("Get Connectors status:{0}, response:{1}".format(getConnectorResponse.status_code,
@@ -469,6 +526,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
 
         from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
+        from test_suit.test_snowpipe_streaming_string_json_dlq import TestSnowpipeStreamingStringJsonDLQ
         from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
 
         from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import \
@@ -492,6 +550,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
 
         from test_suit.test_schema_not_supported_converter import TestSchemaNotSupportedConverter
 
+        from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
+
         testStringJson = TestStringJson(driver, nameSalt)
         testJsonJson = TestJsonJson(driver, nameSalt)
         testStringAvro = TestStringAvro(driver, nameSalt)
@@ -511,6 +571,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         # Run this test on both confluent and apache kafka
         testSnowpipeStreamingStringJson = TestSnowpipeStreamingStringJson(driver, nameSalt)
 
+        testSnowpipeStreamingStringJsonDLQ = TestSnowpipeStreamingStringJsonDLQ(driver, nameSalt)
+
         # will run this only in confluent cloud since, since in apache kafka e2e tests, we don't start schema registry
         testSnowpipeStreamingStringAvro = TestSnowpipeStreamingStringAvroSR(driver, nameSalt)
 
@@ -518,6 +580,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         testMultipleTopicToOneTableSnowpipe = TestMultipleTopicToOneTableSnowpipe(driver, nameSalt)
 
         testSchemaMapping = TestSchemaMapping(driver, nameSalt)
+
+        testSnowpipeStreamingSchemaMappingDLQ = TestSnowpipeStreamingSchemaMappingDLQ(driver, nameSalt)
 
         testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet)
         testAutoTableCreationTopic2Table = TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress,
@@ -541,8 +605,9 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
             testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
             testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
             testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
+            testSnowpipeStreamingStringJsonDLQ,
             testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe,
-            testSchemaMapping,
+            testSchemaMapping, testSnowpipeStreamingSchemaMappingDLQ,
             testAutoTableCreation, testAutoTableCreationTopic2Table,
             testSchemaEvolutionJson, testSchemaEvolutionAvroSR,
             testSchemaEvolutionWithAutoTableCreationJson, testSchemaEvolutionWithAutoTableCreationAvroSR,
@@ -554,8 +619,9 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         testCleanEnableList1 = [
             True, True, True, True, True, True, True, True, True, True, True,
             True, True,
-            True, True,
             True,
+            True, True,
+            True, True,
             True, True,
             True, True,
             True, True,
@@ -566,8 +632,9 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
             testSuitEnableList1 = [
                 True, True, True, True, True, True, True, True, True, True, False,
                 True, True,
-                True, True,
                 True,
+                True, True,
+                True, True,
                 True, True,
                 True, True,
                 True, True,
@@ -577,8 +644,9 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
             testSuitEnableList1 = [
                 True, True, True, True, False, False, False, True, True, True, False,
                 True, False,
-                True, True,
                 True,
+                True, True,
+                True, True,
                 False, False,
                 True, False,
                 True, False,
