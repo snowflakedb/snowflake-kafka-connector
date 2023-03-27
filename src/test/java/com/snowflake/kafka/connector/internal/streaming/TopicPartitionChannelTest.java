@@ -223,11 +223,7 @@ public class TopicPartitionChannelTest {
   /* Only SFExceptions are retried and goes into fallback. */
   @Test(expected = SFException.class)
   public void testFetchOffsetTokenWithRetry_SFException() {
-    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
-        .thenThrow(SF_EXCEPTION)
-        .thenThrow(SF_EXCEPTION)
-        .thenThrow(SF_EXCEPTION)
-        .thenThrow(SF_EXCEPTION);
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenThrow(SF_EXCEPTION);
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
@@ -273,12 +269,15 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext);
 
+    int expectedRetries = MAX_GET_OFFSET_TOKEN_RETRIES;
+    Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(++expectedRetries))
+        .getLatestCommittedOffsetToken();
+
     Assert.assertEquals(
         Long.parseLong(offsetTokenAfterMaxAttempts),
         topicPartitionChannel.fetchOffsetTokenWithRetry());
-    Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
-    Mockito.verify(
-            topicPartitionChannel.getChannel(), Mockito.times(MAX_GET_OFFSET_TOKEN_RETRIES + 1))
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(++expectedRetries))
         .getLatestCommittedOffsetToken();
   }
 
@@ -397,14 +396,11 @@ public class TopicPartitionChannelTest {
 
     records.forEach(topicPartitionChannel::insertRecordToBuffer);
 
-    Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
-    // insert rows is only called once.
-    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(noOfRecords))
         .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
-
-    // get offset token is called once after channel re-open + once before a new partition is just
-    // created (In Precomputation)
-    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(2))
+    Mockito.verify(mockStreamingClient, Mockito.times(noOfRecords + 1))
+        .openChannel(ArgumentMatchers.any());
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(noOfRecords + 1))
         .getLatestCommittedOffsetToken();
 
     // Now, it should be successful
@@ -416,13 +412,10 @@ public class TopicPartitionChannelTest {
     Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
         .thenReturn(Long.toString(noOfRecords - 1));
 
-    // We will mimick the retry strategy now
-    // This time since record 0 is again trying to insert, we will call insertFiles noOfRecords
-    // times
+    // Retry the insert again, now everything should be ingested and the offset token should be
+    // noOfRecords-1
     records.forEach(topicPartitionChannel::insertRecordToBuffer);
-    Mockito.verify(
-            topicPartitionChannel.getChannel(),
-            Mockito.times(noOfRecords + 1)) // noOfRecords + 1 (before retry)
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(noOfRecords * 2))
         .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
 
     Assert.assertEquals(noOfRecords - 1, topicPartitionChannel.fetchOffsetTokenWithRetry());
@@ -452,6 +445,8 @@ public class TopicPartitionChannelTest {
           .thenReturn(new InsertValidationResponse())
           .thenReturn(validationResponse1)
           .thenReturn(validationResponse2);
+
+      Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenReturn("0");
 
       SnowflakeConnectionService conn = Mockito.mock(SnowflakeConnectionService.class);
       Mockito.when(
@@ -784,9 +779,7 @@ public class TopicPartitionChannelTest {
     Assert.assertEquals(1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
 
     // In an ideal world, put API is going to invoke this to check if flush time threshold has
-    // reached.
-    // We are mimicking that call.
-    // Will wait for 10 seconds.
+    // reached. We are mimicking that call. Will wait for 10 seconds.
     Thread.sleep(bufferFlushTimeSeconds * 1000 + 10);
 
     topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
