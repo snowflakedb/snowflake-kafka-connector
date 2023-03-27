@@ -3,7 +3,7 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -48,7 +48,7 @@ public class SnowflakeSinkTaskForStreamingIT {
   @Mock Logger logger = Mockito.mock(Logger.class);
 
   @InjectMocks @Spy
-  private LoggerHandler loggerHandler = Mockito.spy(new LoggerHandler(this.getClass().getName()));
+  private KCLogger kcLogger = Mockito.spy(new KCLogger(this.getClass().getName()));
 
   @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
 
@@ -130,14 +130,14 @@ public class SnowflakeSinkTaskForStreamingIT {
     // set up task1 logging tag
     String expectedTask1Tag =
         TestUtils.getExpectedLogTagWithoutCreationCount(task1Id, taskOpen1Count);
-    Mockito.doCallRealMethod().when(loggerHandler).setLoggerInstanceTag(expectedTask1Tag);
+    Mockito.doCallRealMethod().when(kcLogger).setLoggerInstanceTag(expectedTask1Tag);
 
     // start tasks
     sinkTask0.start(config0);
     sinkTask1.start(config1);
 
     // verify task1 start logs
-    Mockito.verify(loggerHandler, Mockito.times(1))
+    Mockito.verify(kcLogger, Mockito.times(1))
         .setLoggerInstanceTag(Mockito.contains(expectedTask1Tag));
     Mockito.verify(logger, Mockito.times(2))
         .debug(

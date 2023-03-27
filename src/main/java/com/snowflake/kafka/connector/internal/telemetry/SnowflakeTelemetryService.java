@@ -13,8 +13,9 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_C
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.Map;
+
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
@@ -28,7 +29,7 @@ import org.apache.kafka.common.utils.AppInfoParser;
  */
 public abstract class SnowflakeTelemetryService {
 
-  private final LoggerHandler LOGGER = new LoggerHandler(SnowflakeTelemetryService.class.getName());
+  private final KCLogger LOGGER = new KCLogger(SnowflakeTelemetryService.class.getName());
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 

@@ -52,7 +52,7 @@ public class SnowflakeInternalStage {
     }
   }
 
-  private final LoggerHandler LOGGER = new LoggerHandler(SnowflakeInternalStage.class.getName());
+  private final KCLogger LOGGER = new KCLogger(SnowflakeInternalStage.class.getName());
 
   // Any operation on the map should be atomic
   private final ConcurrentMap<String, SnowflakeMetadataWithExpiration> storageInfoCache =

@@ -38,8 +38,8 @@ public class SnowflakeSinkServiceFactory {
 
   /** Builder class to create instance of {@link SnowflakeSinkService} */
   public static class SnowflakeSinkServiceBuilder {
-    private final LoggerHandler LOGGER =
-        new LoggerHandler(SnowflakeSinkServiceBuilder.class.getName());
+    private final KCLogger LOGGER =
+        new KCLogger(SnowflakeSinkServiceBuilder.class.getName());
 
     private final SnowflakeSinkService service;
 

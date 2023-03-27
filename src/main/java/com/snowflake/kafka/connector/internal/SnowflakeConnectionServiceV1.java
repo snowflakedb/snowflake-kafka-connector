@@ -31,8 +31,8 @@ import net.snowflake.client.jdbc.cloud.storage.StageInfo;
  */
 public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService {
 
-  private final LoggerHandler LOGGER =
-      new LoggerHandler(SnowflakeConnectionServiceV1.class.getName());
+  private final KCLogger LOGGER =
+      new KCLogger(SnowflakeConnectionServiceV1.class.getName());
 
   private final Connection conn;
   private final SnowflakeTelemetryService telemetry;

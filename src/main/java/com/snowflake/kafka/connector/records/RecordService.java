@@ -20,7 +20,7 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.math.BigDecimal;
@@ -55,7 +55,7 @@ import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 public class RecordService {
-  private final LoggerHandler LOGGER = new LoggerHandler(RecordService.class.getName());
+  private final KCLogger LOGGER = new KCLogger(RecordService.class.getName());
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 

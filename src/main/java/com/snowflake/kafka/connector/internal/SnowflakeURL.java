@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
 /** Snowflake URL Object https://account.region.snowflakecomputing.com:443 */
 public class SnowflakeURL {
 
-  private final LoggerHandler LOGGER = new LoggerHandler(SnowflakeURL.class.getName());
+  private final KCLogger LOGGER = new KCLogger(SnowflakeURL.class.getName());
 
   private String jdbcUrl;
 
