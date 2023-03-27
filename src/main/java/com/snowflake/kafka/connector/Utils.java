@@ -492,9 +492,9 @@ public class Utils {
             Utils.formatString(
                 "Config value '{}' is invalid. Error message: '{}'", invalidKey, invalidValue);
         invalidParamsMessage += errorMessage + "\n";
-        LOGGER.error(errorMessage);
       }
 
+      LOGGER.error("Invalid config: " + invalidParamsMessage);
       throw SnowflakeErrors.ERROR_0001.getException(invalidParamsMessage);
     }
 
