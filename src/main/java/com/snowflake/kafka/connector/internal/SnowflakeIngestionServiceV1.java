@@ -59,7 +59,7 @@ public class SnowflakeIngestionServiceV1 extends EnableLogging
               port,
               userAgentSuffix);
     } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_0002.getException(e);
+      throw SnowflakeErrors.ERROR_0002.getException(e, this.telemetry);
     }
     LOG_INFO_MSG("initialized the pipe connector for pipe {}", pipeName);
   }
@@ -77,7 +77,7 @@ public class SnowflakeIngestionServiceV1 extends EnableLogging
           SnowflakeInternalOperations.INSERT_FILES_SNOWPIPE_API,
           () -> ingestManager.ingestFile(new StagedFileWrapper(fileName), null));
     } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_3001.getException(e);
+      throw SnowflakeErrors.ERROR_3001.getException(e, this.telemetry);
     }
     LOG_DEBUG_MSG("ingest file: {}", fileName);
   }
@@ -105,7 +105,7 @@ public class SnowflakeIngestionServiceV1 extends EnableLogging
             return true;
           });
     } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_3001.getException(e);
+      throw SnowflakeErrors.ERROR_3001.getException(e, this.telemetry);
     }
   }
 
@@ -131,7 +131,7 @@ public class SnowflakeIngestionServiceV1 extends EnableLogging
                   SnowflakeInternalOperations.INSERT_REPORT_SNOWPIPE_API,
                   () -> ingestManager.getHistory(null, null, beginMark));
     } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_3002.getException(e);
+      throw SnowflakeErrors.ERROR_3002.getException(e, this.telemetry);
     }
 
     int numOfRecords = 0;
@@ -209,13 +209,14 @@ public class SnowflakeIngestionServiceV1 extends EnableLogging
                         ingestManager.getHistoryRange(
                             null, (String) startTimeInclusiveFinal, endTimeExclusive));
       } catch (Exception e) {
-        throw SnowflakeErrors.ERROR_1002.getException(e);
+        throw SnowflakeErrors.ERROR_1002.getException(e, this.telemetry);
       }
       if (response != null && response.files != null) {
         response.files.forEach(
             entry -> result.put(entry.getPath(), convertIngestStatus(entry.getStatus())));
       } else {
-        throw SnowflakeErrors.ERROR_4001.getException("the response of load " + "history is null");
+        throw SnowflakeErrors.ERROR_4001.getException(
+            "the response of load history is null", this.telemetry);
       }
 
       LOG_INFO_MSG(

@@ -1,6 +1,6 @@
 import json
 
-from test_suit.test_utils import RetryableError, NonRetryableError
+from test_suit.test_utils import NonRetryableError
 
 
 # test if the table is updated with the correct column
@@ -79,9 +79,7 @@ class TestSchemaEvolutionJson:
 
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.table)).fetchone()[0]
-        if res == 0:
-            raise RetryableError()
-        elif res != len(self.topics) * self.recordNum:
+        if res != len(self.topics) * self.recordNum:
             print("Number of record expected: {}, got: {}".format(len(self.topics) * self.recordNum, res))
             raise NonRetryableError("Number of record in table is different from number of record sent")
 

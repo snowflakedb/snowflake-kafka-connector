@@ -306,6 +306,16 @@ public enum SnowflakeErrors {
     return getException("", telemetryService);
   }
 
+  /**
+   * Convert a given message into SnowflakeKafkaConnectorException.
+   *
+   * <p>If message is null, we use Enum's toString() method to wrap inside
+   * SnowflakeKafkaConnectorException
+   *
+   * @param msg Message to send to Telemetry Service. Remember, we Strip the message
+   * @param telemetryService can be null
+   * @return Exception wrapped in Snowflake Connector Exception
+   */
   public SnowflakeKafkaConnectorException getException(
       String msg, SnowflakeTelemetryService telemetryService) {
     if (telemetryService != null) {

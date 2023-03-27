@@ -93,12 +93,14 @@ public class TopicPartitionChannelIT {
 
     // since channel is updated, try to insert data again or may be call getOffsetToken
     // We will reopen the channel in since the older channel in service is stale because we
-    // externally created a new channel but didnt update the partitionsToChannel cache.
+    // externally created a new channel but did not update the partitionsToChannel cache.
     // This will retry three times, reopen the channel, replace the newly created channel in cache
     // and fetch the offset again.
     assert service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords;
     assert inMemorySinkTaskContext.offsets().size() == 1;
     assert inMemorySinkTaskContext.offsets().get(topicPartition) == 1;
+    assert TestUtils.tableSize(testTableName) == noOfRecords
+        : "expected: " + noOfRecords + " actual: " + TestUtils.tableSize(testTableName);
   }
 
   /* This will automatically open the channel. */
@@ -150,6 +152,11 @@ public class TopicPartitionChannelIT {
 
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+    assert TestUtils.tableSize(testTableName) == noOfRecords + noOfRecords
+        : "expected: "
+            + (noOfRecords + noOfRecords)
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
   }
 
   /**
@@ -222,13 +229,20 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (anotherSetOfRecords + noOfRecords - 1);
+    assert topicPartitionChannel.fetchOffsetTokenWithRetry()
+        == (anotherSetOfRecords + noOfRecords - 1);
+    assert TestUtils.tableSize(testTableName) == noOfRecords + anotherSetOfRecords
+        : "expected: "
+            + (noOfRecords + anotherSetOfRecords)
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
   }
 
   /**
-   * Two partions for a topic Partition 1 -> 10(0-9) records -> Success Partition 2 -> 10(0-9)
+   * Two partitions for a topic Partition 1 -> 10(0-9) records -> Success Partition 2 -> 10(0-9)
    * records -> Success
    *
-   * <p>Partition 1 -> Channel 1 -> open with same client Client sequencer for channel 1 - 1
+   * <p>Partition 1 -> Channel 1 -> open with same client sequencer for channel 1 - 1
    *
    * <p>Partition 1 -> 10(10-19) records -> Failure -> reopen -> fetch offset token Client sequencer
    * for channel 1 - 2
@@ -337,10 +351,21 @@ public class TopicPartitionChannelIT {
 
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName2) == 0;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName2)
-        == (recordsInPartition2 + anotherSetOfRecords - 1);
+            == (recordsInPartition2 + anotherSetOfRecords - 1)
+        : "expected: "
+            + (recordsInPartition2 + anotherSetOfRecords - 1)
+            + " actual: "
+            + TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName2);
 
     assert TestUtils.tableSize(testTableName)
-        == recordsInPartition1 + anotherSetOfRecords + recordsInPartition2 + anotherSetOfRecords;
+            == recordsInPartition1 + anotherSetOfRecords + recordsInPartition2 + anotherSetOfRecords
+        : "expected: "
+            + (recordsInPartition1
+                + anotherSetOfRecords
+                + recordsInPartition2
+                + anotherSetOfRecords)
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
   }
 
   @Test
@@ -408,6 +433,12 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 2;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (recordsInPartition1 + anotherSetOfRecords - 1);
+
+    assert TestUtils.tableSize(testTableName) == recordsInPartition1 + anotherSetOfRecords
+        : "expected: "
+            + (recordsInPartition1 + anotherSetOfRecords)
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
   }
 
   @Test
