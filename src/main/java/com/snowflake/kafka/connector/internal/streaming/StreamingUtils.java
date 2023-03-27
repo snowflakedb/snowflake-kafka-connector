@@ -12,6 +12,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CON
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -132,7 +133,7 @@ public class StreamingUtils {
    * @param inputConfig given in connector json file
    * @return map of invalid parameters
    */
-  public static Map<String, String> validateStreamingSnowpipeConfig(
+  public static ImmutableMap<String, String> validateStreamingSnowpipeConfig(
       final Map<String, String> inputConfig) {
     Map<String, String> invalidParams = new HashMap<>();
 
@@ -207,7 +208,8 @@ public class StreamingUtils {
                 "Kafka config:{} error:{}", INGESTION_METHOD_OPT, exception.getMessage()));
       }
     }
-    return invalidParams;
+
+    return ImmutableMap.copyOf(invalidParams);
   }
 
   /**

@@ -22,6 +22,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVER
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
+import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -216,7 +217,7 @@ public class Utils {
    *
    * @param config connector configuration
    */
-  static Map<String, String> validateProxySetting(Map<String, String> config) {
+  static ImmutableMap<String, String> validateProxySettings(Map<String, String> config) {
     Map<String, String> invalidConfigParams = new HashMap<String, String>();
 
     String host =
@@ -252,7 +253,7 @@ public class Utils {
       }
     }
 
-    return invalidConfigParams;
+    return ImmutableMap.copyOf(invalidConfigParams);
   }
 
   /**
@@ -427,7 +428,7 @@ public class Utils {
           Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_URL));
     }
     // jvm proxy settings
-    invalidConfigParams.putAll(validateProxySetting(config));
+    invalidConfigParams.putAll(validateProxySettings(config));
 
     // set jdbc logging directory
     Utils.setJDBCLoggingDirectory();
@@ -482,21 +483,8 @@ public class Utils {
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
     invalidConfigParams.putAll(StreamingUtils.validateStreamingSnowpipeConfig(config));
 
-    // log all invalid params and throw exception
-    if (!invalidConfigParams.isEmpty()) {
-      String invalidParamsMessage = "";
-
-      for (String invalidKey : invalidConfigParams.keySet()) {
-        String invalidValue = invalidConfigParams.get(invalidKey);
-        String errorMessage =
-            Utils.formatString(
-                "Config value '{}' is invalid. Error message: '{}'", invalidKey, invalidValue);
-        invalidParamsMessage += errorMessage + "\n";
-      }
-
-      LOGGER.error("Invalid config: " + invalidParamsMessage);
-      throw SnowflakeErrors.ERROR_0001.getException(invalidParamsMessage);
-    }
+    // logs and throws exception if there are invalid params
+    handleInvalidParameters(ImmutableMap.copyOf(invalidConfigParams));
 
     return connectorName;
   }
@@ -675,5 +663,23 @@ public class Utils {
       format = format.replaceFirst("\\{}", Objects.toString(vars[i]).replaceAll("\\$", "\\\\\\$"));
     }
     return format;
+  }
+
+  private static void handleInvalidParameters(ImmutableMap<String, String> invalidConfigParams) {
+    // log all invalid params and throw exception
+    if (!invalidConfigParams.isEmpty()) {
+      String invalidParamsMessage = "";
+
+      for (String invalidKey : invalidConfigParams.keySet()) {
+        String invalidValue = invalidConfigParams.get(invalidKey);
+        String errorMessage =
+                Utils.formatString(
+                        "Config value '{}' is invalid. Error message: '{}'", invalidKey, invalidValue);
+        invalidParamsMessage += errorMessage + "\n";
+      }
+
+      LOGGER.error("Invalid config: " + invalidParamsMessage);
+      throw SnowflakeErrors.ERROR_0001.getException(invalidParamsMessage);
+    }
   }
 }

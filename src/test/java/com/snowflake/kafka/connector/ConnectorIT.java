@@ -269,7 +269,7 @@ public class ConnectorIT {
     Map<String, String> config = getCorrectConfig();
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
-    Utils.validateProxySetting(config);
+    Utils.validateProxySettings(config);
   }
 
   @Test
@@ -279,7 +279,7 @@ public class ConnectorIT {
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "user");
     try {
-      Utils.validateProxySetting(config);
+      Utils.validateProxySettings(config);
     } catch (SnowflakeKafkaConnectorException e) {
       Assert.assertEquals("0023", e.getCode());
       return;
@@ -294,7 +294,7 @@ public class ConnectorIT {
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "pass");
     try {
-      Utils.validateProxySetting(config);
+      Utils.validateProxySettings(config);
     } catch (SnowflakeKafkaConnectorException e) {
       Assert.assertEquals("0023", e.getCode());
       return;
@@ -309,7 +309,7 @@ public class ConnectorIT {
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "admin");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "test");
-    Utils.validateProxySetting(config);
+    Utils.validateProxySettings(config);
   }
 
   @Test

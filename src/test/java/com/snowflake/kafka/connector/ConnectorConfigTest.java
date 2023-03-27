@@ -801,6 +801,7 @@ public class ConnectorConfigTest {
     }
   }
 
+  // removes each of the following params iteratively to test if the log/exception has all the expected removed params
   @Test
   public void testMultipleInvalidConfigs() {
     List<String> emptyParams =

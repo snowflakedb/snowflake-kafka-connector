@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -123,19 +124,19 @@ public abstract class BufferThreshold {
    *
    * @param providedSFConnectorConfig provided by customer
    * @param ingestionMethodConfig ingestion method used. Check {@link IngestionMethodConfig}
-   * @return true if all thresholds are valid.
+   * @return invalid config parameters, if exists
    */
-  public static Map<String, String> validateBufferThreshold(
+  public static ImmutableMap<String, String> validateBufferThreshold(
       Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
     Map<String, String> invalidConfigParams = new HashMap<>();
     invalidConfigParams.putAll(
         verifyBufferFlushTimeThreshold(providedSFConnectorConfig, ingestionMethodConfig));
     invalidConfigParams.putAll(verifyBufferCountThreshold(providedSFConnectorConfig));
     invalidConfigParams.putAll(verifyBufferBytesThreshold(providedSFConnectorConfig));
-    return invalidConfigParams;
+    return ImmutableMap.copyOf(invalidConfigParams);
   }
 
-  private static Map<String, String> verifyBufferFlushTimeThreshold(
+  private static ImmutableMap<String, String> verifyBufferFlushTimeThreshold(
       Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
     Map<String, String> invalidConfigParams = new HashMap();
 
@@ -175,10 +176,10 @@ public abstract class BufferThreshold {
       }
     }
 
-    return invalidConfigParams;
+    return ImmutableMap.copyOf(invalidConfigParams);
   }
 
-  private static Map<String, String> verifyBufferBytesThreshold(
+  private static ImmutableMap<String, String> verifyBufferBytesThreshold(
       Map<String, String> providedSFConnectorConfig) {
     Map<String, String> invalidConfigParams = new HashMap();
 
@@ -212,10 +213,11 @@ public abstract class BufferThreshold {
                 providedBufferSizeBytesStr));
       }
     }
-    return invalidConfigParams;
+
+    return ImmutableMap.copyOf(invalidConfigParams);
   }
 
-  private static Map<String, String> verifyBufferCountThreshold(
+  private static ImmutableMap<String, String> verifyBufferCountThreshold(
       Map<String, String> providedSFConnectorConfig) {
     Map<String, String> invalidConfigParams = new HashMap();
 
@@ -247,7 +249,8 @@ public abstract class BufferThreshold {
                 providedBufferCountRecordsStr));
       }
     }
-    return invalidConfigParams;
+
+    return ImmutableMap.copyOf(invalidConfigParams);
   }
 
   @Override

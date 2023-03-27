@@ -204,7 +204,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     }
 
     // Verify proxy config is valid
-    Map<String, String> invalidProxyParams = Utils.validateProxySetting(connectorConfigs);
+    Map<String, String> invalidProxyParams = Utils.validateProxySettings(connectorConfigs);
 
     for (String invalidKey : invalidProxyParams.keySet()) {
       Utils.updateConfigErrorMessage(result, invalidKey, invalidProxyParams.get(invalidKey));
