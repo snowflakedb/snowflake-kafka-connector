@@ -25,7 +25,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.io.BufferedReader;
@@ -217,20 +216,24 @@ public class Utils {
    *
    * @param config connector configuration
    */
-  static void validateProxySetting(Map<String, String> config) {
+  static Map<String, String> validateProxySetting(Map<String, String> config) {
+    Map<String, String> invalidConfigParams = new HashMap<String, String>();
+
     String host =
         SnowflakeSinkConnectorConfig.getProperty(
             config, SnowflakeSinkConnectorConfig.JVM_PROXY_HOST);
     String port =
         SnowflakeSinkConnectorConfig.getProperty(
             config, SnowflakeSinkConnectorConfig.JVM_PROXY_PORT);
+
     // either both host and port are provided or none of them are provided
     if (host != null ^ port != null) {
-      throw SnowflakeErrors.ERROR_0022.getException(
-          SnowflakeSinkConnectorConfig.JVM_PROXY_HOST
-              + " and "
-              + SnowflakeSinkConnectorConfig.JVM_PROXY_PORT
-              + " must be provided together");
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.JVM_PROXY_HOST,
+          "proxy host and port must be provided together");
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.JVM_PROXY_PORT,
+          "proxy host and port must be provided together");
     } else if (host != null) {
       String username =
           SnowflakeSinkConnectorConfig.getProperty(
@@ -240,13 +243,16 @@ public class Utils {
               config, SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD);
       // either both username and password are provided or none of them are provided
       if (username != null ^ password != null) {
-        throw SnowflakeErrors.ERROR_0023.getException(
-            SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME
-                + " and "
-                + SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD
-                + " must be provided together");
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME,
+            "proxy username and password must be provided together");
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD,
+            "proxy username and password must be provided together");
       }
     }
+
+    return invalidConfigParams;
   }
 
   /**
@@ -421,12 +427,7 @@ public class Utils {
           Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_URL));
     }
     // jvm proxy settings
-    try {
-      validateProxySetting(config);
-    } catch (SnowflakeKafkaConnectorException e) {
-      invalidConfigParams.put(
-          "Proxy info", Utils.formatString("Proxy settings error: ", e.getMessage()));
-    }
+    invalidConfigParams.putAll(validateProxySetting(config));
 
     // set jdbc logging directory
     Utils.setJDBCLoggingDirectory();
