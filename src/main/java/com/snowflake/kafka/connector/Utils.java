@@ -673,8 +673,8 @@ public class Utils {
       for (String invalidKey : invalidConfigParams.keySet()) {
         String invalidValue = invalidConfigParams.get(invalidKey);
         String errorMessage =
-                Utils.formatString(
-                        "Config value '{}' is invalid. Error message: '{}'", invalidKey, invalidValue);
+            Utils.formatString(
+                "Config value '{}' is invalid. Error message: '{}'", invalidKey, invalidValue);
         invalidParamsMessage += errorMessage + "\n";
       }
 
