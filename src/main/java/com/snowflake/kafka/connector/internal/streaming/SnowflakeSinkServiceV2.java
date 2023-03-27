@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
+import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
 
 import com.codahale.metrics.MetricRegistry;
@@ -117,8 +118,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.recordNum = StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
     this.flushTimeSeconds = StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
     this.conn = conn;
-    this.recordService = new RecordService();
     this.telemetryService = conn.getTelemetryClient();
+    this.recordService = new RecordService(this.telemetryService);
     this.topicToTableMap = new HashMap<>();
 
     // Setting the default value in constructor
@@ -177,7 +178,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.connectorConfig,
             this.kafkaRecordErrorReporter,
             this.sinkTaskContext,
-            this.conn));
+            this.conn,
+            this.recordService));
   }
 
   /**
@@ -246,7 +248,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           "Topic: {} Partition: {} hasn't been initialized to get offset",
           topicPartition.topic(),
           topicPartition.partition());
-      return 0;
+      return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
     }
   }
 
@@ -509,7 +511,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         if (this.conn.isTableCompatible(tableName)) {
           LOGGER.info("Using existing table {}.", tableName);
         } else {
-          throw SnowflakeErrors.ERROR_5003.getException("table name: " + tableName);
+          throw SnowflakeErrors.ERROR_5003.getException(
+              "table name: " + tableName, this.telemetryService);
         }
       } else {
         this.conn.appendMetaColIfNotExist(tableName);
