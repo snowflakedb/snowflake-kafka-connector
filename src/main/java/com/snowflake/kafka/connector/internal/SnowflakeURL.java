@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
 /** Snowflake URL Object https://account.region.snowflakecomputing.com:443 */
 public class SnowflakeURL {
 
-  private final SFLogger LOGGER = new SFLogger(SnowflakeURL.class);
+  private final LoggerHandler LOGGER = new LoggerHandler(SnowflakeURL.class.getName());
 
   private String jdbcUrl;
 
@@ -80,11 +80,11 @@ public class SnowflakeURL {
 
     jdbcUrl = "jdbc:snowflake://" + url + ":" + port;
     if (enableJDBCTrace()) {
-      LOGGER.LOG_INFO("enabling JDBC tracing");
+      LOGGER.info("enabling JDBC tracing");
       jdbcUrl = jdbcUrl + "/?tracing=ALL";
     }
 
-    LOGGER.LOG_DEBUG("parsed Snowflake URL: {}", urlStr);
+    LOGGER.debug("parsed Snowflake URL: {}", urlStr);
   }
 
   /**

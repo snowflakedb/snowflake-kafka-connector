@@ -13,7 +13,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_C
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.SFLogger;
+import com.snowflake.kafka.connector.internal.LoggerHandler;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -28,7 +28,7 @@ import org.apache.kafka.common.utils.AppInfoParser;
  */
 public abstract class SnowflakeTelemetryService {
 
-  private final SFLogger LOGGER = new SFLogger(SnowflakeTelemetryService.class);
+  private final LoggerHandler LOGGER = new LoggerHandler(SnowflakeTelemetryService.class.getName());
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -190,17 +190,17 @@ public abstract class SnowflakeTelemetryService {
     msg.put(VERSION, Utils.VERSION); // version number
     try {
       telemetry.addLogToBatch(TelemetryUtil.buildJobData(msg));
-      LOGGER.LOG_DEBUG("sending telemetry data: {} of type:{}", data.toString(), type.toString());
+      LOGGER.debug("sending telemetry data: {} of type:{}", data.toString(), type.toString());
       telemetry.sendBatchAsync();
     } catch (Exception e) {
-      LOGGER.LOG_ERROR(
+      LOGGER.error(
           "Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
     }
   }
 
   private String getAppName() {
     if (name == null || name.isEmpty()) {
-      LOGGER.LOG_WARN("appName in telemetry service is empty");
+      LOGGER.warn("appName in telemetry service is empty");
       return "empty_appName";
     }
     return name;
@@ -208,7 +208,7 @@ public abstract class SnowflakeTelemetryService {
 
   private String getTaskID() {
     if (taskID == null || taskID.isEmpty()) {
-      LOGGER.LOG_WARN("taskID in telemetry service is empty");
+      LOGGER.warn("taskID in telemetry service is empty");
       return "empty_taskID";
     }
     return taskID;

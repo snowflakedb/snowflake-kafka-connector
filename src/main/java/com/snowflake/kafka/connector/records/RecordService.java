@@ -20,7 +20,7 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.internal.SFLogger;
+import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.math.BigDecimal;
@@ -55,7 +55,7 @@ import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 public class RecordService {
-  private final SFLogger LOGGER = new SFLogger(RecordService.class);
+  private final LoggerHandler LOGGER = new LoggerHandler(RecordService.class.getName());
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -536,7 +536,7 @@ public class RecordService {
         if (record.value() instanceof SnowflakeRecordContent) {
           SnowflakeRecordContent recordValueContent = (SnowflakeRecordContent) record.value();
           if (recordValueContent.isRecordContentValueNull()) {
-            LOGGER.LOG_DEBUG(
+            LOGGER.debug(
                 "Record value schema is:{} and value is Empty Json Node for topic {}, partition {}"
                     + " and offset {}",
                 valueSchema.getClass().getName(),
@@ -551,7 +551,7 @@ public class RecordService {
         // Tombstone handler SMT can be used but we need to check here if value is null if SMT is
         // not used
         if (record.value() == null) {
-          LOGGER.LOG_DEBUG(
+          LOGGER.debug(
               "Record value is null for topic {}, partition {} and offset {}",
               record.topic(),
               record.kafkaPartition(),
@@ -560,7 +560,7 @@ public class RecordService {
         }
       }
       if (isRecordValueNull) {
-        LOGGER.LOG_DEBUG(
+        LOGGER.debug(
             "Null valued record from topic '{}', partition {} and offset {} was skipped.",
             record.topic(),
             record.kafkaPartition(),
