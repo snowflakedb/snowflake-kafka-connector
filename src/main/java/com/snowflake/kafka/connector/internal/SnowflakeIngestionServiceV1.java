@@ -28,8 +28,7 @@ import net.snowflake.ingest.utils.StagedFileWrapper;
  */
 public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
 
-  private final KCLogger LOGGER =
-      new KCLogger(SnowflakeIngestionServiceV1.class.getName());
+  private final KCLogger LOGGER = new KCLogger(SnowflakeIngestionServiceV1.class.getName());
   private static final long ONE_HOUR = 60 * 60 * 1000;
 
   private final String stageName;

@@ -15,7 +15,6 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.Map;
-
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
@@ -194,8 +193,7 @@ public abstract class SnowflakeTelemetryService {
       LOGGER.debug("sending telemetry data: {} of type:{}", data.toString(), type.toString());
       telemetry.sendBatchAsync();
     } catch (Exception e) {
-      LOGGER.error(
-          "Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
+      LOGGER.error("Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
     }
   }
 

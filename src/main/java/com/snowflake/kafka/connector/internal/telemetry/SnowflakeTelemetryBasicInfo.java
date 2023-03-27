@@ -8,8 +8,7 @@ public abstract class SnowflakeTelemetryBasicInfo {
   final String tableName;
   final String stageName;
 
-  static final KCLogger LOGGER =
-      new KCLogger(SnowflakeTelemetryBasicInfo.class.getName());
+  static final KCLogger LOGGER = new KCLogger(SnowflakeTelemetryBasicInfo.class.getName());
 
   SnowflakeTelemetryBasicInfo(final String tableName, final String stageName) {
     this.tableName = tableName;

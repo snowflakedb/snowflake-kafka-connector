@@ -26,8 +26,7 @@ import org.apache.kafka.connect.storage.Converter;
 /** Snowflake Converter */
 public abstract class SnowflakeConverter implements Converter {
 
-  protected static final KCLogger LOGGER =
-      new KCLogger(SnowflakeConverter.class.getName());
+  protected static final KCLogger LOGGER = new KCLogger(SnowflakeConverter.class.getName());
 
   final ObjectMapper mapper = new ObjectMapper();
 

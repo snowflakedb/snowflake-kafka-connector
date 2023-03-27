@@ -49,8 +49,7 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
  */
 public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
-  private static final KCLogger LOGGER =
-      new KCLogger(SnowflakeSinkServiceV2.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceV2.class.getName());
 
   private static String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 

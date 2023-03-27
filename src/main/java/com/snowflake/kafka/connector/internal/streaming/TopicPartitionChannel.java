@@ -64,8 +64,7 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
  * getLatestOffsetToken from Snowflake
  */
 public class TopicPartitionChannel {
-  private static final KCLogger LOGGER =
-      new KCLogger(TopicPartitionChannel.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(TopicPartitionChannel.class.getName());
 
   private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 

@@ -31,8 +31,7 @@ import net.snowflake.client.jdbc.cloud.storage.StageInfo;
  */
 public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService {
 
-  private final KCLogger LOGGER =
-      new KCLogger(SnowflakeConnectionServiceV1.class.getName());
+  private final KCLogger LOGGER = new KCLogger(SnowflakeConnectionServiceV1.class.getName());
 
   private final Connection conn;
   private final SnowflakeTelemetryService telemetry;
@@ -755,8 +754,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       } catch (SQLException e) {
         throw SnowflakeErrors.ERROR_2003.getException(e, this.telemetry);
       }
-      LOGGER.info(
-          "moved file: {} from stage: {} to table stage: {}", name, stageName, tableName);
+      LOGGER.info("moved file: {} from stage: {} to table stage: {}", name, stageName, tableName);
       // remove
       removeFile(stageName, name);
     }
