@@ -9,6 +9,11 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 
@@ -776,6 +781,78 @@ public class ConnectorConfigTest {
       assert exception
           .getMessage()
           .contains(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG);
+    }
+  }
+
+  @Test
+  public void testInvalidEmptyConfig() {
+    try {
+      Map<String, String> config = new HashMap<>();
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception
+              .getMessage()
+              .contains(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE);
+      assert exception
+              .getMessage()
+              .contains(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA);
+      assert exception
+              .getMessage()
+              .contains(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
+      assert exception
+              .getMessage()
+              .contains(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY);
+      assert exception
+              .getMessage()
+              .contains(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER);
+      assert exception
+              .getMessage()
+              .contains(SnowflakeSinkConnectorConfig.NAME);
+      assert exception
+              .getMessage()
+              .contains(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
+      assert exception
+              .getMessage()
+              .contains(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL);
+      assert exception
+              .getMessage()
+              .contains(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
+    }
+  }
+
+    @Test
+    public void testMultipleInvalidConfigs() {
+      List<String> emptyParams = Arrays.asList(
+              SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE,
+              SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA,
+              SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+              SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
+              SnowflakeSinkConnectorConfig.SNOWFLAKE_USER,
+              SnowflakeSinkConnectorConfig.NAME,
+              SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
+              SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
+      List<String> paramsToRemove = new ArrayList<String>();
+
+      for (String param : emptyParams) {
+        paramsToRemove.add(param);
+        this.invalidConfigRunner(paramsToRemove);
+      }
+  }
+
+  private void invalidConfigRunner(List<String> paramsToRemove) {
+    Map<String, String> config = getConfig();
+    for (String configParam : paramsToRemove) {
+      config.remove(configParam);
+    }
+
+    try {
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      for (String configParam : paramsToRemove) {
+        assert exception
+                .getMessage()
+                .contains(configParam);
+      }
     }
   }
 }
