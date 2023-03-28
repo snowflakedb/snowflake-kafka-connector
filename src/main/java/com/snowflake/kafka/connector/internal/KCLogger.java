@@ -5,10 +5,10 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Attaches additional fields to the logs */
-public class LoggerHandler {
+/** Logger for Snowflake Sink Connector. Also attaches additional fields to the logs */
+public class KCLogger {
   // static properties and methods
-  private static final Logger META_LOGGER = LoggerFactory.getLogger(LoggerHandler.class.getName());
+  private static final Logger META_LOGGER = LoggerFactory.getLogger(KCLogger.class.getName());
   private static final String EMPTY_ID = new UUID(0L, 0L).toString();
 
   private static String kcGlobalInstanceId = EMPTY_ID;
@@ -58,22 +58,22 @@ public class LoggerHandler {
    *
    * @param name The class name passed for initializing the logger
    */
-  public LoggerHandler(String name) {
+  public KCLogger(String name) {
     this.logger = LoggerFactory.getLogger(name);
 
     META_LOGGER.info(
         kcGlobalInstanceId.equals(EMPTY_ID)
             ? Utils.formatLogMessage(
-                "Created loggerHandler for class: '{}' without a Kafka Connect global instance id.",
+                "Created KCLogger for class: '{}' without a Kafka Connect global instance id.",
                 name)
             : Utils.formatLogMessage(
-                "Created loggerHandler for class: '{}' with Kafka Connect global instance id: '{}'",
+                "Created KCLogger for class: '{}' with Kafka Connect global instance id: '{}'",
                 name,
                 kcGlobalInstanceId));
   }
 
   /**
-   * Sets the loggerHandler's instance tag.
+   * Sets the KCLogger's instance tag.
    *
    * <p>Note: this should be called after the kc instance id has been set
    *
@@ -91,7 +91,7 @@ public class LoggerHandler {
     this.logger.info("Given logger tag set to: '{}'", this.loggerInstanceTag);
   }
 
-  /** Clears the loggerHandler's instance id tag */
+  /** Clears the Logger's instance id tag */
   public void clearLoggerInstanceIdTag() {
     this.loggerInstanceTag = "";
   }

@@ -16,7 +16,7 @@
  */
 package com.snowflake.kafka.connector;
 
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -43,7 +43,7 @@ import org.apache.kafka.connect.sink.SinkConnector;
  */
 public class SnowflakeSinkConnector extends SinkConnector {
   // create logger without correlationId for now
-  private static LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnector.class.getName());
+  private static KCLogger LOGGER = new KCLogger(SnowflakeSinkConnector.class.getName());
 
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
@@ -89,7 +89,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     connectorStartTime = System.currentTimeMillis();
 
     // initialize logging with global instance Id
-    LoggerHandler.setConnectGlobalInstanceId(this.getKcInstanceId(this.connectorStartTime));
+    KCLogger.setConnectGlobalInstanceId(this.getKcInstanceId(this.connectorStartTime));
 
     config = new HashMap<>(parsedConfig);
 

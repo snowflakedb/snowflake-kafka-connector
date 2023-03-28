@@ -20,8 +20,7 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.internal.EnableLogging;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.math.BigDecimal;
@@ -55,10 +54,10 @@ import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
 
-public class RecordService extends EnableLogging {
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+public class RecordService {
+  private final KCLogger LOGGER = new KCLogger(RecordService.class.getName());
 
-  private static final LoggerHandler LOGGER = new LoggerHandler(RecordService.class.getName());
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   // deleted private to use these values in test
   static final String OFFSET = "offset";
@@ -537,7 +536,7 @@ public class RecordService extends EnableLogging {
         if (record.value() instanceof SnowflakeRecordContent) {
           SnowflakeRecordContent recordValueContent = (SnowflakeRecordContent) record.value();
           if (recordValueContent.isRecordContentValueNull()) {
-            LOG_DEBUG_MSG(
+            LOGGER.debug(
                 "Record value schema is:{} and value is Empty Json Node for topic {}, partition {}"
                     + " and offset {}",
                 valueSchema.getClass().getName(),
@@ -552,7 +551,7 @@ public class RecordService extends EnableLogging {
         // Tombstone handler SMT can be used but we need to check here if value is null if SMT is
         // not used
         if (record.value() == null) {
-          LOG_DEBUG_MSG(
+          LOGGER.debug(
               "Record value is null for topic {}, partition {} and offset {}",
               record.topic(),
               record.kafkaPartition(),
@@ -561,7 +560,7 @@ public class RecordService extends EnableLogging {
         }
       }
       if (isRecordValueNull) {
-        LOG_DEBUG_MSG(
+        LOGGER.debug(
             "Null valued record from topic '{}', partition {} and offset {} was skipped.",
             record.topic(),
             record.kafkaPartition(),
