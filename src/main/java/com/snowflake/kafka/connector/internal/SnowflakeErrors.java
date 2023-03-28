@@ -27,7 +27,7 @@ public enum SnowflakeErrors {
       "0001",
       "Invalid input connector configuration",
       "input kafka connector configuration is null, missing required values, "
-          + "or wrong input value"),
+          + "or is invalid. Check logs for list of invalid parameters."),
   ERROR_0002("0002", "Invalid private key", "private key should be a valid PEM RSA private key"),
   ERROR_0003(
       "0003",

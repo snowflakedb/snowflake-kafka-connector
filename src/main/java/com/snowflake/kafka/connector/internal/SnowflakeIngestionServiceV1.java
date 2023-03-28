@@ -7,8 +7,11 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServic
 import java.security.PrivateKey;
 import java.util.*;
 import net.snowflake.ingest.SimpleIngestManager;
+import net.snowflake.ingest.connection.ClientStatusResponse;
+import net.snowflake.ingest.connection.ConfigureClientResponse;
 import net.snowflake.ingest.connection.HistoryRangeResponse;
 import net.snowflake.ingest.connection.HistoryResponse;
+import net.snowflake.ingest.connection.InsertFilesClientInfo;
 import net.snowflake.ingest.utils.StagedFileWrapper;
 
 /**
@@ -23,8 +26,9 @@ import net.snowflake.ingest.utils.StagedFileWrapper;
  * <p>The difference between above two APIs @see <a
  * href="https://docs.snowflake.com/en/user-guide/data-load-snowpipe-rest-apis.html">here</a>
  */
-public class SnowflakeIngestionServiceV1 extends EnableLogging
-    implements SnowflakeIngestionService {
+public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
+
+  private final KCLogger LOGGER = new KCLogger(SnowflakeIngestionServiceV1.class.getName());
   private static final long ONE_HOUR = 60 * 60 * 1000;
 
   private final String stageName;
@@ -58,7 +62,7 @@ public class SnowflakeIngestionServiceV1 extends EnableLogging
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_0002.getException(e, this.telemetry);
     }
-    LOG_INFO_MSG("initialized the pipe connector for pipe {}", pipeName);
+    LOGGER.info("initialized the pipe connector for pipe {}", pipeName);
   }
 
   @Override
@@ -76,7 +80,7 @@ public class SnowflakeIngestionServiceV1 extends EnableLogging
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_3001.getException(e, this.telemetry);
     }
-    LOG_DEBUG_MSG("ingest file: {}", fileName);
+    LOGGER.debug("ingest file: {}", fileName);
   }
 
   @Override
@@ -84,7 +88,7 @@ public class SnowflakeIngestionServiceV1 extends EnableLogging
     if (fileNames.isEmpty()) {
       return;
     }
-    LOG_DEBUG_MSG("ingest files: {}", Arrays.toString(fileNames.toArray()));
+    LOGGER.debug("ingest files: {}", Arrays.toString(fileNames.toArray()));
     try {
       InternalUtils.backoffAndRetry(
           telemetry,
@@ -147,7 +151,7 @@ public class SnowflakeIngestionServiceV1 extends EnableLogging
       }
     }
 
-    LOG_INFO_MSG("searched {} files in ingest report, found {}", files.size(), numOfRecords);
+    LOGGER.info("searched {} files in ingest report, found {}", files.size(), numOfRecords);
 
     return fileStatus;
   }
@@ -216,7 +220,7 @@ public class SnowflakeIngestionServiceV1 extends EnableLogging
             "the response of load history is null", this.telemetry);
       }
 
-      LOG_INFO_MSG(
+      LOGGER.info(
           "read load history between {} and {}. retrieved {} records.",
           startTimeInclusive,
           endTimeExclusive,
@@ -232,9 +236,9 @@ public class SnowflakeIngestionServiceV1 extends EnableLogging
     try {
       ingestManager.close();
     } catch (Exception e) {
-      LOG_ERROR_MSG("Failed to close ingestManager: " + e.getMessage());
+      LOGGER.error("Failed to close ingestManager: " + e.getMessage());
     }
-    LOG_INFO_MSG("IngestService Closed");
+    LOGGER.info("IngestService Closed");
   }
 
   /**
