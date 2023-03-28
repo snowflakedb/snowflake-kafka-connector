@@ -380,7 +380,8 @@ public class Utils {
                 SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
-      if (config.containsKey(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG)
+      if (config.containsKey(
+              SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG)
           && Boolean.parseBoolean(
               config.get(
                   SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
