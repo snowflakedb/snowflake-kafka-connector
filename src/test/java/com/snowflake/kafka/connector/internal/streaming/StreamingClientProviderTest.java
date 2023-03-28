@@ -18,6 +18,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.injectStreamingClientProviderForTests;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.isClientValid;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.streamingClientProvider;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -49,7 +50,7 @@ public class StreamingClientProviderTest {
 
     // test actual provider
     streamingClientProvider.createClient(connectorConfig);
-    SnowflakeStreamingIngestClient createdClient = streamingClientProvider.getClient();
+    SnowflakeStreamingIngestClient createdClient = streamingClientProvider.getClient(connectorConfig);
 
     // verify
     assert createdClient.getName().contains(connectorName);
@@ -72,7 +73,7 @@ public class StreamingClientProviderTest {
     // test creating another client
     connectorConfig.put(Utils.NAME, connector2);
     injectedProvider.createClient(connectorConfig);
-    SnowflakeStreamingIngestClient replacedClient = injectedProvider.getClient();
+    SnowflakeStreamingIngestClient replacedClient = injectedProvider.getClient(connectorConfig);
 
     // verify
     assert !replacedClient.getName().contains(connector1);
@@ -100,8 +101,12 @@ public class StreamingClientProviderTest {
 
   @Test
   public void testGetInvalidClient() {
+    String invalidClientName = "invalid client";
+    String validClientName = "valid client";
+
     // inject invalid client
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
+    connectorConfig.put(Utils.NAME, invalidClientName);
     SnowflakeStreamingIngestClient invalidClient =
         Mockito.mock(SnowflakeStreamingIngestClient.class);
     Mockito.when(invalidClient.isClosed()).thenReturn(true);
@@ -109,10 +114,53 @@ public class StreamingClientProviderTest {
         injectStreamingClientProviderForTests(1, connectorConfig, invalidClient);
 
     // try getting client
-    SnowflakeStreamingIngestClient recreatedClient = injectedProvider.getClient();
+    connectorConfig.put(Utils.NAME, validClientName);
+    SnowflakeStreamingIngestClient recreatedClient = injectedProvider.getClient(connectorConfig);
 
-    // verify this client is different and open
-    assert !recreatedClient.isClosed();
+    // verify this client is valid
+    assert isClientValid(recreatedClient);
+    assert recreatedClient.getName().contains(validClientName);
+    assert !recreatedClient.getName().contains(invalidClientName);
+  }
+
+  @Test
+  public void testGetClientWithDisabledParam() {
+    Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
+    connectorConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "false");
+
+    // all of these clients should be valid and have different names
+    SnowflakeStreamingIngestClient client1 = streamingClientProvider.getClient(connectorConfig);
+    SnowflakeStreamingIngestClient client2 = streamingClientProvider.getClient(connectorConfig);
+    SnowflakeStreamingIngestClient client3 = streamingClientProvider.getClient(connectorConfig);
+
+    // verify
+    assert isClientValid(client1);
+    assert isClientValid(client2);
+    assert isClientValid(client3);
+
+    assert !client1.getName().equals(client2.getName());
+    assert !client2.getName().equals(client3.getName());
+    assert !client1.getName().equals(client3.getName());
+  }
+
+  @Test
+  public void testGetClientWithEnabledParam() {
+    Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
+    connectorConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
+
+    // all of these clients should be valid and have the names
+    SnowflakeStreamingIngestClient client1 = streamingClientProvider.getClient(connectorConfig);
+    SnowflakeStreamingIngestClient client2 = streamingClientProvider.getClient(connectorConfig);
+    SnowflakeStreamingIngestClient client3 = streamingClientProvider.getClient(connectorConfig);
+
+    // verify
+    assert isClientValid(client1);
+    assert isClientValid(client2);
+    assert isClientValid(client3);
+
+    assert client1.getName().equals(client2.getName());
+    assert client2.getName().equals(client3.getName());
+    assert client1.getName().equals(client3.getName());
   }
 
   @Test

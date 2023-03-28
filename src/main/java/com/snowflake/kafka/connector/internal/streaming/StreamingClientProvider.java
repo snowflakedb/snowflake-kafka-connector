@@ -21,6 +21,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIP
 import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.Arrays;
@@ -96,11 +97,11 @@ public class StreamingClientProvider {
   public void createClient(Map<String, String> connectorConfig) {
     // replace previous connector config and client if applicable
     if (!this.connectorConfig.isEmpty()) {
-      LOGGER.error("Overriding previous connector config");
+      LOGGER.warn("Overriding previous connector config");
     }
 
     if (isClientValid(this.streamingIngestClient)) {
-      LOGGER.error(
+      LOGGER.warn(
           "Replacing previous valid streaming client. ClientName:{}",
           this.streamingIngestClient.getName());
       this.closeClient();
@@ -136,19 +137,23 @@ public class StreamingClientProvider {
   }
 
   /**
-   * Gets the current client or creates a new one from the given connector config. Note that this
-   * requires createClient() to be run first in order to get the connector config
+   * Gets the current client or creates a new one from the given connector config
+   * If client optimization is not enabled, just create a new streaming client
    *
+   * @param connectorConfig The connector config, given as a backup in case the current client is invalid
    * @return The current or newly created streaming client
    */
-  public SnowflakeStreamingIngestClient getClient() {
-    // recreate streaming client if needed
-    if (!isClientValid(this.streamingIngestClient)) {
-      LOGGER.error("Current streaming client is invalid, recreating client");
-      this.streamingIngestClient = this.initStreamingClient(this.connectorConfig);
+  public SnowflakeStreamingIngestClient getClient(Map<String, String> connectorConfig) {
+    if (Boolean.parseBoolean(connectorConfig.get(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
+      // recreate streaming client if needed
+      if (!isClientValid(this.streamingIngestClient)) {
+        LOGGER.error("Current streaming client is invalid, recreating client");
+        this.createClient(connectorConfig);
+      }
+      return this.streamingIngestClient;
+    } else {
+      return this.initStreamingClient(connectorConfig);
     }
-
-    return this.streamingIngestClient;
   }
 
   /**
