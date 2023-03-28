@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
+import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
 
 import com.codahale.metrics.MetricRegistry;
@@ -11,7 +12,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -49,8 +50,7 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
  */
 public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
-  private static final LoggerHandler LOGGER =
-      new LoggerHandler(SnowflakeSinkServiceV2.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceV2.class.getName());
 
   private static String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 
@@ -121,8 +121,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.recordNum = StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
     this.flushTimeSeconds = StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
     this.conn = conn;
-    this.recordService = new RecordService();
     this.telemetryService = conn.getTelemetryClient();
+    this.recordService = new RecordService(this.telemetryService);
     this.topicToTableMap = new HashMap<>();
 
     // Setting the default value in constructor
@@ -181,7 +181,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.connectorConfig,
             this.kafkaRecordErrorReporter,
             this.sinkTaskContext,
-            this.conn));
+            this.conn,
+            this.recordService));
   }
 
   /**
@@ -250,7 +251,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           "Topic: {} Partition: {} hasn't been initialized to get offset",
           topicPartition.topic(),
           topicPartition.partition());
-      return 0;
+      return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
     }
   }
 
@@ -521,7 +522,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         if (this.conn.isTableCompatible(tableName)) {
           LOGGER.info("Using existing table {}.", tableName);
         } else {
-          throw SnowflakeErrors.ERROR_5003.getException("table name: " + tableName);
+          throw SnowflakeErrors.ERROR_5003.getException(
+              "table name: " + tableName, this.telemetryService);
         }
       } else {
         this.conn.appendMetaColIfNotExist(tableName);

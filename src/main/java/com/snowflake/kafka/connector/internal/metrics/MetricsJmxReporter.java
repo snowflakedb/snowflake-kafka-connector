@@ -7,7 +7,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.jmx.JmxReporter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
@@ -22,7 +22,7 @@ import javax.management.ObjectName;
  * is handled per pipe level.
  */
 public class MetricsJmxReporter {
-  static final LoggerHandler LOGGER = new LoggerHandler(MetricsJmxReporter.class.getName());
+  static final KCLogger LOGGER = new KCLogger(MetricsJmxReporter.class.getName());
 
   // The registry which will hold pool of all metrics for this instance
   private final MetricRegistry metricRegistry;

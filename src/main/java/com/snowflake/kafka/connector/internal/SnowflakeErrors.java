@@ -27,7 +27,7 @@ public enum SnowflakeErrors {
       "0001",
       "Invalid input connector configuration",
       "input kafka connector configuration is null, missing required values, "
-          + "or wrong input value"),
+          + "or is invalid. Check logs for list of invalid parameters."),
   ERROR_0002("0002", "Invalid private key", "private key should be a valid PEM RSA private key"),
   ERROR_0003(
       "0003",
@@ -306,6 +306,16 @@ public enum SnowflakeErrors {
     return getException("", telemetryService);
   }
 
+  /**
+   * Convert a given message into SnowflakeKafkaConnectorException.
+   *
+   * <p>If message is null, we use Enum's toString() method to wrap inside
+   * SnowflakeKafkaConnectorException
+   *
+   * @param msg Message to send to Telemetry Service. Remember, we Strip the message
+   * @param telemetryService can be null
+   * @return Exception wrapped in Snowflake Connector Exception
+   */
   public SnowflakeKafkaConnectorException getException(
       String msg, SnowflakeTelemetryService telemetryService) {
     if (telemetryService != null) {

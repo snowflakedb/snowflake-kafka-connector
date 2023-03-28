@@ -17,6 +17,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
+import java.util.UUID;
 import org.junit.After;
 import org.junit.Test;
 import org.mockito.InjectMocks;
@@ -25,19 +26,21 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.slf4j.Logger;
 
-public class LoggerHandlerTest {
+public class KCLoggerTest {
   // test constants
   private final String name = "test.logger.name";
+  private final UUID kcGlobalInstanceId = UUID.randomUUID();
 
-  // mock and test setup, inject logger into loggerHandler
+  // mock and test setup, inject logger into KCLogger
   @Mock(name = "logger")
   private Logger logger = Mockito.mock(Logger.class);
 
-  @InjectMocks private LoggerHandler loggerHandler = new LoggerHandler(this.name);
+  @InjectMocks private KCLogger kcLogger = new KCLogger(this.name);
 
   @After
   public void close() {
-    this.loggerHandler = new LoggerHandler(this.name);
+    KCLogger.setConnectGlobalInstanceId("");
+    this.kcLogger = new KCLogger(this.name);
   }
 
   // test
@@ -46,6 +49,69 @@ public class LoggerHandlerTest {
     MockitoAnnotations.initMocks(this);
 
     testAllLogMessagesRunner("");
+  }
+
+  @Test
+  public void testAllLogMessageKcGlobalInstanceId() {
+    KCLogger.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
+    MockitoAnnotations.initMocks(this);
+
+    // [kc:id]
+    testAllLogMessagesRunner("[KC:" + kcGlobalInstanceId + "] ");
+  }
+
+  @Test
+  public void testAllLogMessageLoggingTag() {
+    String logTag = "TEST";
+
+    this.kcLogger = new KCLogger(this.name);
+    this.kcLogger.setLoggerInstanceTag(logTag);
+    MockitoAnnotations.initMocks(this);
+
+    // [logtag]
+    testAllLogMessagesRunner(Utils.formatString("[{}] ", logTag));
+
+    this.kcLogger.clearLoggerInstanceIdTag();
+    testAllLogMessagesRunner("");
+  }
+
+  @Test
+  public void testAllLogMessageAllInstanceIds() {
+    String logTag = "TEST";
+
+    KCLogger.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
+    kcLogger = new KCLogger(name);
+    this.kcLogger.setLoggerInstanceTag(logTag);
+    MockitoAnnotations.initMocks(this);
+
+    // [kc:id|tag]
+    testAllLogMessagesRunner(Utils.formatString("[KC:{}|{}] ", kcGlobalInstanceId, logTag));
+  }
+
+  @Test
+  public void testInvalidKcId() {
+    String msg = "super useful logging msg";
+
+    KCLogger.setConnectGlobalInstanceId("");
+    MockitoAnnotations.initMocks(this);
+    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
+
+    this.kcLogger.info(msg);
+
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(msg));
+  }
+
+  @Test
+  public void testInvalidLogTag() {
+    String msg = "super useful logging msg";
+
+    this.kcLogger.setLoggerInstanceTag(null);
+    MockitoAnnotations.initMocks(this);
+    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
+
+    this.kcLogger.info(msg);
+
+    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(msg));
   }
 
   private void testAllLogMessagesRunner(String expectedTag) {
@@ -66,31 +132,31 @@ public class LoggerHandlerTest {
   private void testLogMessagesRunner(String msg, String expectedMsg) {
     // info
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-    loggerHandler.info(msg);
+    kcLogger.info(msg);
 
     Mockito.verify(logger, Mockito.times(1)).info(expectedMsg);
 
     // trace
     Mockito.when(logger.isTraceEnabled()).thenReturn(true);
-    loggerHandler.trace(msg);
+    kcLogger.trace(msg);
 
     Mockito.verify(logger, Mockito.times(1)).trace(expectedMsg);
 
     // debug
     Mockito.when(logger.isDebugEnabled()).thenReturn(true);
-    loggerHandler.debug(msg);
+    kcLogger.debug(msg);
 
     Mockito.verify(logger, Mockito.times(1)).debug(expectedMsg);
 
     // warn
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
-    loggerHandler.warn(msg);
+    kcLogger.warn(msg);
 
     Mockito.verify(logger, Mockito.times(1)).warn(expectedMsg);
 
     // error
     Mockito.when(logger.isErrorEnabled()).thenReturn(true);
-    loggerHandler.error(msg);
+    kcLogger.error(msg);
 
     Mockito.verify(logger, Mockito.times(1)).error(expectedMsg);
   }
@@ -99,31 +165,31 @@ public class LoggerHandlerTest {
       String formatMsg, String expectedFormattedMsg, Object... vars) {
     // info
     Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-    loggerHandler.info(formatMsg, vars);
+    kcLogger.info(formatMsg, vars);
 
     Mockito.verify(logger, Mockito.times(1)).info(expectedFormattedMsg);
 
     // trace
     Mockito.when(logger.isTraceEnabled()).thenReturn(true);
-    loggerHandler.trace(formatMsg, vars);
+    kcLogger.trace(formatMsg, vars);
 
     Mockito.verify(logger, Mockito.times(1)).trace(expectedFormattedMsg);
 
     // debug
     Mockito.when(logger.isDebugEnabled()).thenReturn(true);
-    loggerHandler.debug(formatMsg, vars);
+    kcLogger.debug(formatMsg, vars);
 
     Mockito.verify(logger, Mockito.times(1)).debug(expectedFormattedMsg);
 
     // warn
     Mockito.when(logger.isWarnEnabled()).thenReturn(true);
-    loggerHandler.warn(formatMsg, vars);
+    kcLogger.warn(formatMsg, vars);
 
     Mockito.verify(logger, Mockito.times(1)).warn(expectedFormattedMsg);
 
     // error
     Mockito.when(logger.isErrorEnabled()).thenReturn(true);
-    loggerHandler.error(formatMsg, vars);
+    kcLogger.error(formatMsg, vars);
 
     Mockito.verify(logger, Mockito.times(1)).error(expectedFormattedMsg);
   }
