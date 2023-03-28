@@ -18,13 +18,18 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
 import java.util.UUID;
+
+import org.apache.log4j.MDC;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.slf4j.Logger;
+
+import static com.snowflake.kafka.connector.Utils.MDC_CONN_CTX_KEY;
 
 public class KCLoggerTest {
   // test constants
@@ -37,92 +42,23 @@ public class KCLoggerTest {
 
   @InjectMocks private KCLogger kcLogger = new KCLogger(this.name);
 
-  @After
+  @Before
   public void close() {
-    KCLogger.setConnectGlobalInstanceId("");
     this.kcLogger = new KCLogger(this.name);
-  }
-
-  // test
-  @Test
-  public void testAllLogMessageNoInstanceIds() {
     MockitoAnnotations.initMocks(this);
-
-    testAllLogMessagesRunner("");
   }
 
   @Test
-  public void testAllLogMessageKcGlobalInstanceId() {
-    KCLogger.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
-    MockitoAnnotations.initMocks(this);
-
-    // [kc:id]
-    testAllLogMessagesRunner("[KC:" + kcGlobalInstanceId + "] ");
-  }
-
-  @Test
-  public void testAllLogMessageLoggingTag() {
-    String logTag = "TEST";
-
-    this.kcLogger = new KCLogger(this.name);
-    this.kcLogger.setLoggerInstanceTag(logTag);
-    MockitoAnnotations.initMocks(this);
-
-    // [logtag]
-    testAllLogMessagesRunner(Utils.formatString("[{}] ", logTag));
-
-    this.kcLogger.clearLoggerInstanceIdTag();
-    testAllLogMessagesRunner("");
-  }
-
-  @Test
-  public void testAllLogMessageAllInstanceIds() {
-    String logTag = "TEST";
-
-    KCLogger.setConnectGlobalInstanceId(this.kcGlobalInstanceId);
-    kcLogger = new KCLogger(name);
-    this.kcLogger.setLoggerInstanceTag(logTag);
-    MockitoAnnotations.initMocks(this);
-
-    // [kc:id|tag]
-    testAllLogMessagesRunner(Utils.formatString("[KC:{}|{}] ", kcGlobalInstanceId, logTag));
-  }
-
-  @Test
-  public void testInvalidKcId() {
-    String msg = "super useful logging msg";
-
-    KCLogger.setConnectGlobalInstanceId("");
-    MockitoAnnotations.initMocks(this);
-    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-
-    this.kcLogger.info(msg);
-
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(msg));
-  }
-
-  @Test
-  public void testInvalidLogTag() {
-    String msg = "super useful logging msg";
-
-    this.kcLogger.setLoggerInstanceTag(null);
-    MockitoAnnotations.initMocks(this);
-    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-
-    this.kcLogger.info(msg);
-
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(msg));
-  }
-
-  private void testAllLogMessagesRunner(String expectedTag) {
+  public void testAllLogMessages() {
     String msg = "super useful logging msg";
     String formatMsg = "super {} useful {} logging {} msg {}";
     String expectedFormattedMsg = "super wow useful wow! logging 1 msg yay";
 
-    this.testLogMessagesRunner(msg, Utils.formatLogMessage(expectedTag + msg));
+    // note: utils.formatLogMessage should add the MDC context automatically
+    this.testLogMessagesRunner(msg, Utils.formatLogMessage(msg));
     this.testLogMessagesWithFormattingRunner(
         formatMsg,
-        Utils.formatLogMessage(expectedTag + expectedFormattedMsg),
+        Utils.formatLogMessage(expectedFormattedMsg),
         "wow",
         "wow!",
         1,

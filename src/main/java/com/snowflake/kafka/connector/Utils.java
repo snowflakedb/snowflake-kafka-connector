@@ -103,6 +103,8 @@ public class Utils {
 
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
+  public static final String MDC_CONN_CTX_KEY = "connector.context";
+
   /**
    * check the connector version from Maven repo, report if any update version is available.
    *
@@ -656,9 +658,9 @@ public class Utils {
    * @return log message wrapped by snowflake tag
    */
   public static String formatLogMessage(String format, Object... vars) {
-    String connCtx = MDC.get("connector.context");
+    String connCtx = MDC.get(MDC_CONN_CTX_KEY);
     if (connCtx != null && !connCtx.isEmpty()) {
-      return SF_LOG_TAG + " " + MDC.get("connector.context") + formatString(format, vars);
+      return SF_LOG_TAG + " " + connCtx + formatString(format, vars);
     }
 
     return SF_LOG_TAG + " " + formatString(format, vars);
