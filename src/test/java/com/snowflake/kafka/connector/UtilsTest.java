@@ -4,7 +4,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.log4j.MDC;
 import org.junit.Rule;
 import org.junit.Test;

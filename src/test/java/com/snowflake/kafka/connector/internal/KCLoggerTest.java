@@ -18,9 +18,6 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
 import java.util.UUID;
-
-import org.apache.log4j.MDC;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.InjectMocks;
@@ -28,8 +25,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.slf4j.Logger;
-
-import static com.snowflake.kafka.connector.Utils.MDC_CONN_CTX_KEY;
 
 public class KCLoggerTest {
   // test constants
@@ -57,12 +52,7 @@ public class KCLoggerTest {
     // note: utils.formatLogMessage should add the MDC context automatically
     this.testLogMessagesRunner(msg, Utils.formatLogMessage(msg));
     this.testLogMessagesWithFormattingRunner(
-        formatMsg,
-        Utils.formatLogMessage(expectedFormattedMsg),
-        "wow",
-        "wow!",
-        1,
-        "yay");
+        formatMsg, Utils.formatLogMessage(expectedFormattedMsg), "wow", "wow!", 1, "yay");
   }
 
   private void testLogMessagesRunner(String msg, String expectedMsg) {

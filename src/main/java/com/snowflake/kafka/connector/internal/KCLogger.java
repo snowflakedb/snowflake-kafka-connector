@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,7 +16,7 @@ public class KCLogger {
   public KCLogger(String name) {
     this.logger = LoggerFactory.getLogger(name);
   }
-  
+
   /**
    * Logs an info level message
    *
