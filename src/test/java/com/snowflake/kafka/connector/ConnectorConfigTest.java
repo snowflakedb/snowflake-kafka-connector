@@ -80,6 +80,7 @@ public class ConnectorConfigTest {
     }
   }
 
+  @Test
   public void testURL() {
     try {
       Map<String, String> config = getConfig();
@@ -507,6 +508,7 @@ public class ConnectorConfigTest {
     }
   }
 
+  @Test
   public void testStreamingFlushTimeNotNumber() {
     try {
       Map<String, String> config = getConfig();
@@ -536,6 +538,7 @@ public class ConnectorConfigTest {
     }
   }
 
+  @Test
   public void testStreamingEmptyBufferCount() {
     try {
       Map<String, String> config = getConfig();
@@ -550,6 +553,7 @@ public class ConnectorConfigTest {
     }
   }
 
+  @Test
   public void testStreamingBufferCountNegative() {
     try {
       Map<String, String> config = getConfig();
@@ -564,6 +568,7 @@ public class ConnectorConfigTest {
     }
   }
 
+  @Test
   public void testStreamingBufferCountValue() {
     try {
       Map<String, String> config = getConfig();
@@ -616,6 +621,7 @@ public class ConnectorConfigTest {
     Utils.validateConfig(config);
   }
 
+  @Test
   public void testInvalidKeyConvertersForStreamingSnowpipe() {
     try {
       Map<String, String> config = getConfig();
@@ -638,6 +644,7 @@ public class ConnectorConfigTest {
     }
   }
 
+  @Test
   public void testInvalidValueConvertersForStreamingSnowpipe() {
     try {
       Map<String, String> config = getConfig();
@@ -656,7 +663,7 @@ public class ConnectorConfigTest {
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception
           .getMessage()
-          .contains(SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD);
+          .contains(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
     }
   }
 
@@ -753,6 +760,35 @@ public class ConnectorConfigTest {
       assert exception
           .getMessage()
           .contains(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG);
+    }
+  }
+
+  @Test
+  public void testEnableOptimizeStreamingClientConfig() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
+
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testInvalidEnableOptimizeStreamingClientConfig() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(
+          SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+          IngestionMethodConfig.SNOWPIPE.toString());
+      config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
+
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception
+          .getMessage()
+          .contains(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG);
     }
   }
 

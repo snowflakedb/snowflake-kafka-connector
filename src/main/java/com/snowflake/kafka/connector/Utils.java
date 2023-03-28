@@ -367,7 +367,7 @@ public class Utils {
           && Boolean.parseBoolean(
               config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG))) {
         invalidConfigParams.put(
-            IngestionMethodConfig.SNOWPIPE_STREAMING.toString(),
+            SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
             Utils.formatString(
                 "Schematization is only available with {}.",
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
@@ -378,6 +378,16 @@ public class Utils {
             Utils.formatString(
                 "{} is only available with ingestion type: {}.",
                 SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      }
+      if (config.containsKey(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG)
+          && Boolean.parseBoolean(
+              config.get(
+                  SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+            Utils.formatString(
+                "Streaming client optimization is only available with {}.",
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
     }
