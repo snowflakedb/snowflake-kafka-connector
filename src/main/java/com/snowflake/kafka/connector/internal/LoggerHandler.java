@@ -6,7 +6,8 @@ import org.slf4j.LoggerFactory;
 
 /** Attaches additional fields to the logs */
 public class LoggerHandler {
-  private Logger logger; // better to be final, but wouldn't be able to inject for tests if it is final
+  private Logger
+      logger; // better to be final, but wouldn't be able to inject for tests if it is final
 
   /**
    * Create and return a new logging handler
