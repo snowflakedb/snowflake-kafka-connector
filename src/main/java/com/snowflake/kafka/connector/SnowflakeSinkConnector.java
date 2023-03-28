@@ -208,31 +208,12 @@ public class SnowflakeSinkConnector extends SinkConnector {
     }
 
     // Verify proxy config is valid
-    try {
-      Utils.validateProxySetting(connectorConfigs);
-    } catch (SnowflakeKafkaConnectorException e) {
-      LOGGER.error("Error validating proxy parameters:{}", e.getMessage());
-      switch (e.getCode()) {
-        case "0022":
-          Utils.updateConfigErrorMessage(
-              result,
-              SnowflakeSinkConnectorConfig.JVM_PROXY_HOST,
-              ": proxy host and port must be provided together");
-          Utils.updateConfigErrorMessage(
-              result,
-              SnowflakeSinkConnectorConfig.JVM_PROXY_PORT,
-              ": proxy host and port must be provided together");
-        case "0023":
-          Utils.updateConfigErrorMessage(
-              result,
-              SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME,
-              ": proxy username and password must be provided together");
-          Utils.updateConfigErrorMessage(
-              result,
-              SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD,
-              ": proxy username and password must be provided together");
-      }
+    Map<String, String> invalidProxyParams = Utils.validateProxySettings(connectorConfigs);
+
+    for (String invalidKey : invalidProxyParams.keySet()) {
+      Utils.updateConfigErrorMessage(result, invalidKey, invalidProxyParams.get(invalidKey));
     }
+
     // If private key or private key passphrase is provided through file, skip validation
     if (connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, "").contains("${file:")
         || connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, "").contains("${file:"))
