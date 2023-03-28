@@ -155,10 +155,14 @@ public class SnowflakeSinkConnectorConfig {
           + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
 
-  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG = "enable.streaming.client.optimization";
-  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DISPLAY = "Enable streaming client optimization";
+  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG =
+      "enable.streaming.client.optimization";
+  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DISPLAY =
+      "Enable streaming client optimization";
   public static final boolean ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT = false;
-  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DOC = "Whether to reduce optimize the streaming client to reduce cost. Note that this may affect throughput or latency and can only be set if Streaming Snowpipe is enabled";
+  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DOC =
+      "Whether to reduce optimize the streaming client to reduce cost. Note that this may affect"
+          + " throughput or latency and can only be set if Streaming Snowpipe is enabled";
 
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked

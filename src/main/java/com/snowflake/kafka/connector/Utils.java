@@ -384,12 +384,13 @@ public class Utils {
       }
       if (config.containsKey(ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG)
           && Boolean.parseBoolean(
-              config.get(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
+              config.get(
+                  SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
         invalidConfigParams.put(
-                SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
-                Utils.formatString(
-                        "Streaming client optimization is only available with {}.",
-                        IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+            Utils.formatString(
+                "Streaming client optimization is only available with {}.",
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
     }
 

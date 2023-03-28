@@ -787,12 +787,10 @@ public class ConnectorConfigTest {
   public void testEnableOptimizeStreamingClientConfig() {
     Map<String, String> config = getConfig();
     config.put(
-            SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-            IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    config.put(
-            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
-            "true");
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
 
     Utils.validateConfig(config);
   }
@@ -802,15 +800,15 @@ public class ConnectorConfigTest {
     try {
       Map<String, String> config = getConfig();
       config.put(
-              SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-              IngestionMethodConfig.SNOWPIPE.toString());
-      config.put(
-              SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
-              "true");
+          SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+          IngestionMethodConfig.SNOWPIPE.toString());
+      config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
 
       Utils.validateConfig(config);
     } catch (SnowflakeKafkaConnectorException exception) {
-      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG);
+      assert exception
+          .getMessage()
+          .contains(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG);
     }
   }
 
