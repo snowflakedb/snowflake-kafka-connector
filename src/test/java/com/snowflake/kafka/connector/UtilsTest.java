@@ -5,12 +5,18 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.log4j.MDC;
+import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
 
 public class UtilsTest {
   @Rule public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
+
+  @After
+  public void cleanUp() {
+    MDC.clear();
+  }
 
   @Test
   public void testGetTopicToTableMap() {
