@@ -187,75 +187,52 @@ public class SinkTaskIT {
     sinkTask.logWarningForPutAndPrecommit(System.currentTimeMillis() - 400 * 1000, 1, "put");
   }
 
-    @Test
-    public void testMultipleSinkTasksWithLogs() throws Exception {
-      // setup log mocking for task1
-      MockitoAnnotations.initMocks(this);
-      Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-      Mockito.when(logger.isDebugEnabled()).thenReturn(true);
-      Mockito.when(logger.isWarnEnabled()).thenReturn(true);
+  @Test
+  public void testMultipleSinkTasksWithLogs() throws Exception {
+    // setup log mocking for task1
+    MockitoAnnotations.initMocks(this);
+    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
+    Mockito.when(logger.isDebugEnabled()).thenReturn(true);
+    Mockito.when(logger.isWarnEnabled()).thenReturn(true);
 
-      // setup tasks
-      String task0Id = "0";
-      Map<String, String> task0Config = TestUtils.getConf();
-      SnowflakeSinkConnectorConfig.setDefaultValues(task0Config);
-      task0Config.put(Utils.TASK_ID, task0Id);
-      SnowflakeSinkTask task0 = new SnowflakeSinkTask();
+    // setup tasks
+    String task0Id = "0";
+    Map<String, String> task0Config = TestUtils.getConf();
+    SnowflakeSinkConnectorConfig.setDefaultValues(task0Config);
+    task0Config.put(Utils.TASK_ID, task0Id);
+    SnowflakeSinkTask task0 = new SnowflakeSinkTask();
 
-      String task1Id = "1";
-      Map<String, String> task1Config = TestUtils.getConf();
-      SnowflakeSinkConnectorConfig.setDefaultValues(task1Config);
-      task1Config.put(Utils.TASK_ID, task1Id);
+    String task1Id = "1";
+    Map<String, String> task1Config = TestUtils.getConf();
+    SnowflakeSinkConnectorConfig.setDefaultValues(task1Config);
+    task1Config.put(Utils.TASK_ID, task1Id);
 
-      // start tasks
-      task0.start(task0Config);
-      task1.start(task1Config);
+    // start tasks
+    task0.start(task0Config);
+    task1.start(task1Config);
 
-      // verify task1 start logs
-      Mockito.verify(logger, Mockito.times(2)).debug(Mockito.contains("start"));
+    // verify task1 start logs
+    Mockito.verify(logger, Mockito.times(2)).debug(Mockito.contains("start"));
 
-      // open tasks
-      ArrayList<TopicPartition> topicPartitions0 = new ArrayList<>();
-      topicPartitions0.add(new TopicPartition(topicName, partition));
-      task0.open(topicPartitions0);
+    // open tasks
+    ArrayList<TopicPartition> topicPartitions0 = new ArrayList<>();
+    topicPartitions0.add(new TopicPartition(topicName, partition));
+    task0.open(topicPartitions0);
 
-      ArrayList<TopicPartition> topicPartitions1 = new ArrayList<>();
-      topicPartitions1.add(new TopicPartition(topicName, partition));
-      task1.open(topicPartitions1);
+    ArrayList<TopicPartition> topicPartitions1 = new ArrayList<>();
+    topicPartitions1.add(new TopicPartition(topicName, partition));
+    task1.open(topicPartitions1);
 
-      // verify task1 open logs
-      Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("open"));
+    // verify task1 open logs
+    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("open"));
 
-      // put regular data to tasks
-      ArrayList<SinkRecord> records = new ArrayList<>();
-      String json = "{ \"f1\" : \"v1\" } ";
-      ObjectMapper objectMapper = new ObjectMapper();
-      Schema snowflakeSchema = new SnowflakeJsonSchema();
-      SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
-      for (int i = 0; i < BUFFER_COUNT_RECORDS_DEFAULT; ++i) {
-        records.add(
-            new SinkRecord(
-                topicName,
-                partition,
-                snowflakeSchema,
-                content,
-                snowflakeSchema,
-                content,
-                i,
-                System.currentTimeMillis(),
-                TimestampType.CREATE_TIME));
-      }
-
-      task0.put(records);
-      task1.put(records);
-
-      // verify task1 put logs
-      Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("put"));
-
-      // send broken data to task1
-      String brokenJson = "{ broken json";
-      records = new ArrayList<>();
-      content = new SnowflakeRecordContent(brokenJson.getBytes());
+    // put regular data to tasks
+    ArrayList<SinkRecord> records = new ArrayList<>();
+    String json = "{ \"f1\" : \"v1\" } ";
+    ObjectMapper objectMapper = new ObjectMapper();
+    Schema snowflakeSchema = new SnowflakeJsonSchema();
+    SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
+    for (int i = 0; i < BUFFER_COUNT_RECORDS_DEFAULT; ++i) {
       records.add(
           new SinkRecord(
               topicName,
@@ -264,40 +241,63 @@ public class SinkTaskIT {
               content,
               snowflakeSchema,
               content,
-              10000,
+              i,
               System.currentTimeMillis(),
               TimestampType.CREATE_TIME));
-      task1.put(records);
-
-      // verify task1 broken put logs, 4 bc in addition to last call
-      Mockito.verify(logger, Mockito.times(2)).debug(Mockito.contains("put"));
-
-      // commit offset
-      Map<TopicPartition, OffsetAndMetadata> offsetMap0 = new HashMap<>();
-      offsetMap0.put(topicPartitions0.get(0), new OffsetAndMetadata(0));
-      offsetMap0 = task0.preCommit(offsetMap0);
-
-      Map<TopicPartition, OffsetAndMetadata> offsetMap1 = new HashMap<>();
-      offsetMap1.put(topicPartitions1.get(0), new OffsetAndMetadata(0));
-      offsetMap1 = task1.preCommit(offsetMap1);
-
-      // verify task1 precommit logs
-      Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("precommit"));
-
-      // close tasks
-      task0.close(topicPartitions0);
-      task1.close(topicPartitions1);
-
-      // verify task1 close logs
-      Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("closed"));
-      // stop tasks
-      task0.stop();
-      task1.stop();
-
-      // verify task1 stop logs
-      Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("stop"));
-
-      assert offsetMap1.get(topicPartitions0.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
-      assert offsetMap0.get(topicPartitions1.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
     }
+
+    task0.put(records);
+    task1.put(records);
+
+    // verify task1 put logs
+    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("put"));
+
+    // send broken data to task1
+    String brokenJson = "{ broken json";
+    records = new ArrayList<>();
+    content = new SnowflakeRecordContent(brokenJson.getBytes());
+    records.add(
+        new SinkRecord(
+            topicName,
+            partition,
+            snowflakeSchema,
+            content,
+            snowflakeSchema,
+            content,
+            10000,
+            System.currentTimeMillis(),
+            TimestampType.CREATE_TIME));
+    task1.put(records);
+
+    // verify task1 broken put logs, 4 bc in addition to last call
+    Mockito.verify(logger, Mockito.times(2)).debug(Mockito.contains("put"));
+
+    // commit offset
+    Map<TopicPartition, OffsetAndMetadata> offsetMap0 = new HashMap<>();
+    offsetMap0.put(topicPartitions0.get(0), new OffsetAndMetadata(0));
+    offsetMap0 = task0.preCommit(offsetMap0);
+
+    Map<TopicPartition, OffsetAndMetadata> offsetMap1 = new HashMap<>();
+    offsetMap1.put(topicPartitions1.get(0), new OffsetAndMetadata(0));
+    offsetMap1 = task1.preCommit(offsetMap1);
+
+    // verify task1 precommit logs
+    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("precommit"));
+
+    // close tasks
+    task0.close(topicPartitions0);
+    task1.close(topicPartitions1);
+
+    // verify task1 close logs
+    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("closed"));
+    // stop tasks
+    task0.stop();
+    task1.stop();
+
+    // verify task1 stop logs
+    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("stop"));
+
+    assert offsetMap1.get(topicPartitions0.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
+    assert offsetMap0.get(topicPartitions1.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
+  }
 }
