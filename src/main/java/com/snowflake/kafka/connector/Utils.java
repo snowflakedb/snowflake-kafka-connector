@@ -45,6 +45,7 @@ import java.util.regex.Pattern;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.ConfigValue;
+import org.slf4j.MDC;
 
 /** Various arbitrary helper functions */
 public class Utils {
@@ -635,6 +636,11 @@ public class Utils {
    * @return log message wrapped by snowflake tag
    */
   public static String formatLogMessage(String format, Object... vars) {
+    String connCtx = MDC.get("connector.context");
+    if (connCtx != null && !connCtx.isEmpty()) {
+      return SF_LOG_TAG + " " + MDC.get("connector.context") + formatString(format, vars);
+    }
+
     return SF_LOG_TAG + " " + formatString(format, vars);
   }
 

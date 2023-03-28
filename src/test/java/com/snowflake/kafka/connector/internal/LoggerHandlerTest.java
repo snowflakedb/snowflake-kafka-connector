@@ -39,7 +39,6 @@ public class LoggerHandlerTest {
 
   @After
   public void close() {
-    LoggerHandler.setKcGlobalInstanceId("");
     this.loggerHandler = new LoggerHandler(this.name);
   }
 
@@ -49,82 +48,6 @@ public class LoggerHandlerTest {
     MockitoAnnotations.initMocks(this);
 
     testAllLogMessagesRunner("");
-  }
-
-  @Test
-  public void testAllLogMessageKcGlobalInstanceId() {
-    LoggerHandler.setKcGlobalInstanceId(this.kcGlobalInstanceId);
-    MockitoAnnotations.initMocks(this);
-
-    // [kc:id] with space at end
-    testAllLogMessagesRunner(this.kcGlobalInstanceId + " ");
-  }
-
-  @Test
-  public void testAllLogMessageLoggingTag() {
-    this.loggerHandler = new LoggerHandler(this.name);
-    this.loggerHandler.setLoggerInstanceTag(this.taskLoggerTag);
-    MockitoAnnotations.initMocks(this);
-
-    // [task:id.creationtime] with space at end
-    testAllLogMessagesRunner(this.taskLoggerTag + " ");
-
-    this.loggerHandler.clearLoggerInstanceIdTag();
-    testAllLogMessagesRunner("");
-  }
-
-  @Test
-  public void testAllLogMessageAllInstanceIds() {
-    LoggerHandler.setKcGlobalInstanceId(this.kcGlobalInstanceId);
-    loggerHandler = new LoggerHandler(name);
-    this.loggerHandler.setLoggerInstanceTag(this.taskLoggerTag);
-    MockitoAnnotations.initMocks(this);
-
-    // [kc:id] [task:id.creationtime] with space at end
-    testAllLogMessagesRunner(this.kcGlobalInstanceId + " " + this.taskLoggerTag + " ");
-  }
-
-  @Test
-  public void testInvalidKcId() {
-    String msg = "super useful logging msg";
-
-    LoggerHandler.setKcGlobalInstanceId("");
-    MockitoAnnotations.initMocks(this);
-    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-
-    this.loggerHandler.info(msg);
-
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(msg));
-  }
-
-  @Test
-  public void testInvalidLogTag() {
-    String msg = "super useful logging msg";
-
-    this.loggerHandler.setLoggerInstanceTag(null);
-    MockitoAnnotations.initMocks(this);
-    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-
-    this.loggerHandler.info(msg);
-
-    Mockito.verify(logger, Mockito.times(1)).info(Utils.formatLogMessage(msg));
-  }
-
-  @Test
-  public void testGetFormattedKcGlobalInstanceId() {
-    long startTime = 123;
-    String expectedId = "[KC:" + Math.abs(("" + 123).hashCode()) + "]";
-    String gotId = LoggerHandler.getFormattedKcGlobalInstanceId(startTime);
-    assert expectedId.equals(gotId);
-  }
-
-  @Test
-  public void testGetFormattedTaskLoggingTag() {
-    String taskId = "taskid";
-    long startTime = 123;
-    String expectedId = "[TASK:" + taskId + "." + Math.abs(("" + 123).hashCode()) + "]";
-    String gotId = LoggerHandler.getFormattedTaskLoggingTag(taskId, startTime);
-    assert expectedId.equals(gotId);
   }
 
   private void testAllLogMessagesRunner(String expectedTag) {

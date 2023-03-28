@@ -77,9 +77,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
-    // initialize logging with global instance Id
-    LoggerHandler.setKcGlobalInstanceId(
-        LoggerHandler.getFormattedKcGlobalInstanceId(this.connectorStartTime));
     LOGGER.info("SnowflakeSinkConnector:starting...");
 
     Utils.checkConnectorVersion();

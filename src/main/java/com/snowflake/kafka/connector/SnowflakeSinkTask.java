@@ -127,14 +127,11 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
+    this.DYNAMIC_LOGGER.debug("starting task...");
+
     // get task id and start time
     this.taskStartTime = System.currentTimeMillis();
     this.taskConfigId = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
-
-    // setup logging
-    this.DYNAMIC_LOGGER.setLoggerInstanceTag(
-        LoggerHandler.getFormattedTaskLoggingTag(this.taskConfigId, this.taskStartTime));
-    this.DYNAMIC_LOGGER.debug("starting task...");
 
     // generate topic to table map
     this.topic2table = getTopicToTableMap(parsedConfig);
@@ -242,7 +239,6 @@ public class SnowflakeSinkTask extends SinkTask {
     this.DYNAMIC_LOGGER.debug(
         "task stopped, total task runtime: {} seconds",
         getExecutionTimeSec(this.taskStartTime, System.currentTimeMillis()));
-    this.DYNAMIC_LOGGER.clearLoggerInstanceIdTag();
   }
 
   /**
