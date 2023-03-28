@@ -18,7 +18,7 @@ package com.snowflake.kafka.connector;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Arrays;
@@ -31,8 +31,6 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * SnowflakeSinkConnectorConfig class is used for specifying the set of expected configurations. For
@@ -72,8 +70,9 @@ public class SnowflakeSinkConnectorConfig {
   static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
 
   // For Snowpipe Streaming client
-  static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
+  public static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
   public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
+  public static final String ENABLE_SCHEMATIZATION_DEFAULT = "false";
 
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
@@ -112,12 +111,16 @@ public class SnowflakeSinkConnectorConfig {
   public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
       IngestionMethodConfig.SNOWPIPE.toString();
 
+  // This is the streaming bdec file version which can be defined in config
+  // NOTE: Please do not override this value unless recommended from snowflake
+  public static final String SNOWPIPE_STREAMING_FILE_VERSION = "snowflake.streaming.file.version";
+
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
   public static final boolean REBALANCING_DEFAULT = false;
 
-  private static final Logger LOGGER =
-      LoggerFactory.getLogger(SnowflakeSinkConnectorConfig.class.getName());
+  private static final LoggerHandler LOGGER =
+      new LoggerHandler(SnowflakeSinkConnectorConfig.class.getName());
 
   private static final ConfigDef.Validator nonEmptyStringValidator = new ConfigDef.NonEmptyString();
   private static final ConfigDef.Validator topicToTableValidator = new TopicToTableValidator();
@@ -174,8 +177,6 @@ public class SnowflakeSinkConnectorConfig {
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry",
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
 
-  public static final String CONFLUENT_AVRO_CONVERTER = "io.confluent.connect.avro.AvroConverter";
-
   public static void setDefaultValues(Map<String, String> config) {
     setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);
 
@@ -187,7 +188,7 @@ public class SnowflakeSinkConnectorConfig {
   static void setFieldToDefaultValues(Map<String, String> config, String field, Long value) {
     if (!config.containsKey(field)) {
       config.put(field, value + "");
-      LOGGER.info(Logging.logMessage("{} set to default {} seconds", field, value));
+      LOGGER.info("{} set to default {} seconds", field, value);
     }
   }
 
@@ -466,6 +467,18 @@ public class SnowflakeSinkConnectorConfig {
             5,
             ConfigDef.Width.NONE,
             INGESTION_METHOD_OPT)
+        .define(
+            SNOWPIPE_STREAMING_FILE_VERSION,
+            Type.STRING,
+            "", // default is handled in Ingest SDK
+            null, // no validator
+            Importance.LOW,
+            "Acceptable values for Snowpipe Streaming BDEC Versions: 1 and 3. Check Ingest"
+                + " SDK for default behavior. Please do not set this unless Absolutely needed. ",
+            CONNECTOR_CONFIG,
+            6,
+            ConfigDef.Width.NONE,
+            SNOWPIPE_STREAMING_FILE_VERSION)
         .define(
             ERRORS_TOLERANCE_CONFIG,
             Type.STRING,

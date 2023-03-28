@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkTask.TASK_INSTANCE_TAG_FORMAT;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
@@ -34,6 +35,7 @@ import static com.snowflake.kafka.connector.Utils.SF_USER;
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
@@ -58,6 +60,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -680,7 +684,11 @@ public class TestUtils {
     int numberOfColumnExpected = schemaMap.size();
     int numberOfColumnInTable = 0;
     while (result.next()) {
-      assert result.getString(2).startsWith(schemaMap.get(result.getString(1)));
+      String colName = result.getString("name");
+      if (!colName.equals(colName.toUpperCase())) {
+        colName = "\"" + colName + "\"";
+      }
+      assert result.getString("type").startsWith(schemaMap.get(colName));
       // see if the type of the column in sf is the same as expected (ignoring scale)
       numberOfColumnInTable++;
     }
@@ -705,15 +713,34 @@ public class TestUtils {
     for (int i = 0; i < contentMap.size(); ++i) {
       String columnName = result.getMetaData().getColumnName(i + 1);
       Object value = result.getObject(i + 1);
-      if (value instanceof String && ((String) value).startsWith("{")) {
-        // is a map
-        value = ((String) value).replace(" ", "").replace("\n", "");
-        // get rid of the formatting added by snowflake
+      if (value != null) {
+        // For map or array
+        if (value instanceof String
+            && (((String) value).startsWith("{") || ((String) value).startsWith("["))) {
+          // Get rid of the formatting added by snowflake
+          value = ((String) value).replace(" ", "").replace("\n", "");
+        }
+        if ("RECORD_METADATA_PLACE_HOLDER".equals(contentMap.get(columnName))) {
+          continue;
+        }
+        assert value.equals(contentMap.get(columnName))
+            : "expected: " + contentMap.get(columnName) + " actual: " + value;
+      } else {
+        assert contentMap.get(columnName) == null : "value should be null";
       }
-      if (contentMap.get(columnName).equals("RECORD_METADATA_PLACE_HOLDER")) {
-        continue;
-      }
-      assert value.equals(contentMap.get(columnName));
     }
+  }
+
+  public static String getExpectedLogTagWithoutCreationCount(String taskId, int taskOpenCount) {
+    return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, taskId, taskOpenCount, "").split("#")[0];
+  }
+
+  public static SnowflakeStreamingIngestClient createStreamingClient(
+      Map<String, String> config, String clientName) {
+    Properties clientProperties = new Properties();
+    clientProperties.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
+    return SnowflakeStreamingIngestClientFactory.builder(clientName)
+        .setProperties(clientProperties)
+        .build();
   }
 }

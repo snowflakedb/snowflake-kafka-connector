@@ -20,8 +20,10 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.EnableLogging;
+import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
@@ -53,8 +55,10 @@ import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
 
-public class RecordService extends Logging {
+public class RecordService extends EnableLogging {
   private static final ObjectMapper MAPPER = new ObjectMapper();
+
+  private static final LoggerHandler LOGGER = new LoggerHandler(RecordService.class.getName());
 
   // deleted private to use these values in test
   static final String OFFSET = "offset";
@@ -87,13 +91,26 @@ public class RecordService extends Logging {
   // This class is designed to work with empty metadata config map
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
 
+  /** Send Telemetry Data to Snowflake */
+  private final SnowflakeTelemetryService telemetryService;
+
   /**
    * process records output JSON format: { "meta": { "offset": 123, "topic": "topic name",
    * "partition": 123, "key":"key name" } "content": "record content" }
    *
    * <p>create a JsonRecordService instance
+   *
+   * @param telemetryService Telemetry Service Instance. Can be null.
    */
-  public RecordService() {}
+  public RecordService(SnowflakeTelemetryService telemetryService) {
+    this.telemetryService = telemetryService;
+  }
+
+  /** Record service with null telemetry Service, only use it for testing. */
+  @VisibleForTesting
+  public RecordService() {
+    this.telemetryService = null;
+  }
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
     metadataConfig = metadataConfigIn;
@@ -241,7 +258,6 @@ public class RecordService extends Logging {
     while (columnNames.hasNext()) {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
-      columnName = formatColumnName(columnName);
       Object columnValue;
       if (columnNode.isArray()) {
         List<String> itemList = new ArrayList<>();
@@ -252,6 +268,8 @@ public class RecordService extends Logging {
         columnValue = itemList;
       } else if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
+      } else if (columnNode.isNull()) {
+        columnValue = null;
       } else {
         columnValue = MAPPER.writeValueAsString(columnNode);
       }
@@ -259,24 +277,12 @@ public class RecordService extends Logging {
       // will transform the value according to its type in the table
       streamingIngestRow.put(columnName, columnValue);
     }
+    // Thrown an exception if the input JsonNode is not in the expected format
+    if (streamingIngestRow.isEmpty()) {
+      throw SnowflakeErrors.ERROR_0010.getException(
+          "Not able to convert node to Snowpipe Streaming input format");
+    }
     return streamingIngestRow;
-  }
-
-  /**
-   * Transform the columnName to uppercase unless it is enclosed in double quotes
-   *
-   * <p>In that case, drop the quotes and leave it as it is.
-   *
-   * <p>This transformation exist to mimic the behavior of the Ingest SDK.
-   *
-   * @param columnName
-   * @return Transformed columnName
-   */
-  private String formatColumnName(String columnName) {
-    // the columnName has been checked and guaranteed not to be null or empty
-    return (columnName.charAt(0) == '"' && columnName.charAt(columnName.length() - 1) == '"')
-        ? columnName
-        : columnName.toUpperCase();
   }
 
   /** For now there are two columns one is content and other is metadata. Both are Json */
@@ -531,7 +537,7 @@ public class RecordService extends Logging {
         if (record.value() instanceof SnowflakeRecordContent) {
           SnowflakeRecordContent recordValueContent = (SnowflakeRecordContent) record.value();
           if (recordValueContent.isRecordContentValueNull()) {
-            logDebug(
+            LOG_DEBUG_MSG(
                 "Record value schema is:{} and value is Empty Json Node for topic {}, partition {}"
                     + " and offset {}",
                 valueSchema.getClass().getName(),
@@ -546,7 +552,7 @@ public class RecordService extends Logging {
         // Tombstone handler SMT can be used but we need to check here if value is null if SMT is
         // not used
         if (record.value() == null) {
-          logDebug(
+          LOG_DEBUG_MSG(
               "Record value is null for topic {}, partition {} and offset {}",
               record.topic(),
               record.kafkaPartition(),
@@ -555,7 +561,7 @@ public class RecordService extends Logging {
         }
       }
       if (isRecordValueNull) {
-        logDebug(
+        LOG_DEBUG_MSG(
             "Null valued record from topic '{}', partition {} and offset {} was skipped.",
             record.topic(),
             record.kafkaPartition(),

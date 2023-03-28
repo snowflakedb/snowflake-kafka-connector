@@ -4,6 +4,8 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee;
@@ -12,7 +14,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_C
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.EnableLogging;
 import java.sql.Connection;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
@@ -23,7 +25,8 @@ import net.snowflake.client.jdbc.telemetry.TelemetryClient;
 import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
 import org.apache.kafka.common.utils.AppInfoParser;
 
-public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTelemetryService {
+public class SnowflakeTelemetryServiceV1 extends EnableLogging
+    implements SnowflakeTelemetryService {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   // constant string list
@@ -166,16 +169,17 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
     msg.put(VERSION, Utils.VERSION); // version number
     try {
       telemetry.addLogToBatch(TelemetryUtil.buildJobData(msg));
-      logDebug("sending telemetry data: {} of type:{}", data.toString(), type.toString());
+      LOG_DEBUG_MSG("sending telemetry data: {} of type:{}", data.toString(), type.toString());
       telemetry.sendBatchAsync();
     } catch (Exception e) {
-      logError("Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
+      LOG_ERROR_MSG(
+          "Failed to send telemetry data: {}, Error: {}", data.toString(), e.getMessage());
     }
   }
 
   private String getAppName() {
     if (name == null || name.isEmpty()) {
-      logWarn("appName in telemetry service is empty");
+      LOG_WARN_MSG("appName in telemetry service is empty");
       return "empty_appName";
     }
     return name;
@@ -183,7 +187,7 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
 
   private String getTaskID() {
     if (taskID == null || taskID.isEmpty()) {
-      logWarn("taskID in telemetry service is empty");
+      LOG_WARN_MSG("taskID in telemetry service is empty");
       return "empty_taskID";
     }
     return taskID;
@@ -225,6 +229,12 @@ public class SnowflakeTelemetryServiceV1 extends Logging implements SnowflakeTel
         KEY_CONVERTER_CONFIG_FIELD, userProvidedConfig.get(KEY_CONVERTER_CONFIG_FIELD));
     dataObjectNode.put(
         VALUE_CONVERTER_CONFIG_FIELD, userProvidedConfig.get(VALUE_CONVERTER_CONFIG_FIELD));
+
+    // Record whether schematization is used
+    dataObjectNode.put(
+        ENABLE_SCHEMATIZATION_CONFIG,
+        userProvidedConfig.getOrDefault(
+            ENABLE_SCHEMATIZATION_CONFIG, ENABLE_SCHEMATIZATION_DEFAULT));
   }
 
   private enum TelemetryType {

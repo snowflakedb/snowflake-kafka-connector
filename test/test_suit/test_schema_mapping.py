@@ -11,20 +11,23 @@ class TestSchemaMapping:
         self.topic = self.fileName + nameSalt
 
         self.driver.snowflake_conn.cursor().execute(
-            # "Create or replace table {} (PERFORMANCE_STRING STRING, PERFORMANCE_CHAR CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO_ARRAY ARRAY, INFO VARIANT)".format(self.topic))
-            "Create or replace table {} (PERFORMANCE_STRING STRING, PERFORMANCE_CHAR CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO VARIANT)".format(self.topic))
+            'Create or replace table {} (PERFORMANCE_STRING STRING, "case_sensitive_PERFORMANCE_CHAR" CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO_ARRAY ARRAY, INFO VARIANT, INFO_OBJECT OBJECT)'.format(self.topic))
 
         self.record = {
             'PERFORMANCE_STRING': 'Excellent',
-            'PERFORMANCE_CHAR': 'A',
+            '"case_sensitive_PERFORMANCE_CHAR"': 'A',
             'PERFORMANCE_HEX': 'FFFFFFFF',
             'RATING_INT': 100,
             'RATING_DOUBLE': 0.99,
             'APPROVAL': 'true',
-            'APPROVAL_DATE': '15-Jun-2022',
+            'APPROVAL_DATE': '2022-06-15',
             'APPROVAL_TIME': '23:59:59.999999',
-            # 'INFO_ARRAY': ['HELLO', 'WORLD'],
+            'INFO_ARRAY': ['HELLO', 'WORLD'],
             'INFO': {
+                'TREE_1': 'APPLE',
+                'TREE_2': 'PINEAPPLE'
+            },
+            'INFO_OBJECT': {
                 'TREE_1': 'APPLE',
                 'TREE_2': 'PINEAPPLE'
             }
@@ -32,15 +35,16 @@ class TestSchemaMapping:
 
         self.gold = {
             'PERFORMANCE_STRING': 'Excellent',
-            'PERFORMANCE_CHAR': 'A',
-            'PERFORMANCE_HEX': b'\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd',
+            'case_sensitive_PERFORMANCE_CHAR': 'A',
+            'PERFORMANCE_HEX': b'\xff\xff\xff\xff',
             'RATING_INT': 100,
             'RATING_DOUBLE': 0.99,
             'APPROVAL': True,
             'APPROVAL_DATE': datetime.date(2022, 6, 15),
             'APPROVAL_TIME': datetime.time(23, 59, 59, 999999),
-            # 'INFO_ARRAY': ['HELLO', 'WORLD'],
-            'INFO': r'{"TREE_1":"APPLE","TREE_2":"PINEAPPLE"}'
+            'INFO_ARRAY': r'["HELLO","WORLD"]',
+            'INFO': r'{"TREE_1":"APPLE","TREE_2":"PINEAPPLE"}',
+            'INFO_OBJECT': r'{"TREE_1":"APPLE","TREE_2":"PINEAPPLE"}'
         }
 
     def getConfigFileName(self):
@@ -80,13 +84,14 @@ class TestSchemaMapping:
             "Select * from {} limit 1".format(self.topic)).fetchone()
 
         for field in res_col:
+            print("Field:", field)
             if field == "RECORD_METADATA":
-                continue;
+                continue
             if type(res[res_col[field]]) == str:
                 # removing the formating created by sf
-                assert ''.join(res[res_col[field]].split()) == self.gold[field]
+                assert ''.join(res[res_col[field]].split()) == self.gold[field], f"expected:{self.gold[field]}, actual:{res[res_col[field]]}"
             else:
-                assert res[res_col[field]] == self.gold[field]
+                assert res[res_col[field]] == self.gold[field], f"expected:{self.gold[field]}, actual:{res[res_col[field]]}"
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

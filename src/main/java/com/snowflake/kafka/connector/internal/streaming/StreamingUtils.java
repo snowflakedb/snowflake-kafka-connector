@@ -1,14 +1,21 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ErrorTolerance;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.Logging;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -49,6 +56,8 @@ public class StreamingUtils {
   protected static final long STREAMING_BUFFER_BYTES_DEFAULT = 20_000_000;
 
   private static final Set<String> DISALLOWED_CONVERTERS_STREAMING = CUSTOM_SNOWFLAKE_CONVERTERS;
+  private static final String STRING_CONVERTER_KEYWORD = "StringConverter";
+  private static final String BYTE_ARRAY_CONVERTER_KEYWORD = "ByteArrayConverter";
 
   // excluding key, value and headers: 5 bytes length + 10 bytes timestamp + 5 bytes offset + 1
   // byte attributes. (This is not for record metadata, this is before we transform to snowflake
@@ -157,10 +166,9 @@ public class StreamingUtils {
           if (!inputConfig.containsKey(Utils.SF_ROLE)
               || Strings.isNullOrEmpty(inputConfig.get(Utils.SF_ROLE))) {
             LOGGER.error(
-                Logging.logMessage(
-                    "Config:{} should be present if ingestionMethod is:{}",
-                    Utils.SF_ROLE,
-                    inputConfig.get(INGESTION_METHOD_OPT)));
+                "Config:{} should be present if ingestionMethod is:{}",
+                Utils.SF_ROLE,
+                inputConfig.get(INGESTION_METHOD_OPT));
             configIsValid = false;
           }
           // setting delivery guarantee to EOS.
@@ -174,11 +182,10 @@ public class StreamingUtils {
           if (deliveryGuarantee.equals(
               SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE)) {
             LOGGER.error(
-                Logging.logMessage(
-                    "Config:{} should be:{} if ingestion method is:{}",
-                    DELIVERY_GUARANTEE,
-                    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.toString(),
-                    IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+                "Config:{} should be:{} if ingestion method is:{}",
+                DELIVERY_GUARANTEE,
+                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.toString(),
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
             configIsValid = false;
           }
 
@@ -194,11 +201,14 @@ public class StreamingUtils {
             BOOLEAN_VALIDATOR.ensureValid(
                 ERRORS_LOG_ENABLE_CONFIG, inputConfig.get(ERRORS_LOG_ENABLE_CONFIG));
           }
+
+          // Valid schematization for Snowpipe Streaming
+          if (!validateSchematizationConfig(inputConfig)) {
+            configIsValid = false;
+          }
         }
       } catch (ConfigException exception) {
-        LOGGER.error(
-            Logging.logMessage(
-                "Kafka config:{} error:{}", INGESTION_METHOD_OPT, exception.getMessage()));
+        LOGGER.error("Kafka config:{} error:{}", INGESTION_METHOD_OPT, exception.getMessage());
         configIsValid = false;
       }
     }
@@ -216,14 +226,40 @@ public class StreamingUtils {
     if (inputConfig.containsKey(inputConfigConverterField)) {
       if (DISALLOWED_CONVERTERS_STREAMING.contains(inputConfig.get(inputConfigConverterField))) {
         LOGGER.error(
-            Logging.logMessage(
-                "Config:{} has provided value:{}. If ingestionMethod is:{}, Snowflake Custom"
-                    + " Converters are not allowed. \n"
-                    + "Invalid Converters:{}",
-                inputConfigConverterField,
-                inputConfig.get(inputConfigConverterField),
-                IngestionMethodConfig.SNOWPIPE_STREAMING,
-                Iterables.toString(DISALLOWED_CONVERTERS_STREAMING)));
+            "Config:{} has provided value:{}. If ingestionMethod is:{}, Snowflake Custom"
+                + " Converters are not allowed. \n"
+                + "Invalid Converters:{}",
+            inputConfigConverterField,
+            inputConfig.get(inputConfigConverterField),
+            IngestionMethodConfig.SNOWPIPE_STREAMING,
+            Iterables.toString(DISALLOWED_CONVERTERS_STREAMING));
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Validates if the configs are allowed values when schematization is enabled.
+   *
+   * <p>return true if allowed, false otherwise.
+   */
+  private static boolean validateSchematizationConfig(Map<String, String> inputConfig) {
+    if (inputConfig.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)) {
+      BOOLEAN_VALIDATOR.ensureValid(
+          SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
+          inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
+
+      if (Boolean.parseBoolean(
+              inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG))
+          && inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD) != null
+          && (inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD).contains(STRING_CONVERTER_KEYWORD)
+              || inputConfig
+                  .get(VALUE_CONVERTER_CONFIG_FIELD)
+                  .contains(BYTE_ARRAY_CONVERTER_KEYWORD))) {
+        LOGGER.error(
+            "The value converter:{} is not supported with schematization.",
+            inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD));
         return false;
       }
     }

@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.EnableLogging;
 import java.sql.Connection;
 
 /**
@@ -14,7 +14,7 @@ public class SnowflakeTelemetryServiceFactory {
   }
 
   /** Builder for TelemetryService */
-  public static class SnowflakeTelemetryServiceBuilder extends Logging {
+  public static class SnowflakeTelemetryServiceBuilder extends EnableLogging {
     private final SnowflakeTelemetryService service;
 
     /** @param conn snowflake connection is required for telemetry service */

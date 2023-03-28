@@ -16,7 +16,7 @@
  */
 package com.snowflake.kafka.connector;
 
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -26,12 +26,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * SnowflakeSinkConnector implements SinkConnector for Kafka Connect framework.
@@ -43,6 +42,9 @@ import org.slf4j.LoggerFactory;
  * running on Kafka Connect Workers.
  */
 public class SnowflakeSinkConnector extends SinkConnector {
+  // create logger without correlationId for now
+  private static LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnector.class.getName());
+
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
   private String connectorName; // unique name of this connector instance
@@ -54,8 +56,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // Snowflake Telemetry provides methods to report usage statistics
   private SnowflakeTelemetryService telemetryClient;
   private long connectorStartTime;
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkConnector.class);
 
   // Kafka Connect starts sink tasks without waiting for setup in
   // SnowflakeSinkConnector to finish.
@@ -79,10 +79,17 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
+    // ensure we start counting tasks at 0 for this instance
+    SnowflakeSinkTask.setTotalTaskCreationCount(0);
+
     Utils.checkConnectorVersion();
-    LOGGER.info(Logging.logMessage("SnowflakeSinkConnector:start"));
+
+    LOGGER.info("SnowflakeSinkConnector:start");
     setupComplete = false;
     connectorStartTime = System.currentTimeMillis();
+
+    // initialize logging with global instance Id
+    LoggerHandler.setConnectGlobalInstanceId(this.getKcInstanceId(this.connectorStartTime));
 
     config = new HashMap<>(parsedConfig);
 
@@ -117,8 +124,10 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void stop() {
+    // set task logging to default
+    SnowflakeSinkTask.setTotalTaskCreationCount(-1);
     setupComplete = false;
-    LOGGER.info(Logging.logMessage("SnowflakeSinkConnector:stop"));
+    LOGGER.info("SnowflakeSinkConnector:stop");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
   }
 
@@ -156,10 +165,10 @@ public class SnowflakeSinkConnector extends SinkConnector {
       } else {
         counter++;
         try {
-          LOGGER.info(Logging.logMessage("Sleeping 5000ms to allow setup to " + "complete."));
+          LOGGER.info("Sleeping 5000ms to allow setup to " + "complete.");
           Thread.sleep(5000);
         } catch (InterruptedException ex) {
-          LOGGER.warn(Logging.logMessage("Waiting for setup to complete got " + "interrupted"));
+          LOGGER.warn("Waiting for setup to complete got " + "interrupted");
         }
       }
     }
@@ -297,5 +306,14 @@ public class SnowflakeSinkConnector extends SinkConnector {
   @Override
   public String version() {
     return Utils.VERSION;
+  }
+
+  // returns the instance id as a combo of a random uuid and the current time
+  private String getKcInstanceId(long currTime) {
+    // 9-10 char
+    String combinedId = UUID.randomUUID().toString() + currTime;
+    int unsignedHashCode = Math.abs(combinedId.hashCode());
+
+    return "" + unsignedHashCode;
   }
 }

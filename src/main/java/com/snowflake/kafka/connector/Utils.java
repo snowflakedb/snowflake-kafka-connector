@@ -23,7 +23,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
 import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.LoggerHandler;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -38,20 +38,19 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.ConfigValue;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** Various arbitrary helper functions */
 public class Utils {
 
   // Connector version, change every release
-  public static final String VERSION = "1.8.1";
+  public static final String VERSION = "1.9.1";
 
   // connector parameter list
   public static final String NAME = "name";
@@ -101,7 +100,7 @@ public class Utils {
   public static final String TABLE_COLUMN_CONTENT = "RECORD_CONTENT";
   public static final String TABLE_COLUMN_METADATA = "RECORD_METADATA";
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class.getName());
+  private static final LoggerHandler LOGGER = new LoggerHandler(Utils.class.getName());
 
   /**
    * check the connector version from Maven repo, report if any update version is available.
@@ -111,7 +110,7 @@ public class Utils {
    * connector.
    */
   static boolean checkConnectorVersion() {
-    LOGGER.info(Logging.logMessage("Current Snowflake Kafka Connector Version: {}", VERSION));
+    LOGGER.info("Current Snowflake Kafka Connector Version: {}", VERSION);
     try {
       String latestVersion = null;
       int largestNumber = 0;
@@ -142,16 +141,12 @@ public class Utils {
         throw new Exception("can't retrieve version number from Maven repo");
       } else if (!latestVersion.equals(VERSION)) {
         LOGGER.warn(
-            Logging.logMessage(
-                "Connector update is available, please"
-                    + " upgrade Snowflake Kafka Connector ({} -> {}) ",
-                VERSION,
-                latestVersion));
+            "Connector update is available, please upgrade Snowflake Kafka Connector ({} -> {}) ",
+            VERSION,
+            latestVersion);
       }
     } catch (Exception e) {
-      LOGGER.warn(
-          Logging.logMessage(
-              "can't verify latest connector version " + "from Maven Repo\n{}", e.getMessage()));
+      LOGGER.warn("can't verify latest connector version " + "from Maven Repo\n{}", e.getMessage());
       return false;
     }
 
@@ -176,7 +171,7 @@ public class Utils {
   public static String stageName(String appName, String table) {
     String stageName = getObjectPrefix(appName) + "_STAGE_" + table;
 
-    LOGGER.debug(Logging.logMessage("generated stage name: {}", stageName));
+    LOGGER.debug("generated stage name: {}", stageName);
 
     return stageName;
   }
@@ -192,7 +187,7 @@ public class Utils {
   public static String pipeName(String appName, String table, int partition) {
     String pipeName = getObjectPrefix(appName) + "_PIPE_" + table + "_" + partition;
 
-    LOGGER.debug(Logging.logMessage("generated pipe name: {}", pipeName));
+    LOGGER.debug("generated pipe name: {}", pipeName);
 
     return pipeName;
   }
@@ -206,14 +201,13 @@ public class Utils {
     if (jdbcTmpDir != null) {
       File jdbcTmpDirObj = new File(jdbcTmpDir);
       if (jdbcTmpDirObj.isDirectory()) {
-        LOGGER.info(Logging.logMessage("jdbc tracing directory = {}", jdbcTmpDir));
+        LOGGER.info("jdbc tracing directory = {}", jdbcTmpDir);
         System.setProperty(JAVA_IO_TMPDIR, jdbcTmpDir);
       } else {
         LOGGER.info(
-            Logging.logMessage(
-                "invalid JDBC_LOG_DIR {} defaulting to {}",
-                jdbcTmpDir,
-                System.getProperty(JAVA_IO_TMPDIR)));
+            "invalid JDBC_LOG_DIR {} defaulting to {}",
+            jdbcTmpDir,
+            System.getProperty(JAVA_IO_TMPDIR));
       }
     }
   }
@@ -269,7 +263,7 @@ public class Utils {
         SnowflakeSinkConnectorConfig.getProperty(
             config, SnowflakeSinkConnectorConfig.JVM_PROXY_PORT);
     if (host != null && port != null) {
-      LOGGER.info(Logging.logMessage("enable jvm proxy: {}:{}", host, port));
+      LOGGER.info("enable jvm proxy: {}:{}", host, port);
 
       // enable https proxy
       System.setProperty(HTTP_USE_PROXY, "true");
@@ -346,11 +340,9 @@ public class Utils {
     String connectorName = config.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "");
     if (connectorName.isEmpty() || !isValidSnowflakeApplicationName(connectorName)) {
       LOGGER.error(
-          Logging.logMessage(
-              "{} is empty or invalid. It "
-                  + "should match Snowflake object identifier syntax. Please see the "
-                  + "documentation.",
-              SnowflakeSinkConnectorConfig.NAME));
+          "{} is empty or invalid. It should match Snowflake object identifier syntax. Please see "
+              + "the documentation.",
+          SnowflakeSinkConnectorConfig.NAME);
       configIsValid = false;
     }
 
@@ -370,9 +362,15 @@ public class Utils {
               config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG))) {
         configIsValid = false;
         LOGGER.error(
-            Logging.logMessage(
-                "Schematization is only available with {}.",
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+            "Schematization is only available with {}.",
+            IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+      }
+      if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION)) {
+        configIsValid = false;
+        LOGGER.error(
+            "{} is only available with ingestion type: {}.",
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
+            IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
       }
     }
 
@@ -384,42 +382,35 @@ public class Utils {
 
     // sanity check
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE)) {
-      LOGGER.error(
-          Logging.logMessage(
-              "{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE));
+      LOGGER.error("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE);
       configIsValid = false;
     }
 
     // sanity check
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA)) {
-      LOGGER.error(
-          Logging.logMessage("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
+      LOGGER.error("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA);
       configIsValid = false;
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY)) {
-      LOGGER.error(
-          Logging.logMessage(
-              "{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY));
+      LOGGER.error("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY);
       configIsValid = false;
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER)) {
-      LOGGER.error(
-          Logging.logMessage("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_USER));
+      LOGGER.error("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_USER);
       configIsValid = false;
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL)) {
-      LOGGER.error(
-          Logging.logMessage("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_URL));
+      LOGGER.error("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_URL);
       configIsValid = false;
     }
     // jvm proxy settings
     try {
       validateProxySetting(config);
     } catch (SnowflakeKafkaConnectorException e) {
-      LOGGER.error(Logging.logMessage("Proxy settings error: ", e.getMessage()));
+      LOGGER.error("Proxy settings error: ", e.getMessage());
       configIsValid = false;
     }
 
@@ -432,7 +423,7 @@ public class Utils {
         SnowflakeSinkConnectorConfig.KafkaProvider.of(
             config.get(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG));
       } catch (IllegalArgumentException exception) {
-        LOGGER.error(Logging.logMessage("Kafka provider config error:{}", exception.getMessage()));
+        LOGGER.error("Kafka provider config error:{}", exception.getMessage());
         configIsValid = false;
       }
     }
@@ -444,10 +435,7 @@ public class Utils {
             BEHAVIOR_ON_NULL_VALUES_CONFIG, config.get(BEHAVIOR_ON_NULL_VALUES_CONFIG));
       } catch (ConfigException exception) {
         LOGGER.error(
-            Logging.logMessage(
-                "Kafka config:{} error:{}",
-                BEHAVIOR_ON_NULL_VALUES_CONFIG,
-                exception.getMessage()));
+            "Kafka config:{} error:{}", BEHAVIOR_ON_NULL_VALUES_CONFIG, exception.getMessage());
         configIsValid = false;
       }
     }
@@ -455,7 +443,7 @@ public class Utils {
     if (config.containsKey(JMX_OPT)) {
       if (!(config.get(JMX_OPT).equalsIgnoreCase("true")
           || config.get(JMX_OPT).equalsIgnoreCase("false"))) {
-        LOGGER.error(Logging.logMessage("Kafka config:{} should either be true or false", JMX_OPT));
+        LOGGER.error("Kafka config:{} should either be true or false", JMX_OPT);
         configIsValid = false;
       }
     }
@@ -467,8 +455,7 @@ public class Utils {
               SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
     } catch (IllegalArgumentException exception) {
       LOGGER.error(
-          Logging.logMessage(
-              "Delivery Guarantee config:{} error:{}", DELIVERY_GUARANTEE, exception.getMessage()));
+          "Delivery Guarantee config:{} error:{}", DELIVERY_GUARANTEE, exception.getMessage());
       configIsValid = false;
     }
 
@@ -559,10 +546,7 @@ public class Utils {
 
       if (tt.length != 2 || tt[0].trim().isEmpty() || tt[1].trim().isEmpty()) {
         LOGGER.error(
-            Logging.logMessage(
-                "Invalid {} config format: {}",
-                SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
-                input));
+            "Invalid {} config format: {}", SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, input);
         return null;
       }
 
@@ -571,16 +555,15 @@ public class Utils {
 
       if (!isValidSnowflakeTableName(table)) {
         LOGGER.error(
-            Logging.logMessage(
-                "table name {} should have at least 2 "
-                    + "characters, start with _a-zA-Z, and only contains "
-                    + "_$a-zA-z0-9",
-                table));
+            "table name {} should have at least 2 "
+                + "characters, start with _a-zA-Z, and only contains "
+                + "_$a-zA-z0-9",
+            table);
         isInvalid = true;
       }
 
       if (topic2Table.containsKey(topic)) {
-        LOGGER.error(Logging.logMessage("topic name {} is duplicated", topic));
+        LOGGER.error("topic name {} is duplicated", topic);
         isInvalid = true;
       }
 
@@ -631,5 +614,34 @@ public class Utils {
         v.addErrorMessage(key + msg);
       }
     }
+  }
+
+  // static elements
+  // log message tag
+  static final String SF_LOG_TAG = "[SF_KAFKA_CONNECTOR]";
+
+  /**
+   * the following method wraps log messages with Snowflake tag. For example,
+   *
+   * <p>[SF_KAFKA_CONNECTOR] this is a log message
+   *
+   * <p>[SF_KAFKA_CONNECTOR] this is the second line
+   *
+   * <p>All log messages should be wrapped by Snowflake tag. Then user can filter out log messages
+   * output from Snowflake Kafka connector by these tags.
+   *
+   * @param format log message format string
+   * @param vars variable list
+   * @return log message wrapped by snowflake tag
+   */
+  public static String formatLogMessage(String format, Object... vars) {
+    return SF_LOG_TAG + " " + formatString(format, vars);
+  }
+
+  public static String formatString(String format, Object... vars) {
+    for (int i = 0; i < vars.length; i++) {
+      format = format.replaceFirst("\\{}", Objects.toString(vars[i]).replaceAll("\\$", "\\\\\\$"));
+    }
+    return format;
   }
 }

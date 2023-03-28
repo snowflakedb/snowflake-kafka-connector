@@ -22,7 +22,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Snowflake URL Object https://account.region.snowflakecomputing.com:443 */
-public class SnowflakeURL extends Logging {
+public class SnowflakeURL extends EnableLogging {
 
   private String jdbcUrl;
 
@@ -78,11 +78,11 @@ public class SnowflakeURL extends Logging {
 
     jdbcUrl = "jdbc:snowflake://" + url + ":" + port;
     if (enableJDBCTrace()) {
-      logInfo("enabling JDBC tracing");
+      LOG_INFO_MSG("enabling JDBC tracing");
       jdbcUrl = jdbcUrl + "/?tracing=ALL";
     }
 
-    logDebug("parsed Snowflake URL: {}", urlStr);
+    LOG_DEBUG_MSG("parsed Snowflake URL: {}", urlStr);
   }
 
   /**
