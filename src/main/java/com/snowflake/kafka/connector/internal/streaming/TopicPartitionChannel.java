@@ -15,7 +15,7 @@ import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.records.RecordService;
@@ -64,8 +64,7 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
  * getLatestOffsetToken from Snowflake
  */
 public class TopicPartitionChannel {
-  private static final LoggerHandler LOGGER =
-      new LoggerHandler(TopicPartitionChannel.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(TopicPartitionChannel.class.getName());
 
   public static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 

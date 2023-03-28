@@ -24,7 +24,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT
 
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
@@ -100,7 +100,7 @@ public class Utils {
   public static final String TABLE_COLUMN_CONTENT = "RECORD_CONTENT";
   public static final String TABLE_COLUMN_METADATA = "RECORD_METADATA";
 
-  private static final LoggerHandler LOGGER = new LoggerHandler(Utils.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
   /**
    * check the connector version from Maven repo, report if any update version is available.

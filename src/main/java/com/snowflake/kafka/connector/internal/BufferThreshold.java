@@ -18,7 +18,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
  * to flush the buffered records.
  */
 public abstract class BufferThreshold {
-  private static final LoggerHandler LOGGER = new LoggerHandler(BufferThreshold.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(BufferThreshold.class.getName());
 
   // What ingestion method is defined in connector.
   private final IngestionMethodConfig ingestionMethodConfig;
