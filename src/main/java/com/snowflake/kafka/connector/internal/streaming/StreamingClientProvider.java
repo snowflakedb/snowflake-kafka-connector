@@ -137,14 +137,17 @@ public class StreamingClientProvider {
   }
 
   /**
-   * Gets the current client or creates a new one from the given connector config
-   * If client optimization is not enabled, just create a new streaming client
+   * Gets the current client or creates a new one from the given connector config If client
+   * optimization is not enabled, just create a new streaming client
    *
-   * @param connectorConfig The connector config, given as a backup in case the current client is invalid
+   * @param connectorConfig The connector config, given as a backup in case the current client is
+   *     invalid
    * @return The current or newly created streaming client
    */
   public SnowflakeStreamingIngestClient getClient(Map<String, String> connectorConfig) {
-    if (Boolean.parseBoolean(connectorConfig.get(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
+    if (Boolean.parseBoolean(
+        connectorConfig.get(
+            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
       // recreate streaming client if needed
       if (!isClientValid(this.streamingIngestClient)) {
         LOGGER.error("Current streaming client is invalid, recreating client");

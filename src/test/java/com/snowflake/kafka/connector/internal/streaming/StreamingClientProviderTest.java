@@ -50,7 +50,8 @@ public class StreamingClientProviderTest {
 
     // test actual provider
     streamingClientProvider.createClient(connectorConfig);
-    SnowflakeStreamingIngestClient createdClient = streamingClientProvider.getClient(connectorConfig);
+    SnowflakeStreamingIngestClient createdClient =
+        streamingClientProvider.getClient(connectorConfig);
 
     // verify
     assert createdClient.getName().contains(connectorName);
@@ -126,7 +127,8 @@ public class StreamingClientProviderTest {
   @Test
   public void testGetClientWithDisabledParam() {
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
-    connectorConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "false");
+    connectorConfig.put(
+        SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "false");
 
     // all of these clients should be valid and have different names
     SnowflakeStreamingIngestClient client1 = streamingClientProvider.getClient(connectorConfig);
@@ -146,7 +148,8 @@ public class StreamingClientProviderTest {
   @Test
   public void testGetClientWithEnabledParam() {
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
-    connectorConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
+    connectorConfig.put(
+        SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
 
     // all of these clients should be valid and have the names
     SnowflakeStreamingIngestClient client1 = streamingClientProvider.getClient(connectorConfig);
