@@ -28,8 +28,6 @@ import org.slf4j.Logger;
 public class LoggerHandlerTest {
   // test constants
   private final String name = "test.logger.name";
-  private final String kcGlobalInstanceId = "[KC:testid123]";
-  private final String taskLoggerTag = "[TASK:testid123.123]";
 
   // mock and test setup, inject logger into loggerHandler
   @Mock(name = "logger")
