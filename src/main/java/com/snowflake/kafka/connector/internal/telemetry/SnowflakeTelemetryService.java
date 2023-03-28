@@ -6,6 +6,8 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
@@ -256,6 +258,13 @@ public abstract class SnowflakeTelemetryService {
         ENABLE_SCHEMATIZATION_CONFIG,
         userProvidedConfig.getOrDefault(
             ENABLE_SCHEMATIZATION_CONFIG, ENABLE_SCHEMATIZATION_DEFAULT));
+
+    // Record whether streaming client optimization is enabled
+    dataObjectNode.put(
+        ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+        userProvidedConfig.getOrDefault(
+            ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+            ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT + ""));
   }
 
   enum TelemetryType {
