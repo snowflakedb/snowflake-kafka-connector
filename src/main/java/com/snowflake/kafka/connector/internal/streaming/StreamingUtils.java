@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
@@ -137,8 +136,7 @@ public class StreamingUtils {
       final Map<String, String> inputConfig) {
     Map<String, String> invalidParams = new HashMap<>();
 
-    // For snowpipe_streaming, role should be non empty and delivery guarantee should be exactly
-    // once. (Which is default)
+    // For snowpipe_streaming, role should be non empty
     if (inputConfig.containsKey(INGESTION_METHOD_OPT)) {
       try {
         // This throws an exception if config value is invalid.
@@ -165,24 +163,6 @@ public class StreamingUtils {
                     "Config:{} should be present if ingestionMethod is:{}",
                     Utils.SF_ROLE,
                     inputConfig.get(INGESTION_METHOD_OPT)));
-          }
-          // setting delivery guarantee to EOS.
-          // It is fine for customer to not set this value if Streaming SNOWPIPE is used.
-          SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee deliveryGuarantee =
-              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
-                  inputConfig.getOrDefault(
-                      DELIVERY_GUARANTEE,
-                      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.name()));
-
-          if (deliveryGuarantee.equals(
-              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE)) {
-            invalidParams.put(
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.toString(),
-                Utils.formatString(
-                    "Config:{} should be:{} if ingestion method is:{}",
-                    DELIVERY_GUARANTEE,
-                    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.toString(),
-                    IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
           }
 
           /**

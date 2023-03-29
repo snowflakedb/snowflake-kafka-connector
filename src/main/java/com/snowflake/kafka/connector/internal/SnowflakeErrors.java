@@ -189,9 +189,14 @@ public enum SnowflakeErrors {
       "Failed to create pipe",
       "User may have insufficient privileges. If this persists, please "
           + "contact Snowflake support. "),
-  ERROR_3006("3006", "Failed to configure client status", "Exception reported by Ingest SDK"),
-  ERROR_3007("3007", "Failed to get client status", "Exception reported by Ingest SDK"),
-  ERROR_3008("3008", "Failed to ingest file with client info", "Exception reported by Ingest SDK"),
+
+  // deprecated - ERROR_3006("3006", "Failed to configure client status", "Exception reported by
+  // Ingest SDK"),
+  // deprecated - ERROR_3007("3007", "Failed to get client status", "Exception reported by Ingest
+  // SDK"),
+  // deprecated - ERROR_3008("3008", "Failed to ingest file with client info", "Exception reported
+  // by Ingest SDK"),
+
   // Wrong result issues 4---
   ERROR_4001("4001", "Unexpected Result", "Get wrong results from Snowflake service"),
   // Connector internal errors 5---
