@@ -41,6 +41,7 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.Pair;
 import net.snowflake.ingest.utils.SFException;
+import org.apache.kafka.clients.consumer.InvalidOffsetException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -226,9 +227,22 @@ public class TopicPartitionChannel {
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
     this.processedOffset.set(lastCommittedOffsetToken);
+    // Reset the consumer offset in kafka, only if we have a valid offset token at server side. It's
+    // possible that we hit the invalid offset exception if KC stops and the data expired, so we
+    // will just accept what kafka sends us in this case
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      // Reset the consumer offset in kafka, only if we have a valid offset token at server side
-      this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken);
+      try {
+        this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken);
+      } catch (InvalidOffsetException exception) {
+        LOGGER.error(
+            "Invalid offset exception encountered during resetting the offset for topic"
+                + " partition:{}, channel:{}, offset:{}, we will just accept what kafka sends us",
+            this.topicPartition.toString(),
+            this.channel.getFullyQualifiedName(),
+            lastCommittedOffsetToken);
+        this.offsetPersistedInSnowflake.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+        this.processedOffset.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+      }
     }
   }
 

@@ -364,33 +364,6 @@ public class ConnectorConfigTest {
   }
 
   @Test
-  public void testDeliveryGuarantee_valid_value() {
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "at_least_once");
-    Utils.validateConfig(config);
-
-    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "exactly_once");
-    Utils.validateConfig(config);
-
-    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "");
-    Utils.validateConfig(config);
-
-    config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, null);
-    Utils.validateConfig(config);
-  }
-
-  @Test
-  public void testDeliveryGuarantee_invalid_value() {
-    try {
-      Map<String, String> config = getConfig();
-      config.put(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE, "INVALID");
-      Utils.validateConfig(config);
-    } catch (SnowflakeKafkaConnectorException exception) {
-      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE);
-    }
-  }
-
-  @Test
   public void testIngestionTypeConfig_valid_value_snowpipe() {
     Map<String, String> config = getConfig();
     config.put(

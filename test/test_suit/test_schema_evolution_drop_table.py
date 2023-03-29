@@ -67,9 +67,6 @@ class TestSchemaEvolutionDropTable:
         gold_columns_copy = self.gold_columns.copy()
 
         for index, row in enumerate(rows):
-            print(row)
-            print(gold_columns_copy)
-            print(self.gold_columns)
             gold_columns_copy.remove(row[0])
             if not row[1].startswith(self.gold_type[row[0]]):
                 raise NonRetryableError("Column {} has the wrong type. got: {}, expected: {}".format(row[0], row[1],

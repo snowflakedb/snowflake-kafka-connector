@@ -16,7 +16,6 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -202,30 +201,17 @@ public class SnowflakeSinkTask extends SinkTask {
           Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.JMX_OPT));
     }
 
-    // Get the Delivery guarantee type from config, default to at_least_once
-    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
-        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
-            parsedConfig.getOrDefault(
-                DELIVERY_GUARANTEE,
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
-
     enableRebalancing =
         Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.REBALANCING));
 
     KafkaRecordErrorReporter kafkaRecordErrorReporter = noOpKafkaRecordErrorReporter();
 
     // default to snowpipe
-    // If it is snowpipe_streaming, set delivery guarantee to exactly once.
     IngestionMethodConfig ingestionType = IngestionMethodConfig.SNOWPIPE;
     if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
       ingestionType =
           IngestionMethodConfig.valueOf(
               parsedConfig.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).toUpperCase());
-      if (ingestionType.equals(IngestionMethodConfig.SNOWPIPE_STREAMING)) {
-        ingestionDeliveryGuarantee =
-            SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE;
-        kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
-      }
     }
 
     conn =
@@ -246,7 +232,6 @@ public class SnowflakeSinkTask extends SinkTask {
             .setMetadataConfig(metadataConfig)
             .setBehaviorOnNullValuesConfig(behavior)
             .setCustomJMXMetrics(enableCustomJMXMonitoring)
-            .setDeliveryGuarantee(ingestionDeliveryGuarantee)
             .setErrorReporter(kafkaRecordErrorReporter)
             .setSinkTaskContext(this.context)
             .build();

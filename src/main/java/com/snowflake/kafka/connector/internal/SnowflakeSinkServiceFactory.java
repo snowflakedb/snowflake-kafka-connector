@@ -124,13 +124,6 @@ public class SnowflakeSinkServiceFactory {
       return this;
     }
 
-    public SnowflakeSinkServiceBuilder setDeliveryGuarantee(
-        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
-      this.service.setDeliveryGuarantee(ingestionDeliveryGuarantee);
-      LOGGER.info("Config Delivery Guarantee type {}.", ingestionDeliveryGuarantee.toString());
-      return this;
-    }
-
     public SnowflakeSinkServiceBuilder setErrorReporter(
         KafkaRecordErrorReporter kafkaRecordErrorReporter) {
       this.service.setErrorReporter(kafkaRecordErrorReporter);

@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal.telemetry;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG;
@@ -13,7 +12,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.Map;
@@ -234,18 +232,6 @@ public abstract class SnowflakeTelemetryService {
     dataObjectNode.put(
         INGESTION_METHOD_OPT,
         userProvidedConfig.getOrDefault(INGESTION_METHOD_OPT, INGESTION_METHOD_DEFAULT_SNOWPIPE));
-
-    // put delivery guarantee only when ingestion method is snowpipe.
-    // For SNOWPIPE_STREAMING, delivery guarantee is always EXACTLY_ONCE
-    if (userProvidedConfig
-        .getOrDefault(INGESTION_METHOD_OPT, INGESTION_METHOD_DEFAULT_SNOWPIPE)
-        .equalsIgnoreCase(INGESTION_METHOD_DEFAULT_SNOWPIPE)) {
-      dataObjectNode.put(
-          DELIVERY_GUARANTEE,
-          userProvidedConfig.getOrDefault(
-              DELIVERY_GUARANTEE,
-              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.toString()));
-    }
 
     // Key and value converters to gauge if Snowflake Native converters are used.
     dataObjectNode.put(

@@ -13,9 +13,6 @@ from confluent_kafka.admin import AdminClient, NewTopic, ConfigResource, NewPart
 from confluent_kafka.avro import AvroProducer
 
 import test_suit
-from test_suit.test_at_least_once_semantic import TestAtLeastOnceSemantic
-from test_suit.test_exactly_once_semantic import TestExactlyOnceSemantic
-from test_suit.test_exactly_once_semantic_time_based import TestExactlyOnceSemanticTimeBased
 from test_suit.test_utils import parsePrivateKey, RetryableError
 
 
@@ -407,61 +404,6 @@ class KafkaTest:
         print("Get Connectors status:{0}, response:{1}".format(getConnectorResponse.status_code,
                                                                getConnectorResponse.content))
 
-
-def runDeliveryGuaranteeTests(driver, testSet, nameSalt):
-    if driver.snowflakeCloudPlatform == 'GCS' or driver.snowflakeCloudPlatform is None:
-        print("Not running Delivery Guarantee tests in GCS due to flakiness")
-        return
-
-    print("Begin Delivery Guarantee tests in:" + str(driver.snowflakeCloudPlatform))
-    # atleast once and exactly once testing
-    testExactlyOnceSemantics = TestExactlyOnceSemantic(driver, nameSalt)
-    testAtleastOnceSemantics = TestAtLeastOnceSemantic(driver, nameSalt)
-    testExactlyOnceSemanticsTimeBuffer = TestExactlyOnceSemanticTimeBased(driver, nameSalt)
-
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== Exactly Once Test ===")
-    testSuitList4 = [testExactlyOnceSemantics]
-
-    testCleanEnableList4 = [True]
-    testSuitEnableList4 = []
-    if testSet == "confluent":
-        testSuitEnableList4 = [True]
-    elif testSet == "apache":
-        testSuitEnableList4 = [True]
-    elif testSet != "clean":
-        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-    execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
-
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== At least Once Test ===")
-    testSuitList5 = [testAtleastOnceSemantics]
-
-    testCleanEnableList5 = [True]
-    testSuitEnableList5 = []
-    if testSet == "confluent":
-        testSuitEnableList5 = [True]
-    elif testSet == "apache":
-        testSuitEnableList5 = [True]
-    elif testSet != "clean":
-        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-    execution(testSet, testSuitList5, testCleanEnableList5, testSuitEnableList5, driver, nameSalt)
-
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== Exactly Once with Time Threshold ===")
-    testSuitList6 = [testExactlyOnceSemanticsTimeBuffer]
-
-    testCleanEnableList6 = [True]
-    testSuitEnableList6 = []
-    if testSet == "confluent":
-        testSuitEnableList6 = [True]
-    elif testSet == "apache":
-        testSuitEnableList6 = [True]
-    elif testSet != "clean":
-        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-    execution(testSet, testSuitList6, testCleanEnableList6, testSuitEnableList6, driver, nameSalt)
-
-
 # These tests run from StressTest.yml file and not ran while running End-To-End Tests
 def runStressTests(driver, testSet, nameSalt):
     from test_suit.test_pressure import TestPressure
@@ -664,12 +606,6 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
             errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
         execution(testSet, testSuitList1, testCleanEnableList1, testSuitEnableList1, driver, nameSalt)
-        ############################ round 1 ############################
-
-        print("Enable Delivery Guarantee tests:" + str(driver.enableDeliveryGuaranteeTests))
-        if driver.enableDeliveryGuaranteeTests:
-            # At least once and exactly once guarantee tests runs only in AWS and AZURE
-            runDeliveryGuaranteeTests(driver, testSet, nameSalt)
 
         ############################ Always run Proxy tests in the end ############################
 
