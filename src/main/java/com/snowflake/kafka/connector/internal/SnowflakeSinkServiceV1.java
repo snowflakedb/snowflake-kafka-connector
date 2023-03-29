@@ -33,8 +33,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
-import net.snowflake.ingest.connection.ClientStatusResponse;
-import net.snowflake.ingest.connection.ConfigureClientResponse;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -77,11 +75,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   // default is true unless the configuration provided is false;
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
-
-  // default is at_least_once semantic for data ingestion unless the configuration provided is
-  // exactly_once
-  private SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
-      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE;
 
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
     if (conn == null || conn.isClosed()) {
@@ -320,12 +313,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     return this.behaviorOnNullValues;
   }
 
-  @Override
-  public void setDeliveryGuarantee(
-      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
-    this.ingestionDeliveryGuarantee = ingestionDeliveryGuarantee;
-  }
-
   /**
    * Loop through all pipes in memory and find out the metric registry instance for that pipe. The
    * pipes object's key is not pipeName hence need to loop over.
@@ -390,12 +377,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     private boolean hasInitialized = false;
     private boolean forceCleanerFileReset = false;
 
-    // exactly once semantics
-    private final AtomicLong clientSequencer = new AtomicLong(-1);
-    // This offset is updated when Snowflake has received offset from ingest file and has queued it
-    // For verifying the ingestion status, we use the insertReport api
-    private final AtomicLong offsetPersistedInSnowflake = new AtomicLong(-1);
-
     private ServiceContext(
         String tableName,
         String stageName,
@@ -453,47 +434,11 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       // recover will only check pipe status and create pipe if it does not exist.
       recover(pipeCreation);
 
-      // when exactly_once is enabled,fetch clientSequencer and offsetPersistedInSnowflake
-      if (ingestionDeliveryGuarantee
-          == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE) {
-        initClientInfoForExactlyOnceDelivery();
-      }
-
       try {
         startCleaner(recordOffset, pipeCreation);
         telemetryService.reportKafkaPartitionStart(pipeCreation);
       } catch (Exception e) {
         LOGGER.warn("Cleaner and Flusher threads shut down before initialization");
-      }
-    }
-
-    /**
-     * Initialize the client info (clientSequencer and offsetPersistedInSnowflake) by calling
-     * ingestion service API configureClient and getClientStatus
-     */
-    private void initClientInfoForExactlyOnceDelivery() {
-      ConfigureClientResponse configureClientResponse = ingestionService.configureClient();
-      this.clientSequencer.set(configureClientResponse.getClientSequencer());
-      ClientStatusResponse clientStatusResponse = ingestionService.getClientStatus();
-      String offsetToken = clientStatusResponse.getOffsetToken();
-      try {
-        if (offsetToken == null) {
-          this.offsetPersistedInSnowflake.set(-1);
-        } else {
-          this.offsetPersistedInSnowflake.set(Long.parseLong(offsetToken));
-        }
-        LOGGER.info(
-            "Initialized client info for pipe:{}, clientSequencer:{}, offsetToken:{}.",
-            this.pipeName,
-            this.clientSequencer.get(),
-            this.offsetPersistedInSnowflake.get());
-      } catch (NumberFormatException e) {
-        LOGGER.error(
-            "The offsetToken string does not contain a parsable long. pipe:{}, ,"
-                + " clientSequencer:{}, offsetToken:{}. ",
-            this.pipeName,
-            this.clientSequencer.get(),
-            this.offsetPersistedInSnowflake.get());
       }
     }
 
@@ -648,13 +593,8 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         this.hasInitialized = true;
       }
       // only get offset token once when service context is initialized
-      // ignore ingested files
-      // if ingestionDeliveryGuarantee is AT_LEAST_ONCE, ignore offsetPersistedInSnowflake
-      // else discard the record if the record offset is smaller or equal to server side offset
-      if ((ingestionDeliveryGuarantee
-                  == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE
-              || record.kafkaOffset() > this.offsetPersistedInSnowflake.get())
-          && record.kafkaOffset() > processedOffset.get()) {
+      // ignore ingested filesg
+      if (record.kafkaOffset() > processedOffset.get()) {
         SinkRecord snowflakeRecord = record;
         if (shouldConvertContent(snowflakeRecord.value())) {
           snowflakeRecord = handleNativeRecord(snowflakeRecord, false);
@@ -811,21 +751,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
       LOGGER.info("pipe {}, ingest files: {}", pipeName, fileNamesCopy);
 
-      // This api should throw exception if backoff failed.
-      // fileNamesCopy after this call is emptied (clears the input list)
-      if (ingestionDeliveryGuarantee
-          == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE) {
-        ingestionService.ingestFilesWithClientInfo(fileNamesCopy, this.clientSequencer.get());
-        String offsetToken = ingestionService.getClientStatus().getOffsetToken();
-        // Update server side offset
-        if (offsetToken == null) {
-          this.offsetPersistedInSnowflake.set(-1);
-        } else {
-          this.offsetPersistedInSnowflake.set(Long.parseLong(offsetToken));
-        }
-      } else {
-        ingestionService.ingestFiles(fileNamesCopy);
-      }
+      ingestionService.ingestFiles(fileNamesCopy);
 
       // committedOffset should be updated only when ingestFiles has succeeded.
       committedOffset.set(flushedOffset.get());

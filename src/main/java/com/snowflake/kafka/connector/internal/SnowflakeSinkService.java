@@ -134,14 +134,6 @@ public interface SnowflakeSinkService {
   /* Only used in testing and verifying what was the passed value of this behavior from config to sink service*/
   SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig();
 
-  /**
-   * set the delivery guarantee, giving user the option to enable exactly once semantic
-   *
-   * @param ingestionDeliveryGuarantee ingestion guarantee given inside Config
-   */
-  void setDeliveryGuarantee(
-      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee);
-
   /* Set Error reporter which can be used to send records to DLQ (Dead Letter Queue) */
   default void setErrorReporter(KafkaRecordErrorReporter kafkaRecordErrorReporter) {}
 
