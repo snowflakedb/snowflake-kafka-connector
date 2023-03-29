@@ -658,6 +658,9 @@ public class Utils {
    * @return log message wrapped by snowflake tag
    */
   public static String formatLogMessage(String format, Object... vars) {
+    // note this MDC context is only available for apache kafka versions after 2.3.0, more
+    // information here:
+    // https://cwiki.apache.org/confluence/display/KAFKA/KIP-449%3A+Add+connector+contexts+to+Connect+worker+logs
     String connCtx = MDC.get(MDC_CONN_CTX_KEY);
     if (connCtx != null && !connCtx.isEmpty()) {
       return SF_LOG_TAG + " " + connCtx + formatString(format, vars);
