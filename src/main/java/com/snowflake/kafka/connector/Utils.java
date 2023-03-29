@@ -18,7 +18,6 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
@@ -371,7 +370,7 @@ public class Utils {
           && Boolean.parseBoolean(
               config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG))) {
         invalidConfigParams.put(
-            IngestionMethodConfig.SNOWPIPE_STREAMING.toString(),
+            SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
             Utils.formatString(
                 "Schematization is only available with {}.",
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
@@ -382,6 +381,17 @@ public class Utils {
             Utils.formatString(
                 "{} is only available with ingestion type: {}.",
                 SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      }
+      if (config.containsKey(
+              SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG)
+          && Boolean.parseBoolean(
+              config.get(
+                  SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+            Utils.formatString(
+                "Streaming client optimization is only available with {}.",
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
     }
@@ -469,18 +479,6 @@ public class Utils {
         invalidConfigParams.put(
             JMX_OPT, Utils.formatString("Kafka config:{} should either be true or false", JMX_OPT));
       }
-    }
-
-    try {
-      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
-          config.getOrDefault(
-              DELIVERY_GUARANTEE,
-              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
-    } catch (IllegalArgumentException exception) {
-      invalidConfigParams.put(
-          DELIVERY_GUARANTEE,
-          Utils.formatString(
-              "Delivery Guarantee config:{} error:{}", DELIVERY_GUARANTEE, exception.getMessage()));
     }
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
