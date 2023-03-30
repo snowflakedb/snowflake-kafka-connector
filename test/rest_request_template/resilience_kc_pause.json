@@ -2,7 +2,7 @@
   "name": "SNOWFLAKE_CONNECTOR_NAME",
   "config": {
     "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
-    "topics": "resilience_kc_pause.*",
+    "topics": "resilience_kc_pause",
     "tasks.max": "1",
     "buffer.flush.time": "10",
     "buffer.count.records": "100",
