@@ -4,14 +4,14 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 from time import sleep
 
-class TestKcRestart:
+class TestKcPause:
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.topics = []
         self.topicNum = 10
         self.partitionNum = 3
         self.recordNum = 200
-        self.fileName = "resilience_kc_restart"
+        self.fileName = "resilience_kc_pause"
         self.connectorName = self.fileName + nameSalt
         self.nameSalt = nameSalt
 
@@ -27,13 +27,18 @@ class TestKcRestart:
         return self.fileName + ".json"
 
     def send(self):
-        # send data to connector
-        self.__send_data(self)
-        
-        # restart connector
-        self.driver.restartConnector(self.connectorName)
+        # pause connector
+        self.driver.pauseConnector(self.connectorName)
+        sleep(10)
 
-        # send data to connector
+        # send data to connector while paused
+        self.__send_data(self)
+        sleep(10)
+
+        # start connector
+        self.driver.resumeConnector(self.connectorName)
+
+        # send more data
         self.__send_data(self)
 
 

@@ -612,14 +612,17 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
     # import
     # # from test_suit.test_string_json_proxy import TestStringJsonProxy
     from test_suit.resilience_tests.test_kc_restart import TestKcRestart
+    from test_suit.resilience_tests.test_kc_pause import TestKcPause
 
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Resilience Tests ===")
 
     testKcRestart = TestKcRestart(driver, nameSalt)
+    testKcPause = TestKcPause(driver, nameSalt)
     # # testStringJson = TestStringJson(driver, nameSalt)
 
     resilienceTestList = [
-        testKcRestart
+        testKcRestart,
+        testKcPause
     ]
 
     resilienceTestCleanEnableList1 = [
