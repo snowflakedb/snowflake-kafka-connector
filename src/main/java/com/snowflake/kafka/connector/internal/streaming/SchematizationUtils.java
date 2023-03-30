@@ -23,7 +23,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
+
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Schema.Type;
@@ -191,6 +194,13 @@ public class SchematizationUtils {
       }
       return INT64;
     } else if (value.isTextual()) {
+      try {
+        if (new ObjectMapper().readTree(value.textValue()).isObject() ) {
+          return STRUCT;
+        } else {
+          return STRING;
+        }
+      } catch(JsonProcessingException ignored) {}
       return STRING;
     } else if (value.isBoolean()) {
       return BOOLEAN;
