@@ -610,11 +610,13 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
 
     ############################ Resilience End To End Test ############################
     # import
-    from test_suit.resilience_tests.test_kc_restart.py import TestKcRestart
+    # # from test_suit.test_string_json_proxy import TestStringJsonProxy
+    from test_suit.resilience_tests.test_kc_restart import TestKcRestart
 
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Resilience Tests ===")
 
     testKcRestart = TestKcRestart(driver, nameSalt)
+    # # testStringJson = TestStringJson(driver, nameSalt)
 
     resilienceTestList = [
         testKcRestart
