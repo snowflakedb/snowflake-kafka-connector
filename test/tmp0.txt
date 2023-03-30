@@ -1,0 +1,811 @@
+=== Name Salt: _ξjρι ===
+Built zip file using kafka connect maven plugin:
+/tmp/sf-kafka-connect-plugin.zip
+Archive:  /tmp/sf-kafka-connect-plugin.zip
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/doc/README-TEST.md  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/jackson-databind-2.13.4.2.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/doc/LICENSE  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/slf4j-api-1.7.25.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/swagger-annotations-2.1.10.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/failureaccess-1.0.1.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/jsr305-3.0.2.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/checker-qual-3.12.0.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/kafka-schema-serializer-7.2.1.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/kafka-connect-avro-converter-7.2.1.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/kafka-connect-avro-data-7.2.1.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/metrics-core-4.2.3.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/bc-fips-1.0.2.3.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/snowflake-ingest-sdk-1.1.0.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/doc/README.md  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/avro-1.11.1.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/failsafe-3.2.1.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/manifest.json  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/jackson-annotations-2.13.4.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/guava-31.0.1-jre.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/kafka-schema-registry-client-7.2.1.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/j2objc-annotations-1.3.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/logredactor-1.0.10.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/re2j-1.6.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/metrics-jmx-4.2.3.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/snowflake-kafka-connector-1.9.1.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/assets/snowflake.png  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/commons-compress-1.21.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/bcpkix-fips-1.0.3.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/jackson-core-2.13.1.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/error_prone_annotations-2.7.1.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/kafka-avro-serializer-7.2.1.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/logredactor-metrics-1.0.10.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/minimal-json-0.9.5.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/kafka-schema-converter-7.2.1.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/common-utils-7.2.1.jar  
+  inflating: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/lib/snowflake-jdbc-3.13.14.jar  
+list KAFKA_CONNECT_PLUGIN_PATH: /usr/local/share/kafka/plugins
+snowflake-kafka-connector-1.8.0.jar
+snowflake-kafka-connector-1.8.1.jar
+snowflake-kafka-connector-1.8.2.jar
+snowflake-kafka-connector-1.8.3.jar
+snowflake-kafka-connector-1.9.0.jar
+snowflake-kafka-connector-1.9.1.jar
+snowflakeinc-snowflake-kafka-connector-1.9.1
+Copying connect-log4j.properties file to confluent folder
+
+=== Start Zookeeper ===
+
+=== Start Kafka ===
+
+=== Start Kafka Connect ===
+
+=== Start Schema Registry ===
+
+=== Clean table stage and pipe ===
+[0;31m There is error above this line [0m
+[2023-03-30 13:44:16,678] INFO WorkerInfo values: 
+	jvm.args = -Xms512m, -Xmx6g, -XX:+UseG1GC, -XX:MaxGCPauseMillis=20, -XX:InitiatingHeapOccupancyPercent=35, -XX:+ExplicitGCInvokesConcurrent, -XX:MaxInlineLevel=15, -Djava.awt.headless=true, -Dcom.sun.management.jmxremote, -Dcom.sun.management.jmxremote.authenticate=false, -Dcom.sun.management.jmxremote.ssl=false, -Dkafka.logs.dir=/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../logs, -Dlog4j.configuration=file:./confluent-7.2.1/bin/../etc/kafka/connect-log4j.properties
+	jvm.spec = Homebrew, OpenJDK 64-Bit Server VM, 11.0.16.1, 11.0.16.1+0
+	jvm.classpath = /Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka-streams-test-utils-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jakarta.xml.bind-api-2.3.3.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jackson-module-scala_2.13-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka-shell-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jetty-servlets-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/scala-logging_2.13-3.9.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jopt-simple-5.0.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jersey-common-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/slf4j-api-1.7.36.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/snappy-java-1.1.8.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jetty-server-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jetty-util-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/reflections-0.9.12.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jetty-io-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/reload4j-1.2.19.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/lz4-java-1.8.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/slf4j-reload4j-1.7.36.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/netty-buffer-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jackson-jaxrs-json-provider-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/argparse4j-0.7.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/activation-1.1.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka-streams-examples-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka-streams-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/plexus-utils-3.3.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka-tools-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/connect-transforms-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/netty-transport-classes-epoll-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jackson-dataformat-csv-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/connect-api-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/javax.servlet-api-3.1.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka-log4j-appender-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jersey-server-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/hk2-locator-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/connect-runtime-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/connect-mirror-client-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jakarta.ws.rs-api-2.1.6.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/zstd-jni-1.5.2-1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/aopalliance-repackaged-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/scala-collection-compat_2.13-2.6.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/connect-mirror-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/netty-resolver-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jackson-jaxrs-base-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jackson-core-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jetty-util-ajax-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jetty-continuation-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/netty-handler-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/commons-cli-1.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka-clients-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/paranamer-2.8.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/netty-transport-native-epoll-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/netty-transport-native-unix-common-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jaxb-api-2.3.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jetty-security-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jline-3.21.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jackson-databind-2.13.2.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/metrics-core-2.2.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/zookeeper-3.6.3.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka-metadata-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/maven-artifact-3.8.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/osgi-resource-locator-1.0.3.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/rocksdbjni-6.29.4.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/connect-json-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/scala-library-2.13.8.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jackson-module-jaxb-annotations-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/metrics-core-4.1.12.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jakarta.activation-api-1.2.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jersey-hk2-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jakarta.inject-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/audience-annotations-0.5.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/scala-reflect-2.13.8.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/hk2-utils-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/javax.ws.rs-api-2.1.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka_2.13-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/netty-tcnative-classes-2.0.46.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/netty-transport-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jersey-container-servlet-core-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jackson-annotations-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka-raft-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jetty-http-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/hk2-api-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jersey-container-servlet-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka-storage-api-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/netty-common-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jakarta.annotation-api-1.3.5.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/trogdor-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jetty-client-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka-server-common-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka-streams-scala_2.13-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka-storage-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jersey-client-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/scala-java8-compat_2.13-1.0.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jose4j-0.7.9.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/netty-codec-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jetty-servlet-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/kafka.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/javassist-3.27.0-GA.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jakarta.validation-api-2.0.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/commons-lang3-3.8.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/jackson-datatype-jdk8-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/connect-basic-auth-extension-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka/zookeeper-jute-3.6.3.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/confluent-common/slf4j-api-1.7.36.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/confluent-common/common-metrics-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/confluent-common/common-config-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/confluent-common/common-utils-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/confluent-common/build-tools-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/wire-runtime-jvm-4.3.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/commons-logging-1.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kotlin-stdlib-1.6.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kotlin-scripting-jvm-1.6.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/joda-time-2.10.8.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-json-schema-serializer-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/jackson-datatype-guava-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/slf4j-api-1.7.36.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kotlin-stdlib-jdk7-1.6.10.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/guava-30.1.1-jre.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kotlin-script-runtime-1.6.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/logredactor-1.0.10.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-connect-avro-data-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-connect-protobuf-converter-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/proto-google-common-protos-2.5.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/okio-3.0.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-streams-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-connect-json-schema-converter-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/wire-schema-jvm-4.3.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-schema-registry-client-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/everit-json-schema-1.14.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kotlin-stdlib-jdk8-1.6.10.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-json-schema-provider-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kotlin-scripting-common-1.6.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/gson-2.9.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/failureaccess-1.0.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/commons-validator-1.7.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/scala-library-2.13.5.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/annotations-13.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/error_prone_annotations-2.5.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/jackson-core-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-protobuf-types-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/minimal-json-0.9.5.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/logredactor-metrics-1.0.10.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-streams-avro-serde-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kotlin-stdlib-common-1.6.10.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-protobuf-provider-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kotlin-scripting-compiler-impl-embeddable-1.6.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/jackson-databind-2.13.2.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/commons-compress-1.21.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/jackson-datatype-joda-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/handy-uri-templates-2.1.8.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/jackson-datatype-jsr310-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/rocksdbjni-6.29.4.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/validation-api-2.0.1.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/protobuf-java-util-3.19.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/checker-qual-3.8.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kotlin-scripting-compiler-embeddable-1.6.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/commons-collections-3.2.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/jackson-annotations-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-json-serializer-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/j2objc-annotations-1.3.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/classgraph-4.8.21.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/jackson-module-parameter-names-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-streams-json-schema-serde-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-schema-converter-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-streams-protobuf-serde-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/swagger-annotations-2.1.10.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-avro-serializer-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/commons-digester-2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/json-20220320.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/re2j-1.6.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/okio-jvm-3.0.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/jsr305-3.0.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/mbknor-jackson-jsonschema_2.13-1.0.39.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-connect-avro-converter-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/protobuf-java-3.19.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/avro-1.11.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-schema-serializer-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/jackson-datatype-jdk8-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/share/java/kafka-serde-tools/kafka-protobuf-serializer-7.2.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-streams-test-utils-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jakarta.xml.bind-api-2.3.3.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-module-scala_2.13-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-shell-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-servlets-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/scala-logging_2.13-3.9.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jopt-simple-5.0.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jersey-common-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/slf4j-api-1.7.36.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/snappy-java-1.1.8.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-server-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-util-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/reflections-0.9.12.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-io-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/reload4j-1.2.19.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/lz4-java-1.8.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/slf4j-reload4j-1.7.36.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-buffer-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-jaxrs-json-provider-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/argparse4j-0.7.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/activation-1.1.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-streams-examples-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-streams-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/plexus-utils-3.3.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-tools-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-transforms-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-transport-classes-epoll-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-dataformat-csv-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-api-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/javax.servlet-api-3.1.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-log4j-appender-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jersey-server-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/hk2-locator-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-runtime-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-mirror-client-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jakarta.ws.rs-api-2.1.6.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/zstd-jni-1.5.2-1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/aopalliance-repackaged-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/scala-collection-compat_2.13-2.6.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-mirror-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-resolver-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-jaxrs-base-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-core-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-util-ajax-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-continuation-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-handler-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/commons-cli-1.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-clients-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/paranamer-2.8.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-transport-native-epoll-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-transport-native-unix-common-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jaxb-api-2.3.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-security-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jline-3.21.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-databind-2.13.2.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/metrics-core-2.2.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/zookeeper-3.6.3.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-metadata-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/maven-artifact-3.8.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/osgi-resource-locator-1.0.3.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/rocksdbjni-6.29.4.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-json-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/scala-library-2.13.8.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-module-jaxb-annotations-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/metrics-core-4.1.12.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jakarta.activation-api-1.2.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jersey-hk2-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jakarta.inject-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/audience-annotations-0.5.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/scala-reflect-2.13.8.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/hk2-utils-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/javax.ws.rs-api-2.1.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka_2.13-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-tcnative-classes-2.0.46.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-transport-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jersey-container-servlet-core-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-annotations-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-raft-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-http-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/hk2-api-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jersey-container-servlet-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-storage-api-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-common-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jakarta.annotation-api-1.3.5.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/trogdor-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-client-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-server-common-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-streams-scala_2.13-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-storage-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jersey-client-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/scala-java8-compat_2.13-1.0.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jose4j-0.7.9.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-codec-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-servlet-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/javassist-3.27.0-GA.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jakarta.validation-api-2.0.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/commons-lang3-3.8.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-datatype-jdk8-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-basic-auth-extension-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/zookeeper-jute-3.6.3.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/confluent-telemetry/*
+	os.spec = Mac OS X, aarch64, 13.2.1
+	os.vcpus = 10
+ (org.apache.kafka.connect.runtime.WorkerInfo:71)
+[2023-03-30 13:44:16,682] INFO Scanning for plugin classes. This might take a moment ... (org.apache.kafka.connect.cli.ConnectDistributed:92)
+[2023-03-30 13:44:16,690] INFO Loading plugin from: /usr/local/share/kafka/plugins/snowflake-kafka-connector-1.8.3.jar (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:277)
+[2023-03-30 13:44:18,936] INFO [SF_KAFKA_CONNECTOR] Created loggerHandler for class: 'com.snowflake.kafka.connector.Utils' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.LoggerHandler:64)
+[2023-03-30 13:44:18,936] INFO [SF_KAFKA_CONNECTOR] Created loggerHandler for class: 'com.snowflake.kafka.connector.SnowflakeSinkConnector' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.LoggerHandler:64)
+[2023-03-30 13:44:18,945] INFO Registered loader: PluginClassLoader{pluginLocation=file:/usr/local/share/kafka/plugins/snowflake-kafka-connector-1.8.3.jar} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:299)
+[2023-03-30 13:44:18,945] INFO Added plugin 'com.snowflake.kafka.connector.SnowflakeSinkConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:18,945] INFO Added plugin 'com.snowflake.kafka.connector.records.SnowflakeAvroConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:18,945] INFO Added plugin 'io.confluent.connect.avro.AvroConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:18,945] INFO Added plugin 'com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:18,945] INFO Added plugin 'com.snowflake.kafka.connector.records.SnowflakeJsonConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:18,945] INFO Added plugin 'org.apache.kafka.common.config.provider.FileConfigProvider' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:18,945] INFO Added plugin 'org.apache.kafka.common.config.provider.DirectoryConfigProvider' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:18,945] INFO Added plugin 'org.apache.kafka.connect.connector.policy.AllConnectorClientConfigOverridePolicy' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:18,946] INFO Added plugin 'org.apache.kafka.connect.connector.policy.PrincipalConnectorClientConfigOverridePolicy' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:18,946] INFO Added plugin 'org.apache.kafka.connect.connector.policy.NoneConnectorClientConfigOverridePolicy' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:18,953] INFO Loading plugin from: /usr/local/share/kafka/plugins/snowflake-kafka-connector-1.8.2.jar (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:277)
+[2023-03-30 13:44:19,894] INFO [SF_KAFKA_CONNECTOR] Created loggerHandler for class: 'com.snowflake.kafka.connector.Utils' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.LoggerHandler:64)
+[2023-03-30 13:44:19,894] INFO [SF_KAFKA_CONNECTOR] Created loggerHandler for class: 'com.snowflake.kafka.connector.SnowflakeSinkConnector' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.LoggerHandler:64)
+[2023-03-30 13:44:19,896] INFO Registered loader: PluginClassLoader{pluginLocation=file:/usr/local/share/kafka/plugins/snowflake-kafka-connector-1.8.2.jar} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:299)
+[2023-03-30 13:44:19,898] INFO Loading plugin from: /usr/local/share/kafka/plugins/snowflake-kafka-connector-1.8.0.jar (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:277)
+[2023-03-30 13:44:20,942] INFO [SF_KAFKA_CONNECTOR] Created loggerHandler for class: 'com.snowflake.kafka.connector.Utils' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.LoggerHandler:64)
+[2023-03-30 13:44:20,943] INFO [SF_KAFKA_CONNECTOR] Created loggerHandler for class: 'com.snowflake.kafka.connector.SnowflakeSinkConnector' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.LoggerHandler:64)
+[2023-03-30 13:44:20,945] INFO Registered loader: PluginClassLoader{pluginLocation=file:/usr/local/share/kafka/plugins/snowflake-kafka-connector-1.8.0.jar} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:299)
+[2023-03-30 13:44:20,948] INFO Loading plugin from: /usr/local/share/kafka/plugins/snowflake-kafka-connector-1.8.1.jar (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:277)
+[2023-03-30 13:44:22,006] INFO [SF_KAFKA_CONNECTOR] Created loggerHandler for class: 'com.snowflake.kafka.connector.Utils' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.LoggerHandler:64)
+[2023-03-30 13:44:22,006] INFO [SF_KAFKA_CONNECTOR] Created loggerHandler for class: 'com.snowflake.kafka.connector.SnowflakeSinkConnector' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.LoggerHandler:64)
+[2023-03-30 13:44:22,009] INFO Registered loader: PluginClassLoader{pluginLocation=file:/usr/local/share/kafka/plugins/snowflake-kafka-connector-1.8.1.jar} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:299)
+[2023-03-30 13:44:22,011] INFO Loading plugin from: /usr/local/share/kafka/plugins/snowflake-kafka-connector-1.9.0.jar (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:277)
+[2023-03-30 13:44:23,764] INFO [SF_KAFKA_CONNECTOR] Created loggerHandler for class: 'com.snowflake.kafka.connector.Utils' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.LoggerHandler:64)
+[2023-03-30 13:44:23,764] INFO [SF_KAFKA_CONNECTOR] Created loggerHandler for class: 'com.snowflake.kafka.connector.SnowflakeSinkConnector' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.LoggerHandler:64)
+[2023-03-30 13:44:23,767] INFO Registered loader: PluginClassLoader{pluginLocation=file:/usr/local/share/kafka/plugins/snowflake-kafka-connector-1.9.0.jar} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:299)
+[2023-03-30 13:44:23,769] INFO Loading plugin from: /usr/local/share/kafka/plugins/snowflake-kafka-connector-1.9.1.jar (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:277)
+[2023-03-30 13:44:25,386] INFO [SF_KAFKA_CONNECTOR] Created KCLogger for class: 'com.snowflake.kafka.connector.Utils' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.KCLogger:64)
+[2023-03-30 13:44:25,387] INFO [SF_KAFKA_CONNECTOR] Created KCLogger for class: 'com.snowflake.kafka.connector.SnowflakeSinkConnector' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.KCLogger:64)
+[2023-03-30 13:44:25,388] INFO Registered loader: PluginClassLoader{pluginLocation=file:/usr/local/share/kafka/plugins/snowflake-kafka-connector-1.9.1.jar} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:299)
+[2023-03-30 13:44:25,391] INFO Loading plugin from: /usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1 (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:277)
+[2023-03-30 13:44:27,091] INFO [SF_KAFKA_CONNECTOR] Created KCLogger for class: 'com.snowflake.kafka.connector.Utils' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.KCLogger:64)
+[2023-03-30 13:44:27,091] INFO [SF_KAFKA_CONNECTOR] Created KCLogger for class: 'com.snowflake.kafka.connector.SnowflakeSinkConnector' without a Kafka Connect global instance id. (com.snowflake.kafka.connector.internal.KCLogger:64)
+[2023-03-30 13:44:27,092] INFO Registered loader: PluginClassLoader{pluginLocation=file:/usr/local/share/kafka/plugins/snowflakeinc-snowflake-kafka-connector-1.9.1/} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:299)
+[2023-03-30 13:44:27,708] INFO Registered loader: jdk.internal.loader.ClassLoaders$AppClassLoader@7c53a9eb (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:299)
+[2023-03-30 13:44:27,708] INFO Added plugin 'org.apache.kafka.connect.tools.VerifiableSinkConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,708] INFO Added plugin 'org.apache.kafka.connect.tools.MockSinkConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,708] INFO Added plugin 'org.apache.kafka.connect.tools.VerifiableSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,708] INFO Added plugin 'org.apache.kafka.connect.mirror.MirrorSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,708] INFO Added plugin 'org.apache.kafka.connect.mirror.MirrorHeartbeatConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,708] INFO Added plugin 'org.apache.kafka.connect.tools.MockSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,708] INFO Added plugin 'org.apache.kafka.connect.tools.SchemaSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,708] INFO Added plugin 'org.apache.kafka.connect.mirror.MirrorCheckpointConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,708] INFO Added plugin 'org.apache.kafka.connect.converters.FloatConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,708] INFO Added plugin 'org.apache.kafka.connect.converters.DoubleConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,708] INFO Added plugin 'org.apache.kafka.connect.converters.ByteArrayConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,708] INFO Added plugin 'org.apache.kafka.connect.converters.LongConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.converters.IntegerConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'io.confluent.connect.protobuf.ProtobufConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'io.confluent.connect.json.JsonSchemaConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.json.JsonConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.storage.StringConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.converters.ShortConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.storage.SimpleHeaderConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.ReplaceField$Value' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.SetSchemaMetadata$Value' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.ReplaceField$Key' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.Filter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.HeaderFrom$Key' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.InsertField$Value' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.TimestampConverter$Key' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.MaskField$Value' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.TimestampRouter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.RegexRouter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.HoistField$Value' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.ValueToKey' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.MaskField$Key' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.DropHeaders' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.Cast$Key' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.transforms.Cast$Value' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,709] INFO Added plugin 'org.apache.kafka.connect.runtime.PredicatedTransformation' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.transforms.ExtractField$Key' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.transforms.Flatten$Value' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.transforms.InsertHeader' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.transforms.InsertField$Key' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.transforms.Flatten$Key' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.transforms.HeaderFrom$Value' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.transforms.SetSchemaMetadata$Key' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.transforms.ExtractField$Value' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.transforms.TimestampConverter$Value' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.transforms.HoistField$Key' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.transforms.predicates.HasHeaderKey' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.transforms.predicates.RecordIsTombstone' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.transforms.predicates.TopicNameMatches' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added plugin 'org.apache.kafka.connect.rest.basic.auth.extension.BasicAuthSecurityRestExtension' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:230)
+[2023-03-30 13:44:27,710] INFO Added aliases 'MirrorCheckpointConnector' and 'MirrorCheckpoint' to plugin 'org.apache.kafka.connect.mirror.MirrorCheckpointConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,710] INFO Added aliases 'MirrorHeartbeatConnector' and 'MirrorHeartbeat' to plugin 'org.apache.kafka.connect.mirror.MirrorHeartbeatConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,710] INFO Added aliases 'MirrorSourceConnector' and 'MirrorSource' to plugin 'org.apache.kafka.connect.mirror.MirrorSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,710] INFO Added aliases 'MockSinkConnector' and 'MockSink' to plugin 'org.apache.kafka.connect.tools.MockSinkConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,710] INFO Added aliases 'MockSourceConnector' and 'MockSource' to plugin 'org.apache.kafka.connect.tools.MockSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,710] INFO Added aliases 'SchemaSourceConnector' and 'SchemaSource' to plugin 'org.apache.kafka.connect.tools.SchemaSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'VerifiableSinkConnector' and 'VerifiableSink' to plugin 'org.apache.kafka.connect.tools.VerifiableSinkConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'VerifiableSourceConnector' and 'VerifiableSource' to plugin 'org.apache.kafka.connect.tools.VerifiableSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'SnowflakeJsonConverter' and 'SnowflakeJson' to plugin 'com.snowflake.kafka.connector.records.SnowflakeJsonConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'AvroConverter' and 'Avro' to plugin 'io.confluent.connect.avro.AvroConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'JsonSchemaConverter' and 'JsonSchema' to plugin 'io.confluent.connect.json.JsonSchemaConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'ProtobufConverter' and 'Protobuf' to plugin 'io.confluent.connect.protobuf.ProtobufConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'ByteArrayConverter' and 'ByteArray' to plugin 'org.apache.kafka.connect.converters.ByteArrayConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'DoubleConverter' and 'Double' to plugin 'org.apache.kafka.connect.converters.DoubleConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'FloatConverter' and 'Float' to plugin 'org.apache.kafka.connect.converters.FloatConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'IntegerConverter' and 'Integer' to plugin 'org.apache.kafka.connect.converters.IntegerConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'LongConverter' and 'Long' to plugin 'org.apache.kafka.connect.converters.LongConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'ShortConverter' and 'Short' to plugin 'org.apache.kafka.connect.converters.ShortConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'JsonConverter' and 'Json' to plugin 'org.apache.kafka.connect.json.JsonConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'StringConverter' and 'String' to plugin 'org.apache.kafka.connect.storage.StringConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'ByteArrayConverter' and 'ByteArray' to plugin 'org.apache.kafka.connect.converters.ByteArrayConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'DoubleConverter' and 'Double' to plugin 'org.apache.kafka.connect.converters.DoubleConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'FloatConverter' and 'Float' to plugin 'org.apache.kafka.connect.converters.FloatConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'IntegerConverter' and 'Integer' to plugin 'org.apache.kafka.connect.converters.IntegerConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'LongConverter' and 'Long' to plugin 'org.apache.kafka.connect.converters.LongConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'ShortConverter' and 'Short' to plugin 'org.apache.kafka.connect.converters.ShortConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,711] INFO Added aliases 'JsonConverter' and 'Json' to plugin 'org.apache.kafka.connect.json.JsonConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,712] INFO Added aliases 'SimpleHeaderConverter' and 'Simple' to plugin 'org.apache.kafka.connect.storage.SimpleHeaderConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,712] INFO Added aliases 'StringConverter' and 'String' to plugin 'org.apache.kafka.connect.storage.StringConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,712] INFO Added aliases 'PredicatedTransformation' and 'Predicated' to plugin 'org.apache.kafka.connect.runtime.PredicatedTransformation' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,712] INFO Added alias 'DropHeaders' to plugin 'org.apache.kafka.connect.transforms.DropHeaders' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:473)
+[2023-03-30 13:44:27,712] INFO Added alias 'Filter' to plugin 'org.apache.kafka.connect.transforms.Filter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:473)
+[2023-03-30 13:44:27,712] INFO Added alias 'InsertHeader' to plugin 'org.apache.kafka.connect.transforms.InsertHeader' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:473)
+[2023-03-30 13:44:27,712] INFO Added alias 'RegexRouter' to plugin 'org.apache.kafka.connect.transforms.RegexRouter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:473)
+[2023-03-30 13:44:27,712] INFO Added alias 'TimestampRouter' to plugin 'org.apache.kafka.connect.transforms.TimestampRouter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:473)
+[2023-03-30 13:44:27,712] INFO Added alias 'ValueToKey' to plugin 'org.apache.kafka.connect.transforms.ValueToKey' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:473)
+[2023-03-30 13:44:27,712] INFO Added alias 'HasHeaderKey' to plugin 'org.apache.kafka.connect.transforms.predicates.HasHeaderKey' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:473)
+[2023-03-30 13:44:27,712] INFO Added alias 'RecordIsTombstone' to plugin 'org.apache.kafka.connect.transforms.predicates.RecordIsTombstone' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:473)
+[2023-03-30 13:44:27,712] INFO Added alias 'TopicNameMatches' to plugin 'org.apache.kafka.connect.transforms.predicates.TopicNameMatches' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:473)
+[2023-03-30 13:44:27,712] INFO Added alias 'BasicAuthSecurityRestExtension' to plugin 'org.apache.kafka.connect.rest.basic.auth.extension.BasicAuthSecurityRestExtension' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:473)
+[2023-03-30 13:44:27,712] INFO Added aliases 'AllConnectorClientConfigOverridePolicy' and 'All' to plugin 'org.apache.kafka.connect.connector.policy.AllConnectorClientConfigOverridePolicy' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,712] INFO Added aliases 'NoneConnectorClientConfigOverridePolicy' and 'None' to plugin 'org.apache.kafka.connect.connector.policy.NoneConnectorClientConfigOverridePolicy' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,712] INFO Added aliases 'PrincipalConnectorClientConfigOverridePolicy' and 'Principal' to plugin 'org.apache.kafka.connect.connector.policy.PrincipalConnectorClientConfigOverridePolicy' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader:476)
+[2023-03-30 13:44:27,738] INFO DistributedConfig values: 
+	access.control.allow.methods = 
+	access.control.allow.origin = 
+	admin.listeners = null
+	bootstrap.servers = [localhost:9092]
+	client.dns.lookup = use_all_dns_ips
+	client.id = 
+	config.providers = [file]
+	config.storage.replication.factor = 1
+	config.storage.topic = connect-configs
+	connect.protocol = sessioned
+	connections.max.idle.ms = 540000
+	connector.client.config.override.policy = All
+	group.id = connect-cluster
+	header.converter = class org.apache.kafka.connect.storage.SimpleHeaderConverter
+	heartbeat.interval.ms = 3000
+	inter.worker.key.generation.algorithm = HmacSHA256
+	inter.worker.key.size = null
+	inter.worker.key.ttl.ms = 3600000
+	inter.worker.signature.algorithm = HmacSHA256
+	inter.worker.verification.algorithms = [HmacSHA256]
+	key.converter = class org.apache.kafka.connect.json.JsonConverter
+	listeners = [http://:8083]
+	metadata.max.age.ms = 300000
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	offset.flush.interval.ms = 10000
+	offset.flush.timeout.ms = 5000
+	offset.storage.partitions = 25
+	offset.storage.replication.factor = 1
+	offset.storage.topic = connect-offsets
+	plugin.path = [/usr/local/share/kafka/plugins]
+	rebalance.timeout.ms = 60000
+	receive.buffer.bytes = 32768
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 40000
+	response.http.headers.config = 
+	rest.advertised.host.name = null
+	rest.advertised.listener = null
+	rest.advertised.port = null
+	rest.extension.classes = []
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	scheduled.rebalance.max.delay.ms = 300000
+	security.protocol = PLAINTEXT
+	send.buffer.bytes = 131072
+	session.timeout.ms = 10000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.client.auth = none
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	status.storage.partitions = 5
+	status.storage.replication.factor = 1
+	status.storage.topic = connect-status
+	task.shutdown.graceful.timeout.ms = 5000
+	topic.creation.enable = true
+	topic.tracking.allow.reset = true
+	topic.tracking.enable = true
+	value.converter = class org.apache.kafka.connect.json.JsonConverter
+	worker.sync.timeout.ms = 3000
+	worker.unsync.backoff.ms = 300000
+ (org.apache.kafka.connect.runtime.distributed.DistributedConfig:376)
+[2023-03-30 13:44:27,739] INFO Creating Kafka admin client (org.apache.kafka.connect.util.ConnectUtils:51)
+[2023-03-30 13:44:27,740] INFO AdminClientConfig values: 
+	bootstrap.servers = [localhost:9092]
+	client.dns.lookup = use_all_dns_ips
+	client.id = 
+	connections.max.idle.ms = 300000
+	default.api.timeout.ms = 60000
+	metadata.max.age.ms = 300000
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retries = 2147483647
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+ (org.apache.kafka.clients.admin.AdminClientConfig:376)
+[2023-03-30 13:44:27,769] WARN The configuration 'max.poll.records' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,769] WARN The configuration 'config.storage.topic' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,769] WARN The configuration 'group.id' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,769] WARN The configuration 'status.storage.topic' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,769] WARN The configuration 'plugin.path' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,769] WARN The configuration 'config.providers' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,769] WARN The configuration 'config.storage.replication.factor' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,769] WARN The configuration 'offset.flush.interval.ms' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,769] WARN The configuration 'rest.port' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,769] WARN The configuration 'key.converter.schemas.enable' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,769] WARN The configuration 'status.storage.replication.factor' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,769] WARN The configuration 'value.converter.schemas.enable' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,769] WARN The configuration 'offset.storage.replication.factor' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,770] WARN The configuration 'config.providers.file.class' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,770] WARN The configuration 'offset.storage.topic' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,770] WARN The configuration 'value.converter' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,770] WARN The configuration 'max.poll.interval.ms' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,770] WARN The configuration 'key.converter' was supplied but isn't a known config. (org.apache.kafka.clients.admin.AdminClientConfig:384)
+[2023-03-30 13:44:27,770] INFO Kafka version: 7.2.1-ccs (org.apache.kafka.common.utils.AppInfoParser:119)
+[2023-03-30 13:44:27,770] INFO Kafka commitId: 80334008361592c187b36a27536f10f33fe93aa3 (org.apache.kafka.common.utils.AppInfoParser:120)
+[2023-03-30 13:44:27,770] INFO Kafka startTimeMs: 1680209067770 (org.apache.kafka.common.utils.AppInfoParser:121)
+[2023-03-30 13:44:27,913] INFO Kafka cluster ID: kr5gvMd_S-mJHQZHZPFC8g (org.apache.kafka.connect.util.ConnectUtils:67)
+[2023-03-30 13:44:27,913] INFO App info kafka.admin.client for adminclient-1 unregistered (org.apache.kafka.common.utils.AppInfoParser:83)
+[2023-03-30 13:44:27,917] INFO Metrics scheduler closed (org.apache.kafka.common.metrics.Metrics:659)
+[2023-03-30 13:44:27,917] INFO Closing reporter org.apache.kafka.common.metrics.JmxReporter (org.apache.kafka.common.metrics.Metrics:663)
+[2023-03-30 13:44:27,918] INFO Metrics reporters closed (org.apache.kafka.common.metrics.Metrics:669)
+[2023-03-30 13:44:27,922] INFO Logging initialized @11570ms to org.eclipse.jetty.util.log.Slf4jLog (org.eclipse.jetty.util.log:170)
+[2023-03-30 13:44:27,942] INFO Added connector for http://:8083 (org.apache.kafka.connect.runtime.rest.RestServer:117)
+[2023-03-30 13:44:27,942] INFO Initializing REST server (org.apache.kafka.connect.runtime.rest.RestServer:188)
+[2023-03-30 13:44:27,945] INFO jetty-9.4.44.v20210927; built: 2021-09-27T23:02:44.612Z; git: 8da83308eeca865e495e53ef315a249d63ba9332; jvm 11.0.16.1+0 (org.eclipse.jetty.server.Server:375)
+[2023-03-30 13:44:27,953] ERROR Stopping due to error (org.apache.kafka.connect.cli.ConnectDistributed:86)
+org.apache.kafka.connect.errors.ConnectException: Unable to initialize REST server
+	at org.apache.kafka.connect.runtime.rest.RestServer.initializeServer(RestServer.java:200)
+	at org.apache.kafka.connect.cli.ConnectDistributed.startConnect(ConnectDistributed.java:101)
+	at org.apache.kafka.connect.cli.ConnectDistributed.main(ConnectDistributed.java:80)
+Caused by: java.io.IOException: Failed to bind to 0.0.0.0/0.0.0.0:8083
+	at org.eclipse.jetty.server.ServerConnector.openAcceptChannel(ServerConnector.java:349)
+	at org.eclipse.jetty.server.ServerConnector.open(ServerConnector.java:310)
+	at org.eclipse.jetty.server.AbstractNetworkConnector.doStart(AbstractNetworkConnector.java:80)
+	at org.eclipse.jetty.server.ServerConnector.doStart(ServerConnector.java:234)
+	at org.eclipse.jetty.util.component.AbstractLifeCycle.start(AbstractLifeCycle.java:73)
+	at org.eclipse.jetty.server.Server.doStart(Server.java:401)
+	at org.eclipse.jetty.util.component.AbstractLifeCycle.start(AbstractLifeCycle.java:73)
+	at org.apache.kafka.connect.runtime.rest.RestServer.initializeServer(RestServer.java:198)
+	... 2 more
+Caused by: java.net.BindException: Address already in use
+	at java.base/sun.nio.ch.Net.bind0(Native Method)
+	at java.base/sun.nio.ch.Net.bind(Net.java:459)
+	at java.base/sun.nio.ch.Net.bind(Net.java:448)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.bind(ServerSocketChannelImpl.java:227)
+	at java.base/sun.nio.ch.ServerSocketAdaptor.bind(ServerSocketAdaptor.java:80)
+	at org.eclipse.jetty.server.ServerConnector.openAcceptChannel(ServerConnector.java:344)
+	... 9 more
+Output kafka logs for debugging
+[2023-03-30 13:44:06,622] INFO Registered kafka:type=kafka.Log4jController MBean (kafka.utils.Log4jControllerRegistration$)
+[2023-03-30 13:44:06,776] INFO Setting -D jdk.tls.rejectClientInitiatedRenegotiation=true to disable client-initiated TLS renegotiation (org.apache.zookeeper.common.X509Util)
+[2023-03-30 13:44:06,821] INFO Registered signal handlers for TERM, INT, HUP (org.apache.kafka.common.utils.LoggingSignalHandler)
+[2023-03-30 13:44:06,822] INFO starting (kafka.server.KafkaServer)
+[2023-03-30 13:44:06,823] INFO Connecting to zookeeper on localhost:2181 (kafka.server.KafkaServer)
+[2023-03-30 13:44:06,829] INFO [ZooKeeperClient Kafka server] Initializing a new session to localhost:2181. (kafka.zookeeper.ZooKeeperClient)
+[2023-03-30 13:44:06,833] INFO Client environment:zookeeper.version=3.6.3--6401e4ad2087061bc6b9f80dec2d69f2e3c8660a, built on 04/08/2021 16:35 GMT (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:host.name=172.16.68.181 (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:java.version=11.0.16.1 (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:java.vendor=Homebrew (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:java.home=/opt/homebrew/Cellar/openjdk@11/11.0.16.1_1/libexec/openjdk.jdk/Contents/Home (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:java.class.path=/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-streams-test-utils-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jakarta.xml.bind-api-2.3.3.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-module-scala_2.13-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-shell-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-servlets-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/scala-logging_2.13-3.9.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jopt-simple-5.0.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jersey-common-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/slf4j-api-1.7.36.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/snappy-java-1.1.8.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-server-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-util-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/reflections-0.9.12.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-io-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/reload4j-1.2.19.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/lz4-java-1.8.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/slf4j-reload4j-1.7.36.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-buffer-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-jaxrs-json-provider-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/argparse4j-0.7.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/activation-1.1.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-streams-examples-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-streams-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/plexus-utils-3.3.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-tools-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-transforms-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-transport-classes-epoll-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-dataformat-csv-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-api-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/javax.servlet-api-3.1.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-log4j-appender-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jersey-server-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/hk2-locator-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-runtime-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-mirror-client-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jakarta.ws.rs-api-2.1.6.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/zstd-jni-1.5.2-1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/aopalliance-repackaged-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/scala-collection-compat_2.13-2.6.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-mirror-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-resolver-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-jaxrs-base-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-core-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-util-ajax-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-continuation-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-handler-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/commons-cli-1.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-clients-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/paranamer-2.8.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-transport-native-epoll-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-transport-native-unix-common-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jaxb-api-2.3.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-security-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jline-3.21.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-databind-2.13.2.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/metrics-core-2.2.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/zookeeper-3.6.3.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-metadata-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/maven-artifact-3.8.4.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/osgi-resource-locator-1.0.3.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/rocksdbjni-6.29.4.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-json-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/scala-library-2.13.8.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-module-jaxb-annotations-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/metrics-core-4.1.12.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jakarta.activation-api-1.2.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jersey-hk2-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jakarta.inject-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/audience-annotations-0.5.0.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/scala-reflect-2.13.8.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/hk2-utils-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/javax.ws.rs-api-2.1.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka_2.13-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-tcnative-classes-2.0.46.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-transport-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jersey-container-servlet-core-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-annotations-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-raft-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-http-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/hk2-api-2.6.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jersey-container-servlet-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-storage-api-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-common-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jakarta.annotation-api-1.3.5.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/trogdor-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-client-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-server-common-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-streams-scala_2.13-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka-storage-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jersey-client-2.34.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/scala-java8-compat_2.13-1.0.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jose4j-0.7.9.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/netty-codec-4.1.73.Final.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jetty-servlet-9.4.44.v20210927.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/kafka.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/javassist-3.27.0-GA.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jakarta.validation-api-2.0.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/commons-lang3-3.8.1.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/jackson-datatype-jdk8-2.13.2.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/connect-basic-auth-extension-7.2.1-ccs.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/kafka/zookeeper-jute-3.6.3.jar:/Users/rcheng/repos/snowflake-kafka-connector/test/confluent-7.2.1/bin/../share/java/confluent-telemetry/* (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:java.library.path=/Users/rcheng/Library/Java/Extensions:/Library/Java/Extensions:/Network/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java:. (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:java.io.tmpdir=/var/folders/hg/t5ql_h_514n9p951h854x1nw0000gn/T/ (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:java.compiler=<NA> (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:os.name=Mac OS X (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:os.arch=aarch64 (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:os.version=13.2.1 (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:user.name=rcheng (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:user.home=/Users/rcheng (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:user.dir=/Users/rcheng/repos/snowflake-kafka-connector/test (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:os.memory.free=1011MB (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:os.memory.max=1024MB (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,833] INFO Client environment:os.memory.total=1024MB (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,834] INFO Initiating client connection, connectString=localhost:2181 sessionTimeout=18000 watcher=kafka.zookeeper.ZooKeeperClient$ZooKeeperClientWatcher$@72c28d64 (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:06,837] INFO jute.maxbuffer value is 4194304 Bytes (org.apache.zookeeper.ClientCnxnSocket)
+[2023-03-30 13:44:06,839] INFO zookeeper.request.timeout value is 0. feature enabled=false (org.apache.zookeeper.ClientCnxn)
+[2023-03-30 13:44:06,840] INFO [ZooKeeperClient Kafka server] Waiting until connected. (kafka.zookeeper.ZooKeeperClient)
+[2023-03-30 13:44:06,841] INFO Opening socket connection to server localhost/0:0:0:0:0:0:0:1:2181. (org.apache.zookeeper.ClientCnxn)
+[2023-03-30 13:44:06,845] INFO Socket connection established, initiating session, client: /0:0:0:0:0:0:0:1:49989, server: localhost/0:0:0:0:0:0:0:1:2181 (org.apache.zookeeper.ClientCnxn)
+[2023-03-30 13:44:06,852] INFO Session establishment complete on server localhost/0:0:0:0:0:0:0:1:2181, session id = 0x1000c5987090006, negotiated timeout = 18000 (org.apache.zookeeper.ClientCnxn)
+[2023-03-30 13:44:06,854] INFO [ZooKeeperClient Kafka server] Connected. (kafka.zookeeper.ZooKeeperClient)
+[2023-03-30 13:44:06,906] INFO [feature-zk-node-event-process-thread]: Starting (kafka.server.FinalizedFeatureChangeListener$ChangeNotificationProcessorThread)
+[2023-03-30 13:44:06,984] INFO Updated cache from existing <empty> to latest FinalizedFeaturesAndEpoch(features=Features{}, epoch=0). (kafka.server.FinalizedFeatureCache)
+[2023-03-30 13:44:06,988] INFO Cluster ID = kr5gvMd_S-mJHQZHZPFC8g (kafka.server.KafkaServer)
+[2023-03-30 13:44:06,990] WARN No meta.properties file under dir /tmp/kafka-logs/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+[2023-03-30 13:44:07,016] INFO KafkaConfig values: 
+	advertised.listeners = null
+	alter.config.policy.class.name = null
+	alter.log.dirs.replication.quota.window.num = 11
+	alter.log.dirs.replication.quota.window.size.seconds = 1
+	authorizer.class.name = 
+	auto.create.topics.enable = true
+	auto.leader.rebalance.enable = true
+	background.threads = 10
+	broker.heartbeat.interval.ms = 2000
+	broker.id = 0
+	broker.id.generation.enable = true
+	broker.rack = null
+	broker.session.timeout.ms = 9000
+	client.quota.callback.class = null
+	compression.type = producer
+	connection.failed.authentication.delay.ms = 100
+	connections.max.idle.ms = 600000
+	connections.max.reauth.ms = 0
+	control.plane.listener.name = null
+	controlled.shutdown.enable = true
+	controlled.shutdown.max.retries = 3
+	controlled.shutdown.retry.backoff.ms = 5000
+	controller.listener.names = null
+	controller.quorum.append.linger.ms = 25
+	controller.quorum.election.backoff.max.ms = 1000
+	controller.quorum.election.timeout.ms = 1000
+	controller.quorum.fetch.timeout.ms = 2000
+	controller.quorum.request.timeout.ms = 2000
+	controller.quorum.retry.backoff.ms = 20
+	controller.quorum.voters = []
+	controller.quota.window.num = 11
+	controller.quota.window.size.seconds = 1
+	controller.socket.timeout.ms = 30000
+	create.topic.policy.class.name = null
+	default.replication.factor = 1
+	delegation.token.expiry.check.interval.ms = 3600000
+	delegation.token.expiry.time.ms = 86400000
+	delegation.token.master.key = null
+	delegation.token.max.lifetime.ms = 604800000
+	delegation.token.secret.key = null
+	delete.records.purgatory.purge.interval.requests = 1
+	delete.topic.enable = true
+	fetch.max.bytes = 57671680
+	fetch.purgatory.purge.interval.requests = 1000
+	group.initial.rebalance.delay.ms = 0
+	group.max.session.timeout.ms = 1800000
+	group.max.size = 2147483647
+	group.min.session.timeout.ms = 6000
+	initial.broker.registration.timeout.ms = 60000
+	inter.broker.listener.name = null
+	inter.broker.protocol.version = 3.2-IV0
+	kafka.metrics.polling.interval.secs = 10
+	kafka.metrics.reporters = []
+	leader.imbalance.check.interval.seconds = 300
+	leader.imbalance.per.broker.percentage = 10
+	listener.security.protocol.map = PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
+	listeners = PLAINTEXT://:9092
+	log.cleaner.backoff.ms = 15000
+	log.cleaner.dedupe.buffer.size = 134217728
+	log.cleaner.delete.retention.ms = 86400000
+	log.cleaner.enable = true
+	log.cleaner.io.buffer.load.factor = 0.9
+	log.cleaner.io.buffer.size = 524288
+	log.cleaner.io.max.bytes.per.second = 1.7976931348623157E308
+	log.cleaner.max.compaction.lag.ms = 9223372036854775807
+	log.cleaner.min.cleanable.ratio = 0.5
+	log.cleaner.min.compaction.lag.ms = 0
+	log.cleaner.threads = 1
+	log.cleanup.policy = [delete]
+	log.dir = /tmp/kafka-logs
+	log.dirs = /tmp/kafka-logs
+	log.flush.interval.messages = 9223372036854775807
+	log.flush.interval.ms = null
+	log.flush.offset.checkpoint.interval.ms = 60000
+	log.flush.scheduler.interval.ms = 9223372036854775807
+	log.flush.start.offset.checkpoint.interval.ms = 60000
+	log.index.interval.bytes = 4096
+	log.index.size.max.bytes = 10485760
+	log.message.downconversion.enable = true
+	log.message.format.version = 3.0-IV1
+	log.message.timestamp.difference.max.ms = 9223372036854775807
+	log.message.timestamp.type = CreateTime
+	log.preallocate = false
+	log.retention.bytes = -1
+	log.retention.check.interval.ms = 300000
+	log.retention.hours = 168
+	log.retention.minutes = null
+	log.retention.ms = null
+	log.roll.hours = 168
+	log.roll.jitter.hours = 0
+	log.roll.jitter.ms = null
+	log.roll.ms = null
+	log.segment.bytes = 1073741824
+	log.segment.delete.delay.ms = 60000
+	max.connection.creation.rate = 2147483647
+	max.connections = 2147483647
+	max.connections.per.ip = 2147483647
+	max.connections.per.ip.overrides = 
+	max.incremental.fetch.session.cache.slots = 1000
+	message.max.bytes = 1048588
+	metadata.log.dir = null
+	metadata.log.max.record.bytes.between.snapshots = 20971520
+	metadata.log.segment.bytes = 1073741824
+	metadata.log.segment.min.bytes = 8388608
+	metadata.log.segment.ms = 604800000
+	metadata.max.retention.bytes = -1
+	metadata.max.retention.ms = 604800000
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	min.insync.replicas = 1
+	node.id = 0
+	num.io.threads = 8
+	num.network.threads = 10
+	num.partitions = 1
+	num.recovery.threads.per.data.dir = 1
+	num.replica.alter.log.dirs.threads = null
+	num.replica.fetchers = 1
+	offset.metadata.max.bytes = 4096
+	offsets.commit.required.acks = -1
+	offsets.commit.timeout.ms = 5000
+	offsets.load.buffer.size = 5242880
+	offsets.retention.check.interval.ms = 600000
+	offsets.retention.minutes = 10080
+	offsets.topic.compression.codec = 0
+	offsets.topic.num.partitions = 50
+	offsets.topic.replication.factor = 1
+	offsets.topic.segment.bytes = 104857600
+	password.encoder.cipher.algorithm = AES/CBC/PKCS5Padding
+	password.encoder.iterations = 4096
+	password.encoder.key.length = 128
+	password.encoder.keyfactory.algorithm = null
+	password.encoder.old.secret = null
+	password.encoder.secret = null
+	principal.builder.class = class org.apache.kafka.common.security.authenticator.DefaultKafkaPrincipalBuilder
+	process.roles = []
+	producer.purgatory.purge.interval.requests = 1000
+	queued.max.request.bytes = -1
+	queued.max.requests = 500
+	quota.window.num = 11
+	quota.window.size.seconds = 1
+	remote.log.index.file.cache.total.size.bytes = 1073741824
+	remote.log.manager.task.interval.ms = 30000
+	remote.log.manager.task.retry.backoff.max.ms = 30000
+	remote.log.manager.task.retry.backoff.ms = 500
+	remote.log.manager.task.retry.jitter = 0.2
+	remote.log.manager.thread.pool.size = 10
+	remote.log.metadata.manager.class.name = null
+	remote.log.metadata.manager.class.path = null
+	remote.log.metadata.manager.impl.prefix = null
+	remote.log.metadata.manager.listener.name = null
+	remote.log.reader.max.pending.tasks = 100
+	remote.log.reader.threads = 10
+	remote.log.storage.manager.class.name = null
+	remote.log.storage.manager.class.path = null
+	remote.log.storage.manager.impl.prefix = null
+	remote.log.storage.system.enable = false
+	replica.fetch.backoff.ms = 1000
+	replica.fetch.max.bytes = 1048576
+	replica.fetch.min.bytes = 1
+	replica.fetch.response.max.bytes = 10485760
+	replica.fetch.wait.max.ms = 500
+	replica.high.watermark.checkpoint.interval.ms = 5000
+	replica.lag.time.max.ms = 30000
+	replica.selector.class = null
+	replica.socket.receive.buffer.bytes = 65536
+	replica.socket.timeout.ms = 30000
+	replication.quota.window.num = 11
+	replication.quota.window.size.seconds = 1
+	request.timeout.ms = 30000
+	reserved.broker.max.id = 1000
+	sasl.client.callback.handler.class = null
+	sasl.enabled.mechanisms = [GSSAPI]
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.principal.to.local.rules = [DEFAULT]
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism.controller.protocol = GSSAPI
+	sasl.mechanism.inter.broker.protocol = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	sasl.server.callback.handler.class = null
+	security.inter.broker.protocol = PLAINTEXT
+	security.providers = null
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	socket.listen.backlog.size = 50
+	socket.receive.buffer.bytes = 102400
+	socket.request.max.bytes = 104857600
+	socket.send.buffer.bytes = 102400
+	ssl.cipher.suites = []
+	ssl.client.auth = none
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.principal.mapping.rules = DEFAULT
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	transaction.abort.timed.out.transaction.cleanup.interval.ms = 10000
+	transaction.max.timeout.ms = 900000
+	transaction.remove.expired.transaction.cleanup.interval.ms = 3600000
+	transaction.state.log.load.buffer.size = 5242880
+	transaction.state.log.min.isr = 1
+	transaction.state.log.num.partitions = 50
+	transaction.state.log.replication.factor = 1
+	transaction.state.log.segment.bytes = 104857600
+	transactional.id.expiration.ms = 604800000
+	unclean.leader.election.enable = false
+	zookeeper.clientCnxnSocket = null
+	zookeeper.connect = localhost:2181
+	zookeeper.connection.timeout.ms = 18000
+	zookeeper.max.in.flight.requests = 10
+	zookeeper.session.timeout.ms = 18000
+	zookeeper.set.acl = false
+	zookeeper.ssl.cipher.suites = null
+	zookeeper.ssl.client.enable = false
+	zookeeper.ssl.crl.enable = false
+	zookeeper.ssl.enabled.protocols = null
+	zookeeper.ssl.endpoint.identification.algorithm = HTTPS
+	zookeeper.ssl.keystore.location = null
+	zookeeper.ssl.keystore.password = null
+	zookeeper.ssl.keystore.type = null
+	zookeeper.ssl.ocsp.enable = false
+	zookeeper.ssl.protocol = TLSv1.2
+	zookeeper.ssl.truststore.location = null
+	zookeeper.ssl.truststore.password = null
+	zookeeper.ssl.truststore.type = null
+ (kafka.server.KafkaConfig)
+[2023-03-30 13:44:07,031] INFO [ThrottledChannelReaper-Fetch]: Starting (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,031] INFO [ThrottledChannelReaper-Produce]: Starting (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,032] INFO [ThrottledChannelReaper-Request]: Starting (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,032] INFO [ThrottledChannelReaper-ControllerMutation]: Starting (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,040] INFO Log directory /tmp/kafka-logs not found, creating it. (kafka.log.LogManager)
+[2023-03-30 13:44:07,205] INFO Loading logs from log dirs ArraySeq(/tmp/kafka-logs) (kafka.log.LogManager)
+[2023-03-30 13:44:07,206] INFO Attempting recovery for all logs in /tmp/kafka-logs since no clean shutdown file was found (kafka.log.LogManager)
+[2023-03-30 13:44:07,209] INFO Loaded 0 logs in 4ms. (kafka.log.LogManager)
+[2023-03-30 13:44:07,210] INFO Starting log cleanup with a period of 300000 ms. (kafka.log.LogManager)
+[2023-03-30 13:44:07,210] INFO Starting log flusher with a default period of 9223372036854775807 ms. (kafka.log.LogManager)
+[2023-03-30 13:44:07,345] INFO [BrokerToControllerChannelManager broker=0 name=forwarding]: Starting (kafka.server.BrokerToControllerRequestThread)
+[2023-03-30 13:44:07,417] INFO Updated connection-accept-rate max connection creation rate to 2147483647 (kafka.network.ConnectionQuotas)
+[2023-03-30 13:44:07,420] ERROR [KafkaServer id=0] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+org.apache.kafka.common.KafkaException: Socket server failed to bind to 0.0.0.0:9092: Address already in use.
+	at kafka.network.Acceptor.openServerSocket(SocketServer.scala:778)
+	at kafka.network.Acceptor.<init>(SocketServer.scala:672)
+	at kafka.network.DataPlaneAcceptor.<init>(SocketServer.scala:531)
+	at kafka.network.SocketServer.createDataPlaneAcceptor(SocketServer.scala:287)
+	at kafka.network.SocketServer.$anonfun$createDataPlaneAcceptorsAndProcessors$1(SocketServer.scala:267)
+	at kafka.network.SocketServer.$anonfun$createDataPlaneAcceptorsAndProcessors$1$adapted(SocketServer.scala:261)
+	at scala.collection.IterableOnceOps.foreach(IterableOnce.scala:563)
+	at scala.collection.IterableOnceOps.foreach$(IterableOnce.scala:561)
+	at scala.collection.AbstractIterable.foreach(Iterable.scala:926)
+	at kafka.network.SocketServer.createDataPlaneAcceptorsAndProcessors(SocketServer.scala:261)
+	at kafka.network.SocketServer.startup(SocketServer.scala:135)
+	at kafka.server.KafkaServer.startup(KafkaServer.scala:309)
+	at kafka.Kafka$.main(Kafka.scala:109)
+	at kafka.Kafka.main(Kafka.scala)
+Caused by: java.net.BindException: Address already in use
+	at java.base/sun.nio.ch.Net.bind0(Native Method)
+	at java.base/sun.nio.ch.Net.bind(Net.java:459)
+	at java.base/sun.nio.ch.Net.bind(Net.java:448)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.bind(ServerSocketChannelImpl.java:227)
+	at java.base/sun.nio.ch.ServerSocketAdaptor.bind(ServerSocketAdaptor.java:80)
+	at kafka.network.Acceptor.openServerSocket(SocketServer.scala:774)
+	... 13 more
+[2023-03-30 13:44:07,421] INFO [KafkaServer id=0] shutting down (kafka.server.KafkaServer)
+[2023-03-30 13:44:07,422] INFO [SocketServer listenerType=ZK_BROKER, nodeId=0] Stopping socket server request processors (kafka.network.SocketServer)
+[2023-03-30 13:44:07,423] INFO [SocketServer listenerType=ZK_BROKER, nodeId=0] Stopped socket server request processors (kafka.network.SocketServer)
+[2023-03-30 13:44:07,425] INFO [BrokerToControllerChannelManager broker=0 name=forwarding]: Shutting down (kafka.server.BrokerToControllerRequestThread)
+[2023-03-30 13:44:07,426] INFO [BrokerToControllerChannelManager broker=0 name=forwarding]: Stopped (kafka.server.BrokerToControllerRequestThread)
+[2023-03-30 13:44:07,427] INFO [BrokerToControllerChannelManager broker=0 name=forwarding]: Shutdown completed (kafka.server.BrokerToControllerRequestThread)
+[2023-03-30 13:44:07,429] INFO Broker to controller channel manager for forwarding shutdown (kafka.server.BrokerToControllerChannelManagerImpl)
+[2023-03-30 13:44:07,429] INFO Shutting down. (kafka.log.LogManager)
+[2023-03-30 13:44:07,451] INFO Shutdown complete. (kafka.log.LogManager)
+[2023-03-30 13:44:07,451] INFO [feature-zk-node-event-process-thread]: Shutting down (kafka.server.FinalizedFeatureChangeListener$ChangeNotificationProcessorThread)
+[2023-03-30 13:44:07,451] INFO [feature-zk-node-event-process-thread]: Stopped (kafka.server.FinalizedFeatureChangeListener$ChangeNotificationProcessorThread)
+[2023-03-30 13:44:07,451] INFO [feature-zk-node-event-process-thread]: Shutdown completed (kafka.server.FinalizedFeatureChangeListener$ChangeNotificationProcessorThread)
+[2023-03-30 13:44:07,452] INFO [ZooKeeperClient Kafka server] Closing. (kafka.zookeeper.ZooKeeperClient)
+[2023-03-30 13:44:07,560] INFO Session: 0x1000c5987090006 closed (org.apache.zookeeper.ZooKeeper)
+[2023-03-30 13:44:07,560] INFO EventThread shut down for session: 0x1000c5987090006 (org.apache.zookeeper.ClientCnxn)
+[2023-03-30 13:44:07,561] INFO [ZooKeeperClient Kafka server] Closed. (kafka.zookeeper.ZooKeeperClient)
+[2023-03-30 13:44:07,561] INFO [ThrottledChannelReaper-Fetch]: Shutting down (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,562] INFO [ThrottledChannelReaper-Fetch]: Stopped (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,562] INFO [ThrottledChannelReaper-Fetch]: Shutdown completed (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,563] INFO [ThrottledChannelReaper-Produce]: Shutting down (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,563] INFO [ThrottledChannelReaper-Produce]: Stopped (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,563] INFO [ThrottledChannelReaper-Produce]: Shutdown completed (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,563] INFO [ThrottledChannelReaper-Request]: Shutting down (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,563] INFO [ThrottledChannelReaper-Request]: Stopped (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,563] INFO [ThrottledChannelReaper-Request]: Shutdown completed (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,563] INFO [ThrottledChannelReaper-ControllerMutation]: Shutting down (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,563] INFO [ThrottledChannelReaper-ControllerMutation]: Stopped (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,563] INFO [ThrottledChannelReaper-ControllerMutation]: Shutdown completed (kafka.server.ClientQuotaManager$ThrottledChannelReaper)
+[2023-03-30 13:44:07,564] INFO [SocketServer listenerType=ZK_BROKER, nodeId=0] Shutting down socket server (kafka.network.SocketServer)
+[2023-03-30 13:44:07,582] INFO [SocketServer listenerType=ZK_BROKER, nodeId=0] Shutdown completed (kafka.network.SocketServer)
+[2023-03-30 13:44:07,587] INFO Metrics scheduler closed (org.apache.kafka.common.metrics.Metrics)
+[2023-03-30 13:44:07,587] INFO Closing reporter org.apache.kafka.common.metrics.JmxReporter (org.apache.kafka.common.metrics.Metrics)
+[2023-03-30 13:44:07,587] INFO Metrics reporters closed (org.apache.kafka.common.metrics.Metrics)
+[2023-03-30 13:44:07,588] INFO Broker and topic stats closed (kafka.server.BrokerTopicStats)
+[2023-03-30 13:44:07,591] INFO App info kafka.server for 0 unregistered (org.apache.kafka.common.utils.AppInfoParser)
+[2023-03-30 13:44:07,591] INFO [KafkaServer id=0] shut down completed (kafka.server.KafkaServer)
+[2023-03-30 13:44:07,591] ERROR Exiting Kafka. (kafka.Kafka$)
+[2023-03-30 13:44:07,591] INFO [KafkaServer id=0] shutting down (kafka.server.KafkaServer)

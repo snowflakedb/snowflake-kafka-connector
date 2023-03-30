@@ -1,0 +1,4 @@
+=== Name Salt: _דרüצ ===
+Built zip file using kafka connect maven plugin:
+/tmp/sf-kafka-connect-plugin.zip
+Archive:  /tmp/sf-kafka-connect-plugin.zip

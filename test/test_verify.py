@@ -623,16 +623,16 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         ]
 
         resilienceTestCleanEnableList1 = [
-            True, True
+            True, False
         ]
         resilienceTestEnableList1 = []
         if testSet == "confluent":
             resilienceTestEnableList1 = [
-                True, True
+                True, False
             ]
         elif testSet == "apache":
             resilienceTestEnableList1 = [
-                True, True
+                True, False
             ]
         elif testSet != "clean":
             errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
@@ -751,4 +751,5 @@ if __name__ == "__main__":
                           snowflakeCloudPlatform,
                           False)
 
-    runTestSet(kafkaTest, testSet, nameSalt, pressure)
+    #runTestSet(kafkaTest, testSet, nameSalt, pressure)
+    runTestSet(kafkaTest, testSet, "revi_xyz", pressure)

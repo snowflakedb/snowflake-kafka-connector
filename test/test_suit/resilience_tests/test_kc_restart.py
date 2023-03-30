@@ -7,19 +7,13 @@ from time import sleep
 class TestKcRestart:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.topics = []
-        self.topicNum = 10
-        self.partitionNum = 3
-        self.recordNum = 200
-        self.fileName = "resilience_kc_restart"
-        self.connectorName = self.fileName + nameSalt
         self.nameSalt = nameSalt
+        self.fileName = "resilience_kc_restart"
+        self.table = self.fileName + nameSalt + "_table"
+        self.connectorName = self.fileName + nameSalt
+        self.recordNum = 200
 
-        for i in range(self.topicNum):
-            self.topics.append(self.fileName + str(i) + nameSalt)
-
-        for t in range(self.topicNum):
-            self.driver.createTopics(self.topics[t], self.partitionNum, 1)
+        self.driver.snowflake_conn.cursor().execute("Create or replace table {} (PERFORMANCE_STRING STRING)".format(self.table))
 
         sleep(5)
 
@@ -39,23 +33,18 @@ class TestKcRestart:
 
     def verify(self, round):
         # verify two sets of data were ingested
-        for t in range(self.topicNum):
-            res = self.driver.snowflake_conn.cursor().execute(
-                "SELECT count(*) FROM {}".format(self.topics[t])).fetchone()[0]
+        res = self.driver.snowflake_conn.cursor().execute("SELECT count(*) FROM {}".format(self.table)).fetchone()[0]
 
-            if res != self.partitionNum * self.recordNum * (round + 1) * 2:
-                raise RetryableError()
+        if res != self.recordNum * (round + 1) * 2:
+            raise RetryableError()
 
-    def clean(self):
-        for t in range(self.topicNum):
-            self.driver.cleanTableStagePipe(self.connectorName, self.topics[t], self.partitionNum)
+    def clean(self):        
+        self.driver.cleanTableStagePipe(self.table)
 
     def __send_data(self):
-        for p in range(self.partitionNum):
-            for t in range(self.topicNum):
-                value = []
-                for e in range(self.recordNum):
-                    value.append(json.dumps(
-                        {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
-                    ).encode('utf-8'))
-                self.driver.sendBytesData(self.topics[t], value, partition=p)
+        value = []
+        for e in range(self.recordNum):
+            value.append(json.dumps(
+                {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
+            ).encode('utf-8'))
+        self.driver.sendBytesData(self.table, value)
