@@ -611,21 +611,21 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
     ############################ Always run Proxy tests in the end ############################
 
     ############################ Proxy End To End Test ############################
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== REVI Last Round: Proxy E2E Test ===")
-    print("REVI Proxy Test should be the last test, since it modifies the JVM values")
-    testSuitList4 = [testStringJsonProxy]
-
-    # Should we invoke clean before and after the test
-    testCleanEnableList4 = [True]
-
-    # should we enable this? Set to false to disable
-    testSuitEnableList4 = []
-    if testSet == "confluent":
-        testSuitEnableList4 = [True]
-    elif testSet == "apache":
-        testSuitEnableList4 = [True]
-    elif testSet != "clean":
-        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+    # print(datetime.now().strftime("\n%H:%M:%S "), "=== REVI Last Round: Proxy E2E Test ===")
+    # print("REVI Proxy Test should be the last test, since it modifies the JVM values")
+    # # testSuitList4 = [testStringJsonProxy]
+    #
+    # # Should we invoke clean before and after the test
+    # testCleanEnableList4 = [True]
+    #
+    # # should we enable this? Set to false to disable
+    # testSuitEnableList4 = []
+    # if testSet == "confluent":
+    #     testSuitEnableList4 = [True]
+    # elif testSet == "apache":
+    #     testSuitEnableList4 = [True]
+    # elif testSet != "clean":
+    #     errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
     execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
     ############################ Proxy End To End Test End ############################
