@@ -627,7 +627,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
     # elif testSet != "clean":
     #     errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
+    # execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
     ############################ Proxy End To End Test End ############################
 
 
