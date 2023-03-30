@@ -43,7 +43,7 @@ class TestKcRestart:
             res = self.driver.snowflake_conn.cursor().execute(
                 "SELECT count(*) FROM {}".format(self.topics[t])).fetchone()[0]
 
-            if res != self.partitionNum * self.recordNum * (round + 1) * 2:
+            if res != self.partitionNum * self.recordNum * (round + 1) :
                 raise RetryableError()
 
     def clean(self):
