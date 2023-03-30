@@ -21,7 +21,7 @@
     "jmx": "true",
     "errors.tolerance": "all",
     "errors.log.enable": true,
-    "errors.deadletterqueue.topic.name": "DLQ_TOPIC",
+    "errors.deadletterqueue.topic.name": "DLQ_TOPIC_SNOWPIPE_STREAMING",
     "errors.deadletterqueue.topic.replication.factor": 1
   }
 }
