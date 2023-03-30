@@ -78,6 +78,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
 
+  // We will make this non configurable if ingestion method is SNOWPIPE_STREAMING
+  private SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
+      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE;
+
   /**
    * Fetching this from {@link org.apache.kafka.connect.sink.SinkTaskContext}'s {@link
    * org.apache.kafka.connect.sink.ErrantRecordReporter}
@@ -405,6 +409,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig() {
     return this.behaviorOnNullValues;
+  }
+
+  @Override
+  public void setDeliveryGuarantee(
+      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
+    assert ingestionDeliveryGuarantee
+        == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE;
+    this.ingestionDeliveryGuarantee = ingestionDeliveryGuarantee;
   }
 
   /* Set this to send records to DLQ. */

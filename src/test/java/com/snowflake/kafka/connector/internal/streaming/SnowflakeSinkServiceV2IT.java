@@ -821,6 +821,8 @@ public class SnowflakeSinkServiceV2IT {
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setDeliveryGuarantee(
+                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
     offset = 1;
@@ -880,6 +882,8 @@ public class SnowflakeSinkServiceV2IT {
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .setDeliveryGuarantee(
+                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
