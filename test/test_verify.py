@@ -626,16 +626,16 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
     ]
 
     resilienceTestCleanEnableList1 = [
-        True
+        True, True
     ]
     resilienceTestEnableList1 = []
     if testSet == "confluent":
         resilienceTestEnableList1 = [
-            True
+            True, True
         ]
     elif testSet == "apache":
         resilienceTestEnableList1 = [
-            True
+            True, True
         ]
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
