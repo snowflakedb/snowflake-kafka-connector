@@ -28,13 +28,13 @@ class TestKcRestart:
 
     def send(self):
         # send data to connector
-        self.__send_data(self)
+        self.__send_data()
         
         # restart connector
         self.driver.restartConnector(self.connectorName)
 
         # send data to connector
-        self.__send_data(self)
+        self.__send_data()
 
 
     def verify(self, round):

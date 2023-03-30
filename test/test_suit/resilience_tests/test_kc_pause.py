@@ -32,14 +32,14 @@ class TestKcPause:
         sleep(10)
 
         # send data to connector while paused
-        self.__send_data(self)
+        self.__send_data()
         sleep(10)
 
         # start connector
         self.driver.resumeConnector(self.connectorName)
 
         # send more data
-        self.__send_data(self)
+        self.__send_data()
 
 
     def verify(self, round):
