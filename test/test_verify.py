@@ -608,6 +608,35 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
 
     execution(testSet, testSuitList1, testCleanEnableList1, testSuitEnableList1, driver, nameSalt)
 
+    ############################ Resilience End To End Test ############################
+    # import
+    from test_suit.resilience_tests.test_kc_restart.py import TestKcRestart
+
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== Resilience Tests ===")
+
+    resilienceTestList = [
+        testKcRestart
+    ]
+
+    resilienceTestCleanEnableList1 = [
+        True
+    ]
+    resilienceTestEnableList1 = []
+    if testSet == "confluent":
+        resilienceTestEnableList1 = [
+            True
+        ]
+    elif testSet == "apache":
+        resilienceTestEnableList1 = [
+            True
+        ]
+    elif testSet != "clean":
+        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+
+
+    execution(testSet, resilienceTestList, resilienceTestCleanEnableList1, resilienceTestEnableList1, driver, nameSalt)
+
+
     ############################ Always run Proxy tests in the end ############################
 
     ############################ Proxy End To End Test ############################
