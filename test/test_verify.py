@@ -467,7 +467,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
     # from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
     # from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
 
-    from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
+    from test_suit.resilience_tests.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
     # from test_suit.test_snowpipe_streaming_string_json_dlq import TestSnowpipeStreamingStringJsonDLQ
     # from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
     #
