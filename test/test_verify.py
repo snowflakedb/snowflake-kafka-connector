@@ -614,6 +614,8 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
 
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Resilience Tests ===")
 
+    testKcRestart = TestKcRestart(driver, nameSalt)
+
     resilienceTestList = [
         testKcRestart
     ]
