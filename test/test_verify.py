@@ -12,7 +12,7 @@ from confluent_kafka import Producer, Consumer, KafkaError
 from confluent_kafka.admin import AdminClient, NewTopic, ConfigResource, NewPartitions
 from confluent_kafka.avro import AvroProducer
 from test_suites import create_test_suites
-from collections import OrderedDict
+import time
 
 import test_suit
 from test_suit.test_utils import parsePrivateKey, RetryableError
@@ -227,8 +227,12 @@ class KafkaTest:
         self.consumer.subscribe([topic_name])
 
         messages_consumed_count = 0
+        start_time = time.time()
         try:
             while True:
+                if time.time() - start_time >= 60:
+                    print("Couldn't find target_offset:{0} in topic:{1} in 60 Seconds".format(target_offset, topic_name))
+                    break
                 msg = self.consumer.poll(10.0)  # Time out in seconds
                 if msg is None:
                     continue
