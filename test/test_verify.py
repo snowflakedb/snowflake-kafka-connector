@@ -401,7 +401,15 @@ class KafkaTest:
 
         print("Post HTTP request to Create Connector:{0}".format(post_url))
         r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
-        print(datetime.now().strftime("%H:%M:%S "), r.status_code)
+        print("Connector Name:{0} POST Response:{1}".format(snowflake_connector_name, r.status_code), datetime.now().strftime("%H:%M:%S "))
+        if not r.ok:
+            print("Failed creating connector:{0} due to:{1} and HTTP response_code:{2}".format(snowflake_connector_name, r.reason, r.status_code))
+            sleep(30)
+            print("Retrying POST request for connector:{0}".format(snowflake_connector_name))
+            r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
+            print("Connector Name:{0} POST Response:{1}".format(snowflake_connector_name, r.status_code), datetime.now().strftime("%H:%M:%S "))
+            if not r.ok:
+                raise Exception("Failed to create connector:{0}".format(snowflake_connector_name))
         getConnectorResponse = requests.get(post_url)
         print("Get Connectors status:{0}, response:{1}".format(getConnectorResponse.status_code,
                                                                getConnectorResponse.content))
