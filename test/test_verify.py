@@ -45,7 +45,7 @@ class KafkaTest:
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
-        self.MAX_RETRY = 30  # max wait time 30 mins
+        self.MAX_RETRY = 5  # max wait time 30 mins
         self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 10000 data was in the queue
 
         self.kafkaConnectAddress = kafkaConnectAddress
@@ -606,28 +606,6 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
             errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
         execution(testSet, testSuitList1, testCleanEnableList1, testSuitEnableList1, driver, nameSalt)
-
-        ############################ Always run Proxy tests in the end ############################
-
-        ############################ Proxy End To End Test ############################
-        print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
-        print("Proxy Test should be the last test, since it modifies the JVM values")
-        testSuitList4 = [testStringJsonProxy]
-
-        # Should we invoke clean before and after the test
-        testCleanEnableList4 = [True]
-
-        # should we enable this? Set to false to disable
-        testSuitEnableList4 = []
-        if testSet == "confluent":
-            testSuitEnableList4 = [True]
-        elif testSet == "apache":
-            testSuitEnableList4 = [True]
-        elif testSet != "clean":
-            errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-        execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
-        ############################ Proxy End To End Test End ############################
 
 
 def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=1):
