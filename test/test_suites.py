@@ -68,6 +68,7 @@ class TestSuite:
 
 def create_test_suites(driver, nameSalt, schemaRegistryAddress, testSet):
     test_suites = OrderedDict([
+        # Disable Failing tests only in confluent because of fips error, re-enable: SNOW-774533
         ("TestStringJson", TestSuite(
             test_instance=TestStringJson(driver, nameSalt), clean=True, run_in_confluent=False, run_in_apache=True
         )),
@@ -119,6 +120,7 @@ def create_test_suites(driver, nameSalt, schemaRegistryAddress, testSet):
         ("TestSchemaMapping", TestSuite(
             test_instance=TestSchemaMapping(driver, nameSalt), clean=True, run_in_confluent=True,run_in_apache=True
         )),
+        # Disable failing test for Confluent and Apache because no data in DLQ, Re-enable SNOW-774533
         ("TestSnowpipeStreamingSchemaMappingDLQ", TestSuite(
             test_instance=TestSnowpipeStreamingSchemaMappingDLQ(driver, nameSalt), clean=True, run_in_confluent=False, run_in_apache=False
         )),
