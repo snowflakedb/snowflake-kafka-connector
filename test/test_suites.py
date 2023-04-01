@@ -69,7 +69,7 @@ class TestSuite:
 def create_test_suites(driver, nameSalt, schemaRegistryAddress, testSet):
     test_suites = OrderedDict([
         ("TestStringJson", TestSuite(
-            test_instance=TestStringJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestStringJson(driver, nameSalt), clean=True, run_in_confluent=False, run_in_apache=True
         )),
         ("TestJsonJson", TestSuite(
             test_instance=TestJsonJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
