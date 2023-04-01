@@ -43,7 +43,12 @@ from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTa
 
 from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
 
-class TestSuite:
+class EndToEndTestSuit:
+    '''
+    Placeholder class for defining what a single end to end test looks like.
+    Just modify the caller constructor of this class to disable, enable in confluent or Apache Kafka.
+    In future can add whether it runs in snowpipe or snowpipe streaming mode.
+    '''
     def __init__(self, test_instance, clean, run_in_confluent, run_in_apache):
         self._test_instance = test_instance
         self._clean = clean
@@ -66,89 +71,97 @@ class TestSuite:
     def run_in_apache(self):
         return self._run_in_apache
 
-def create_test_suites(driver, nameSalt, schemaRegistryAddress, testSet):
+def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet):
+    '''
+    Creates all End to End tests which needs to run against Confluent Kafka or Apache Kafka.
+    :param driver: Driver holds all helper function for tests - Create topic, create connector, send data are few functions amongst many present in Class KafkaTest.
+    :param nameSalt: random string appended for uniqueness of Connector Name
+    :param schemaRegistryAddress: Schema registry For confluent runs
+    :param testSet: confluent Kafka or apache Kafka (OSS)
+    :return:
+    '''
     test_suites = OrderedDict([
         # Disable Failing tests only in confluent because of fips error, re-enable: SNOW-774533
-        ("TestStringJson", TestSuite(
+        ("TestStringJson", EndToEndTestSuit(
             test_instance=TestStringJson(driver, nameSalt), clean=True, run_in_confluent=False, run_in_apache=True
         )),
-        ("TestJsonJson", TestSuite(
+        ("TestJsonJson", EndToEndTestSuit(
             test_instance=TestJsonJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestStringAvro", TestSuite(
+        ("TestStringAvro", EndToEndTestSuit(
             test_instance=TestStringAvro(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestAvroAvro", TestSuite(
+        ("TestAvroAvro", EndToEndTestSuit(
             test_instance=TestAvroAvro(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestStringAvrosr", TestSuite(
+        ("TestStringAvrosr", EndToEndTestSuit(
             test_instance=TestStringAvrosr(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=False
         )),
-        ("TestAvrosrAvrosr", TestSuite(
+        ("TestAvrosrAvrosr", EndToEndTestSuit(
             test_instance=TestAvrosrAvrosr(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=False
         )),
-        ("TestNativeStringAvrosr", TestSuite(
+        ("TestNativeStringAvrosr", EndToEndTestSuit(
             test_instance=TestNativeStringAvrosr(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=False
         )),
-        ("TestNativeStringJsonWithoutSchema", TestSuite(
+        ("TestNativeStringJsonWithoutSchema", EndToEndTestSuit(
             test_instance=TestNativeStringJsonWithoutSchema(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestNativeComplexSmt", TestSuite(
+        ("TestNativeComplexSmt", EndToEndTestSuit(
             test_instance=TestNativeComplexSmt(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestNativeStringProtobuf", TestSuite(
+        ("TestNativeStringProtobuf", EndToEndTestSuit(
             test_instance=TestNativeStringProtobuf(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestConfluentProtobufProtobuf", TestSuite(
+        ("TestConfluentProtobufProtobuf", EndToEndTestSuit(
             test_instance=TestConfluentProtobufProtobuf(driver, nameSalt), clean=True, run_in_confluent=False, run_in_apache=False
         )),
-        ("TestSnowpipeStreamingStringJson", TestSuite(
+        ("TestSnowpipeStreamingStringJson", EndToEndTestSuit(
             test_instance=TestSnowpipeStreamingStringJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestSnowpipeStreamingStringJsonDLQ", TestSuite(
+        ("TestSnowpipeStreamingStringJsonDLQ", EndToEndTestSuit(
             test_instance=TestSnowpipeStreamingStringJsonDLQ(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestSnowpipeStreamingStringAvro", TestSuite(
+        ("TestSnowpipeStreamingStringAvro", EndToEndTestSuit(
             test_instance=TestSnowpipeStreamingStringAvroSR(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=False
         )),
-        ("TestMultipleTopicToOneTableSnowpipeStreaming", TestSuite(
+        ("TestMultipleTopicToOneTableSnowpipeStreaming", EndToEndTestSuit(
             test_instance=TestMultipleTopicToOneTableSnowpipeStreaming(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestMultipleTopicToOneTableSnowpipe", TestSuite(
+        ("TestMultipleTopicToOneTableSnowpipe", EndToEndTestSuit(
             test_instance=TestMultipleTopicToOneTableSnowpipe(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestSchemaMapping", TestSuite(
+        ("TestSchemaMapping", EndToEndTestSuit(
             test_instance=TestSchemaMapping(driver, nameSalt), clean=True, run_in_confluent=True,run_in_apache=True
         )),
         # Disable failing test for Confluent and Apache because no data in DLQ, Re-enable SNOW-774533
-        ("TestSnowpipeStreamingSchemaMappingDLQ", TestSuite(
+        ("TestSnowpipeStreamingSchemaMappingDLQ", EndToEndTestSuit(
             test_instance=TestSnowpipeStreamingSchemaMappingDLQ(driver, nameSalt), clean=True, run_in_confluent=False, run_in_apache=False
         )),
-        ("TestAutoTableCreation", TestSuite(
+        ("TestAutoTableCreation", EndToEndTestSuit(
             test_instance=TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet), clean=True, run_in_confluent=True, run_in_apache=False
         )),
-        ("TestAutoTableCreationTopic2Table", TestSuite(
+        ("TestAutoTableCreationTopic2Table", EndToEndTestSuit(
             test_instance=TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress, testSet), clean=True, run_in_confluent=True, run_in_apache=False
         )),
-        ("TestSchemaEvolutionJson", TestSuite(
+        ("TestSchemaEvolutionJson", EndToEndTestSuit(
             test_instance=TestSchemaEvolutionJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestSchemaEvolutionAvroSR", TestSuite(
+        ("TestSchemaEvolutionAvroSR", EndToEndTestSuit(
             test_instance=TestSchemaEvolutionAvroSR(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=False
         )),
-        ("TestSchemaEvolutionWithAutoTableCreationJson", TestSuite(
+        ("TestSchemaEvolutionWithAutoTableCreationJson", EndToEndTestSuit(
             test_instance=TestSchemaEvolutionWithAutoTableCreationJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestSchemaEvolutionWithAutoTableCreationAvroSR", TestSuite(
+        ("TestSchemaEvolutionWithAutoTableCreationAvroSR", EndToEndTestSuit(
             test_instance=TestSchemaEvolutionWithAutoTableCreationAvroSR(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=False
         )),
-        ("TestSchemaEvolutionNonNullableJson", TestSuite(
+        ("TestSchemaEvolutionNonNullableJson", EndToEndTestSuit(
             test_instance=TestSchemaEvolutionNonNullableJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestSchemaNotSupportedConverter", TestSuite(
+        ("TestSchemaNotSupportedConverter", EndToEndTestSuit(
             test_instance=TestSchemaNotSupportedConverter(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestSchemaEvolutionDropTable", TestSuite(
+        ("TestSchemaEvolutionDropTable", EndToEndTestSuit(
             test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         ))
     ])

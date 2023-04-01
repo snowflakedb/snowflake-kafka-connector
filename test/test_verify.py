@@ -11,7 +11,7 @@ import snowflake.connector
 from confluent_kafka import Producer, Consumer, KafkaError
 from confluent_kafka.admin import AdminClient, NewTopic, ConfigResource, NewPartitions
 from confluent_kafka.avro import AvroProducer
-from test_suites import create_test_suites
+from test_suites import create_end_to_end_test_suites
 import time
 
 import test_suit
@@ -47,7 +47,7 @@ class KafkaTest:
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
-        self.MAX_RETRY = 5  # max wait time 30 mins
+        self.MAX_RETRY = 30  # max wait time 30 mins
         self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 10000 data was in the queue
 
         self.kafkaConnectAddress = kafkaConnectAddress
@@ -466,29 +466,54 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
     if enable_stress_test:
         runStressTests(driver, testSet, nameSalt)
     else:
-        from test_suit.test_string_json_proxy import TestStringJsonProxy
-
-        testStringJsonProxy = TestStringJsonProxy(driver, nameSalt)
-
-        test_suites = create_test_suites(driver, nameSalt, schemaRegistryAddress, testSet)
+        test_suites = create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet)
 
         ############################ round 1 ############################
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
 
-        testSuitList1 = [test_suite.test_instance for test_suite in test_suites.values()]
+        end_to_end_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in test_suites.values()]
 
-        testCleanEnableList1 = [test_suite.clean for test_suite in test_suites.values()]
+        end_to_end_tests_suite_cleaner = [single_end_to_end_test.clean for single_end_to_end_test in test_suites.values()]
 
-        testSuitEnableList1 = []
+        end_to_end_tests_suite_runner = []
 
         if testSet == "confluent":
-            testSuitEnableList1 = [test_suite.run_in_confluent for test_suite in test_suites.values()]
+            end_to_end_tests_suite_runner = [single_end_to_end_test.run_in_confluent for single_end_to_end_test in test_suites.values()]
         elif testSet == "apache":
-            testSuitEnableList1 = [test_suite.run_in_apache for test_suite in test_suites.values()]
+            end_to_end_tests_suite_runner = [single_end_to_end_test.run_in_apache for single_end_to_end_test in test_suites.values()]
         elif testSet != "clean":
             errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    execution(testSet, testSuitList1, testCleanEnableList1, testSuitEnableList1, driver, nameSalt)
+        execution(testSet, end_to_end_tests_suite, end_to_end_tests_suite_cleaner, end_to_end_tests_suite_runner, driver, nameSalt)
+
+        ############################ Always run Proxy tests in the end ############################
+
+        ############################ Proxy End To End Test ############################
+
+        from test_suit.test_string_json_proxy import TestStringJsonProxy
+        from test_suites import EndToEndTestSuit
+        from collections import OrderedDict
+
+        print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
+        print("Proxy Test should be the last test, since it modifies the JVM values")
+
+        proxy_tests_suite = OrderedDict[EndToEndTestSuit(
+            test_instance=TestStringJsonProxy(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )]
+
+        proxy_suite_clean_list = [single_end_to_end_test.clean for single_end_to_end_test in proxy_tests_suite.values()]
+
+        proxy_suite_runner = []
+
+        if testSet == "confluent":
+            proxy_suite_runner = [single_end_to_end_test.run_in_confluent for single_end_to_end_test in proxy_tests_suite.values()]
+        elif testSet == "apache":
+            proxy_suite_runner = [single_end_to_end_test.run_in_apache for single_end_to_end_test in proxy_tests_suite.values()]
+        elif testSet != "clean":
+            errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+
+        execution(testSet, proxy_tests_suite, proxy_suite_clean_list, proxy_suite_runner, driver, nameSalt)
+        ############################ Proxy End To End Test End ############################
 
 
 def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=1):
