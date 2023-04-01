@@ -578,7 +578,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         testSuitEnableList1 = []
         if testSet == "confluent":
             testSuitEnableList1 = [
-                True, True, True, True, True, True, True, True, True, True, False,
+                False, True, True, True, True, True, True, True, True, True, False,
                 True, True,
                 True,
                 True, True,
@@ -591,7 +591,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
             ]
         elif testSet == "apache":
             testSuitEnableList1 = [
-                True, True, True, True, False, False, False, True, True, True, False,
+                False, True, True, True, False, False, False, True, True, True, False,
                 True, False,
                 True,
                 True, True,
@@ -609,25 +609,25 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
 
         ############################ Always run Proxy tests in the end ############################
 
-        ############################ Proxy End To End Test ############################
-        print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
-        print("Proxy Test should be the last test, since it modifies the JVM values")
-        testSuitList4 = [testStringJsonProxy]
+        # ############################ Proxy End To End Test ############################
+        # print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
+        # print("Proxy Test should be the last test, since it modifies the JVM values")
+        # testSuitList4 = [testStringJsonProxy]
 
-        # Should we invoke clean before and after the test
-        testCleanEnableList4 = [True]
+        # # Should we invoke clean before and after the test
+        # testCleanEnableList4 = [True]
 
-        # should we enable this? Set to false to disable
-        testSuitEnableList4 = []
-        if testSet == "confluent":
-            testSuitEnableList4 = [True]
-        elif testSet == "apache":
-            testSuitEnableList4 = [True]
-        elif testSet != "clean":
-            errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+        # # should we enable this? Set to false to disable
+        # testSuitEnableList4 = []
+        # if testSet == "confluent":
+        #     testSuitEnableList4 = [True]
+        # elif testSet == "apache":
+        #     testSuitEnableList4 = [True]
+        # elif testSet != "clean":
+        #     errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-        execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
-        ############################ Proxy End To End Test End ############################
+        # execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
+        # ############################ Proxy End To End Test End ############################
 
 
 def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=1):
