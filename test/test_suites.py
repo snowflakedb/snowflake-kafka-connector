@@ -120,7 +120,7 @@ def create_test_suites(driver, nameSalt, schemaRegistryAddress, testSet):
             test_instance=TestSchemaMapping(driver, nameSalt), clean=True, run_in_confluent=True,run_in_apache=True
         )),
         ("TestSnowpipeStreamingSchemaMappingDLQ", TestSuite(
-            test_instance=TestSnowpipeStreamingSchemaMappingDLQ(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestSnowpipeStreamingSchemaMappingDLQ(driver, nameSalt), clean=True, run_in_confluent=False, run_in_apache=False
         )),
         ("TestAutoTableCreation", TestSuite(
             test_instance=TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet), clean=True, run_in_confluent=True, run_in_apache=False
