@@ -46,13 +46,12 @@ class TestSnowpipeStreamingSchemaMappingDLQ:
     def verify(self, round):
         rows = self.driver.snowflake_conn.cursor().execute(
             "desc table {}".format(self.topic)).fetchall()
-        res_col = {}
 
         metadata_exist = False
-        for index, row in enumerate(rows):
+        for row in enumerate(rows):
             if row[0] == 'RECORD_METADATA':
                 metadata_exist = True
-            res_col[row[0]] = index
+                break
         if not metadata_exist:
             raise NonRetryableError("Metadata column was not created")
 
