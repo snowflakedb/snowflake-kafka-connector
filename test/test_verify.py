@@ -491,13 +491,13 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         ############################ Proxy End To End Test ############################
 
         from test_suit.test_string_json_proxy import TestStringJsonProxy
-        from test_suites import EndToEndTestSuit
+        from test_suites import EndToEndTestSuite
         from collections import OrderedDict
 
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
         print("Proxy Test should be the last test, since it modifies the JVM values")
 
-        proxy_tests_suite = [EndToEndTestSuit(
+        proxy_tests_suite = [EndToEndTestSuite(
             test_instance=TestStringJsonProxy(driver, nameSalt), clean=True, run_in_confluent=False, run_in_apache=False
         )]
 
