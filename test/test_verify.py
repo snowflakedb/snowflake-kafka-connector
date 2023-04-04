@@ -11,6 +11,8 @@ import snowflake.connector
 from confluent_kafka import Producer, Consumer, KafkaError
 from confluent_kafka.admin import AdminClient, NewTopic, ConfigResource, NewPartitions
 from confluent_kafka.avro import AvroProducer
+from test_suites import create_end_to_end_test_suites
+import time
 
 import test_suit
 from test_suit.test_utils import parsePrivateKey, RetryableError
@@ -225,8 +227,12 @@ class KafkaTest:
         self.consumer.subscribe([topic_name])
 
         messages_consumed_count = 0
+        start_time = time.time()
         try:
             while True:
+                if time.time() - start_time >= 60:
+                    print("Couldn't find target_offset:{0} in topic:{1} in 60 Seconds".format(target_offset, topic_name))
+                    break
                 msg = self.consumer.poll(10.0)  # Time out in seconds
                 if msg is None:
                     continue
@@ -399,7 +405,15 @@ class KafkaTest:
 
         print("Post HTTP request to Create Connector:{0}".format(post_url))
         r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
-        print(datetime.now().strftime("%H:%M:%S "), r.status_code)
+        print("Connector Name:{0} POST Response:{1}".format(snowflake_connector_name, r.status_code), datetime.now().strftime("%H:%M:%S "))
+        if not r.ok:
+            print("Failed creating connector:{0} due to:{1} and HTTP response_code:{2}".format(snowflake_connector_name, r.reason, r.status_code))
+            sleep(30)
+            print("Retrying POST request for connector:{0}".format(snowflake_connector_name))
+            r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
+            print("Connector Name:{0} POST Response:{1}".format(snowflake_connector_name, r.status_code), datetime.now().strftime("%H:%M:%S "))
+            if not r.ok:
+                raise Exception("Failed to create connector:{0}".format(snowflake_connector_name))
         getConnectorResponse = requests.get(post_url)
         print("Get Connectors status:{0}, response:{1}".format(getConnectorResponse.status_code,
                                                                getConnectorResponse.content))
@@ -452,181 +466,53 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
     if enable_stress_test:
         runStressTests(driver, testSet, nameSalt)
     else:
-        from test_suit.test_string_json import TestStringJson
-        from test_suit.test_string_json_proxy import TestStringJsonProxy
-        from test_suit.test_json_json import TestJsonJson
-        from test_suit.test_string_avro import TestStringAvro
-        from test_suit.test_avro_avro import TestAvroAvro
-        from test_suit.test_string_avrosr import TestStringAvrosr
-        from test_suit.test_avrosr_avrosr import TestAvrosrAvrosr
-
-        from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
-        from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
-        from test_suit.test_native_complex_smt import TestNativeComplexSmt
-
-        from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
-        from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
-
-        from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
-        from test_suit.test_snowpipe_streaming_string_json_dlq import TestSnowpipeStreamingStringJsonDLQ
-        from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
-
-        from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import \
-            TestMultipleTopicToOneTableSnowpipeStreaming
-        from test_suit.test_multiple_topic_to_one_table_snowpipe import TestMultipleTopicToOneTableSnowpipe
-
-        from test_suit.test_schema_mapping import TestSchemaMapping
-
-        from test_suit.test_auto_table_creation import TestAutoTableCreation
-        from test_suit.test_auto_table_creation_topic2table import TestAutoTableCreationTopic2Table
-
-        from test_suit.test_schema_evolution_json import TestSchemaEvolutionJson
-        from test_suit.test_schema_evolution_avro_sr import TestSchemaEvolutionAvroSR
-
-        from test_suit.test_schema_evolution_w_auto_table_creation_json import \
-            TestSchemaEvolutionWithAutoTableCreationJson
-        from test_suit.test_schema_evolution_w_auto_table_creation_avro_sr import \
-            TestSchemaEvolutionWithAutoTableCreationAvroSR
-
-        from test_suit.test_schema_evolution_nonnullable_json import TestSchemaEvolutionNonNullableJson
-
-        from test_suit.test_schema_not_supported_converter import TestSchemaNotSupportedConverter
-
-        from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTable
-        
-        from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
-
-        testStringJson = TestStringJson(driver, nameSalt)
-        testJsonJson = TestJsonJson(driver, nameSalt)
-        testStringAvro = TestStringAvro(driver, nameSalt)
-        testAvroAvro = TestAvroAvro(driver, nameSalt)
-        testStringAvrosr = TestStringAvrosr(driver, nameSalt)
-        testAvrosrAvrosr = TestAvrosrAvrosr(driver, nameSalt)
-
-        testNativeStringAvrosr = TestNativeStringAvrosr(driver, nameSalt)
-        testNativeStringJsonWithoutSchema = TestNativeStringJsonWithoutSchema(driver, nameSalt)
-        testNativeComplexSmt = TestNativeComplexSmt(driver, nameSalt)
-
-        testNativeStringProtobuf = TestNativeStringProtobuf(driver, nameSalt)
-        testConfluentProtobufProtobuf = TestConfluentProtobufProtobuf(driver, nameSalt)
-
-        testStringJsonProxy = TestStringJsonProxy(driver, nameSalt)
-
-        # Run this test on both confluent and apache kafka
-        testSnowpipeStreamingStringJson = TestSnowpipeStreamingStringJson(driver, nameSalt)
-
-        testSnowpipeStreamingStringJsonDLQ = TestSnowpipeStreamingStringJsonDLQ(driver, nameSalt)
-
-        # will run this only in confluent cloud since, since in apache kafka e2e tests, we don't start schema registry
-        testSnowpipeStreamingStringAvro = TestSnowpipeStreamingStringAvroSR(driver, nameSalt)
-
-        testMultipleTopicToOneTableSnowpipeStreaming = TestMultipleTopicToOneTableSnowpipeStreaming(driver, nameSalt)
-        testMultipleTopicToOneTableSnowpipe = TestMultipleTopicToOneTableSnowpipe(driver, nameSalt)
-
-        testSchemaMapping = TestSchemaMapping(driver, nameSalt)
-
-        testSnowpipeStreamingSchemaMappingDLQ = TestSnowpipeStreamingSchemaMappingDLQ(driver, nameSalt)
-
-        testAutoTableCreation = TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet)
-        testAutoTableCreationTopic2Table = TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress,
-                                                                            testSet)
-
-        testSchemaEvolutionJson = TestSchemaEvolutionJson(driver, nameSalt)
-        testSchemaEvolutionAvroSR = TestSchemaEvolutionAvroSR(driver, nameSalt)
-
-        testSchemaEvolutionWithAutoTableCreationJson = TestSchemaEvolutionWithAutoTableCreationJson(driver, nameSalt)
-        testSchemaEvolutionWithAutoTableCreationAvroSR = TestSchemaEvolutionWithAutoTableCreationAvroSR(driver,
-                                                                                                        nameSalt)
-
-        testSchemaEvolutionNonNullableJson = TestSchemaEvolutionNonNullableJson(driver, nameSalt)
-
-        testSchemaNotSupportedConverter = TestSchemaNotSupportedConverter(driver, nameSalt)
-
-        testSchemaEvolutionDropTable = TestSchemaEvolutionDropTable(driver, nameSalt)
+        test_suites = create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet)
 
         ############################ round 1 ############################
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
-        testSuitList1 = [
-            testStringJson, testJsonJson, testStringAvro, testAvroAvro, testStringAvrosr,
-            testAvrosrAvrosr, testNativeStringAvrosr, testNativeStringJsonWithoutSchema,
-            testNativeComplexSmt, testNativeStringProtobuf, testConfluentProtobufProtobuf,
-            testSnowpipeStreamingStringJson, testSnowpipeStreamingStringAvro,
-            testSnowpipeStreamingStringJsonDLQ,
-            testMultipleTopicToOneTableSnowpipeStreaming, testMultipleTopicToOneTableSnowpipe,
-            testSchemaMapping, testSnowpipeStreamingSchemaMappingDLQ,
-            testAutoTableCreation, testAutoTableCreationTopic2Table,
-            testSchemaEvolutionJson, testSchemaEvolutionAvroSR,
-            testSchemaEvolutionWithAutoTableCreationJson, testSchemaEvolutionWithAutoTableCreationAvroSR,
-            testSchemaEvolutionNonNullableJson,
-            testSchemaNotSupportedConverter,
-            testSchemaEvolutionDropTable
-        ]
 
-        # Adding StringJsonProxy test at the end
-        testCleanEnableList1 = [
-            True, True, True, True, True, True, True, True, True, True, True,
-            True, True,
-            True,
-            True, True,
-            True, True,
-            True, True,
-            True, True,
-            True, True,
-            True, True,
-            True
-        ]
-        testSuitEnableList1 = []
+        end_to_end_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in test_suites.values()]
+
+        end_to_end_tests_suite_cleaner = [single_end_to_end_test.clean for single_end_to_end_test in test_suites.values()]
+
+        end_to_end_tests_suite_runner = []
+
         if testSet == "confluent":
-            testSuitEnableList1 = [
-                True, True, True, True, True, True, True, True, True, True, False,
-                True, True,
-                True,
-                True, True,
-                True, True,
-                True, True,
-                True, True,
-                True, True,
-                True, True,
-                True
-            ]
+            end_to_end_tests_suite_runner = [single_end_to_end_test.run_in_confluent for single_end_to_end_test in test_suites.values()]
         elif testSet == "apache":
-            testSuitEnableList1 = [
-                True, True, True, True, False, False, False, True, True, True, False,
-                True, False,
-                True,
-                True, True,
-                True, True,
-                False, False,
-                True, False,
-                True, False,
-                True, True,
-                True
-            ]
+            end_to_end_tests_suite_runner = [single_end_to_end_test.run_in_apache for single_end_to_end_test in test_suites.values()]
         elif testSet != "clean":
             errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-        execution(testSet, testSuitList1, testCleanEnableList1, testSuitEnableList1, driver, nameSalt)
+        execution(testSet, end_to_end_tests_suite, end_to_end_tests_suite_cleaner, end_to_end_tests_suite_runner, driver, nameSalt)
 
         ############################ Always run Proxy tests in the end ############################
 
         ############################ Proxy End To End Test ############################
+
+        from test_suit.test_string_json_proxy import TestStringJsonProxy
+        from test_suites import EndToEndTestSuite
+        from collections import OrderedDict
+
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
         print("Proxy Test should be the last test, since it modifies the JVM values")
-        testSuitList4 = [testStringJsonProxy]
 
-        # Should we invoke clean before and after the test
-        testCleanEnableList4 = [True]
+        proxy_tests_suite = [EndToEndTestSuite(
+            test_instance=TestStringJsonProxy(driver, nameSalt), clean=True, run_in_confluent=False, run_in_apache=False
+        )]
 
-        # should we enable this? Set to false to disable
-        testSuitEnableList4 = []
+        proxy_suite_clean_enable_list = [single_end_to_end_test.clean for single_end_to_end_test in proxy_tests_suite]
+
+        proxy_suite_runner = []
+
         if testSet == "confluent":
-            testSuitEnableList4 = [True]
+            proxy_suite_runner = [single_end_to_end_test.run_in_confluent for single_end_to_end_test in proxy_tests_suite]
         elif testSet == "apache":
-            testSuitEnableList4 = [True]
+            proxy_suite_runner = [single_end_to_end_test.run_in_apache for single_end_to_end_test in proxy_tests_suite]
         elif testSet != "clean":
             errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-        execution(testSet, testSuitList4, testCleanEnableList4, testSuitEnableList4, driver, nameSalt)
+        execution(testSet, proxy_tests_suite, proxy_suite_clean_enable_list, proxy_suite_runner, driver, nameSalt)
         ############################ Proxy End To End Test End ############################
 
 
