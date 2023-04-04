@@ -40,13 +40,13 @@ public class StreamingClientProvider {
       new StreamingClientProvider();
 
   /**
-   * Checks if the client is valid by doing a null check and ensuring it is open
+   * Checks if the client is valid by doing a null check, ensuring it is open and has a name
    *
    * @param client The client to validate
-   * @return If the client is not null and open
+   * @return If the client is not null, open and has a name
    */
   public static boolean isClientValid(SnowflakeStreamingIngestClient client) {
-    return client != null && !client.isClosed();
+    return client != null && !client.isClosed() && client.getName() != null;
   }
 
   /**
@@ -78,8 +78,8 @@ public class StreamingClientProvider {
     this.connectorConfig = new HashMap<>();
   }
 
-  @VisibleForTesting
   // ONLY FOR TESTING - private constructor to inject properties for testing
+  @VisibleForTesting
   private StreamingClientProvider(
       int createdClientId,
       Map<String, String> connectorConfig,
@@ -96,16 +96,8 @@ public class StreamingClientProvider {
    */
   public void createClient(Map<String, String> connectorConfig) {
     // replace previous connector config and client if applicable
-    if (!this.connectorConfig.isEmpty()) {
-      LOGGER.warn("Overriding previous connector config");
-    }
-
-    if (isClientValid(this.streamingIngestClient)) {
-      LOGGER.warn(
-          "Replacing previous valid streaming client. ClientName:{}",
-          this.streamingIngestClient.getName());
-      this.closeClient();
-    }
+    LOGGER.info("Creating new client: {}. This will replace the old client and config if exists", this.streamingIngestClient.getName());
+    this.closeClient();
 
     this.connectorConfig = connectorConfig;
     this.streamingIngestClient = this.initStreamingClient(this.connectorConfig);
@@ -115,6 +107,7 @@ public class StreamingClientProvider {
   public void closeClient() {
     // don't do anything if client is already invalid
     if (!isClientValid(this.streamingIngestClient)) {
+      LOGGER.info("Streaming client already closed");
       return;
     }
 
