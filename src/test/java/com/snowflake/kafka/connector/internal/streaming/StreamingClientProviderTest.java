@@ -172,6 +172,8 @@ public class StreamingClientProviderTest {
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
     SnowflakeStreamingIngestClient streamingIngestClient =
         Mockito.mock(SnowflakeStreamingIngestClient.class);
+    Mockito.when(streamingIngestClient.isClosed()).thenReturn(false);
+    Mockito.when(streamingIngestClient.getName()).thenReturn("testclient");
     StreamingClientProvider injectedProvider =
         injectStreamingClientProviderForTests(1, connectorConfig, streamingIngestClient);
 
@@ -180,6 +182,8 @@ public class StreamingClientProviderTest {
 
     // verify closed
     Mockito.verify(streamingIngestClient, Mockito.times(1)).close();
+    Mockito.verify(streamingIngestClient, Mockito.times(1)).isClosed();
+    Mockito.verify(streamingIngestClient, Mockito.times(2)).getName();
   }
 
   @Test
@@ -225,6 +229,8 @@ public class StreamingClientProviderTest {
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
     SnowflakeStreamingIngestClient streamingIngestClient =
         Mockito.mock(SnowflakeStreamingIngestClient.class);
+    Mockito.when(streamingIngestClient.isClosed()).thenReturn(false);
+    Mockito.when(streamingIngestClient.getName()).thenReturn("testclient");
     Mockito.doThrow(exToThrow).when(streamingIngestClient).close();
     StreamingClientProvider injectedProvider =
         injectStreamingClientProviderForTests(1, connectorConfig, streamingIngestClient);
@@ -234,5 +240,7 @@ public class StreamingClientProviderTest {
 
     // verify call close
     Mockito.verify(streamingIngestClient, Mockito.times(1)).close();
+    Mockito.verify(streamingIngestClient, Mockito.times(1)).isClosed();
+    Mockito.verify(streamingIngestClient, Mockito.times(2)).getName();
   }
 }

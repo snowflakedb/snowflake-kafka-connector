@@ -97,8 +97,7 @@ public class StreamingClientProvider {
   public void createClient(Map<String, String> connectorConfig) {
     // replace previous connector config and client if applicable
     LOGGER.info(
-        "Creating new client: {}. This will replace the old client and config if exists",
-        this.streamingIngestClient.getName());
+        "Creating new client, this will replace the old client and config if exists");
     this.closeClient();
 
     this.connectorConfig = connectorConfig;
