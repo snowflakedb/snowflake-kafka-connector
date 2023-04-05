@@ -178,7 +178,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.kafkaRecordErrorReporter,
             this.sinkTaskContext,
             this.conn,
-            this.recordService));
+            this.recordService,
+            this.conn.getTelemetryClient()));
   }
 
   /**

@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.PROVIDER_CONFIG;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -25,11 +26,13 @@ public class SnowflakeConnectionServiceFactory {
     // This property will be appeneded to user agent while calling snowpipe API in http request
     private String kafkaProvider = null;
 
+    /** Underlying implementation - Check Enum {@link IngestionMethodConfig} */
     private IngestionMethodConfig ingestionMethodConfig;
 
-    // For testing only
+    @VisibleForTesting
     public SnowflakeConnectionServiceBuilder setProperties(Properties prop) {
       this.prop = prop;
+      this.ingestionMethodConfig = IngestionMethodConfig.SNOWPIPE;
       return this;
     }
 

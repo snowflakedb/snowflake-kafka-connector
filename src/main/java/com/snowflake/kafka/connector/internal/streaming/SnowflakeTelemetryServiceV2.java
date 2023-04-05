@@ -19,10 +19,9 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import java.sql.Connection;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import net.snowflake.client.jdbc.telemetry.TelemetryClient;
-
-import java.sql.Connection;
 
 /**
  * This is the implementation of Telemetry Service for Snowpipe Streaming. Sends data related to
@@ -30,14 +29,20 @@ import java.sql.Connection;
  */
 public class SnowflakeTelemetryServiceV2 extends SnowflakeTelemetryService {
 
+  /**
+   * Constructor for TelemetryService which is used by Snowpipe Streaming.
+   *
+   * @param conn Connection Object which gives the Telemetry Instance.
+   */
   public SnowflakeTelemetryServiceV2(Connection conn) {
     this.telemetry = TelemetryClient.createTelemetry(conn);
   }
 
-
   @Override
   public void reportKafkaPartitionUsage(
-      SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {throw new IllegalStateException("Snowpipe Streaming Doesnt Have Pipe Usage")}
+      SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {
+    throw new IllegalStateException("Snowpipe Streaming Doesnt Have Pipe Usage");
+  }
 
   @Override
   public ObjectNode getObjectNode() {

@@ -144,8 +144,10 @@ public class TopicPartitionChannel {
   // Reference to the Snowflake connection service
   private final SnowflakeConnectionService conn;
 
-  // Used to send telemetry to Snowflake. (Currently uses a client which is created from connection,
-  // i.e. not a session-less client)
+  /**
+   * Used to send telemetry to Snowflake. Currently, TelemetryClient created from a Snowflake
+   * Connection Object, i.e. not a session-less Client
+   */
   private final SnowflakeTelemetryService telemetryServiceV2;
 
   /** Testing only, initialize TopicPartitionChannel without the connection service */
@@ -169,7 +171,8 @@ public class TopicPartitionChannel {
         kafkaRecordErrorReporter,
         sinkTaskContext,
         null, /* Null Connection */
-        new RecordService(null /* Null Telemetry Service*/));
+        new RecordService(null /* Null Telemetry Service*/),
+        null);
   }
 
   /**
@@ -184,6 +187,8 @@ public class TopicPartitionChannel {
    * @param sinkTaskContext context on Kafka Connect's runtime
    * @param conn the snowflake connection service
    * @param recordService record service for processing incoming offsets from Kafka
+   * @param telemetryService Telemetry Service which includes the Telemetry Client, sends Json data
+   *     to Snowflake
    */
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
@@ -195,7 +200,8 @@ public class TopicPartitionChannel {
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn,
-      RecordService recordService) {
+      RecordService recordService,
+      SnowflakeTelemetryService telemetryService) {
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
     Preconditions.checkState(!streamingIngestClient.isClosed());
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
@@ -208,7 +214,7 @@ public class TopicPartitionChannel {
     this.conn = conn;
 
     this.recordService = recordService;
-    this.telemetryServiceV2 = conn.getTelemetryClient();
+    this.telemetryServiceV2 = telemetryService;
 
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -1008,6 +1014,11 @@ public class TopicPartitionChannel {
   @VisibleForTesting
   protected SnowflakeStreamingIngestChannel getChannel() {
     return this.channel;
+  }
+
+  @VisibleForTesting
+  protected SnowflakeTelemetryService getTelemetryServiceV2() {
+    return this.telemetryServiceV2;
   }
 
   /**
