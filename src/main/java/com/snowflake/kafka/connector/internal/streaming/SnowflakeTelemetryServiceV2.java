@@ -19,13 +19,29 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
+import net.snowflake.client.jdbc.telemetry.TelemetryClient;
+
+import java.sql.Connection;
 
 /**
  * This is the implementation of Telemetry Service for Snowpipe Streaming. Sends data related to
  * Snowpipe Streaming to Snowflake for additional debugging purposes.
  */
 public class SnowflakeTelemetryServiceV2 extends SnowflakeTelemetryService {
+
+  public SnowflakeTelemetryServiceV2(Connection conn) {
+    this.telemetry = TelemetryClient.createTelemetry(conn);
+  }
+
+
   @Override
   public void reportKafkaPartitionUsage(
-      SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {}
+      SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {throw new IllegalStateException("Snowpipe Streaming Doesnt Have Pipe Usage")}
+
+  @Override
+  public ObjectNode getObjectNode() {
+    ObjectNode objectNode = getDefaultObjectNode(IngestionMethodConfig.SNOWPIPE_STREAMING);
+    return objectNode;
+  }
 }
