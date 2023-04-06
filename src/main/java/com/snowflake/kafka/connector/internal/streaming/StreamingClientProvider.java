@@ -44,6 +44,10 @@ public class StreamingClientProvider {
     private static final StreamingClientProvider streamingClientProvider = new StreamingClientProvider();
   }
 
+  /**
+   * Gets the current streaming provider
+   * @return The streaming client provider
+   */
   public static StreamingClientProvider getStreamingClientProviderInstance() {
     return StreamingClientProviderSingleton.streamingClientProvider;
   }
