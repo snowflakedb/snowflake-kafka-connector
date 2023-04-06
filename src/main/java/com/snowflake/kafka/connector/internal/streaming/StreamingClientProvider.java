@@ -32,20 +32,24 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 
-/** Singleton that provides the streaming client(s). There should only be one provider, but it may provide multiple clients */
+/**
+ * Singleton that provides the streaming client(s). There should only be one provider, but it may
+ * provide multiple clients
+ */
 public class StreamingClientProvider {
   private static class StreamingClientProviderSingleton {
-    private static final StreamingClientProvider streamingClientProvider = new StreamingClientProvider();
+    private static final StreamingClientProvider streamingClientProvider =
+        new StreamingClientProvider();
   }
 
   /**
    * Gets the current streaming provider
+   *
    * @return The streaming client provider
    */
   public static StreamingClientProvider getStreamingClientProviderInstance() {
@@ -225,8 +229,8 @@ public class StreamingClientProvider {
 
   private String getClientName() {
     return STREAMING_CLIENT_PREFIX_NAME
-                    + this.connectorConfig.getOrDefault(Utils.NAME, "DEFAULT")
-                    + "_"
-                    + this.createdClientId.get();
+        + this.connectorConfig.getOrDefault(Utils.NAME, "DEFAULT")
+        + "_"
+        + this.createdClientId.get();
   }
 }
