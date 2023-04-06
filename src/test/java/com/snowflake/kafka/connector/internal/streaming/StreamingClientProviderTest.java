@@ -48,6 +48,8 @@ public class StreamingClientProviderTest {
   @Before
   public void setup() {
     this.connectorConfig = TestUtils.getConfForStreaming();
+    this.connectorConfig.put(
+            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
   }
 
   @Test
@@ -221,6 +223,106 @@ public class StreamingClientProviderTest {
 
     for (Exception ex : exceptionsToTest) {
       this.testCloseClientWithExceptionRunner(ex);
+    }
+  }
+
+  @Test
+  public void testMultiThreadGetEnabledParam() {
+    String clientName = "clientName";
+    int clientId = 0;
+
+    // setup
+    this.connectorConfig.put(Utils.NAME, clientName);
+    SnowflakeStreamingIngestClient streamingIngestClient =
+            Mockito.mock(SnowflakeStreamingIngestClient.class);
+    StreamingClientProvider injectedProvider =
+            injectStreamingClientProviderForTests(clientId, this.connectorConfig, streamingIngestClient);
+    GetClientRunnable getClientRunnable1 = new GetClientRunnable(injectedProvider, this.connectorConfig, "getClientRunnable1");
+    GetClientRunnable getClientRunnable2 = new GetClientRunnable(injectedProvider, this.connectorConfig, "getClientRunnable2");
+    GetClientRunnable getClientRunnable3 = new GetClientRunnable(injectedProvider, this.connectorConfig, "getClientRunnable3");
+
+    // get client on multiple threads
+    getClientRunnable1.start();
+    getClientRunnable2.start();
+    getClientRunnable3.start();
+
+    // verify same client
+    SnowflakeStreamingIngestClient client1 = getClientRunnable1.getClient();
+    SnowflakeStreamingIngestClient client2 = getClientRunnable2.getClient();
+    SnowflakeStreamingIngestClient client3 = getClientRunnable3.getClient();
+
+    assert client1.getName().contains(clientName);
+    assert client1.getName().equals(client2.getName());
+    assert client2.getName().equals(client3.getName());
+  }
+
+  @Test
+  public void testMultiThreadGetDisabledParam() {
+    this.connectorConfig.put(
+            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "false");
+
+    String clientName = "clientName";
+    int clientId = 0;
+
+    // setup
+    this.connectorConfig.put(Utils.NAME, clientName);
+    SnowflakeStreamingIngestClient streamingIngestClient =
+            Mockito.mock(SnowflakeStreamingIngestClient.class);
+    StreamingClientProvider injectedProvider =
+            injectStreamingClientProviderForTests(clientId, connectorConfig, streamingIngestClient);
+    GetClientRunnable getClientRunnable1 = new GetClientRunnable(injectedProvider, this.connectorConfig, "getClientRunnable1");
+    GetClientRunnable getClientRunnable2 = new GetClientRunnable(injectedProvider, this.connectorConfig, "getClientRunnable2");
+    GetClientRunnable getClientRunnable3 = new GetClientRunnable(injectedProvider, this.connectorConfig, "getClientRunnable3");
+
+    // get client on multiple threads
+    getClientRunnable1.start();
+    getClientRunnable2.start();
+    getClientRunnable3.start();
+
+    // verify different client
+    SnowflakeStreamingIngestClient client1 = getClientRunnable1.getClient();
+    SnowflakeStreamingIngestClient client2 = getClientRunnable2.getClient();
+    SnowflakeStreamingIngestClient client3 = getClientRunnable3.getClient();
+
+    assert client1.getName().contains(clientName);
+    assert client2.getName().contains(clientName);
+    assert client3.getName().contains(clientName);
+    assert !client1.getName().equals(client2.getName());
+    assert !client2.getName().equals(client3.getName());
+    assert !client3.getName().equals(client1.getName());
+  }
+
+  private class GetClientRunnable implements Runnable {
+    private StreamingClientProvider streamingClientProvider;
+    private Map<String, String> config;
+    private SnowflakeStreamingIngestClient gotClient;
+    private String name;
+    private Thread thread;
+
+    public GetClientRunnable(StreamingClientProvider provider, Map<String, String> config, String name) {
+      this.streamingClientProvider = provider;
+      this.config = config;
+      this.name = name;
+    }
+
+    @Override
+    public void run() {
+      this.gotClient = this.streamingClientProvider.getClient(this.config);
+    }
+
+    public SnowflakeStreamingIngestClient getClient() {
+      try {
+        this.thread.join();
+      } catch (InterruptedException e) {
+        assert false : "Unable to join thread: " + e.getMessage();
+      }
+
+      return this.gotClient;
+    }
+
+    public void start() {
+      this.thread = new Thread(this, this.name);
+      this.thread.start();
     }
   }
 

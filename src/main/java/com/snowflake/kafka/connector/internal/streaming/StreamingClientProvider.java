@@ -183,6 +183,8 @@ public class StreamingClientProvider {
    * @return An initialized client
    */
   private SnowflakeStreamingIngestClient initStreamingClient(Map<String, String> connectorConfig) {
+    this.clientLock.lock();
+
     String clientName = this.getClientName();
     LOGGER.info("Initializing Streaming Client... ClientName:{}", clientName);
 
@@ -216,6 +218,8 @@ public class StreamingClientProvider {
     } catch (SFException ex) {
       LOGGER.error("Exception creating streamingIngestClient with name:{}", this.getClientName());
       throw new ConnectException(ex);
+    } finally {
+      this.clientLock.unlock();
     }
   }
 
