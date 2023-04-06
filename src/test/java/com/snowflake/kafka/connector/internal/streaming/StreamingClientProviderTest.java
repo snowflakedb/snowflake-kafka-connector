@@ -19,7 +19,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.injectStreamingClientProviderForTests;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.isClientValid;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.streamingClientProvider;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -36,6 +35,8 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 public class StreamingClientProviderTest {
+  StreamingClientProvider streamingClientProvider = StreamingClientProvider.getStreamingClientProviderInstance();
+
   @After
   public void cleanUpProviderClient() {
     // note that the config will not be cleaned up
@@ -49,7 +50,7 @@ public class StreamingClientProviderTest {
     String connectorName = connectorConfig.get(Utils.NAME);
 
     // test actual provider
-    streamingClientProvider.createClient(connectorConfig);
+    streamingClientProvider.createOrReplaceClient(connectorConfig);
     SnowflakeStreamingIngestClient createdClient =
         streamingClientProvider.getClient(connectorConfig);
 
@@ -73,7 +74,7 @@ public class StreamingClientProviderTest {
 
     // test creating another client
     connectorConfig.put(Utils.NAME, connector2);
-    injectedProvider.createClient(connectorConfig);
+    injectedProvider.createOrReplaceClient(connectorConfig);
     SnowflakeStreamingIngestClient replacedClient = injectedProvider.getClient(connectorConfig);
 
     // verify
@@ -87,14 +88,14 @@ public class StreamingClientProviderTest {
     // not really a great way to verify this works unfortunately
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
     connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
-    streamingClientProvider.createClient(connectorConfig);
+    streamingClientProvider.createOrReplaceClient(connectorConfig);
   }
 
   @Test
   public void testCreateClientFailure() {
     try {
       // create client with empty config
-      streamingClientProvider.createClient(new HashMap<>());
+      streamingClientProvider.createOrReplaceClient(new HashMap<>());
     } catch (ConnectException ex) {
       assert ex.getCause().getClass().equals(SFException.class);
     }

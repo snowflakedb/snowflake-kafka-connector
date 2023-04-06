@@ -29,15 +29,24 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 
-/** Singleton that provides the streaming client */
+/** Singleton that provides the streaming client(s). There should only be one provider, but it may provide multiple clients */
 public class StreamingClientProvider {
-  public static final StreamingClientProvider streamingClientProvider =
-      new StreamingClientProvider();
+  private static class StreamingClientProviderSingleton {
+    private static final StreamingClientProvider streamingClientProvider = new StreamingClientProvider();
+  }
+
+  public static StreamingClientProvider getStreamingClientProviderInstance() {
+    return StreamingClientProviderSingleton.streamingClientProvider;
+  }
 
   /**
    * Checks if the client is valid by doing a null check, ensuring it is open and has a name
@@ -65,16 +74,17 @@ public class StreamingClientProvider {
     return new StreamingClientProvider(createdClientId, connectorConfig, client);
   }
 
-  private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(StreamingClientProvider.class.getName());
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
+  private final Lock clientLock = new ReentrantLock(true);
 
-  private int createdClientId;
+  private AtomicInteger createdClientId;
   private Map<String, String> connectorConfig;
   private SnowflakeStreamingIngestClient streamingIngestClient;
 
   // private constructor for singleton
   private StreamingClientProvider() {
-    this.createdClientId = 0;
+    this.createdClientId = new AtomicInteger(0);
     this.connectorConfig = new HashMap<>();
   }
 
@@ -84,7 +94,7 @@ public class StreamingClientProvider {
       int createdClientId,
       Map<String, String> connectorConfig,
       SnowflakeStreamingIngestClient client) {
-    this.createdClientId = createdClientId;
+    this.createdClientId = new AtomicInteger(createdClientId);
     this.connectorConfig = connectorConfig;
     this.streamingIngestClient = client;
   }
@@ -94,13 +104,15 @@ public class StreamingClientProvider {
    *
    * @param connectorConfig The connector config to define the client
    */
-  public void createClient(Map<String, String> connectorConfig) {
+  public void createOrReplaceClient(Map<String, String> connectorConfig) {
     // replace previous connector config and client if applicable
+    this.clientLock.lock();
     LOGGER.info("Creating new client, this will replace the old client and config if exists");
     this.closeClient();
 
     this.connectorConfig = connectorConfig;
     this.streamingIngestClient = this.initStreamingClient(this.connectorConfig);
+    this.clientLock.unlock();
   }
 
   /** Closes the current client */
@@ -111,6 +123,7 @@ public class StreamingClientProvider {
       return;
     }
 
+    this.clientLock.lock();
     LOGGER.info("Closing Streaming Client:{}", this.streamingIngestClient.getName());
     try {
       this.streamingIngestClient.close();
@@ -126,6 +139,8 @@ public class StreamingClientProvider {
               : Arrays.toString(e.getCause().getStackTrace());
 
       LOGGER.error("Failure closing Streaming client msg:{}, cause:{}", message, cause);
+    } finally {
+      this.clientLock.unlock();
     }
   }
 
@@ -141,11 +156,16 @@ public class StreamingClientProvider {
     if (Boolean.parseBoolean(
         connectorConfig.get(
             SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
+      this.clientLock.lock();
+
       // recreate streaming client if needed
       if (!isClientValid(this.streamingIngestClient)) {
         LOGGER.error("Current streaming client is invalid, recreating client");
-        this.createClient(connectorConfig);
+        this.createOrReplaceClient(connectorConfig);
       }
+
+      this.clientLock.unlock();
+
       return this.streamingIngestClient;
     } else {
       return this.initStreamingClient(connectorConfig);
@@ -159,11 +179,7 @@ public class StreamingClientProvider {
    * @return An initialized client
    */
   private SnowflakeStreamingIngestClient initStreamingClient(Map<String, String> connectorConfig) {
-    String clientName =
-        STREAMING_CLIENT_PREFIX_NAME
-            + connectorConfig.getOrDefault(Utils.NAME, "DEFAULT")
-            + "_"
-            + this.createdClientId;
+    String clientName = this.getClientName();
     LOGGER.info("Initializing Streaming Client... ClientName:{}", clientName);
 
     // get streaming properties from config
@@ -189,13 +205,20 @@ public class StreamingClientProvider {
               .setParameterOverrides(parameterOverrides)
               .build();
 
-      this.createdClientId++;
-      LOGGER.info("Successfully initialized Streaming Client. ClientName:{}", clientName);
+      this.createdClientId.incrementAndGet();
+      LOGGER.info("Successfully initialized Streaming Client. ClientName:{}", this.getClientName());
 
       return createdClient;
     } catch (SFException ex) {
-      LOGGER.error("Exception creating streamingIngestClient with name:{}", clientName);
+      LOGGER.error("Exception creating streamingIngestClient with name:{}", this.getClientName());
       throw new ConnectException(ex);
     }
+  }
+
+  private String getClientName() {
+    return STREAMING_CLIENT_PREFIX_NAME
+                    + this.connectorConfig.getOrDefault(Utils.NAME, "DEFAULT")
+                    + "_"
+                    + this.createdClientId.get();
   }
 }
