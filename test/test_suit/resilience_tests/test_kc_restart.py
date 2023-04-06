@@ -8,7 +8,7 @@ class TestKcRestart:
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.fileName = "test_kc_restart"
-        self.topic = self.fileName + nameSalt + "_topic"
+        self.topic = self.fileName + nameSalt
         self.connectorName = self.fileName + nameSalt + "_kc"
 
         self.topicNum = 1
@@ -16,7 +16,7 @@ class TestKcRestart:
         self.recordNum = 1000
 
         # create topic and partitions in constructor since the post REST api will automatically create topic with only one partition
-        self.driver.createTopics(self.topic, partitionNum=self.partitionNum, replicationNum=1)
+        self.driver.createTopics(self.topic, self.partitionNum, 1)
 
     def getConfigFileName(self):
         return self.fileName + ".json"
@@ -63,5 +63,5 @@ class TestKcRestart:
                 value.append(json.dumps(
                     {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
                 ).encode('utf-8'))
-            self.driver.sendBytesData(self.topic, value, key, partition=p)
+            self.driver.sendBytesData(self.topic, value, key, p)
             sleep(2)
