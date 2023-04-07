@@ -642,7 +642,7 @@ public class TopicPartitionChannel {
       List<SinkRecord> insertedRecordsToBuffer) {
     if (logErrors) {
       for (InsertValidationResponse.InsertError insertError : insertErrors) {
-        LOGGER.error("Insert Row Error message", insertError.getException());
+        LOGGER.error("Insert Row Error message:{}", insertError.getException().getMessage());
       }
     }
     if (errorTolerance) {
