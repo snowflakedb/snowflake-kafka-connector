@@ -501,7 +501,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
             test_instance=TestStringJsonProxy(driver, nameSalt), clean=True, run_in_confluent=False, run_in_apache=False
         )]
 
-        proxy_suite_clean_enable_list = [single_end_to_end_test.clean for single_end_to_end_test in proxy_tests_suite]
+        proxy_suite_clean_enable_list = [single_end_to_end_test.test_instance for single_end_to_end_test in proxy_tests_suite]
 
         proxy_suite_runner = []
 
