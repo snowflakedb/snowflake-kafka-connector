@@ -1,49 +1,50 @@
 from collections import OrderedDict
-from test_suit.test_string_json import TestStringJson
-from test_suit.test_string_json_proxy import TestStringJsonProxy
-from test_suit.test_json_json import TestJsonJson
-from test_suit.test_string_avro import TestStringAvro
-from test_suit.test_avro_avro import TestAvroAvro
-from test_suit.test_string_avrosr import TestStringAvrosr
-from test_suit.test_avrosr_avrosr import TestAvrosrAvrosr
-
-from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
-from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
-from test_suit.test_native_complex_smt import TestNativeComplexSmt
-
-from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
-from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
-
-from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
-from test_suit.test_snowpipe_streaming_string_json_dlq import TestSnowpipeStreamingStringJsonDLQ
-from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
-
-from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import \
-    TestMultipleTopicToOneTableSnowpipeStreaming
-from test_suit.test_multiple_topic_to_one_table_snowpipe import TestMultipleTopicToOneTableSnowpipe
-
-from test_suit.test_schema_mapping import TestSchemaMapping
-
-from test_suit.test_auto_table_creation import TestAutoTableCreation
-from test_suit.test_auto_table_creation_topic2table import TestAutoTableCreationTopic2Table
-
-from test_suit.test_schema_evolution_json import TestSchemaEvolutionJson
-from test_suit.test_schema_evolution_avro_sr import TestSchemaEvolutionAvroSR
-
-from test_suit.test_schema_evolution_w_auto_table_creation_json import \
-    TestSchemaEvolutionWithAutoTableCreationJson
-from test_suit.test_schema_evolution_w_auto_table_creation_avro_sr import \
-    TestSchemaEvolutionWithAutoTableCreationAvroSR
-
-from test_suit.test_schema_evolution_nonnullable_json import TestSchemaEvolutionNonNullableJson
-
-from test_suit.test_schema_not_supported_converter import TestSchemaNotSupportedConverter
-
-from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTable
-
-from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
+# from test_suit.test_string_json import TestStringJson
+# from test_suit.test_string_json_proxy import TestStringJsonProxy
+# from test_suit.test_json_json import TestJsonJson
+# from test_suit.test_string_avro import TestStringAvro
+# from test_suit.test_avro_avro import TestAvroAvro
+# from test_suit.test_string_avrosr import TestStringAvrosr
+# from test_suit.test_avrosr_avrosr import TestAvrosrAvrosr
+#
+# from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
+# from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
+# from test_suit.test_native_complex_smt import TestNativeComplexSmt
+#
+# from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
+# from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
+#
+# from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
+# from test_suit.test_snowpipe_streaming_string_json_dlq import TestSnowpipeStreamingStringJsonDLQ
+# from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
+#
+# from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import \
+#     TestMultipleTopicToOneTableSnowpipeStreaming
+# from test_suit.test_multiple_topic_to_one_table_snowpipe import TestMultipleTopicToOneTableSnowpipe
+#
+# from test_suit.test_schema_mapping import TestSchemaMapping
+#
+# from test_suit.test_auto_table_creation import TestAutoTableCreation
+# from test_suit.test_auto_table_creation_topic2table import TestAutoTableCreationTopic2Table
+#
+# from test_suit.test_schema_evolution_json import TestSchemaEvolutionJson
+# from test_suit.test_schema_evolution_avro_sr import TestSchemaEvolutionAvroSR
+#
+# from test_suit.test_schema_evolution_w_auto_table_creation_json import \
+#     TestSchemaEvolutionWithAutoTableCreationJson
+# from test_suit.test_schema_evolution_w_auto_table_creation_avro_sr import \
+#     TestSchemaEvolutionWithAutoTableCreationAvroSR
+#
+# from test_suit.test_schema_evolution_nonnullable_json import TestSchemaEvolutionNonNullableJson
+#
+# from test_suit.test_schema_not_supported_converter import TestSchemaNotSupportedConverter
+#
+# from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTable
+#
+# from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
 
 from test_suit.resilience_tests.test_kc_restart import TestKcRestart
+from test_suit.resilience_tests.test_kc_pause_then_start import TestKcPauseThenStart
 
 class EndToEndTestSuite:
     '''
@@ -168,6 +169,9 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         # )),
         ("TestKcRestart", EndToEndTestSuite(
             test_instance=TestKcRestart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcPauseThenStart", EndToEndTestSuite(
+            test_instance=TestKcPauseThenStart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         ))
     ])
     return test_suites

@@ -4,10 +4,10 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 from time import sleep
 
-class TestKcRestart:
+class TestKcPauseThenStart:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "test_kc_restart"
+        self.fileName = "test_kc_pause_then_start"
         self.topic = self.fileName + nameSalt
         self.connectorName = self.fileName + nameSalt
 
@@ -29,8 +29,12 @@ class TestKcRestart:
 
         self.__sendbytes();
 
-        self.driver.restartConnector(self.connectorName);
-        print("Wait for connector to restart - 10 secs")
+        self.driver.pauseConnector(self.connectorName);
+        print("Wait for connector to pause - 10 secs")
+        sleep(10)
+
+        self.driver.resumeConnector(self.connectorName);
+        print("Wait for connector to start - 10 secs")
         sleep(10)
 
         self.__sendbytes();
