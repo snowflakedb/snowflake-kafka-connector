@@ -178,6 +178,14 @@ class InternalUtils {
     // put values for optional parameters
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
 
+    /**
+     * Behavior change in JDBC release 3.13.25
+     *
+     * @see <a href="https://community.snowflake.com/s/article/JDBC-Driver-Release-Notes">Snowflake
+     *     Documentation Release Notes </a>
+     */
+    properties.put(SFSessionProperty.ALLOW_UNDERSCORES_IN_HOST.getPropertyKey(), "true");
+
     // required parameter check
     if (!properties.containsKey(JDBC_PRIVATE_KEY)) {
       throw SnowflakeErrors.ERROR_0013.getException();
