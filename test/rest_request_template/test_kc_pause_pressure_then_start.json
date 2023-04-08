@@ -3,7 +3,7 @@
   "config": {
     "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
     "topics": "SNOWFLAKE_TEST_TOPIC",
-    "tasks.max": "1",
+    "tasks.max": "3",
     "buffer.flush.time": "10",
     "buffer.count.records": "100",
     "buffer.size.bytes": "5000000",

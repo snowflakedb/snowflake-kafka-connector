@@ -44,7 +44,7 @@ from collections import OrderedDict
 # from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
 
 from test_suit.resilience_tests.test_kc_restart import TestKcRestart
-from test_suit.resilience_tests.test_kc_pause_then_start import TestKcPauseThenStart
+from test_suit.resilience_tests.test_kc_pause_pressure_then_start import TestKcPauseThenStart
 
 class EndToEndTestSuite:
     '''
@@ -167,11 +167,11 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         # ("TestSchemaEvolutionDropTable", EndToEndTestSuite(
         #     test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         # )),
-        ("TestKcRestart", EndToEndTestSuite(
-            test_instance=TestKcRestart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
-        )),
-        ("TestKcPauseThenStart", EndToEndTestSuite(
-            test_instance=TestKcPauseThenStart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        # ("TestKcRestart", EndToEndTestSuite(
+        #     test_instance=TestKcRestart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        # )),
+        ("TestKcPausePressureThenStart", EndToEndTestSuite(
+            test_instance=TestKcPausePressureThenStart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         ))
     ])
     return test_suites

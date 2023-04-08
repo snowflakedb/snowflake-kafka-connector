@@ -331,6 +331,11 @@ class KafkaTest:
         r = requests.delete(requestURL, headers=self.httpHeader)
         print(datetime.now().strftime("%H:%M:%S "), r, " delete connector")
 
+    def getConnectorStatus(self, connectorName):
+        requestURL = "http://{}/connectors/{}/status".format(self.kafkaConnectAddress, connectorName)
+        r = requests.get(requestURL, headers=self.httpHeader)
+        print(datetime.now().strftime("%H:%M:%S "), r, " get connector status:{0}, response:{1}".format(r.status_code, r.content))
+
     def closeConnector(self, fileName, nameSalt):
         snowflake_connector_name = fileName.split(".")[0] + nameSalt
         delete_url = "http://{}/connectors/{}".format(self.kafkaConnectAddress, snowflake_connector_name)
