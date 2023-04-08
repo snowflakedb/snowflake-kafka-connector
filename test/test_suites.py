@@ -44,7 +44,7 @@ from collections import OrderedDict
 # from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
 
 from test_suit.resilience_tests.test_kc_restart import TestKcRestart
-from test_suit.resilience_tests.test_kc_pause_pressure_then_start import TestKcPauseThenStart
+from test_suit.resilience_tests.test_kc_pause_pressure_then_start import TestKcPausePressureThenStart
 
 class EndToEndTestSuite:
     '''
