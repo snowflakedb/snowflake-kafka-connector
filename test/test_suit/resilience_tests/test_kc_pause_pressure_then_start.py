@@ -1,9 +1,6 @@
-import datetime
-
 from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 from time import sleep
-import requests, uuid
 
 class TestKcPausePressureThenStart:
     def __init__(self, driver, nameSalt):
@@ -23,18 +20,13 @@ class TestKcPausePressureThenStart:
         return self.fileName + ".json"
 
     def send(self):
-        # create topic with n partitions and only one replication factor
         print("Partition count:" + str(self.partitionNum))
         print("Topic:", self.topic)
         self.driver.describeTopic(self.topic)
 
-        # self.__sendbytes();
-
         self.driver.pauseConnector(self.connectorName);
         print("Wait for connector to pause - 10 secs")
         sleep(10)
-
-        self.driver.getConnectorStatus(self.connectorName)
 
         self.__sendbytes();
 

@@ -22,7 +22,6 @@ class TestKcRestart:
         return self.fileName + ".json"
 
     def send(self):
-        # create topic with n partitions and only one replication factor
         print("Partition count:" + str(self.partitionNum))
         print("Topic:", self.topic)
         self.driver.describeTopic(self.topic)
