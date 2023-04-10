@@ -16,11 +16,11 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
+import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -66,9 +66,9 @@ public class SnowflakeSinkTask extends SinkTask {
 
   // the dynamic logger is intended to be attached per task instance. the instance id will be set
   // during task start, however if it is not set, it falls back to the static logger
-  private static final LoggerHandler STATIC_LOGGER =
-      new LoggerHandler(SnowflakeSinkTask.class.getName() + "_STATIC");
-  private LoggerHandler DYNAMIC_LOGGER;
+  private static final KCLogger STATIC_LOGGER =
+      new KCLogger(SnowflakeSinkTask.class.getName() + "_STATIC");
+  private KCLogger DYNAMIC_LOGGER;
 
   // After 5 put operations, we will insert a sleep which will cause a rebalance since heartbeat is
   // not found
@@ -105,7 +105,7 @@ public class SnowflakeSinkTask extends SinkTask {
 
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
-    DYNAMIC_LOGGER = new LoggerHandler(this.getClass().getName());
+    DYNAMIC_LOGGER = new KCLogger(this.getClass().getName());
     // only increment task creation count if we know kc has been started
     totalTaskCreationCount =
         totalTaskCreationCount != -1 ? totalTaskCreationCount + 1 : totalTaskCreationCount;
@@ -201,30 +201,17 @@ public class SnowflakeSinkTask extends SinkTask {
           Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.JMX_OPT));
     }
 
-    // Get the Delivery guarantee type from config, default to at_least_once
-    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
-        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
-            parsedConfig.getOrDefault(
-                DELIVERY_GUARANTEE,
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
-
     enableRebalancing =
         Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.REBALANCING));
 
     KafkaRecordErrorReporter kafkaRecordErrorReporter = noOpKafkaRecordErrorReporter();
 
     // default to snowpipe
-    // If it is snowpipe_streaming, set delivery guarantee to exactly once.
     IngestionMethodConfig ingestionType = IngestionMethodConfig.SNOWPIPE;
     if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
       ingestionType =
           IngestionMethodConfig.valueOf(
               parsedConfig.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).toUpperCase());
-      if (ingestionType.equals(IngestionMethodConfig.SNOWPIPE_STREAMING)) {
-        ingestionDeliveryGuarantee =
-            SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE;
-        kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
-      }
     }
 
     conn =
@@ -245,7 +232,6 @@ public class SnowflakeSinkTask extends SinkTask {
             .setMetadataConfig(metadataConfig)
             .setBehaviorOnNullValuesConfig(behavior)
             .setCustomJMXMetrics(enableCustomJMXMonitoring)
-            .setDeliveryGuarantee(ingestionDeliveryGuarantee)
             .setErrorReporter(kafkaRecordErrorReporter)
             .setSinkTaskContext(this.context)
             .build();
@@ -361,13 +347,12 @@ public class SnowflakeSinkTask extends SinkTask {
       offsets.forEach(
           (topicPartition, offsetAndMetadata) -> {
             long offSet = sink.getOffset(topicPartition);
-            if (offSet != 0) {
+            if (offSet != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
               committedOffsets.put(topicPartition, new OffsetAndMetadata(offSet));
             }
           });
     } catch (Exception e) {
       this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
-      return new HashMap<>();
     }
 
     logWarningForPutAndPrecommit(startTime, offsets.size(), "precommit");
