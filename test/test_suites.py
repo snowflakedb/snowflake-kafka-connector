@@ -1,6 +1,5 @@
 from collections import OrderedDict
 from test_suit.test_string_json import TestStringJson
-from test_suit.test_string_json_proxy import TestStringJsonProxy
 from test_suit.test_json_json import TestJsonJson
 from test_suit.test_string_avro import TestStringAvro
 from test_suit.test_avro_avro import TestAvroAvro
@@ -132,9 +131,8 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         ("TestSchemaMapping", EndToEndTestSuite(
             test_instance=TestSchemaMapping(driver, nameSalt), clean=True, run_in_confluent=True,run_in_apache=True
         )),
-        # Disable failing test for Confluent and Apache because no data in DLQ, Re-enable SNOW-774533
         ("TestSnowpipeStreamingSchemaMappingDLQ", EndToEndTestSuite(
-            test_instance=TestSnowpipeStreamingSchemaMappingDLQ(driver, nameSalt), clean=True, run_in_confluent=False, run_in_apache=False
+            test_instance=TestSnowpipeStreamingSchemaMappingDLQ(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
         ("TestAutoTableCreation", EndToEndTestSuite(
             test_instance=TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet), clean=True, run_in_confluent=True, run_in_apache=False
