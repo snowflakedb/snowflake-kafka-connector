@@ -79,8 +79,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private SinkTaskContext sinkTaskContext;
 
   // ------ Streaming Ingest ------ //
-  // needs url, username. p8 key, role name
-  private SnowflakeStreamingIngestClient streamingIngestClient;
+  private StreamingClientProvider streamingClientProvider;
 
   // Config set in JSON
   private final Map<String, String> connectorConfig;
@@ -117,6 +116,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
 
+    this.streamingClientProvider = StreamingClientProvider.getStreamingClientProviderInstance();
+    this.streamingClientProvider.createOrReplaceClient(this.connectorConfig);
+
     this.partitionsToChannel = new HashMap<>();
   }
 
@@ -152,8 +154,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     partitionsToChannel.put(
         partitionChannelKey,
         new TopicPartitionChannel(
-            StreamingClientProvider.getStreamingClientProviderInstance()
-                .getClient(this.connectorConfig),
+            this.streamingClientProvider.getClient(this.connectorConfig),
             topicPartition,
             partitionChannelKey, // Streaming channel name
             tableName,
@@ -253,7 +254,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           topicPartitionChannel.closeChannel();
         });
     partitionsToChannel.clear();
-    StreamingClientProvider.getStreamingClientProviderInstance().closeClient();
+
+    this.streamingClientProvider.closeClient();
   }
 
   /**
