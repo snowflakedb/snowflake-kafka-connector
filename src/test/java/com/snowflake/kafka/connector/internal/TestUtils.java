@@ -35,6 +35,7 @@ import static com.snowflake.kafka.connector.Utils.SF_USER;
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -253,6 +254,9 @@ public class TestUtils {
     // On top of existing configurations, add
     configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
     configuration.put(Utils.TASK_ID, "0");
+    configuration.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     return configuration;
   }
@@ -375,6 +379,10 @@ public class TestUtils {
   /** @return snowflake connection for test */
   public static SnowflakeConnectionService getConnectionService() {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
+  }
+
+  public static SnowflakeConnectionService getConnectionServiceForStreaming() {
+    return SnowflakeConnectionServiceFactory.builder().setProperties(getConfForStreaming()).build();
   }
 
   /**

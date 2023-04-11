@@ -1,9 +1,13 @@
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1.USER_AGENT_SUFFIX_FORMAT;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.SnowflakeTelemetryServiceV2;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceV1;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -107,11 +111,21 @@ public class ConnectionServiceIT {
     Properties prop = InternalUtils.createProperties(TestUtils.getConf(), url.sslEnabled());
     String appName = TestUtils.TEST_CONNECTOR_NAME;
 
-    SnowflakeConnectionServiceFactory.builder()
-        .setProperties(prop)
-        .setURL(url)
-        .setConnectorName(appName)
-        .build();
+    service =
+        SnowflakeConnectionServiceFactory.builder()
+            .setProperties(prop)
+            .setURL(url)
+            .setConnectorName(appName)
+            .build();
+
+    assert service.getTelemetryClient() instanceof SnowflakeTelemetryServiceV1;
+
+    assert service
+        .getTelemetryClient()
+        .getObjectNode()
+        .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
+        .toString()
+        .equals("0");
 
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_0003,
@@ -132,6 +146,29 @@ public class ConnectionServiceIT {
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_0003,
         () -> SnowflakeConnectionServiceFactory.builder().setURL(url).setProperties(prop).build());
+  }
+
+  @Test
+  public void createConnectionService_SnowpipeStreaming() {
+
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+
+    SnowflakeConnectionService service =
+        SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
+
+    assert service.getConnectorName().equals(TestUtils.TEST_CONNECTOR_NAME);
+
+    assert service.getTelemetryClient() instanceof SnowflakeTelemetryServiceV2;
+
+    assert service
+        .getTelemetryClient()
+        .getObjectNode()
+        .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
+        .toString()
+        .equals("1");
   }
 
   @After
