@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
+import static org.junit.Assert.assertEquals;
 
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
@@ -407,6 +408,42 @@ public class ConnectorConfigTest {
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT);
     }
+  }
+
+  @Test
+  public void testDetermineIngestionMethod_nullOrEmptyInput() {
+    Map<String, String> config = getConfig();
+    assertEquals(
+        IngestionMethodConfig.SNOWPIPE, IngestionMethodConfig.determineIngestionMethod(config));
+
+    assertEquals(
+        IngestionMethodConfig.SNOWPIPE, IngestionMethodConfig.determineIngestionMethod(null));
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testDetermineIngestionMethod_invalidIngestionMethod() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, "INVALID_VALUE");
+
+    IngestionMethodConfig.determineIngestionMethod(config);
+  }
+
+  @Test
+  public void testDetermineIngestionLoadMethod_validIngestionMethod() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, "SNOWPIPE_STREAMING");
+    assertEquals(
+        IngestionMethodConfig.SNOWPIPE_STREAMING,
+        IngestionMethodConfig.determineIngestionMethod(config));
+  }
+
+  @Test
+  public void testDetermineIngestionLoadMethod_validIngestionMethod_lowercase() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, "snowpipe_stREAMING");
+    assertEquals(
+        IngestionMethodConfig.SNOWPIPE_STREAMING,
+        IngestionMethodConfig.determineIngestionMethod(config));
   }
 
   /** These error tests are not going to enforce errors if they are not passed as configs. */
