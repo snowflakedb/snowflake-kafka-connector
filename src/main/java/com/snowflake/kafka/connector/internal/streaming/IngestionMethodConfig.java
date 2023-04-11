@@ -55,7 +55,8 @@ public enum IngestionMethodConfig {
   /**
    * Returns the Ingestion Method found in User Configuration for Snowflake Kafka Connector.
    *
-   * <p>Default is always {@link IngestionMethodConfig#SNOWPIPE}.
+   * <p>Default is always {@link IngestionMethodConfig#SNOWPIPE} unless an invalid value is passed
+   * which results in exception.
    */
   public static IngestionMethodConfig determineIngestionMethod(Map<String, String> inputConf) {
     if (inputConf == null
@@ -69,7 +70,7 @@ public enum IngestionMethodConfig {
                 .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
                 .toUpperCase(Locale.ROOT));
       } catch (IllegalArgumentException ex) {
-        return IngestionMethodConfig.SNOWPIPE;
+        throw ex;
       }
     }
   }

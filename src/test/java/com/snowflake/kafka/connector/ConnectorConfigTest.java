@@ -420,12 +420,12 @@ public class ConnectorConfigTest {
         IngestionMethodConfig.SNOWPIPE, IngestionMethodConfig.determineIngestionMethod(null));
   }
 
-  @Test
+  @Test(expected = IllegalArgumentException.class)
   public void testDetermineIngestionMethod_invalidIngestionMethod() {
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, "INVALID_VALUE");
-    assertEquals(
-        IngestionMethodConfig.SNOWPIPE, IngestionMethodConfig.determineIngestionMethod(config));
+
+    IngestionMethodConfig.determineIngestionMethod(config);
   }
 
   @Test
