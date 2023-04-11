@@ -112,6 +112,18 @@ public class SnowflakeSinkTask extends SinkTask {
     this.taskOpenCount = 0;
   }
 
+  @VisibleForTesting
+  public SnowflakeSinkTask(
+      SnowflakeSinkService service, SnowflakeConnectionService connectionService) {
+    DYNAMIC_LOGGER = new KCLogger(this.getClass().getName());
+    // only increment task creation count if we know kc has been started
+    totalTaskCreationCount =
+        totalTaskCreationCount != -1 ? totalTaskCreationCount + 1 : totalTaskCreationCount;
+    this.taskOpenCount = 0;
+    this.sink = service;
+    this.conn = connectionService;
+  }
+
   private SnowflakeConnectionService getConnection() {
     try {
       waitFor(() -> conn != null);

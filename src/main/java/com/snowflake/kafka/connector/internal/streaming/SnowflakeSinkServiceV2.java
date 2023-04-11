@@ -137,6 +137,44 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.partitionsToChannel = new HashMap<>();
   }
 
+  @VisibleForTesting
+  public SnowflakeSinkServiceV2(
+      long flushTimeSeconds,
+      long fileSizeBytes,
+      long recordNum,
+      SnowflakeConnectionService conn,
+      RecordService recordService,
+      SnowflakeTelemetryService telemetryService,
+      Map<String, String> topicToTableMap,
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues,
+      boolean enableCustomJMXMonitoring,
+      KafkaRecordErrorReporter kafkaRecordErrorReporter,
+      SinkTaskContext sinkTaskContext,
+      SnowflakeStreamingIngestClient streamingIngestClient,
+      Map<String, String> connectorConfig,
+      String taskId,
+      String streamingIngestClientName,
+      boolean enableSchematization,
+      Map<String, TopicPartitionChannel> partitionsToChannel) {
+    this.flushTimeSeconds = flushTimeSeconds;
+    this.fileSizeBytes = fileSizeBytes;
+    this.recordNum = recordNum;
+    this.conn = conn;
+    this.recordService = recordService;
+    this.telemetryService = telemetryService;
+    this.topicToTableMap = topicToTableMap;
+    this.behaviorOnNullValues = behaviorOnNullValues;
+    this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
+    this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
+    this.sinkTaskContext = sinkTaskContext;
+    this.streamingIngestClient = streamingIngestClient;
+    this.connectorConfig = connectorConfig;
+    this.taskId = taskId;
+    this.streamingIngestClientName = streamingIngestClientName;
+    this.enableSchematization = enableSchematization;
+    this.partitionsToChannel = partitionsToChannel;
+  }
+
   /**
    * Creates a table if it doesnt exist in Snowflake.
    *
@@ -431,7 +469,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * @return combinartion of topic and partition
    */
   @VisibleForTesting
-  protected static String partitionChannelKey(String topic, int partition) {
+  public static String partitionChannelKey(String topic, int partition) {
     return topic + "_" + partition;
   }
 
