@@ -113,6 +113,18 @@ public class SnowflakeSinkTask extends SinkTask {
     this.taskOpenCount = 0;
   }
 
+  @VisibleForTesting
+  public SnowflakeSinkTask(
+      SnowflakeSinkService service, SnowflakeConnectionService connectionService) {
+    DYNAMIC_LOGGER = new KCLogger(this.getClass().getName());
+    // only increment task creation count if we know kc has been started
+    totalTaskCreationCount =
+        totalTaskCreationCount != -1 ? totalTaskCreationCount + 1 : totalTaskCreationCount;
+    this.taskOpenCount = 0;
+    this.sink = service;
+    this.conn = connectionService;
+  }
+
   private SnowflakeConnectionService getConnection() {
     try {
       waitFor(() -> conn != null);
@@ -206,7 +218,7 @@ public class SnowflakeSinkTask extends SinkTask {
     enableRebalancing =
         Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.REBALANCING));
 
-    KafkaRecordErrorReporter kafkaRecordErrorReporter = noOpKafkaRecordErrorReporter();
+    KafkaRecordErrorReporter kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
 
     // default to snowpipe
     IngestionMethodConfig ingestionType = IngestionMethodConfig.SNOWPIPE;
@@ -454,6 +466,10 @@ public class SnowflakeSinkTask extends SinkTask {
               (record, error) -> {
                 try {
                   // Blocking this until record is delivered to DLQ
+                  DYNAMIC_LOGGER.debug(
+                      "Sending Sink Record to DLQ with recordOffset:{}, partition:{}",
+                      record.kafkaOffset(),
+                      record.kafkaPartition());
                   errantRecordReporter.report(record, error).get();
                 } catch (InterruptedException | ExecutionException e) {
                   final String errMsg = "ERROR reporting records to ErrantRecordReporter";
@@ -469,6 +485,8 @@ public class SnowflakeSinkTask extends SinkTask {
         this.DYNAMIC_LOGGER.info(
             "Kafka versions prior to 2.6 do not support the errant record reporter.");
       }
+    } else {
+      DYNAMIC_LOGGER.warn("SinkTaskContext is not set");
     }
     return result;
   }
@@ -495,6 +513,9 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @VisibleForTesting
   static KafkaRecordErrorReporter noOpKafkaRecordErrorReporter() {
-    return (record, e) -> {};
+    return (record, e) -> {
+      STATIC_LOGGER.warn(
+          "DLQ Kafka Record Error Reporter is not set, requires Kafka Version to be >= 2.6");
+    };
   }
 }
