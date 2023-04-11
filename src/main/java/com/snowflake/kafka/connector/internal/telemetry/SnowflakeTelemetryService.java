@@ -12,8 +12,10 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -132,6 +134,14 @@ public abstract class SnowflakeTelemetryService {
       final SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing);
 
   /**
+   * Get default object Node which will be part of every telemetry being sent to snowflake. Based on
+   * the underlying implementation, node fields might change.
+   *
+   * @return ObjectNode in Json Format
+   */
+  public abstract ObjectNode getObjectNode();
+
+  /**
    * report connector partition start
    *
    * @param pipeCreation SnowflakeTelemetryBasicInfor object
@@ -151,15 +161,17 @@ public abstract class SnowflakeTelemetryService {
    * {
    *  "app_name": "<connector_app_name>",
    *  "task_id": 1,
+   *  "snowflake.ingestion.method": "<Enum Ordinal>" for {@link IngestionMethodConfig}
    * }
    * </pre>
    *
    * @return An ObjectNode which is by default always created with certain defined properties in it.
    */
-  protected ObjectNode getObjectNode() {
+  protected ObjectNode getDefaultObjectNode(IngestionMethodConfig ingestionMethodConfig) {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(APP_NAME, getAppName());
     msg.put(TASK_ID, getTaskID());
+    msg.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, ingestionMethodConfig.ordinal());
     return msg;
   }
 
