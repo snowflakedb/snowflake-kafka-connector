@@ -37,11 +37,10 @@ import org.apache.kafka.connect.errors.ConnectException;
 public class StreamingClientHandler {
   private static final KCLogger LOGGER = new KCLogger(StreamingClientHandler.class.getName());
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
-  private static AtomicInteger createdClientId = new AtomicInteger(0);
+  private static AtomicInteger createdClientId = new AtomicInteger(-1);
 
-  public static SnowflakeStreamingIngestClient createClient(Map<String, String> connectorConfig) {
-    String clientName = getClientName(connectorConfig);
-    LOGGER.info("Initializing Streaming Client... ClientName:{}", clientName);
+  public SnowflakeStreamingIngestClient createClient(Map<String, String> connectorConfig) {
+    LOGGER.info("Initializing Streaming Client...");
 
     // get streaming properties from config
     Properties streamingClientProps = new Properties();
@@ -60,23 +59,24 @@ public class StreamingClientHandler {
             parameterOverrides.put(BLOB_FORMAT_VERSION, overriddenValue);
           });
 
+      String clientName = this.getNewClientName(connectorConfig);
+
       SnowflakeStreamingIngestClient createdClient =
           SnowflakeStreamingIngestClientFactory.builder(clientName)
               .setProperties(streamingClientProps)
               .setParameterOverrides(parameterOverrides)
               .build();
 
-      createdClientId.incrementAndGet();
       LOGGER.info("Successfully initialized Streaming Client. ClientName:{}", clientName);
 
       return createdClient;
     } catch (SFException ex) {
-      LOGGER.error("Exception creating streamingIngestClient with name:{}", clientName);
+      LOGGER.error("Exception creating streamingIngestClient");
       throw new ConnectException(ex);
     }
   }
 
-  public static void closeClient(SnowflakeStreamingIngestClient client) {
+  public void closeClient(SnowflakeStreamingIngestClient client) {
     // don't do anything if client is already invalid
     if (!isClientValid(client)) {
       return;
@@ -100,11 +100,11 @@ public class StreamingClientHandler {
     }
   }
 
-  public static String getClientName(Map<String, String> connectorConfig) {
+  public String getNewClientName(Map<String, String> connectorConfig) {
     return STREAMING_CLIENT_PREFIX_NAME
         + connectorConfig.getOrDefault(Utils.NAME, "DEFAULT")
         + "_"
-        + createdClientId.get();
+        + createdClientId.getAndIncrement();
   }
 
   public static boolean isClientValid(SnowflakeStreamingIngestClient client) {
