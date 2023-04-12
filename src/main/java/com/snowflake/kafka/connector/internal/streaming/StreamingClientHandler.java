@@ -41,7 +41,8 @@ public class StreamingClientHandler {
 
   private static final KCLogger LOGGER = new KCLogger(StreamingClientHandler.class.getName());
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
-  private static AtomicInteger createdClientId = new AtomicInteger(0);
+
+  private AtomicInteger createdClientId = new AtomicInteger(0);
 
   public SnowflakeStreamingIngestClient createClient(Map<String, String> connectorConfig) {
     LOGGER.info("Initializing Streaming Client...");
@@ -91,16 +92,7 @@ public class StreamingClientHandler {
       client.close();
     } catch (Exception e) {
       // the client should auto close, so don't throw an exception here
-      String message =
-          e.getMessage() == null || e.getMessage().isEmpty()
-              ? "missing exception message"
-              : e.getMessage();
-      String cause =
-          e.getCause() == null || e.getCause().getStackTrace() == null
-              ? "missing exception cause"
-              : Arrays.toString(e.getCause().getStackTrace());
-
-      LOGGER.error("Failure closing Streaming client msg:{}, cause:{}", message, cause);
+      LOGGER.error(Utils.safeGetExceptionMessage("Failure closing Streaming client", e));
     }
   }
 

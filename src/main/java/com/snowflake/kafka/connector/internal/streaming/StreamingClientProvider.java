@@ -91,14 +91,14 @@ public class StreamingClientProvider {
     if (Boolean.parseBoolean(
         connectorConfig.get(
             SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
-      // recreate streaming client if needed
       this.providerLock.lock();
+      // recreate streaming client if needed
       if (!StreamingClientHandler.isClientValid(this.parameterEnabledClient)) {
         LOGGER.error("Current streaming client is invalid, recreating client");
         this.parameterEnabledClient = this.streamingClientHandler.createClient(connectorConfig);
       }
-      this.providerLock.unlock();
 
+      this.providerLock.unlock();
       return this.parameterEnabledClient;
     } else {
       String taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
@@ -111,15 +111,22 @@ public class StreamingClientProvider {
       SnowflakeStreamingIngestClient newClient =
           this.streamingClientHandler.createClient(connectorConfig);
       this.streamingIngestClients.put(taskId, newClient);
+
       return newClient;
     }
   }
 
   /** Closes the current client */
   public void closeAllClients() {
-    this.streamingClientHandler.closeClient(this.parameterEnabledClient);
-
-    this.streamingIngestClients.forEach(
-        (taskId, client) -> this.streamingClientHandler.closeClient(client));
+    this.providerLock.lock();
+    if (this.parameterEnabledClient != null) {
+      this.streamingClientHandler.closeClient(this.parameterEnabledClient);
+      this.parameterEnabledClient = null;
+    }
+    if (!this.streamingIngestClients.isEmpty()) {
+      this.streamingIngestClients.forEach(
+          (taskId, client) -> this.streamingClientHandler.closeClient(client));
+    }
+    this.providerLock.unlock();
   }
 }

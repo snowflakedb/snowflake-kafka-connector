@@ -28,6 +28,7 @@ import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 
 public class StreamingClientHandlerTest {
@@ -95,41 +96,22 @@ public class StreamingClientHandlerTest {
   }
 
   @Test
-  public void testCloseClientWithVariousExceptions() throws Exception {
-    List<Exception> exceptionsToTest = new ArrayList<>();
+  public void testCloseClientException() throws Exception {
+    // setup valid client
+    SnowflakeStreamingIngestClient client = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    Mockito.when(client.isClosed()).thenReturn(false);
+    Mockito.when(client.getName()).thenReturn(this.connectorConfig.get(Utils.NAME));
+    Mockito.doThrow(new Exception("cant close client")).when(client).close();
 
-    Exception nullMessageEx = new Exception();
-    exceptionsToTest.add(nullMessageEx);
+    // test close
+    this.streamingClientHandler.closeClient(client);
 
-    Exception nullCauseEx = new Exception("nullCauseEx");
-    nullCauseEx.initCause(null);
-    exceptionsToTest.add(nullCauseEx);
+    // verify close() was called
+    Mockito.verify(client, Mockito.times(1)).close();
 
-    Exception stacktraceEx = new Exception("stacktraceEx");
-    stacktraceEx.initCause(new Exception("cause"));
-    stacktraceEx.getCause().setStackTrace(new StackTraceElement[0]);
-    exceptionsToTest.add(stacktraceEx);
-
-    for (Exception ex : exceptionsToTest) {
-      this.testCloseClientWithExceptionRunner(ex);
-    }
-  }
-
-  private void testCloseClientWithExceptionRunner(Exception exToThrow) throws Exception {
-    // inject invalid client
-    SnowflakeStreamingIngestClient streamingIngestClient =
-        Mockito.mock(SnowflakeStreamingIngestClient.class);
-    Mockito.when(streamingIngestClient.isClosed()).thenReturn(false);
-    Mockito.when(streamingIngestClient.getName()).thenReturn("testclient");
-    Mockito.doThrow(exToThrow).when(streamingIngestClient).close();
-
-    // try closing client
-    this.streamingClientHandler.closeClient(streamingIngestClient);
-
-    // verify call close
-    Mockito.verify(streamingIngestClient, Mockito.times(1)).close();
-    Mockito.verify(streamingIngestClient, Mockito.times(1)).isClosed();
-    Mockito.verify(streamingIngestClient, Mockito.times(2)).getName();
+    // these should be called in isClientValid() and logging
+    Mockito.verify(client, Mockito.times(1)).isClosed();
+    Mockito.verify(client, Mockito.times(2)).getName();
   }
 
   @Test

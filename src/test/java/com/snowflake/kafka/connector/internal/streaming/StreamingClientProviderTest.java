@@ -42,17 +42,11 @@ public class StreamingClientProviderTest {
   private Map<String, String> clientConfig2;
   private Map<String, String> clientConfig3;
 
-  //  private SnowflakeStreamingIngestClient parameterEnabledClient;
-  //
-  //  private SnowflakeStreamingIngestClient streamingIngestClient1;
-  //  private SnowflakeStreamingIngestClient streamingIngestClient2;
-  //  private SnowflakeStreamingIngestClient streamingIngestClient3;
-
   private StreamingClientProvider streamingClientProvider;
   private StreamingClientHandler streamingClientHandler;
   private boolean enableClientOptimization;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameterized.Parameters(name = "enableClientOptimization: {0}")
   public static Collection<Object[]> input() {
     return Arrays.asList(new Object[][] {{true}, {false}});
   }
