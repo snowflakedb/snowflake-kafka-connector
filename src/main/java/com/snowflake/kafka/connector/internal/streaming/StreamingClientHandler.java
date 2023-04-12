@@ -35,6 +35,10 @@ import org.apache.kafka.connect.errors.ConnectException;
 
 /** This class handles all calls to manage the streaming ingestion client */
 public class StreamingClientHandler {
+  public static boolean isClientValid(SnowflakeStreamingIngestClient client) {
+    return client != null && !client.isClosed() && client.getName() != null;
+  }
+
   private static final KCLogger LOGGER = new KCLogger(StreamingClientHandler.class.getName());
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
   private static AtomicInteger createdClientId = new AtomicInteger(0);
@@ -100,14 +104,10 @@ public class StreamingClientHandler {
     }
   }
 
-  public String getNewClientName(Map<String, String> connectorConfig) {
+  private String getNewClientName(Map<String, String> connectorConfig) {
     return STREAMING_CLIENT_PREFIX_NAME
         + connectorConfig.getOrDefault(Utils.NAME, "DEFAULT")
         + "_"
         + createdClientId.getAndIncrement();
-  }
-
-  public static boolean isClientValid(SnowflakeStreamingIngestClient client) {
-    return client != null && !client.isClosed() && client.getName() != null;
   }
 }
