@@ -20,8 +20,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION;
 import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.Arrays;
@@ -30,15 +28,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 
-/**
- * This class handles all calls to manage the streaming ingestion client
- */
+/** This class handles all calls to manage the streaming ingestion client */
 public class StreamingClientHandler {
   private static final KCLogger LOGGER = new KCLogger(StreamingClientHandler.class.getName());
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
@@ -51,25 +46,25 @@ public class StreamingClientHandler {
     // get streaming properties from config
     Properties streamingClientProps = new Properties();
     streamingClientProps.putAll(
-            StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig)));
+        StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig)));
 
     try {
       // Override only if bdec version is explicitly set in config, default to the version set
       // inside Ingest SDK
       Map<String, Object> parameterOverrides = new HashMap<>();
       Optional<String> snowpipeStreamingBdecVersion =
-              Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_FILE_VERSION));
+          Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_FILE_VERSION));
       snowpipeStreamingBdecVersion.ifPresent(
-              overriddenValue -> {
-                LOGGER.info("Config is overridden for {} ", SNOWPIPE_STREAMING_FILE_VERSION);
-                parameterOverrides.put(BLOB_FORMAT_VERSION, overriddenValue);
-              });
+          overriddenValue -> {
+            LOGGER.info("Config is overridden for {} ", SNOWPIPE_STREAMING_FILE_VERSION);
+            parameterOverrides.put(BLOB_FORMAT_VERSION, overriddenValue);
+          });
 
       SnowflakeStreamingIngestClient createdClient =
-              SnowflakeStreamingIngestClientFactory.builder(clientName)
-                      .setProperties(streamingClientProps)
-                      .setParameterOverrides(parameterOverrides)
-                      .build();
+          SnowflakeStreamingIngestClientFactory.builder(clientName)
+              .setProperties(streamingClientProps)
+              .setParameterOverrides(parameterOverrides)
+              .build();
 
       createdClientId.incrementAndGet();
       LOGGER.info("Successfully initialized Streaming Client. ClientName:{}", clientName);

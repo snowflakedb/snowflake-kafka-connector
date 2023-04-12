@@ -17,29 +17,15 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION;
-import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Stream;
-
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
-import net.snowflake.ingest.utils.SFException;
-import org.apache.kafka.connect.errors.ConnectException;
 
 /**
  * Singleton that provides the streaming client(s). There should only be one provider, but it may
@@ -60,12 +46,10 @@ public class StreamingClientProvider {
     return StreamingClientProviderSingleton.streamingClientProvider;
   }
 
-  /**
-   * ONLY FOR TESTING - to get a provider with injected properties
-   */
+  /** ONLY FOR TESTING - to get a provider with injected properties */
   @VisibleForTesting
   public static StreamingClientProvider injectStreamingClientProviderForTests(
-          ConcurrentMap<String, SnowflakeStreamingIngestClient> clients) {
+      ConcurrentMap<String, SnowflakeStreamingIngestClient> clients) {
     return new StreamingClientProvider(clients);
   }
 
@@ -80,7 +64,8 @@ public class StreamingClientProvider {
 
   // ONLY FOR TESTING - private constructor to inject properties for testing
   @VisibleForTesting
-  private StreamingClientProvider(ConcurrentMap<String, SnowflakeStreamingIngestClient> streamingIngestClients) {
+  private StreamingClientProvider(
+      ConcurrentMap<String, SnowflakeStreamingIngestClient> streamingIngestClients) {
     this.streamingIngestClients = streamingIngestClients;
   }
 
@@ -93,8 +78,8 @@ public class StreamingClientProvider {
    */
   public SnowflakeStreamingIngestClient getClient(Map<String, String> connectorConfig) {
     if (Boolean.parseBoolean(
-            connectorConfig.get(
-                    SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
+        connectorConfig.get(
+            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
       // recreate streaming client if needed
       if (!StreamingClientHandler.isClientValid(this.parameterEnabledClient)) {
         LOGGER.error("Current streaming client is invalid, recreating client");
@@ -110,7 +95,8 @@ public class StreamingClientProvider {
         return this.streamingIngestClients.get(taskId);
       }
 
-      SnowflakeStreamingIngestClient newClient = StreamingClientHandler.createClient(connectorConfig);
+      SnowflakeStreamingIngestClient newClient =
+          StreamingClientHandler.createClient(connectorConfig);
       this.streamingIngestClients.put(taskId, newClient);
       return newClient;
     }
@@ -120,6 +106,7 @@ public class StreamingClientProvider {
   public void closeAllClients() {
     StreamingClientHandler.closeClient(this.parameterEnabledClient);
 
-    this.streamingIngestClients.forEach((taskId, client) -> StreamingClientHandler.closeClient(client));
+    this.streamingIngestClients.forEach(
+        (taskId, client) -> StreamingClientHandler.closeClient(client));
   }
 }
