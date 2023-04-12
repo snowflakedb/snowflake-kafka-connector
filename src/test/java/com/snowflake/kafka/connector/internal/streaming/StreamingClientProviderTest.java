@@ -22,6 +22,9 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingClientPr
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
+
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,29 +33,42 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.mockito.Mockito;
 
+@RunWith(Parameterized.class)
 public class StreamingClientProviderTest {
   private Map<String, String> connectorConfig;
   private StreamingClientProvider streamingClientProvider;
   private StreamingClientHandler streamingClientHandler;
+  private boolean enableClientOptimization;
 
-  @After
-  public void cleanUpProviderClient() {
-    // note that the config will not be cleaned up
-    this.streamingClientProvider.closeAllClients();
+  @Parameterized.Parameters(name = "{0}")
+  public static Collection<Object[]> input() {
+    return Arrays.asList(new Object[][] {{true}, {false}});
+  }
+
+  public StreamingClientProviderTest(boolean enableClientOptimization) {
+    this.enableClientOptimization = enableClientOptimization;
   }
 
   @Before
   public void setup() {
     this.connectorConfig = TestUtils.getConfForStreaming();
     this.connectorConfig.put(
-        SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
+            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, this.enableClientOptimization + "");
 
     this.streamingClientHandler = Mockito.spy(StreamingClientHandler.class);
     this.streamingClientProvider =
-        StreamingClientProvider.injectStreamingClientProviderForTests(
-            new ConcurrentHashMap<>(), null, this.streamingClientHandler);
+            StreamingClientProvider.injectStreamingClientProviderForTests(
+                    new ConcurrentHashMap<>(), null, this.streamingClientHandler);
+  }
+
+  @After
+  public void cleanUpProviderClient() {
+    // note that the config will not be cleaned up
+    this.streamingClientProvider.closeAllClients();
   }
 
   @Test
