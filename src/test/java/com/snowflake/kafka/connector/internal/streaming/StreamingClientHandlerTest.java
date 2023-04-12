@@ -1,4 +1,4 @@
-///*
+/// *
 // * Copyright (c) 2023 Snowflake Inc. All rights reserved.
 // *
 // * Licensed under the Apache License, Version 2.0 (the
@@ -15,27 +15,29 @@
 // * under the License.
 // */
 //
-//package com.snowflake.kafka.connector.internal.streaming;
+// package com.snowflake.kafka.connector.internal.streaming;
 //
-//import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.injectStreamingClientProviderForTests;
-//import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.isClientValid;
+// import static
+// com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.injectStreamingClientProviderForTests;
+// import static
+// com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.isClientValid;
 //
-//import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-//import com.snowflake.kafka.connector.Utils;
-//import com.snowflake.kafka.connector.internal.TestUtils;
-//import java.util.ArrayList;
-//import java.util.HashMap;
-//import java.util.List;
-//import java.util.Map;
-//import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-//import net.snowflake.ingest.utils.SFException;
-//import org.apache.kafka.connect.errors.ConnectException;
-//import org.junit.After;
-//import org.junit.Before;
-//import org.junit.Test;
-//import org.mockito.Mockito;
+// import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+// import com.snowflake.kafka.connector.Utils;
+// import com.snowflake.kafka.connector.internal.TestUtils;
+// import java.util.ArrayList;
+// import java.util.HashMap;
+// import java.util.List;
+// import java.util.Map;
+// import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+// import net.snowflake.ingest.utils.SFException;
+// import org.apache.kafka.connect.errors.ConnectException;
+// import org.junit.After;
+// import org.junit.Before;
+// import org.junit.Test;
+// import org.mockito.Mockito;
 //
-//public class StreamingClientHandlerTest {
+// public class StreamingClientHandlerTest {
 //  private StreamingClientProvider streamingClientProvider =
 //      StreamingClientProvider.getStreamingClientProviderInstance();
 //  private Map<String, String> connectorConfig;
@@ -59,7 +61,8 @@
 //    String connectorName = connectorConfig.get(Utils.NAME);
 //
 //    // test actual provider
-//    SnowflakeStreamingIngestClient createdClient = this.streamingClientProvider.getClient(connectorConfig);
+//    SnowflakeStreamingIngestClient createdClient =
+// this.streamingClientProvider.getClient(connectorConfig);
 //
 //    // verify
 //    assert createdClient.getName().contains(connectorName);
@@ -353,4 +356,4 @@
 //    Mockito.verify(streamingIngestClient, Mockito.times(1)).isClosed();
 //    Mockito.verify(streamingIngestClient, Mockito.times(2)).getName();
 //  }
-//}
+// }

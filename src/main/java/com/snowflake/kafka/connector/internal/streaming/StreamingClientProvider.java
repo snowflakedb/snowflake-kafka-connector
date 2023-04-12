@@ -17,7 +17,6 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -26,7 +25,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantLock;
-
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 
 /**
@@ -51,7 +49,9 @@ public class StreamingClientProvider {
   /** ONLY FOR TESTING - to get a provider with injected properties */
   @VisibleForTesting
   public static StreamingClientProvider injectStreamingClientProviderForTests(
-      ConcurrentMap<String, SnowflakeStreamingIngestClient> clients, SnowflakeStreamingIngestClient parameterEnabledClient, StreamingClientHandler streamingClientHandler) {
+      ConcurrentMap<String, SnowflakeStreamingIngestClient> clients,
+      SnowflakeStreamingIngestClient parameterEnabledClient,
+      StreamingClientHandler streamingClientHandler) {
     return new StreamingClientProvider(clients, parameterEnabledClient, streamingClientHandler);
   }
 
@@ -71,7 +71,9 @@ public class StreamingClientProvider {
   // ONLY FOR TESTING - private constructor to inject properties for testing
   @VisibleForTesting
   private StreamingClientProvider(
-      ConcurrentMap<String, SnowflakeStreamingIngestClient> streamingIngestClients, SnowflakeStreamingIngestClient parameterEnabledClient, StreamingClientHandler streamingClientHandler) {
+      ConcurrentMap<String, SnowflakeStreamingIngestClient> streamingIngestClients,
+      SnowflakeStreamingIngestClient parameterEnabledClient,
+      StreamingClientHandler streamingClientHandler) {
     this();
     this.streamingIngestClients = streamingIngestClients;
     this.parameterEnabledClient = parameterEnabledClient;
@@ -107,7 +109,7 @@ public class StreamingClientProvider {
       }
 
       SnowflakeStreamingIngestClient newClient =
-              this.streamingClientHandler.createClient(connectorConfig);
+          this.streamingClientHandler.createClient(connectorConfig);
       this.streamingIngestClients.put(taskId, newClient);
       return newClient;
     }
