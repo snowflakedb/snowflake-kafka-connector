@@ -37,7 +37,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 public class StreamingClientHandler {
   private static final KCLogger LOGGER = new KCLogger(StreamingClientHandler.class.getName());
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
-  private static AtomicInteger createdClientId = new AtomicInteger(-1);
+  private static AtomicInteger createdClientId = new AtomicInteger(0);
 
   public SnowflakeStreamingIngestClient createClient(Map<String, String> connectorConfig) {
     LOGGER.info("Initializing Streaming Client...");
