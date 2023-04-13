@@ -72,7 +72,7 @@ public class StreamingClientConcurrencyTest {
 
     this.streamingClientHandler = Mockito.spy(StreamingClientHandler.class);
     this.streamingClientProvider =
-        StreamingClientProvider.injectStreamingClientProviderForTests(
+        StreamingClientProvider.getStreamingClientProviderForTests(
             null, this.streamingClientHandler);
 
     this.getCallers = new ArrayList<>();
@@ -219,7 +219,7 @@ public class StreamingClientConcurrencyTest {
 
     if (this.enableClientOptimization) {
       this.streamingClientProvider =
-          StreamingClientProvider.injectStreamingClientProviderForTests(
+          StreamingClientProvider.getStreamingClientProviderForTests(
               closeClient1, this.streamingClientHandler);
     } else {
       closeClient2 = this.streamingClientHandler.createClient(this.clientConfig2);

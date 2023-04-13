@@ -2,12 +2,13 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 from time import sleep
 
-class TestKcPausePressureThenStart:
+class TestKcStopPressureThenStart:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "test_kc_pause_pressure_then_start"
+        self.fileName = "test_kc_stop_pressure_then_start"
         self.topic = self.fileName + nameSalt
         self.connectorName = self.fileName + nameSalt
+        self.nameSalt = nameSalt
 
         self.topicNum = 1
         self.partitionNum = 3
@@ -24,13 +25,14 @@ class TestKcPausePressureThenStart:
         print("Topic:", self.topic)
         self.driver.describeTopic(self.topic)
 
-        self.driver.pauseConnector(self.connectorName);
-        print("Wait for connector to pause - 10 secs")
+        self.driver.closeConnector(self.getConfigFileName(), self.nameSalt);
+
+        print("Wait for connector to close - 10 secs")
         sleep(10)
 
         self.__sendbytes();
 
-        self.driver.resumeConnector(self.connectorName);
+        self.driver.createConnector(self.getConfigFileName(), self.nameSalt);
         print("Wait for connector to start - 10 secs")
         sleep(10)
 
