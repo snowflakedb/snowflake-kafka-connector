@@ -84,7 +84,9 @@ public class StreamingClientProvider {
     if (Boolean.parseBoolean(
         connectorConfig.get(
             SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
-      LOGGER.debug("Streaming client optimization is enabled, returning the existing streaming client if valid");
+      LOGGER.debug(
+          "Streaming client optimization is enabled, returning the existing streaming client if"
+              + " valid");
       this.providerLock.lock();
       // recreate streaming client if needed
       if (!StreamingClientHandler.isClientValid(this.parameterEnabledClient)) {
