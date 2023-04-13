@@ -90,7 +90,6 @@ public class StreamingClientProvider {
         LOGGER.error("Current streaming client is invalid, recreating client");
         this.parameterEnabledClient = this.streamingClientHandler.createClient(connectorConfig);
       }
-
       this.providerLock.unlock();
       return this.parameterEnabledClient;
     } else {
@@ -100,6 +99,8 @@ public class StreamingClientProvider {
 
   /** Closes the current client */
   public void closeClient(SnowflakeStreamingIngestClient client) {
+    this.providerLock.lock();
     this.streamingClientHandler.closeClient(client);
+    this.providerLock.unlock();
   }
 }
