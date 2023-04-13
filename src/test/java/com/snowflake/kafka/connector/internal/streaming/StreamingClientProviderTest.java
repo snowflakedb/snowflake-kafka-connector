@@ -67,10 +67,9 @@ public class StreamingClientProviderTest {
     this.clientConfig1.put(
         SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
         this.enableClientOptimization + "");
-    this.clientConfig1.put(Utils.TASK_ID, "1");
-    this.clientConfig1.put(Utils.NAME, "client1");
     this.clientConfig2 = new HashMap<>(this.clientConfig1);
-    this.clientConfig2.put(Utils.TASK_ID, "2");
+
+    this.clientConfig1.put(Utils.NAME, "client1");
     this.clientConfig2.put(Utils.NAME, "client2");
 
     this.streamingClientHandler = Mockito.spy(StreamingClientHandler.class);
