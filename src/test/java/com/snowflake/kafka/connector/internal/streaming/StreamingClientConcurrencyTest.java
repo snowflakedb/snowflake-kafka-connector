@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -81,6 +82,8 @@ public class StreamingClientConcurrencyTest {
 
   @After
   public void tearDown() {
+    this.getClientStop(this.getCallers);
+    this.closeClientStop(this.closeCallers);
     this.getCallers.forEach(caller -> this.streamingClientHandler.closeClient(caller.getClient()));
   }
 
@@ -146,8 +149,8 @@ public class StreamingClientConcurrencyTest {
     getClientCaller3 = this.getClientStart(getClientCaller3);
 
     // join all threads
-    this.getClientStop(this.getCallers)
-        .forEach(client -> StreamingClientHandler.isClientValid(client));
+    this.getClientStop(this.getCallers);
+    this.closeClientStop(this.closeCallers);
 
     // verification
     int totalGetCount = this.getCallers.size();
@@ -202,7 +205,7 @@ public class StreamingClientConcurrencyTest {
 
     // should create just once if param is enabled
     this.getClientStop(this.getCallers)
-        .forEach(client -> StreamingClientHandler.isClientValid(client));
+        .forEach(client -> Assert.assertTrue(StreamingClientHandler.isClientValid(client)));
     Mockito.verify(
             this.streamingClientHandler,
             Mockito.times(this.enableClientOptimization ? 1 : this.getCallers.size()))
@@ -247,21 +250,19 @@ public class StreamingClientConcurrencyTest {
             closeClient3);
 
     // try a bunch of random close calls at the same time
-    closeClientCaller1 = this.closeClientStart(closeClientCaller1, closeClient1);
-    closeClientCaller2 = this.closeClientStart(closeClientCaller2, closeClient2);
-    closeClientCaller1 = this.closeClientStart(closeClientCaller1, closeClient1);
-    closeClientCaller3 = this.closeClientStart(closeClientCaller3, closeClient3);
-    closeClientCaller1 = this.closeClientStart(closeClientCaller1, closeClient1);
-    closeClientCaller1 = this.closeClientStart(closeClientCaller1, closeClient1);
-    closeClientCaller2 = this.closeClientStart(closeClientCaller2, closeClient2);
-    closeClientCaller2 = this.closeClientStart(closeClientCaller2, closeClient2);
-    closeClientCaller2 = this.closeClientStart(closeClientCaller2, closeClient2);
-    closeClientCaller3 = this.closeClientStart(closeClientCaller3, closeClient3);
+    this.closeClientStart(closeClientCaller1, closeClient1);
+    this.closeClientStart(closeClientCaller2, closeClient2);
+    this.closeClientStart(closeClientCaller1, closeClient1);
+    this.closeClientStart(closeClientCaller3, closeClient3);
+    this.closeClientStart(closeClientCaller1, closeClient1);
+    this.closeClientStart(closeClientCaller1, closeClient1);
+    this.closeClientStart(closeClientCaller2, closeClient2);
+    this.closeClientStart(closeClientCaller2, closeClient2);
+    this.closeClientStart(closeClientCaller2, closeClient2);
+    this.closeClientStart(closeClientCaller3, closeClient3);
 
     // join threads
-    closeClientCaller1.closeAllClients();
-    closeClientCaller2.closeAllClients();
-    closeClientCaller3.closeAllClients();
+    this.closeClientStop(this.closeCallers);
 
     // verify client is closed
     assert !StreamingClientHandler.isClientValid(closeClient1);
@@ -301,9 +302,13 @@ public class StreamingClientConcurrencyTest {
             client);
 
     newCaller.executeMethod();
-    this.closeCallers.add(closeCaller);
+    this.closeCallers.add(newCaller);
 
     return newCaller;
+  }
+
+  private void closeClientStop(List<ProviderCaller> callers) {
+    callers.forEach(caller -> caller.closeClient());
   }
 
   // represents which method this caller will call
@@ -366,7 +371,7 @@ public class StreamingClientConcurrencyTest {
       return this.returnClient;
     }
 
-    public void closeAllClients() {
+    public void closeClient() {
       this.joinMethod();
     }
 
