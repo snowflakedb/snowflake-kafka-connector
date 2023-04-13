@@ -117,42 +117,38 @@ public class StreamingClientIT {
     // create close callers from got clients
     ProviderCaller closeClientCaller1 =
         new ProviderCaller(
-            "closeClient1",
-            ProviderMethods.CLOSE_CLIENT,
-            this.streamingClientProvider,
-            client1);
+            "closeClient1", ProviderMethods.CLOSE_CLIENT, this.streamingClientProvider, client1);
     ProviderCaller closeClientCaller2 =
         new ProviderCaller(
-            "closeClient2",
-            ProviderMethods.CLOSE_CLIENT,
-            this.streamingClientProvider,
-            client2);
+            "closeClient2", ProviderMethods.CLOSE_CLIENT, this.streamingClientProvider, client2);
     ProviderCaller closeClientCaller3 =
         new ProviderCaller(
-            "closeClient3",
-            ProviderMethods.CLOSE_CLIENT,
-            this.streamingClientProvider,
-            client3);
+            "closeClient3", ProviderMethods.CLOSE_CLIENT, this.streamingClientProvider, client3);
 
     // test: get calls interleaved with close calls
     getCount1 = this.executeMethodWithCount(getClientCaller1, getCount1);
-    closeClientCaller3 = this.executeCloseAfterGet(closeClientCaller3, getClientCaller3.getClient());
+    closeClientCaller3 =
+        this.executeCloseAfterGet(closeClientCaller3, getClientCaller3.getClient());
     closeCount3++;
     getCount2 = this.executeMethodWithCount(getClientCaller2, getCount2);
-    closeClientCaller1 = this.executeCloseAfterGet(closeClientCaller1, getClientCaller1.getClient());
+    closeClientCaller1 =
+        this.executeCloseAfterGet(closeClientCaller1, getClientCaller1.getClient());
     closeCount1++;
     getCount2 = this.executeMethodWithCount(getClientCaller2, getCount2);
     getCount3 = this.executeMethodWithCount(getClientCaller3, getCount3);
-    closeClientCaller3 = this.executeCloseAfterGet(closeClientCaller3, getClientCaller3.getClient());
+    closeClientCaller3 =
+        this.executeCloseAfterGet(closeClientCaller3, getClientCaller3.getClient());
     closeCount3++;
     getCount3 = this.executeMethodWithCount(getClientCaller3, getCount3);
     getCount1 = this.executeMethodWithCount(getClientCaller1, getCount1);
     getCount1 = this.executeMethodWithCount(getClientCaller1, getCount1);
-    closeClientCaller3 = this.executeCloseAfterGet(closeClientCaller3, getClientCaller3.getClient());
+    closeClientCaller3 =
+        this.executeCloseAfterGet(closeClientCaller3, getClientCaller3.getClient());
     closeCount3++;
     getCount2 = this.executeMethodWithCount(getClientCaller2, getCount2);
     getCount3 = this.executeMethodWithCount(getClientCaller3, getCount3);
-    closeClientCaller2 = this.executeCloseAfterGet(closeClientCaller2, getClientCaller2.getClient());
+    closeClientCaller2 =
+        this.executeCloseAfterGet(closeClientCaller2, getClientCaller2.getClient());
     closeCount2++;
     getCount3 = this.executeMethodWithCount(getClientCaller3, getCount3);
 
@@ -172,16 +168,23 @@ public class StreamingClientIT {
 
     if (this.enableClientOptimization) {
       // close count should equal create count, even though get client was called
-      Mockito.verify(this.streamingClientHandler, Mockito.times(totalCloseCount)).createClient(Mockito.anyMap());
-      Mockito.verify(this.streamingClientHandler, Mockito.times(totalCloseCount)).closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
+      Mockito.verify(this.streamingClientHandler, Mockito.times(totalCloseCount))
+          .createClient(Mockito.anyMap());
+      Mockito.verify(this.streamingClientHandler, Mockito.times(totalCloseCount))
+          .closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
     } else {
       // should create as many as we tried to get
-      Mockito.verify(this.streamingClientHandler, Mockito.times(getCount1)).createClient(clientConfig1);
-      Mockito.verify(this.streamingClientHandler, Mockito.times(getCount2)).createClient(clientConfig2);
-      Mockito.verify(this.streamingClientHandler, Mockito.times(getCount3)).createClient(clientConfig3);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(getCount1))
+          .createClient(clientConfig1);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(getCount2))
+          .createClient(clientConfig2);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(getCount3))
+          .createClient(clientConfig3);
 
-      Mockito.verify(this.streamingClientHandler, Mockito.times(totalGetCount)).createClient(Mockito.anyMap());
-      Mockito.verify(this.streamingClientHandler, Mockito.times(totalCloseCount)).closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
+      Mockito.verify(this.streamingClientHandler, Mockito.times(totalGetCount))
+          .createClient(Mockito.anyMap());
+      Mockito.verify(this.streamingClientHandler, Mockito.times(totalCloseCount))
+          .closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
     }
   }
 
@@ -245,9 +248,12 @@ public class StreamingClientIT {
       assert !client1.getName().equals(client3.getName());
       assert !client2.getName().equals(client3.getName());
 
-      Mockito.verify(this.streamingClientHandler, Mockito.times(getCount1)).createClient(clientConfig1);
-      Mockito.verify(this.streamingClientHandler, Mockito.times(getCount2)).createClient(clientConfig2);
-      Mockito.verify(this.streamingClientHandler, Mockito.times(getCount3)).createClient(clientConfig3);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(getCount1))
+          .createClient(clientConfig1);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(getCount2))
+          .createClient(clientConfig2);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(getCount3))
+          .createClient(clientConfig3);
     }
   }
 
@@ -268,11 +274,9 @@ public class StreamingClientIT {
       this.streamingClientProvider =
           StreamingClientProvider.injectStreamingClientProviderForTests(
               closeClient1, this.streamingClientHandler);
-      } else {
-      closeClient2 =
-          this.streamingClientHandler.createClient(this.clientConfig2);
-      closeClient3 =
-          this.streamingClientHandler.createClient(this.clientConfig3);
+    } else {
+      closeClient2 = this.streamingClientHandler.createClient(this.clientConfig2);
+      closeClient3 = this.streamingClientHandler.createClient(this.clientConfig3);
     }
 
     // setup three close runners
@@ -318,11 +322,16 @@ public class StreamingClientIT {
     assert !StreamingClientHandler.isClientValid(closeClient3);
 
     if (this.enableClientOptimization) {
-      Mockito.verify(this.streamingClientHandler, Mockito.times(closeCount1 + closeCount2 + closeCount3)).closeClient(closeClient1);
+      Mockito.verify(
+              this.streamingClientHandler, Mockito.times(closeCount1 + closeCount2 + closeCount3))
+          .closeClient(closeClient1);
     } else {
-      Mockito.verify(this.streamingClientHandler, Mockito.times(closeCount1)).closeClient(closeClient1);
-      Mockito.verify(this.streamingClientHandler, Mockito.times(closeCount2)).closeClient(closeClient2);
-      Mockito.verify(this.streamingClientHandler, Mockito.times(closeCount3)).closeClient(closeClient3);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(closeCount1))
+          .closeClient(closeClient1);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(closeCount2))
+          .closeClient(closeClient2);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(closeCount3))
+          .closeClient(closeClient3);
     }
   }
 
@@ -331,13 +340,14 @@ public class StreamingClientIT {
     return inCount + 1;
   }
 
-  private ProviderCaller executeCloseAfterGet(ProviderCaller closeCaller, SnowflakeStreamingIngestClient client) {
-    ProviderCaller newCaller = new ProviderCaller(
-        closeCaller.threadName,
-        closeCaller.providerMethod,
-        closeCaller.streamingClientProvider,
-        client
-    );
+  private ProviderCaller executeCloseAfterGet(
+      ProviderCaller closeCaller, SnowflakeStreamingIngestClient client) {
+    ProviderCaller newCaller =
+        new ProviderCaller(
+            closeCaller.threadName,
+            closeCaller.providerMethod,
+            closeCaller.streamingClientProvider,
+            client);
 
     newCaller.executeMethod();
     return newCaller;
