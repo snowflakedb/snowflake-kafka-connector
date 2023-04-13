@@ -17,29 +17,16 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION;
-import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
-import net.snowflake.ingest.utils.SFException;
-import org.apache.kafka.connect.errors.ConnectException;
 
 /**
- * Singleton that provides the streaming client(s). There should only be one provider, but it may
- * provide multiple clients
+ * Singleton/factory that provides the streaming client(s). There should only be one provider, but
+ * it may provide multiple clients
  */
 public class StreamingClientProvider {
   private static class StreamingClientProviderSingleton {
@@ -56,181 +43,72 @@ public class StreamingClientProvider {
     return StreamingClientProviderSingleton.streamingClientProvider;
   }
 
-  /**
-   * Checks if the client is valid by doing a null check, ensuring it is open and has a name
-   *
-   * @param client The client to validate
-   * @return If the client is not null, open and has a name
-   */
-  public static boolean isClientValid(SnowflakeStreamingIngestClient client) {
-    return client != null && !client.isClosed() && client.getName() != null;
-  }
-
-  /**
-   * ONLY FOR TESTING - to get a provider with injected properties
-   *
-   * @param createdClientId the number of times a client has been created
-   * @param connectorConfig the connector config
-   * @param client the injected streaming client
-   * @return a provider with the injected properties
-   */
+  /** ONLY FOR TESTING - to get a provider with injected properties */
   @VisibleForTesting
   public static StreamingClientProvider injectStreamingClientProviderForTests(
-      int createdClientId,
-      Map<String, String> connectorConfig,
-      SnowflakeStreamingIngestClient client) {
-    return new StreamingClientProvider(createdClientId, connectorConfig, client);
+      SnowflakeStreamingIngestClient parameterEnabledClient,
+      StreamingClientHandler streamingClientHandler) {
+    return new StreamingClientProvider(parameterEnabledClient, streamingClientHandler);
   }
 
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProvider.class.getName());
-  private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
-  private final Lock clientLock = new ReentrantLock(true);
-
-  private AtomicInteger createdClientId;
-  private Map<String, String> connectorConfig;
-  private SnowflakeStreamingIngestClient streamingIngestClient;
+  private SnowflakeStreamingIngestClient parameterEnabledClient;
+  private StreamingClientHandler streamingClientHandler;
+  private ReentrantLock providerLock;
 
   // private constructor for singleton
   private StreamingClientProvider() {
-    this.createdClientId = new AtomicInteger(0);
-    this.connectorConfig = new HashMap<>();
+    this.streamingClientHandler = new StreamingClientHandler();
+    providerLock = new ReentrantLock();
   }
 
   // ONLY FOR TESTING - private constructor to inject properties for testing
   @VisibleForTesting
   private StreamingClientProvider(
-      int createdClientId,
-      Map<String, String> connectorConfig,
-      SnowflakeStreamingIngestClient client) {
-    this.createdClientId = new AtomicInteger(createdClientId);
-    this.connectorConfig = connectorConfig;
-    this.streamingIngestClient = client;
+      SnowflakeStreamingIngestClient parameterEnabledClient,
+      StreamingClientHandler streamingClientHandler) {
+    this();
+    this.parameterEnabledClient = parameterEnabledClient;
+    this.streamingClientHandler = streamingClientHandler;
   }
 
   /**
-   * Creates a new streaming client, will replace the existing one if necessary
+   * Gets the current client or creates a new one from the given connector config. If client
+   * optimization is not enabled, it will create a new streaming client and the caller is
+   * responsible for closing it
    *
-   * @param connectorConfig The connector config to define the client
-   */
-  public void createOrReplaceClient(Map<String, String> connectorConfig) {
-    // replace previous connector config and client if applicable
-    this.clientLock.lock();
-    LOGGER.info("Creating new client, this will replace the old client and config if exists");
-    this.closeClient();
-
-    this.connectorConfig = connectorConfig;
-    this.streamingIngestClient = this.initStreamingClient(this.connectorConfig);
-    this.clientLock.unlock();
-  }
-
-  /** Closes the current client */
-  public void closeClient() {
-    // don't do anything if client is already invalid
-    if (!isClientValid(this.streamingIngestClient)) {
-      LOGGER.info("Streaming client already closed");
-      return;
-    }
-
-    this.clientLock.lock();
-    LOGGER.info("Closing Streaming Client:{}", this.streamingIngestClient.getName());
-    try {
-      this.streamingIngestClient.close();
-    } catch (Exception e) {
-      // the client should auto close, so don't throw an exception here
-      String message =
-          e.getMessage() == null || e.getMessage().isEmpty()
-              ? "missing exception message"
-              : e.getMessage();
-      String cause =
-          e.getCause() == null || e.getCause().getStackTrace() == null
-              ? "missing exception cause"
-              : Arrays.toString(e.getCause().getStackTrace());
-
-      LOGGER.error("Failure closing Streaming client msg:{}, cause:{}", message, cause);
-    } finally {
-      this.clientLock.unlock();
-    }
-  }
-
-  /**
-   * Gets the current client or creates a new one from the given connector config If client
-   * optimization is not enabled, just create a new streaming client
-   *
-   * @param connectorConfig The connector config, given as a backup in case the current client is
-   *     invalid
-   * @return The current or newly created streaming client
+   * @param connectorConfig The connector config
+   * @return A streaming client
    */
   public SnowflakeStreamingIngestClient getClient(Map<String, String> connectorConfig) {
     if (Boolean.parseBoolean(
         connectorConfig.get(
             SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
-      this.clientLock.lock();
-
+      LOGGER.debug(
+          "Streaming client optimization is enabled, returning the existing streaming client if"
+              + " valid");
+      this.providerLock.lock();
       // recreate streaming client if needed
-      if (!isClientValid(this.streamingIngestClient)) {
+      if (!StreamingClientHandler.isClientValid(this.parameterEnabledClient)) {
         LOGGER.error("Current streaming client is invalid, recreating client");
-        this.createOrReplaceClient(connectorConfig);
+        this.parameterEnabledClient = this.streamingClientHandler.createClient(connectorConfig);
       }
-
-      this.clientLock.unlock();
-
-      return this.streamingIngestClient;
+      this.providerLock.unlock();
+      return this.parameterEnabledClient;
     } else {
-      return this.initStreamingClient(connectorConfig);
+      LOGGER.debug("Streaming client optimization is disabled, creating a new streaming client");
+      return this.streamingClientHandler.createClient(connectorConfig);
     }
   }
 
   /**
-   * Initialize the streaming client
+   * Closes the given client
    *
-   * @param connectorConfig The connector config required to create the client
-   * @return An initialized client
+   * @param client The client to be closed
    */
-  private SnowflakeStreamingIngestClient initStreamingClient(Map<String, String> connectorConfig) {
-    this.clientLock.lock();
-
-    String clientName = this.getClientName();
-    LOGGER.info("Initializing Streaming Client... ClientName:{}", clientName);
-
-    // get streaming properties from config
-    Properties streamingClientProps = new Properties();
-    streamingClientProps.putAll(
-        StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig)));
-
-    try {
-      // Override only if bdec version is explicitly set in config, default to the version set
-      // inside Ingest SDK
-      Map<String, Object> parameterOverrides = new HashMap<>();
-      Optional<String> snowpipeStreamingBdecVersion =
-          Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_FILE_VERSION));
-      snowpipeStreamingBdecVersion.ifPresent(
-          overriddenValue -> {
-            LOGGER.info("Config is overridden for {} ", SNOWPIPE_STREAMING_FILE_VERSION);
-            parameterOverrides.put(BLOB_FORMAT_VERSION, overriddenValue);
-          });
-
-      SnowflakeStreamingIngestClient createdClient =
-          SnowflakeStreamingIngestClientFactory.builder(clientName)
-              .setProperties(streamingClientProps)
-              .setParameterOverrides(parameterOverrides)
-              .build();
-
-      this.createdClientId.incrementAndGet();
-      LOGGER.info("Successfully initialized Streaming Client. ClientName:{}", this.getClientName());
-
-      return createdClient;
-    } catch (SFException ex) {
-      LOGGER.error("Exception creating streamingIngestClient with name:{}", this.getClientName());
-      throw new ConnectException(ex);
-    } finally {
-      this.clientLock.unlock();
-    }
-  }
-
-  private String getClientName() {
-    return STREAMING_CLIENT_PREFIX_NAME
-        + this.connectorConfig.getOrDefault(Utils.NAME, "DEFAULT")
-        + "_"
-        + this.createdClientId.get();
+  public void closeClient(SnowflakeStreamingIngestClient client) {
+    this.providerLock.lock();
+    this.streamingClientHandler.closeClient(client);
+    this.providerLock.unlock();
   }
 }
