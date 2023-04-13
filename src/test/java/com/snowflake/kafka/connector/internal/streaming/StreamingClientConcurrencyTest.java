@@ -116,13 +116,22 @@ public class StreamingClientConcurrencyTest {
     // create close callers from got clients
     ProviderCaller closeClientCaller1 =
         new ProviderCaller(
-            "closeClient1", ProviderMethods.CLOSE_CLIENT, this.streamingClientProvider, getClientCaller1.getClient());
+            "closeClient1",
+            ProviderMethods.CLOSE_CLIENT,
+            this.streamingClientProvider,
+            getClientCaller1.getClient());
     ProviderCaller closeClientCaller2 =
         new ProviderCaller(
-            "closeClient2", ProviderMethods.CLOSE_CLIENT, this.streamingClientProvider, getClientCaller2.getClient());
+            "closeClient2",
+            ProviderMethods.CLOSE_CLIENT,
+            this.streamingClientProvider,
+            getClientCaller2.getClient());
     ProviderCaller closeClientCaller3 =
         new ProviderCaller(
-            "closeClient3", ProviderMethods.CLOSE_CLIENT, this.streamingClientProvider, getClientCaller3.getClient());
+            "closeClient3",
+            ProviderMethods.CLOSE_CLIENT,
+            this.streamingClientProvider,
+            getClientCaller3.getClient());
 
     // test: get calls interleaved with close calls
     getClientCaller1 = this.getClientStart(getClientCaller1);
