@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
+import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import static org.junit.Assert.assertEquals;
 
@@ -15,6 +16,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class ConnectorConfigTest {
@@ -163,6 +165,33 @@ public class ConnectorConfigTest {
       Utils.validateConfig(config);
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT);
+    }
+  }
+
+  @Test
+  public void testNonProxyHosts() {
+    String oldNonProxyHosts =
+        (System.getProperty(HTTP_NON_PROXY_HOSTS) != null)
+            ? System.getProperty(HTTP_NON_PROXY_HOSTS)
+            : null;
+
+    System.setProperty(HTTP_NON_PROXY_HOSTS, "host1.com|host2.com|localhost");
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "127.0.0.1");
+    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
+    config.put(
+        SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS,
+        "*.snowflakecomputing.com|*.amazonaws.com");
+    Utils.enableJVMProxy(config);
+    String mergedNonProxyHosts = System.getProperty(HTTP_NON_PROXY_HOSTS);
+    Assert.assertTrue(
+        mergedNonProxyHosts.equals(
+            "host1.com|host2.com|localhost|*.snowflakecomputing.com|*.amazonaws.com"));
+
+    if (oldNonProxyHosts != null) {
+      System.setProperty(HTTP_NON_PROXY_HOSTS, oldNonProxyHosts);
+    } else {
+      System.clearProperty(HTTP_NON_PROXY_HOSTS);
     }
   }
 
