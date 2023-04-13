@@ -2,10 +2,7 @@ package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
-
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.junit.Rule;
 import org.junit.Test;
@@ -198,17 +195,28 @@ public class UtilsTest {
 
     Exception nullMessageEx = new Exception();
     assert Utils.safeGetExceptionMessage(customMessage, nullMessageEx)
-            .equals(Utils.formatString(Utils.SAFE_EXCEPTION_FORMAT, customMessage, Utils.SAFE_EXCEPTION_MISSING_MESSAGE, Utils.SAFE_EXCEPTION_MISSING_CAUSE));
+        .equals(
+            Utils.formatString(
+                Utils.SAFE_EXCEPTION_FORMAT,
+                customMessage,
+                Utils.SAFE_EXCEPTION_MISSING_MESSAGE,
+                Utils.SAFE_EXCEPTION_MISSING_CAUSE));
 
     Exception nullCauseEx = new Exception(exceptionMessage);
     nullCauseEx.initCause(null);
     assert Utils.safeGetExceptionMessage(customMessage, nullCauseEx)
-            .equals(Utils.formatString(Utils.SAFE_EXCEPTION_FORMAT, customMessage, exceptionMessage, Utils.SAFE_EXCEPTION_MISSING_CAUSE));
+        .equals(
+            Utils.formatString(
+                Utils.SAFE_EXCEPTION_FORMAT,
+                customMessage,
+                exceptionMessage,
+                Utils.SAFE_EXCEPTION_MISSING_CAUSE));
 
     Exception stacktraceEx = new Exception(exceptionMessage);
     stacktraceEx.initCause(cause);
     stacktraceEx.getCause().setStackTrace(stackTrace);
     assert Utils.safeGetExceptionMessage(customMessage, stacktraceEx)
-            .equals(Utils.formatString(Utils.SAFE_EXCEPTION_FORMAT, customMessage, exceptionMessage, "[]"));
+        .equals(
+            Utils.formatString(Utils.SAFE_EXCEPTION_FORMAT, customMessage, exceptionMessage, "[]"));
   }
 }

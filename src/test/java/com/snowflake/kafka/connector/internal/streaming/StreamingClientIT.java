@@ -24,9 +24,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.junit.After;
 import org.junit.Before;
@@ -37,6 +34,8 @@ import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
 public class StreamingClientIT {
+  // note: these tests will leak clients, however the clients should autoclose, so it should be ok
+
   private Map<String, String> clientConfig1;
   private Map<String, String> clientConfig2;
   private Map<String, String> clientConfig3;
@@ -72,35 +71,33 @@ public class StreamingClientIT {
     this.streamingClientHandler = Mockito.spy(StreamingClientHandler.class);
     this.streamingClientProvider =
         StreamingClientProvider.injectStreamingClientProviderForTests(
-            new ConcurrentHashMap<>(), null, this.streamingClientHandler);
+            null, this.streamingClientHandler);
   }
 
   @After
-  public void tearDown() {
-    this.streamingClientProvider.closeAllClients();
-  }
+  public void tearDown() {}
 
   @Test
   public void testGetClientConcurrency() throws Exception {
     // setup three get runners
     ProviderCaller getClient1 =
         new ProviderCaller(
+            "getClient1",
             ProviderMethods.GET_CLIENT,
             this.streamingClientProvider,
-            this.clientConfig1,
-            "getClient1");
+            this.clientConfig1);
     ProviderCaller getClient2 =
         new ProviderCaller(
+            "getClient2",
             ProviderMethods.GET_CLIENT,
             this.streamingClientProvider,
-            this.clientConfig2,
-            "getClient2");
+            this.clientConfig2);
     ProviderCaller getClient3 =
         new ProviderCaller(
+            "getClient3",
             ProviderMethods.GET_CLIENT,
             this.streamingClientProvider,
-            this.clientConfig3,
-            "getClient3");
+            this.clientConfig3);
 
     // try a bunch of random get calls at the same time
     getClient1.executeMethod();
@@ -114,9 +111,7 @@ public class StreamingClientIT {
     getClient3.executeMethod();
     getClient3.executeMethod();
     getClient2.executeMethod();
-    getClient3.executeMethod();
     getClient1.executeMethod();
-    getClient2.executeMethod();
 
     // verify clients are valid
     SnowflakeStreamingIngestClient client1 = getClient1.getClient();
@@ -127,7 +122,7 @@ public class StreamingClientIT {
     assert StreamingClientHandler.isClientValid(client2);
     assert StreamingClientHandler.isClientValid(client3);
 
-    // verify same client if optimization is enabled
+    // verify same client if optimization is enabled, or all new clients
     if (this.enableClientOptimization) {
       assert client1.getName().contains("_0");
       assert client1.getName().equals(client2.getName());
@@ -139,49 +134,41 @@ public class StreamingClientIT {
       assert !client1.getName().equals(client3.getName());
       assert !client2.getName().equals(client3.getName());
 
-      Mockito.verify(this.streamingClientHandler, Mockito.times(3)).createClient(Mockito.anyMap());
+      Mockito.verify(this.streamingClientHandler, Mockito.times(4)).createClient(clientConfig1);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(4)).createClient(clientConfig2);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(4)).createClient(clientConfig3);
     }
   }
 
   @Test
   public void testCloseClientConcurrency() throws Exception {
-    ConcurrentMap<String, SnowflakeStreamingIngestClient> clientMap = new ConcurrentHashMap<>();
-    SnowflakeStreamingIngestClient paramEnabledClient = null;
+    // setup provider with active valid client
+    SnowflakeStreamingIngestClient closeClient =
+        this.streamingClientHandler.createClient(this.clientConfig1);
 
-    // setup provider with active valid clients
-    if (this.enableClientOptimization) {
-      paramEnabledClient = this.streamingClientHandler.createClient(this.clientConfig1);
-    } else {
-      SnowflakeStreamingIngestClient client1 = this.streamingClientHandler.createClient(this.clientConfig1);
-      SnowflakeStreamingIngestClient client2 = this.streamingClientHandler.createClient(this.clientConfig3);
-      SnowflakeStreamingIngestClient client3 = this.streamingClientHandler.createClient(this.clientConfig2);
-
-      clientMap.put(this.clientConfig1.get(Utils.TASK_ID), client1);
-      clientMap.put(this.clientConfig2.get(Utils.TASK_ID), client2);
-      clientMap.put(this.clientConfig3.get(Utils.TASK_ID), client3);
-    }
-
-    this.streamingClientProvider = StreamingClientProvider.injectStreamingClientProviderForTests(clientMap, paramEnabledClient, this.streamingClientHandler);
+    this.streamingClientProvider =
+        StreamingClientProvider.injectStreamingClientProviderForTests(
+            closeClient, this.streamingClientHandler);
 
     // setup three close runners
     ProviderCaller getClient1 =
-            new ProviderCaller(
-                    ProviderMethods.CLOSE_ALL_CLIENTS,
-                    this.streamingClientProvider,
-                    this.clientConfig1,
-                    "closeClients1");
+        new ProviderCaller(
+            "closeClients1",
+            ProviderMethods.CLOSE_CLIENT,
+            this.streamingClientProvider,
+            closeClient);
     ProviderCaller getClient2 =
-            new ProviderCaller(
-                    ProviderMethods.CLOSE_ALL_CLIENTS,
-                    this.streamingClientProvider,
-                    this.clientConfig2,
-                    "closeClients2");
+        new ProviderCaller(
+            "closeClients2",
+            ProviderMethods.CLOSE_CLIENT,
+            this.streamingClientProvider,
+            closeClient);
     ProviderCaller getClient3 =
-            new ProviderCaller(
-                    ProviderMethods.CLOSE_ALL_CLIENTS,
-                    this.streamingClientProvider,
-                    this.clientConfig3,
-                    "closeClients3");
+        new ProviderCaller(
+            "closeClients3",
+            ProviderMethods.CLOSE_CLIENT,
+            this.streamingClientProvider,
+            closeClient);
 
     // try a bunch of random close calls at the same time
     getClient1.executeMethod();
@@ -204,159 +191,63 @@ public class StreamingClientIT {
     getClient2.closeAllClients();
     getClient3.closeAllClients();
 
-    // verify clients are closed
-    if (this.enableClientOptimization) {
-      assert !StreamingClientHandler.isClientValid(paramEnabledClient);
-      Mockito.verify(this.streamingClientHandler, Mockito.times(1)).closeClient(paramEnabledClient);
-    } else {
-      clientMap.values().forEach(client -> {
-        assert !StreamingClientHandler.isClientValid(client);
-        Mockito.verify(this.streamingClientHandler, Mockito.times(1)).closeClient(client);
-      });
-    }
+    // verify client is closed
+    assert !StreamingClientHandler.isClientValid(closeClient);
+    Mockito.verify(this.streamingClientHandler, Mockito.times(14)).closeClient(closeClient);
   }
-
-  //  @Test
-  //  public void testCloseAllClientsInvalid() {}
-  //
-  //  @Test
-  //  public void testCloseInvalidClient() throws Exception {
-  //    // inject invalid client
-  //    SnowflakeStreamingIngestClient streamingIngestClient =
-  //        Mockito.mock(SnowflakeStreamingIngestClient.class);
-  //    Mockito.when(streamingIngestClient.isClosed()).thenReturn(true);
-  //    StreamingClientProvider injectedProvider =
-  //        injectStreamingClientProviderForTests(
-  //            new ConcurrentHashMap<>(), streamingIngestClient, this.streamingClientHandler);
-  //
-  //    // try closing client
-  //    injectedProvider.closeAllClients();
-  //
-  //    // verify didn't call close
-  //    Mockito.verify(streamingIngestClient, Mockito.times(0)).close();
-  //  }
-  //
-  //  // PARALLELISM TESTS
-  //
-  //  @Test
-  //  public void testMultiThreadGetEnabledParam() {
-  //    String clientName = "clientName";
-  //    int clientId = 0;
-  //
-  //    // setup
-  //    this.clientConfig1.put(Utils.NAME, clientName);
-  //    StreamingClientProvider injectedProvider =
-  //        injectStreamingClientProviderForTests(
-  //            new ConcurrentHashMap<>(), null, this.streamingClientHandler);
-  //
-  //    GetClientRunnable getClientRunnable1 =
-  //        new GetClientRunnable(injectedProvider, this.clientConfig1, "getClientRunnable1");
-  //    GetClientRunnable getClientRunnable2 =
-  //        new GetClientRunnable(injectedProvider, this.clientConfig1, "getClientRunnable2");
-  //    GetClientRunnable getClientRunnable3 =
-  //        new GetClientRunnable(injectedProvider, this.clientConfig1, "getClientRunnable3");
-  //
-  //    // get client on multiple threads
-  //    getClientRunnable1.start();
-  //    getClientRunnable2.start();
-  //    getClientRunnable3.start();
-  //
-  //    // verify same client
-  //    SnowflakeStreamingIngestClient client1 = getClientRunnable1.getClient();
-  //    SnowflakeStreamingIngestClient client2 = getClientRunnable2.getClient();
-  //    SnowflakeStreamingIngestClient client3 = getClientRunnable3.getClient();
-  //
-  //    assert client1.getName().contains(clientName);
-  //    assert client1.getName().equals(client2.getName());
-  //    assert client2.getName().equals(client3.getName());
-  //  }
-  //
-  //  @Test
-  //  public void testMultiThreadGetDisabledParam() {
-  //    this.clientConfig1.put(
-  //        SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "false");
-  //    String clientName = this.clientConfig1.get(Utils.NAME);
-  //
-  //    // setup
-  //    String taskId1 = "1";
-  //    String taskId2 = "2";
-  //    String taskId3 = "3";
-  //
-  //    Map<String, String> client1Config = new HashMap<>(this.clientConfig1);
-  //    client1Config.put(Utils.TASK_ID, taskId1);
-  //    Map<String, String> client2Config = new HashMap<>(this.clientConfig1);
-  //    client2Config.put(Utils.TASK_ID, taskId2);
-  //    Map<String, String> client3Config = new HashMap<>(this.clientConfig1);
-  //    client3Config.put(Utils.TASK_ID, taskId3);
-  //
-  //    StreamingClientProvider injectedProvider =
-  //        injectStreamingClientProviderForTests(
-  //            new ConcurrentHashMap<>(), null, this.streamingClientHandler);
-  //
-  //    GetClientRunnable getClientRunnable1 =
-  //        new GetClientRunnable(injectedProvider, client1Config, "getClientRunnable1");
-  //    GetClientRunnable getClientRunnable2 =
-  //        new GetClientRunnable(injectedProvider, client2Config, "getClientRunnable2");
-  //    GetClientRunnable getClientRunnable3 =
-  //        new GetClientRunnable(injectedProvider, client3Config, "getClientRunnable3");
-  //
-  //    // get client on multiple threads
-  //    getClientRunnable1.start();
-  //    getClientRunnable2.start();
-  //    getClientRunnable3.start();
-  //
-  //    // verify different client
-  //    SnowflakeStreamingIngestClient resClient1 = getClientRunnable1.getClient();
-  //    SnowflakeStreamingIngestClient resClient2 = getClientRunnable2.getClient();
-  //    SnowflakeStreamingIngestClient resClient3 = getClientRunnable3.getClient();
-  //
-  //    assert resClient1.getName().contains(clientName);
-  //    assert resClient2.getName().contains(clientName);
-  //    assert resClient3.getName().contains(clientName);
-  //    assert !resClient1.getName().equals(resClient2.getName());
-  //    assert !resClient2.getName().equals(resClient3.getName());
-  //    assert !resClient3.getName().equals(resClient1.getName());
-  //  }
-  //
 
   // represents which method this caller will call
   private enum ProviderMethods {
     GET_CLIENT,
-    CLOSE_ALL_CLIENTS
+    CLOSE_CLIENT
   }
 
   private class ProviderCaller implements Runnable {
-    private final ProviderMethods providerMethod;
-
-    private StreamingClientProvider streamingClientProvider;
-    private Map<String, String> config;
-    private SnowflakeStreamingIngestClient gotClient;
-    private String name;
     private Thread thread;
+    private String threadName;
+    private final ProviderMethods providerMethod;
+    private StreamingClientProvider streamingClientProvider;
+
+    private Map<String, String> config;
+
+    private SnowflakeStreamingIngestClient returnClient;
+    private SnowflakeStreamingIngestClient closeClient;
 
     public ProviderCaller(
+        String threadName,
         ProviderMethods providerMethod,
         StreamingClientProvider provider,
-        Map<String, String> config,
-        String name) {
+        Map<String, String> config) {
       this.providerMethod = providerMethod;
-
+      this.threadName = threadName;
       this.streamingClientProvider = provider;
+
       this.config = config;
-      this.name = name;
+    }
+
+    public ProviderCaller(
+        String threadName,
+        ProviderMethods providerMethod,
+        StreamingClientProvider provider,
+        SnowflakeStreamingIngestClient closeClient) {
+      this.providerMethod = providerMethod;
+      this.threadName = threadName;
+      this.streamingClientProvider = provider;
+
+      this.closeClient = closeClient;
     }
 
     @Override
     public void run() {
       if (this.providerMethod.equals(ProviderMethods.GET_CLIENT)) {
-        this.gotClient = this.streamingClientProvider.getClient(this.config);
-      } else if (this.providerMethod.equals(ProviderMethods.CLOSE_ALL_CLIENTS)) {
-        this.streamingClientProvider.closeAllClients();
+        this.returnClient = this.streamingClientProvider.getClient(this.config);
+      } else if (this.providerMethod.equals(ProviderMethods.CLOSE_CLIENT)) {
+        this.streamingClientProvider.closeClient(this.closeClient);
       }
     }
 
     public void executeMethod() {
-      this.thread = new Thread(this, this.name);
+      this.thread = new Thread(this, this.threadName);
       this.thread.start();
     }
 
@@ -365,11 +256,11 @@ public class StreamingClientIT {
         throw new Exception("ProviderCaller not configured for getClient()");
       }
       this.joinMethod();
-      return this.gotClient;
+      return this.returnClient;
     }
 
     public void closeAllClients() throws Exception {
-      if (!this.providerMethod.equals(ProviderMethods.CLOSE_ALL_CLIENTS)) {
+      if (!this.providerMethod.equals(ProviderMethods.CLOSE_CLIENT)) {
         throw new Exception("ProviderCaller not configured for closeAllClients()");
       }
       this.joinMethod();

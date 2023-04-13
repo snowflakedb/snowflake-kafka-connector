@@ -19,11 +19,8 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 
@@ -49,21 +46,18 @@ public class StreamingClientProvider {
   /** ONLY FOR TESTING - to get a provider with injected properties */
   @VisibleForTesting
   public static StreamingClientProvider injectStreamingClientProviderForTests(
-      ConcurrentMap<String, SnowflakeStreamingIngestClient> clients,
       SnowflakeStreamingIngestClient parameterEnabledClient,
       StreamingClientHandler streamingClientHandler) {
-    return new StreamingClientProvider(clients, parameterEnabledClient, streamingClientHandler);
+    return new StreamingClientProvider(parameterEnabledClient, streamingClientHandler);
   }
 
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProvider.class.getName());
-  private ConcurrentMap<String, SnowflakeStreamingIngestClient> streamingIngestClients;
   private SnowflakeStreamingIngestClient parameterEnabledClient;
   private StreamingClientHandler streamingClientHandler;
   private ReentrantLock providerLock;
 
   // private constructor for singleton
   private StreamingClientProvider() {
-    this.streamingIngestClients = new ConcurrentHashMap<>();
     this.streamingClientHandler = new StreamingClientHandler();
     providerLock = new ReentrantLock();
   }
@@ -71,18 +65,17 @@ public class StreamingClientProvider {
   // ONLY FOR TESTING - private constructor to inject properties for testing
   @VisibleForTesting
   private StreamingClientProvider(
-      ConcurrentMap<String, SnowflakeStreamingIngestClient> streamingIngestClients,
       SnowflakeStreamingIngestClient parameterEnabledClient,
       StreamingClientHandler streamingClientHandler) {
     this();
-    this.streamingIngestClients = streamingIngestClients;
     this.parameterEnabledClient = parameterEnabledClient;
     this.streamingClientHandler = streamingClientHandler;
   }
 
   /**
-   * Gets the current client or creates a new one from the given connector config. If client
-   * optimization is not enabled, it will create a new streaming client
+   * Gets the current client or creates a new one from the given connector config If client
+   * optimization is not enabled, it will create a new streaming client and the caller is
+   * responsible for closing it
    *
    * @param connectorConfig The connector config
    * @return A streaming client
@@ -101,32 +94,12 @@ public class StreamingClientProvider {
       this.providerLock.unlock();
       return this.parameterEnabledClient;
     } else {
-      String taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
-      SnowflakeStreamingIngestClient existingClient = this.streamingIngestClients.get(taskId);
-
-      if (StreamingClientHandler.isClientValid(existingClient)) {
-        return this.streamingIngestClients.get(taskId);
-      }
-
-      SnowflakeStreamingIngestClient newClient =
-          this.streamingClientHandler.createClient(connectorConfig);
-      this.streamingIngestClients.put(taskId, newClient);
-
-      return newClient;
+      return this.streamingClientHandler.createClient(connectorConfig);
     }
   }
 
   /** Closes the current client */
-  public void closeAllClients() {
-    this.providerLock.lock();
-    if (this.parameterEnabledClient != null) {
-      this.streamingClientHandler.closeClient(this.parameterEnabledClient);
-      this.parameterEnabledClient = null;
-    }
-    if (!this.streamingIngestClients.isEmpty()) {
-      this.streamingIngestClients.forEach(
-          (taskId, client) -> this.streamingClientHandler.closeClient(client));
-    }
-    this.providerLock.unlock();
+  public void closeClient(SnowflakeStreamingIngestClient client) {
+    this.streamingClientHandler.closeClient(client);
   }
 }

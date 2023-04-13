@@ -670,13 +670,13 @@ public class Utils {
 
   public static String safeGetExceptionMessage(String customMessage, Exception ex) {
     String message =
-            ex.getMessage() == null || ex.getMessage().isEmpty()
-                    ? "missing exception message"
-                    : ex.getMessage();
+        ex.getMessage() == null || ex.getMessage().isEmpty()
+            ? "missing exception message"
+            : ex.getMessage();
     String cause =
-            ex.getCause() == null || ex.getCause().getStackTrace() == null
-                    ? "missing exception cause"
-                    : Arrays.toString(ex.getCause().getStackTrace());
+        ex.getCause() == null || ex.getCause().getStackTrace() == null
+            ? "missing exception cause"
+            : Arrays.toString(ex.getCause().getStackTrace());
 
     return formatString(SAFE_EXCEPTION_FORMAT, customMessage, message, cause);
   }
