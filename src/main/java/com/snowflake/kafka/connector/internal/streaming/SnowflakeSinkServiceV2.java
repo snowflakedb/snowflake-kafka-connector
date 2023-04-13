@@ -117,7 +117,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
 
-    this.streamingIngestClient = StreamingClientProvider.getStreamingClientProviderInstance().getClient(this.connectorConfig);
+    this.streamingIngestClient =
+        StreamingClientProvider.getStreamingClientProviderInstance()
+            .getClient(this.connectorConfig);
 
     this.partitionsToChannel = new HashMap<>();
   }
@@ -152,7 +154,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.sinkTaskContext = sinkTaskContext;
     this.streamingIngestClient = streamingIngestClient;
     this.connectorConfig = connectorConfig;
-    this.streamingIngestClient = StreamingClientProvider.getStreamingClientProviderInstance().getClient(this.connectorConfig);
+    this.streamingIngestClient =
+        StreamingClientProvider.getStreamingClientProviderInstance()
+            .getClient(this.connectorConfig);
     this.enableSchematization = enableSchematization;
     this.partitionsToChannel = partitionsToChannel;
   }
@@ -291,7 +295,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         });
     partitionsToChannel.clear();
 
-    StreamingClientProvider.getStreamingClientProviderInstance().closeClient(this.streamingIngestClient);
+    StreamingClientProvider.getStreamingClientProviderInstance()
+        .closeClient(this.streamingIngestClient);
   }
 
   /**
