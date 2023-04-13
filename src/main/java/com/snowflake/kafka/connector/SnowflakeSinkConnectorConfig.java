@@ -80,6 +80,7 @@ public class SnowflakeSinkConnectorConfig {
   private static final String PROXY_INFO = "Proxy Info";
   public static final String JVM_PROXY_HOST = "jvm.proxy.host";
   public static final String JVM_PROXY_PORT = "jvm.proxy.port";
+  public static final String JVM_NON_PROXY_HOSTS = "jvm.nonProxy.hosts";
   public static final String JVM_PROXY_USERNAME = "jvm.proxy.username";
   public static final String JVM_PROXY_PASSWORD = "jvm.proxy.password";
 
@@ -313,13 +314,23 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Width.NONE,
             JVM_PROXY_PORT)
         .define(
+            JVM_NON_PROXY_HOSTS,
+            Type.STRING,
+            "",
+            Importance.LOW,
+            "JVM option: http.nonProxyHosts",
+            PROXY_INFO,
+            2,
+            ConfigDef.Width.NONE,
+            JVM_NON_PROXY_HOSTS)
+        .define(
             JVM_PROXY_USERNAME,
             Type.STRING,
             "",
             Importance.LOW,
             "JVM proxy username",
             PROXY_INFO,
-            2,
+            3,
             ConfigDef.Width.NONE,
             JVM_PROXY_USERNAME)
         .define(
@@ -329,7 +340,7 @@ public class SnowflakeSinkConnectorConfig {
             Importance.LOW,
             "JVM proxy password",
             PROXY_INFO,
-            3,
+            4,
             ConfigDef.Width.NONE,
             JVM_PROXY_PASSWORD)
         // Connector Config

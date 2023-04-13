@@ -80,6 +80,7 @@ public class Utils {
   public static final String HTTPS_PROXY_PORT = "https.proxyPort";
   public static final String HTTP_PROXY_HOST = "http.proxyHost";
   public static final String HTTP_PROXY_PORT = "http.proxyPort";
+  public static final String HTTP_NON_PROXY_HOSTS = "http.nonProxyHosts";
 
   public static final String JDK_HTTP_AUTH_TUNNELING = "jdk.http.auth.tunneling.disabledSchemes";
   public static final String HTTPS_PROXY_USER = "https.proxyUser";
@@ -268,8 +269,12 @@ public class Utils {
     String port =
         SnowflakeSinkConnectorConfig.getProperty(
             config, SnowflakeSinkConnectorConfig.JVM_PROXY_PORT);
+    String nonProxyHosts =
+        SnowflakeSinkConnectorConfig.getProperty(
+            config, SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS);
     if (host != null && port != null) {
-      LOGGER.info("enable jvm proxy: {}:{}", host, port);
+      LOGGER.info(
+          "enable jvm proxy: {}:{} and bypass proxy for hosts: {}", host, port, nonProxyHosts);
 
       // enable https proxy
       System.setProperty(HTTP_USE_PROXY, "true");
@@ -277,6 +282,17 @@ public class Utils {
       System.setProperty(HTTP_PROXY_PORT, port);
       System.setProperty(HTTPS_PROXY_HOST, host);
       System.setProperty(HTTPS_PROXY_PORT, port);
+
+      // If the user provided the jvm.nonProxy.hosts configuration then we
+      // will append that to the list provided by the JVM argument
+      // -Dhttp.nonProxyHosts and not override it altogether, if it exists.
+      if (nonProxyHosts != null) {
+        nonProxyHosts =
+            (System.getProperty(HTTP_NON_PROXY_HOSTS) != null)
+                ? System.getProperty(HTTP_NON_PROXY_HOSTS) + "|" + nonProxyHosts
+                : nonProxyHosts;
+        System.setProperty(HTTP_NON_PROXY_HOSTS, nonProxyHosts);
+      }
 
       // set username and password
       String username =
