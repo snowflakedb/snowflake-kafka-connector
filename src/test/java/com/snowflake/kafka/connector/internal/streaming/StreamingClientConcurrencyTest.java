@@ -32,7 +32,7 @@ import org.junit.runners.Parameterized;
 import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
-public class StreamingClientIT {
+public class StreamingClientConcurrencyTest {
   // note: these tests will leak clients, however the clients should autoclose, so it should be ok
 
   private Map<String, String> clientConfig1;
@@ -48,7 +48,7 @@ public class StreamingClientIT {
     return Arrays.asList(new Object[][] {{true}, {false}});
   }
 
-  public StreamingClientIT(boolean enableClientOptimization) {
+  public StreamingClientConcurrencyTest(boolean enableClientOptimization) {
     this.enableClientOptimization = enableClientOptimization;
   }
 
