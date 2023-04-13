@@ -25,8 +25,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 
 /**
- * Singleton/factory that provides the streaming client(s). There should only be one provider, but it may
- * provide multiple clients
+ * Singleton/factory that provides the streaming client(s). There should only be one provider, but
+ * it may provide multiple clients
  */
 public class StreamingClientProvider {
   private static class StreamingClientProviderSingleton {
@@ -103,6 +103,7 @@ public class StreamingClientProvider {
 
   /**
    * Closes the given client
+   *
    * @param client The client to be closed
    */
   public void closeClient(SnowflakeStreamingIngestClient client) {

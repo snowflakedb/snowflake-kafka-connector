@@ -36,6 +36,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 public class StreamingClientHandler {
   /**
    * Checks if a given client is valid (not null, open and has a name)
+   *
    * @param client The client to validate
    * @return If the client is valid
    */
@@ -50,6 +51,7 @@ public class StreamingClientHandler {
 
   /**
    * Creates a streaming client from the given config
+   *
    * @param connectorConfig The config to create the client
    * @return A newly created client
    */
@@ -92,6 +94,7 @@ public class StreamingClientHandler {
 
   /**
    * Closes the given client. Swallows any exceptions
+   *
    * @param client The client to be closed
    */
   public void closeClient(SnowflakeStreamingIngestClient client) {
