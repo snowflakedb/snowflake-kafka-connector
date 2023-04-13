@@ -34,6 +34,11 @@ import org.apache.kafka.connect.errors.ConnectException;
 
 /** This class handles all calls to manage the streaming ingestion client */
 public class StreamingClientHandler {
+  /**
+   * Checks if a given client is valid (not null, open and has a name)
+   * @param client The client to validate
+   * @return If the client is valid
+   */
   public static boolean isClientValid(SnowflakeStreamingIngestClient client) {
     return client != null && !client.isClosed() && client.getName() != null;
   }
@@ -43,6 +48,11 @@ public class StreamingClientHandler {
 
   private AtomicInteger createdClientId = new AtomicInteger(0);
 
+  /**
+   * Creates a streaming client from the given config
+   * @param connectorConfig The config to create the client
+   * @return A newly created client
+   */
   public SnowflakeStreamingIngestClient createClient(Map<String, String> connectorConfig) {
     LOGGER.info("Initializing Streaming Client...");
 
@@ -80,6 +90,10 @@ public class StreamingClientHandler {
     }
   }
 
+  /**
+   * Closes the given client. Swallows any exceptions
+   * @param client The client to be closed
+   */
   public void closeClient(SnowflakeStreamingIngestClient client) {
     // don't do anything if client is already invalid
     if (!isClientValid(client)) {
