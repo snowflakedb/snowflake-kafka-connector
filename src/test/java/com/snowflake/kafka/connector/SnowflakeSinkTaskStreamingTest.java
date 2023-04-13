@@ -119,8 +119,6 @@ public class SnowflakeSinkTaskStreamingTest {
             inMemorySinkTaskContext,
             mockStreamingClient,
             config,
-            "0",
-            "TEST_CLIENT",
             false,
             topicPartitionChannelMap);
 

@@ -79,7 +79,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private SinkTaskContext sinkTaskContext;
 
   // ------ Streaming Ingest ------ //
-  private StreamingClientProvider streamingClientProvider;
+  // needs url, username. p8 key, role name
+  private SnowflakeStreamingIngestClient streamingIngestClient;
 
   // Config set in JSON
   private final Map<String, String> connectorConfig;
@@ -116,8 +117,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
 
-    this.streamingClientProvider = StreamingClientProvider.getStreamingClientProviderInstance();
-    this.streamingClientProvider.createOrReplaceClient(this.connectorConfig);
+    this.streamingIngestClient = StreamingClientProvider.getStreamingClientProviderInstance().getClient(this.connectorConfig);
 
     this.partitionsToChannel = new HashMap<>();
   }
@@ -137,8 +137,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       SinkTaskContext sinkTaskContext,
       SnowflakeStreamingIngestClient streamingIngestClient,
       Map<String, String> connectorConfig,
-      String taskId,
-      String streamingIngestClientName,
       boolean enableSchematization,
       Map<String, TopicPartitionChannel> partitionsToChannel) {
     this.flushTimeSeconds = flushTimeSeconds;
@@ -154,8 +152,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.sinkTaskContext = sinkTaskContext;
     this.streamingIngestClient = streamingIngestClient;
     this.connectorConfig = connectorConfig;
-    this.taskId = taskId;
-    this.streamingIngestClientName = streamingIngestClientName;
+    this.streamingIngestClient = StreamingClientProvider.getStreamingClientProviderInstance().getClient(this.connectorConfig);
     this.enableSchematization = enableSchematization;
     this.partitionsToChannel = partitionsToChannel;
   }
@@ -192,7 +189,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     partitionsToChannel.put(
         partitionChannelKey,
         new TopicPartitionChannel(
-            this.streamingClientProvider.getClient(this.connectorConfig),
+            this.streamingIngestClient,
             topicPartition,
             partitionChannelKey, // Streaming channel name
             tableName,
@@ -294,7 +291,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         });
     partitionsToChannel.clear();
 
-    this.streamingClientProvider.closeClient();
+    StreamingClientProvider.getStreamingClientProviderInstance().closeClient(this.streamingIngestClient);
   }
 
   /**
