@@ -108,45 +108,39 @@ public class StreamingClientConcurrencyTest {
             this.streamingClientProvider,
             this.clientConfig3);
 
-    // a bunch of random get calls
-    this.getClientStart(getClientCaller1);
-    this.getClientStart(getClientCaller2);
-    this.getClientStart(getClientCaller2);
-    this.getClientStart(getClientCaller3);
+    // get initial client
     this.getClientStart(getClientCaller1);
     this.getClientStart(getClientCaller2);
     this.getClientStart(getClientCaller3);
-
-    SnowflakeStreamingIngestClient client1 = getClientCaller1.getClient();
-    SnowflakeStreamingIngestClient client2 = getClientCaller2.getClient();
-    SnowflakeStreamingIngestClient client3 = getClientCaller3.getClient();
 
     // create close callers from got clients
     ProviderCaller closeClientCaller1 =
         new ProviderCaller(
-            "closeClient1", ProviderMethods.CLOSE_CLIENT, this.streamingClientProvider, client1);
+            "closeClient1", ProviderMethods.CLOSE_CLIENT, this.streamingClientProvider, getClientCaller1.getClient());
     ProviderCaller closeClientCaller2 =
         new ProviderCaller(
-            "closeClient2", ProviderMethods.CLOSE_CLIENT, this.streamingClientProvider, client2);
+            "closeClient2", ProviderMethods.CLOSE_CLIENT, this.streamingClientProvider, getClientCaller2.getClient());
     ProviderCaller closeClientCaller3 =
         new ProviderCaller(
-            "closeClient3", ProviderMethods.CLOSE_CLIENT, this.streamingClientProvider, client3);
+            "closeClient3", ProviderMethods.CLOSE_CLIENT, this.streamingClientProvider, getClientCaller3.getClient());
 
     // test: get calls interleaved with close calls
     getClientCaller1 = this.getClientStart(getClientCaller1);
-    closeClientCaller1 = this.closeClientStart(closeClientCaller1, getClientCaller1.getClient());
-    getClientCaller2 = this.getClientStart(getClientCaller2);
-    getClientCaller2 = this.getClientStart(getClientCaller2);
-    getClientCaller3 = this.getClientStart(getClientCaller3);
-    getClientCaller3 = this.getClientStart(getClientCaller3);
-    closeClientCaller3 = this.closeClientStart(closeClientCaller3, getClientCaller3.getClient());
-    getClientCaller3 = this.getClientStart(getClientCaller3);
-    closeClientCaller1 = this.closeClientStart(closeClientCaller1, getClientCaller1.getClient());
-    getClientCaller3 = this.getClientStart(getClientCaller3);
     getClientCaller1 = this.getClientStart(getClientCaller1);
     getClientCaller2 = this.getClientStart(getClientCaller2);
-    closeClientCaller2 = this.closeClientStart(closeClientCaller2, getClientCaller2.getClient());
     getClientCaller3 = this.getClientStart(getClientCaller3);
+    getClientCaller1 = this.getClientStart(getClientCaller1);
+    this.closeClientStart(closeClientCaller1, getClientCaller1.getClient());
+    getClientCaller2 = this.getClientStart(getClientCaller2);
+    getClientCaller2 = this.getClientStart(getClientCaller2);
+    getClientCaller3 = this.getClientStart(getClientCaller3);
+    getClientCaller1 = this.getClientStart(getClientCaller1);
+    getClientCaller3 = this.getClientStart(getClientCaller3);
+    this.closeClientStart(closeClientCaller3, getClientCaller3.getClient());
+    getClientCaller3 = this.getClientStart(getClientCaller3);
+    getClientCaller3 = this.getClientStart(getClientCaller3);
+    getClientCaller2 = this.getClientStart(getClientCaller2);
+    this.closeClientStart(closeClientCaller2, getClientCaller2.getClient());
 
     // join all threads
     this.getClientStop(this.getCallers);
