@@ -20,7 +20,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -133,8 +132,8 @@ public class StreamingClientConcurrencyTest {
     // test: get calls interleaved with close calls
     getClientCaller1 = this.getClientStart(getClientCaller1);
     closeClientCaller1 = this.closeClientStart(closeClientCaller1, getClientCaller1.getClient());
-    getClientCaller2= this.getClientStart(getClientCaller2);
-    getClientCaller2= this.getClientStart(getClientCaller2);
+    getClientCaller2 = this.getClientStart(getClientCaller2);
+    getClientCaller2 = this.getClientStart(getClientCaller2);
     getClientCaller3 = this.getClientStart(getClientCaller3);
     getClientCaller3 = this.getClientStart(getClientCaller3);
     closeClientCaller3 = this.closeClientStart(closeClientCaller3, getClientCaller3.getClient());
@@ -142,12 +141,13 @@ public class StreamingClientConcurrencyTest {
     closeClientCaller1 = this.closeClientStart(closeClientCaller1, getClientCaller1.getClient());
     getClientCaller3 = this.getClientStart(getClientCaller3);
     getClientCaller1 = this.getClientStart(getClientCaller1);
-    getClientCaller2= this.getClientStart(getClientCaller2);
+    getClientCaller2 = this.getClientStart(getClientCaller2);
     closeClientCaller2 = this.closeClientStart(closeClientCaller2, getClientCaller2.getClient());
     getClientCaller3 = this.getClientStart(getClientCaller3);
 
     // join all threads
-    this.getClientStop(this.getCallers).forEach(client -> StreamingClientHandler.isClientValid(client));
+    this.getClientStop(this.getCallers)
+        .forEach(client -> StreamingClientHandler.isClientValid(client));
 
     // verification
     int totalGetCount = this.getCallers.size();
@@ -156,9 +156,14 @@ public class StreamingClientConcurrencyTest {
     assert totalGetCount > totalCloseCount;
 
     // should create as many times as it closes if param is enabled
-    this.getClientStop(this.getCallers).forEach(client -> StreamingClientHandler.isClientValid(client));
-    Mockito.verify(this.streamingClientHandler, Mockito.times(this.enableClientOptimization ? totalCloseCount : totalGetCount)).createClient(Mockito.anyMap());
-    Mockito.verify(this.streamingClientHandler, Mockito.times(totalCloseCount)).closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
+    this.getClientStop(this.getCallers)
+        .forEach(client -> StreamingClientHandler.isClientValid(client));
+    Mockito.verify(
+            this.streamingClientHandler,
+            Mockito.times(this.enableClientOptimization ? totalCloseCount : totalGetCount))
+        .createClient(Mockito.anyMap());
+    Mockito.verify(this.streamingClientHandler, Mockito.times(totalCloseCount))
+        .closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
   }
 
   @Test
@@ -196,8 +201,12 @@ public class StreamingClientConcurrencyTest {
     this.getClientStart(getClientCaller3);
 
     // should create just once if param is enabled
-    this.getClientStop(this.getCallers).forEach(client -> StreamingClientHandler.isClientValid(client));
-    Mockito.verify(this.streamingClientHandler, Mockito.times(this.enableClientOptimization ? 1 : this.getCallers.size())).createClient(Mockito.anyMap());
+    this.getClientStop(this.getCallers)
+        .forEach(client -> StreamingClientHandler.isClientValid(client));
+    Mockito.verify(
+            this.streamingClientHandler,
+            Mockito.times(this.enableClientOptimization ? 1 : this.getCallers.size()))
+        .createClient(Mockito.anyMap());
   }
 
   @Test
@@ -260,8 +269,7 @@ public class StreamingClientConcurrencyTest {
     assert !StreamingClientHandler.isClientValid(closeClient3);
 
     if (this.enableClientOptimization) {
-      Mockito.verify(
-              this.streamingClientHandler, Mockito.times(this.closeCallers.size()))
+      Mockito.verify(this.streamingClientHandler, Mockito.times(this.closeCallers.size()))
           .closeClient(closeClient1);
     } else {
       Mockito.verify(this.streamingClientHandler, Mockito.times(this.closeCallers.size()))
@@ -282,7 +290,8 @@ public class StreamingClientConcurrencyTest {
     return resList;
   }
 
-  private ProviderCaller closeClientStart(ProviderCaller closeCaller, SnowflakeStreamingIngestClient client) {
+  private ProviderCaller closeClientStart(
+      ProviderCaller closeCaller, SnowflakeStreamingIngestClient client) {
     // needs new caller since client may be different
     ProviderCaller newCaller =
         new ProviderCaller(
