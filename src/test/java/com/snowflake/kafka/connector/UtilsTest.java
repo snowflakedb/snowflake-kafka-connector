@@ -187,36 +187,36 @@ public class UtilsTest {
   }
 
   @Test
-  public void testSafeGetExceptionMessage() throws Exception {
+  public void testGetExceptionMessage() throws Exception {
     String customMessage = "customMessage";
     String exceptionMessage = "exceptionMessage";
     Exception cause = new Exception("cause");
     StackTraceElement[] stackTrace = new StackTraceElement[0];
 
     Exception nullMessageEx = new Exception();
-    assert Utils.safeGetExceptionMessage(customMessage, nullMessageEx)
+    assert Utils.getExceptionMessage(customMessage, nullMessageEx)
         .equals(
             Utils.formatString(
-                Utils.SAFE_EXCEPTION_FORMAT,
+                Utils.GET_EXCEPTION_FORMAT,
                 customMessage,
-                Utils.SAFE_EXCEPTION_MISSING_MESSAGE,
-                Utils.SAFE_EXCEPTION_MISSING_CAUSE));
+                Utils.GET_EXCEPTION_MISSING_MESSAGE,
+                Utils.GET_EXCEPTION_MISSING_CAUSE));
 
     Exception nullCauseEx = new Exception(exceptionMessage);
     nullCauseEx.initCause(null);
-    assert Utils.safeGetExceptionMessage(customMessage, nullCauseEx)
+    assert Utils.getExceptionMessage(customMessage, nullCauseEx)
         .equals(
             Utils.formatString(
-                Utils.SAFE_EXCEPTION_FORMAT,
+                Utils.GET_EXCEPTION_FORMAT,
                 customMessage,
                 exceptionMessage,
-                Utils.SAFE_EXCEPTION_MISSING_CAUSE));
+                Utils.GET_EXCEPTION_MISSING_CAUSE));
 
     Exception stacktraceEx = new Exception(exceptionMessage);
     stacktraceEx.initCause(cause);
     stacktraceEx.getCause().setStackTrace(stackTrace);
-    assert Utils.safeGetExceptionMessage(customMessage, stacktraceEx)
+    assert Utils.getExceptionMessage(customMessage, stacktraceEx)
         .equals(
-            Utils.formatString(Utils.SAFE_EXCEPTION_FORMAT, customMessage, exceptionMessage, "[]"));
+            Utils.formatString(Utils.GET_EXCEPTION_FORMAT, customMessage, exceptionMessage, "[]"));
   }
 }
