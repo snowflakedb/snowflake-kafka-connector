@@ -101,9 +101,9 @@ public class Utils {
   public static final String TABLE_COLUMN_CONTENT = "RECORD_CONTENT";
   public static final String TABLE_COLUMN_METADATA = "RECORD_METADATA";
 
-  public static final String SAFE_EXCEPTION_FORMAT = "{}, Exception message: {}, cause: {}";
-  public static final String SAFE_EXCEPTION_MISSING_MESSAGE = "missing exception message";
-  public static final String SAFE_EXCEPTION_MISSING_CAUSE = "missing exception cause";
+  public static final String GET_EXCEPTION_FORMAT = "{}, Exception message: {}, cause: {}";
+  public static final String GET_EXCEPTION_MISSING_MESSAGE = "missing exception message";
+  public static final String GET_EXCEPTION_MISSING_CAUSE = "missing exception cause";
 
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
@@ -684,17 +684,23 @@ public class Utils {
     return format;
   }
 
-  public static String safeGetExceptionMessage(String customMessage, Exception ex) {
+  /**
+   * Get the message and cause of a missing exception, handling the null or empty cases of each
+   * @param customMessage A custom message to prepend to the exception
+   * @param ex The message to parse through
+   * @return A string with the custom message and the exceptions message or cause, if exists
+   */
+  public static String getExceptionMessage(String customMessage, Exception ex) {
     String message =
         ex.getMessage() == null || ex.getMessage().isEmpty()
-            ? "missing exception message"
+            ? GET_EXCEPTION_MISSING_MESSAGE
             : ex.getMessage();
     String cause =
         ex.getCause() == null || ex.getCause().getStackTrace() == null
-            ? "missing exception cause"
+            ? GET_EXCEPTION_MISSING_CAUSE
             : Arrays.toString(ex.getCause().getStackTrace());
 
-    return formatString(SAFE_EXCEPTION_FORMAT, customMessage, message, cause);
+    return formatString(GET_EXCEPTION_FORMAT, customMessage, message, cause);
   }
 
   private static void handleInvalidParameters(ImmutableMap<String, String> invalidConfigParams) {

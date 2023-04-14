@@ -34,6 +34,12 @@ import org.apache.kafka.connect.errors.ConnectException;
 
 /** This class handles all calls to manage the streaming ingestion client */
 public class StreamingClientHandler {
+  private static final KCLogger LOGGER = new KCLogger(StreamingClientHandler.class.getName());
+  private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
+  private static final String TEST_CLIENT_NAME = "TEST_CLIENT";
+
+  private AtomicInteger createdClientId = new AtomicInteger(0);
+
   /**
    * Checks if a given client is valid (not null, open and has a name)
    *
@@ -43,11 +49,6 @@ public class StreamingClientHandler {
   public static boolean isClientValid(SnowflakeStreamingIngestClient client) {
     return client != null && !client.isClosed() && client.getName() != null;
   }
-
-  private static final KCLogger LOGGER = new KCLogger(StreamingClientHandler.class.getName());
-  private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
-
-  private AtomicInteger createdClientId = new AtomicInteger(0);
 
   /**
    * Creates a streaming client from the given config
@@ -83,7 +84,7 @@ public class StreamingClientHandler {
               .setParameterOverrides(parameterOverrides)
               .build();
 
-      LOGGER.info("Successfully initialized Streaming Client. ClientName:{}", clientName);
+      LOGGER.info("Successfully initialized Streaming Client:{}", clientName);
 
       return createdClient;
     } catch (SFException ex) {
@@ -98,23 +99,26 @@ public class StreamingClientHandler {
    * @param client The client to be closed
    */
   public void closeClient(SnowflakeStreamingIngestClient client) {
+    LOGGER.info("Closing Streaming Client...", client.getName());
+
     // don't do anything if client is already invalid
     if (!isClientValid(client)) {
+      LOGGER.info("Streaming Client is already closed");
       return;
     }
 
-    LOGGER.info("Closing Streaming Client:{}", client.getName());
     try {
+      String clientName = client.getName();
       client.close();
+      LOGGER.info("Successfully closed Streaming Client:{}", clientName);
     } catch (Exception e) {
-      // the client should auto close, so don't throw an exception here
-      LOGGER.error(Utils.safeGetExceptionMessage("Failure closing Streaming client", e));
+      LOGGER.error(Utils.getExceptionMessage("Failure closing Streaming client", e));
     }
   }
 
   private String getNewClientName(Map<String, String> connectorConfig) {
     return STREAMING_CLIENT_PREFIX_NAME
-        + connectorConfig.getOrDefault(Utils.NAME, "DEFAULT")
+        + connectorConfig.getOrDefault(Utils.NAME, TEST_CLIENT_NAME)
         + "_"
         + createdClientId.getAndIncrement();
   }
