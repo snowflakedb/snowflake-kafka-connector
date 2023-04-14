@@ -27,13 +27,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import org.checkerframework.checker.units.qual.C;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -116,10 +113,14 @@ public class StreamingClientConcurrencyTest {
     getClient1Futures.add(this.callGetClientThread(task1Executor, task1Latch, clientConfig1));
     getClient1Futures.add(this.callGetClientThread(task1Executor, task1Latch, clientConfig1));
     getClient1Futures.add(this.callGetClientThread(task1Executor, task1Latch, clientConfig1));
-    closeClient1Futures.add(this.callCloseClientThread(task1Executor, task1Latch, getClient1Futures.get(getClient1Futures.size() - 1).get()));
+    closeClient1Futures.add(
+        this.callCloseClientThread(
+            task1Executor, task1Latch, getClient1Futures.get(getClient1Futures.size() - 1).get()));
     getClient1Futures.add(this.callGetClientThread(task1Executor, task1Latch, clientConfig1));
     createClientCount++;
-    closeClient1Futures.add(this.callCloseClientThread(task1Executor, task1Latch, getClient1Futures.get(getClient1Futures.size() - 1).get()));
+    closeClient1Futures.add(
+        this.callCloseClientThread(
+            task1Executor, task1Latch, getClient1Futures.get(getClient1Futures.size() - 1).get()));
 
     // task2: get client, close client x3, get client, close client
     CountDownLatch task2Latch = new CountDownLatch(7);
@@ -129,12 +130,20 @@ public class StreamingClientConcurrencyTest {
     createClientCount++;
 
     getClient2Futures.add(this.callGetClientThread(task2Executor, task2Latch, clientConfig1));
-    closeClient2Futures.add(this.callCloseClientThread(task2Executor, task2Latch, getClient2Futures.get(getClient2Futures.size() - 1).get()));
-    closeClient2Futures.add(this.callCloseClientThread(task2Executor, task2Latch, getClient2Futures.get(getClient2Futures.size() - 1).get()));
-    closeClient2Futures.add(this.callCloseClientThread(task2Executor, task2Latch, getClient2Futures.get(getClient2Futures.size() - 1).get()));
+    closeClient2Futures.add(
+        this.callCloseClientThread(
+            task2Executor, task2Latch, getClient2Futures.get(getClient2Futures.size() - 1).get()));
+    closeClient2Futures.add(
+        this.callCloseClientThread(
+            task2Executor, task2Latch, getClient2Futures.get(getClient2Futures.size() - 1).get()));
+    closeClient2Futures.add(
+        this.callCloseClientThread(
+            task2Executor, task2Latch, getClient2Futures.get(getClient2Futures.size() - 1).get()));
     getClient2Futures.add(this.callGetClientThread(task2Executor, task2Latch, clientConfig1));
     createClientCount++;
-    closeClient2Futures.add(this.callCloseClientThread(task2Executor, task2Latch, getClient2Futures.get(getClient2Futures.size() - 1).get()));
+    closeClient2Futures.add(
+        this.callCloseClientThread(
+            task2Executor, task2Latch, getClient2Futures.get(getClient2Futures.size() - 1).get()));
 
     // task3: get client, close client
     CountDownLatch task3Latch = new CountDownLatch(3);
@@ -144,20 +153,30 @@ public class StreamingClientConcurrencyTest {
     createClientCount++;
 
     getClient3Futures.add(this.callGetClientThread(task3Executor, task3Latch, clientConfig1));
-    closeClient3Futures.add(this.callCloseClientThread(task3Executor, task3Latch, getClient3Futures.get(getClient3Futures.size() - 1).get()));
+    closeClient3Futures.add(
+        this.callCloseClientThread(
+            task3Executor, task3Latch, getClient3Futures.get(getClient3Futures.size() - 1).get()));
 
     // add final close to each task, kicking the threads off
-    closeClient1Futures.add(this.callCloseClientThread(task1Executor, task1Latch, getClient1Futures.get(getClient1Futures.size() - 1).get()));
-    closeClient2Futures.add(this.callCloseClientThread(task2Executor, task2Latch, getClient2Futures.get(getClient2Futures.size() - 1).get()));
-    closeClient3Futures.add(this.callCloseClientThread(task3Executor, task3Latch, getClient3Futures.get(getClient3Futures.size() - 1).get()));
+    closeClient1Futures.add(
+        this.callCloseClientThread(
+            task1Executor, task1Latch, getClient1Futures.get(getClient1Futures.size() - 1).get()));
+    closeClient2Futures.add(
+        this.callCloseClientThread(
+            task2Executor, task2Latch, getClient2Futures.get(getClient2Futures.size() - 1).get()));
+    closeClient3Futures.add(
+        this.callCloseClientThread(
+            task3Executor, task3Latch, getClient3Futures.get(getClient3Futures.size() - 1).get()));
 
     task1Latch.await();
     task2Latch.await();
     task3Latch.await();
 
     // verify createClient and closeClient calls
-    int totalCloseCount = closeClient1Futures.size() + closeClient2Futures.size() + closeClient3Futures.size();
-    int totalGetCount = getClient1Futures.size() + getClient2Futures.size() + getClient3Futures.size();
+    int totalCloseCount =
+        closeClient1Futures.size() + closeClient2Futures.size() + closeClient3Futures.size();
+    int totalGetCount =
+        getClient1Futures.size() + getClient2Futures.size() + getClient3Futures.size();
 
     Mockito.verify(
             this.streamingClientHandler,
@@ -167,21 +186,29 @@ public class StreamingClientConcurrencyTest {
         .closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
   }
 
-  private Future<SnowflakeStreamingIngestClient> callGetClientThread(ExecutorService executorService, CountDownLatch countDownLatch, Map<String, String> config) {
-    Future<SnowflakeStreamingIngestClient> future = executorService.submit(() -> {
-      SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(config);
-      countDownLatch.countDown();
-      return client;
-    });
+  private Future<SnowflakeStreamingIngestClient> callGetClientThread(
+      ExecutorService executorService, CountDownLatch countDownLatch, Map<String, String> config) {
+    Future<SnowflakeStreamingIngestClient> future =
+        executorService.submit(
+            () -> {
+              SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(config);
+              countDownLatch.countDown();
+              return client;
+            });
 
     return future;
   }
 
-  private Future callCloseClientThread(ExecutorService executorService, CountDownLatch countDownLatch, SnowflakeStreamingIngestClient client) {
-    Future future = executorService.submit(() -> {
-      streamingClientProvider.closeClient(client);
-      countDownLatch.countDown();
-    });
+  private Future callCloseClientThread(
+      ExecutorService executorService,
+      CountDownLatch countDownLatch,
+      SnowflakeStreamingIngestClient client) {
+    Future future =
+        executorService.submit(
+            () -> {
+              streamingClientProvider.closeClient(client);
+              countDownLatch.countDown();
+            });
 
     return future;
   }
@@ -217,7 +244,8 @@ public class StreamingClientConcurrencyTest {
   @Test
   public void testCloseClientConcurrency() throws Exception {
     int numCloseClientCalls = 10;
-    SnowflakeStreamingIngestClient client = this.streamingClientProvider.getClient(this.clientConfig);
+    SnowflakeStreamingIngestClient client =
+        this.streamingClientProvider.getClient(this.clientConfig);
 
     // setup closeClient threads
     CountDownLatch latch = new CountDownLatch(numCloseClientCalls);
@@ -238,9 +266,7 @@ public class StreamingClientConcurrencyTest {
     }
 
     // Verify that closeClient() was called every time
-    Mockito.verify(
-            this.streamingClientHandler,
-            Mockito.times(numCloseClientCalls))
+    Mockito.verify(this.streamingClientHandler, Mockito.times(numCloseClientCalls))
         .closeClient(client);
   }
 }

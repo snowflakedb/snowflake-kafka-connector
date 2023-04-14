@@ -26,8 +26,9 @@ import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 
 /**
- * Factory that provides the streaming client(s). There should only be one provider, but
- * it may provide multiple clients if optimizations are disabled - see ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG in the {@link SnowflakeSinkConnectorConfig }
+ * Factory that provides the streaming client(s). There should only be one provider, but it may
+ * provide multiple clients if optimizations are disabled - see
+ * ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG in the {@link SnowflakeSinkConnectorConfig }
  */
 public class StreamingClientProvider {
   private static class StreamingClientProviderSingleton {

@@ -120,10 +120,10 @@ public class StreamingClientHandlerTest {
     assert StreamingClientHandler.isClientValid(validClient);
     Mockito.verify(validClient, Mockito.times(1)).isClosed();
     Mockito.verify(validClient, Mockito.times(1)).getName();
-}
+  }
 
-@Test
-    public void testInvalidClient() {
+  @Test
+  public void testInvalidClient() {
     // invalid client - closed
     SnowflakeStreamingIngestClient closedClient =
         Mockito.mock(SnowflakeStreamingIngestClient.class);

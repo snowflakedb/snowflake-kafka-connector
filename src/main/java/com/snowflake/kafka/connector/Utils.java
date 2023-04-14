@@ -686,6 +686,7 @@ public class Utils {
 
   /**
    * Get the message and cause of a missing exception, handling the null or empty cases of each
+   *
    * @param customMessage A custom message to prepend to the exception
    * @param ex The message to parse through
    * @return A string with the custom message and the exceptions message or cause, if exists
