@@ -187,7 +187,7 @@ public class UtilsTest {
   }
 
   @Test
-  public void testSafeGetExceptionMessage() throws Exception {
+  public void testGetExceptionMessage() throws Exception {
     String customMessage = "customMessage";
     String exceptionMessage = "exceptionMessage";
     Exception cause = new Exception("cause");

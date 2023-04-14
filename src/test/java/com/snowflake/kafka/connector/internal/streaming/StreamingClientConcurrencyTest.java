@@ -186,33 +186,6 @@ public class StreamingClientConcurrencyTest {
         .closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
   }
 
-  private Future<SnowflakeStreamingIngestClient> callGetClientThread(
-      ExecutorService executorService, CountDownLatch countDownLatch, Map<String, String> config) {
-    Future<SnowflakeStreamingIngestClient> future =
-        executorService.submit(
-            () -> {
-              SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(config);
-              countDownLatch.countDown();
-              return client;
-            });
-
-    return future;
-  }
-
-  private Future callCloseClientThread(
-      ExecutorService executorService,
-      CountDownLatch countDownLatch,
-      SnowflakeStreamingIngestClient client) {
-    Future future =
-        executorService.submit(
-            () -> {
-              streamingClientProvider.closeClient(client);
-              countDownLatch.countDown();
-            });
-
-    return future;
-  }
-
   @Test
   public void testGetClientConcurrency() throws Exception {
     // setup getClient threads
@@ -268,5 +241,32 @@ public class StreamingClientConcurrencyTest {
     // Verify that closeClient() was called every time
     Mockito.verify(this.streamingClientHandler, Mockito.times(numCloseClientCalls))
         .closeClient(client);
+  }
+
+  private Future<SnowflakeStreamingIngestClient> callGetClientThread(
+      ExecutorService executorService, CountDownLatch countDownLatch, Map<String, String> config) {
+    Future<SnowflakeStreamingIngestClient> future =
+        executorService.submit(
+            () -> {
+              SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(config);
+              countDownLatch.countDown();
+              return client;
+            });
+
+    return future;
+  }
+
+  private Future callCloseClientThread(
+      ExecutorService executorService,
+      CountDownLatch countDownLatch,
+      SnowflakeStreamingIngestClient client) {
+    Future future =
+        executorService.submit(
+            () -> {
+              streamingClientProvider.closeClient(client);
+              countDownLatch.countDown();
+            });
+
+    return future;
   }
 }
