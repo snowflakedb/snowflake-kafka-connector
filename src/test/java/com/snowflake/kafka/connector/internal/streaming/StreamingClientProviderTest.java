@@ -94,7 +94,7 @@ public class StreamingClientProviderTest {
 
     // verify - should create a client regardless of optimization
     assert StreamingClientHandler.isClientValid(this.client1);
-    this.client1.getName().contains(this.clientConfig1.get(Utils.NAME));
+    assert this.client1.getName().contains(this.clientConfig1.get(Utils.NAME));
     Mockito.verify(this.streamingClientHandler, Mockito.times(1)).createClient(this.clientConfig1);
   }
 
@@ -175,5 +175,23 @@ public class StreamingClientProviderTest {
 
     // verify: if optimized, there should only be one closeClient() call
     Mockito.verify(this.streamingClientHandler, Mockito.times(1)).closeClient(this.client1);
+  }
+
+  @Test
+  public void testGetClientMissingConfig() {
+    this.clientConfig1.remove(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG);
+
+    // test actual provider
+    this.client1 = this.streamingClientProvider.getClient(this.clientConfig1);
+    this.client2 = this.streamingClientProvider.getClient(this.clientConfig1);
+
+    // verify - should be two different clients, since missing config defaults to disable optimization
+    assert !this.client1.getName().equals(this.client2.getName());
+
+    assert StreamingClientHandler.isClientValid(this.client1);
+    assert StreamingClientHandler.isClientValid(this.client2);
+    assert this.client1.getName().contains(this.clientConfig1.get(Utils.NAME));
+    assert this.client2.getName().contains(this.clientConfig1.get(Utils.NAME));
+    Mockito.verify(this.streamingClientHandler, Mockito.times(2)).createClient(this.clientConfig1);
   }
 }

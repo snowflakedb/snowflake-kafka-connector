@@ -99,7 +99,7 @@ public class StreamingClientHandler {
    * @param client The client to be closed
    */
   public void closeClient(SnowflakeStreamingIngestClient client) {
-    LOGGER.info("Closing Streaming Client...", client.getName());
+    LOGGER.info("Closing Streaming Client...");
 
     // don't do anything if client is already invalid
     if (!isClientValid(client)) {
