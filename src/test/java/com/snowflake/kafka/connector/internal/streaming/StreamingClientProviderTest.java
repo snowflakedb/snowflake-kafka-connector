@@ -179,13 +179,15 @@ public class StreamingClientProviderTest {
 
   @Test
   public void testGetClientMissingConfig() {
-    this.clientConfig1.remove(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG);
+    this.clientConfig1.remove(
+        SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG);
 
     // test actual provider
     this.client1 = this.streamingClientProvider.getClient(this.clientConfig1);
     this.client2 = this.streamingClientProvider.getClient(this.clientConfig1);
 
-    // verify - should be two different clients, since missing config defaults to disable optimization
+    // verify - should be two different clients, since missing config defaults to disable
+    // optimization
     assert !this.client1.getName().equals(this.client2.getName());
 
     assert StreamingClientHandler.isClientValid(this.client1);
