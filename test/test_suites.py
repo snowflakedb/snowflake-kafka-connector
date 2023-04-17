@@ -42,11 +42,9 @@ from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTa
 
 from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
 
-from test_suit.resilience_tests.test_kc_restart import TestKcRestart
-from test_suit.resilience_tests.test_kc_pause_pressure_then_resume import TestKcPausePressureThenResume
-from test_suit.resilience_tests.test_kc_stop_pressure_then_start import TestKcStopPressureThenStart
-from test_suit.resilience_tests.test_kc_createconnector_twice import TestKcCreateConnectorTwice
-from test_suit.resilience_tests.test_kc_delete_pressure_then_start import TestKcDeletePressureThenStart
+from test_suit.resilience_tests.test_kc_resilience import TestKcResilience
+
+from test_suit.resilience_tests.test_kc_resilience_with_pressure import TestKcResilienceWithPressure
 
 class EndToEndTestSuite:
     '''
@@ -168,20 +166,11 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         ("TestSchemaEvolutionDropTable", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestKcRestart", EndToEndTestSuite(
-            test_instance=TestKcRestart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        ("TestKcResilience", EndToEndTestSuite(
+            test_instance=TestKcResilience(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestKcPausePressureThenResume", EndToEndTestSuite(
-            test_instance=TestKcPausePressureThenResume(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
-        )),
-        ("TestKcStopPressureThenStart", EndToEndTestSuite(
-            test_instance=TestKcStopPressureThenStart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
-        )),
-        ("TestKcCreateConnectorTwice", EndToEndTestSuite(
-            test_instance=TestKcCreateConnectorTwice(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
-        )),
-        ("TestKcDeletePressureThenStart", EndToEndTestSuite(
-            test_instance=TestKcDeletePressureThenStart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        ("TestKcResilienceWithPressure", EndToEndTestSuite(
+            test_instance=TestKcResilienceWithPressure(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         ))
     ])
     return test_suites
