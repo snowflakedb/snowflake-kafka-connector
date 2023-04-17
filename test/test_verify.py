@@ -574,7 +574,7 @@ if __name__ == "__main__":
     kafkaConnectAddress = sys.argv[3]
     testSet = sys.argv[4]
     testVersion = sys.argv[5]
-    nameSalt = "revi" #sys.argv[6]
+    nameSalt = sys.argv[6]
     pressure = (sys.argv[7] == 'true')
     enableSSL = (sys.argv[8] == 'true')
 
