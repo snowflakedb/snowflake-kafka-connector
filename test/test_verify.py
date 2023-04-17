@@ -331,11 +331,6 @@ class KafkaTest:
         r = requests.delete(requestURL, headers=self.httpHeader)
         print(datetime.now().strftime("%H:%M:%S "), r, " delete connector")
 
-    def getConnectorStatus(self, connectorName):
-        requestURL = "http://{}/connectors/{}/status".format(self.kafkaConnectAddress, connectorName)
-        r = requests.get(requestURL, headers=self.httpHeader)
-        print(datetime.now().strftime("%H:%M:%S "), r, " get connector status:{0}, response:{1}".format(r.status_code, r.content))
-
     def closeConnector(self, fileName, nameSalt):
         snowflake_connector_name = fileName.split(".")[0] + nameSalt
         delete_url = "http://{}/connectors/{}".format(self.kafkaConnectAddress, snowflake_connector_name)
@@ -497,14 +492,15 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
 
         from test_suit.test_string_json_proxy import TestStringJsonProxy
         from test_suites import EndToEndTestSuite
-        from collections import OrderedDict
 
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
         print("Proxy Test should be the last test, since it modifies the JVM values")
 
         proxy_tests_suite = [EndToEndTestSuite(
-            test_instance=TestStringJsonProxy(driver, nameSalt), clean=True, run_in_confluent=False, run_in_apache=False
+            test_instance=TestStringJsonProxy(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )]
+
+        end_to_end_proxy_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in proxy_tests_suite]
 
         proxy_suite_clean_enable_list = [single_end_to_end_test.clean for single_end_to_end_test in proxy_tests_suite]
 
@@ -517,7 +513,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         elif testSet != "clean":
             errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-        execution(testSet, proxy_tests_suite, proxy_suite_clean_enable_list, proxy_suite_runner, driver, nameSalt)
+        execution(testSet, end_to_end_proxy_tests_suite, proxy_suite_clean_enable_list, proxy_suite_runner, driver, nameSalt)
         ############################ Proxy End To End Test End ############################
 
 
@@ -545,7 +541,7 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
                         print(datetime.now().strftime("%H:%M:%S "), "=== Done " + test.__class__.__name__ + " ===",
                               flush=True)
 
-                #driver.verifyWaitTime()
+                driver.verifyWaitTime()
 
                 for i, test in enumerate(testSuitList):
                     if testSuitEnableList[i]:
@@ -574,7 +570,7 @@ if __name__ == "__main__":
     kafkaConnectAddress = sys.argv[3]
     testSet = sys.argv[4]
     testVersion = sys.argv[5]
-    nameSalt = 'revi' #sys.argv[6]
+    nameSalt = sys.argv[6]
     pressure = (sys.argv[7] == 'true')
     enableSSL = (sys.argv[8] == 'true')
 
