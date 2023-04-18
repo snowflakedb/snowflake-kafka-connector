@@ -34,27 +34,28 @@ class TestKcDeleteResumePressure:
         self.__sendbytes()
         print("Waiting {} seconds for method to complete".format(str(self.sleepTime)))
         sleep(self.sleepTime)
-        self.expectedsends = self.expectedsends - 1 # resume will not recreate the connector, so new data will not show up
 
         self.driver.resumeConnector(self.connectorName)
         print("Waiting {} seconds for method to complete".format(str(self.sleepTime)))
         sleep(self.sleepTime)
 
         self.__sendbytes()
-        self.expectedsends = self.expectedsends - 1
+        self.expectedsends = self.expectedsends - 1 # resume will not recreate the connector, so new data will not show up
 
     def verify(self, round):
         # verify record count
-        goalCount = self.recordNum * self.expectedsends
+        # since the pressure is applied during deletion, some of the data may be ingested, so look for a range
+        goalCountUpper = self.recordNum * self.expectedsends
+        goalCountLower = self.recordNum * (self.expectedsends - 1)
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
 
         print("Count records in table {}={}. Goal record count: {}".format(self.topic, str(res), str(goalCount)))
 
-        if res < goalCount:
+        if res < goalCountLower:
             print("Less records than expected, will retry")
             raise RetryableError()
-        elif res > goalCount:
+        elif res > goalCountUpper:
             print("Topic:" + self.topic + " count is more, duplicates detected")
             raise NonRetryableError("Duplication occurred, number of record in table is larger than number of record sent")
         else:
