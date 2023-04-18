@@ -42,9 +42,18 @@ from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTa
 
 from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
 
-from test_suit.resilience_tests.test_kc_resilience import TestKcResilience
-
-from test_suit.resilience_tests.test_kc_resilience_with_pressure import TestKcResilienceWithPressure
+# res tests
+from test_suit.resilience_tests.test_kc_delete_create import TestKcDeleteCreate
+from test_suit.resilience_tests.test_kc_delete_create_pressure import TestKcDeleteCreatePressure
+from test_suit.resilience_tests.test_kc_delete_resume import TestKcDeleteResume
+from test_suit.resilience_tests.test_kc_delete_resume_pressure import TestKcDeleteResumePressure
+from test_suit.resilience_tests.test_kc_pause_create import TestKcPauseCreate
+from test_suit.resilience_tests.test_kc_pause_create_pressure import TestKcPauseCreatePressure
+from test_suit.resilience_tests.test_kc_pause_resume import TestKcPauseResume
+from test_suit.resilience_tests.test_kc_pause_resume_pressure import TestKcPauseResumePressure
+from test_suit.resilience_tests.test_kc_recreate import TestKcRecreate
+from test_suit.resilience_tests.test_kc_recreate_pressure import TestKcRecreatePressure
+from test_suit.resilience_tests.test_kc_restart import TestKcRestart
 
 class EndToEndTestSuite:
     '''
@@ -166,12 +175,39 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         ("TestSchemaEvolutionDropTable", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestKcResilience", EndToEndTestSuite(
-            test_instance=TestKcResilience(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        ("TestKcDeleteCreate", EndToEndTestSuite(
+            test_instance=TestKcDeleteCreate(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestKcResilienceWithPressure", EndToEndTestSuite(
-            test_instance=TestKcResilienceWithPressure(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
-        ))
+        ("TestKcDeleteCreatePressure", EndToEndTestSuite(
+            test_instance=TestKcDeleteCreatePressure(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcDeleteResume", EndToEndTestSuite(
+            test_instance=TestKcDeleteResume(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcDeleteResumePressure", EndToEndTestSuite(
+            test_instance=TestKcDeleteResumePressure(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcPauseCreate", EndToEndTestSuite(
+            test_instance=TestKcPauseCreate(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcPauseCreatePressure", EndToEndTestSuite(
+            test_instance=TestKcPauseCreatePressure(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcPauseResume", EndToEndTestSuite(
+            test_instance=TestKcPauseResume(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcPauseResumePressure", EndToEndTestSuite(
+            test_instance=TestKcPauseResumePressure(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcRecreate", EndToEndTestSuite(
+            test_instance=TestKcRecreate(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcRecreatePressure", EndToEndTestSuite(
+            test_instance=TestKcRecreatePressure(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcRestart", EndToEndTestSuite(
+            test_instance=TestKcRestart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
     ])
     return test_suites
 
