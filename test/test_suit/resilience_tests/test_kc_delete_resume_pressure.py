@@ -50,7 +50,7 @@ class TestKcDeleteResumePressure:
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
 
-        print("Count records in table {}={}. Goal record count: {}".format(self.topic, str(res), str(goalCount)))
+        print("Count records in table {}={}. Goal record count between: {} - {}".format(self.topic, str(res), str(goalCountLower), str(goalCountUpper)))
 
         if res < goalCountLower:
             print("Less records than expected, will retry")
