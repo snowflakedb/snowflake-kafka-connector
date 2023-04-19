@@ -4,6 +4,12 @@ from test_suit.test_utils import RetryableError, NonRetryableError, ResetAndRetr
 import json
 from time import sleep
 
+# sends data 1/3
+# pauses the connector
+# sends data 2/3
+# resumes the connector
+# sends data 3/3
+# verifies that 3 rounds of data were ingested
 class TestKcPauseResumePressure:
     def __init__(self, driver, nameSalt):
         self.driver = driver
