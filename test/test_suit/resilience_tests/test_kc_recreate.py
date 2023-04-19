@@ -4,6 +4,11 @@ from test_suit.test_utils import RetryableError, NonRetryableError, ResetAndRetr
 import json
 from time import sleep
 
+# sends data 1/2
+# creates the connector 1/2
+# creates the connector 2/2
+# sends data 2/2
+# verifies that 2 rounds of data were ingested
 class TestKcRecreate:
     def __init__(self, driver, nameSalt):
         self.driver = driver

@@ -4,6 +4,12 @@ from test_suit.test_utils import RetryableError, NonRetryableError, ResetAndRetr
 import json
 from time import sleep
 
+# sends data 1/3
+# deletes the connector
+# sends data 2/3
+# resumes the connector (will not work, because connector was deleted)
+# sends data 2/3
+# verifies that 2-3 rounds of data was ingested, since some round 2 data may have been ingested prior to connector deletion
 class TestKcDeleteResumePressure:
     def __init__(self, driver, nameSalt):
         self.driver = driver
