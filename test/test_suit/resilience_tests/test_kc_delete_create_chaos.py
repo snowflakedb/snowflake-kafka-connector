@@ -5,16 +5,16 @@ import json
 from time import sleep
 
 # sends data 1/3
-# creates the connector 1/2
+# deletes the connector
 # sends data 2/3
-# creates the connector 2/2
+# creates the connector
 # sends data 3/3
 # verifies that 3 rounds of data were ingested
-class TestKcRecreatePressure:
+class TestKcDeleteCreateChaos:
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.nameSalt = nameSalt
-        self.fileName = "test_kc_recreate_pressure"
+        self.fileName = "test_kc_delete_create_chaos"
         self.topic = self.fileName + nameSalt
         self.connectorName = self.fileName + nameSalt
 
@@ -35,7 +35,9 @@ class TestKcRecreatePressure:
     def send(self):
         self.__sendbytes()
 
-        self.driver.createConnector(self.getConfigFileName(), self.nameSalt)
+        self.driver.deleteConnector(self.connectorName)
+        print("Adding pressure while method is executing")
+        self.__sendbytes()
         print("Waiting {} seconds for method to complete".format(str(self.sleepTime)))
         sleep(self.sleepTime)
 

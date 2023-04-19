@@ -5,16 +5,16 @@ import json
 from time import sleep
 
 # sends data 1/3
-# pauses the connector
+# deletes the connector
 # sends data 2/3
-# creates the connector
-# sends data 3/3
-# verifies that 3 rounds of data were ingested
-class TestKcPauseCreatePressure:
+# resumes the connector (will not work, because connector was deleted)
+# sends data 2/3
+# verifies that 2-3 rounds of data was ingested, since some round 2 data may have been ingested prior to connector deletion
+class TestKcDeleteResumeChaos:
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.nameSalt = nameSalt
-        self.fileName = "test_kc_pause_create_pressure"
+        self.fileName = "test_kc_delete_resume_chaos"
         self.topic = self.fileName + nameSalt
         self.connectorName = self.fileName + nameSalt
 
@@ -35,30 +35,33 @@ class TestKcPauseCreatePressure:
     def send(self):
         self.__sendbytes()
 
-        self.driver.pauseConnector(self.connectorName)
+        self.driver.deleteConnector(self.connectorName)
         print("Adding pressure while method is executing")
         self.__sendbytes()
         print("Waiting {} seconds for method to complete".format(str(self.sleepTime)))
         sleep(self.sleepTime)
 
-        self.driver.createConnector(self.getConfigFileName(), self.nameSalt)
+        self.driver.resumeConnector(self.connectorName)
         print("Waiting {} seconds for method to complete".format(str(self.sleepTime)))
         sleep(self.sleepTime)
 
         self.__sendbytes()
+        self.expectedsends = self.expectedsends - 1 # resume will not recreate the connector, so new data will not show up
 
     def verify(self, round):
         # verify record count
-        goalCount = self.recordNum * self.expectedsends
+        # since the pressure is applied during deletion, some of the data may be ingested, so look for a range
+        goalCountUpper = self.recordNum * self.expectedsends
+        goalCountLower = self.recordNum * (self.expectedsends - 1)
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
 
-        print("Count records in table {}={}. Goal record count: {}".format(self.topic, str(res), str(goalCount)))
+        print("Count records in table {}={}. Goal record count between: {} - {}".format(self.topic, str(res), str(goalCountLower), str(goalCountUpper)))
 
-        if res < goalCount:
+        if res < goalCountLower:
             print("Less records than expected, will retry")
             raise RetryableError()
-        elif res > goalCount:
+        elif res > goalCountUpper:
             print("Topic:" + self.topic + " count is more, duplicates detected")
             raise NonRetryableError("Duplication occurred, number of record in table is larger than number of record sent")
         else:

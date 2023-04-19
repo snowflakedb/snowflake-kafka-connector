@@ -7,14 +7,14 @@ from time import sleep
 # sends data 1/3
 # pauses the connector
 # sends data 2/3
-# resumes the connector
+# creates the connector
 # sends data 3/3
 # verifies that 3 rounds of data were ingested
-class TestKcPauseResumePressure:
+class TestKcPauseCreateChaos:
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.nameSalt = nameSalt
-        self.fileName = "test_kc_pause_resume_pressure"
+        self.fileName = "test_kc_pause_create_chaos"
         self.topic = self.fileName + nameSalt
         self.connectorName = self.fileName + nameSalt
 
@@ -41,7 +41,7 @@ class TestKcPauseResumePressure:
         print("Waiting {} seconds for method to complete".format(str(self.sleepTime)))
         sleep(self.sleepTime)
 
-        self.driver.resumeConnector(self.connectorName)
+        self.driver.createConnector(self.getConfigFileName(), self.nameSalt)
         print("Waiting {} seconds for method to complete".format(str(self.sleepTime)))
         sleep(self.sleepTime)
 
