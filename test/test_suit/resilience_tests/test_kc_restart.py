@@ -4,11 +4,15 @@ from test_suit.test_utils import RetryableError, NonRetryableError, ResetAndRetr
 import json
 from time import sleep
 
-# sends data 1/2
-# recreates the connector
-# sends data 2/2
-# verifies that 2 rounds of data were ingested
-# note: a pressure test cannot be created with this, since restart is just one method
+# sends data 1/3
+# restarts the connector
+# sends data 2/3
+# restarts the connector AND all tasks
+# sends data 3/3
+# verifies that 3 rounds of data were ingested
+
+# a pressure test cannot be created with this, since restart is just one method
+# restarting the connector and restarting the connector and all its tasks should technically be separate tests, but should be fine to group here
 class TestKcRestart:
     def __init__(self, driver, nameSalt):
         self.driver = driver
@@ -35,6 +39,12 @@ class TestKcRestart:
         self.__sendbytes()
 
         self.driver.restartConnector(self.connectorName)
+        print("Waiting {} seconds for method to complete".format(str(self.sleepTime)))
+        sleep(self.sleepTime)
+
+        self.__sendbytes()
+
+        self.driver.restartConnectorAndTasks(self.connectorName)
         print("Waiting {} seconds for method to complete".format(str(self.sleepTime)))
         sleep(self.sleepTime)
 
