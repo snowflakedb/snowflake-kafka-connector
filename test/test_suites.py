@@ -42,6 +42,19 @@ from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTa
 
 from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
 
+# res tests
+from test_suit.resilience_tests.test_kc_delete_create import TestKcDeleteCreate
+from test_suit.resilience_tests.test_kc_delete_create_chaos import TestKcDeleteCreateChaos
+from test_suit.resilience_tests.test_kc_delete_resume import TestKcDeleteResume
+from test_suit.resilience_tests.test_kc_delete_resume_chaos import TestKcDeleteResumeChaos
+from test_suit.resilience_tests.test_kc_pause_create import TestKcPauseCreate
+from test_suit.resilience_tests.test_kc_pause_create_chaos import TestKcPauseCreateChaos
+from test_suit.resilience_tests.test_kc_pause_resume import TestKcPauseResume
+from test_suit.resilience_tests.test_kc_pause_resume_chaos import TestKcPauseResumeChaos
+from test_suit.resilience_tests.test_kc_recreate import TestKcRecreate
+from test_suit.resilience_tests.test_kc_recreate_chaos import TestKcRecreateChaos
+from test_suit.resilience_tests.test_kc_restart import TestKcRestart
+
 class EndToEndTestSuite:
     '''
     Placeholder class for defining what a single end to end test looks like.
@@ -160,7 +173,40 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         )),
         ("TestSchemaEvolutionDropTable", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
-        ))
+        )),
+        ("TestKcDeleteCreate", EndToEndTestSuite(
+            test_instance=TestKcDeleteCreate(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcDeleteCreateChaos", EndToEndTestSuite(
+            test_instance=TestKcDeleteCreateChaos(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcDeleteResume", EndToEndTestSuite(
+            test_instance=TestKcDeleteResume(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcDeleteResumeChaos", EndToEndTestSuite(
+            test_instance=TestKcDeleteResumeChaos(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcPauseCreate", EndToEndTestSuite(
+            test_instance=TestKcPauseCreate(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcPauseCreateChaos", EndToEndTestSuite(
+            test_instance=TestKcPauseCreateChaos(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcPauseResume", EndToEndTestSuite(
+            test_instance=TestKcPauseResume(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcPauseResumeChaos", EndToEndTestSuite(
+            test_instance=TestKcPauseResumeChaos(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcRecreate", EndToEndTestSuite(
+            test_instance=TestKcRecreate(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcRecreateChaos", EndToEndTestSuite(
+            test_instance=TestKcRecreateChaos(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestKcRestart", EndToEndTestSuite(
+            test_instance=TestKcRestart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
     ])
     return test_suites
 
