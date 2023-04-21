@@ -257,6 +257,17 @@ public class TestUtils {
     return configuration;
   }
 
+  public static Map<String, String> getConfForStreamingWithEncryptedKey() {
+    Map<String, String> config = getConfForStreaming();
+
+    config.remove(Utils.SF_PRIVATE_KEY);
+    config.put(Utils.SF_PRIVATE_KEY, getEncryptedPrivateKey());
+    config.put(Utils.PRIVATE_KEY_PASSPHRASE, getPrivateKeyPassphrase());
+
+    return config;
+  }
+
+
   /** @return JDBC config with encrypted private key */
   static Map<String, String> getConfWithEncryptedKey() {
     if (conf == null) {
@@ -375,6 +386,11 @@ public class TestUtils {
   /** @return snowflake connection for test */
   public static SnowflakeConnectionService getConnectionService() {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
+  }
+
+  /** @return snowflake connection for test */
+  public static SnowflakeConnectionService getConnectionServiceStreamingWithEncryptedKey() {
+    return SnowflakeConnectionServiceFactory.builder().setProperties(getConfForStreamingWithEncryptedKey()).build();
   }
 
   /**

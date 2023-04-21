@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -16,6 +17,8 @@ import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
+import org.mockito.Mockito;
+
 
 public class SchematizationUtilsTest {
   @Rule public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
@@ -91,5 +94,55 @@ public class SchematizationUtilsTest {
             recordWithoutSchema, Arrays.asList(columnName1, columnName2));
     Assert.assertEquals("VARCHAR", columnToTypes.get(columnName1));
     Assert.assertEquals("VARCHAR", columnToTypes.get(columnName2));
+  }
+
+  @Test
+  public void testReservedKeywordColumnName() {
+    SnowflakeConnectionService conn = Mockito.mock(SnowflakeConnectionService.class);
+    JsonConverter converter = new JsonConverter();
+    Map<String, String> converterConfig = new HashMap<>();
+    converterConfig.put("schemas.enable", "true");
+    converter.configure(converterConfig, false);
+    String jsonWithSchema =
+            ""
+                    + "{\n"
+                    + "  \"schema\": {\n"
+                    + "    \"type\": \"struct\",\n"
+                    + "    \"fields\": [\n"
+                    + "      {\n"
+                    + "        \"type\": \"string\",\n"
+                    + "        \"optional\": false,\n"
+                    + "        \"field\": \"all\"\n"
+                    + "      }\n"
+                    + "    ],\n"
+                    + "    \"optional\": false,\n"
+                    + "    \"name\": \"sf.kc.test.all\"\n"
+                    + "  },\n"
+                    + "  \"payload\": {\n"
+                    + "    \"all\": \"some-value\"\n"
+                    + "  }\n"
+                    + "}";
+    SchemaAndValue schemaAndValue =
+            converter.toConnectData("topic", jsonWithSchema.getBytes(StandardCharsets.UTF_8));
+    String columnName1 = "regionid";
+    String columnName2 = "gender";
+    SinkRecord recordWithoutSchema =
+            new SinkRecord(
+                    "topic",
+                    0,
+                    null,
+                    null,
+                    schemaAndValue.schema(),
+                    schemaAndValue.value(),
+                    0,
+                    System.currentTimeMillis(),
+                    TimestampType.CREATE_TIME);
+    SchematizationUtils.evolveSchemaIfNeeded(
+            conn,
+            "testtbl",
+            null,
+            Arrays.asList("all"),
+            recordWithoutSchema
+    );
   }
 }

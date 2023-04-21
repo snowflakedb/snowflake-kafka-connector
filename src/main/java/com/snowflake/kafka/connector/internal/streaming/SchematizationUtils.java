@@ -96,8 +96,12 @@ public class SchematizationUtils {
     // Add columns if needed, ignore any exceptions since other task might be succeeded
     if (extraColNames != null) {
       List<String> fieldNamesOrderedAsOnSource = Stream.concat(
-          record.keySchema() != null ? record.keySchema().fields().stream().map(f -> f.name()) : Stream.empty(),
-          record.valueSchema() != null ? record.valueSchema().fields().stream().map(f -> f.name())  : Stream.empty()
+          record.keySchema() != null ?
+                  record.keySchema().fields().stream().map(f -> f.name())
+                  : Stream.<String>empty(),
+          record.valueSchema() != null ?
+                  record.valueSchema().fields().stream().map(f -> f.name())
+                  : Stream.<String>empty()
         ).collect(Collectors.toList());
       List<String> extraColNamesOrderedAsOnSource = new ArrayList<>(extraColNames);
       extraColNamesOrderedAsOnSource.sort(

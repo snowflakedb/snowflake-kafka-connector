@@ -5,6 +5,7 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.SchematizationUtils;
+import com.snowflake.kafka.connector.internal.streaming.SnowflakeReservedKeywords;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
 import java.io.ByteArrayInputStream;
@@ -496,8 +497,12 @@ public class SnowflakeConnectionServiceV1 extends EnableLogging
         appendColumnQuery.append(", ");
         logColumn.append(",");
       }
+      String colNameToAdd = columnName;
+      if (SnowflakeReservedKeywords.isReserved(columnName)) {
+        colNameToAdd = "\"" + columnName.toLowerCase() + "\"";
+      }
       appendColumnQuery
-          .append(columnName)
+          .append(colNameToAdd)
           .append(" ")
           .append(columnToType.get(columnName))
           .append(" comment 'column created by schema evolution from Snowflake Kafka Connector'");
