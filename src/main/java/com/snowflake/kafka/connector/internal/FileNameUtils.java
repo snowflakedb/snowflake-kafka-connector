@@ -4,7 +4,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class FileNameUtils {
-  private static final LoggerHandler LOGGER = new LoggerHandler(FileNameUtils.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(FileNameUtils.class.getName());
 
   /**
    * generate file name File Name Format: app/table/partition/start_end_timeStamp.fileFormat.gz

@@ -4,6 +4,10 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 from time import sleep
 
+'''
+Testing this doesnt require a custom DLQ api to be invoked since this is happening at connect level. 
+i.e the bad message being to Kafka is not being serialized at Converter level. 
+'''
 class TestSnowpipeStreamingStringJsonDLQ:
     def __init__(self, driver, nameSalt):
         self.driver = driver

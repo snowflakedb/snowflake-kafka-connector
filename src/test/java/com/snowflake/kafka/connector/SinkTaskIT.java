@@ -3,7 +3,7 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
@@ -36,7 +36,7 @@ public class SinkTaskIT {
   @Mock Logger logger = Mockito.mock(Logger.class);
 
   @InjectMocks @Spy
-  private LoggerHandler loggerHandler = Mockito.spy(new LoggerHandler(this.getClass().getName()));
+  private KCLogger kcLogger = Mockito.spy(new KCLogger(this.getClass().getName()));
 
   @InjectMocks private SnowflakeSinkTask task1 = new SnowflakeSinkTask();
 
@@ -218,7 +218,7 @@ public class SinkTaskIT {
     task1.start(task1Config);
 
     // verify task1 start logs
-    Mockito.verify(loggerHandler, Mockito.times(1))
+    Mockito.verify(kcLogger, Mockito.times(1))
         .setLoggerInstanceTag(Mockito.contains(expectedTask1Tag));
     Mockito.verify(logger, Mockito.times(2))
         .debug(

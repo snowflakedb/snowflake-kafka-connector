@@ -12,7 +12,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -50,8 +50,7 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
  */
 public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
-  private static final LoggerHandler LOGGER =
-      new LoggerHandler(SnowflakeSinkServiceV2.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceV2.class.getName());
 
   private static String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
 
@@ -78,10 +77,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // default is true unless the configuration provided is false;
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
-
-  // We will make this non configurable if ingestion method is SNOWPIPE_STREAMING
-  private SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
-      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE;
 
   /**
    * Fetching this from {@link org.apache.kafka.connect.sink.SinkTaskContext}'s {@link
@@ -142,6 +137,44 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.partitionsToChannel = new HashMap<>();
   }
 
+  @VisibleForTesting
+  public SnowflakeSinkServiceV2(
+      long flushTimeSeconds,
+      long fileSizeBytes,
+      long recordNum,
+      SnowflakeConnectionService conn,
+      RecordService recordService,
+      SnowflakeTelemetryService telemetryService,
+      Map<String, String> topicToTableMap,
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues,
+      boolean enableCustomJMXMonitoring,
+      KafkaRecordErrorReporter kafkaRecordErrorReporter,
+      SinkTaskContext sinkTaskContext,
+      SnowflakeStreamingIngestClient streamingIngestClient,
+      Map<String, String> connectorConfig,
+      String taskId,
+      String streamingIngestClientName,
+      boolean enableSchematization,
+      Map<String, TopicPartitionChannel> partitionsToChannel) {
+    this.flushTimeSeconds = flushTimeSeconds;
+    this.fileSizeBytes = fileSizeBytes;
+    this.recordNum = recordNum;
+    this.conn = conn;
+    this.recordService = recordService;
+    this.telemetryService = telemetryService;
+    this.topicToTableMap = topicToTableMap;
+    this.behaviorOnNullValues = behaviorOnNullValues;
+    this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
+    this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
+    this.sinkTaskContext = sinkTaskContext;
+    this.streamingIngestClient = streamingIngestClient;
+    this.connectorConfig = connectorConfig;
+    this.taskId = taskId;
+    this.streamingIngestClientName = streamingIngestClientName;
+    this.enableSchematization = enableSchematization;
+    this.partitionsToChannel = partitionsToChannel;
+  }
+
   /**
    * Creates a table if it doesnt exist in Snowflake.
    *
@@ -183,7 +216,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.kafkaRecordErrorReporter,
             this.sinkTaskContext,
             this.conn,
-            this.recordService));
+            this.recordService,
+            this.conn.getTelemetryClient()));
   }
 
   /**
@@ -412,14 +446,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     return this.behaviorOnNullValues;
   }
 
-  @Override
-  public void setDeliveryGuarantee(
-      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
-    assert ingestionDeliveryGuarantee
-        == SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE;
-    this.ingestionDeliveryGuarantee = ingestionDeliveryGuarantee;
-  }
-
   /* Set this to send records to DLQ. */
   @Override
   public void setErrorReporter(KafkaRecordErrorReporter kafkaRecordErrorReporter) {
@@ -444,7 +470,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * @return combinartion of topic and partition
    */
   @VisibleForTesting
-  protected static String partitionChannelKey(String topic, int partition) {
+  public static String partitionChannelKey(String topic, int partition) {
     return topic + "_" + partition;
   }
 
