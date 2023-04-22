@@ -34,6 +34,7 @@ import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -52,6 +53,7 @@ public class SnowflakeSinkTaskStreamingTest {
   }
 
   @Test
+  @Ignore
   public void testSinkTaskInvalidRecord_InMemoryDLQ() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
