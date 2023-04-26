@@ -42,7 +42,6 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.Pair;
 import net.snowflake.ingest.utils.SFException;
-import org.apache.kafka.clients.consumer.InvalidOffsetException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -94,6 +93,28 @@ public class TopicPartitionChannel {
   // every time we fetch it from Snowflake
   private final AtomicLong processedOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+
+  /**
+   * Offsets are reset in kafka when one of following cases arises in which we rely on source of
+   * truth (Which is Snowflake's committed offsetToken)
+   *
+   * <ol>
+   *   <li>If channel fails to fetch offsetToken from Snowflake, we reopen the channel and try to
+   *       fetch offset from Snowflake again
+   *   <li>If channel fails to ingest a buffer(Buffer containing rows/offsets), we reopen the
+   *       channel and try to fetch offset from Snowflake again
+   * </ol>
+   *
+   * <p>In both cases above, we ask Kafka to send back offsets, strictly from offset number after
+   * the offset present in Snowflake. i.e of Snowflake has offsetToken = x, we are asking Kafka to
+   * start sending offsets again from x + 1
+   *
+   * <p>We reset the boolean to false when we see the desired offset from Kafka
+   *
+   * <p>This boolean is used to indicate that we reset offset in kafka and we will only buffer once
+   * we see the offset which is one more than an offset present in Snowflake.
+   */
+  private boolean isOffsetResetInKafka;
 
   private final SnowflakeStreamingIngestClient streamingIngestClient;
 
@@ -240,22 +261,8 @@ public class TopicPartitionChannel {
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
     this.processedOffset.set(lastCommittedOffsetToken);
-    // Reset the consumer offset in kafka, only if we have a valid offset token at server side. It's
-    // possible that we hit the invalid offset exception if KC stops and the data expired, so we
-    // will just accept what kafka sends us in this case
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      try {
-        this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken);
-      } catch (InvalidOffsetException exception) {
-        LOGGER.error(
-            "Invalid offset exception encountered during resetting the offset for topic"
-                + " partition:{}, channel:{}, offset:{}, we will just accept what kafka sends us",
-            this.topicPartition.toString(),
-            this.channel.getFullyQualifiedName(),
-            lastCommittedOffsetToken);
-        this.offsetPersistedInSnowflake.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-        this.processedOffset.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-      }
+      this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
     }
   }
 
@@ -273,10 +280,16 @@ public class TopicPartitionChannel {
   public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
+
+    // Ignore adding to the buffer until we see the expected offset value
+    if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord, currentProcessedOffset)) {
+      return;
+    }
+
     // Accept the incoming record only if we don't have a valid offset token at server side, or the
     // incoming record offset is 1 + the processed offset
     if (currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
-        || kafkaSinkRecord.kafkaOffset() == currentProcessedOffset + 1) {
+        || kafkaSinkRecord.kafkaOffset() >= currentProcessedOffset + 1) {
       StreamingBuffer copiedStreamingBuffer = null;
       bufferLock.lock();
       try {
@@ -315,6 +328,43 @@ public class TopicPartitionChannel {
           this.getChannelName(),
           currentOffsetPersistedInSnowflake,
           currentProcessedOffset);
+    }
+  }
+
+  /**
+   * If kafka offset was recently reset, we will skip adding any more records to buffer until we see
+   * a desired offset from kafka.
+   *
+   * <p>Desired Offset from Kafka = (current processed offset + 1)
+   *
+   * <p>Check {link {@link TopicPartitionChannel#resetChannelMetadataAfterRecovery}} for reset logic
+   *
+   * @param kafkaSinkRecord Record to check for above condition only in case of failures
+   *     (isOffsetResetInKafka = true)
+   * @return true if this record can be skipped to add into buffer, false otherwise.
+   */
+  private boolean shouldIgnoreAddingRecordToBuffer(
+      SinkRecord kafkaSinkRecord, long currentProcessedOffset) {
+    if (!isOffsetResetInKafka) {
+      return false;
+    }
+
+    // Don't ignore if we see the expected offset; otherwise log and skip
+    if ((kafkaSinkRecord.kafkaOffset() - currentProcessedOffset) == 1L) {
+      LOGGER.debug(
+          "Got the desired offset:{} from Kafka, we can add this offset to buffer for channel:{}",
+          kafkaSinkRecord.kafkaOffset(),
+          this.getChannelName());
+      isOffsetResetInKafka = false;
+      return false;
+    } else {
+      LOGGER.debug(
+          "Ignore adding offset:{} to buffer for channel:{} because we recently encountered"
+              + " error and reset offset in Kafka. currentProcessedOffset:{}",
+          kafkaSinkRecord.kafkaOffset(),
+          this.getChannelName(),
+          currentProcessedOffset);
+      return true;
     }
   }
 
@@ -858,6 +908,10 @@ public class TopicPartitionChannel {
       // might get rejected.
       this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
       this.processedOffset.set(offsetRecoveredFromSnowflake);
+
+      // State that there was some exception and only clear that state when we have received offset
+      // starting from offsetRecoveredFromSnowflake
+      isOffsetResetInKafka = true;
     } finally {
       this.bufferLock.unlock();
     }
