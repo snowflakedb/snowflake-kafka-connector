@@ -262,7 +262,7 @@ public class TopicPartitionChannel {
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
     this.processedOffset.set(lastCommittedOffsetToken);
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken);
+      this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
     }
   }
 
