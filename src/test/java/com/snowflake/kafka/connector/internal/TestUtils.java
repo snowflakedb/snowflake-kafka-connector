@@ -213,9 +213,8 @@ public class TestUtils {
   private static Connection generateConnectionToSnowflake(final String profileFileName)
       throws Exception {
     SnowflakeURL url = new SnowflakeURL(getConfFromFileName(profileFileName).get(Utils.SF_URL));
-
     Properties properties =
-        InternalUtils.createProperties(getConfFromFileName(profileFileName), url.sslEnabled());
+        InternalUtils.createProperties(getConfFromFileName(profileFileName), url.sslEnabled(), 0, 60);
 
     Connection connToSnowflake = new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
 

@@ -28,6 +28,9 @@ class InternalUtils {
   static final String JDBC_SSL = "ssl";
   static final String JDBC_SESSION_KEEP_ALIVE = "client_session_keep_alive";
   static final String JDBC_WAREHOUSE = "warehouse"; // for test only
+  static final String JDBC_NETWORK_TIMEOUT = "networkTimeout";
+
+  static final String JDBC_LOGIN_TIMEOUT = "loginTimeout";
 
   // internal parameters
   static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; // 10 days
@@ -112,7 +115,7 @@ class InternalUtils {
    * @param sslEnabled if ssl is enabled
    * @return a Properties instance
    */
-  static Properties createProperties(Map<String, String> conf, boolean sslEnabled) {
+  static Properties createProperties(Map<String, String> conf, boolean sslEnabled, int networkTimeout, int loginTimeout) {
     Properties properties = new Properties();
 
     // decrypt rsa key
@@ -159,6 +162,15 @@ class InternalUtils {
     } else {
       properties.put(JDBC_SSL, "off");
     }
+
+    if (networkTimeout != 0) {
+      properties.put(JDBC_NETWORK_TIMEOUT, networkTimeout);
+    }
+
+    if(loginTimeout != 0) {
+      properties.put(JDBC_LOGIN_TIMEOUT, loginTimeout);
+    }
+
     // put values for optional parameters
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
 

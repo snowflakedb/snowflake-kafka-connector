@@ -64,6 +64,10 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // Using setupComplete to synchronize
   private boolean setupComplete;
 
+  private static final int VALIDATION_NETWORK_TIMEOUT_IN_MS = 45000;
+
+  private static final int VALIDATION_LOGIN_TIMEOUT_IN_SEC = 20;
+
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeSinkConnector() {
     setupComplete = false;
@@ -240,7 +244,12 @@ public class SnowflakeSinkConnector extends SinkConnector {
     SnowflakeConnectionService testConnection;
     try {
       testConnection =
-          SnowflakeConnectionServiceFactory.builder().setProperties(connectorConfigs).build();
+          SnowflakeConnectionServiceFactory.builder()
+                  .setNetworkTimeout(VALIDATION_NETWORK_TIMEOUT_IN_MS)
+                  .setLoginTimeOut(VALIDATION_LOGIN_TIMEOUT_IN_SEC)
+                  .setProperties(connectorConfigs)
+                  .build();
+
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error(
           "Validate: Error connecting to snowflake:{}, errorCode:{}", e.getMessage(), e.getCode());
