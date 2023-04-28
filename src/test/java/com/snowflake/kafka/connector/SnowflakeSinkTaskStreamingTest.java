@@ -71,7 +71,7 @@ public class SnowflakeSinkTaskStreamingTest {
     InsertValidationResponse validationResponse1 = new InsertValidationResponse();
     InsertValidationResponse.InsertError insertError =
         new InsertValidationResponse.InsertError("CONTENT", 0);
-    insertError.setException(new SFException(ErrorCode.INVALID_ROW, "INVALID_CHANNEL"));
+    insertError.setException(new SFException(ErrorCode.INVALID_VALUE_ROW, "INVALID_CHANNEL"));
     validationResponse1.addError(insertError);
 
     Mockito.when(mockStreamingClient.openChannel(ArgumentMatchers.any(OpenChannelRequest.class)))
