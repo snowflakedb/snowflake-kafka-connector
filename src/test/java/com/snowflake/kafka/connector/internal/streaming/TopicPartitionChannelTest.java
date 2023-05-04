@@ -6,7 +6,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_
 import static com.snowflake.kafka.connector.internal.TestUtils.createBigAvroRecords;
 import static com.snowflake.kafka.connector.internal.TestUtils.createNativeJsonSinkRecords;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
-import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -14,6 +13,7 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -29,7 +29,6 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.ErrorCode;
 import net.snowflake.ingest.utils.SFException;
-import org.apache.kafka.clients.consumer.OffsetOutOfRangeException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -57,6 +56,10 @@ public class TopicPartitionChannelTest {
   @Mock private SnowflakeStreamingIngestChannel mockStreamingChannel;
 
   @Mock private SinkTaskContext mockSinkTaskContext;
+
+  @Mock private SnowflakeConnectionService mockSnowflakeConnectionService;
+
+  @Mock private SnowflakeTelemetryService mockTelemetryService;
 
   private static final String TOPIC = "TEST";
 
@@ -91,6 +94,7 @@ public class TopicPartitionChannelTest {
     mockStreamingChannel = Mockito.mock(SnowflakeStreamingIngestChannel.class);
     mockKafkaRecordErrorReporter = Mockito.mock(KafkaRecordErrorReporter.class);
     mockSinkTaskContext = Mockito.mock(SinkTaskContext.class);
+    mockTelemetryService = Mockito.mock(SnowflakeTelemetryService.class);
     Mockito.when(mockStreamingClient.isClosed()).thenReturn(false);
     Mockito.when(mockStreamingClient.openChannel(ArgumentMatchers.any(OpenChannelRequest.class)))
         .thenReturn(mockStreamingChannel);
@@ -217,7 +221,10 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-            mockSinkTaskContext);
+            mockSinkTaskContext,
+            mockSnowflakeConnectionService,
+            new RecordService(mockTelemetryService),
+            mockTelemetryService);
 
     topicPartitionChannel.closeChannel();
   }
@@ -480,7 +487,8 @@ public class TopicPartitionChannelTest {
               kafkaRecordErrorReporter,
               mockSinkTaskContext,
               conn,
-              new RecordService());
+              new RecordService(),
+              mockTelemetryService);
 
       final int noOfRecords = 3;
       List<SinkRecord> records =
@@ -588,6 +596,9 @@ public class TopicPartitionChannelTest {
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
         .thenReturn(validationResponse);
+    Mockito.doNothing()
+        .when(mockTelemetryService)
+        .reportKafkaConnectFatalError(ArgumentMatchers.anyString());
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
@@ -598,7 +609,10 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-            mockSinkTaskContext);
+            mockSinkTaskContext,
+            mockSnowflakeConnectionService,
+            new RecordService(mockTelemetryService),
+            mockTelemetryService);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -791,29 +805,5 @@ public class TopicPartitionChannelTest {
         .insertRows(ArgumentMatchers.any(), ArgumentMatchers.any());
 
     Assert.assertEquals(2L, topicPartitionChannel.fetchOffsetTokenWithRetry());
-  }
-
-  @Test
-  public void testFetchOffsetToken() {
-    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
-        .thenReturn(String.valueOf(1));
-    Mockito.doThrow(new OffsetOutOfRangeException(null))
-        .when(mockSinkTaskContext)
-        .offset(ArgumentMatchers.any(TopicPartition.class), ArgumentMatchers.anyLong());
-
-    TopicPartitionChannel topicPartitionChannel =
-        new TopicPartitionChannel(
-            mockStreamingClient,
-            topicPartition,
-            TEST_CHANNEL_NAME,
-            TEST_TABLE_NAME,
-            streamingBufferThreshold,
-            sfConnectorConfig,
-            mockKafkaRecordErrorReporter,
-            mockSinkTaskContext);
-
-    Assert.assertEquals(
-        NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
-        topicPartitionChannel.getOffsetPersistedInSnowflake());
   }
 }

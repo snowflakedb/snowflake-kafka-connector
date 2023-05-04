@@ -23,7 +23,7 @@ import org.junit.Test;
 
 public class TopicPartitionChannelIT {
 
-  private SnowflakeConnectionService conn = TestUtils.getConnectionService();
+  private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
   private String testTableName;
 
   private static int PARTITION = 0, PARTITION_2 = 1;
@@ -202,6 +202,9 @@ public class TopicPartitionChannelIT {
         snowflakeSinkServiceV2.getTopicPartitionChannelFromCacheKey(testChannelName).get();
 
     Assert.assertNotNull(topicPartitionChannel);
+
+    Assert.assertTrue(
+        topicPartitionChannel.getTelemetryServiceV2() instanceof SnowflakeTelemetryServiceV2);
 
     // close channel
     topicPartitionChannel.closeChannel();

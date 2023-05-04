@@ -14,6 +14,13 @@ jobs:
       uses: actions/setup-java@v1
       with:
         java-version: 1.8
+    - name: "Cache local Maven repository"
+      uses: actions/cache@v2
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
     - name: Install Python
       uses: actions/setup-python@v1
       with:
@@ -23,13 +30,6 @@ jobs:
       run: ./.github/scripts/perf_test_decrypt_secret.sh
       env:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
-    - name: Restore Maven Cache
-      uses: actions/cache@v1
-      with:
-        path: ~/.m2/repository
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
     - name: Install Dependency
       run: |
         pip3 install --upgrade setuptools

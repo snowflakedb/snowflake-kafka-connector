@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SchematizationUtils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
@@ -61,7 +62,8 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       String connectorName,
       String taskID,
       Properties proxyProperties,
-      String kafkaProvider) {
+      String kafkaProvider,
+      IngestionMethodConfig ingestionMethodConfig) {
     this.connectorName = connectorName;
     this.taskID = taskID;
     this.url = url;
@@ -87,7 +89,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
         new SnowflakeInternalStage(
             (SnowflakeConnectionV1) this.conn, credentialExpireTimeMillis, proxyProperties);
     this.telemetry =
-        SnowflakeTelemetryServiceFactory.builder(conn)
+        SnowflakeTelemetryServiceFactory.builder(conn, ingestionMethodConfig)
             .setAppName(this.connectorName)
             .setTaskID(this.taskID)
             .build();

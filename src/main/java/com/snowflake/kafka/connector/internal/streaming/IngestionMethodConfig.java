@@ -1,11 +1,15 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import java.util.Locale;
+import java.util.Map;
 import org.apache.kafka.common.config.ConfigDef;
 
 /**
  * Enum representing the allowed values for config {@link
  * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#INGESTION_METHOD_OPT}
+ *
+ * <p>NOTE: Please do not change ordering of this Enums, please append to the end.
  */
 public enum IngestionMethodConfig {
 
@@ -46,6 +50,29 @@ public enum IngestionMethodConfig {
     }
 
     return result;
+  }
+
+  /**
+   * Returns the Ingestion Method found in User Configuration for Snowflake Kafka Connector.
+   *
+   * <p>Default is always {@link IngestionMethodConfig#SNOWPIPE} unless an invalid value is passed
+   * which results in exception.
+   */
+  public static IngestionMethodConfig determineIngestionMethod(Map<String, String> inputConf) {
+    if (inputConf == null
+        || inputConf.isEmpty()
+        || !inputConf.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
+      return IngestionMethodConfig.SNOWPIPE;
+    } else {
+      try {
+        return IngestionMethodConfig.valueOf(
+            inputConf
+                .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
+                .toUpperCase(Locale.ROOT));
+      } catch (IllegalArgumentException ex) {
+        throw ex;
+      }
+    }
   }
 
   @Override
