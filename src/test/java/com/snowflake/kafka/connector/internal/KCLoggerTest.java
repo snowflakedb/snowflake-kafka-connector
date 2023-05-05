@@ -38,7 +38,7 @@ public class KCLoggerTest {
   @InjectMocks private KCLogger kcLogger = new KCLogger(this.name);
 
   @Before
-  public void close() {
+  public void before() {
     this.kcLogger = new KCLogger(this.name);
     MockitoAnnotations.initMocks(this);
   }
