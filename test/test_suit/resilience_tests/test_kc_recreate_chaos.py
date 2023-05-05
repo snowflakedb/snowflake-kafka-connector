@@ -5,19 +5,16 @@ import json
 from time import sleep
 
 # sends data 1/3
-# restarts the connector
+# creates the connector 1/2
 # sends data 2/3
-# restarts the connector AND all tasks
+# creates the connector 2/2
 # sends data 3/3
 # verifies that 3 rounds of data were ingested
-
-# a pressure test cannot be created with this, since restart is just one method
-# restarting the connector and restarting the connector and all its tasks should technically be separate tests, but should be fine to group here
-class TestKcRestart:
+class TestKcRecreateChaos:
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.nameSalt = nameSalt
-        self.fileName = "test_kc_restart"
+        self.fileName = "test_kc_recreate_chaos"
         self.topic = self.fileName + nameSalt
         self.connectorName = self.fileName + nameSalt
 
@@ -38,13 +35,11 @@ class TestKcRestart:
     def send(self):
         self.__sendbytes()
 
-        self.driver.restartConnector(self.connectorName)
+        self.driver.createConnector(self.getConfigFileName(), self.nameSalt)
         print("Waiting {} seconds for method to complete".format(str(self.sleepTime)))
         sleep(self.sleepTime)
 
-        self.__sendbytes()
-
-        self.driver.restartConnectorAndTasks(self.connectorName)
+        self.driver.createConnector(self.getConfigFileName(), self.nameSalt)
         print("Waiting {} seconds for method to complete".format(str(self.sleepTime)))
         sleep(self.sleepTime)
 

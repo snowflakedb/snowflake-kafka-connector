@@ -40,7 +40,6 @@ import org.mockito.Mockito;
 
 /** Unit test for testing Snowflake Sink Task Behavior with Snowpipe Streaming */
 public class SnowflakeSinkTaskStreamingTest {
-
   private String topicName;
   private static int partition = 0;
   private TopicPartition topicPartition;
@@ -56,30 +55,23 @@ public class SnowflakeSinkTaskStreamingTest {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(BUFFER_COUNT_RECORDS, "1"); // override
-
     config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-
     config.put(ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
     config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
-
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
-
     SnowflakeConnectionService mockConnectionService =
         Mockito.mock(SnowflakeConnectionServiceV1.class);
-
     SnowflakeStreamingIngestClient mockStreamingClient =
         Mockito.mock(SnowflakeStreamingIngestClient.class);
     SnowflakeTelemetryService mockTelemetryService = Mockito.mock(SnowflakeTelemetryService.class);
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
-
     SnowflakeStreamingIngestChannel mockStreamingChannel =
         Mockito.mock(SnowflakeStreamingIngestChannel.class);
-
     InsertValidationResponse validationResponse1 = new InsertValidationResponse();
     InsertValidationResponse.InsertError insertError =
         new InsertValidationResponse.InsertError("CONTENT", 0);
-    insertError.setException(new SFException(ErrorCode.INVALID_ROW, "INVALID_CHANNEL"));
+    insertError.setException(new SFException(ErrorCode.INVALID_VALUE_ROW, "INVALID_CHANNEL"));
     validationResponse1.addError(insertError);
 
     Mockito.when(mockStreamingClient.openChannel(ArgumentMatchers.any(OpenChannelRequest.class)))

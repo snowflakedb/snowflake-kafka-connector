@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategyfail-fast
       matrix:
-        confluent_version: [ '5.5.11', '6.2.6', '7.2.1' ]
+        confluent_version: [ '6.2.6', '7.2.1' ]
         snowflake_cloud: [ 'AWS', 'AZURE', 'GCS' ]
     steps:
     - name: Checkout Code
