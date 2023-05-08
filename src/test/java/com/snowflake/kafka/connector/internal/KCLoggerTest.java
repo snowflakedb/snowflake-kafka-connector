@@ -17,7 +17,6 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Utils;
-import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.InjectMocks;
@@ -66,7 +65,8 @@ public class KCLoggerTest {
     String msg = "super useful logging msg";
     String expectedMsg = Utils.formatLogMessage(mdcContext + " " + msg);
     String formatMsg = "super {} useful {} logging {} msg {}";
-    String expectedFormattedMsg = Utils.formatLogMessage(mdcContext + " " + "super wow useful wow! logging 1 msg yay");
+    String expectedFormattedMsg =
+        Utils.formatLogMessage(mdcContext + " " + "super wow useful wow! logging 1 msg yay");
 
     this.testLogMessagesRunner(msg, expectedMsg);
     this.testLogMessagesWithFormattingRunner(
