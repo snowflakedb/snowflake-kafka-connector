@@ -4,19 +4,12 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.log4j.MDC;
-import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
 
 public class UtilsTest {
   @Rule public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
-
-  @After
-  public void cleanUp() {
-    MDC.clear();
-  }
 
   @Test
   public void testGetTopicToTableMap() {
@@ -191,37 +184,5 @@ public class UtilsTest {
     assert Utils.formatLogMessage(
             "{} test message\n{} test message\n{} test " + "message\n{} test message", 1, 2, 3, 4)
         .equals(expected);
-  }
-
-  @Test
-  public void testFormatLogMessage() {
-    // setup
-    String mdcContext = "test context";
-    String msg = "example message";
-    String expected = Utils.SF_LOG_TAG + " " + mdcContext + msg;
-
-    // test
-    MDC.put(Utils.MDC_CONN_CTX_KEY, mdcContext);
-    String result = Utils.formatLogMessage(msg);
-
-    // verify
-    assert result.equals(expected);
-  }
-
-  @Test
-  public void testFormatLogMessageWithVars() {
-    // setup
-    String mdcContext = "test context";
-    String msg = "example message with {} vars{}";
-    String var1 = "fun";
-    String var2 = "!";
-    String expected = Utils.SF_LOG_TAG + " " + mdcContext + "example message with fun vars!";
-
-    // test
-    MDC.put(Utils.MDC_CONN_CTX_KEY, mdcContext);
-    String result = Utils.formatLogMessage(msg, var1, var2);
-
-    // verify
-    assert result.equals(expected);
   }
 }

@@ -44,7 +44,6 @@ import java.util.regex.Pattern;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.ConfigValue;
-import org.slf4j.MDC;
 
 /** Various arbitrary helper functions */
 public class Utils {
@@ -102,8 +101,6 @@ public class Utils {
   public static final String TABLE_COLUMN_METADATA = "RECORD_METADATA";
 
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
-
-  public static final String MDC_CONN_CTX_KEY = "connector.context";
 
   /**
    * check the connector version from Maven repo, report if any update version is available.
@@ -672,14 +669,6 @@ public class Utils {
    * @return log message wrapped by snowflake tag
    */
   public static String formatLogMessage(String format, Object... vars) {
-    // note this MDC context is only available for apache kafka versions after 2.3.0, more
-    // information here:
-    // https://cwiki.apache.org/confluence/display/KAFKA/KIP-449%3A+Add+connector+contexts+to+Connect+worker+logs
-    String connCtx = MDC.get(MDC_CONN_CTX_KEY);
-    if (connCtx != null && !connCtx.isEmpty()) {
-      return SF_LOG_TAG + " " + connCtx + formatString(format, vars);
-    }
-
     return SF_LOG_TAG + " " + formatString(format, vars);
   }
 

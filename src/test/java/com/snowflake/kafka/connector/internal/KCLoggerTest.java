@@ -25,11 +25,11 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.slf4j.Logger;
+import org.slf4j.MDC;
 
 public class KCLoggerTest {
   // test constants
   private final String name = "test.logger.name";
-  private final UUID kcGlobalInstanceId = UUID.randomUUID();
 
   // mock and test setup, inject logger into KCLogger
   @Mock(name = "logger")
@@ -46,13 +46,31 @@ public class KCLoggerTest {
   @Test
   public void testAllLogMessages() {
     String msg = "super useful logging msg";
+    String expectedMsg = Utils.formatLogMessage(msg);
     String formatMsg = "super {} useful {} logging {} msg {}";
-    String expectedFormattedMsg = "super wow useful wow! logging 1 msg yay";
+    String expectedFormattedMsg = Utils.formatLogMessage("super wow useful wow! logging 1 msg yay");
 
-    // note: utils.formatLogMessage should add the MDC context automatically
-    this.testLogMessagesRunner(msg, Utils.formatLogMessage(msg));
+    KCLogger.enableGlobalMdcLoggingContext(false);
+
+    this.testLogMessagesRunner(msg, expectedMsg);
     this.testLogMessagesWithFormattingRunner(
-        formatMsg, Utils.formatLogMessage(expectedFormattedMsg), "wow", "wow!", 1, "yay");
+        formatMsg, expectedFormattedMsg, "wow", "wow!", 1, "yay");
+  }
+
+  @Test
+  public void testAllLogMessagesWithMDCContext() {
+    String mdcContext = "[mdc context]";
+    KCLogger.enableGlobalMdcLoggingContext(true);
+    MDC.put(KCLogger.MDC_CONN_CTX_KEY, mdcContext);
+
+    String msg = "super useful logging msg";
+    String expectedMsg = Utils.formatLogMessage(mdcContext + " " + msg);
+    String formatMsg = "super {} useful {} logging {} msg {}";
+    String expectedFormattedMsg = Utils.formatLogMessage(mdcContext + " " + "super wow useful wow! logging 1 msg yay");
+
+    this.testLogMessagesRunner(msg, expectedMsg);
+    this.testLogMessagesWithFormattingRunner(
+        formatMsg, expectedFormattedMsg, "wow", "wow!", 1, "yay");
   }
 
   private void testLogMessagesRunner(String msg, String expectedMsg) {

@@ -3,10 +3,21 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 /** Logger for Snowflake Sink Connector. Attaches MDC's connector context if available */
 public class KCLogger {
+  public static final String MDC_CONN_CTX_KEY = "connector.context";
+  private static boolean prependMdcContext;
+
   private Logger logger;
+
+  // note this MDC context is only available for apache kafka versions after 2.3.0, more
+  // information here:
+  // https://cwiki.apache.org/confluence/display/KAFKA/KIP-449%3A+Add+connector+contexts+to+Connect+worker+logs
+  public static void enableGlobalMdcLoggingContext(boolean shouldPrependMdcContext) {
+    prependMdcContext = shouldPrependMdcContext;
+  }
 
   /**
    * Create and return a new logging handler
@@ -25,7 +36,7 @@ public class KCLogger {
    */
   public void info(String format, Object... vars) {
     if (this.logger.isInfoEnabled()) {
-      this.logger.info(Utils.formatLogMessage(format, vars));
+      this.logger.info(this.getFormattedLogMessage(format, vars));
     }
   }
 
@@ -37,7 +48,7 @@ public class KCLogger {
    */
   public void trace(String format, Object... vars) {
     if (this.logger.isTraceEnabled()) {
-      this.logger.trace(Utils.formatLogMessage(format, vars));
+      this.logger.trace(this.getFormattedLogMessage(format, vars));
     }
   }
 
@@ -49,7 +60,7 @@ public class KCLogger {
    */
   public void debug(String format, Object... vars) {
     if (this.logger.isDebugEnabled()) {
-      this.logger.debug(Utils.formatLogMessage(format, vars));
+      this.logger.debug(this.getFormattedLogMessage(format, vars));
     }
   }
 
@@ -61,7 +72,7 @@ public class KCLogger {
    */
   public void warn(String format, Object... vars) {
     if (this.logger.isWarnEnabled()) {
-      this.logger.warn(Utils.formatLogMessage(format, vars));
+      this.logger.warn(this.getFormattedLogMessage(format, vars));
     }
   }
 
@@ -73,7 +84,16 @@ public class KCLogger {
    */
   public void error(String format, Object... vars) {
     if (this.logger.isErrorEnabled()) {
-      this.logger.error(Utils.formatLogMessage(format, vars));
+      this.logger.error(this.getFormattedLogMessage(format, vars));
     }
+  }
+
+  private String getFormattedLogMessage(String format, Object... vars) {
+    if (prependMdcContext) {
+      String connCtx = MDC.get(MDC_CONN_CTX_KEY);
+      return Utils.formatLogMessage(connCtx + " " + format, vars);
+    }
+
+    return Utils.formatLogMessage(format, vars);
   }
 }

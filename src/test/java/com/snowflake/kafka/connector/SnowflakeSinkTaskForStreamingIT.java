@@ -25,12 +25,10 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 import org.slf4j.Logger;
 

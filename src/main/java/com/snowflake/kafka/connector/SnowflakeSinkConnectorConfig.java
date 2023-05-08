@@ -162,10 +162,12 @@ public class SnowflakeSinkConnectorConfig {
           + " throughput or latency and can only be set if Streaming Snowpipe is enabled";
 
   // MDC logging header
-  public static final String ENABLE_MDC_LOGGING_CONFIG="enable.mdc.logging";
-  public static final String ENABLE_MDC_LOGGING_DISPLAY="Enable MDC logging";
-  public static final boolean ENABLE_MDC_LOGGING_DEFAULT= true;
-  public static final String ENABLE_MDC_LOGGING_DOC = "Enable MDC context to prepend log messages. Note that this is only available after Apache Kafka 2.3";
+  public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
+  public static final String ENABLE_MDC_LOGGING_DISPLAY = "Enable MDC logging";
+  public static final boolean ENABLE_MDC_LOGGING_DEFAULT = true;
+  public static final String ENABLE_MDC_LOGGING_DOC =
+      "Enable MDC context to prepend log messages. Note that this is only available after Apache"
+          + " Kafka 2.3";
 
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked
