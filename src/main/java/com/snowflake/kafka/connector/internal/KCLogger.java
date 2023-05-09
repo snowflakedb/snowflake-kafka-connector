@@ -18,11 +18,15 @@ public class KCLogger {
 
   /**
    * Enable or disables the MDC context
+   *
    * @param shouldPrependMdcContext If all KC loggers should enable or disable MDC context
    */
   public static void toggleGlobalMdcLoggingContext(boolean shouldPrependMdcContext) {
     prependMdcContext = shouldPrependMdcContext;
-    META_LOGGER.debug("Setting MDC context enablement to: {}. MDC context is only available for Apache Kafka versions after 2.3.0", shouldPrependMdcContext);
+    META_LOGGER.debug(
+        "Setting MDC context enablement to: {}. MDC context is only available for Apache Kafka"
+            + " versions after 2.3.0",
+        shouldPrependMdcContext);
   }
 
   /**
