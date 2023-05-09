@@ -164,7 +164,7 @@ public class SnowflakeSinkConnectorConfig {
   // MDC logging header
   public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
   public static final String ENABLE_MDC_LOGGING_DISPLAY = "Enable MDC logging";
-  public static final String ENABLE_MDC_LOGGING_DEFAULT = "true";
+  public static final String ENABLE_MDC_LOGGING_DEFAULT = "false";
   public static final String ENABLE_MDC_LOGGING_DOC =
       "Enable MDC context to prepend log messages. Note that this is only available after Apache"
           + " Kafka 2.3";
