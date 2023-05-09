@@ -163,6 +163,14 @@ public class SnowflakeSinkConnectorConfig {
       "Whether to optimize the streaming client to reduce cost. Note that this may affect"
           + " throughput or latency and can only be set if Streaming Snowpipe is enabled";
 
+  // MDC logging header
+  public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
+  public static final String ENABLE_MDC_LOGGING_DISPLAY = "Enable MDC logging";
+  public static final String ENABLE_MDC_LOGGING_DEFAULT = "false";
+  public static final String ENABLE_MDC_LOGGING_DOC =
+      "Enable MDC context to prepend log messages. Note that this is only available after Apache"
+          + " Kafka 2.3";
+
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked
    * before actually sending records to Kafka connector.
@@ -528,7 +536,17 @@ public class SnowflakeSinkConnectorConfig {
             CONNECTOR_CONFIG,
             7,
             ConfigDef.Width.NONE,
-            ENABLE_STREAMING_CLIENT_OPTIMIZATION_DISPLAY);
+            ENABLE_STREAMING_CLIENT_OPTIMIZATION_DISPLAY)
+        .define(
+            ENABLE_MDC_LOGGING_CONFIG,
+            Type.BOOLEAN,
+            ENABLE_MDC_LOGGING_DEFAULT,
+            Importance.LOW,
+            ENABLE_MDC_LOGGING_DOC,
+            CONNECTOR_CONFIG,
+            8,
+            ConfigDef.Width.NONE,
+            ENABLE_MDC_LOGGING_DISPLAY);
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {

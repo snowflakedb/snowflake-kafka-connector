@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
@@ -47,7 +46,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
-  private String connectorName; // unique name of this connector instance
 
   // SnowflakeJDBCWrapper provides methods to interact with user's snowflake
   // account and executes queries
@@ -83,18 +81,12 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
-    // ensure we start counting tasks at 0 for this instance
-    SnowflakeSinkTask.setTotalTaskCreationCount(0);
+    LOGGER.info("SnowflakeSinkConnector:starting...");
 
     Utils.checkConnectorVersion();
 
-    LOGGER.info("SnowflakeSinkConnector:start");
     setupComplete = false;
     connectorStartTime = System.currentTimeMillis();
-
-    // initialize logging with global instance Id
-    KCLogger.setConnectGlobalInstanceId(this.getKcInstanceId(this.connectorStartTime));
-
     config = new HashMap<>(parsedConfig);
 
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
@@ -103,6 +95,13 @@ public class SnowflakeSinkConnector extends SinkConnector {
     Utils.convertAppName(config);
 
     Utils.validateConfig(config);
+
+    // enable mdc logging if needed
+    KCLogger.toggleGlobalMdcLoggingContext(
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_MDC_LOGGING_CONFIG,
+                SnowflakeSinkConnectorConfig.ENABLE_MDC_LOGGING_DEFAULT)));
 
     // enable proxy
     Utils.enableJVMProxy(config);
@@ -116,6 +115,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
     telemetryClient.reportKafkaConnectStart(connectorStartTime, this.config);
 
     setupComplete = true;
+
+    LOGGER.info("SnowflakeSinkConnector:started");
   }
 
   /**
@@ -128,10 +129,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void stop() {
-    // set task logging to default
-    SnowflakeSinkTask.setTotalTaskCreationCount(-1);
     setupComplete = false;
-    LOGGER.info("SnowflakeSinkConnector:stop");
+    LOGGER.info("SnowflakeSinkConnector:stopped");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
   }
 
@@ -296,14 +295,5 @@ public class SnowflakeSinkConnector extends SinkConnector {
   @Override
   public String version() {
     return Utils.VERSION;
-  }
-
-  // returns the instance id as a combo of a random uuid and the current time
-  private String getKcInstanceId(long currTime) {
-    // 9-10 char
-    String combinedId = UUID.randomUUID().toString() + currTime;
-    int unsignedHashCode = Math.abs(combinedId.hashCode());
-
-    return "" + unsignedHashCode;
   }
 }

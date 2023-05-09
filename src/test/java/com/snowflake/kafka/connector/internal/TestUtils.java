@@ -16,7 +16,6 @@
  */
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkTask.TASK_INSTANCE_TAG_FORMAT;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
@@ -736,10 +735,6 @@ public class TestUtils {
         assert contentMap.get(columnName) == null : "value should be null";
       }
     }
-  }
-
-  public static String getExpectedLogTagWithoutCreationCount(String taskId, int taskOpenCount) {
-    return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, taskId, taskOpenCount, "").split("#")[0];
   }
 
   public static SnowflakeStreamingIngestClient createStreamingClient(
