@@ -12,7 +12,6 @@ public class KCLogger {
   private static final Logger META_LOGGER = LoggerFactory.getLogger(KCLogger.class.getName());
   private Logger logger;
 
-  // note
   /**
    * Enable or disables the MDC context. Only available for apache kafka versions after 2.3.0.
    * https://cwiki.apache.org/confluence/display/KAFKA/KIP-449%3A+Add+connector+contexts+to+Connect+worker+logs
