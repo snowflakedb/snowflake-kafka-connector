@@ -93,9 +93,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
     Utils.validateConfig(config);
 
     // enable mdc logging if needed
-    KCLogger.enableGlobalMdcLoggingContext(
+    KCLogger.toggleGlobalMdcLoggingContext(
         Boolean.parseBoolean(
-            config.getOrDefault(SnowflakeSinkConnectorConfig.ENABLE_MDC_LOGGING_CONFIG, "false")));
+            config.getOrDefault(SnowflakeSinkConnectorConfig.ENABLE_MDC_LOGGING_CONFIG, SnowflakeSinkConnectorConfig.ENABLE_MDC_LOGGING_DEFAULT)));
 
     // enable proxy
     Utils.enableJVMProxy(config);

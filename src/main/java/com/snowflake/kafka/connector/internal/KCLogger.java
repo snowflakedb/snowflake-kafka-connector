@@ -9,14 +9,20 @@ import org.slf4j.MDC;
 public class KCLogger {
   public static final String MDC_CONN_CTX_KEY = "connector.context";
   private static boolean prependMdcContext;
-
+  private static final Logger META_LOGGER = LoggerFactory.getLogger(KCLogger.class.getName());
   private Logger logger;
 
   // note this MDC context is only available for apache kafka versions after 2.3.0, more
   // information here:
   // https://cwiki.apache.org/confluence/display/KAFKA/KIP-449%3A+Add+connector+contexts+to+Connect+worker+logs
-  public static void enableGlobalMdcLoggingContext(boolean shouldPrependMdcContext) {
+
+  /**
+   * Enable or disables the MDC context
+   * @param shouldPrependMdcContext If all KC loggers should enable or disable MDC context
+   */
+  public static void toggleGlobalMdcLoggingContext(boolean shouldPrependMdcContext) {
     prependMdcContext = shouldPrependMdcContext;
+    META_LOGGER.debug("Setting MDC context enablement to: {}. MDC context is only available for Apache Kafka versions after 2.3.0", shouldPrependMdcContext);
   }
 
   /**
@@ -91,7 +97,7 @@ public class KCLogger {
   private String getFormattedLogMessage(String format, Object... vars) {
     if (prependMdcContext) {
       String connCtx = MDC.get(MDC_CONN_CTX_KEY);
-      return Utils.formatLogMessage(connCtx + " " + format, vars);
+      return Utils.formatLogMessage(connCtx + format, vars);
     }
 
     return Utils.formatLogMessage(format, vars);

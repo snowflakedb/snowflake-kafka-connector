@@ -49,7 +49,7 @@ public class KCLoggerTest {
     String formatMsg = "super {} useful {} logging {} msg {}";
     String expectedFormattedMsg = Utils.formatLogMessage("super wow useful wow! logging 1 msg yay");
 
-    KCLogger.enableGlobalMdcLoggingContext(false);
+    KCLogger.toggleGlobalMdcLoggingContext(false);
 
     this.testLogMessagesRunner(msg, expectedMsg);
     this.testLogMessagesWithFormattingRunner(
@@ -58,15 +58,15 @@ public class KCLoggerTest {
 
   @Test
   public void testAllLogMessagesWithMDCContext() {
-    String mdcContext = "[mdc context]";
-    KCLogger.enableGlobalMdcLoggingContext(true);
+    String mdcContext = "[mdc context] ";
+    KCLogger.toggleGlobalMdcLoggingContext(true);
     MDC.put(KCLogger.MDC_CONN_CTX_KEY, mdcContext);
 
     String msg = "super useful logging msg";
-    String expectedMsg = Utils.formatLogMessage(mdcContext + " " + msg);
+    String expectedMsg = Utils.formatLogMessage(mdcContext + msg);
     String formatMsg = "super {} useful {} logging {} msg {}";
     String expectedFormattedMsg =
-        Utils.formatLogMessage(mdcContext + " " + "super wow useful wow! logging 1 msg yay");
+        Utils.formatLogMessage(mdcContext + "super wow useful wow! logging 1 msg yay");
 
     this.testLogMessagesRunner(msg, expectedMsg);
     this.testLogMessagesWithFormattingRunner(
