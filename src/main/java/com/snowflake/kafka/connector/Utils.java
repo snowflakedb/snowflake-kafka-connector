@@ -621,7 +621,11 @@ public class Utils {
         }
 
         if (parsedTopic.matches(topic) || topic.matches(parsedTopic)) {
-          LOGGER.error("topic regexes cannot overlap except for the catch-all regex. overlapping regexes: {}, {}", parsedTopic, topic);
+          LOGGER.error(
+              "topic regexes cannot overlap except for the catch-all regex. overlapping regexes:"
+                  + " {}, {}",
+              parsedTopic,
+              topic);
           isInvalid = true;
         }
       }

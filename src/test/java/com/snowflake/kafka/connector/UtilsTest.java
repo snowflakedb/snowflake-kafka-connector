@@ -2,10 +2,7 @@ package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
-
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.junit.Rule;
 import org.junit.Test;
@@ -78,7 +75,8 @@ public class UtilsTest {
     String catchAllRegex = ".*";
     topic2table =
         Utils.parseTopicToTableMap(
-            Utils.formatString("{}:{},{}:{}", dogTopicRegex + catTopicRegex, catTable, catchAllRegex, dogTable));
+            Utils.formatString(
+                "{}:{},{}:{}", dogTopicRegex + catTopicRegex, catTable, catchAllRegex, dogTable));
     assert topic2table.containsKey(dogTopicRegex + catTopicRegex);
     assert topic2table.containsKey(catchAllRegex);
     assert topic2table.containsValue(catTable);
@@ -99,7 +97,11 @@ public class UtilsTest {
         () ->
             Utils.parseTopicToTableMap(
                 Utils.formatString(
-                    "{}:{},{}:{}", catTopicRegex, catTable, dogTopicRegex + catTopicRegex, dogTable)));
+                    "{}:{},{}:{}",
+                    catTopicRegex,
+                    catTable,
+                    dogTopicRegex + catTopicRegex,
+                    dogTable)));
 
     // error: two catchall regexes
     assert TestUtils.assertError(
@@ -153,7 +155,8 @@ public class UtilsTest {
     // test catchall and regex
     topic2table =
         Utils.parseTopicToTableMap(
-            Utils.formatString("{}:{},{}:{}", catTopicRegex, catTable, catchallRegex, catchallTable));
+            Utils.formatString(
+                "{}:{},{}:{}", catTopicRegex, catTable, catchallRegex, catchallTable));
 
     assert Utils.tableName("calico_cat", topic2table).equals(catTable);
     assert Utils.tableName("orange_cat", topic2table).equals(catTable);

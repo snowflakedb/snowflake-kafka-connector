@@ -331,7 +331,7 @@ public class SinkTaskIT {
 
   @Test
   public void testTopicToTableMapParseAndCreation() {
-    // TODO @rcheng question: should i duplicate this test for streaming?  
+    // TODO @rcheng question: should i duplicate this test for streaming?
 
     // constants
     String catTable = "cat_table";
@@ -355,7 +355,8 @@ public class SinkTaskIT {
     // test two regexes. bird should create its own table
     String twoRegexConfig =
         Utils.formatString("{}:{}, {}:{}", bigCatTopicRegex, bigCatTable, dogTopicRegex, dogTable);
-    List<String> twoRegexPartitionStrs = Arrays.asList(bigCatTopicStr1, bigCatTopicStr2, dogTopicStr1, birdTopicStr1);
+    List<String> twoRegexPartitionStrs =
+        Arrays.asList(bigCatTopicStr1, bigCatTopicStr2, dogTopicStr1, birdTopicStr1);
     Map<String, String> twoRegexExpected = new HashMap<>();
     twoRegexExpected.put(bigCatTopicStr1, bigCatTable);
     twoRegexExpected.put(bigCatTopicStr2, bigCatTable);
@@ -365,25 +366,40 @@ public class SinkTaskIT {
 
     // test two regexes with catchall. bird should point to catchall table
     String twoRegexCatchAllConfig =
-        Utils.formatString("{}:{}, {}:{},{}:{}", catTopicRegex, catTable, dogTopicRegex, dogTable, catchAllRegex, catchallTable);
-    List<String> twoRegexCatchAllPartitionStrs = Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
+        Utils.formatString(
+            "{}:{}, {}:{},{}:{}",
+            catTopicRegex,
+            catTable,
+            dogTopicRegex,
+            dogTable,
+            catchAllRegex,
+            catchallTable);
+    List<String> twoRegexCatchAllPartitionStrs =
+        Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
     Map<String, String> twoRegexCatchAllExpected = new HashMap<>();
     twoRegexCatchAllExpected.put(catTopicStr1, catTable);
     twoRegexCatchAllExpected.put(catTopicStr2, catTable);
     twoRegexCatchAllExpected.put(dogTopicStr1, dogTable);
     twoRegexCatchAllExpected.put(birdTopicStr1, catchallTable);
-    this.topicToTableRunner(twoRegexCatchAllConfig, twoRegexCatchAllPartitionStrs, twoRegexCatchAllExpected);
+    this.topicToTableRunner(
+        twoRegexCatchAllConfig, twoRegexCatchAllPartitionStrs, twoRegexCatchAllExpected);
 
     // test invalid overlapping regexes
     String invalidTwoRegexConfig =
         Utils.formatString("{}:{}, {}:{}", catTopicRegex, catTable, bigCatTopicRegex, bigCatTable);
-    List<String> invalidTwoRegexPartitionStrs = Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
+    List<String> invalidTwoRegexPartitionStrs =
+        Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
     Map<String, String> invalidTwoRegexExpected = new HashMap<>();
-    assert TestUtils.assertError(SnowflakeErrors.ERROR_0021, () -> this.topicToTableRunner(invalidTwoRegexConfig, invalidTwoRegexPartitionStrs, invalidTwoRegexExpected));
+    assert TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021,
+        () ->
+            this.topicToTableRunner(
+                invalidTwoRegexConfig, invalidTwoRegexPartitionStrs, invalidTwoRegexExpected));
 
     // test catchall regex
     String catchAllConfig = Utils.formatString("{}:{}", catchAllRegex, catchallTable);
-    List<String> catchAllPartitionStrs = Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
+    List<String> catchAllPartitionStrs =
+        Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
     Map<String, String> catchAllExpected = new HashMap<>();
     catchAllExpected.put(catTopicStr1, catchallTable);
     catchAllExpected.put(catTopicStr2, catchallTable);
@@ -392,7 +408,10 @@ public class SinkTaskIT {
     this.topicToTableRunner(catchAllConfig, catchAllPartitionStrs, catchAllExpected);
   }
 
-  private void topicToTableRunner(String topic2tableRegex, List<String> partitionStrList, Map<String, String> expectedTopic2TableConfig) {
+  private void topicToTableRunner(
+      String topic2tableRegex,
+      List<String> partitionStrList,
+      Map<String, String> expectedTopic2TableConfig) {
     // setup
     Map<String, String> config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
