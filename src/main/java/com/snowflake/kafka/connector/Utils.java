@@ -545,11 +545,23 @@ public class Utils {
       return topic2table.get(topic);
     }
 
-    // regex topic
+    // try matching regex tables
+    String catchallTable = topic2table.getOrDefault(CATCH_ALL_REGEX, null);
+    String gotTable = null;
     for (String regexTopic : topic2table.keySet()) {
-      if (topic.matches(regexTopic)) {
-        return topic2table.get(regexTopic);
+      if (!regexTopic.equals(CATCH_ALL_REGEX) && topic.matches(regexTopic)) {
+        gotTable = topic2table.get(regexTopic);
       }
+    }
+
+    // return matching regex table
+    if (gotTable != null) {
+      return gotTable;
+    }
+
+    // if there is a catchall regex, return table
+    if (catchallTable != null) {
+      return catchallTable;
     }
 
     if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
@@ -559,7 +571,7 @@ public class Utils {
 
     StringBuilder result = new StringBuilder();
 
-    // remove wildcard regex from topic name
+    // remove wildcard regex from topic name to generate table name
     topic = topic.replaceAll("\\.\\*", "");
 
     int index = 0;
@@ -614,6 +626,7 @@ public class Utils {
         isInvalid = true;
       }
 
+      // check that regexes don't overlap, ignoring the catchall regex
       for (String parsedTopic : topic2Table.keySet()) {
         // ignore the catch all regex
         if (parsedTopic.equals(CATCH_ALL_REGEX) || topic.equals(CATCH_ALL_REGEX)) {

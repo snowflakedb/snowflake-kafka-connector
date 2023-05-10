@@ -368,17 +368,18 @@ public class SinkTaskIT {
     String twoRegexCatchAllConfig =
         Utils.formatString(
             "{}:{}, {}:{},{}:{}",
+            catchAllRegex,
+            catchallTable,
             catTopicRegex,
             catTable,
             dogTopicRegex,
-            dogTable,
-            catchAllRegex,
-            catchallTable);
+            dogTable);
     List<String> twoRegexCatchAllPartitionStrs =
-        Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
+        Arrays.asList(catTopicStr1, catTopicStr2, bigCatTopicStr1, dogTopicStr1, birdTopicStr1);
     Map<String, String> twoRegexCatchAllExpected = new HashMap<>();
     twoRegexCatchAllExpected.put(catTopicStr1, catTable);
     twoRegexCatchAllExpected.put(catTopicStr2, catTable);
+    twoRegexExpected.put(bigCatTopicStr1, catTable);
     twoRegexCatchAllExpected.put(dogTopicStr1, dogTable);
     twoRegexCatchAllExpected.put(birdTopicStr1, catchallTable);
     this.topicToTableRunner(
