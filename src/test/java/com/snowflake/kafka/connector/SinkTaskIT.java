@@ -379,7 +379,7 @@ public class SinkTaskIT {
     Map<String, String> twoRegexCatchAllExpected = new HashMap<>();
     twoRegexCatchAllExpected.put(catTopicStr1, catTable);
     twoRegexCatchAllExpected.put(catTopicStr2, catTable);
-    twoRegexExpected.put(bigCatTopicStr1, catTable);
+    twoRegexCatchAllExpected.put(bigCatTopicStr1, catTable);
     twoRegexCatchAllExpected.put(dogTopicStr1, dogTable);
     twoRegexCatchAllExpected.put(birdTopicStr1, catchallTable);
     this.topicToTableRunner(
