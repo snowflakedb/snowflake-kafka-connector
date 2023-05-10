@@ -331,6 +331,8 @@ public class SinkTaskIT {
 
   @Test
   public void testTopicToTableMapParseAndCreation() {
+    // TODO @rcheng question: should i duplicate this test for streaming?  
+
     // constants
     String catTable = "cat_table";
     String catTopicRegex = ".*_cat";
