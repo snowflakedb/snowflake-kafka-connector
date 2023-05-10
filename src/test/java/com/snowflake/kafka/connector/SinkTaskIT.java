@@ -5,12 +5,15 @@ import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NA
 
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -19,6 +22,7 @@ import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.AdditionalMatchers;
@@ -327,38 +331,76 @@ public class SinkTaskIT {
 
   @Test
   public void testTopicToTableMapParseAndCreation() {
-
-
     // constants
     String catTable = "cat_table";
-    String dogTable = "dog_table";
+    String catTopicRegex = ".*_cat";
     String catTopicStr1 = "calico_cat";
     String catTopicStr2 = "orange_cat";
-    String dogTopicStr1 = "corgi_dog";
-    String catTopicRegex = ".*_cat";
+
+    String bigCatTable = "big_cat_table";
+    String bigCatTopicRegex = "big.*_.*_cat";
+    String bigCatTopicStr1 = "big_calico_cat";
+    String bigCatTopicStr2 = "biggest_orange_cat";
+
+    String dogTable = "dog_table";
     String dogTopicRegex = ".*_dog";
+    String dogTopicStr1 = "corgi_dog";
 
-    String topic2tableRegex =
-        Utils.formatString("{}:{}, {}:{}", catTopicRegex, catTable, dogTopicRegex, dogTable);
-    System.out.println(topic2tableRegex);
-    Map<String, String> expectedParsedConfig = new HashMap<>();
-    expectedParsedConfig.put(catTopicRegex, catTable);
-    expectedParsedConfig.put(dogTopicRegex, dogTable);
+    String catchallTable = "animal_table";
+    String catchAllRegex = ".*";
+    String birdTopicStr1 = "bird";
 
+    // test two regexes. bird should create its own table
+    String twoRegexConfig =
+        Utils.formatString("{}:{}, {}:{}", bigCatTopicRegex, bigCatTable, dogTopicRegex, dogTable);
+    List<String> twoRegexPartitionStrs = Arrays.asList(bigCatTopicStr1, bigCatTopicStr2, dogTopicStr1, birdTopicStr1);
+    Map<String, String> twoRegexExpected = new HashMap<>();
+    twoRegexExpected.put(bigCatTopicStr1, bigCatTable);
+    twoRegexExpected.put(bigCatTopicStr2, bigCatTable);
+    twoRegexExpected.put(dogTopicStr1, dogTable);
+    twoRegexExpected.put(birdTopicStr1, birdTopicStr1);
+    this.topicToTableRunner(twoRegexConfig, twoRegexPartitionStrs, twoRegexExpected);
+
+    // test two regexes with catchall. bird should point to catchall table
+    String twoRegexCatchAllConfig =
+        Utils.formatString("{}:{}, {}:{},{}:{}", catTopicRegex, catTable, dogTopicRegex, dogTable, catchAllRegex, catchallTable);
+    List<String> twoRegexCatchAllPartitionStrs = Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
+    Map<String, String> twoRegexCatchAllExpected = new HashMap<>();
+    twoRegexCatchAllExpected.put(catTopicStr1, catTable);
+    twoRegexCatchAllExpected.put(catTopicStr2, catTable);
+    twoRegexCatchAllExpected.put(dogTopicStr1, dogTable);
+    twoRegexCatchAllExpected.put(birdTopicStr1, catchallTable);
+    this.topicToTableRunner(twoRegexCatchAllConfig, twoRegexCatchAllPartitionStrs, twoRegexCatchAllExpected);
+
+    // test invalid overlapping regexes
+    String invalidTwoRegexConfig =
+        Utils.formatString("{}:{}, {}:{}", catTopicRegex, catTable, bigCatTopicRegex, bigCatTable);
+    List<String> invalidTwoRegexPartitionStrs = Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
+    Map<String, String> invalidTwoRegexExpected = new HashMap<>();
+    assert TestUtils.assertError(SnowflakeErrors.ERROR_0021, () -> this.topicToTableRunner(invalidTwoRegexConfig, invalidTwoRegexPartitionStrs, invalidTwoRegexExpected));
+
+    // test catchall regex
+    String catchAllConfig = Utils.formatString("{}:{}", catchAllRegex, catchallTable);
+    List<String> catchAllPartitionStrs = Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
+    Map<String, String> catchAllExpected = new HashMap<>();
+    catchAllExpected.put(catTopicStr1, catchallTable);
+    catchAllExpected.put(catTopicStr2, catchallTable);
+    catchAllExpected.put(dogTopicStr1, catchallTable);
+    catchAllExpected.put(birdTopicStr1, catchallTable);
+    this.topicToTableRunner(catchAllConfig, catchAllPartitionStrs, catchAllExpected);
+  }
+
+  private void topicToTableRunner(String topic2tableRegex, List<String> partitionStrList, Map<String, String> expectedTopic2TableConfig) {
     // setup
     Map<String, String> config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, topic2tableRegex);
 
-    TopicPartition catTopicPartition1 = new TopicPartition(catTopicStr1, 0);
-    TopicPartition catTopicPartition2 = new TopicPartition(catTopicStr2, 1);
-    TopicPartition dogTopicPartition1 = new TopicPartition(dogTopicStr1, 2);
-    TopicPartition birdTopicPartition1 = new TopicPartition("bird", 3);
-    ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
-    topicPartitions.add(catTopicPartition1);
-    topicPartitions.add(catTopicPartition2);
-    topicPartitions.add(dogTopicPartition1);
-    topicPartitions.add(birdTopicPartition1);
+    // setup partitions
+    List<TopicPartition> testPartitions = new ArrayList<>();
+    for (int i = 0; i < partitionStrList.size(); i++) {
+      testPartitions.add(new TopicPartition(partitionStrList.get(i), i));
+    }
 
     // mocks
     SnowflakeSinkService serviceSpy = Mockito.spy(SnowflakeSinkService.class);
@@ -368,14 +410,22 @@ public class SinkTaskIT {
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask(serviceSpy, connSpy, parsedConfig);
 
     // test topics were mapped correctly
-    sinkTask.open(topicPartitions);
+    sinkTask.open(testPartitions);
 
     // verify expected num tasks opened
-    Mockito.verify(serviceSpy, Mockito.times(1)).startTask(catTable, catTopicPartition1);
-    Mockito.verify(serviceSpy, Mockito.times(1)).startTask(catTable, catTopicPartition2);
-    Mockito.verify(serviceSpy, Mockito.times(1)).startTask(dogTable, dogTopicPartition1);
-    Mockito.verify(serviceSpy, Mockito.times(1)).startTask("bird", birdTopicPartition1);
-    Mockito.verify(serviceSpy, Mockito.times(4))
+    Mockito.verify(serviceSpy, Mockito.times(expectedTopic2TableConfig.size()))
         .startTask(Mockito.anyString(), Mockito.any(TopicPartition.class));
+
+    for (String topicStr : expectedTopic2TableConfig.keySet()) {
+      TopicPartition topic = null;
+      String table = expectedTopic2TableConfig.get(topicStr);
+      for (TopicPartition currTp : testPartitions) {
+        if (currTp.topic().equals(topicStr)) {
+          topic = currTp;
+          Mockito.verify(serviceSpy, Mockito.times(1)).startTask(table, topic);
+        }
+      }
+      Assert.assertNotNull("Expected topic partition was not opened by the tast", topic);
+    }
   }
 }
