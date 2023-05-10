@@ -124,6 +124,13 @@ public class SnowflakeSinkTask extends SinkTask {
     this.conn = connectionService;
   }
 
+  @VisibleForTesting
+  public SnowflakeSinkTask(
+      SnowflakeSinkService service, SnowflakeConnectionService connectionService, Map<String, String> topic2table) {
+    this(service, connectionService);
+    this.topic2table = topic2table;
+  }
+
   private SnowflakeConnectionService getConnection() {
     try {
       waitFor(() -> conn != null);

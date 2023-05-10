@@ -102,6 +102,8 @@ public class Utils {
 
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
+  private static final String CATCH_ALL_REGEX = ".*";
+
   /**
    * check the connector version from Maven repo, report if any update version is available.
    *
@@ -542,12 +544,23 @@ public class Utils {
     if (topic2table.containsKey(topic)) {
       return topic2table.get(topic);
     }
+
+    // regex topic
+    for (String regexTopic : topic2table.keySet()) {
+      if (topic.matches(regexTopic)) {
+        return topic2table.get(regexTopic);
+      }
+    }
+
     if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
       return topic;
     }
     int hash = Math.abs(topic.hashCode());
 
     StringBuilder result = new StringBuilder();
+
+    // remove wildcard regex from topic name
+    topic = topic.replaceAll("\\.\\*", "");
 
     int index = 0;
     // first char
@@ -599,6 +612,18 @@ public class Utils {
       if (topic2Table.containsKey(topic)) {
         LOGGER.error("topic name {} is duplicated", topic);
         isInvalid = true;
+      }
+
+      for (String parsedTopic : topic2Table.keySet()) {
+        // ignore the catch all regex
+        if (parsedTopic.equals(CATCH_ALL_REGEX) || topic.equals(CATCH_ALL_REGEX)) {
+          continue;
+        }
+
+        if (parsedTopic.matches(topic) || topic.matches(parsedTopic)) {
+          LOGGER.error("topic regexes cannot overlap except for the catch-all regex. overlapping regexes: {}, {}", parsedTopic, topic);
+          isInvalid = true;
+        }
       }
 
       topic2Table.put(tt[0].trim(), tt[1].trim());

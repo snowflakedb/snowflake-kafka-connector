@@ -5,6 +5,7 @@ import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NA
 
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -322,5 +323,59 @@ public class SinkTaskIT {
 
     assert offsetMap1.get(topicPartitions0.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
     assert offsetMap0.get(topicPartitions1.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
+  }
+
+  @Test
+  public void testTopicToTableMapParseAndCreation() {
+
+
+    // constants
+    String catTable = "cat_table";
+    String dogTable = "dog_table";
+    String catTopicStr1 = "calico_cat";
+    String catTopicStr2 = "orange_cat";
+    String dogTopicStr1 = "corgi_dog";
+    String catTopicRegex = ".*_cat";
+    String dogTopicRegex = ".*_dog";
+
+    String topic2tableRegex =
+        Utils.formatString("{}:{}, {}:{}", catTopicRegex, catTable, dogTopicRegex, dogTable);
+    System.out.println(topic2tableRegex);
+    Map<String, String> expectedParsedConfig = new HashMap<>();
+    expectedParsedConfig.put(catTopicRegex, catTable);
+    expectedParsedConfig.put(dogTopicRegex, dogTable);
+
+    // setup
+    Map<String, String> config = TestUtils.getConf();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, topic2tableRegex);
+
+    TopicPartition catTopicPartition1 = new TopicPartition(catTopicStr1, 0);
+    TopicPartition catTopicPartition2 = new TopicPartition(catTopicStr2, 1);
+    TopicPartition dogTopicPartition1 = new TopicPartition(dogTopicStr1, 2);
+    TopicPartition birdTopicPartition1 = new TopicPartition("bird", 3);
+    ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
+    topicPartitions.add(catTopicPartition1);
+    topicPartitions.add(catTopicPartition2);
+    topicPartitions.add(dogTopicPartition1);
+    topicPartitions.add(birdTopicPartition1);
+
+    // mocks
+    SnowflakeSinkService serviceSpy = Mockito.spy(SnowflakeSinkService.class);
+    SnowflakeConnectionService connSpy = Mockito.spy(SnowflakeConnectionService.class);
+    Map<String, String> parsedConfig = SnowflakeSinkTask.getTopicToTableMap(config);
+
+    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask(serviceSpy, connSpy, parsedConfig);
+
+    // test topics were mapped correctly
+    sinkTask.open(topicPartitions);
+
+    // verify expected num tasks opened
+    Mockito.verify(serviceSpy, Mockito.times(1)).startTask(catTable, catTopicPartition1);
+    Mockito.verify(serviceSpy, Mockito.times(1)).startTask(catTable, catTopicPartition2);
+    Mockito.verify(serviceSpy, Mockito.times(1)).startTask(dogTable, dogTopicPartition1);
+    Mockito.verify(serviceSpy, Mockito.times(1)).startTask("bird", birdTopicPartition1);
+    Mockito.verify(serviceSpy, Mockito.times(4))
+        .startTask(Mockito.anyString(), Mockito.any(TopicPartition.class));
   }
 }
