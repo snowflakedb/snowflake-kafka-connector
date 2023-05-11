@@ -4,10 +4,10 @@ from confluent_kafka import avro
 import json
 
 # Runs only in confluent test suite environment
-class TestRegexTopicToTable:
+class TestRegexTopicToTableSnowpipe:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "test_regex_topic_to_table"
+        self.fileName = "test_regex_topic_to_table_snowpipe"
         self.recordNum = 1000
         self.topicNum = 3;
 
