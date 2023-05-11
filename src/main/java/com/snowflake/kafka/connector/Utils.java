@@ -616,9 +616,7 @@ public class Utils {
       for (String parsedTopic : topic2Table.keySet()) {
         if (parsedTopic.matches(topic) || topic.matches(parsedTopic)) {
           LOGGER.error(
-              "topic regexes cannot overlap. overlapping regexes: {}, {}",
-              parsedTopic,
-              topic);
+              "topic regexes cannot overlap. overlapping regexes: {}, {}", parsedTopic, topic);
           isInvalid = true;
         }
       }
