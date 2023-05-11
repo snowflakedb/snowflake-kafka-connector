@@ -32,9 +32,8 @@ class TestRegexTopicToTableStreaming:
         return self.fileName + ".json"
 
     def send(self):
-        self.__sendbytes(self.catTopicStr1)
-        self.__sendbytes(self.catTopicStr2)
-        self.__sendbytes(self.dogTopicStr1)
+        for i in range(self.topicNum):
+            self.__sendbytes(self.topics[i])
 
     def verify(self, round):
         catCount = self.driver.snowflake_conn.cursor().execute(
