@@ -102,8 +102,6 @@ public class Utils {
 
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
-  private static final String CATCH_ALL_REGEX = ".*";
-
   /**
    * check the connector version from Maven repo, report if any update version is available.
    *
@@ -546,22 +544,10 @@ public class Utils {
     }
 
     // try matching regex tables
-    String catchallTable = topic2table.getOrDefault(CATCH_ALL_REGEX, null);
-    String gotTable = null;
     for (String regexTopic : topic2table.keySet()) {
-      if (!regexTopic.equals(CATCH_ALL_REGEX) && topic.matches(regexTopic)) {
-        gotTable = topic2table.get(regexTopic);
+      if (topic.matches(regexTopic)) {
+        return topic2table.get(regexTopic);
       }
-    }
-
-    // return matching regex table
-    if (gotTable != null) {
-      return gotTable;
-    }
-
-    // if there is a catchall regex, return table
-    if (catchallTable != null) {
-      return catchallTable;
     }
 
     if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
@@ -626,17 +612,11 @@ public class Utils {
         isInvalid = true;
       }
 
-      // check that regexes don't overlap, ignoring the catchall regex
+      // check that regexes don't overlap
       for (String parsedTopic : topic2Table.keySet()) {
-        // ignore the catch all regex
-        if (parsedTopic.equals(CATCH_ALL_REGEX) || topic.equals(CATCH_ALL_REGEX)) {
-          continue;
-        }
-
         if (parsedTopic.matches(topic) || topic.matches(parsedTopic)) {
           LOGGER.error(
-              "topic regexes cannot overlap except for the catch-all regex. overlapping regexes:"
-                  + " {}, {}",
+              "topic regexes cannot overlap. overlapping regexes: {}, {}",
               parsedTopic,
               topic);
           isInvalid = true;

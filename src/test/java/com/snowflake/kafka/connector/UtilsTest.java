@@ -71,18 +71,6 @@ public class UtilsTest {
     assert topic2table.containsValue(dogTable);
     assert topic2table.keySet().size() == 2;
 
-    // test catchall regex with another regex
-    String catchAllRegex = ".*";
-    topic2table =
-        Utils.parseTopicToTableMap(
-            Utils.formatString(
-                "{}:{},{}:{}", dogTopicRegex + catTopicRegex, catTable, catchAllRegex, dogTable));
-    assert topic2table.containsKey(dogTopicRegex + catTopicRegex);
-    assert topic2table.containsKey(catchAllRegex);
-    assert topic2table.containsValue(catTable);
-    assert topic2table.containsValue(dogTable);
-    assert topic2table.keySet().size() == 2;
-
     // error: overlapping regex, same table
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_0021,
@@ -102,14 +90,6 @@ public class UtilsTest {
                     catTable,
                     dogTopicRegex + catTopicRegex,
                     dogTable)));
-
-    // error: two catchall regexes
-    assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0021,
-        () ->
-            Utils.parseTopicToTableMap(
-                Utils.formatString(
-                    "{}:{},{}:{}", catchAllRegex, catTable, catchAllRegex, dogTable)));
   }
 
   @Test
@@ -133,10 +113,8 @@ public class UtilsTest {
   public void testTableNameRegex() {
     String catTable = "cat_table";
     String dogTable = "dog_table";
-    String catchallTable = "animal_table";
     String catTopicRegex = ".*_cat";
     String dogTopicRegex = ".*_dog";
-    String catchallRegex = ".*";
 
     // test two different regexs
     Map<String, String> topic2table =
@@ -151,20 +129,6 @@ public class UtilsTest {
     // test new topic should not have wildcard
     String topic = "bird.*";
     assert Utils.tableName(topic, topic2table).equals("bird_" + Math.abs(topic.hashCode()));
-
-    // test catchall and regex
-    topic2table =
-        Utils.parseTopicToTableMap(
-            Utils.formatString(
-                "{}:{},{}:{}", catTopicRegex, catTable, catchallRegex, catchallTable));
-
-    assert Utils.tableName("calico_cat", topic2table).equals(catTable);
-    assert Utils.tableName("orange_cat", topic2table).equals(catTable);
-    assert Utils.tableName("_cat", topic2table).equals(catTable);
-
-    // test new topic should point to catchall table
-    assert Utils.tableName("corgi_dog", topic2table).equals(catchallTable);
-    assert Utils.tableName("bird", topic2table).equals(catchallTable);
   }
 
   @Test
