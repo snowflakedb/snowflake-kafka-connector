@@ -303,4 +303,11 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     assert partitionsInTable.size() == 2;
   }
+
+  @Test
+  public void testTopicToTableRegex() {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+
+    SinkTaskIT.testTopicToTableRegexMain(config);
+  }
 }

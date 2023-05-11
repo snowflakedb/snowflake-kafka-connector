@@ -330,9 +330,16 @@ public class SinkTaskIT {
   }
 
   @Test
-  public void testTopicToTableMapParseAndCreation() {
-    // TODO @rcheng question: should i duplicate this test for streaming?
+  public void testTopicToTableRegex() {
+    Map<String, String> config = TestUtils.getConf();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
+    testTopicToTableRegexMain(config);
+  }
+
+  // runner for topic to table regex testing, used to test both streaming and snowpipe scenarios.
+  // Unfortunately cannot be moved to test utils due to the scope of some static variables
+  public static void testTopicToTableRegexMain(Map<String, String> config) {
     // constants
     String catTable = "cat_table";
     String catTopicRegex = ".*_cat";
@@ -362,7 +369,7 @@ public class SinkTaskIT {
     twoRegexExpected.put(bigCatTopicStr2, bigCatTable);
     twoRegexExpected.put(dogTopicStr1, dogTable);
     twoRegexExpected.put(birdTopicStr1, birdTopicStr1);
-    this.topicToTableRunner(twoRegexConfig, twoRegexPartitionStrs, twoRegexExpected);
+    testTopicToTableRegexRunner(config, twoRegexConfig, twoRegexPartitionStrs, twoRegexExpected);
 
     // test two regexes with catchall. bird should point to catchall table
     String twoRegexCatchAllConfig =
@@ -382,8 +389,8 @@ public class SinkTaskIT {
     twoRegexCatchAllExpected.put(bigCatTopicStr1, catTable);
     twoRegexCatchAllExpected.put(dogTopicStr1, dogTable);
     twoRegexCatchAllExpected.put(birdTopicStr1, catchallTable);
-    this.topicToTableRunner(
-        twoRegexCatchAllConfig, twoRegexCatchAllPartitionStrs, twoRegexCatchAllExpected);
+    testTopicToTableRegexRunner(
+        config, twoRegexCatchAllConfig, twoRegexCatchAllPartitionStrs, twoRegexCatchAllExpected);
 
     // test invalid overlapping regexes
     String invalidTwoRegexConfig =
@@ -394,8 +401,11 @@ public class SinkTaskIT {
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_0021,
         () ->
-            this.topicToTableRunner(
-                invalidTwoRegexConfig, invalidTwoRegexPartitionStrs, invalidTwoRegexExpected));
+            testTopicToTableRegexRunner(
+                config,
+                invalidTwoRegexConfig,
+                invalidTwoRegexPartitionStrs,
+                invalidTwoRegexExpected));
 
     // test catchall regex
     String catchAllConfig = Utils.formatString("{}:{}", catchAllRegex, catchallTable);
@@ -406,17 +416,16 @@ public class SinkTaskIT {
     catchAllExpected.put(catTopicStr2, catchallTable);
     catchAllExpected.put(dogTopicStr1, catchallTable);
     catchAllExpected.put(birdTopicStr1, catchallTable);
-    this.topicToTableRunner(catchAllConfig, catchAllPartitionStrs, catchAllExpected);
+    testTopicToTableRegexRunner(config, catchAllConfig, catchAllPartitionStrs, catchAllExpected);
   }
 
-  private void topicToTableRunner(
+  private static void testTopicToTableRegexRunner(
+      Map<String, String> connectorBaseConfig,
       String topic2tableRegex,
       List<String> partitionStrList,
       Map<String, String> expectedTopic2TableConfig) {
     // setup
-    Map<String, String> config = TestUtils.getConf();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, topic2tableRegex);
+    connectorBaseConfig.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, topic2tableRegex);
 
     // setup partitions
     List<TopicPartition> testPartitions = new ArrayList<>();
@@ -427,7 +436,7 @@ public class SinkTaskIT {
     // mocks
     SnowflakeSinkService serviceSpy = Mockito.spy(SnowflakeSinkService.class);
     SnowflakeConnectionService connSpy = Mockito.spy(SnowflakeConnectionService.class);
-    Map<String, String> parsedConfig = SnowflakeSinkTask.getTopicToTableMap(config);
+    Map<String, String> parsedConfig = SnowflakeSinkTask.getTopicToTableMap(connectorBaseConfig);
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask(serviceSpy, connSpy, parsedConfig);
 

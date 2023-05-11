@@ -125,6 +125,7 @@ public class SnowflakeSinkTask extends SinkTask {
   }
 
   @VisibleForTesting
+  // @codeCoverageIgnore
   public SnowflakeSinkTask(
       SnowflakeSinkService service,
       SnowflakeConnectionService connectionService,
