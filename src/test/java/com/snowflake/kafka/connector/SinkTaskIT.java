@@ -72,6 +72,12 @@ public class SinkTaskIT {
     topicPartitions.add(new TopicPartition(topicName, partition));
     sinkTask.open(topicPartitions);
 
+    // commit offset should skip when offset=0
+    Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
+    offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(0));
+    offsetMap = sinkTask.preCommit(offsetMap);
+    assert offsetMap.size() == 0;
+
     // send regular data
     ArrayList<SinkRecord> records = new ArrayList<>();
     String json = "{ \"f1\" : \"v1\" } ";
@@ -111,7 +117,6 @@ public class SinkTaskIT {
     sinkTask.put(records);
 
     // commit offset
-    Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
     offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(0));
     offsetMap = sinkTask.preCommit(offsetMap);
 

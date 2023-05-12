@@ -88,6 +88,8 @@ public class SnowflakeSinkTask extends SinkTask {
 
   private long taskStartTime;
 
+  private IngestionMethodConfig ingestionMethodConfig;
+
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
     DYNAMIC_LOGGER = new KCLogger(this.getClass().getName());
@@ -203,6 +205,7 @@ public class SnowflakeSinkTask extends SinkTask {
     if (this.sink != null) {
       this.sink.closeAll();
     }
+    this.ingestionMethodConfig = ingestionType;
     this.sink =
         SnowflakeSinkServiceFactory.builder(getConnection(), ingestionType, parsedConfig)
             .setFileSize(bufferSizeBytes)
@@ -322,9 +325,11 @@ public class SnowflakeSinkTask extends SinkTask {
     try {
       offsets.forEach(
           (topicPartition, offsetAndMetadata) -> {
-            long offSet = sink.getOffset(topicPartition);
-            if (offSet != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-              committedOffsets.put(topicPartition, new OffsetAndMetadata(offSet));
+            long offset = sink.getOffset(topicPartition);
+            if ((ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE && offset != 0)
+                || (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE_STREAMING
+                    && offset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE)) {
+              committedOffsets.put(topicPartition, new OffsetAndMetadata(offset));
             }
           });
     } catch (Exception e) {

@@ -77,12 +77,17 @@ public class SnowflakeSinkTaskForStreamingIT {
     topicPartitions.add(new TopicPartition(topicName, partition));
     sinkTask.open(topicPartitions);
 
+    // commit offset
+    final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
+    offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(0));
+    TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 0, 20, 5);
+
     // send regular data
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition);
     sinkTask.put(records);
 
     // commit offset
-    final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
+    offsetMap.clear();
     offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(10000));
 
     TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 1, 20, 5);
