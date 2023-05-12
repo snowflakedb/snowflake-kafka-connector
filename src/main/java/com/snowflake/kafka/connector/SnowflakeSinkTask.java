@@ -16,8 +16,6 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -28,13 +26,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Supplier;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -42,6 +33,16 @@ import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
+
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
+
+import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 /**
  * SnowflakeSinkTask implements SinkTask for Kafka Connect framework.
@@ -97,6 +98,8 @@ public class SnowflakeSinkTask extends SinkTask {
   private long taskStartTime;
 
   private long taskOpenCount;
+
+  private IngestionMethodConfig ingestionMethodConfig;
 
   public static void setTotalTaskCreationCount(int newCreationCount) {
     STATIC_LOGGER.info("Setting task creation count to {} for logging", newCreationCount);
@@ -235,6 +238,7 @@ public class SnowflakeSinkTask extends SinkTask {
     if (this.sink != null) {
       this.sink.closeAll();
     }
+    this.ingestionMethodConfig = ingestionType;
     this.sink =
         SnowflakeSinkServiceFactory.builder(getConnection(), ingestionType, parsedConfig)
             .setFileSize(bufferSizeBytes)
@@ -358,9 +362,11 @@ public class SnowflakeSinkTask extends SinkTask {
     try {
       offsets.forEach(
           (topicPartition, offsetAndMetadata) -> {
-            long offSet = sink.getOffset(topicPartition);
-            if (offSet != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-              committedOffsets.put(topicPartition, new OffsetAndMetadata(offSet));
+            long offset = sink.getOffset(topicPartition);
+            if ((ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE && offset != 0)
+                || (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE_STREAMING
+                    && offset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE)) {
+              committedOffsets.put(topicPartition, new OffsetAndMetadata(offset));
             }
           });
     } catch (Exception e) {
