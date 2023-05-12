@@ -1,21 +1,9 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -34,6 +22,19 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 import org.slf4j.Logger;
+
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 
 /**
  * Sink Task IT test which uses {@link
@@ -80,12 +81,17 @@ public class SnowflakeSinkTaskForStreamingIT {
     topicPartitions.add(new TopicPartition(topicName, partition));
     sinkTask.open(topicPartitions);
 
+    // commit offset
+    final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
+    offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(0));
+    TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 0, 20, 5);
+
     // send regular data
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition);
     sinkTask.put(records);
 
     // commit offset
-    final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
+    offsetMap.clear();
     offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(10000));
 
     TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 1, 20, 5);
