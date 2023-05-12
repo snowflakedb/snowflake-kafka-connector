@@ -133,4 +133,56 @@ public class UtilsTest {
     Utils.setJDBCLoggingDirectory();
     assert System.getProperty(Utils.JAVA_IO_TMPDIR).equals(defaultTmpDir);
   }
+
+  @Test
+  public void testLogMessageBasic() {
+    // no variable
+    String expected = Utils.SF_LOG_TAG + " test message";
+
+    assert Utils.formatLogMessage("test message").equals(expected);
+
+    // 1 variable
+    expected = Utils.SF_LOG_TAG + " 1 test message";
+
+    assert Utils.formatLogMessage("{} test message", 1).equals(expected);
+  }
+
+  @Test
+  public void testLogMessageNulls() {
+    // nulls
+    String expected = Utils.SF_LOG_TAG + " null test message";
+    assert Utils.formatLogMessage("{} test message", (String) null).equals(expected);
+
+    expected = Utils.SF_LOG_TAG + " some string test null message null";
+    assert Utils.formatLogMessage("{} test {} message {}", "some string", null, null)
+        .equals(expected);
+  }
+
+  @Test
+  public void testLogMessageMultiLines() {
+    // 2 variables
+    String expected = Utils.SF_LOG_TAG + " 1 test message\n" + "2 test message";
+
+    System.out.println(Utils.formatLogMessage("{} test message\n{} test message", 1, 2));
+
+    assert Utils.formatLogMessage("{} test message\n{} test message", 1, 2).equals(expected);
+
+    // 3 variables
+    expected = Utils.SF_LOG_TAG + " 1 test message\n" + "2 test message\n" + "3 test message";
+
+    assert Utils.formatLogMessage("{} test message\n{} test message\n{} test " + "message", 1, 2, 3)
+        .equals(expected);
+
+    // 4 variables
+    expected =
+        Utils.SF_LOG_TAG
+            + " 1 test message\n"
+            + "2 test message\n"
+            + "3 test message\n"
+            + "4 test message";
+
+    assert Utils.formatLogMessage(
+            "{} test message\n{} test message\n{} test " + "message\n{} test message", 1, 2, 3, 4)
+        .equals(expected);
+  }
 }

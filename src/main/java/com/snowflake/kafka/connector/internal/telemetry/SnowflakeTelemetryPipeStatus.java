@@ -22,7 +22,6 @@ import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
-import com.snowflake.kafka.connector.internal.Logging;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil.EventType;
@@ -262,7 +261,7 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
   }
 
   @Override
-  void dumpTo(ObjectNode msg) {
+  public void dumpTo(ObjectNode msg) {
     msg.put(TABLE_NAME, tableName);
     msg.put(STAGE_NAME, stageName);
     msg.put(PIPE_NAME, pipeName);
@@ -314,10 +313,9 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     // Lazily remove all registered metrics from the registry since this can be invoked during
     // partition reassignment
     LOGGER.debug(
-        Logging.logMessage(
-            "Registering metrics for pipe:{}, existing:{}",
-            pipeName,
-            metricsJmxReporter.getMetricRegistry().getMetrics().keySet().toString()));
+        "Registering metrics for pipe:{}, existing:{}",
+        pipeName,
+        metricsJmxReporter.getMetricRegistry().getMetrics().keySet().toString());
     metricsJmxReporter.removeMetricsFromRegistry(pipeName);
 
     try {

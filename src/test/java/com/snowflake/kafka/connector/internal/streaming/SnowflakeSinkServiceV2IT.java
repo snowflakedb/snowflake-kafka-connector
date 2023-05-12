@@ -1,8 +1,11 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -15,6 +18,8 @@ import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -32,6 +37,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class SnowflakeSinkServiceV2IT {
@@ -634,12 +640,18 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(brokenKeyValue);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 0, 20, 5);
+        () ->
+            service.getOffset(new TopicPartition(topic, partition))
+                == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        20,
+        5);
 
     List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedData =
         errorReporter.getReportedRecords();
 
     assert reportedData.size() == 3;
+    assert TestUtils.tableSize(table) == 0
+        : "expected: " + 0 + " actual: " + TestUtils.tableSize(table);
   }
 
   @Test
@@ -687,6 +699,8 @@ public class SnowflakeSinkServiceV2IT {
         errorReporter.getReportedRecords();
 
     assert reportedData.size() == 2;
+    assert TestUtils.tableSize(table) == 1
+        : "expected: " + 1 + " actual: " + TestUtils.tableSize(table);
 
     service.closeAll();
   }
@@ -807,8 +821,6 @@ public class SnowflakeSinkServiceV2IT {
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .setDeliveryGuarantee(
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
     offset = 1;
@@ -868,8 +880,6 @@ public class SnowflakeSinkServiceV2IT {
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .setDeliveryGuarantee(
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -888,5 +898,254 @@ public class SnowflakeSinkServiceV2IT {
     assert service2.getOffset(new TopicPartition(topic, partition)) == totalRecordsExpected;
 
     service2.closeAll();
+  }
+
+  @Test
+  public void testSchematizationWithTableCreationAndAvroInput() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+        "io.confluent.connect.avro.AvroConverter");
+    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
+    // get rid of these at the end
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    // avro
+    SchemaBuilder schemaBuilder =
+        SchemaBuilder.struct()
+            .field("id_int8", Schema.INT8_SCHEMA)
+            .field("id_int8_optional", Schema.OPTIONAL_INT8_SCHEMA)
+            .field("id_int16", Schema.INT16_SCHEMA)
+            .field("ID_INT32", Schema.INT32_SCHEMA)
+            .field("id_int64", Schema.INT64_SCHEMA)
+            .field("first_name", Schema.STRING_SCHEMA)
+            .field("rating_float32", Schema.FLOAT32_SCHEMA)
+            .field("rating_float64", Schema.FLOAT64_SCHEMA)
+            .field("approval", Schema.BOOLEAN_SCHEMA)
+            .field("info_array", SchemaBuilder.array(Schema.STRING_SCHEMA).build())
+            .field(
+                "info_map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build());
+
+    Struct original =
+        new Struct(schemaBuilder.build())
+            .put("id_int8", (byte) 0)
+            .put("id_int16", (short) 42)
+            .put("ID_INT32", 42)
+            .put("id_int64", 42L)
+            .put("first_name", "zekai")
+            .put("rating_float32", 0.99f)
+            .put("rating_float64", 0.99d)
+            .put("approval", true)
+            .put("info_array", Arrays.asList("a", "b"))
+            .put("info_map", Collections.singletonMap("field", 3));
+
+    SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
+    AvroConverter avroConverter = new AvroConverter(schemaRegistry);
+    avroConverter.configure(
+        Collections.singletonMap("schema.registry.url", "http://fake-url"), false);
+    byte[] converted = avroConverter.fromConnectData(topic, original.schema(), original);
+    conn.createTableWithOnlyMetadataColumn(table);
+
+    SchemaAndValue avroInputValue = avroConverter.toConnectData(topic, converted);
+
+    long startOffset = 0;
+    long endOffset = 0;
+
+    SinkRecord avroRecordValue =
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test",
+            avroInputValue.schema(),
+            avroInputValue.value(),
+            startOffset);
+
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition))
+            .build();
+
+    // Schema evolution should kick in to update the schema and then the rows should be ingested
+    service.insert(avroRecordValue);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
+
+    TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_AVRO_SCHEMA_FOR_TABLE_CREATION);
+    TestUtils.checkTableContentOneRow(
+        table, SchematizationTestUtils.CONTENT_FOR_AVRO_TABLE_CREATION);
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testSchematizationWithTableCreationAndJsonInput() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+        "org.apache.kafka.connect.json.JsonConverter");
+    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
+    config.put("schemas.enable", "false");
+    // get rid of these at the end
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    SchemaBuilder schemaBuilder =
+        SchemaBuilder.struct()
+            .field("id_int8", Schema.INT8_SCHEMA)
+            .field("id_int8_optional", Schema.OPTIONAL_INT8_SCHEMA)
+            .field("id_int16", Schema.INT16_SCHEMA)
+            .field("\"id_int32_double_quotes\"", Schema.INT32_SCHEMA)
+            .field("id_int64", Schema.INT64_SCHEMA)
+            .field("first_name", Schema.STRING_SCHEMA)
+            .field("rating_float32", Schema.FLOAT32_SCHEMA)
+            .field("rating_float64", Schema.FLOAT64_SCHEMA)
+            .field("approval", Schema.BOOLEAN_SCHEMA)
+            .field("info_array", SchemaBuilder.array(Schema.STRING_SCHEMA).build())
+            .field(
+                "info_map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build());
+
+    Struct original =
+        new Struct(schemaBuilder.build())
+            .put("id_int8", (byte) 0)
+            .put("id_int16", (short) 42)
+            .put("\"id_int32_double_quotes\"", 42)
+            .put("id_int64", 42L)
+            .put("first_name", "zekai")
+            .put("rating_float32", 0.99f)
+            .put("rating_float64", 0.99d)
+            .put("approval", true)
+            .put("info_array", Arrays.asList("a", "b"))
+            .put("info_map", Collections.singletonMap("field", 3));
+
+    JsonConverter jsonConverter = new JsonConverter();
+    jsonConverter.configure(config, false);
+    byte[] converted = jsonConverter.fromConnectData(topic, original.schema(), original);
+    conn.createTableWithOnlyMetadataColumn(table);
+
+    SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
+
+    long startOffset = 0;
+    long endOffset = 0;
+
+    SinkRecord jsonRecordValue =
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test",
+            jsonInputValue.schema(),
+            jsonInputValue.value(),
+            startOffset);
+
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition))
+            .build();
+
+    // Schema evolution should kick in to update the schema and then the rows should be ingested
+    service.insert(jsonRecordValue);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
+    TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_JSON_SCHEMA_FOR_TABLE_CREATION);
+    TestUtils.checkTableContentOneRow(
+        table, SchematizationTestUtils.CONTENT_FOR_JSON_TABLE_CREATION);
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testSchematizationSchemaEvolutionWithNonNullableColumn() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+        "org.apache.kafka.connect.json.JsonConverter");
+    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
+    config.put("schemas.enable", "false");
+    // get rid of these at the end
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    SchemaBuilder schemaBuilder = SchemaBuilder.struct().field("id_int8", Schema.INT8_SCHEMA);
+    Struct original = new Struct(schemaBuilder.build()).put("id_int8", (byte) 0);
+
+    JsonConverter jsonConverter = new JsonConverter();
+    jsonConverter.configure(config, false);
+    byte[] converted = jsonConverter.fromConnectData(topic, original.schema(), original);
+    conn.createTableWithOnlyMetadataColumn(table);
+    createNonNullableColumn(table, "id_int8_non_nullable");
+
+    SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
+
+    long startOffset = 0;
+
+    SinkRecord jsonRecordValue =
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test",
+            jsonInputValue.schema(),
+            jsonInputValue.value(),
+            startOffset);
+
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition))
+            .build();
+
+    // Schema evolution should kick in to update the schema and then the rows should be ingested
+    service.insert(jsonRecordValue);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testStreamingIngestion_invalid_file_version() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    Map<String, String> overriddenConfig = new HashMap<>(config);
+    overriddenConfig.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "TWOO_HUNDRED");
+
+    conn.createTable(table);
+
+    try {
+      // This will fail in creation of client
+      SnowflakeSinkServiceFactory.builder(
+              conn, IngestionMethodConfig.SNOWPIPE_STREAMING, overriddenConfig)
+          .setRecordNumber(1)
+          .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+          .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+          .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
+          .build();
+    } catch (IllegalArgumentException ex) {
+      Assert.assertEquals(NumberFormatException.class, ex.getCause().getClass());
+    }
+  }
+
+  private void createNonNullableColumn(String tableName, String colName) {
+    String createTableQuery = "alter table identifier(?) add " + colName + " int not null";
+
+    try {
+      PreparedStatement stmt = conn.getConnection().prepareStatement(createTableQuery);
+      stmt.setString(1, tableName);
+      stmt.setString(2, colName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
   }
 }

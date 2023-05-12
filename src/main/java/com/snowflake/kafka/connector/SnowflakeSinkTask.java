@@ -16,11 +16,9 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -28,13 +26,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Supplier;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -42,8 +33,16 @@ import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
+
+import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 /**
  * SnowflakeSinkTask implements SinkTask for Kafka Connect framework.
@@ -57,19 +56,11 @@ public class SnowflakeSinkTask extends SinkTask {
   private static final long WAIT_TIME = 5 * 1000; // 5 sec
   private static final int REPEAT_TIME = 12; // 60 sec
 
-  private SnowflakeSinkService sink = null;
-  private Map<String, String> topic2table = null;
-
-  // snowflake JDBC connection provides methods to interact with user's
-  // snowflake
-  // account and execute queries
-  private SnowflakeConnectionService conn = null;
-  private String id = "-1";
-
-  // Rebalancing Test
-  private boolean enableRebalancing = SnowflakeSinkConnectorConfig.REBALANCING_DEFAULT;
-  // After REBALANCING_THRESHOLD put operations, insert a thread.sleep which will trigger rebalance
-  private int rebalancingCounter = 0;
+  // the dynamic logger is intended to be attached per task instance. the instance id will be set
+  // during task start, however if it is not set, it falls back to the static logger
+  private static final KCLogger STATIC_LOGGER =
+      new KCLogger(SnowflakeSinkTask.class.getName() + "_STATIC");
+  private KCLogger DYNAMIC_LOGGER;
 
   // After 5 put operations, we will insert a sleep which will cause a rebalance since heartbeat is
   // not found
@@ -79,11 +70,35 @@ public class SnowflakeSinkTask extends SinkTask {
   // check connect-distributed.properties file used to start kafka connect
   private final int rebalancingSleepTime = 370000;
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkTask.class);
+  private SnowflakeSinkService sink = null;
+  private Map<String, String> topic2table = null;
+
+  // snowflake JDBC connection provides methods to interact with user's
+  // snowflake
+  // account and execute queries
+  private SnowflakeConnectionService conn = null;
+
+  // tracks number of tasks the config wants to create
+  private String taskConfigId = "-1";
+
+  // Rebalancing Test
+  private boolean enableRebalancing = SnowflakeSinkConnectorConfig.REBALANCING_DEFAULT;
+  // After REBALANCING_THRESHOLD put operations, insert a thread.sleep which will trigger rebalance
+  private int rebalancingCounter = 0;
+
+  private long taskStartTime;
 
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
-    // nothing
+    DYNAMIC_LOGGER = new KCLogger(this.getClass().getName());
+  }
+
+  @VisibleForTesting
+  public SnowflakeSinkTask(
+      SnowflakeSinkService service, SnowflakeConnectionService connectionService) {
+    DYNAMIC_LOGGER = new KCLogger(this.getClass().getName());
+    this.sink = service;
+    this.conn = connectionService;
   }
 
   private SnowflakeConnectionService getConnection() {
@@ -121,11 +136,11 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
-    long startTime = System.currentTimeMillis();
-    this.id = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
+    this.DYNAMIC_LOGGER.debug("starting task...");
 
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:start", this.id));
-    // connector configuration
+    // get task id and start time
+    this.taskStartTime = System.currentTimeMillis();
+    this.taskConfigId = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
 
     // generate topic to table map
     this.topic2table = getTopicToTableMap(parsedConfig);
@@ -165,36 +180,23 @@ public class SnowflakeSinkTask extends SinkTask {
           Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.JMX_OPT));
     }
 
-    // Get the Delivery guarantee type from config, default to at_least_once
-    SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
-        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
-            parsedConfig.getOrDefault(
-                DELIVERY_GUARANTEE,
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
-
     enableRebalancing =
         Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.REBALANCING));
 
-    KafkaRecordErrorReporter kafkaRecordErrorReporter = noOpKafkaRecordErrorReporter();
+    KafkaRecordErrorReporter kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
 
     // default to snowpipe
-    // If it is snowpipe_streaming, set delivery guarantee to exactly once.
     IngestionMethodConfig ingestionType = IngestionMethodConfig.SNOWPIPE;
     if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
       ingestionType =
           IngestionMethodConfig.valueOf(
               parsedConfig.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).toUpperCase());
-      if (ingestionType.equals(IngestionMethodConfig.SNOWPIPE_STREAMING)) {
-        ingestionDeliveryGuarantee =
-            SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE;
-        kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
-      }
     }
 
     conn =
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(parsedConfig)
-            .setTaskID(this.id)
+            .setTaskID(this.taskConfigId)
             .build();
 
     if (this.sink != null) {
@@ -209,16 +211,14 @@ public class SnowflakeSinkTask extends SinkTask {
             .setMetadataConfig(metadataConfig)
             .setBehaviorOnNullValuesConfig(behavior)
             .setCustomJMXMetrics(enableCustomJMXMonitoring)
-            .setDeliveryGuarantee(ingestionDeliveryGuarantee)
             .setErrorReporter(kafkaRecordErrorReporter)
             .setSinkTaskContext(this.context)
             .build();
 
-    LOGGER.info(
-        Logging.logMessage(
-            "SnowflakeSinkTask[ID:{}]:start. Time: {} seconds",
-            this.id,
-            (System.currentTimeMillis() - startTime) / 1000));
+    DYNAMIC_LOGGER.debug(
+        "task started, execution time: {} seconds",
+        this.taskConfigId,
+        getExecutionTimeSec(this.taskStartTime, System.currentTimeMillis()));
   }
 
   /**
@@ -227,10 +227,13 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void stop() {
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:stop", this.id));
     if (this.sink != null) {
       this.sink.setIsStoppedToTrue(); // close cleaner thread
     }
+
+    this.DYNAMIC_LOGGER.debug(
+        "task stopped, total task runtime: {} seconds",
+        getExecutionTimeSec(this.taskStartTime, System.currentTimeMillis()));
   }
 
   /**
@@ -241,19 +244,12 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void open(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    LOGGER.info(
-        Logging.logMessage(
-            "SnowflakeSinkTask[ID:{}]:open, TopicPartition number: {}",
-            this.id,
-            partitions.size()));
     partitions.forEach(
         tp -> this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp));
-
-    LOGGER.info(
-        Logging.logMessage(
-            "SnowflakeSinkTask[ID:{}]:open. Time: {} seconds",
-            this.id,
-            (System.currentTimeMillis() - startTime) / 1000));
+    this.DYNAMIC_LOGGER.debug(
+        "task opened with {} partitions, execution time: {} seconds",
+        partitions.size(),
+        getExecutionTimeSec(startTime, System.currentTimeMillis()));
   }
 
   /**
@@ -267,16 +263,14 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void close(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    LOGGER.info(Logging.logMessage("SnowflakeSinkTask[ID:{}]:close", this.id));
     if (this.sink != null) {
       this.sink.close(partitions);
     }
 
-    LOGGER.info(
-        Logging.logMessage(
-            "SnowflakeSinkTask[ID:{}]:close. Time: {} seconds",
-            this.id,
-            (System.currentTimeMillis() - startTime) / 1000));
+    this.DYNAMIC_LOGGER.debug(
+        "task closed, execution time: {} seconds",
+        this.taskConfigId,
+        getExecutionTimeSec(startTime, System.currentTimeMillis()));
   }
 
   /**
@@ -291,8 +285,6 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     long startTime = System.currentTimeMillis();
-    LOGGER.debug(
-        Logging.logMessage("SnowflakeSinkTask[ID:{}]:put {} records", this.id, records.size()));
 
     getSink().insert(records);
 
@@ -313,19 +305,14 @@ public class SnowflakeSinkTask extends SinkTask {
   public Map<TopicPartition, OffsetAndMetadata> preCommit(
       Map<TopicPartition, OffsetAndMetadata> offsets) throws RetriableException {
     long startTime = System.currentTimeMillis();
-    LOGGER.debug(
-        Logging.logMessage("SnowflakeSinkTask[ID:{}]:preCommit {}", this.id, offsets.size()));
 
     // return an empty map means that offset commitment is not desired
     if (sink == null || sink.isClosed()) {
-      LOGGER.warn(
-          Logging.logMessage(
-              "SnowflakeSinkTask[ID:{}]: sink " + "not initialized or closed before preCommit",
-              this.id));
+      this.DYNAMIC_LOGGER.warn(
+          "sink not initialized or closed before preCommit", this.taskConfigId);
       return new HashMap<>();
     } else if (sink.getPartitionCount() == 0) {
-      LOGGER.warn(
-          Logging.logMessage("SnowflakeSinkTask[ID:{}]: no partition is assigned", this.id));
+      this.DYNAMIC_LOGGER.warn("no partition is assigned", this.taskConfigId);
       return new HashMap<>();
     }
 
@@ -335,20 +322,15 @@ public class SnowflakeSinkTask extends SinkTask {
       offsets.forEach(
           (topicPartition, offsetAndMetadata) -> {
             long offSet = sink.getOffset(topicPartition);
-            if (offSet != 0) {
+            if (offSet != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
               committedOffsets.put(topicPartition, new OffsetAndMetadata(offSet));
             }
           });
     } catch (Exception e) {
-      LOGGER.error(
-          Logging.logMessage(
-              "SnowflakeSinkTask[ID:{}]: Error " + "while preCommit: {} ",
-              this.id,
-              e.getMessage()));
-      return new HashMap<>();
+      this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
     }
 
-    logWarningForPutAndPrecommit(startTime, offsets.size(), "preCommit");
+    logWarningForPutAndPrecommit(startTime, offsets.size(), "precommit");
     return committedOffsets;
   }
 
@@ -371,7 +353,7 @@ public class SnowflakeSinkTask extends SinkTask {
       if (result != null) {
         return result;
       }
-      LOGGER.error(Logging.logMessage("Invalid Input, Topic2Table Map disabled"));
+      STATIC_LOGGER.error("Invalid Input, Topic2Table Map disabled");
     }
     return new HashMap<>();
   }
@@ -392,22 +374,29 @@ public class SnowflakeSinkTask extends SinkTask {
     throw new TimeoutException();
   }
 
+  private static long getExecutionTimeSec(long startTime, long endTime) {
+    return (endTime - startTime) / 1000;
+  }
+
   void logWarningForPutAndPrecommit(long startTime, int size, String apiName) {
-    long executionTime = (System.currentTimeMillis() - startTime) / 1000;
+    long executionTime = getExecutionTimeSec(startTime, System.currentTimeMillis());
     if (executionTime > 300) {
       // This won't be frequently printed. It is vary rare to have execution greater than 300
       // seconds.
       // But having this warning helps customer to debug their Kafka Connect config.
-      LOGGER.warn(
-          Logging.logMessage(
-              "SnowflakeSinkTask[ID:{}]:{} {}. Time: {} seconds > 300 seconds. If there is"
-                  + " CommitFailedException in the log or there is duplicated records, refer to"
-                  + " this link for solution: "
-                  + "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
-              this.id,
-              apiName,
-              size,
-              executionTime));
+      this.DYNAMIC_LOGGER.warn(
+          "{} {}. Time: {} seconds > 300 seconds. If there is CommitFailedException in the log or"
+              + " there is duplicated records, refer to this link for solution: "
+              + "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
+          apiName,
+          size,
+          executionTime);
+    } else {
+      this.DYNAMIC_LOGGER.debug(
+          "successfully called {} with {} records, execution time: {} seconds",
+          apiName,
+          size,
+          getExecutionTimeSec(startTime, System.currentTimeMillis()));
     }
   }
 
@@ -416,7 +405,8 @@ public class SnowflakeSinkTask extends SinkTask {
     rebalancingCounter++;
     if (rebalancingCounter == REBALANCING_THRESHOLD) {
       try {
-        LOGGER.debug("[TEST_ONLY] Sleeping :{} ms to trigger a rebalance", rebalancingSleepTime);
+        this.DYNAMIC_LOGGER.debug(
+            "[TEST_ONLY] Sleeping :{} ms to trigger a rebalance", rebalancingSleepTime);
         Thread.sleep(rebalancingSleepTime);
       } catch (InterruptedException e) {
         e.printStackTrace();
@@ -435,20 +425,27 @@ public class SnowflakeSinkTask extends SinkTask {
               (record, error) -> {
                 try {
                   // Blocking this until record is delivered to DLQ
+                  DYNAMIC_LOGGER.debug(
+                      "Sending Sink Record to DLQ with recordOffset:{}, partition:{}",
+                      record.kafkaOffset(),
+                      record.kafkaPartition());
                   errantRecordReporter.report(record, error).get();
                 } catch (InterruptedException | ExecutionException e) {
                   final String errMsg = "ERROR reporting records to ErrantRecordReporter";
-                  LOGGER.error(errMsg, e);
+                  this.DYNAMIC_LOGGER.error(errMsg, e);
                   throw new ConnectException(errMsg, e);
                 }
               };
         } else {
-          LOGGER.info("Errant record reporter is not configured.");
+          this.DYNAMIC_LOGGER.info("Errant record reporter is not configured.");
         }
       } catch (NoClassDefFoundError | NoSuchMethodError e) {
         // Will occur in Connect runtimes earlier than 2.6
-        LOGGER.info("Kafka versions prior to 2.6 do not support the errant record reporter.");
+        this.DYNAMIC_LOGGER.info(
+            "Kafka versions prior to 2.6 do not support the errant record reporter.");
       }
+    } else {
+      DYNAMIC_LOGGER.warn("SinkTaskContext is not set");
     }
     return result;
   }
@@ -459,10 +456,12 @@ public class SnowflakeSinkTask extends SinkTask {
    * @see <a
    *     href="https://javadoc.io/doc/org.apache.kafka/connect-api/2.6.0/org/apache/kafka/connect/sink/ErrantRecordReporter.html">
    *     link </a>
-   * @return
    */
   @VisibleForTesting
   static KafkaRecordErrorReporter noOpKafkaRecordErrorReporter() {
-    return (record, e) -> {};
+    return (record, e) -> {
+      STATIC_LOGGER.warn(
+          "DLQ Kafka Record Error Reporter is not set, requires Kafka Version to be >= 2.6");
+    };
   }
 }

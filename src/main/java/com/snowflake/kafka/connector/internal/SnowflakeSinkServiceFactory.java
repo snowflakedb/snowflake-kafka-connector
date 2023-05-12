@@ -37,7 +37,9 @@ public class SnowflakeSinkServiceFactory {
   }
 
   /** Builder class to create instance of {@link SnowflakeSinkService} */
-  public static class SnowflakeSinkServiceBuilder extends Logging {
+  public static class SnowflakeSinkServiceBuilder {
+    private final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceBuilder.class.getName());
+
     private final SnowflakeSinkService service;
 
     private SnowflakeSinkServiceBuilder(
@@ -50,7 +52,7 @@ public class SnowflakeSinkServiceFactory {
         this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
       }
 
-      logInfo("{} created", this.service.getClass().getName());
+      LOGGER.info("{} created", this.service.getClass().getName());
     }
 
     private SnowflakeSinkServiceBuilder(SnowflakeConnectionService conn) {
@@ -67,7 +69,7 @@ public class SnowflakeSinkServiceFactory {
      */
     public SnowflakeSinkServiceBuilder addTask(String tableName, TopicPartition topicPartition) {
       this.service.startTask(tableName, topicPartition);
-      logInfo(
+      LOGGER.info(
           "create new task in {} - table: {}, topicPartition: {}",
           SnowflakeSinkService.class.getName(),
           tableName,
@@ -77,19 +79,19 @@ public class SnowflakeSinkServiceFactory {
 
     public SnowflakeSinkServiceBuilder setRecordNumber(long num) {
       this.service.setRecordNumber(num);
-      logInfo("record number is limited to {}", num);
+      LOGGER.info("record number is limited to {}", num);
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setFileSize(long size) {
       this.service.setFileSize(size);
-      logInfo("file size is limited to {}", size);
+      LOGGER.info("file size is limited to {}", size);
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setFlushTime(long time) {
       this.service.setFlushTime(time);
-      logInfo("flush time is limited to {}", time);
+      LOGGER.info("flush time is limited to {}", time);
       return this;
     }
 
@@ -99,33 +101,26 @@ public class SnowflakeSinkServiceFactory {
       for (Map.Entry<String, String> entry : topic2TableMap.entrySet()) {
         map.append(entry.getKey()).append(" -> ").append(entry.getValue()).append("\n");
       }
-      logInfo("set topic 2 table map \n {}", map.toString());
+      LOGGER.info("set topic 2 table map \n {}", map.toString());
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setMetadataConfig(SnowflakeMetadataConfig configMap) {
       this.service.setMetadataConfig(configMap);
-      logInfo("metadata config map is {}", configMap.toString());
+      LOGGER.info("metadata config map is {}", configMap.toString());
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setBehaviorOnNullValuesConfig(
         SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
       this.service.setBehaviorOnNullValuesConfig(behavior);
-      logInfo("Config Behavior on null value is {}", behavior.toString());
+      LOGGER.info("Config Behavior on null value is {}", behavior.toString());
       return this;
     }
 
     public SnowflakeSinkServiceBuilder setCustomJMXMetrics(final boolean enableJMX) {
       this.service.setCustomJMXMetrics(enableJMX);
-      logInfo("Config JMX value {}. (true = Enabled, false = Disabled)", enableJMX);
-      return this;
-    }
-
-    public SnowflakeSinkServiceBuilder setDeliveryGuarantee(
-        SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee) {
-      this.service.setDeliveryGuarantee(ingestionDeliveryGuarantee);
-      logInfo("Config Delivery Guarantee type {}.", ingestionDeliveryGuarantee.toString());
+      LOGGER.info("Config JMX value {}. (true = Enabled, false = Disabled)", enableJMX);
       return this;
     }
 
@@ -147,7 +142,7 @@ public class SnowflakeSinkServiceFactory {
     }
 
     public SnowflakeSinkService build() {
-      logInfo("{} created", SnowflakeSinkService.class.getName());
+      LOGGER.info("{} created", SnowflakeSinkService.class.getName());
       return service;
     }
   }

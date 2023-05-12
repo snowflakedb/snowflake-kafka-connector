@@ -9,6 +9,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
@@ -22,7 +23,7 @@ import org.junit.Test;
 
 public class TopicPartitionChannelIT {
 
-  private SnowflakeConnectionService conn = TestUtils.getConnectionService();
+  private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
   private String testTableName;
 
   private static int PARTITION = 0, PARTITION_2 = 1;
@@ -92,12 +93,14 @@ public class TopicPartitionChannelIT {
 
     // since channel is updated, try to insert data again or may be call getOffsetToken
     // We will reopen the channel in since the older channel in service is stale because we
-    // externally created a new channel but didnt update the partitionsToChannel cache.
+    // externally created a new channel but did not update the partitionsToChannel cache.
     // This will retry three times, reopen the channel, replace the newly created channel in cache
     // and fetch the offset again.
     assert service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords;
     assert inMemorySinkTaskContext.offsets().size() == 1;
     assert inMemorySinkTaskContext.offsets().get(topicPartition) == 1;
+    assert TestUtils.tableSize(testTableName) == noOfRecords
+        : "expected: " + noOfRecords + " actual: " + TestUtils.tableSize(testTableName);
   }
 
   /* This will automatically open the channel. */
@@ -149,6 +152,11 @@ public class TopicPartitionChannelIT {
 
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+    assert TestUtils.tableSize(testTableName) == noOfRecords + noOfRecords
+        : "expected: "
+            + (noOfRecords + noOfRecords)
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
   }
 
   /**
@@ -195,6 +203,9 @@ public class TopicPartitionChannelIT {
 
     Assert.assertNotNull(topicPartitionChannel);
 
+    Assert.assertTrue(
+        topicPartitionChannel.getTelemetryServiceV2() instanceof SnowflakeTelemetryServiceV2);
+
     // close channel
     topicPartitionChannel.closeChannel();
 
@@ -221,13 +232,20 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 1;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (anotherSetOfRecords + noOfRecords - 1);
+    assert topicPartitionChannel.fetchOffsetTokenWithRetry()
+        == (anotherSetOfRecords + noOfRecords - 1);
+    assert TestUtils.tableSize(testTableName) == noOfRecords + anotherSetOfRecords
+        : "expected: "
+            + (noOfRecords + anotherSetOfRecords)
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
   }
 
   /**
-   * Two partions for a topic Partition 1 -> 10(0-9) records -> Success Partition 2 -> 10(0-9)
+   * Two partitions for a topic Partition 1 -> 10(0-9) records -> Success Partition 2 -> 10(0-9)
    * records -> Success
    *
-   * <p>Partition 1 -> Channel 1 -> open with same client Client sequencer for channel 1 - 1
+   * <p>Partition 1 -> Channel 1 -> open with same client sequencer for channel 1 - 1
    *
    * <p>Partition 1 -> 10(10-19) records -> Failure -> reopen -> fetch offset token Client sequencer
    * for channel 1 - 2
@@ -336,10 +354,21 @@ public class TopicPartitionChannelIT {
 
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName2) == 0;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName2)
-        == (recordsInPartition2 + anotherSetOfRecords - 1);
+            == (recordsInPartition2 + anotherSetOfRecords - 1)
+        : "expected: "
+            + (recordsInPartition2 + anotherSetOfRecords - 1)
+            + " actual: "
+            + TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName2);
 
     assert TestUtils.tableSize(testTableName)
-        == recordsInPartition1 + anotherSetOfRecords + recordsInPartition2 + anotherSetOfRecords;
+            == recordsInPartition1 + anotherSetOfRecords + recordsInPartition2 + anotherSetOfRecords
+        : "expected: "
+            + (recordsInPartition1
+                + anotherSetOfRecords
+                + recordsInPartition2
+                + anotherSetOfRecords)
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
   }
 
   @Test
@@ -407,5 +436,42 @@ public class TopicPartitionChannelIT {
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 2;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
         == (recordsInPartition1 + anotherSetOfRecords - 1);
+
+    assert TestUtils.tableSize(testTableName) == recordsInPartition1 + anotherSetOfRecords
+        : "expected: "
+            + (recordsInPartition1 + anotherSetOfRecords)
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
+  }
+
+  @Test
+  public void testSimpleInsertRowsWithArrowBDECFormat() throws Exception {
+    // add config which overrides the bdec file format
+    Map<String, String> overriddenConfig = new HashMap<>(TestUtils.getConfForStreaming());
+    overriddenConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
+
+    InMemorySinkTaskContext inMemorySinkTaskContext =
+        new InMemorySinkTaskContext(Collections.singleton(topicPartition));
+
+    // This will automatically create a channel for topicPartition.
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(
+                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, overriddenConfig)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(inMemorySinkTaskContext)
+            .addTask(testTableName, topicPartition)
+            .build();
+
+    final long noOfRecords = 1;
+
+    // send regular data
+    List<SinkRecord> records =
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, PARTITION);
+
+    service.insert(records);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords, 20, 5);
   }
 }

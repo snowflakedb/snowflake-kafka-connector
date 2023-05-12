@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
+import java.util.Map;
 
 public interface SnowflakeConnectionService {
   /**
@@ -89,6 +90,32 @@ public interface SnowflakeConnectionService {
    * @return true if schema is correct, false is schema is incorrect or table does not exist
    */
   boolean isTableCompatible(String tableName);
+
+  /**
+   * Check whether the user has the role privilege to do schema evolution and whether the schema
+   * evolution option is enabled on the table
+   *
+   * @param tableName the name of the table
+   * @param role the role of the user
+   * @return whether table and role has the required permission to perform schema evolution
+   */
+  boolean hasSchemaEvolutionPermission(String tableName, String role);
+
+  /**
+   * Alter table to add columns according to a map from columnNames to their types
+   *
+   * @param tableName the name of the table
+   * @param columnToType the mapping from the columnNames to their types
+   */
+  void appendColumnsToTable(String tableName, Map<String, String> columnToType);
+
+  /**
+   * Alter table to drop non-nullability of a list of columns
+   *
+   * @param tableName the name of the table
+   * @param columnNames the list of columnNames
+   */
+  void alterNonNullableColumns(String tableName, List<String> columnNames);
 
   /**
    * Examine all file names matches our pattern
@@ -211,6 +238,7 @@ public interface SnowflakeConnectionService {
    * @param content file content
    */
   void putToTableStage(String tableName, String fileName, byte[] content);
+
   /** @return telemetry client */
   SnowflakeTelemetryService getTelemetryClient();
 
@@ -234,4 +262,24 @@ public interface SnowflakeConnectionService {
 
   /** @return the raw jdbc connection */
   Connection getConnection();
+
+  /**
+   * Append a VARIANT type column "RECORD_METADATA" to the table if it is not present.
+   *
+   * <p>This method is only called when schematization is enabled
+   *
+   * @param tableName table name
+   */
+  void appendMetaColIfNotExist(String tableName);
+
+  /**
+   * Create a table with only the RECORD_METADATA column. The rest of the columns might be added
+   * through schema evolution
+   *
+   * <p>In the beginning of the function we will check if we have the permission to do schema
+   * evolution, and we will error out if we don't
+   *
+   * @param tableName table name
+   */
+  void createTableWithOnlyMetadataColumn(String tableName);
 }

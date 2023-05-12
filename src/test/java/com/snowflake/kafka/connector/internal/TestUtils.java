@@ -34,6 +34,8 @@ import static com.snowflake.kafka.connector.Utils.SF_USER;
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
@@ -58,6 +60,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -249,6 +253,9 @@ public class TestUtils {
     // On top of existing configurations, add
     configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
     configuration.put(Utils.TASK_ID, "0");
+    configuration.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     return configuration;
   }
@@ -371,6 +378,10 @@ public class TestUtils {
   /** @return snowflake connection for test */
   public static SnowflakeConnectionService getConnectionService() {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
+  }
+
+  public static SnowflakeConnectionService getConnectionServiceForStreaming() {
+    return SnowflakeConnectionServiceFactory.builder().setProperties(getConfForStreaming()).build();
   }
 
   /**
@@ -663,5 +674,76 @@ public class TestUtils {
       }
     }
     return -1;
+  }
+
+  /**
+   * Check if the schema of the table matches the provided schema.
+   *
+   * @param tableName the name of the table
+   * @param schemaMap the provided schema
+   */
+  public static void checkTableSchema(String tableName, Map<String, String> schemaMap)
+      throws SQLException {
+    // the table should be checked to exist beforehand
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String describeTableQuery = "desc table " + tableName;
+    ResultSet result = executeQuery(describeTableQuery);
+    int numberOfColumnExpected = schemaMap.size();
+    int numberOfColumnInTable = 0;
+    while (result.next()) {
+      String colName = result.getString("name");
+      if (!colName.equals(colName.toUpperCase())) {
+        colName = "\"" + colName + "\"";
+      }
+      assert result.getString("type").startsWith(schemaMap.get(colName));
+      // see if the type of the column in sf is the same as expected (ignoring scale)
+      numberOfColumnInTable++;
+    }
+    assert numberOfColumnExpected == numberOfColumnInTable;
+  }
+
+  /**
+   * Check if one row retrieved from the table matches the provided content
+   *
+   * <p>The assumption is that the rows in the table are the same.
+   *
+   * @param tableName the name of the table
+   * @param contentMap the provided content map from columnName to their value
+   */
+  public static void checkTableContentOneRow(String tableName, Map<String, Object> contentMap)
+      throws SQLException {
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String getRowQuery = "select * from " + tableName + " limit 1";
+    ResultSet result = executeQuery(getRowQuery);
+    result.next();
+    assert result.getMetaData().getColumnCount() == contentMap.size();
+    for (int i = 0; i < contentMap.size(); ++i) {
+      String columnName = result.getMetaData().getColumnName(i + 1);
+      Object value = result.getObject(i + 1);
+      if (value != null) {
+        // For map or array
+        if (value instanceof String
+            && (((String) value).startsWith("{") || ((String) value).startsWith("["))) {
+          // Get rid of the formatting added by snowflake
+          value = ((String) value).replace(" ", "").replace("\n", "");
+        }
+        if ("RECORD_METADATA_PLACE_HOLDER".equals(contentMap.get(columnName))) {
+          continue;
+        }
+        assert value.equals(contentMap.get(columnName))
+            : "expected: " + contentMap.get(columnName) + " actual: " + value;
+      } else {
+        assert contentMap.get(columnName) == null : "value should be null";
+      }
+    }
+  }
+
+  public static SnowflakeStreamingIngestClient createStreamingClient(
+      Map<String, String> config, String clientName) {
+    Properties clientProperties = new Properties();
+    clientProperties.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
+    return SnowflakeStreamingIngestClientFactory.builder(clientName)
+        .setProperties(clientProperties)
+        .build();
   }
 }

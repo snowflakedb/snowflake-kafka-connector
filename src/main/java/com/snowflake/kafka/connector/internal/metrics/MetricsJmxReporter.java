@@ -7,14 +7,12 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.jmx.JmxReporter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Helper class for creation of JMX Metrics from metrics registry, also includes a definition to
@@ -24,7 +22,7 @@ import org.slf4j.LoggerFactory;
  * is handled per pipe level.
  */
 public class MetricsJmxReporter {
-  static final Logger LOGGER = LoggerFactory.getLogger(MetricsJmxReporter.class);
+  static final KCLogger LOGGER = new KCLogger(MetricsJmxReporter.class.getName());
 
   // The registry which will hold pool of all metrics for this instance
   private final MetricRegistry metricRegistry;
@@ -81,7 +79,7 @@ public class MetricsJmxReporter {
 
       return new ObjectName(sb.toString());
     } catch (MalformedObjectNameException e) {
-      LOGGER.warn(Logging.logMessage("Could not create Object name for MetricName:{}", metricName));
+      LOGGER.warn("Could not create Object name for MetricName:{}", metricName);
       throw SnowflakeErrors.ERROR_5020.getException();
     }
   }
@@ -93,14 +91,13 @@ public class MetricsJmxReporter {
    */
   public void removeMetricsFromRegistry(final String prefixFilter) {
     if (metricRegistry.getMetrics().size() != 0) {
-      LOGGER.debug(Logging.logMessage("Unregistering all metrics for pipe:{}", prefixFilter));
+      LOGGER.debug("Unregistering all metrics for pipe:{}", prefixFilter);
       metricRegistry.removeMatching(MetricFilter.startsWith(prefixFilter));
       LOGGER.debug(
-          Logging.logMessage(
-              "Metric registry size for pipe:{} is:{}, names:{}",
-              prefixFilter,
-              metricRegistry.getMetrics().size(),
-              metricRegistry.getMetrics().keySet().toString()));
+          "Metric registry size for pipe:{} is:{}, names:{}",
+          prefixFilter,
+          metricRegistry.getMetrics().size(),
+          metricRegistry.getMetrics().keySet().toString());
     }
   }
 

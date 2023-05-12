@@ -1,12 +1,19 @@
 name: Kafka Connector Stress Test
 
 on:
-  schedule:
-    - cron:  '0 8 * * 6'
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: '**'
 
 jobs:
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategyfail-fast
+      matrix:
+        confluent_version: [ '5.5.11', '6.2.6', '7.2.1' ]
+        snowflake_cloud: [ 'AWS', 'AZURE', 'GCS' ]
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2
@@ -15,20 +22,21 @@ jobs:
       with:
         java-version: 1.8
     - name: Install Python
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
-        python-version: '3.6'
+        python-version: '3.9'
         architecture: 'x64'
-    - name: Decrypt profile.json
-      run: ./.github/scripts/decrypt_secret.sh 'aws'
+    - name: Decrypt profile.json in Snowflake Cloud ${{ matrix.snowflake_cloud }}
+      run: ./.github/scripts/decrypt_secret.sh ${{ matrix.snowflake_cloud }}
       env:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
     - name: Install Dependency
       run: |
         pip3 install --upgrade setuptools
+        sudo apt-get install librdkafka-dev
         pip3 install requests certifi "confluent-kafka[avro,json,protobuf]==1.7.0"
         pip3 install avro-python3 kafka-python
-        pip3 install protobuf
+        pip3 install --upgrade protobuf==3.20.0
         pip3 install --upgrade snowflake-connector-python==2.7.4
         curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
         sudo apt-get -y install jq
@@ -48,22 +56,19 @@ jobs:
         sudo mv .github/scripts/squid.conf /etc/squid/squid.conf
         sudo service squid start
     
-    - name: Build with Unit and Integration Test
+    - name: Build with Unit Test
       env:
         JACOCO_COVERAGE: true
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SHELL: "/bin/bash"
       run: |
         cd test
-        ./build_apache.sh ../../snowflake-kafka-connector package
+        ./build_runtime_jar.sh ../../snowflake-kafka-connector package confluent
 
-    - name: End to End Test of Confluent Platform 5.5
+    - name: Stress Tests of Confluent Platform Version ${{ matrix.confluent_version }} against Snowflake in ${{ matrix.snowflake_cloud }}
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+      continue-on-error: true
       run: |
         cd test
-        ./run_test_confluent.sh 5.5.0 ./apache_properties true
-
-
-
-
+        ./run_test_confluent.sh ${{ matrix.confluent_version }} ./apache_properties true

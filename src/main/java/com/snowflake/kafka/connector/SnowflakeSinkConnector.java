@@ -16,7 +16,7 @@
  */
 package com.snowflake.kafka.connector;
 
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -30,8 +30,6 @@ import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * SnowflakeSinkConnector implements SinkConnector for Kafka Connect framework.
@@ -43,9 +41,11 @@ import org.slf4j.LoggerFactory;
  * running on Kafka Connect Workers.
  */
 public class SnowflakeSinkConnector extends SinkConnector {
+  // create logger without correlationId for now
+  private static KCLogger LOGGER = new KCLogger(SnowflakeSinkConnector.class.getName());
+
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
-  private String connectorName; // unique name of this connector instance
 
   // SnowflakeJDBCWrapper provides methods to interact with user's snowflake
   // account and executes queries
@@ -54,8 +54,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // Snowflake Telemetry provides methods to report usage statistics
   private SnowflakeTelemetryService telemetryClient;
   private long connectorStartTime;
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeSinkConnector.class);
 
   // Kafka Connect starts sink tasks without waiting for setup in
   // SnowflakeSinkConnector to finish.
@@ -79,11 +77,12 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
+    LOGGER.info("SnowflakeSinkConnector:starting...");
+
     Utils.checkConnectorVersion();
-    LOGGER.info(Logging.logMessage("SnowflakeSinkConnector:start"));
+
     setupComplete = false;
     connectorStartTime = System.currentTimeMillis();
-
     config = new HashMap<>(parsedConfig);
 
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
@@ -92,6 +91,13 @@ public class SnowflakeSinkConnector extends SinkConnector {
     Utils.convertAppName(config);
 
     Utils.validateConfig(config);
+
+    // enable mdc logging if needed
+    KCLogger.toggleGlobalMdcLoggingContext(
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_MDC_LOGGING_CONFIG,
+                SnowflakeSinkConnectorConfig.ENABLE_MDC_LOGGING_DEFAULT)));
 
     // enable proxy
     Utils.enableJVMProxy(config);
@@ -105,6 +111,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
     telemetryClient.reportKafkaConnectStart(connectorStartTime, this.config);
 
     setupComplete = true;
+
+    LOGGER.info("SnowflakeSinkConnector:started");
   }
 
   /**
@@ -118,7 +126,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   @Override
   public void stop() {
     setupComplete = false;
-    LOGGER.info(Logging.logMessage("SnowflakeSinkConnector:stop"));
+    LOGGER.info("SnowflakeSinkConnector:stopped");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
   }
 
@@ -156,10 +164,10 @@ public class SnowflakeSinkConnector extends SinkConnector {
       } else {
         counter++;
         try {
-          LOGGER.info(Logging.logMessage("Sleeping 5000ms to allow setup to " + "complete."));
+          LOGGER.info("Sleeping 5000ms to allow setup to " + "complete.");
           Thread.sleep(5000);
         } catch (InterruptedException ex) {
-          LOGGER.warn(Logging.logMessage("Waiting for setup to complete got " + "interrupted"));
+          LOGGER.warn("Waiting for setup to complete got " + "interrupted");
         }
       }
     }
@@ -195,31 +203,12 @@ public class SnowflakeSinkConnector extends SinkConnector {
     }
 
     // Verify proxy config is valid
-    try {
-      Utils.validateProxySetting(connectorConfigs);
-    } catch (SnowflakeKafkaConnectorException e) {
-      LOGGER.error("Error validating proxy parameters:{}", e.getMessage());
-      switch (e.getCode()) {
-        case "0022":
-          Utils.updateConfigErrorMessage(
-              result,
-              SnowflakeSinkConnectorConfig.JVM_PROXY_HOST,
-              ": proxy host and port must be provided together");
-          Utils.updateConfigErrorMessage(
-              result,
-              SnowflakeSinkConnectorConfig.JVM_PROXY_PORT,
-              ": proxy host and port must be provided together");
-        case "0023":
-          Utils.updateConfigErrorMessage(
-              result,
-              SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME,
-              ": proxy username and password must be provided together");
-          Utils.updateConfigErrorMessage(
-              result,
-              SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD,
-              ": proxy username and password must be provided together");
-      }
+    Map<String, String> invalidProxyParams = Utils.validateProxySettings(connectorConfigs);
+
+    for (String invalidKey : invalidProxyParams.keySet()) {
+      Utils.updateConfigErrorMessage(result, invalidKey, invalidProxyParams.get(invalidKey));
     }
+
     // If private key or private key passphrase is provided through file, skip validation
     if (connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, "").contains("${file:")
         || connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, "").contains("${file:"))

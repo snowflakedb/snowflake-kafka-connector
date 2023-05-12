@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -25,6 +26,11 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.Spy;
+import org.slf4j.Logger;
 
 /**
  * Sink Task IT test which uses {@link
@@ -35,6 +41,13 @@ public class SnowflakeSinkTaskForStreamingIT {
   private String topicName;
   private static int partition = 0;
   private TopicPartition topicPartition;
+
+  @Mock Logger logger = Mockito.mock(Logger.class);
+
+  @InjectMocks @Spy
+  private KCLogger kcLogger = Mockito.spy(new KCLogger(this.getClass().getName()));
+
+  @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
 
   @Before
   public void setup() {

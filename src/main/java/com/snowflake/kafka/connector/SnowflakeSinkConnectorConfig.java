@@ -18,7 +18,7 @@ package com.snowflake.kafka.connector;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
-import com.snowflake.kafka.connector.internal.Logging;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Arrays;
@@ -31,8 +31,6 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * SnowflakeSinkConnectorConfig class is used for specifying the set of expected configurations. For
@@ -71,13 +69,16 @@ public class SnowflakeSinkConnectorConfig {
   static final String SNOWFLAKE_SCHEMA = Utils.SF_SCHEMA;
   static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
 
-  // For streaming ingest client
-  static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
+  // For Snowpipe Streaming client
+  public static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
+  public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
+  public static final String ENABLE_SCHEMATIZATION_DEFAULT = "false";
 
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
   public static final String JVM_PROXY_HOST = "jvm.proxy.host";
   public static final String JVM_PROXY_PORT = "jvm.proxy.port";
+  public static final String JVM_NON_PROXY_HOSTS = "jvm.nonProxy.hosts";
   public static final String JVM_PROXY_USERNAME = "jvm.proxy.username";
   public static final String JVM_PROXY_PASSWORD = "jvm.proxy.password";
 
@@ -100,8 +101,6 @@ public class SnowflakeSinkConnectorConfig {
   // By default it will be None since this is not enforced and only used for monitoring
   public static final String PROVIDER_CONFIG = "provider";
 
-  public static final String DELIVERY_GUARANTEE = "delivery.guarantee";
-
   // metrics
   public static final String JMX_OPT = "jmx";
   public static final boolean JMX_OPT_DEFAULT = true;
@@ -111,18 +110,19 @@ public class SnowflakeSinkConnectorConfig {
   public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
       IngestionMethodConfig.SNOWPIPE.toString();
 
+  // This is the streaming bdec file version which can be defined in config
+  // NOTE: Please do not override this value unless recommended from snowflake
+  public static final String SNOWPIPE_STREAMING_FILE_VERSION = "snowflake.streaming.file.version";
+
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
   public static final boolean REBALANCING_DEFAULT = false;
 
-  private static final Logger LOGGER =
-      LoggerFactory.getLogger(SnowflakeSinkConnectorConfig.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkConnectorConfig.class.getName());
 
   private static final ConfigDef.Validator nonEmptyStringValidator = new ConfigDef.NonEmptyString();
   private static final ConfigDef.Validator topicToTableValidator = new TopicToTableValidator();
   private static final ConfigDef.Validator KAFKA_PROVIDER_VALIDATOR = new KafkaProviderValidator();
-  private static final ConfigDef.Validator DELIVERY_GUARANTEE_VALIDATOR =
-      new DeliveryGuaranteeValidator();
 
   // For error handling
   public static final String ERROR_GROUP = "ERRORS";
@@ -152,6 +152,23 @@ public class SnowflakeSinkConnectorConfig {
           + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
 
+  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG =
+      "enable.streaming.client.optimization";
+  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DISPLAY =
+      "Enable streaming client optimization";
+  public static final boolean ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT = false;
+  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DOC =
+      "Whether to optimize the streaming client to reduce cost. Note that this may affect"
+          + " throughput or latency and can only be set if Streaming Snowpipe is enabled";
+
+  // MDC logging header
+  public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
+  public static final String ENABLE_MDC_LOGGING_DISPLAY = "Enable MDC logging";
+  public static final String ENABLE_MDC_LOGGING_DEFAULT = "false";
+  public static final String ENABLE_MDC_LOGGING_DOC =
+      "Enable MDC context to prepend log messages. Note that this is only available after Apache"
+          + " Kafka 2.3";
+
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked
    * before actually sending records to Kafka connector.
@@ -163,6 +180,9 @@ public class SnowflakeSinkConnectorConfig {
   public static final String KEY_CONVERTER_CONFIG_FIELD = "key.converter";
 
   public static final String VALUE_CONVERTER_CONFIG_FIELD = "value.converter";
+
+  public static final String VALUE_SCHEMA_REGISTRY_CONFIG_FIELD =
+      "value.converter.schema.registry.url";
 
   public static final Set<String> CUSTOM_SNOWFLAKE_CONVERTERS =
       ImmutableSet.of(
@@ -181,7 +201,7 @@ public class SnowflakeSinkConnectorConfig {
   static void setFieldToDefaultValues(Map<String, String> config, String field, Long value) {
     if (!config.containsKey(field)) {
       config.put(field, value + "");
-      LOGGER.info(Logging.logMessage("{} set to default {} seconds", field, value));
+      LOGGER.info("{} set to default {} seconds", field, value);
     }
   }
 
@@ -300,13 +320,23 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Width.NONE,
             JVM_PROXY_PORT)
         .define(
+            JVM_NON_PROXY_HOSTS,
+            Type.STRING,
+            "",
+            Importance.LOW,
+            "JVM option: http.nonProxyHosts",
+            PROXY_INFO,
+            2,
+            ConfigDef.Width.NONE,
+            JVM_NON_PROXY_HOSTS)
+        .define(
             JVM_PROXY_USERNAME,
             Type.STRING,
             "",
             Importance.LOW,
             "JVM proxy username",
             PROXY_INFO,
-            2,
+            3,
             ConfigDef.Width.NONE,
             JVM_PROXY_USERNAME)
         .define(
@@ -316,7 +346,7 @@ public class SnowflakeSinkConnectorConfig {
             Importance.LOW,
             "JVM proxy password",
             PROXY_INFO,
-            3,
+            4,
             ConfigDef.Width.NONE,
             JVM_PROXY_PASSWORD)
         // Connector Config
@@ -435,14 +465,6 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Importance.HIGH,
             "Whether to enable JMX MBeans for custom SF metrics")
         .define(
-            DELIVERY_GUARANTEE,
-            Type.STRING,
-            IngestionDeliveryGuarantee.AT_LEAST_ONCE.name(),
-            DELIVERY_GUARANTEE_VALIDATOR,
-            Importance.LOW,
-            "Determines the ingest semantics for snowflake connector, currently support"
-                + " at-least-once and exactly-once delivery guarantees")
-        .define(
             REBALANCING,
             Type.BOOLEAN,
             REBALANCING_DEFAULT,
@@ -460,6 +482,18 @@ public class SnowflakeSinkConnectorConfig {
             5,
             ConfigDef.Width.NONE,
             INGESTION_METHOD_OPT)
+        .define(
+            SNOWPIPE_STREAMING_FILE_VERSION,
+            Type.STRING,
+            "", // default is handled in Ingest SDK
+            null, // no validator
+            Importance.LOW,
+            "Acceptable values for Snowpipe Streaming BDEC Versions: 1 and 3. Check Ingest"
+                + " SDK for default behavior. Please do not set this unless Absolutely needed. ",
+            CONNECTOR_CONFIG,
+            6,
+            ConfigDef.Width.NONE,
+            SNOWPIPE_STREAMING_FILE_VERSION)
         .define(
             ERRORS_TOLERANCE_CONFIG,
             Type.STRING,
@@ -490,7 +524,27 @@ public class SnowflakeSinkConnectorConfig {
             ERROR_GROUP,
             2,
             ConfigDef.Width.NONE,
-            ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DISPLAY);
+            ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DISPLAY)
+        .define(
+            ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+            Type.BOOLEAN,
+            ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT,
+            Importance.LOW,
+            ENABLE_STREAMING_CLIENT_OPTIMIZATION_DOC,
+            CONNECTOR_CONFIG,
+            7,
+            ConfigDef.Width.NONE,
+            ENABLE_STREAMING_CLIENT_OPTIMIZATION_DISPLAY)
+        .define(
+            ENABLE_MDC_LOGGING_CONFIG,
+            Type.BOOLEAN,
+            ENABLE_MDC_LOGGING_DEFAULT,
+            Importance.LOW,
+            ENABLE_MDC_LOGGING_DOC,
+            CONNECTOR_CONFIG,
+            8,
+            ConfigDef.Width.NONE,
+            ENABLE_MDC_LOGGING_DISPLAY);
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {
@@ -535,29 +589,6 @@ public class SnowflakeSinkConnectorConfig {
       return "Whether kafka is running on Confluent code, self hosted or other managed service."
           + " Allowed values are:"
           + String.join(",", KafkaProvider.PROVIDER_NAMES);
-    }
-  }
-
-  /* Validator to validate Kafka delivery guarantee types    */
-  public static class DeliveryGuaranteeValidator implements ConfigDef.Validator {
-    public DeliveryGuaranteeValidator() {}
-
-    @Override
-    public void ensureValid(String name, Object value) {
-      assert value instanceof String;
-      final String strValue = (String) value;
-      // The value can be null or empty.
-      try {
-        IngestionDeliveryGuarantee ingestionDeliveryGuarantee =
-            IngestionDeliveryGuarantee.of(strValue);
-      } catch (final IllegalArgumentException e) {
-        throw new ConfigException(PROVIDER_CONFIG, value, e.getMessage());
-      }
-    }
-
-    public String toString() {
-      return "Allowed Delivery guarantee types:"
-          + String.join(",", IngestionDeliveryGuarantee.DELIVERY_GUARANTEE_TYPES);
     }
   }
 
@@ -640,50 +671,6 @@ public class SnowflakeSinkConnectorConfig {
       }
 
       return result;
-    }
-
-    @Override
-    public String toString() {
-      return name().toLowerCase(Locale.ROOT);
-    }
-  }
-
-  /**
-   * Enum which represents the type of delivery guarantees that the customer want (either
-   * at_least_once (default) or exactly_once
-   */
-  public enum IngestionDeliveryGuarantee {
-    /**
-     * At-least-once semantics means records received by Snowflake Connector are never lost but
-     * could be ingested multiple times
-     */
-    AT_LEAST_ONCE,
-    /**
-     * Exactly-once semantics means records received by Snowflake Connector are only ingested once
-     */
-    EXACTLY_ONCE,
-    ;
-
-    public static final List<String> DELIVERY_GUARANTEE_TYPES =
-        Arrays.stream(IngestionDeliveryGuarantee.values())
-            .map(deliveryGuarantee -> deliveryGuarantee.name().toLowerCase())
-            .collect(Collectors.toList());
-
-    public static IngestionDeliveryGuarantee of(final String deliveryGuaranteeType) {
-
-      if (Strings.isNullOrEmpty(deliveryGuaranteeType)) {
-        return AT_LEAST_ONCE;
-      }
-
-      for (final IngestionDeliveryGuarantee b : IngestionDeliveryGuarantee.values()) {
-        if (b.name().equalsIgnoreCase(deliveryGuaranteeType)) {
-          return b;
-        }
-      }
-      throw new IllegalArgumentException(
-          String.format(
-              "Unsupported Delivery Guarantee Type: %s. Supported are: %s",
-              deliveryGuaranteeType, String.join(",", DELIVERY_GUARANTEE_TYPES)));
     }
 
     @Override

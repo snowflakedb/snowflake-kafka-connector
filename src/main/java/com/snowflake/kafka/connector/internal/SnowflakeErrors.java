@@ -27,7 +27,7 @@ public enum SnowflakeErrors {
       "0001",
       "Invalid input connector configuration",
       "input kafka connector configuration is null, missing required values, "
-          + "or wrong input value"),
+          + "or is invalid. Check logs for list of invalid parameters."),
   ERROR_0002("0002", "Invalid private key", "private key should be a valid PEM RSA private key"),
   ERROR_0003(
       "0003",
@@ -102,6 +102,11 @@ public enum SnowflakeErrors {
       "0024",
       "Reader schema invalid",
       "A reader schema is provided but can not be parsed as an Avro schema"),
+  ERROR_0025(
+      "0025",
+      "Duplicate case-insensitive column names detected",
+      "Duplicate case-insensitive column names detected. Schematization currently does not support"
+          + " this."),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
@@ -150,6 +155,24 @@ public enum SnowflakeErrors {
       "2011",
       "Failed to upload file with cache",
       "Failed to upload file to Snowflake Stage though credential caching"),
+  ERROR_2012(
+      "2012",
+      "Failed to append RECORD_METADATA column",
+      "Failed to append RECORD_METADATA column due to an existing RECORD_METADATA column with"
+          + " non-VARIANT type."),
+  ERROR_2013(
+      "2013",
+      "Failed to append RECORD_METADATA column",
+      "Failed to append RECORD_METADATA column, please check that you have permission to do so."),
+  ERROR_2014(
+      "2014", "Table not exists", "Table not exists. It might have been deleted externally."),
+  ERROR_2015(
+      "2015", "Failed to append columns", "Failed to append columns during schema evolution"),
+  ERROR_2016("2016", "Failed to drop NOT NULL", "Failed to drop NOT NULL during schema evolution"),
+  ERROR_2017(
+      "2017",
+      "Failed to check schema evolution permission",
+      "Failed to check schema evolution permission"),
   // Snowpipe related issues 3---
   ERROR_3001("3001", "Failed to ingest file", "Exception reported by Ingest SDK"),
 
@@ -166,9 +189,14 @@ public enum SnowflakeErrors {
       "Failed to create pipe",
       "User may have insufficient privileges. If this persists, please "
           + "contact Snowflake support. "),
-  ERROR_3006("3006", "Failed to configure client status", "Exception reported by Ingest SDK"),
-  ERROR_3007("3007", "Failed to get client status", "Exception reported by Ingest SDK"),
-  ERROR_3008("3008", "Failed to ingest file with client info", "Exception reported by Ingest SDK"),
+
+  // deprecated - ERROR_3006("3006", "Failed to configure client status", "Exception reported by
+  // Ingest SDK"),
+  // deprecated - ERROR_3007("3007", "Failed to get client status", "Exception reported by Ingest
+  // SDK"),
+  // deprecated - ERROR_3008("3008", "Failed to ingest file with client info", "Exception reported
+  // by Ingest SDK"),
+
   // Wrong result issues 4---
   ERROR_4001("4001", "Unexpected Result", "Get wrong results from Snowflake service"),
   // Connector internal errors 5---
@@ -238,7 +266,12 @@ public enum SnowflakeErrors {
       "5017", "Invalid api call to cached put", "Cached put only support AWS, Azure and GCS."),
   ERROR_5018("5018", "Failed to execute cached put", "Error in cached put command"),
   ERROR_5019("5019", "Failed to get stage storage type", "Error in get storage type"),
-  ERROR_5020("5020", "Failed to register MBean in MbeanServer", "Object Name is invalid");
+  ERROR_5020("5020", "Failed to register MBean in MbeanServer", "Object Name is invalid"),
+  ERROR_5021(
+      "5021",
+      "Failed to get data schema",
+      "Failed to get data schema. Unrecognizable data type in JSON object"),
+  ERROR_5022("5022", "Invalid column name", "Failed to find column in the schema");
 
   // properties
 
@@ -278,6 +311,16 @@ public enum SnowflakeErrors {
     return getException("", telemetryService);
   }
 
+  /**
+   * Convert a given message into SnowflakeKafkaConnectorException.
+   *
+   * <p>If message is null, we use Enum's toString() method to wrap inside
+   * SnowflakeKafkaConnectorException
+   *
+   * @param msg Message to send to Telemetry Service. Remember, we Strip the message
+   * @param telemetryService can be null
+   * @return Exception wrapped in Snowflake Connector Exception
+   */
   public SnowflakeKafkaConnectorException getException(
       String msg, SnowflakeTelemetryService telemetryService) {
     if (telemetryService != null) {
@@ -289,7 +332,7 @@ public enum SnowflakeErrors {
       return new SnowflakeKafkaConnectorException(toString(), code);
     } else {
       return new SnowflakeKafkaConnectorException(
-          Logging.logMessage(
+          Utils.formatLogMessage(
               "Exception: {}\nError Code: {}\nDetail: {}\nMessage: {}", name, code, detail, msg),
           code);
     }
@@ -305,6 +348,6 @@ public enum SnowflakeErrors {
 
   @Override
   public String toString() {
-    return Logging.logMessage("Exception: {}\nError Code: {}\nDetail: {}", name, code, detail);
+    return Utils.formatLogMessage("Exception: {}\nError Code: {}\nDetail: {}", name, code, detail);
   }
 }

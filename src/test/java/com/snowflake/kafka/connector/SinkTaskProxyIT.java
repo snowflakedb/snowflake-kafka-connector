@@ -53,7 +53,7 @@ public class SinkTaskProxyIT {
    * required.
    *
    * <p>For instructions on how to setup proxy server take a look at
-   * .github/workflows/IntegrationTestAws.yml
+   * .github/workflows/IntegrationTest.yml
    */
   @Test
   public void testSinkTaskProxyConfig() {
