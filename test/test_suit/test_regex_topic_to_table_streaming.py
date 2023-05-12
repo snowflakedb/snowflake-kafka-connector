@@ -12,8 +12,8 @@ class TestRegexTopicToTableStreaming:
         self.topicNum = 3;
 
         # regex should be: .*_cat -> cattable, doggo.* -> dogtable
-        self.catTable = "cattable"
-        self.dogTable = "dogtable"
+        self.catTable = "cattable_streaming"
+        self.dogTable = "dogtable_streaming"
 
         # topic2table should be calico_cat -> cattable, orange_cat -> cattable, doggo_corgi -> dogtable
         self.catTopicStr1 = "calico_cat"

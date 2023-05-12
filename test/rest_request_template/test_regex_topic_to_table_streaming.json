@@ -3,7 +3,7 @@
   "config": {
     "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
     "topics": "calico_cat,orange_cat,doggo_corgi",
-    "snowflake.topic2table.map": ".*cat:cattable, doggo.*:dogtable",
+    "snowflake.topic2table.map": ".*cat:cattable_streaming, doggo.*:dogtable_streaming",
     "tasks.max": "1",
     "buffer.flush.time": "1",
     "buffer.count.records": "100",

@@ -12,8 +12,8 @@ class TestRegexTopicToTableSnowpipe:
         self.topicNum = 3;
 
         # regex should be: .*_cat -> cattable, doggo.* -> dogtable
-        self.catTable = "cattable"
-        self.dogTable = "dogtable"
+        self.catTable = "cattable_snowpipe"
+        self.dogTable = "dogtable_snowpipe"
 
         # topic2table should be calico_cat -> cattable, orange_cat -> cattable, doggo_corgi -> dogtable
         self.catTopicStr1 = "calico_cat"
