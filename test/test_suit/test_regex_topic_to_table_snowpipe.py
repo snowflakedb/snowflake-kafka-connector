@@ -12,17 +12,17 @@ class TestRegexTopicToTableSnowpipe:
         self.topicNum = 3;
 
         # regex should be: .*_cat -> cattable, doggo.* -> dogtable
-        self.catTable = "cattable_snowpipe"
-        self.dogTable = "dogtable_snowpipe"
+        self.catTable = "cattable" + self.fileName + nameSalt
+        self.dogTable = "dogtable" + self.fileName + nameSalt
 
         # topic2table should be calico_cat -> cattable, orange_cat -> cattable, doggo_corgi -> dogtable
-        self.catTopicStr1 = "calico_cat"
-        self.catTopicStr2 = "orange_cat"
-        self.dogTopicStr1 = "doggo_corgi"
+        self.catTopicStr1 = self.fileName + nameSalt + "calico_cat"
+        self.catTopicStr2 = self.fileName + nameSalt + "orange_cat"
+        self.dogTopicStr1 = "doggo_corgi" + self.fileName + nameSalt
         self.topics = []
-        self.topics.append(nameSalt + self.catTopicStr1)
-        self.topics.append(nameSalt + self.catTopicStr2)
-        self.topics.append(self.dogTopicStr1 + nameSalt)
+        self.topics.append(self.catTopicStr1)
+        self.topics.append(self.catTopicStr2)
+        self.topics.append(self.dogTopicStr1)
 
         # create topic and partitions in constructor since the post REST api will automatically create topic with only one partition
         for i in range(self.topicNum):
@@ -32,9 +32,8 @@ class TestRegexTopicToTableSnowpipe:
         return self.fileName + ".json"
 
     def send(self):
-        self.__sendbytes(self.catTopicStr1)
-        self.__sendbytes(self.catTopicStr2)
-        self.__sendbytes(self.dogTopicStr1)
+        for i in range(self.topicNum):
+            self.__sendbytes(self.topics[i])
 
     def verify(self, round):
         catCount = self.driver.snowflake_conn.cursor().execute(
