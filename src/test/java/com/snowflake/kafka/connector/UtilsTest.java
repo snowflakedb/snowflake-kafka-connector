@@ -185,4 +185,38 @@ public class UtilsTest {
             "{} test message\n{} test message\n{} test " + "message\n{} test message", 1, 2, 3, 4)
         .equals(expected);
   }
+
+  @Test
+  public void testGetExceptionMessage() throws Exception {
+    String customMessage = "customMessage";
+    String exceptionMessage = "exceptionMessage";
+    Exception cause = new Exception("cause");
+    StackTraceElement[] stackTrace = new StackTraceElement[0];
+
+    Exception nullMessageEx = new Exception();
+    assert Utils.getExceptionMessage(customMessage, nullMessageEx)
+        .equals(
+            Utils.formatString(
+                Utils.GET_EXCEPTION_FORMAT,
+                customMessage,
+                Utils.GET_EXCEPTION_MISSING_MESSAGE,
+                Utils.GET_EXCEPTION_MISSING_CAUSE));
+
+    Exception nullCauseEx = new Exception(exceptionMessage);
+    nullCauseEx.initCause(null);
+    assert Utils.getExceptionMessage(customMessage, nullCauseEx)
+        .equals(
+            Utils.formatString(
+                Utils.GET_EXCEPTION_FORMAT,
+                customMessage,
+                exceptionMessage,
+                Utils.GET_EXCEPTION_MISSING_CAUSE));
+
+    Exception stacktraceEx = new Exception(exceptionMessage);
+    stacktraceEx.initCause(cause);
+    stacktraceEx.getCause().setStackTrace(stackTrace);
+    assert Utils.getExceptionMessage(customMessage, stacktraceEx)
+        .equals(
+            Utils.formatString(Utils.GET_EXCEPTION_FORMAT, customMessage, exceptionMessage, "[]"));
+  }
 }
