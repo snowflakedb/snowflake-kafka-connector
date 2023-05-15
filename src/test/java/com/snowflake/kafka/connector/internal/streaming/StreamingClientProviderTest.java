@@ -110,7 +110,7 @@ public class StreamingClientProviderTest {
     this.invalidClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
     Mockito.when(this.invalidClient.isClosed()).thenReturn(true);
     StreamingClientProvider injectedProvider =
-        injectStreamingClientProviderForTests(this.invalidClient, this.streamingClientHandler);
+        getStreamingClientProviderForTests(this.invalidClient, this.streamingClientHandler);
 
     // test: getting invalid client with valid config
     this.validClient = injectedProvider.getClient(validClientConfig);
