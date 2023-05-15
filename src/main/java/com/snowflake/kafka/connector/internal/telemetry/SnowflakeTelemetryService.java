@@ -266,7 +266,8 @@ public abstract class SnowflakeTelemetryService {
   }
 
   enum TelemetryType {
-    KAFKA_START("kafka_start"), KAFKA_STOP("kafka_stop"),
+    KAFKA_START("kafka_start"),
+    KAFKA_STOP("kafka_stop"),
     KAFKA_FATAL_ERROR("kafka_fatal_error"),
     KAFKA_PIPE_USAGE("kafka_pipe_usage"),
     KAFKA_PIPE_START("kafka_pipe_start");
