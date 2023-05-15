@@ -316,6 +316,11 @@ class KafkaTest:
         r = requests.post(requestURL, headers=self.httpHeader)
         print(datetime.now().strftime("%H:%M:%S "), r, " restart connector")
 
+    def restartConnectorAndTasks(self, connectorName):
+        requestURL = "http://{}/connectors/{}/restart?includeTasks=true&onlyFailed=false".format(self.kafkaConnectAddress, connectorName)
+        r = requests.post(requestURL, headers=self.httpHeader)
+        print(datetime.now().strftime("%H:%M:%S "), r, " restart connector and all tasks")
+
     def pauseConnector(self, connectorName):
         requestURL = "http://{}/connectors/{}/pause".format(self.kafkaConnectAddress, connectorName)
         r = requests.put(requestURL, headers=self.httpHeader)

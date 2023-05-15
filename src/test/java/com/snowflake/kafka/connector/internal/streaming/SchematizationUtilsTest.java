@@ -60,7 +60,7 @@ public class SchematizationUtilsTest {
     columnToTypes =
         SchematizationUtils.getColumnTypes(
             recordWithoutSchema, Collections.singletonList("random"));
-    Assert.assertEquals("VARIANT", columnToTypes.get("random"));
+    Assert.assertEquals("VARCHAR", columnToTypes.get("random"));
   }
 
   @Test
