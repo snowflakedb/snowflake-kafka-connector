@@ -218,10 +218,11 @@ public class SchematizationUtils {
             case Decimal.LOGICAL_NAME:
               return "DOUBLE";
             case Time.LOGICAL_NAME:
+            case "io.debezium.time.MicroTime":                
+              return "TIME";
             case Timestamp.LOGICAL_NAME:
             case "io.debezium.time.ZonedTimestamp":
-            case "io.debezium.time.ZonedTime":
-            case "io.debezium.time.MicroTime":
+            case "io.debezium.time.ZonedTime":      // Snowflake doesn't have zoned 'time-only' data types
             case "io.debezium.time.Timestamp":
             case "io.debezium.time.MicroTimestamp":
               return "TIMESTAMP";
