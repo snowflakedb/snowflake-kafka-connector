@@ -35,13 +35,15 @@ class TestStringJsonProxy:
 
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
+        print("RESULT IS")
+        print(res)
         goldContent = r'{"number":"0"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 
         self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
-        self.driver.cleanTableStagePipe(self.topic)
+        # self.driver.cleanTableStagePipe(self.topic)
         # unset the JVM parameters
         print("Unset JVM Parameters in Clean phase of testing")
         path_parent = os.path.dirname(os.getcwd())

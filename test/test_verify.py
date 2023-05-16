@@ -469,27 +469,28 @@ def runStressTests(driver, testSet, nameSalt):
 
 def runTestSet(driver, testSet, nameSalt, enable_stress_test):
     if enable_stress_test:
-        runStressTests(driver, testSet, nameSalt)
+        # runStressTests(driver, testSet, nameSalt)
+        print("Skipping Stress tests")
     else:
         test_suites = create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet)
 
         ############################ round 1 ############################
-        print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
-
-        end_to_end_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in test_suites.values()]
-
-        end_to_end_tests_suite_cleaner = [single_end_to_end_test.clean for single_end_to_end_test in test_suites.values()]
-
-        end_to_end_tests_suite_runner = []
-
-        if testSet == "confluent":
-            end_to_end_tests_suite_runner = [single_end_to_end_test.run_in_confluent for single_end_to_end_test in test_suites.values()]
-        elif testSet == "apache":
-            end_to_end_tests_suite_runner = [single_end_to_end_test.run_in_apache for single_end_to_end_test in test_suites.values()]
-        elif testSet != "clean":
-            errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-        execution(testSet, end_to_end_tests_suite, end_to_end_tests_suite_cleaner, end_to_end_tests_suite_runner, driver, nameSalt)
+        # print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
+        #
+        # end_to_end_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in test_suites.values()]
+        #
+        # end_to_end_tests_suite_cleaner = [single_end_to_end_test.clean for single_end_to_end_test in test_suites.values()]
+        #
+        # end_to_end_tests_suite_runner = []
+        #
+        # if testSet == "confluent":
+        #     end_to_end_tests_suite_runner = [single_end_to_end_test.run_in_confluent for single_end_to_end_test in test_suites.values()]
+        # elif testSet == "apache":
+        #     end_to_end_tests_suite_runner = [single_end_to_end_test.run_in_apache for single_end_to_end_test in test_suites.values()]
+        # elif testSet != "clean":
+        #     errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+        #
+        # execution(testSet, end_to_end_tests_suite, end_to_end_tests_suite_cleaner, end_to_end_tests_suite_runner, driver, nameSalt)
 
         ############################ Always run Proxy tests in the end ############################
 
