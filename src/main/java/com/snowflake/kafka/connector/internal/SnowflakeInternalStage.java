@@ -181,6 +181,10 @@ public class SnowflakeInternalStage {
               .setSnowflakeFileTransferMetadata(fileTransferMetadata)
               .setUploadStream(inStream)
               .setRequireCompress(true)
+              // Setting a destinationFileName is a no-op for AWS and Azure since it still uses
+              // presignedUrlFileName
+              // Setting destFileName is useful for GCS and downscope URL
+              .setDestFileName(FilenameUtils.getName(fullFilePath))
               .setOcspMode(OCSPMode.FAIL_OPEN)
               .setProxyProperties(proxyProperties)
               .build());
@@ -215,6 +219,16 @@ public class SnowflakeInternalStage {
       SnowflakeMetadataWithExpiration credential, final StageInfo.StageType stageType) {
 
     if (stageType == StageInfo.StageType.GCS) {
+      // isForOneFile is set to true for presigned URL GCS token and we will always have to refresh
+      // the credentials
+      if (credential != null && credential.fileTransferMetadata.isForOneFile()) {
+        return false;
+      }
+      // For downscope GCS URL, we can re-use the credentials
+      else if (credential != null && !credential.fileTransferMetadata.isForOneFile()) {
+        LOGGER.debug("Downscope URL is enabled for this account, reusing credentials.");
+        return true;
+      }
       return false;
     }
     // Key is cached and not expired
