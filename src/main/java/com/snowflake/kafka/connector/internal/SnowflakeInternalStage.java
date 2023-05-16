@@ -169,11 +169,6 @@ public class SnowflakeInternalStage {
     // This set is not useful in GCS since there is a bug in JDBC which doesnt use destFileName.
     // TODO: https://snowflakecomputing.atlassian.net/browse/SNOW-350676
     fileTransferMetadata.setPresignedUrlFileName(fullFilePath);
-    if (stageType == StageInfo.StageType.GCS) {
-      LOGGER.info("GCS======={}", fileTransferMetadata.isForOneFile());
-      LOGGER.info("GCS======{}", FilenameUtils.getName(fullFilePath));
-      LOGGER.info("{}", fileTransferMetadata.getPresignedUrl());
-    }
 
     byte[] dataBytes = data.getBytes(StandardCharsets.UTF_8);
     InputStream inStream = new ByteArrayInputStream(dataBytes);
