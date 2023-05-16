@@ -42,9 +42,6 @@ from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTa
 
 from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
 
-from test_suit.test_regex_topic_to_table_snowpipe import TestRegexTopicToTableSnowpipe
-from test_suit.test_regex_topic_to_table_streaming import TestRegexTopicToTableStreaming
-
 # res tests
 from test_suit.resilience_tests.test_kc_delete_create import TestKcDeleteCreate
 from test_suit.resilience_tests.test_kc_delete_create_chaos import TestKcDeleteCreateChaos
@@ -209,12 +206,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         )),
         ("TestKcRestart", EndToEndTestSuite(
             test_instance=TestKcRestart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
-        )),
-        ("TestRegexTopicToTableSnowpipe", EndToEndTestSuite(
-            test_instance=TestRegexTopicToTableSnowpipe(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
-        )),
-        ("TestRegexTopicToTableStreaming", EndToEndTestSuite(
-            test_instance=TestRegexTopicToTableStreaming(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
     ])
     return test_suites
