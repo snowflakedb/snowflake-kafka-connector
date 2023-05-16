@@ -41,4 +41,5 @@ class TestStringJson:
         self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
-        self.driver.cleanTableStagePipe(self.topic)
+        # self.driver.cleanTableStagePipe(self.topic)
+        pass

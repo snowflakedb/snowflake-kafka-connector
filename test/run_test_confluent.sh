@@ -139,8 +139,11 @@ sleep 10
 echo -e "\n=== Start Kafka ==="
 $CONFLUENT_FOLDER_NAME/bin/kafka-server-start $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_KAFKA_CONFIG > $APACHE_LOG_PATH/kafka.log 2>&1 &
 sleep 10
+export JDBC_TRACE=true
+echo "JDBC_TRACE:"$JDBC_TRACE
+sudo mkdir -m 777 -p /tmp/jdbclogs/
 echo -e "\n=== Start Kafka Connect ==="
-KAFKA_HEAP_OPTS="-Xms512m -Xmx6g" $CONFLUENT_FOLDER_NAME/bin/connect-distributed $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_KAFKA_CONNECT_CONFIG > $APACHE_LOG_PATH/kc.log 2>&1 &
+KAFKA_HEAP_OPTS="-Xms512m -Xmx6g" KAFKA_OPTS="-Djava.io.tmpdir=/tmp/jdbclogs/" $CONFLUENT_FOLDER_NAME/bin/connect-distributed $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_KAFKA_CONNECT_CONFIG > $APACHE_LOG_PATH/kc.log 2>&1 &
 sleep 10
 echo -e "\n=== Start Schema Registry ==="
 $CONFLUENT_FOLDER_NAME/bin/schema-registry-start $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_SCHEMA_REGISTRY_CONFIG > $APACHE_LOG_PATH/sc.log 2>&1 &
@@ -188,5 +191,8 @@ if [ $testError -ne 0 ]; then
     NC='\033[0m' # No Color
     echo -e "${RED} There is error above this line ${NC}"
     cat $APACHE_LOG_PATH/kc.log
+    echo "======== JDBC TRACE ======="
+    ls /tmp/jdbclogs/
+    cat /tmp/jdbclogs/snowflake_jdbc0.log.0
     error_exit "=== test_verify.py failed ==="
 fi

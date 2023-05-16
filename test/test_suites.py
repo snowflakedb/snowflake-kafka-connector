@@ -93,9 +93,9 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
     :return:
     '''
     test_suites = OrderedDict([
-        # ("TestStringJson", EndToEndTestSuite(
-        #     test_instance=TestStringJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
-        # )),
+        ("TestStringJson", EndToEndTestSuite(
+            test_instance=TestStringJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        ))
         # ("TestJsonJson", EndToEndTestSuite(
         #     test_instance=TestJsonJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         # )),
