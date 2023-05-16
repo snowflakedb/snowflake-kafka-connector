@@ -82,4 +82,4 @@ class TestKcDeleteResumeChaos:
             ).encode('utf-8'))
         self.driver.sendBytesData(self.topic, value, key, 0)
         self.expectedsends = self.expectedsends + 1
-        sleep(self.sleepTime)
+        sleep(2)
