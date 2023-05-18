@@ -109,7 +109,7 @@ class KafkaTest:
                   self.VERIFY_INTERVAL), flush=True)
         sleep(self.VERIFY_INTERVAL)
 
-    def verifyWithRetry(self, func, round):
+    def verifyWithRetry(self, func, round, configFileName):
         retryNum = 0
         while retryNum < self.MAX_RETRY:
             try:
@@ -117,25 +117,25 @@ class KafkaTest:
                 break
             except test_suit.test_utils.ResetAndRetry:
                 retryNum = 0
-                print(datetime.now().strftime("%H:%M:%S "), "=== Reset retry count and retry ===", flush=True)
+                print(datetime.now().strftime("%H:%M:%S "), "=== Reset retry count and retry {}===".format(configFileName), flush=True)
             except test_suit.test_utils.RetryableError as e:
                 retryNum += 1
-                print(datetime.now().strftime("%H:%M:%S "), "=== Failed, retryable. {}===".format(e.msg), flush=True)
+                print(datetime.now().strftime("%H:%M:%S "), "=== Failed {}, retryable. {}===".format(configFileName, e.msg), flush=True)
                 self.verifyWaitTime()
             except test_suit.test_utils.NonRetryableError as e:
-                print(datetime.now().strftime("\n%H:%M:%S "), "=== Non retryable error raised ===\n{}".format(e.msg),
+                print(datetime.now().strftime("\n%H:%M:%S "), "=== Non retryable error for {} raised ===\n{}".format(configFileName, e.msg),
                       flush=True)
                 raise test_suit.test_utils.NonRetryableError()
             except snowflake.connector.errors.ProgrammingError as e:
-                print("Error in VerifyWithRetry" + str(e))
+                print("Error in VerifyWithRetry for {}".format(configFileName) + str(e))
                 if e.errno == 2003:
                     retryNum += 1
-                    print(datetime.now().strftime("%H:%M:%S "), "=== Failed, table not created ===", flush=True)
+                    print(datetime.now().strftime("%H:%M:%S "), "=== Failed, table not created for {} ===".format(configFileName), flush=True)
                     self.verifyWaitTime()
                 else:
                     raise
         if retryNum == self.MAX_RETRY:
-            print(datetime.now().strftime("\n%H:%M:%S "), "=== Max retry exceeded ===", flush=True)
+            print(datetime.now().strftime("\n%H:%M:%S "), "=== Max retry exceeded for {} ===".format(configFileName), flush=True)
             raise test_suit.test_utils.NonRetryableError()
 
     def createTopics(self, topicName, partitionNum=1, replicationNum=1):
@@ -551,7 +551,7 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
                 for i, test in enumerate(testSuitList):
                     if testSuitEnableList[i]:
                         print(datetime.now().strftime("\n%H:%M:%S "), "=== Verify " + test.__class__.__name__ + " ===")
-                        driver.verifyWithRetry(test.verify, r)
+                        driver.verifyWithRetry(test.verify, r, test.getConfigFileName())
                         print(datetime.now().strftime("%H:%M:%S "), "=== Passed " + test.__class__.__name__ + " ===",
                               flush=True)
 
