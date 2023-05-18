@@ -314,4 +314,12 @@ public class SinkTaskIT {
     config.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, "ignore");
     sinkTask.start(config);
   }
+
+  @Test
+  public void testTopicToTableRegex() {
+    Map<String, String> config = TestUtils.getConf();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    SnowflakeSinkTaskForStreamingIT.testTopicToTableRegexMain(config);
+  }
 }

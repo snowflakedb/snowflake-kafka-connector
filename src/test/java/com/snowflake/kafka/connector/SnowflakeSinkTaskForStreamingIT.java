@@ -4,11 +4,15 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -191,5 +195,136 @@ public class SnowflakeSinkTaskForStreamingIT {
         });
 
     assert partitionsInTable.size() == 2;
+  }
+
+  @Test
+  public void testTopicToTableRegex() {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+
+    testTopicToTableRegexMain(config);
+  }
+
+  // runner for topic to table regex testing, used to test both streaming and snowpipe scenarios.
+  // Unfortunately cannot be moved to test utils due to the scope of some static variables
+  public static void testTopicToTableRegexMain(Map<String, String> config) {
+    // constants
+    String catTable = "cat_table";
+    String catTopicRegex = ".*_cat";
+    String catTopicStr1 = "calico_cat";
+    String catTopicStr2 = "orange_cat";
+
+    String bigCatTable = "big_cat_table";
+    String bigCatTopicRegex = "big.*_.*_cat";
+    String bigCatTopicStr1 = "big_calico_cat";
+    String bigCatTopicStr2 = "biggest_orange_cat";
+
+    String dogTable = "dog_table";
+    String dogTopicRegex = ".*_dog";
+    String dogTopicStr1 = "corgi_dog";
+
+    String catchallTable = "animal_table";
+    String catchAllRegex = ".*";
+    String birdTopicStr1 = "bird";
+
+    // test two regexes. bird should create its own table
+    String twoRegexConfig =
+        Utils.formatString("{}:{}, {}:{}", bigCatTopicRegex, bigCatTable, dogTopicRegex, dogTable);
+    List<String> twoRegexPartitionStrs =
+        Arrays.asList(bigCatTopicStr1, bigCatTopicStr2, dogTopicStr1, birdTopicStr1);
+    Map<String, String> twoRegexExpected = new HashMap<>();
+    twoRegexExpected.put(bigCatTopicStr1, bigCatTable);
+    twoRegexExpected.put(bigCatTopicStr2, bigCatTable);
+    twoRegexExpected.put(dogTopicStr1, dogTable);
+    twoRegexExpected.put(birdTopicStr1, birdTopicStr1);
+    testTopicToTableRegexRunner(config, twoRegexConfig, twoRegexPartitionStrs, twoRegexExpected);
+
+    // test two regexes with catchall. catchall should overlap both regexes and fail the test
+    String twoRegexCatchAllConfig =
+        Utils.formatString(
+            "{}:{}, {}:{},{}:{}",
+            catchAllRegex,
+            catchallTable,
+            catTopicRegex,
+            catTable,
+            dogTopicRegex,
+            dogTable);
+    List<String> twoRegexCatchAllPartitionStrs =
+        Arrays.asList(catTopicStr1, catTopicStr2, bigCatTopicStr1, dogTopicStr1, birdTopicStr1);
+    Map<String, String> twoRegexCatchAllExpected = new HashMap<>();
+    assert TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021,
+        () ->
+            testTopicToTableRegexRunner(
+                config,
+                twoRegexCatchAllConfig,
+                twoRegexCatchAllPartitionStrs,
+                twoRegexCatchAllExpected));
+
+    // test invalid overlapping regexes
+    String invalidTwoRegexConfig =
+        Utils.formatString("{}:{}, {}:{}", catTopicRegex, catTable, bigCatTopicRegex, bigCatTable);
+    List<String> invalidTwoRegexPartitionStrs =
+        Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
+    Map<String, String> invalidTwoRegexExpected = new HashMap<>();
+    assert TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021,
+        () ->
+            testTopicToTableRegexRunner(
+                config,
+                invalidTwoRegexConfig,
+                invalidTwoRegexPartitionStrs,
+                invalidTwoRegexExpected));
+
+    // test catchall regex
+    String catchAllConfig = Utils.formatString("{}:{}", catchAllRegex, catchallTable);
+    List<String> catchAllPartitionStrs =
+        Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
+    Map<String, String> catchAllExpected = new HashMap<>();
+    catchAllExpected.put(catTopicStr1, catchallTable);
+    catchAllExpected.put(catTopicStr2, catchallTable);
+    catchAllExpected.put(dogTopicStr1, catchallTable);
+    catchAllExpected.put(birdTopicStr1, catchallTable);
+    testTopicToTableRegexRunner(config, catchAllConfig, catchAllPartitionStrs, catchAllExpected);
+  }
+
+  private static void testTopicToTableRegexRunner(
+      Map<String, String> connectorBaseConfig,
+      String topic2tableRegex,
+      List<String> partitionStrList,
+      Map<String, String> expectedTopic2TableConfig) {
+    // setup
+    connectorBaseConfig.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, topic2tableRegex);
+
+    // setup partitions
+    List<TopicPartition> testPartitions = new ArrayList<>();
+    for (int i = 0; i < partitionStrList.size(); i++) {
+      testPartitions.add(new TopicPartition(partitionStrList.get(i), i));
+    }
+
+    // mocks
+    SnowflakeSinkService serviceSpy = Mockito.spy(SnowflakeSinkService.class);
+    SnowflakeConnectionService connSpy = Mockito.spy(SnowflakeConnectionService.class);
+    Map<String, String> parsedConfig = SnowflakeSinkTask.getTopicToTableMap(connectorBaseConfig);
+
+    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask(serviceSpy, connSpy, parsedConfig);
+
+    // test topics were mapped correctly
+    sinkTask.open(testPartitions);
+
+    // verify expected num tasks opened
+    Mockito.verify(serviceSpy, Mockito.times(expectedTopic2TableConfig.size()))
+        .startTask(Mockito.anyString(), Mockito.any(TopicPartition.class));
+
+    for (String topicStr : expectedTopic2TableConfig.keySet()) {
+      TopicPartition topic = null;
+      String table = expectedTopic2TableConfig.get(topicStr);
+      for (TopicPartition currTp : testPartitions) {
+        if (currTp.topic().equals(topicStr)) {
+          topic = currTp;
+          Mockito.verify(serviceSpy, Mockito.times(1)).startTask(table, topic);
+        }
+      }
+      Assert.assertNotNull("Expected topic partition was not opened by the tast", topic);
+    }
   }
 }

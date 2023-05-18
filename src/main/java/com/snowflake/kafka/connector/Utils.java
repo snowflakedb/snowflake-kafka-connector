@@ -548,12 +548,23 @@ public class Utils {
     if (topic2table.containsKey(topic)) {
       return topic2table.get(topic);
     }
+
+    // try matching regex tables
+    for (String regexTopic : topic2table.keySet()) {
+      if (topic.matches(regexTopic)) {
+        return topic2table.get(regexTopic);
+      }
+    }
+
     if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
       return topic;
     }
     int hash = Math.abs(topic.hashCode());
 
     StringBuilder result = new StringBuilder();
+
+    // remove wildcard regex from topic name to generate table name
+    topic = topic.replaceAll("\\.\\*", "");
 
     int index = 0;
     // first char
@@ -605,6 +616,15 @@ public class Utils {
       if (topic2Table.containsKey(topic)) {
         LOGGER.error("topic name {} is duplicated", topic);
         isInvalid = true;
+      }
+
+      // check that regexes don't overlap
+      for (String parsedTopic : topic2Table.keySet()) {
+        if (parsedTopic.matches(topic) || topic.matches(parsedTopic)) {
+          LOGGER.error(
+              "topic regexes cannot overlap. overlapping regexes: {}, {}", parsedTopic, topic);
+          isInvalid = true;
+        }
       }
 
       topic2Table.put(tt[0].trim(), tt[1].trim());
