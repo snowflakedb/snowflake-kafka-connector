@@ -47,7 +47,7 @@ public class StreamingClientProvider {
 
   /** ONLY FOR TESTING - to get a provider with injected properties */
   @VisibleForTesting
-  public static StreamingClientProvider injectStreamingClientProviderForTests(
+  public static StreamingClientProvider getStreamingClientProviderForTests(
       SnowflakeStreamingIngestClient parameterEnabledClient,
       StreamingClientHandler streamingClientHandler) {
     return new StreamingClientProvider(parameterEnabledClient, streamingClientHandler);
