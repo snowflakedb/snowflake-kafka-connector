@@ -473,7 +473,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
     else:
         test_suites = create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet)
 
-        ########################### round 1 ############################
+        ############################ round 1 ############################
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
 
         end_to_end_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in test_suites.values()]

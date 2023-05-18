@@ -395,7 +395,6 @@
             </exclusions>
         </dependency>
 
-
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
