@@ -17,7 +17,7 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.injectStreamingClientProviderForTests;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.getStreamingClientProviderForTests;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -74,7 +74,7 @@ public class StreamingClientProviderTest {
 
     this.streamingClientHandler = Mockito.spy(StreamingClientHandler.class);
     this.streamingClientProvider =
-        StreamingClientProvider.injectStreamingClientProviderForTests(
+        StreamingClientProvider.getStreamingClientProviderForTests(
             null, this.streamingClientHandler);
   }
 
@@ -110,7 +110,7 @@ public class StreamingClientProviderTest {
     this.invalidClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
     Mockito.when(this.invalidClient.isClosed()).thenReturn(true);
     StreamingClientProvider injectedProvider =
-        injectStreamingClientProviderForTests(this.invalidClient, this.streamingClientHandler);
+        getStreamingClientProviderForTests(this.invalidClient, this.streamingClientHandler);
 
     // test: getting invalid client with valid config
     this.validClient = injectedProvider.getClient(validClientConfig);
@@ -169,7 +169,7 @@ public class StreamingClientProviderTest {
 
     // test closing all clients
     StreamingClientProvider injectedProvider =
-        injectStreamingClientProviderForTests(this.client1, this.streamingClientHandler);
+        getStreamingClientProviderForTests(this.client1, this.streamingClientHandler);
 
     injectedProvider.closeClient(this.client1);
 
