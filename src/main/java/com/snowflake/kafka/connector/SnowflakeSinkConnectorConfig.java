@@ -144,6 +144,11 @@ public class SnowflakeSinkConnectorConfig {
   public static final String ERRORS_LOG_ENABLE_CONFIG = "errors.log.enable";
   public static final String ERRORS_LOG_ENABLE_DISPLAY = "Log Errors";
   public static final boolean ERRORS_LOG_ENABLE_DEFAULT = false;
+
+  public static final String DEBUG_LOG_ENABLE_CONFIG = "debug_cko.log.enable";
+  public static final String DEBUG_LOG_ENABLE_DISPLAY = "Debug Log";
+  public static final boolean DEBUG_LOG_ENABLE_DEFAULT = false;
+
   public static final String ERRORS_LOG_ENABLE_DOC =
       "If true, write/log each error along with details of the failed operation and record"
           + " properties to the Connect log. Default is 'false', so that only errors that are not"
@@ -491,6 +496,16 @@ public class SnowflakeSinkConnectorConfig {
             1,
             ConfigDef.Width.NONE,
             ERRORS_LOG_ENABLE_DISPLAY)
+          .define(
+                  DEBUG_LOG_ENABLE_CONFIG,
+                  Type.BOOLEAN,
+                  DEBUG_LOG_ENABLE_DEFAULT,
+                  Importance.LOW,
+                  ERRORS_LOG_ENABLE_DOC,
+                  ERROR_GROUP,
+                  1,
+                  ConfigDef.Width.NONE,
+                  DEBUG_LOG_ENABLE_DISPLAY)
         .define(
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
             Type.STRING,

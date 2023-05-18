@@ -74,6 +74,7 @@ public class TopicPartitionChannel {
   private static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
   private final int nestDepth;
   private final List<String> nestColExcl;
+  private boolean debugLog;
 
   private long firstSeenKafkaOffset = 0L ;
   // last time we invoked insertRows API
@@ -256,6 +257,7 @@ public class TopicPartitionChannel {
     /* Error properties */
     this.errorTolerance = StreamingUtils.tolerateErrors(this.sfConnectorConfig);
     this.logErrors = StreamingUtils.logErrors(this.sfConnectorConfig);
+    this.debugLog = StreamingUtils.debugLog(this.sfConnectorConfig);
     this.isDLQTopicSet =
         !Strings.isNullOrEmpty(StreamingUtils.getDlqTopicName(this.sfConnectorConfig));
 
@@ -268,6 +270,9 @@ public class TopicPartitionChannel {
 
     this.nestColExcl =
             this.recordService.setAndGetNestColExclFromConfig(sfConnectorConfig);
+
+    this.debugLog =
+            this.recordService.setAndGetDebugLog(sfConnectorConfig);
 
     this.enableSchemaEvolution =
         this.enableSchematization

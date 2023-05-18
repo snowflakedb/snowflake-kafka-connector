@@ -92,6 +92,7 @@ public class RecordService extends EnableLogging {
 
   // This class is designed to work with empty metadata config map
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
+  private boolean debugLog;
 
   /**
    * process records output JSON format: { "meta": { "offset": 123, "topic": "topic name",
@@ -145,6 +146,14 @@ public class RecordService extends EnableLogging {
       this.nestColExcl = Arrays.asList(connectorConfig.get(SnowflakeSinkConnectorConfig.SCHEMATIZATION_NESTED_EXC_COLS_CONFIG).split(","));
     }
     return this.nestColExcl;
+  }
+
+  public boolean setAndGetDebugLog(
+          final Map<String, String> connectorConfig) {
+    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.DEBUG_LOG_ENABLE_CONFIG)) {
+      this.debugLog = Boolean.parseBoolean(connectorConfig.get(SnowflakeSinkConnectorConfig.DEBUG_LOG_ENABLE_CONFIG));
+    }
+    return this.debugLog;
   }
 
 
@@ -283,7 +292,9 @@ public class RecordService extends EnableLogging {
       streamingIngestRow.put(TABLE_COLUMN_KAFKA_TIMESTAMP, MAPPER.writeValueAsString(new java.sql.Timestamp(System.currentTimeMillis())));
       streamingIngestRow.put(TABLE_COLUMN_OFFSET, MAPPER.writeValueAsString((record.kafkaOffset())));
     }
-
+    if (this.debugLog) {
+      LOGGER.info("CAFLOG_DEBUGLOG_ROW - {} ~~~ {} ~~~ {} ~~~ {}", streamingIngestRow.toString(), record, record.kafkaOffset(), record.toString());
+    }
     return streamingIngestRow;
   }
 
