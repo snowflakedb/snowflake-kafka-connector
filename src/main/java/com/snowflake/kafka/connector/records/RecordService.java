@@ -390,15 +390,6 @@ public boolean setAndGetAutoSchematizationFromConfig(
         case INT16:
           return JsonNodeFactory.instance.numberNode((Short) value);
         case INT32:
-          if (schema != null && "io.debezium.time.Date".equals(schema.name())) {
-            if (value instanceof java.util.Date) {
-              return JsonNodeFactory.instance.textNode(
-                ISO_DATE_TIME_FORMAT.get().format((java.util.Date) value));
-            } else if (value instanceof Integer || value instanceof Long) {
-              Long microsecValue = (Long)value * 24 * 60 * 60 * 1000000;
-              return JsonNodeFactory.instance.numberNode(microsecValue);
-            }
-          }
           if (schema != null && Date.LOGICAL_NAME.equals(schema.name())) {
             return JsonNodeFactory.instance.textNode(
                 ISO_DATE_TIME_FORMAT.get().format((java.util.Date) value));
