@@ -21,6 +21,13 @@ jobs:
       uses: actions/setup-java@v1
       with:
         java-version: 1.8
+    - name: "Cache local Maven repository"
+      uses: actions/cache@v2
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
     - name: Install Python
       uses: actions/setup-python@v4
       with:
@@ -56,14 +63,14 @@ jobs:
         sudo mv .github/scripts/squid.conf /etc/squid/squid.conf
         sudo service squid start
     
-    - name: Build with Unit Test
+    - name: Build with Unit Test for Apache
       env:
         JACOCO_COVERAGE: true
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SHELL: "/bin/bash"
       run: |
         cd test
-        ./build_apache.sh ../../snowflake-kafka-connector package
+        ./build_runtime_jar.sh ../../snowflake-kafka-connector package
 
     - name: End to End Test of Apache Platform ${{ matrix.apache_kafka_version }} against Snowflake in ${{ matrix.snowflake_cloud }}
       env:
