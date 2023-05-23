@@ -184,7 +184,7 @@ public class SchematizationUtils {
   /** Convert a json node type to kafka data type */
   private static Type convertJsonNodeTypeToKafkaType(JsonNode value) {
     if (value == null || value.isNull()) {
-      return STRUCT;
+      return STRING;
     } else if (value.isNumber()) {
       if (value.isShort()) {
         return INT16;
@@ -218,10 +218,13 @@ public class SchematizationUtils {
             case Decimal.LOGICAL_NAME:
               return "DOUBLE";
             case Time.LOGICAL_NAME:
+            case "io.debezium.time.MicroTime":   
+              return "TIME(6)";
+            case "io.debezium.time.Time":             
+              return "TIME(3)";
             case Timestamp.LOGICAL_NAME:
             case "io.debezium.time.ZonedTimestamp":
-            case "io.debezium.time.ZonedTime":
-            case "io.debezium.time.MicroTime":
+            case "io.debezium.time.ZonedTime":      // Snowflake doesn't have zoned 'time-only' data types
             case "io.debezium.time.Timestamp":
             case "io.debezium.time.MicroTimestamp":
               return "TIMESTAMP";

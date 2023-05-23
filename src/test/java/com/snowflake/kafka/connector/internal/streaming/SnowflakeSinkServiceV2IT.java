@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -638,12 +640,18 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(brokenKeyValue);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 0, 20, 5);
+        () ->
+            service.getOffset(new TopicPartition(topic, partition))
+                == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        20,
+        5);
 
     List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedData =
         errorReporter.getReportedRecords();
 
     assert reportedData.size() == 3;
+    assert TestUtils.tableSize(table) == 0
+        : "expected: " + 0 + " actual: " + TestUtils.tableSize(table);
   }
 
   @Test
@@ -691,6 +699,8 @@ public class SnowflakeSinkServiceV2IT {
         errorReporter.getReportedRecords();
 
     assert reportedData.size() == 2;
+    assert TestUtils.tableSize(table) == 1
+        : "expected: " + 1 + " actual: " + TestUtils.tableSize(table);
 
     service.closeAll();
   }
@@ -811,8 +821,6 @@ public class SnowflakeSinkServiceV2IT {
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .setDeliveryGuarantee(
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
     offset = 1;
@@ -872,8 +880,6 @@ public class SnowflakeSinkServiceV2IT {
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .setDeliveryGuarantee(
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -963,18 +969,12 @@ public class SnowflakeSinkServiceV2IT {
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // The first insert should fail and schema evolution will kick in to update the schema
-    service.insert(avroRecordValue);
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset, 20, 5);
-
-    TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_AVRO_SCHEMA_FOR_TABLE_CREATION);
-
-    // Retry the insert should succeed now with the updated schema
+    // Schema evolution should kick in to update the schema and then the rows should be ingested
     service.insert(avroRecordValue);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
 
+    TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_AVRO_SCHEMA_FOR_TABLE_CREATION);
     TestUtils.checkTableContentOneRow(
         table, SchematizationTestUtils.CONTENT_FOR_AVRO_TABLE_CREATION);
 
@@ -1049,17 +1049,11 @@ public class SnowflakeSinkServiceV2IT {
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // The first insert should fail and schema evolution will kick in to update the schema
+    // Schema evolution should kick in to update the schema and then the rows should be ingested
     service.insert(jsonRecordValue);
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
     TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_JSON_SCHEMA_FOR_TABLE_CREATION);
-
-    // Retry the insert should succeed now with the updated schema
-    service.insert(jsonRecordValue);
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
-
     TestUtils.checkTableContentOneRow(
         table, SchematizationTestUtils.CONTENT_FOR_JSON_TABLE_CREATION);
 
@@ -1090,7 +1084,6 @@ public class SnowflakeSinkServiceV2IT {
     SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
 
     long startOffset = 0;
-    long endOffset = 0;
 
     SinkRecord jsonRecordValue =
         new SinkRecord(
@@ -1110,21 +1103,10 @@ public class SnowflakeSinkServiceV2IT {
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // The first insert should fail and schema evolution will kick in to add the column
+    // Schema evolution should kick in to update the schema and then the rows should be ingested
     service.insert(jsonRecordValue);
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset, 20, 5);
-
-    // The second insert should fail again and schema evolution will kick in to update the
-    // nullability
-    service.insert(jsonRecordValue);
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset, 20, 5);
-
-    // Retry the insert should succeed now with the updated schema
-    service.insert(jsonRecordValue);
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
 
     service.closeAll();
   }

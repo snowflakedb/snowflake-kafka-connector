@@ -34,7 +34,7 @@ public class SnowflakeTelemetryPipeCreation extends SnowflakeTelemetryBasicInfo 
   }
 
   @Override
-  void dumpTo(ObjectNode msg) {
+  public void dumpTo(ObjectNode msg) {
     msg.put(TABLE_NAME, tableName);
     msg.put(STAGE_NAME, stageName);
     msg.put(PIPE_NAME, pipeName);
