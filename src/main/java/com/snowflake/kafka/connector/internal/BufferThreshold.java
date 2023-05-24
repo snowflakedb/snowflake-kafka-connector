@@ -13,7 +13,6 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import org.apache.kafka.connect.sink.SinkRecord;
 
 /**
  * Helper class associated to runtime of Kafka Connect which can help to identify if there is a need
@@ -26,8 +25,8 @@ public abstract class BufferThreshold {
   private final IngestionMethodConfig ingestionMethodConfig;
 
   /**
-   * Time based buffer flush threshold in seconds. Corresponds to the duration since last kafka flush
-   * Set in config
+   * Time based buffer flush threshold in seconds. Corresponds to the duration since last kafka
+   * flush Set in config
    *
    * <p>Config parameter: {@link
    * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
@@ -35,8 +34,8 @@ public abstract class BufferThreshold {
   private final long bufferFlushTimeThreshold;
 
   /**
-   * Size based buffer flush threshold in bytes. Corresponds to the buffer size in kafka
-   * Set in config
+   * Size based buffer flush threshold in bytes. Corresponds to the buffer size in kafka Set in
+   * config
    *
    * <p>Config parameter: {@link
    * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES}
@@ -44,8 +43,7 @@ public abstract class BufferThreshold {
   private final long bufferByteSizeThreshold;
 
   /**
-   * Count based buffer flush threshold. Corresponds to the record count in kafka
-   * Set in config.
+   * Count based buffer flush threshold. Corresponds to the record count in kafka Set in config.
    *
    * <p>Config parameter: {@link
    * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_COUNT_RECORDS}
@@ -55,10 +53,22 @@ public abstract class BufferThreshold {
   private final long SECOND_TO_MILLIS = TimeUnit.SECONDS.toMillis(1);
 
   public enum FlushReason {
-    NONE,
-    BUFFER_FLUSH_TIME,
-    BUFFER_BYTE_SIZE,
-    BUFFER_RECORD_COUNT,
+    NONE("NONE"),
+    BUFFER_FLUSH_TIME(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC),
+    BUFFER_BYTE_SIZE(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES),
+    BUFFER_RECORD_COUNT(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS),
+    ;
+
+    private final String str;
+
+    FlushReason(String str) {
+      this.str = str;
+    }
+
+    @Override
+    public String toString() {
+      return this.str;
+    }
   }
 
   /**
@@ -137,15 +147,22 @@ public abstract class BufferThreshold {
       Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
     Map<String, String> invalidConfigParams = new HashMap<>();
 
-    invalidConfigParams.putAll(verifyBufferThreshold(FlushReason.BUFFER_FLUSH_TIME, providedSFConnectorConfig, ingestionMethodConfig));
-    invalidConfigParams.putAll(verifyBufferThreshold(FlushReason.BUFFER_BYTE_SIZE, providedSFConnectorConfig, ingestionMethodConfig));
-    invalidConfigParams.putAll(verifyBufferThreshold(FlushReason.BUFFER_RECORD_COUNT, providedSFConnectorConfig, ingestionMethodConfig));
+    invalidConfigParams.putAll(
+        verifyBufferThreshold(
+            FlushReason.BUFFER_FLUSH_TIME, providedSFConnectorConfig, ingestionMethodConfig));
+    invalidConfigParams.putAll(
+        verifyBufferThreshold(
+            FlushReason.BUFFER_BYTE_SIZE, providedSFConnectorConfig, ingestionMethodConfig));
+    invalidConfigParams.putAll(
+        verifyBufferThreshold(
+            FlushReason.BUFFER_RECORD_COUNT, providedSFConnectorConfig, ingestionMethodConfig));
     return ImmutableMap.copyOf(invalidConfigParams);
   }
 
-  private static Map<String, String> verifyBufferThreshold(FlushReason flushReason,
-                                       Map<String, String> providedSFConnectorConfig,
-                                       IngestionMethodConfig ingestionMethodConfig) {
+  private static Map<String, String> verifyBufferThreshold(
+      FlushReason flushReason,
+      Map<String, String> providedSFConnectorConfig,
+      IngestionMethodConfig ingestionMethodConfig) {
     Map<String, String> invalidConfigParams = new HashMap();
 
     String sfBufferConfigName;
@@ -169,12 +186,19 @@ public abstract class BufferThreshold {
         minValidThreshold = BUFFER_COUNT_RECORDS_MIN;
         break;
       default:
-        invalidConfigParams.put(flushReason.toString(), "Invalid buffer flush reason provided for buffer threshold verification");
+        invalidConfigParams.put(
+            flushReason.toString(),
+            "Invalid buffer flush reason provided for buffer threshold verification");
         return invalidConfigParams;
     }
 
     // verify threshold
-    String errorMsg = verifyBufferThresholdHelper(providedSFConnectorConfig, ingestionMethodConfig, sfBufferConfigName, minValidThreshold);
+    String errorMsg =
+        verifyBufferThresholdHelper(
+            providedSFConnectorConfig,
+            ingestionMethodConfig,
+            sfBufferConfigName,
+            minValidThreshold);
     if (errorMsg != null && !errorMsg.isEmpty()) {
       invalidConfigParams.put(sfBufferConfigName, errorMsg);
     }
@@ -182,11 +206,13 @@ public abstract class BufferThreshold {
     return invalidConfigParams;
   }
 
-  private static String verifyBufferThresholdHelper(Map<String, String> providedSFConnectorConfig,
-                                                IngestionMethodConfig ingestionMethodConfig, String sfBufferConfigName, long minValidThreshold) {
+  private static String verifyBufferThresholdHelper(
+      Map<String, String> providedSFConnectorConfig,
+      IngestionMethodConfig ingestionMethodConfig,
+      String sfBufferConfigName,
+      long minValidThreshold) {
     // check config has threshold
-    if (!providedSFConnectorConfig.containsKey(
-        sfBufferConfigName)) {
+    if (!providedSFConnectorConfig.containsKey(sfBufferConfigName)) {
       return Utils.formatString("Config {} is empty", sfBufferConfigName);
     }
 

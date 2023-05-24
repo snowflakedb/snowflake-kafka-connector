@@ -502,7 +502,7 @@ public class TopicPartitionChannelTest {
       // Will wait for 10 seconds.
       Thread.sleep(bufferFlushTimeSeconds * 1000 + 10);
 
-      topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
+      topicPartitionChannel.tryFlushCurrentStreamingBuffer();
 
       // Verify that the buffer is cleaned up and one record is in the DLQ
       Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
@@ -752,7 +752,7 @@ public class TopicPartitionChannelTest {
     // Will wait for 10 seconds.
     Thread.sleep(bufferFlushTimeSeconds * 1000 + 10);
 
-    topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
+    topicPartitionChannel.tryFlushCurrentStreamingBuffer();
 
     Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
     Mockito.verify(mockStreamingChannel, Mockito.times(2))
@@ -798,7 +798,7 @@ public class TopicPartitionChannelTest {
     // reached. We are mimicking that call. Will wait for 10 seconds.
     Thread.sleep(bufferFlushTimeSeconds * 1000 + 10);
 
-    topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
+    topicPartitionChannel.tryFlushCurrentStreamingBuffer();
 
     Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
     Mockito.verify(mockStreamingChannel, Mockito.times(2))
