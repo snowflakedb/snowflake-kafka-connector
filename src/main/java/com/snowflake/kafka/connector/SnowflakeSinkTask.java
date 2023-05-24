@@ -228,9 +228,9 @@ public class SnowflakeSinkTask extends SinkTask {
             .build();
 
     DYNAMIC_LOGGER.debug(
-        "task started, execution time: {} seconds",
+        "task started, execution time: {} milliseconds",
         this.taskConfigId,
-        getExecutionTimeSec(this.taskStartTime, System.currentTimeMillis()));
+        getDurationFromStartMs(this.taskStartTime));
   }
 
   /**
@@ -244,8 +244,8 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     this.DYNAMIC_LOGGER.debug(
-        "task stopped, total task runtime: {} seconds",
-        getExecutionTimeSec(this.taskStartTime, System.currentTimeMillis()));
+        "task stopped, total task runtime: {} milliseconds",
+        getDurationFromStartMs(this.taskStartTime));
   }
 
   /**
@@ -259,9 +259,9 @@ public class SnowflakeSinkTask extends SinkTask {
     partitions.forEach(
         tp -> this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp));
     this.DYNAMIC_LOGGER.debug(
-        "task opened with {} partitions, execution time: {} seconds",
+        "task opened with {} partitions, execution time: {} milliseconds",
         partitions.size(),
-        getExecutionTimeSec(startTime, System.currentTimeMillis()));
+        getDurationFromStartMs(startTime));
   }
 
   /**
@@ -280,9 +280,9 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     this.DYNAMIC_LOGGER.debug(
-        "task closed, execution time: {} seconds",
+        "task closed, execution time: {} milliseconds",
         this.taskConfigId,
-        getExecutionTimeSec(startTime, System.currentTimeMillis()));
+        getDurationFromStartMs(startTime));
   }
 
   /**
@@ -388,29 +388,32 @@ public class SnowflakeSinkTask extends SinkTask {
     throw new TimeoutException();
   }
 
-  private static long getExecutionTimeSec(long startTime, long endTime) {
-    return (endTime - startTime) / 1000;
+  private static long getDurationFromStartMs(long startTime) {
+    final long currTime = System.currentTimeMillis();
+    return currTime - startTime;
   }
 
   void logWarningForPutAndPrecommit(long startTime, int size, String apiName) {
-    long executionTime = getExecutionTimeSec(startTime, System.currentTimeMillis());
-    if (executionTime > 300) {
+    long executionTimeMs = getDurationFromStartMs(startTime);
+    long executionTimeSec = executionTimeMs / 1000;
+    if (executionTimeSec > 300) {
       // This won't be frequently printed. It is vary rare to have execution greater than 300
       // seconds.
       // But having this warning helps customer to debug their Kafka Connect config.
       this.DYNAMIC_LOGGER.warn(
-          "{} {}. Time: {} seconds > 300 seconds. If there is CommitFailedException in the log or"
+          "{} {}. Time: {} milliseconds = {} seconds > 300 seconds. If there is CommitFailedException in the log or"
               + " there is duplicated records, refer to this link for solution: "
               + "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
           apiName,
           size,
-          executionTime);
+          executionTimeMs,
+          executionTimeSec);
     } else {
       this.DYNAMIC_LOGGER.info(
-          "successfully called {} with {} records, execution time: {} seconds",
+          "successfully called {} with {} records, execution time: {} milliseconds",
           apiName,
           size,
-          executionTime);
+          executionTimeMs);
     }
   }
 
