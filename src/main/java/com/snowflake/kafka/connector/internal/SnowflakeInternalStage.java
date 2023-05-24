@@ -181,6 +181,10 @@ public class SnowflakeInternalStage {
               .setSnowflakeFileTransferMetadata(fileTransferMetadata)
               .setUploadStream(inStream)
               .setRequireCompress(true)
+              // Setting a destinationFileName is a no-op for AWS and Azure since it still uses
+              // presignedUrlFileName
+              // Setting destFileName is useful for GCS and downscope URL
+              .setDestFileName(FilenameUtils.getName(fullFilePath))
               .setOcspMode(OCSPMode.FAIL_OPEN)
               .setProxyProperties(proxyProperties)
               .build());

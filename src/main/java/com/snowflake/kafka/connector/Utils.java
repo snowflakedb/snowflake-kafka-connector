@@ -35,6 +35,7 @@ import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -99,6 +100,10 @@ public class Utils {
 
   public static final String TABLE_COLUMN_CONTENT = "RECORD_CONTENT";
   public static final String TABLE_COLUMN_METADATA = "RECORD_METADATA";
+
+  public static final String GET_EXCEPTION_FORMAT = "{}, Exception message: {}, cause: {}";
+  public static final String GET_EXCEPTION_MISSING_MESSAGE = "missing exception message";
+  public static final String GET_EXCEPTION_MISSING_CAUSE = "missing exception cause";
 
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
@@ -542,12 +547,23 @@ public class Utils {
     if (topic2table.containsKey(topic)) {
       return topic2table.get(topic);
     }
+
+    // try matching regex tables
+    for (String regexTopic : topic2table.keySet()) {
+      if (topic.matches(regexTopic)) {
+        return topic2table.get(regexTopic);
+      }
+    }
+
     if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
       return topic;
     }
     int hash = Math.abs(topic.hashCode());
 
     StringBuilder result = new StringBuilder();
+
+    // remove wildcard regex from topic name to generate table name
+    topic = topic.replaceAll("\\.\\*", "");
 
     int index = 0;
     // first char
@@ -599,6 +615,15 @@ public class Utils {
       if (topic2Table.containsKey(topic)) {
         LOGGER.error("topic name {} is duplicated", topic);
         isInvalid = true;
+      }
+
+      // check that regexes don't overlap
+      for (String parsedTopic : topic2Table.keySet()) {
+        if (parsedTopic.matches(topic) || topic.matches(parsedTopic)) {
+          LOGGER.error(
+              "topic regexes cannot overlap. overlapping regexes: {}, {}", parsedTopic, topic);
+          isInvalid = true;
+        }
       }
 
       topic2Table.put(tt[0].trim(), tt[1].trim());
@@ -677,6 +702,26 @@ public class Utils {
       format = format.replaceFirst("\\{}", Objects.toString(vars[i]).replaceAll("\\$", "\\\\\\$"));
     }
     return format;
+  }
+
+  /**
+   * Get the message and cause of a missing exception, handling the null or empty cases of each
+   *
+   * @param customMessage A custom message to prepend to the exception
+   * @param ex The message to parse through
+   * @return A string with the custom message and the exceptions message or cause, if exists
+   */
+  public static String getExceptionMessage(String customMessage, Exception ex) {
+    String message =
+        ex.getMessage() == null || ex.getMessage().isEmpty()
+            ? GET_EXCEPTION_MISSING_MESSAGE
+            : ex.getMessage();
+    String cause =
+        ex.getCause() == null || ex.getCause().getStackTrace() == null
+            ? GET_EXCEPTION_MISSING_CAUSE
+            : Arrays.toString(ex.getCause().getStackTrace());
+
+    return formatString(GET_EXCEPTION_FORMAT, customMessage, message, cause);
   }
 
   private static void handleInvalidParameters(ImmutableMap<String, String> invalidConfigParams) {
