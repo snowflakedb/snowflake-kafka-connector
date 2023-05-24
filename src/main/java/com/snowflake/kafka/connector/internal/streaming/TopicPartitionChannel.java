@@ -428,6 +428,45 @@ public class TopicPartitionChannel {
   }
 
   // --------------- BUFFER FLUSHING LOGIC --------------- //
+//   if (currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+//        || kafkaSinkRecord.kafkaOffset() >= currentProcessedOffset + 1) {
+//    StreamingBuffer copiedStreamingBuffer = null;
+//    bufferLock.lock();
+//    try {
+//      this.streamingBuffer.insert(kafkaSinkRecord);
+//      this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
+
+//      // # of records or size based flushing
+//      if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
+//          streamingBuffer.getBufferSizeBytes())
+//          || this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
+//          streamingBuffer.getNumOfRecords())) {
+//        copiedStreamingBuffer = streamingBuffer;
+//        this.streamingBuffer = new StreamingBuffer();
+//        LOGGER.debug(
+//            "Flush based on buffered bytes or buffered number of records for"
+//                + " channel:{},currentBufferSizeInBytes:{}, currentBufferedRecordCount:{},"
+//                + " connectorBufferThresholds:{}",
+//            this.getChannelName(),
+//            copiedStreamingBuffer.getBufferSizeBytes(),
+//            copiedStreamingBuffer.getSinkRecords().size(),
+//            this.streamingBufferThreshold);
+//      }
+//    } finally {
+//      bufferLock.unlock();
+//    }
+//
+//    // If we found reaching buffer size threshold or count based threshold, we will immediately
+//    // flush (Insert them)
+//    if (copiedStreamingBuffer != null) {
+//      insertBufferedRecords(copiedStreamingBuffer);
+//    }
+
+  protected void tryGetFlushableStreamingBuffer(BufferThreshold.FlushReason flushReason, StreamingBuffer streamingBuffer) {
+    if (this.streamingBufferThreshold.shouldFlushBuffer(flushReason)) {
+
+    }
+  }
 
   /**
    * If difference between current time and previous flush time is more than threshold, insert the
@@ -442,13 +481,13 @@ public class TopicPartitionChannel {
    */
   protected void insertBufferedRecordsIfFlushTimeThresholdReached() {
     if (this.streamingBufferThreshold.shouldFlushOnBufferTime(this.previousFlushTimeStampMs)) {
-      LOGGER.debug(
-          "Time based flush for channel:{}, CurrentTimeMs:{}, previousFlushTimeMs:{},"
-              + " bufferThresholdSeconds:{}",
-          this.getChannelName(),
-          System.currentTimeMillis(),
-          this.previousFlushTimeStampMs,
-          this.streamingBufferThreshold.getBufferFlushTimeThreshold());
+//      LOGGER.debug(
+//          "Time based flush for channel:{}, CurrentTimeMs:{}, previousFlushTimeMs:{},"
+//              + " bufferThresholdSeconds:{}",
+//          this.getChannelName(),
+//          System.currentTimeMillis(),
+//          this.previousFlushTimeStampMs,
+//          this.streamingBufferThreshold.getBufferFlushTimeThreshold());
       StreamingBuffer copiedStreamingBuffer;
       bufferLock.lock();
       try {
