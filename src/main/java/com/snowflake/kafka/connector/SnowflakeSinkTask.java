@@ -406,11 +406,11 @@ public class SnowflakeSinkTask extends SinkTask {
           size,
           executionTime);
     } else {
-      this.DYNAMIC_LOGGER.debug(
+      this.DYNAMIC_LOGGER.info(
           "successfully called {} with {} records, execution time: {} seconds",
           apiName,
           size,
-          getExecutionTimeSec(startTime, System.currentTimeMillis()));
+          executionTime);
     }
   }
 
