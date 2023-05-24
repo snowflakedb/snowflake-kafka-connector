@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 
 /**

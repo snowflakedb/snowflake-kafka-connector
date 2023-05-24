@@ -415,10 +415,12 @@ public class TopicPartitionChannel {
       if (this.streamingBufferThreshold.shouldFlushOnBufferTime(this.previousFlushTimeStampMs)) {
         shouldFlush = true;
         this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_FLUSH_TIME);
-      } else if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(streamingBuffer.getBufferSizeBytes())) {
+      } else if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
+          streamingBuffer.getBufferSizeBytes())) {
         shouldFlush = true;
         this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_BYTE_SIZE);
-      } else if (this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(streamingBuffer.getNumOfRecords())) {
+      } else if (this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
+          streamingBuffer.getNumOfRecords())) {
         shouldFlush = true;
         this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_RECORD_COUNT);
       }
@@ -429,7 +431,9 @@ public class TopicPartitionChannel {
         this.streamingBuffer = new StreamingBuffer();
 
         LOGGER.debug(
-            "Flushable buffer based on {} for channel:{}. previousFlushTime:{} currentBufferByteSize:{}, currentBufferRecordCount:{}, connectorBufferThresholds:{}",
+            "Flushable buffer based on {} for channel:{}. previousFlushTime:{}"
+                + " currentBufferByteSize:{}, currentBufferRecordCount:{},"
+                + " connectorBufferThresholds:{}",
             flushableStreamingBuffer.flushReason.toString(),
             this.getChannelName(),
             this.previousFlushTimeStampMs,
