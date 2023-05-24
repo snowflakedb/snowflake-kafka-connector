@@ -463,8 +463,19 @@ public class TopicPartitionChannel {
 //    }
 
   protected void tryGetFlushableStreamingBuffer(BufferThreshold.FlushReason flushReason, StreamingBuffer streamingBuffer) {
-    if (this.streamingBufferThreshold.shouldFlushBuffer(flushReason)) {
+    boolean shouldFlush;
 
+    switch (flushReason) {
+      case BUFFER_FLUSH_TIME:
+        shouldFlush = this.streamingBufferThreshold.shouldFlushOnBufferTime(this.previousFlushTimeStampMs);
+        break;
+      case BUFFER_BYTE_SIZE:
+        break;
+      case BUFFER_RECORD_COUNT:
+        break;
+      default:
+        // TODO default error
+        break;
     }
   }
 
