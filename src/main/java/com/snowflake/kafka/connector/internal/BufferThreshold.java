@@ -52,25 +52,6 @@ public abstract class BufferThreshold {
 
   private final long SECOND_TO_MILLIS = TimeUnit.SECONDS.toMillis(1);
 
-  public enum FlushReason {
-    NONE("NONE"),
-    BUFFER_FLUSH_TIME(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC),
-    BUFFER_BYTE_SIZE(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES),
-    BUFFER_RECORD_COUNT(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS),
-    ;
-
-    private final String str;
-
-    FlushReason(String str) {
-      this.str = str;
-    }
-
-    @Override
-    public String toString() {
-      return this.str;
-    }
-  }
-
   /**
    * Public constructor
    *
@@ -133,112 +114,136 @@ public abstract class BufferThreshold {
         >= (this.bufferFlushTimeThreshold * SECOND_TO_MILLIS);
   }
 
-  /**
-   * Check if provided snowflake kafka connector buffer properties are within permissible values.
-   *
-   * <p>This method invokes three verifiers - Time based threshold, buffer size and buffer count
-   * threshold.
-   *
-   * @param providedSFConnectorConfig provided by customer
-   * @param ingestionMethodConfig ingestion method used. Check {@link IngestionMethodConfig}
-   * @return invalid config parameters, if exists
-   */
+  /** @return Get flush time threshold in seconds */
+  public long getFlushTimeThresholdSeconds() {
+    return this.bufferFlushTimeThreshold;
+  }
+
   public static ImmutableMap<String, String> validateBufferThreshold(
       Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
     Map<String, String> invalidConfigParams = new HashMap<>();
-
     invalidConfigParams.putAll(
-        verifyBufferThreshold(
-            FlushReason.BUFFER_FLUSH_TIME, providedSFConnectorConfig, ingestionMethodConfig));
-    invalidConfigParams.putAll(
-        verifyBufferThreshold(
-            FlushReason.BUFFER_BYTE_SIZE, providedSFConnectorConfig, ingestionMethodConfig));
-    invalidConfigParams.putAll(
-        verifyBufferThreshold(
-            FlushReason.BUFFER_RECORD_COUNT, providedSFConnectorConfig, ingestionMethodConfig));
+        verifyBufferFlushTimeThreshold(providedSFConnectorConfig, ingestionMethodConfig));
+    invalidConfigParams.putAll(verifyBufferCountThreshold(providedSFConnectorConfig));
+    invalidConfigParams.putAll(verifyBufferBytesThreshold(providedSFConnectorConfig));
     return ImmutableMap.copyOf(invalidConfigParams);
   }
 
-  private static Map<String, String> verifyBufferThreshold(
-      FlushReason flushReason,
-      Map<String, String> providedSFConnectorConfig,
-      IngestionMethodConfig ingestionMethodConfig) {
+  private static ImmutableMap<String, String> verifyBufferFlushTimeThreshold(
+      Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
     Map<String, String> invalidConfigParams = new HashMap();
 
-    String sfBufferConfigName;
-    long minValidThreshold;
+    if (!providedSFConnectorConfig.containsKey(
+        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC)) {
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+          Utils.formatString(
+              "Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
+    } else {
+      String providedFlushTimeSecondsInStr =
+          providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
+      try {
+        long providedFlushTimeSecondsInConfig = Long.parseLong(providedFlushTimeSecondsInStr);
 
-    // get params based on buffer flush threshold
-    switch (flushReason) {
-      case BUFFER_FLUSH_TIME:
-        sfBufferConfigName = SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
-        minValidThreshold =
+        // select appropriate threshold based on ingestion method.
+        long thresholdTimeToCompare =
             ingestionMethodConfig.equals(IngestionMethodConfig.SNOWPIPE)
                 ? BUFFER_FLUSH_TIME_SEC_MIN
                 : STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC;
-        break;
-      case BUFFER_BYTE_SIZE:
-        sfBufferConfigName = SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
-        minValidThreshold = BUFFER_SIZE_BYTES_MIN;
-        break;
-      case BUFFER_RECORD_COUNT:
-        sfBufferConfigName = SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
-        minValidThreshold = BUFFER_COUNT_RECORDS_MIN;
-        break;
-      default:
+        if (providedFlushTimeSecondsInConfig < thresholdTimeToCompare) {
+          invalidConfigParams.put(
+              SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+              Utils.formatString(
+                  "{} is {}, it should be greater than {}",
+                  SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+                  providedFlushTimeSecondsInConfig,
+                  thresholdTimeToCompare));
+        }
+      } catch (NumberFormatException e) {
         invalidConfigParams.put(
-            flushReason.toString(),
-            "Invalid buffer flush reason provided for buffer threshold verification");
-        return invalidConfigParams;
+            SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+            Utils.formatString(
+                "{} should be an integer. Invalid integer was provided:{}",
+                SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+                providedFlushTimeSecondsInStr));
+      }
     }
 
-    // verify threshold
-    String errorMsg =
-        verifyBufferThresholdHelper(
-            providedSFConnectorConfig,
-            ingestionMethodConfig,
-            sfBufferConfigName,
-            minValidThreshold);
-    if (errorMsg != null && !errorMsg.isEmpty()) {
-      invalidConfigParams.put(sfBufferConfigName, errorMsg);
-    }
-
-    return invalidConfigParams;
+    return ImmutableMap.copyOf(invalidConfigParams);
   }
 
-  private static String verifyBufferThresholdHelper(
-      Map<String, String> providedSFConnectorConfig,
-      IngestionMethodConfig ingestionMethodConfig,
-      String sfBufferConfigName,
-      long minValidThreshold) {
-    // check config has threshold
-    if (!providedSFConnectorConfig.containsKey(sfBufferConfigName)) {
-      return Utils.formatString("Config {} is empty", sfBufferConfigName);
+  private static ImmutableMap<String, String> verifyBufferBytesThreshold(
+      Map<String, String> providedSFConnectorConfig) {
+    Map<String, String> invalidConfigParams = new HashMap();
+
+    // verify buffer.size.bytes
+    if (!providedSFConnectorConfig.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES)) {
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+          Utils.formatString("Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
+    } else {
+      final String providedBufferSizeBytesStr =
+          providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
+      try {
+        long providedBufferSizeBytesConfig = Long.parseLong(providedBufferSizeBytesStr);
+        if (providedBufferSizeBytesConfig
+            < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN) // 1 byte
+        {
+          invalidConfigParams.put(
+              SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+              Utils.formatString(
+                  "{} is too low at {}. It must be {} or greater.",
+                  SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+                  providedBufferSizeBytesConfig,
+                  SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN));
+        }
+      } catch (NumberFormatException e) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+            Utils.formatString(
+                "Config {} should be an integer. Provided:{}",
+                SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+                providedBufferSizeBytesStr));
+      }
     }
 
-    String providedBufferThresholdStr = providedSFConnectorConfig.get(sfBufferConfigName);
-    long providedBufferThreshold;
+    return ImmutableMap.copyOf(invalidConfigParams);
+  }
 
-    // try parse long
-    try {
-      providedBufferThreshold = Long.parseLong(providedBufferThresholdStr);
-    } catch (NumberFormatException e) {
-      return Utils.formatString(
-          "{} should be a positive integer. Invalid integer was provided:{}",
-          sfBufferConfigName,
-          providedBufferThresholdStr);
+  private static ImmutableMap<String, String> verifyBufferCountThreshold(
+      Map<String, String> providedSFConnectorConfig) {
+    Map<String, String> invalidConfigParams = new HashMap();
+
+    // verify buffer.count.records
+    if (!providedSFConnectorConfig.containsKey(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS)) {
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+          Utils.formatString(
+              "Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
+    } else {
+      final String providedBufferCountRecordsStr =
+          providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
+      try {
+        long providedBufferCountRecords = Long.parseLong(providedBufferCountRecordsStr);
+        if (providedBufferCountRecords <= 0) {
+          invalidConfigParams.put(
+              SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+              Utils.formatString(
+                  "Config {} is {}, it should at least 1",
+                  SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+                  providedBufferCountRecords));
+        }
+      } catch (NumberFormatException e) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+            Utils.formatString(
+                "Config {} should be a positive integer. Provided:{}",
+                SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+                providedBufferCountRecordsStr));
+      }
     }
 
-    // test against threshold
-    if (providedBufferThreshold < minValidThreshold) {
-      return Utils.formatString(
-          "{} is {}, it should be greater than {}",
-          sfBufferConfigName,
-          providedBufferThreshold,
-          minValidThreshold);
-    }
-
-    return null;
+    return ImmutableMap.copyOf(invalidConfigParams);
   }
 
   @Override

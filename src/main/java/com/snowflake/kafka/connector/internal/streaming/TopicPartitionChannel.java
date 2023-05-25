@@ -290,11 +290,36 @@ public class TopicPartitionChannel {
     // incoming record offset is 1 + the processed offset
     if (currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
         || kafkaSinkRecord.kafkaOffset() >= currentProcessedOffset + 1) {
-      // insert to buffer
-      this.streamingBuffer.insert(kafkaSinkRecord);
-      this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
+      StreamingBuffer copiedStreamingBuffer = null;
+      bufferLock.lock();
+      try {
+        this.streamingBuffer.insert(kafkaSinkRecord);
+        this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
+        // # of records or size based flushing
+        if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
+                streamingBuffer.getBufferSizeBytes())
+            || this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
+                streamingBuffer.getNumOfRecords())) {
+          copiedStreamingBuffer = streamingBuffer;
+          this.streamingBuffer = new StreamingBuffer();
+          LOGGER.debug(
+              "Flush based on buffered bytes or buffered number of records for"
+                  + " channel:{},currentBufferSizeInBytes:{}, currentBufferedRecordCount:{},"
+                  + " connectorBufferThresholds:{}",
+              this.getChannelName(),
+              copiedStreamingBuffer.getBufferSizeBytes(),
+              copiedStreamingBuffer.getSinkRecords().size(),
+              this.streamingBufferThreshold);
+        }
+      } finally {
+        bufferLock.unlock();
+      }
 
-      this.tryFlushCurrentStreamingBuffer();
+      // If we found reaching buffer size threshold or count based threshold, we will immediately
+      // flush (Insert them)
+      if (copiedStreamingBuffer != null) {
+        insertBufferedRecords(copiedStreamingBuffer);
+      }
     } else {
       LOGGER.debug(
           "Skip adding offset:{} to buffer for channel:{} because"
@@ -402,55 +427,40 @@ public class TopicPartitionChannel {
         record.headers());
   }
 
-  protected boolean tryFlushCurrentStreamingBuffer() {
-    StreamingBuffer flushableStreamingBuffer = null;
+  // --------------- BUFFER FLUSHING LOGIC --------------- //
 
-    try {
-      this.bufferLock.lock();
-      long currBufferByteSize = this.streamingBuffer.getBufferSizeBytes();
-      long currBufferRecordCount = this.streamingBuffer.getSinkRecords().size();
-
-      // check if buffer can flush
-      boolean shouldFlush = false;
-      if (this.streamingBufferThreshold.shouldFlushOnBufferTime(this.previousFlushTimeStampMs)) {
-        shouldFlush = true;
-        this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_FLUSH_TIME);
-      } else if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
-          streamingBuffer.getBufferSizeBytes())) {
-        shouldFlush = true;
-        this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_BYTE_SIZE);
-      } else if (this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
-          streamingBuffer.getNumOfRecords())) {
-        shouldFlush = true;
-        this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_RECORD_COUNT);
-      }
-
-      // get flushable streaming buffer and reset current buffer
-      if (shouldFlush) {
-        flushableStreamingBuffer = this.streamingBuffer;
+  /**
+   * If difference between current time and previous flush time is more than threshold, insert the
+   * buffered Rows.
+   *
+   * <p>Note: We acquire buffer lock since we copy the buffer.
+   *
+   * <p>Threshold is config parameter: {@link
+   * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
+   *
+   * <p>Previous flush time here means last time we called insertRows API with rows present in
+   */
+  protected void insertBufferedRecordsIfFlushTimeThresholdReached() {
+    if (this.streamingBufferThreshold.shouldFlushOnBufferTime(this.previousFlushTimeStampMs)) {
+      LOGGER.debug(
+          "Time based flush for channel:{}, CurrentTimeMs:{}, previousFlushTimeMs:{},"
+              + " bufferThresholdSeconds:{}",
+          this.getChannelName(),
+          System.currentTimeMillis(),
+          this.previousFlushTimeStampMs,
+          this.streamingBufferThreshold.getFlushTimeThresholdSeconds());
+      StreamingBuffer copiedStreamingBuffer;
+      bufferLock.lock();
+      try {
+        copiedStreamingBuffer = this.streamingBuffer;
         this.streamingBuffer = new StreamingBuffer();
-
-        LOGGER.debug(
-            "Flushable buffer based on {} for channel:{}. previousFlushTime:{}"
-                + " currentBufferByteSize:{}, currentBufferRecordCount:{},"
-                + " connectorBufferThresholds:{}",
-            flushableStreamingBuffer.flushReason.toString(),
-            this.getChannelName(),
-            this.previousFlushTimeStampMs,
-            currBufferByteSize,
-            currBufferRecordCount,
-            this.streamingBufferThreshold);
+      } finally {
+        bufferLock.unlock();
       }
-    } finally {
-      this.bufferLock.unlock();
+      if (copiedStreamingBuffer != null) {
+        insertBufferedRecords(copiedStreamingBuffer);
+      }
     }
-
-    if (flushableStreamingBuffer != null) {
-      insertBufferedRecords(flushableStreamingBuffer);
-      return true;
-    }
-
-    return false;
   }
 
   /**
@@ -591,7 +601,6 @@ public class TopicPartitionChannel {
       InsertValidationResponse finalResponse = new InsertValidationResponse();
       boolean needToResetOffset = false;
       if (!enableSchemaEvolution) {
-        // TODO: add flush reason to insertrows call
         finalResponse =
             this.channel.insertRows(
                 records, Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
@@ -1164,12 +1173,10 @@ public class TopicPartitionChannel {
       extends PartitionBuffer<Pair<List<Map<String, Object>>, List<Long>>> {
     // Records coming from Kafka
     private final List<SinkRecord> sinkRecords;
-    private BufferThreshold.FlushReason flushReason;
 
     StreamingBuffer() {
       super();
-      this.sinkRecords = new ArrayList<>();
-      this.flushReason = BufferThreshold.FlushReason.NONE;
+      sinkRecords = new ArrayList<>();
     }
 
     @Override
@@ -1251,14 +1258,6 @@ public class TopicPartitionChannel {
 
     public SinkRecord getSinkRecord(long idx) {
       return sinkRecords.get((int) idx);
-    }
-
-    public void setFlushReason(BufferThreshold.FlushReason flushReason) {
-      this.flushReason = flushReason;
-    }
-
-    public BufferThreshold.FlushReason getFlushReason() {
-      return this.flushReason;
     }
   }
 

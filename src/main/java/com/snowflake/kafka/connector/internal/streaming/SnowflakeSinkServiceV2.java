@@ -232,7 +232,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // check all partitions to see if they need to be flushed based on time
     for (TopicPartitionChannel partitionChannel : partitionsToChannel.values()) {
       // Time based flushing
-      partitionChannel.tryFlushCurrentStreamingBuffer();
+      partitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
     }
   }
 
