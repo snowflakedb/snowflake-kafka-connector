@@ -13,7 +13,8 @@ public class StreamingBufferThresholdTest {
     BufferThreshold streamingBufferThreshold =
         new StreamingBufferThreshold(10, bytesThresholdForBuffer, 100);
 
-    Assert.assertTrue(streamingBufferThreshold.shouldFlushOnBufferByteSize(bytesThresholdForBuffer));
+    Assert.assertTrue(
+        streamingBufferThreshold.shouldFlushOnBufferByteSize(bytesThresholdForBuffer));
 
     Assert.assertTrue(
         streamingBufferThreshold.shouldFlushOnBufferByteSize(bytesThresholdForBuffer + 1));
