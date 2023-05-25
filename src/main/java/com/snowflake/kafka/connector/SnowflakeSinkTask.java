@@ -395,23 +395,22 @@ public class SnowflakeSinkTask extends SinkTask {
 
   void logWarningForPutAndPrecommit(long startTime, int size, String apiName) {
     long executionTimeMs = getDurationFromStartMs(startTime);
-    long executionTimeSec = executionTimeMs / 1000;
-    if (executionTimeSec > 300) {
+    if (executionTimeMs > 300000) {
       // This won't be frequently printed. It is vary rare to have execution greater than 300
       // seconds.
       // But having this warning helps customer to debug their Kafka Connect config.
       this.DYNAMIC_LOGGER.warn(
-          "{} {}. Time: {} milliseconds = {} seconds > 300 seconds. If there is"
+          "{} {}. Time: {} ms = {} seconds > 300 seconds. If there is"
               + " CommitFailedException in the log or there is duplicated records, refer to this"
               + " link for solution: "
               + "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
           apiName,
           size,
           executionTimeMs,
-          executionTimeSec);
+          executionTimeMs / 1000);
     } else {
       this.DYNAMIC_LOGGER.info(
-          "successfully called {} with {} records, execution time: {} milliseconds",
+          "successfully called {} with {} records, execution time: {} ms",
           apiName,
           size,
           executionTimeMs);
