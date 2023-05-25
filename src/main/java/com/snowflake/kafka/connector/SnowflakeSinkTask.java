@@ -400,9 +400,8 @@ public class SnowflakeSinkTask extends SinkTask {
       // seconds.
       // But having this warning helps customer to debug their Kafka Connect config.
       this.DYNAMIC_LOGGER.warn(
-          "{} {}. Time: {} ms = {} seconds > 300 seconds. If there is"
-              + " CommitFailedException in the log or there is duplicated records, refer to this"
-              + " link for solution: "
+          "{} {}. Time: {} ms = {} seconds > 300 seconds. If there is CommitFailedException in the"
+              + " log or there is duplicated records, refer to this link for solution: "
               + "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
           apiName,
           size,
