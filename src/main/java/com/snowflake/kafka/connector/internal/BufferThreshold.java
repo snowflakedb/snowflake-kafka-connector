@@ -117,6 +117,16 @@ public abstract class BufferThreshold {
     return this.bufferFlushTimeThreshold;
   }
 
+  /**
+   * Check if provided snowflake kafka connector buffer properties are within permissible values.
+   *
+   * <p>This method invokes three verifiers - Time based threshold, buffer size and buffer count
+   * threshold.
+   *
+   * @param providedSFConnectorConfig provided by customer
+   * @param ingestionMethodConfig ingestion method used. Check {@link IngestionMethodConfig}
+   * @return invalid config parameters, if exists
+   */
   public static ImmutableMap<String, String> validateBufferThreshold(
       Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
     Map<String, String> invalidConfigParams = new HashMap<>();
