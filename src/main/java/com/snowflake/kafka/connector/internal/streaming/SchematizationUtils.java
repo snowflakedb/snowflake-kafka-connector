@@ -164,7 +164,7 @@ public class SchematizationUtils {
   /** Convert a json node type to kafka data type */
   private static Type convertJsonNodeTypeToKafkaType(JsonNode value) {
     if (value == null || value.isNull()) {
-      return STRUCT;
+      return STRING;
     } else if (value.isNumber()) {
       if (value.isShort()) {
         return INT16;

@@ -103,16 +103,19 @@ popd
 SNOWFLAKE_PLUGIN_NAME=$(ls $SNOWFLAKE_PLUGIN_PATH | grep "$SNOWFLAKE_PLUGIN_NAME_REGEX" | head -n 1)
 echo -e "\nbuilt connector name: $SNOWFLAKE_PLUGIN_NAME"
 
-# copy built connector to plugin path
 mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH || \
-sudo mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH 
-cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $KAFKA_CONNECT_PLUGIN_PATH || true
-echo -e "copied SF Plugin Connector to $KAFKA_CONNECT_PLUGIN_PATH"
+sudo mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH
 
 if [[ $BUILD_FOR_RUNTIME == "confluent" ]]; then
+    # For confluent, copy the zip file and unzip it later
     echo "For confluent RUNTIME: Copying Kafka Connect Maven Generated Zip file to a temporary location"
     cp $SNOWFLAKE_PLUGIN_PATH/components/packages/snowflakeinc-snowflake-kafka-connector-*.zip /tmp/sf-kafka-connect-plugin.zip
     ls /tmp/sf-kafka-connect-plugin*
+else
+    # Apache Kafka
+    # Only copy built connector to plugin path
+    cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $KAFKA_CONNECT_PLUGIN_PATH || true
+    echo -e "copied SF Plugin Connector to $KAFKA_CONNECT_PLUGIN_PATH"
 fi
 
 KAFKA_CONNECT_DOCKER_JAR_PATH="$SNOWFLAKE_CONNECTOR_PATH/docker-setup/snowflake-kafka-docker/jars"

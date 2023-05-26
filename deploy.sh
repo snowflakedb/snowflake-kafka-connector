@@ -62,4 +62,4 @@ mvn -f pom_confluent.xml --settings $OSSRH_DEPLOY_SETTINGS_XML -DskipTests clean
 #white source
 # whitesource/run_whitesource.sh
 
-aws s3 cp target/components/packages/*.zip s3://sfc-jenkins/repository/kafka/
+aws s3 cp target/components/packages/*.zip s3://sfc-eng-jenkins/repository/kafka/

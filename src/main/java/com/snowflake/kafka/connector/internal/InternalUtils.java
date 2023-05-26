@@ -32,7 +32,7 @@ class InternalUtils {
   // internal parameters
   static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; // 10 days
 
-  private static final LoggerHandler LOGGER = new LoggerHandler(InternalUtils.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(InternalUtils.class.getName());
 
   // backoff with 1, 2, 4, 8 seconds
   public static final int backoffSec[] = {0, 1, 2, 4, 8};
@@ -162,6 +162,14 @@ class InternalUtils {
     // put values for optional parameters
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
 
+    /**
+     * Behavior change in JDBC release 3.13.25
+     *
+     * @see <a href="https://community.snowflake.com/s/article/JDBC-Driver-Release-Notes">Snowflake
+     *     Documentation Release Notes </a>
+     */
+    properties.put(SFSessionProperty.ALLOW_UNDERSCORES_IN_HOST.getPropertyKey(), "true");
+
     // required parameter check
     if (!properties.containsKey(JDBC_PRIVATE_KEY)) {
       throw SnowflakeErrors.ERROR_0013.getException();
@@ -201,6 +209,13 @@ class InternalUtils {
       proxyProperties.put(
           SFSessionProperty.PROXY_PORT.getPropertyKey(),
           conf.get(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT));
+
+      // nonProxyHosts parameter is not required. Check if it was set or not.
+      if (conf.get(SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS) != null) {
+        proxyProperties.put(
+            SFSessionProperty.NON_PROXY_HOSTS.getPropertyKey(),
+            conf.get(SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS));
+      }
 
       // For username and password, check if host and port are given.
       // If they are given, check if username and password are non null

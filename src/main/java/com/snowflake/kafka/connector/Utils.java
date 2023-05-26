@@ -18,14 +18,13 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
+import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.io.BufferedReader;
@@ -36,6 +35,7 @@ import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -50,7 +50,7 @@ import org.apache.kafka.common.config.ConfigValue;
 public class Utils {
 
   // Connector version, change every release
-  public static final String VERSION = "1.9.1";
+  public static final String VERSION = "1.9.3";
 
   // connector parameter list
   public static final String NAME = "name";
@@ -81,6 +81,7 @@ public class Utils {
   public static final String HTTPS_PROXY_PORT = "https.proxyPort";
   public static final String HTTP_PROXY_HOST = "http.proxyHost";
   public static final String HTTP_PROXY_PORT = "http.proxyPort";
+  public static final String HTTP_NON_PROXY_HOSTS = "http.nonProxyHosts";
 
   public static final String JDK_HTTP_AUTH_TUNNELING = "jdk.http.auth.tunneling.disabledSchemes";
   public static final String HTTPS_PROXY_USER = "https.proxyUser";
@@ -100,7 +101,11 @@ public class Utils {
   public static final String TABLE_COLUMN_CONTENT = "RECORD_CONTENT";
   public static final String TABLE_COLUMN_METADATA = "RECORD_METADATA";
 
-  private static final LoggerHandler LOGGER = new LoggerHandler(Utils.class.getName());
+  public static final String GET_EXCEPTION_FORMAT = "{}, Exception message: {}, cause: {}";
+  public static final String GET_EXCEPTION_MISSING_MESSAGE = "missing exception message";
+  public static final String GET_EXCEPTION_MISSING_CAUSE = "missing exception cause";
+
+  private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
   /**
    * check the connector version from Maven repo, report if any update version is available.
@@ -217,20 +222,24 @@ public class Utils {
    *
    * @param config connector configuration
    */
-  static void validateProxySetting(Map<String, String> config) {
+  static ImmutableMap<String, String> validateProxySettings(Map<String, String> config) {
+    Map<String, String> invalidConfigParams = new HashMap<String, String>();
+
     String host =
         SnowflakeSinkConnectorConfig.getProperty(
             config, SnowflakeSinkConnectorConfig.JVM_PROXY_HOST);
     String port =
         SnowflakeSinkConnectorConfig.getProperty(
             config, SnowflakeSinkConnectorConfig.JVM_PROXY_PORT);
+
     // either both host and port are provided or none of them are provided
     if (host != null ^ port != null) {
-      throw SnowflakeErrors.ERROR_0022.getException(
-          SnowflakeSinkConnectorConfig.JVM_PROXY_HOST
-              + " and "
-              + SnowflakeSinkConnectorConfig.JVM_PROXY_PORT
-              + " must be provided together");
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.JVM_PROXY_HOST,
+          "proxy host and port must be provided together");
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.JVM_PROXY_PORT,
+          "proxy host and port must be provided together");
     } else if (host != null) {
       String username =
           SnowflakeSinkConnectorConfig.getProperty(
@@ -240,13 +249,16 @@ public class Utils {
               config, SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD);
       // either both username and password are provided or none of them are provided
       if (username != null ^ password != null) {
-        throw SnowflakeErrors.ERROR_0023.getException(
-            SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME
-                + " and "
-                + SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD
-                + " must be provided together");
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME,
+            "proxy username and password must be provided together");
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD,
+            "proxy username and password must be provided together");
       }
     }
+
+    return ImmutableMap.copyOf(invalidConfigParams);
   }
 
   /**
@@ -262,8 +274,12 @@ public class Utils {
     String port =
         SnowflakeSinkConnectorConfig.getProperty(
             config, SnowflakeSinkConnectorConfig.JVM_PROXY_PORT);
+    String nonProxyHosts =
+        SnowflakeSinkConnectorConfig.getProperty(
+            config, SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS);
     if (host != null && port != null) {
-      LOGGER.info("enable jvm proxy: {}:{}", host, port);
+      LOGGER.info(
+          "enable jvm proxy: {}:{} and bypass proxy for hosts: {}", host, port, nonProxyHosts);
 
       // enable https proxy
       System.setProperty(HTTP_USE_PROXY, "true");
@@ -271,6 +287,17 @@ public class Utils {
       System.setProperty(HTTP_PROXY_PORT, port);
       System.setProperty(HTTPS_PROXY_HOST, host);
       System.setProperty(HTTPS_PROXY_PORT, port);
+
+      // If the user provided the jvm.nonProxy.hosts configuration then we
+      // will append that to the list provided by the JVM argument
+      // -Dhttp.nonProxyHosts and not override it altogether, if it exists.
+      if (nonProxyHosts != null) {
+        nonProxyHosts =
+            (System.getProperty(HTTP_NON_PROXY_HOSTS) != null)
+                ? System.getProperty(HTTP_NON_PROXY_HOSTS) + "|" + nonProxyHosts
+                : nonProxyHosts;
+        System.setProperty(HTTP_NON_PROXY_HOSTS, nonProxyHosts);
+      }
 
       // set username and password
       String username =
@@ -329,7 +356,7 @@ public class Utils {
    * @return connector name
    */
   static String validateConfig(Map<String, String> config) {
-    boolean configIsValid = true; // verify all config
+    Map<String, String> invalidConfigParams = new HashMap<String, String>(); // verify all config
 
     // define the input parameters / keys in one place as static constants,
     // instead of using them directly
@@ -339,11 +366,12 @@ public class Utils {
     // unique name of this connector instance
     String connectorName = config.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "");
     if (connectorName.isEmpty() || !isValidSnowflakeApplicationName(connectorName)) {
-      LOGGER.error(
-          "{} is empty or invalid. It should match Snowflake object identifier syntax. Please see "
-              + "the documentation.",
-          SnowflakeSinkConnectorConfig.NAME);
-      configIsValid = false;
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.NAME,
+          Utils.formatString(
+              "{} is empty or invalid. It should match Snowflake object identifier syntax. Please"
+                  + " see the documentation.",
+              SnowflakeSinkConnectorConfig.NAME));
     }
 
     // If config doesnt have ingestion method defined, default is snowpipe or if snowpipe is
@@ -353,66 +381,85 @@ public class Utils {
         || config
             .get(INGESTION_METHOD_OPT)
             .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString())) {
-      if (!BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE)) {
-        configIsValid = false;
-      }
+      invalidConfigParams.putAll(
+          BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE));
 
       if (config.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
           && Boolean.parseBoolean(
               config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG))) {
-        configIsValid = false;
-        LOGGER.error(
-            "Schematization is only available with {}.",
-            IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
+            Utils.formatString(
+                "Schematization is only available with {}.",
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
       if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION)) {
-        configIsValid = false;
-        LOGGER.error(
-            "{} is only available with ingestion type: {}.",
+        invalidConfigParams.put(
             SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
-            IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+            Utils.formatString(
+                "{} is only available with ingestion type: {}.",
+                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      }
+      if (config.containsKey(
+              SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG)
+          && Boolean.parseBoolean(
+              config.get(
+                  SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+            Utils.formatString(
+                "Streaming client optimization is only available with {}.",
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
     }
 
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)
         && parseTopicToTableMap(config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
             == null) {
-      configIsValid = false;
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
+          Utils.formatString(
+              "Invalid {} config format: {}",
+              SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
+              config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)));
     }
 
     // sanity check
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE)) {
-      LOGGER.error("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE);
-      configIsValid = false;
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE,
+          Utils.formatString(
+              "{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE));
     }
 
     // sanity check
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA)) {
-      LOGGER.error("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA);
-      configIsValid = false;
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA,
+          Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY)) {
-      LOGGER.error("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY);
-      configIsValid = false;
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
+          Utils.formatString(
+              "{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY));
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER)) {
-      LOGGER.error("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_USER);
-      configIsValid = false;
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.SNOWFLAKE_USER,
+          Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_USER));
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL)) {
-      LOGGER.error("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_URL);
-      configIsValid = false;
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
+          Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_URL));
     }
     // jvm proxy settings
-    try {
-      validateProxySetting(config);
-    } catch (SnowflakeKafkaConnectorException e) {
-      LOGGER.error("Proxy settings error: ", e.getMessage());
-      configIsValid = false;
-    }
+    invalidConfigParams.putAll(validateProxySettings(config));
 
     // set jdbc logging directory
     Utils.setJDBCLoggingDirectory();
@@ -423,8 +470,9 @@ public class Utils {
         SnowflakeSinkConnectorConfig.KafkaProvider.of(
             config.get(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG));
       } catch (IllegalArgumentException exception) {
-        LOGGER.error("Kafka provider config error:{}", exception.getMessage());
-        configIsValid = false;
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.PROVIDER_CONFIG,
+            Utils.formatString("Kafka provider config error:{}", exception.getMessage()));
       }
     }
 
@@ -434,37 +482,28 @@ public class Utils {
         VALIDATOR.ensureValid(
             BEHAVIOR_ON_NULL_VALUES_CONFIG, config.get(BEHAVIOR_ON_NULL_VALUES_CONFIG));
       } catch (ConfigException exception) {
-        LOGGER.error(
-            "Kafka config:{} error:{}", BEHAVIOR_ON_NULL_VALUES_CONFIG, exception.getMessage());
-        configIsValid = false;
+        invalidConfigParams.put(
+            BEHAVIOR_ON_NULL_VALUES_CONFIG,
+            Utils.formatString(
+                "Kafka config:{} error:{}",
+                BEHAVIOR_ON_NULL_VALUES_CONFIG,
+                exception.getMessage()));
       }
     }
 
     if (config.containsKey(JMX_OPT)) {
       if (!(config.get(JMX_OPT).equalsIgnoreCase("true")
           || config.get(JMX_OPT).equalsIgnoreCase("false"))) {
-        LOGGER.error("Kafka config:{} should either be true or false", JMX_OPT);
-        configIsValid = false;
+        invalidConfigParams.put(
+            JMX_OPT, Utils.formatString("Kafka config:{} should either be true or false", JMX_OPT));
       }
     }
 
-    try {
-      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
-          config.getOrDefault(
-              DELIVERY_GUARANTEE,
-              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE.name()));
-    } catch (IllegalArgumentException exception) {
-      LOGGER.error(
-          "Delivery Guarantee config:{} error:{}", DELIVERY_GUARANTEE, exception.getMessage());
-      configIsValid = false;
-    }
-
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
-    final boolean isStreamingConfigValid = StreamingUtils.isStreamingSnowpipeConfigValid(config);
+    invalidConfigParams.putAll(StreamingUtils.validateStreamingSnowpipeConfig(config));
 
-    if (!configIsValid || !isStreamingConfigValid) {
-      throw SnowflakeErrors.ERROR_0001.getException();
-    }
+    // logs and throws exception if there are invalid params
+    handleInvalidParameters(ImmutableMap.copyOf(invalidConfigParams));
 
     return connectorName;
   }
@@ -508,12 +547,23 @@ public class Utils {
     if (topic2table.containsKey(topic)) {
       return topic2table.get(topic);
     }
+
+    // try matching regex tables
+    for (String regexTopic : topic2table.keySet()) {
+      if (topic.matches(regexTopic)) {
+        return topic2table.get(regexTopic);
+      }
+    }
+
     if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
       return topic;
     }
     int hash = Math.abs(topic.hashCode());
 
     StringBuilder result = new StringBuilder();
+
+    // remove wildcard regex from topic name to generate table name
+    topic = topic.replaceAll("\\.\\*", "");
 
     int index = 0;
     // first char
@@ -565,6 +615,15 @@ public class Utils {
       if (topic2Table.containsKey(topic)) {
         LOGGER.error("topic name {} is duplicated", topic);
         isInvalid = true;
+      }
+
+      // check that regexes don't overlap
+      for (String parsedTopic : topic2Table.keySet()) {
+        if (parsedTopic.matches(topic) || topic.matches(parsedTopic)) {
+          LOGGER.error(
+              "topic regexes cannot overlap. overlapping regexes: {}, {}", parsedTopic, topic);
+          isInvalid = true;
+        }
       }
 
       topic2Table.put(tt[0].trim(), tt[1].trim());
@@ -643,5 +702,43 @@ public class Utils {
       format = format.replaceFirst("\\{}", Objects.toString(vars[i]).replaceAll("\\$", "\\\\\\$"));
     }
     return format;
+  }
+
+  /**
+   * Get the message and cause of a missing exception, handling the null or empty cases of each
+   *
+   * @param customMessage A custom message to prepend to the exception
+   * @param ex The message to parse through
+   * @return A string with the custom message and the exceptions message or cause, if exists
+   */
+  public static String getExceptionMessage(String customMessage, Exception ex) {
+    String message =
+        ex.getMessage() == null || ex.getMessage().isEmpty()
+            ? GET_EXCEPTION_MISSING_MESSAGE
+            : ex.getMessage();
+    String cause =
+        ex.getCause() == null || ex.getCause().getStackTrace() == null
+            ? GET_EXCEPTION_MISSING_CAUSE
+            : Arrays.toString(ex.getCause().getStackTrace());
+
+    return formatString(GET_EXCEPTION_FORMAT, customMessage, message, cause);
+  }
+
+  private static void handleInvalidParameters(ImmutableMap<String, String> invalidConfigParams) {
+    // log all invalid params and throw exception
+    if (!invalidConfigParams.isEmpty()) {
+      String invalidParamsMessage = "";
+
+      for (String invalidKey : invalidConfigParams.keySet()) {
+        String invalidValue = invalidConfigParams.get(invalidKey);
+        String errorMessage =
+            Utils.formatString(
+                "Config value '{}' is invalid. Error message: '{}'", invalidKey, invalidValue);
+        invalidParamsMessage += errorMessage + "\n";
+      }
+
+      LOGGER.error("Invalid config: " + invalidParamsMessage);
+      throw SnowflakeErrors.ERROR_0001.getException(invalidParamsMessage);
+    }
   }
 }
