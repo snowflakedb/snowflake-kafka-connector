@@ -591,7 +591,6 @@ public class TopicPartitionChannel {
       InsertValidationResponse finalResponse = new InsertValidationResponse();
       boolean needToResetOffset = false;
       if (!enableSchemaEvolution) {
-        // TODO: add flush reason to insertrows call
         finalResponse =
             this.channel.insertRows(
                 records, Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
