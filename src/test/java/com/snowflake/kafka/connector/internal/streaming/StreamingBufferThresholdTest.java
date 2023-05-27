@@ -3,15 +3,9 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import java.util.Map;
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.nio.Buffer;
-import java.util.Map;
-
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
 
 public class StreamingBufferThresholdTest {
   @Test
@@ -72,7 +66,9 @@ public class StreamingBufferThresholdTest {
     Map<String, String> config = TestUtils.getConfForStreaming();
 
     // test for invalid configs
-    Map<String, String> invalidConfigs = StreamingBufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE_STREAMING);
+    Map<String, String> invalidConfigs =
+        StreamingBufferThreshold.validateBufferThreshold(
+            config, IngestionMethodConfig.SNOWPIPE_STREAMING);
 
     // verify no invalid configs
     assert invalidConfigs.size() == 0;
@@ -84,18 +80,30 @@ public class StreamingBufferThresholdTest {
     String invalidByteSize = "0.4";
     String invalidRecordCount = "0";
 
-    this.testInvalidBufferThresholdRunner(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, invalidFlushTime, BufferThreshold.FlushReason.BUFFER_FLUSH_TIME.toString());
-    this.testInvalidBufferThresholdRunner(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, invalidFlushTime, BufferThreshold.FlushReason.BUFFER_BYTE_SIZE.toString());
-    this.testInvalidBufferThresholdRunner(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, invalidFlushTime, BufferThreshold.FlushReason.BUFFER_RECORD_COUNT.toString());
+    this.testInvalidBufferThresholdRunner(
+        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+        invalidFlushTime,
+        BufferThreshold.FlushReason.BUFFER_FLUSH_TIME.toString());
+    this.testInvalidBufferThresholdRunner(
+        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+        invalidFlushTime,
+        BufferThreshold.FlushReason.BUFFER_BYTE_SIZE.toString());
+    this.testInvalidBufferThresholdRunner(
+        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+        invalidFlushTime,
+        BufferThreshold.FlushReason.BUFFER_RECORD_COUNT.toString());
   }
 
-  private void testInvalidBufferThresholdRunner(String configParam, String configVal, String invalidConfigParam) {
+  private void testInvalidBufferThresholdRunner(
+      String configParam, String configVal, String invalidConfigParam) {
     Map<String, String> config = TestUtils.getConfForStreaming();
 
     // test invalid flush time
     config.put(configParam, configVal);
 
-    Map<String, String> invalidConfigs = StreamingBufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE_STREAMING);
+    Map<String, String> invalidConfigs =
+        StreamingBufferThreshold.validateBufferThreshold(
+            config, IngestionMethodConfig.SNOWPIPE_STREAMING);
     assert invalidConfigs.size() == 1;
     assert invalidConfigs.containsKey(invalidConfigParam);
   }

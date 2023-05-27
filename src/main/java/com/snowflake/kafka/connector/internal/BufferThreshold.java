@@ -52,7 +52,8 @@ public abstract class BufferThreshold {
 
   private final long SECOND_TO_MILLIS = TimeUnit.SECONDS.toMillis(1);
 
-  // ideally this would be in the streamingBuffer object, however java doesn't allow enums to be added to a protected inner class
+  // ideally this would be in the streamingBuffer object, however java doesn't allow enums to be
+  // added to a protected inner class
   public enum FlushReason {
     NONE("NONE"),
     BUFFER_FLUSH_TIME(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC),
@@ -134,9 +135,7 @@ public abstract class BufferThreshold {
         >= (this.bufferFlushTimeThreshold * SECOND_TO_MILLIS);
   }
 
-  /**
-   * Returns the buffer flush time threshold
-   */
+  /** Returns the buffer flush time threshold */
   public long getBufferFlushTimeThreshold() {
     return this.bufferFlushTimeThreshold;
   }

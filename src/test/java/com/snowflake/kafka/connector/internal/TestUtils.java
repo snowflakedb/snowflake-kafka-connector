@@ -261,9 +261,14 @@ public class TestUtils {
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     // set default buffer thresholds
-    configuration.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, String.valueOf(STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC));
-    configuration.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, String.valueOf(BUFFER_SIZE_BYTES_DEFAULT));
-    configuration.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, String.valueOf(BUFFER_COUNT_RECORDS_DEFAULT));
+    configuration.put(
+        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+        String.valueOf(STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC));
+    configuration.put(
+        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, String.valueOf(BUFFER_SIZE_BYTES_DEFAULT));
+    configuration.put(
+        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+        String.valueOf(BUFFER_COUNT_RECORDS_DEFAULT));
 
     return configuration;
   }
@@ -634,11 +639,8 @@ public class TestUtils {
     config.put(SF_SCHEMA, "testSchema");
     config.put(SF_DATABASE, "testDatabase");
     config.put(
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-        BUFFER_COUNT_RECORDS_DEFAULT + "");
-    config.put(
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-        BUFFER_SIZE_BYTES_DEFAULT + "");
+        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT + "");
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, BUFFER_SIZE_BYTES_DEFAULT + "");
     config.put(
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT + "");

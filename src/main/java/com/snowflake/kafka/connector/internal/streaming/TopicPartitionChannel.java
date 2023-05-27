@@ -413,8 +413,7 @@ public class TopicPartitionChannel {
       // check if buffer can flush
       if (this.streamingBufferThreshold.shouldFlushOnBufferTime(this.previousFlushTimeStampMs)) {
         this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_FLUSH_TIME);
-      } else if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
-          currBufferByteSize)) {
+      } else if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(currBufferByteSize)) {
         this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_BYTE_SIZE);
       } else if (this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
           currBufferRecordCount)) {
