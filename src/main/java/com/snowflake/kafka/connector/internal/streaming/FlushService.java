@@ -19,13 +19,11 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
-import org.apache.kafka.common.TopicPartition;
-
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.kafka.common.TopicPartition;
 
 // TODO @rcheng: docs
 public class FlushService {
@@ -52,16 +50,21 @@ public class FlushService {
 
     int flushCount = 0;
     for (TopicPartitionChannel topicPartitionChannel : this.topicPartitionsMap.values()) {
-      if (topicPartitionChannel.getStreamingBufferThreshold().shouldFlushOnBufferTime(topicPartitionChannel.getPreviousFlushTimeStampMs() - currTime)) {
+      if (topicPartitionChannel
+          .getStreamingBufferThreshold()
+          .shouldFlushOnBufferTime(
+              topicPartitionChannel.getPreviousFlushTimeStampMs() - currTime)) {
         topicPartitionChannel.tryFlushCurrentStreamingBuffer();
         flushCount++;
       }
     }
 
-    LOGGER.info(Utils.formatLogMessage("FlushService successfully flushed {} channels"), flushCount);
+    LOGGER.info(
+        Utils.formatLogMessage("FlushService successfully flushed {} channels"), flushCount);
   }
 
-  public void registerTopicPartitionChannel(TopicPartition topicPartition, TopicPartitionChannel topicPartitionChannel) {
+  public void registerTopicPartitionChannel(
+      TopicPartition topicPartition, TopicPartitionChannel topicPartitionChannel) {
     this.topicPartitionsMap.put(topicPartition, topicPartitionChannel);
     // TODO @rcheng: log adding tpchannel
   }
@@ -75,34 +78,3 @@ public class FlushService {
     // TODO @rcheng: log no tpchannel
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
