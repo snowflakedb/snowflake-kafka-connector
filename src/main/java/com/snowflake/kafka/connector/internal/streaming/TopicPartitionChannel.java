@@ -264,6 +264,9 @@ public class TopicPartitionChannel {
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
     }
+
+    // register with flush service for background flushing
+    FlushService.getFlushServiceInstance().registerTopicPartitionChannel(this.topicPartition, this);
   }
 
   /**
@@ -1008,6 +1011,8 @@ public class TopicPartitionChannel {
               this.getChannelName(), e.getMessage());
       this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
       LOGGER.error(errMsg, e);
+    } finally{
+      FlushService.getFlushServiceInstance().registerTopicPartitionChannel(this.topicPartition, this);
     }
   }
 
@@ -1024,6 +1029,10 @@ public class TopicPartitionChannel {
 
   public long getPreviousFlushTimeStampMs() {
     return previousFlushTimeStampMs;
+  }
+
+  public BufferThreshold getStreamingBufferThreshold() {
+    return this.streamingBufferThreshold;
   }
 
   public String getChannelName() {
