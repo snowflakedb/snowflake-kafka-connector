@@ -16,6 +16,8 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
@@ -30,6 +32,7 @@ import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
 import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
 import static com.snowflake.kafka.connector.Utils.SF_URL;
 import static com.snowflake.kafka.connector.Utils.SF_USER;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
 
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -256,6 +259,11 @@ public class TestUtils {
     configuration.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+
+    // set default buffer thresholds
+    configuration.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, String.valueOf(STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC));
+    configuration.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, String.valueOf(BUFFER_SIZE_BYTES_DEFAULT));
+    configuration.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, String.valueOf(BUFFER_COUNT_RECORDS_DEFAULT));
 
     return configuration;
   }
@@ -627,10 +635,10 @@ public class TestUtils {
     config.put(SF_DATABASE, "testDatabase");
     config.put(
         SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT + "");
+        BUFFER_COUNT_RECORDS_DEFAULT + "");
     config.put(
         SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT + "");
+        BUFFER_SIZE_BYTES_DEFAULT + "");
     config.put(
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT + "");

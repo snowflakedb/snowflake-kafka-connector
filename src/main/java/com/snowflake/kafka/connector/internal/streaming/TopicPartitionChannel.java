@@ -402,7 +402,7 @@ public class TopicPartitionChannel {
         record.headers());
   }
 
-  protected boolean tryFlushCurrentStreamingBuffer() {
+  protected BufferThreshold.FlushReason tryFlushCurrentStreamingBuffer() {
     StreamingBuffer flushableStreamingBuffer = null;
 
     try {
@@ -411,22 +411,18 @@ public class TopicPartitionChannel {
       long currBufferRecordCount = this.streamingBuffer.getSinkRecords().size();
 
       // check if buffer can flush
-      boolean shouldFlush = false;
       if (this.streamingBufferThreshold.shouldFlushOnBufferTime(this.previousFlushTimeStampMs)) {
-        shouldFlush = true;
         this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_FLUSH_TIME);
       } else if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
-          streamingBuffer.getBufferSizeBytes())) {
-        shouldFlush = true;
+          currBufferByteSize)) {
         this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_BYTE_SIZE);
       } else if (this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
-          streamingBuffer.getNumOfRecords())) {
-        shouldFlush = true;
+          currBufferRecordCount)) {
         this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_RECORD_COUNT);
       }
 
       // get flushable streaming buffer and reset current buffer
-      if (shouldFlush) {
+      if (!this.streamingBuffer.getFlushReason().equals(BufferThreshold.FlushReason.NONE)) {
         flushableStreamingBuffer = this.streamingBuffer;
         this.streamingBuffer = new StreamingBuffer();
 
@@ -434,7 +430,7 @@ public class TopicPartitionChannel {
             "Flushable buffer based on {} for channel:{}. previousFlushTime:{}"
                 + " currentBufferByteSize:{}, currentBufferRecordCount:{},"
                 + " connectorBufferThresholds:{}",
-            flushableStreamingBuffer.flushReason.toString(),
+            flushableStreamingBuffer.getFlushReason().toString(),
             this.getChannelName(),
             this.previousFlushTimeStampMs,
             currBufferByteSize,
@@ -447,10 +443,10 @@ public class TopicPartitionChannel {
 
     if (flushableStreamingBuffer != null) {
       insertBufferedRecords(flushableStreamingBuffer);
-      return true;
+      return flushableStreamingBuffer.getFlushReason();
     }
 
-    return false;
+    return BufferThreshold.FlushReason.NONE;
   }
 
   /**

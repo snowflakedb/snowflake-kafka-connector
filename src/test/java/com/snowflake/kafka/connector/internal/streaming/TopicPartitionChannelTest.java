@@ -22,7 +22,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -711,6 +713,78 @@ public class TopicPartitionChannelTest {
   }
 
   // --------------- TEST THRESHOLDS ---------------
+
+  private final long JSON_BYTE_RATIO_SCHEMATIZATION = 215;
+  private final long JSON_BYTE_RATIO = 260;
+
+  @Test
+  public void testTryFlushValidStreamingBuffer() throws Exception {
+    // 'default' thresholds that should not be hit
+    long bufferFlushTimeThreshold = 5000;
+    long bufferByteSizeThreshold = 6000;
+    long bufferRecordCountThreshold = 7000;
+
+    // flush thresholds to be hit
+    long recordCount = 5;
+    long byteSize = recordCount * (this.enableSchematization ? JSON_BYTE_RATIO_SCHEMATIZATION : JSON_BYTE_RATIO);
+    long flushTime = 5L;
+    List<SinkRecord> records = createNativeJsonSinkRecords(0, recordCount, "test", 0);
+
+    // test byte size flush
+    this.testTryFlushValidStreamingBufferRunner(
+        new StreamingBufferThreshold(bufferFlushTimeThreshold, byteSize, bufferRecordCountThreshold),
+        records,
+        false
+    );
+
+    // test record count flush
+    this.testTryFlushValidStreamingBufferRunner(
+        new StreamingBufferThreshold(bufferFlushTimeThreshold, bufferByteSizeThreshold, recordCount + 1),
+        records,
+        false
+    );
+
+    // test time flush
+    this.testTryFlushValidStreamingBufferRunner(
+        new StreamingBufferThreshold(flushTime, bufferByteSizeThreshold, bufferRecordCountThreshold),
+        records,
+        true
+    );
+  }
+
+  private void testTryFlushValidStreamingBufferRunner(StreamingBufferThreshold streamingBufferThreshold, List<SinkRecord> records, boolean isTimeBasedFlush) throws Exception {
+    // mocks
+    Mockito.when(
+            mockStreamingChannel.insertRows(
+                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+        .thenReturn(new InsertValidationResponse());
+
+    // create tpchannel and send records
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            streamingBufferThreshold,
+            sfConnectorConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext
+            );
+
+    // should hit threshold on the last record or time flush
+    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    if (isTimeBasedFlush) {
+      Thread.sleep(streamingBufferThreshold.getBufferFlushTimeThreshold());
+    }
+
+    // verify flush happened
+    // offset is zero indexed
+    String expectedOffset = String.valueOf(records.size() - 1);
+    Mockito.verify(mockStreamingChannel, Mockito.times(1))
+        .insertRows(ArgumentMatchers.any(), ArgumentMatchers.eq(expectedOffset));
+  }
+
   @Test
   public void testBufferBytesThreshold() throws Exception {
     Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())

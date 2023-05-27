@@ -135,6 +135,13 @@ public abstract class BufferThreshold {
   }
 
   /**
+   * Returns the buffer flush time threshold
+   */
+  public long getBufferFlushTimeThreshold() {
+    return this.bufferFlushTimeThreshold;
+  }
+
+  /**
    * Check if provided snowflake kafka connector buffer properties are within permissible values.
    *
    * <p>This method invokes three verifiers - Time based threshold, buffer size and buffer count

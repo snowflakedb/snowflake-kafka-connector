@@ -12,13 +12,13 @@ import com.snowflake.kafka.connector.internal.BufferThreshold;
  */
 public class StreamingBufferThreshold extends BufferThreshold {
   public StreamingBufferThreshold(
-      long flushTimeThresholdSeconds,
-      long bufferSizeThresholdBytes,
-      long bufferKafkaRecordCountThreshold) {
+      long bufferFlushTimeThreshold,
+      long bufferByteSizeThreshold,
+      long bufferRecordCountThreshold) {
     super(
         IngestionMethodConfig.SNOWPIPE_STREAMING,
-        flushTimeThresholdSeconds,
-        bufferSizeThresholdBytes,
-        bufferKafkaRecordCountThreshold);
+        bufferFlushTimeThreshold,
+        bufferByteSizeThreshold,
+        bufferRecordCountThreshold);
   }
 }

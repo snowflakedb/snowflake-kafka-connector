@@ -70,20 +70,33 @@ public class StreamingBufferThresholdTest {
   @Test
   public void testValidBufferThreshold() {
     Map<String, String> config = TestUtils.getConfForStreaming();
-    config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, String.valueOf(STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC));
-    config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, String.valueOf(BUFFER_SIZE_BYTES_DEFAULT));
-    config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, String.valueOf(BUFFER_COUNT_RECORDS_DEFAULT));
 
-    IngestionMethodConfig ingestionMethodConfig = IngestionMethodConfig.SNOWPIPE_STREAMING;
-
-    Map<String, String> invalidConfigs = StreamingBufferThreshold.validateBufferThreshold(config, ingestionMethodConfig);
+    // test for invalid configs
+    Map<String, String> invalidConfigs = StreamingBufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE_STREAMING);
 
     // verify no invalid configs
     assert invalidConfigs.size() == 0;
   }
 
   @Test
-  public void testInvalidBufferThreshold() {
+  public void testInvalidBufferThresholds() {
+    String invalidFlushTime = "-1";
+    String invalidByteSize = "0.4";
+    String invalidRecordCount = "0";
 
+    this.testInvalidBufferThresholdRunner(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, invalidFlushTime, BufferThreshold.FlushReason.BUFFER_FLUSH_TIME.toString());
+    this.testInvalidBufferThresholdRunner(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, invalidFlushTime, BufferThreshold.FlushReason.BUFFER_BYTE_SIZE.toString());
+    this.testInvalidBufferThresholdRunner(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, invalidFlushTime, BufferThreshold.FlushReason.BUFFER_RECORD_COUNT.toString());
+  }
+
+  private void testInvalidBufferThresholdRunner(String configParam, String configVal, String invalidConfigParam) {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+
+    // test invalid flush time
+    config.put(configParam, configVal);
+
+    Map<String, String> invalidConfigs = StreamingBufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE_STREAMING);
+    assert invalidConfigs.size() == 1;
+    assert invalidConfigs.containsKey(invalidConfigParam);
   }
 }
