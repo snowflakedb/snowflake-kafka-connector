@@ -1012,8 +1012,7 @@ public class TopicPartitionChannel {
       this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
       LOGGER.error(errMsg, e);
     } finally {
-      FlushService.getFlushServiceInstance()
-          .closeTopicPartitionChannel(this.topicPartition);
+      FlushService.getFlushServiceInstance().closeTopicPartitionChannel(this.topicPartition);
     }
   }
 

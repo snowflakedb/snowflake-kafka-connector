@@ -21,14 +21,10 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.kafka.common.TopicPartition;
-import org.graalvm.compiler.core.CompilerThread;
 
 // TODO @rcheng: docs
 public class FlushService {
@@ -54,7 +50,8 @@ public class FlushService {
   }
 
   public void init() {
-    this.flushExecutor.scheduleAtFixedRate(this::tryFlushTopicPartitionChannels, DELAY_MS, DELAY_MS, TimeUnit.MILLISECONDS);
+    this.flushExecutor.scheduleAtFixedRate(
+        this::tryFlushTopicPartitionChannels, DELAY_MS, DELAY_MS, TimeUnit.MILLISECONDS);
   }
 
   public void shutdown() {
