@@ -142,15 +142,13 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
           if (fileStatus.containsKey(file.getPath())) {
             numOfRecords++;
 
-            final InternalUtils.IngestedFileStatus ingestionStatus = convertIngestStatus(file.getStatus());
+            final InternalUtils.IngestedFileStatus ingestionStatus =
+                convertIngestStatus(file.getStatus());
             fileStatus.put(file.getPath(), ingestionStatus);
             // Log errors
-            if (InternalUtils.IngestedFileStatus.FAILED.equals(ingestionStatus) || InternalUtils.IngestedFileStatus.PARTIALLY_LOADED.equals(ingestionStatus)) {
-              final String firstError = file.getFirstError() != null ? file.getFirstError() : "NO ERROR";
-              final String firstErrorColumnName = file.getFirstErrorColumnName() != null ? file.getFirstErrorColumnName() : "N/A";
-              final String firstErrorCharacterPos = file.getFirstErrorCharacterPos() != null ? file.getFirstErrorCharacterPos().toString() : "N/A";
-              LOG_WARN_MSG("Failed to load file {}\n\tError: {}\n\tColumn: {}\n\tChar pos: {}",
-                      file.getPath(), firstError, firstErrorColumnName, firstErrorCharacterPos);
+            if (InternalUtils.IngestedFileStatus.FAILED.equals(ingestionStatus)
+                || InternalUtils.IngestedFileStatus.PARTIALLY_LOADED.equals(ingestionStatus)) {
+              LOGGER.warn("Failed to load file {}", file.getPath());
             }
           }
         }
