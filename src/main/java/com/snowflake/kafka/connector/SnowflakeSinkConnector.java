@@ -21,6 +21,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.streaming.FlushService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -112,6 +113,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     setupComplete = true;
 
+    FlushService.getFlushServiceInstance().init();
+
     LOGGER.info("SnowflakeSinkConnector:started");
   }
 
@@ -126,6 +129,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   @Override
   public void stop() {
     setupComplete = false;
+    FlushService.getFlushServiceInstance().shutdown();
     LOGGER.info("SnowflakeSinkConnector:stopped");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
   }

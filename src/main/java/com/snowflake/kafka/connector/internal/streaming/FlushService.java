@@ -21,9 +21,14 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.kafka.common.TopicPartition;
+import org.graalvm.compiler.core.CompilerThread;
 
 // TODO @rcheng: docs
 public class FlushService {
@@ -35,17 +40,43 @@ public class FlushService {
     return FlushServiceProviderSingleton.flushService;
   }
 
+  // TODO @rcheng: logging
   private final KCLogger LOGGER = new KCLogger(this.getClass().toString());
-  private ExecutorService flushExecutor;
+  private final int THREAD_COUNT = 1;
+  private final int DELAY_MS = 500;
+
+  private ScheduledExecutorService flushExecutor;
   private Map<TopicPartition, TopicPartitionChannel> topicPartitionsMap;
 
   private FlushService() {
-    // TODO @rcheng: log creating new service
-    this.flushExecutor = Executors.newSingleThreadExecutor();
+    this.flushExecutor = Executors.newScheduledThreadPool(THREAD_COUNT);
     this.topicPartitionsMap = new HashMap<>();
   }
 
-  private void tryFlushTopicPartitionChannels() {
+  public void init() {
+    this.flushExecutor.scheduleAtFixedRate(this::tryFlushTopicPartitionChannels, DELAY_MS, DELAY_MS, TimeUnit.MILLISECONDS);
+  }
+
+  public void shutdown() {
+    this.flushExecutor.shutdown();
+  }
+
+  public void registerTopicPartitionChannel(
+      TopicPartition topicPartition, TopicPartitionChannel topicPartitionChannel) {
+    if (this.topicPartitionsMap.containsKey(topicPartition)) {
+      // TODO @rcheng: log replace
+    }
+    this.topicPartitionsMap.put(topicPartition, topicPartitionChannel);
+  }
+
+  public void closeTopicPartitionChannel(TopicPartition topicPartition) {
+    if (this.topicPartitionsMap.containsKey(topicPartition)) {
+      this.topicPartitionsMap.get(topicPartition).tryFlushCurrentStreamingBuffer();
+      this.topicPartitionsMap.remove(topicPartition);
+    }
+  }
+
+  public void tryFlushTopicPartitionChannels() {
     final long currTime = System.currentTimeMillis();
 
     int flushCount = 0;
@@ -61,20 +92,5 @@ public class FlushService {
 
     LOGGER.info(
         Utils.formatLogMessage("FlushService successfully flushed {} channels"), flushCount);
-  }
-
-  public void registerTopicPartitionChannel(
-      TopicPartition topicPartition, TopicPartitionChannel topicPartitionChannel) {
-    this.topicPartitionsMap.put(topicPartition, topicPartitionChannel);
-    // TODO @rcheng: log adding tpchannel
-  }
-
-  public void closeTopicPartitionChannel(TopicPartition topicPartition) {
-    if (this.topicPartitionsMap.containsKey(topicPartition)) {
-      this.topicPartitionsMap.get(topicPartition).tryFlushCurrentStreamingBuffer();
-      this.topicPartitionsMap.remove(topicPartition);
-    }
-
-    // TODO @rcheng: log no tpchannel
   }
 }

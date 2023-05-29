@@ -1013,7 +1013,7 @@ public class TopicPartitionChannel {
       LOGGER.error(errMsg, e);
     } finally {
       FlushService.getFlushServiceInstance()
-          .registerTopicPartitionChannel(this.topicPartition, this);
+          .closeTopicPartitionChannel(this.topicPartition);
     }
   }
 
