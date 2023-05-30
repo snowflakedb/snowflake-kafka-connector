@@ -439,6 +439,8 @@ public class TopicPartitionChannel {
             currBufferRecordCount,
             this.streamingBufferThreshold);
       }
+    } catch (Exception e) {
+      // TODO @rcheng: log exception here, note insertBufferedRecords does its own error handling, so this is just lock and copy
     } finally {
       this.bufferLock.unlock();
     }
@@ -1012,7 +1014,7 @@ public class TopicPartitionChannel {
       this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
       LOGGER.error(errMsg, e);
     } finally {
-      FlushService.getFlushServiceInstance().closeTopicPartitionChannel(this.topicPartition);
+      FlushService.getFlushServiceInstance().removeTopicPartitionChannel(this.topicPartition);
     }
   }
 

@@ -63,6 +63,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // Using setupComplete to synchronize
   private boolean setupComplete;
 
+  private FlushService flushService;
+
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeSinkConnector() {
     setupComplete = false;
@@ -113,7 +115,12 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     setupComplete = true;
 
-    FlushService.getFlushServiceInstance().init();
+    this.flushService = FlushService.getFlushServiceInstance();
+    if (this.flushService != null) {
+      this.flushService.init();
+    } else {
+      // TODO @rcheng: log no flush service
+    }
 
     LOGGER.info("SnowflakeSinkConnector:started");
   }
@@ -129,7 +136,16 @@ public class SnowflakeSinkConnector extends SinkConnector {
   @Override
   public void stop() {
     setupComplete = false;
-    FlushService.getFlushServiceInstance().shutdown();
+
+    // shutdown flush service
+    if (this.flushService != null) {
+      this.flushService.shutdown();
+    } else if (FlushService.getFlushServiceInstance() != null) {
+      FlushService.getFlushServiceInstance().shutdown();
+    } else {
+      // TODO @rcheng: log no flush
+    }
+
     LOGGER.info("SnowflakeSinkConnector:stopped");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
   }

@@ -17,6 +17,7 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.HashMap;
@@ -28,6 +29,9 @@ import org.apache.kafka.common.TopicPartition;
 
 // TODO @rcheng: docs
 public class FlushService {
+  public static final int FLUSH_SERVICE_THREAD_COUNT = 1;
+  public static final long FLUSH_SERVICE_DELAY_MS = 500;
+
   private static class FlushServiceProviderSingleton {
     private static final FlushService flushService = new FlushService();
   }
@@ -35,45 +39,50 @@ public class FlushService {
   public static FlushService getFlushServiceInstance() {
     return FlushServiceProviderSingleton.flushService;
   }
-
-  // TODO @rcheng: logging
-  private final KCLogger LOGGER = new KCLogger(this.getClass().toString());
-  private final int THREAD_COUNT = 1;
-  private final int DELAY_MS = 500;
-
+  // TODO @rcheng: add logging just in addition to todos
+  public final KCLogger LOGGER = new KCLogger(this.getClass().toString());
   private ScheduledExecutorService flushExecutor;
   private Map<TopicPartition, TopicPartitionChannel> topicPartitionsMap;
 
   private FlushService() {
-    this.flushExecutor = Executors.newScheduledThreadPool(THREAD_COUNT);
+    this.flushExecutor = Executors.newScheduledThreadPool(FLUSH_SERVICE_THREAD_COUNT);
     this.topicPartitionsMap = new HashMap<>();
   }
 
   public void init() {
     this.flushExecutor.scheduleAtFixedRate(
-        this::tryFlushTopicPartitionChannels, DELAY_MS, DELAY_MS, TimeUnit.MILLISECONDS);
+        this::tryFlushTopicPartitionChannels,
+        FLUSH_SERVICE_DELAY_MS,
+        FLUSH_SERVICE_DELAY_MS,
+        TimeUnit.MILLISECONDS);
   }
 
   public void shutdown() {
+    this.topicPartitionsMap = new HashMap<>();
     this.flushExecutor.shutdown();
   }
 
   public void registerTopicPartitionChannel(
       TopicPartition topicPartition, TopicPartitionChannel topicPartitionChannel) {
+    if (topicPartition == null || topicPartitionChannel == null) {
+      // TODO @rcheng: log
+      return;
+    }
+
     if (this.topicPartitionsMap.containsKey(topicPartition)) {
       // TODO @rcheng: log replace
     }
     this.topicPartitionsMap.put(topicPartition, topicPartitionChannel);
   }
 
-  public void closeTopicPartitionChannel(TopicPartition topicPartition) {
-    if (this.topicPartitionsMap.containsKey(topicPartition)) {
+  public void removeTopicPartitionChannel(TopicPartition topicPartition) {
+    if (topicPartition != null && this.topicPartitionsMap.containsKey(topicPartition)) {
       this.topicPartitionsMap.get(topicPartition).tryFlushCurrentStreamingBuffer();
       this.topicPartitionsMap.remove(topicPartition);
     }
   }
 
-  public void tryFlushTopicPartitionChannels() {
+  public int tryFlushTopicPartitionChannels() {
     final long currTime = System.currentTimeMillis();
 
     int flushCount = 0;
@@ -89,5 +98,30 @@ public class FlushService {
 
     LOGGER.info(
         Utils.formatLogMessage("FlushService successfully flushed {} channels"), flushCount);
+
+    return flushCount;
+  }
+
+  /** ALL FOLLOWING CODE IS ONLY FOR TESTING */
+  /** Get a flush service with injected properties */
+  @VisibleForTesting
+  public static FlushService getFlushServiceForTests(
+      ScheduledExecutorService flushExecutor,
+      Map<TopicPartition, TopicPartitionChannel> topicPartitionsMap) {
+    return new FlushService(flushExecutor, topicPartitionsMap);
+  }
+
+  @VisibleForTesting
+  private FlushService(
+      ScheduledExecutorService flushExecutor,
+      Map<TopicPartition, TopicPartitionChannel> topicPartitionsMap) {
+    super();
+    this.flushExecutor = flushExecutor;
+    this.topicPartitionsMap = topicPartitionsMap;
+  }
+
+  @VisibleForTesting
+  public Map<TopicPartition, TopicPartitionChannel> getTopicPartitionsMap() {
+    return this.topicPartitionsMap;
   }
 }
