@@ -17,27 +17,22 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.snowflake.kafka.connector.internal.BufferThreshold;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import com.snowflake.kafka.connector.internal.BufferThreshold;
-import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import net.snowflake.ingest.utils.ErrorCode;
-import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verify;
 
 public class FlushServiceTest {
   private ScheduledExecutorService flushExecutor;
@@ -102,7 +97,8 @@ public class FlushServiceTest {
     this.flushService.registerTopicPartitionChannel(this.validTp0, this.validTpChannel0);
 
     // verify map has channel
-    Map<TopicPartition, TopicPartitionChannel> tpChannelMap = this.flushService.getTopicPartitionsMap();
+    Map<TopicPartition, TopicPartitionChannel> tpChannelMap =
+        this.flushService.getTopicPartitionsMap();
     assert tpChannelMap.size() == 1;
     assert tpChannelMap.get(this.validTp0).equals(this.validTpChannel0);
   }
@@ -174,13 +170,16 @@ public class FlushServiceTest {
     when(this.validTpChannel0.getStreamingBufferThreshold()).thenReturn(streamingBufferThreshold0);
     when(this.validTpChannel1.getStreamingBufferThreshold()).thenReturn(streamingBufferThreshold1);
 
-    when(this.validTpChannel0.tryFlushCurrentStreamingBuffer()).thenReturn(BufferThreshold.FlushReason.BUFFER_FLUSH_TIME);
-    when(this.validTpChannel1.tryFlushCurrentStreamingBuffer()).thenReturn(BufferThreshold.FlushReason.BUFFER_FLUSH_TIME);
+    when(this.validTpChannel0.tryFlushCurrentStreamingBuffer())
+        .thenReturn(BufferThreshold.FlushReason.BUFFER_FLUSH_TIME);
+    when(this.validTpChannel1.tryFlushCurrentStreamingBuffer())
+        .thenReturn(BufferThreshold.FlushReason.BUFFER_FLUSH_TIME);
 
     this.topicPartitionsMap.put(this.validTp0, this.validTpChannel0);
     this.topicPartitionsMap.put(this.validTp1, this.validTpChannel1);
 
-    this.flushService = FlushService.getFlushServiceForTests(this.flushExecutor, this.topicPartitionsMap);
+    this.flushService =
+        FlushService.getFlushServiceForTests(this.flushExecutor, this.topicPartitionsMap);
 
     // test flush
     int flushCount = this.flushService.tryFlushTopicPartitionChannels();

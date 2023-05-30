@@ -440,7 +440,8 @@ public class TopicPartitionChannel {
             this.streamingBufferThreshold);
       }
     } catch (Exception e) {
-      // TODO @rcheng: log exception here, note insertBufferedRecords does its own error handling, so this is just lock and copy
+      // TODO @rcheng: log exception here, note insertBufferedRecords does its own error handling,
+      // so this is just lock and copy
     } finally {
       this.bufferLock.unlock();
     }
