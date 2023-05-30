@@ -17,31 +17,15 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.BufferThreshold;
-
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import com.snowflake.kafka.connector.internal.TestUtils;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
-import org.mockito.ArgumentMatchers;
 
 public class FlushServiceIT {
   private FlushService flushService;
@@ -68,7 +52,8 @@ public class FlushServiceIT {
 
     // config aimed to hit flush time threshold
     long bufferFlushTimeSec = 4;
-    StreamingBufferThreshold bufferThreshold = new StreamingBufferThreshold(bufferFlushTimeSec, 10000, 10000);
+    StreamingBufferThreshold bufferThreshold =
+        new StreamingBufferThreshold(bufferFlushTimeSec, 10000, 10000);
 
     // mocks to verify
     ScheduledExecutorService flushExecutor = spy(ScheduledExecutorService.class);
