@@ -82,6 +82,7 @@ public class FlushService {
     }
   }
 
+  // @rcheng question - this technically should be private, since it should only be called in the background, but we need it for testing. should i add a visiblefortesting tag?
   public int tryFlushTopicPartitionChannels() {
     final long currTime = System.currentTimeMillis();
 

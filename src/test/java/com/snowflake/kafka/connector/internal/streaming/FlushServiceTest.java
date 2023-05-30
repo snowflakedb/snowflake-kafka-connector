@@ -162,16 +162,14 @@ public class FlushServiceTest {
   public void testTryFlushPartitionChannels() {
     // setup with two channels
     StreamingBufferThreshold streamingBufferThreshold0 = mock(StreamingBufferThreshold.class);
-    StreamingBufferThreshold streamingBufferThreshold1 = mock(StreamingBufferThreshold.class);
-
     when(streamingBufferThreshold0.shouldFlushOnBufferTime(anyLong())).thenReturn(true);
-    when(streamingBufferThreshold1.shouldFlushOnBufferTime(anyLong())).thenReturn(true);
-
     when(this.validTpChannel0.getStreamingBufferThreshold()).thenReturn(streamingBufferThreshold0);
-    when(this.validTpChannel1.getStreamingBufferThreshold()).thenReturn(streamingBufferThreshold1);
-
     when(this.validTpChannel0.tryFlushCurrentStreamingBuffer())
         .thenReturn(BufferThreshold.FlushReason.BUFFER_FLUSH_TIME);
+
+    StreamingBufferThreshold streamingBufferThreshold1 = mock(StreamingBufferThreshold.class);
+    when(streamingBufferThreshold1.shouldFlushOnBufferTime(anyLong())).thenReturn(true);
+    when(this.validTpChannel1.getStreamingBufferThreshold()).thenReturn(streamingBufferThreshold1);
     when(this.validTpChannel1.tryFlushCurrentStreamingBuffer())
         .thenReturn(BufferThreshold.FlushReason.BUFFER_FLUSH_TIME);
 
