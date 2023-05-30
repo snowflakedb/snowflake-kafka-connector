@@ -32,6 +32,7 @@ public abstract class BufferThreshold {
    * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
    */
   private final long bufferFlushTimeThreshold;
+  private final long bufferFlushTimeThresholdMs;
 
   /**
    * Size based buffer flush threshold in bytes. Corresponds to the buffer size in kafka Set in
@@ -49,8 +50,6 @@ public abstract class BufferThreshold {
    * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_COUNT_RECORDS}
    */
   private final long bufferRecordCountThreshold;
-
-  private final long SECOND_TO_MILLIS = TimeUnit.SECONDS.toMillis(1);
 
   // ideally this would be in the streamingBuffer object, however java doesn't allow enums to be
   // added to a protected inner class
@@ -89,6 +88,7 @@ public abstract class BufferThreshold {
       long bufferRecordCountThreshold) {
     this.ingestionMethodConfig = ingestionMethodConfig;
     this.bufferFlushTimeThreshold = bufferFlushTimeThreshold;
+    this.bufferFlushTimeThresholdMs = TimeUnit.SECONDS.toMillis(this.bufferFlushTimeThreshold);
     this.bufferByteSizeThreshold = bufferByteSizeThreshold;
     this.bufferRecordCountThreshold = bufferRecordCountThreshold;
   }
@@ -131,8 +131,7 @@ public abstract class BufferThreshold {
    */
   public boolean shouldFlushOnBufferTime(final long previousFlushTimeStampMs) {
     final long currentTimeMs = System.currentTimeMillis();
-    return (currentTimeMs - previousFlushTimeStampMs)
-        >= (this.bufferFlushTimeThreshold * SECOND_TO_MILLIS);
+    return (currentTimeMs - previousFlushTimeStampMs) >= (this.bufferFlushTimeThresholdMs);
   }
 
   /** Returns the buffer flush time threshold */
