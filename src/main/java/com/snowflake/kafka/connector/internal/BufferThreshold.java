@@ -32,6 +32,7 @@ public abstract class BufferThreshold {
    * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
    */
   private final long bufferFlushTimeThreshold;
+
   private final long bufferFlushTimeThresholdMs;
 
   /**

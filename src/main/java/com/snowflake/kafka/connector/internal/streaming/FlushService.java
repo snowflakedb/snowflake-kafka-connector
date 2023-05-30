@@ -20,8 +20,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
-
-import java.sql.Time;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -60,7 +58,13 @@ public class FlushService {
   private FlushService() {
     this.flushScheduler = Executors.newScheduledThreadPool(SCHEDULER_THREAD_COUNT);
     this.flushTaskQueue = new SynchronousQueue<Runnable>(true);
-    this.flushExecutorPool = new ThreadPoolExecutor(FLUSH_EXECUTOR_MIN_THREAD_COUNT, FLUSH_EXECUTOR_MIN_THREAD_COUNT, THREAD_TIMEOUT, THREAD_TIMEOUT_UNIT, this.flushTaskQueue);
+    this.flushExecutorPool =
+        new ThreadPoolExecutor(
+            FLUSH_EXECUTOR_MIN_THREAD_COUNT,
+            FLUSH_EXECUTOR_MIN_THREAD_COUNT,
+            THREAD_TIMEOUT,
+            THREAD_TIMEOUT_UNIT,
+            this.flushTaskQueue);
     this.flushExecutorPool.allowCoreThreadTimeOut(true);
     this.topicPartitionsMap = new HashMap<>();
   }
@@ -105,15 +109,18 @@ public class FlushService {
   // @rcheng question - this technically should be private, since it should only be called in the
   // background, but we need it for testing. should i add a visiblefortesting tag?
   public int tryFlushTopicPartitionChannels() {
-    LOGGER.info(Utils.formatString("FlushService checking {} channels against flush time threshold", this.topicPartitionsMap.size()));
+    LOGGER.info(
+        Utils.formatString(
+            "FlushService checking {} channels against flush time threshold",
+            this.topicPartitionsMap.size()));
 
     int flushCount = 0;
     for (TopicPartitionChannel topicPartitionChannel : this.topicPartitionsMap.values()) {
-      // TODO @rcheng potential opt: faster to save buffer threshold locally vs accessing it every time
+      // TODO @rcheng potential opt: faster to save buffer threshold locally vs accessing it every
+      // time
       if (topicPartitionChannel
           .getStreamingBufferThreshold()
-          .shouldFlushOnBufferTime(
-              topicPartitionChannel.getPreviousFlushTimeStampMs())) {
+          .shouldFlushOnBufferTime(topicPartitionChannel.getPreviousFlushTimeStampMs())) {
         try {
           this.flushExecutorPool.execute(topicPartitionChannel::tryFlushCurrentStreamingBuffer);
         } catch (NullPointerException e) {
@@ -127,8 +134,7 @@ public class FlushService {
       }
     }
 
-    LOGGER.info(
-        Utils.formatLogMessage("FlushService began flushing on {} channels"), flushCount);
+    LOGGER.info(Utils.formatLogMessage("FlushService began flushing on {} channels"), flushCount);
 
     return flushCount;
   }
