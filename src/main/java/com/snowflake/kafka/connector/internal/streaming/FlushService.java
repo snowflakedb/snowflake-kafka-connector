@@ -66,7 +66,9 @@ public class FlushService {
   private ThreadPoolExecutor flushExecutorPool;
   private ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap;
 
-  // single threaded scheduler periodically tries flushing all tpchannels in the map. it uses the thread pool that should at max have 1 tpchannel : 1 thread, waiting for all threads to finish flushing before continuing
+  // single threaded scheduler periodically tries flushing all tpchannels in the map. it uses the
+  // thread pool that should at max have 1 tpchannel : 1 thread, waiting for all threads to finish
+  // flushing before continuing
   private FlushService() {
     this.flushScheduler = Executors.newScheduledThreadPool(SCHEDULER_THREAD_COUNT);
     this.flushTaskQueue = new SynchronousQueue<Runnable>(true);
@@ -144,7 +146,8 @@ public class FlushService {
             "Topic partition is null or was not registered, unnecessary remove call"));
   }
 
-  // concurrency considerations: should only be called from scheduled thread, which is currently single threaded so it is ok
+  // concurrency considerations: should only be called from scheduled thread, which is currently
+  // single threaded so it is ok
   public int tryFlushTopicPartitionChannels() {
     LOGGER.info(
         Utils.formatString(
@@ -182,7 +185,8 @@ public class FlushService {
       }
     }
 
-    // join all flush threads, we want to block on this to reduce thread usage and ensure 1:1 tpchannel to thread mapping
+    // join all flush threads, we want to block on this to reduce thread usage and ensure 1:1
+    // tpchannel to thread mapping
     final long beginJoinTime = System.currentTimeMillis();
     flushFutures.forEach(
         future -> {
@@ -193,7 +197,10 @@ public class FlushService {
           } catch (TimeoutException e) {
             LOGGER.info("Channel flush timed out");
           } catch (Exception e) {
-            LOGGER.info("Unexpected exception, swallowing exception. message: {}, cause: {}", e.getMessage(), e.getCause());
+            LOGGER.info(
+                "Unexpected exception, swallowing exception. message: {}, cause: {}",
+                e.getMessage(),
+                e.getCause());
           }
         });
 
