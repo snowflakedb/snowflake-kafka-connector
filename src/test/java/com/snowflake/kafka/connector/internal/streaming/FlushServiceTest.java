@@ -26,6 +26,8 @@ import static org.mockito.Mockito.when;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.common.TopicPartition;
@@ -36,7 +38,7 @@ import org.mockito.ArgumentMatchers;
 
 public class FlushServiceTest {
   private ScheduledExecutorService flushExecutor;
-  private Map<TopicPartition, TopicPartitionChannel> topicPartitionsMap;
+  private ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap;
   private FlushService flushService;
 
   private TopicPartition validTp0;
@@ -47,7 +49,7 @@ public class FlushServiceTest {
   @Before
   public void before() {
     this.flushExecutor = mock(ScheduledExecutorService.class);
-    this.topicPartitionsMap = new HashMap<>();
+    this.topicPartitionsMap = new ConcurrentHashMap<>();
     this.flushService =
         FlushService.getFlushServiceForTests(this.flushExecutor, this.topicPartitionsMap);
 

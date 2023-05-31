@@ -20,25 +20,31 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
+
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
 import org.apache.kafka.common.TopicPartition;
+import org.graalvm.compiler.core.common.util.Util;
 
 // TODO @rcheng: docs
 public class FlushService {
-  public static final int SCHEDULER_THREAD_COUNT = 1;
-  public static final long FLUSH_SERVICE_DELAY_MS = 500;
-  private static final int FLUSH_EXECUTOR_MIN_THREAD_COUNT = 1;
-  private static final long THREAD_TIMEOUT = 10;
-  private static final TimeUnit THREAD_TIMEOUT_UNIT = TimeUnit.SECONDS;
-
+  // singleton logic
   private static class FlushServiceProviderSingleton {
     private static final FlushService flushService = new FlushService();
   }
@@ -47,13 +53,22 @@ public class FlushService {
     return FlushServiceProviderSingleton.flushService;
   }
 
-  // TODO @rcheng: add logging just in addition to todos
+  // constants
+  public static final int SCHEDULER_THREAD_COUNT = 1;
+  public static final long FLUSH_SERVICE_DELAY_MS = 500;
+
+  private static final int FLUSH_EXECUTOR_MIN_THREAD_COUNT = 1;
+  private static final long THREAD_TIMEOUT = 10;
+  private static final TimeUnit THREAD_TIMEOUT_UNIT = TimeUnit.SECONDS;
+  private static final long FLUSH_TIMEOUT = 1;
+  private static final TimeUnit FLUSH_TIMEOUT_UNIT = TimeUnit.SECONDS;
+
   public final KCLogger LOGGER = new KCLogger(this.getClass().toString());
 
   private ScheduledExecutorService flushScheduler;
   private BlockingQueue<Runnable> flushTaskQueue;
   private ThreadPoolExecutor flushExecutorPool;
-  private Map<TopicPartition, TopicPartitionChannel> topicPartitionsMap;
+  private ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap;
 
   private FlushService() {
     this.flushScheduler = Executors.newScheduledThreadPool(SCHEDULER_THREAD_COUNT);
@@ -66,19 +81,25 @@ public class FlushService {
             THREAD_TIMEOUT_UNIT,
             this.flushTaskQueue);
     this.flushExecutorPool.allowCoreThreadTimeOut(true);
-    this.topicPartitionsMap = new HashMap<>();
+    this.topicPartitionsMap = new ConcurrentHashMap<>();
   }
 
+  // schedule flushing
   public void init() {
     this.flushScheduler.scheduleAtFixedRate(
         this::tryFlushTopicPartitionChannels,
         FLUSH_SERVICE_DELAY_MS,
         FLUSH_SERVICE_DELAY_MS,
         TimeUnit.MILLISECONDS);
+    LOGGER.info(Utils.formatString("begin flush checking {} channels with delay {}", this.topicPartitionsMap.size(), FLUSH_SERVICE_DELAY_MS));
   }
 
+  // clear map, shutdown executors
   public void shutdown() {
-    this.topicPartitionsMap = new HashMap<>();
+    LOGGER.info(Utils.formatString("shutting down flush service, there are {} channels, ", this.topicPartitionsMap.size()));
+    this.topicPartitionsMap = new ConcurrentHashMap<>();
+    
+    // shut down scheduler before pool
     this.flushScheduler.shutdown();
     this.flushExecutorPool.shutdown();
   }
@@ -86,13 +107,11 @@ public class FlushService {
   public void registerTopicPartitionChannel(
       TopicPartition topicPartition, TopicPartitionChannel topicPartitionChannel) {
     if (topicPartition == null || topicPartitionChannel == null) {
-      // TODO @rcheng: log
+      LOGGER.info(Utils.formatString("Invalid topicPartition or topicPartitionChannel"));
       return;
     }
 
-    if (this.topicPartitionsMap.containsKey(topicPartition)) {
-      // TODO @rcheng: log replace
-    }
+    LOGGER.info(Utils.formatString("Register new channel for {} topicPartition: {}", this.topicPartitionsMap.containsKey(topicPartition) ? "existing" : "new", topicPartition.toString()));
 
     this.topicPartitionsMap.put(topicPartition, topicPartitionChannel);
     this.flushExecutorPool.setMaximumPoolSize(this.topicPartitionsMap.size());
@@ -103,18 +122,25 @@ public class FlushService {
       this.topicPartitionsMap.get(topicPartition).tryFlushCurrentStreamingBuffer();
       this.topicPartitionsMap.remove(topicPartition);
       this.flushExecutorPool.setMaximumPoolSize(this.topicPartitionsMap.size());
+      LOGGER.info(Utils.formatString("Removing channel for topic partition: {}", topicPartition.toString()));
+      return;
     }
+    LOGGER.info(Utils.formatString("Topic partition is null or was not registered, unnecessary remove call"));
   }
 
-  // @rcheng question - this technically should be private, since it should only be called in the
-  // background, but we need it for testing. should i add a visiblefortesting tag?
   public int tryFlushTopicPartitionChannels() {
+    if (this.flushExecutorPool.getMaximumPoolSize() != this.topicPartitionsMap.size()) {
+      LOGGER.info("max pool size was not set correctly. maxpoolsize: {}, mapsize: {}", this.flushExecutorPool.getMaximumPoolSize(), this.topicPartitionsMap.size());
+      this.flushExecutorPool.setMaximumPoolSize(this.topicPartitionsMap.size());
+    }
+
     LOGGER.info(
         Utils.formatString(
             "FlushService checking {} channels against flush time threshold",
             this.topicPartitionsMap.size()));
 
-    int flushCount = 0;
+    List<Future> flushFutures = new ArrayList<>();
+
     for (TopicPartitionChannel topicPartitionChannel : this.topicPartitionsMap.values()) {
       // TODO @rcheng potential opt: faster to save buffer threshold locally vs accessing it every
       // time
@@ -122,21 +148,34 @@ public class FlushService {
           .getStreamingBufferThreshold()
           .shouldFlushOnBufferTime(topicPartitionChannel.getPreviousFlushTimeStampMs())) {
         try {
-          this.flushExecutorPool.execute(topicPartitionChannel::tryFlushCurrentStreamingBuffer);
+          flushFutures.add(this.flushExecutorPool.submit(topicPartitionChannel::tryFlushCurrentStreamingBuffer));
         } catch (NullPointerException e) {
           // TODO @rcheng: log
           throw e;
         } catch (RejectedExecutionException e) {
-          // TODO @rcheng: handle when max threads used is full
-          throw e;
+          // TODO @rcheng: handle when max threads used is full, ok to swallow but queue bloat on just one flush
+          //throw e;
+          LOGGER.info("max threads used, unable to schedule another flush");
         }
-        flushCount++;
       }
     }
 
-    LOGGER.info(Utils.formatLogMessage("FlushService began flushing on {} channels"), flushCount);
+    long beginAwaitTime = System.currentTimeMillis();
+    flushFutures.forEach(future -> {
+      try {
+        future.get(FLUSH_TIMEOUT, FLUSH_TIMEOUT_UNIT);
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      } catch (ExecutionException e) {
+        LOGGER.info("Channel flush failed execution");
+      } catch (TimeoutException e) {
+        LOGGER.info("Channel flush timed out");
+      }
+    });
 
-    return flushCount;
+    LOGGER.info(Utils.formatString("FlushService tried flushing on {} channels. Took {} ms to join threads"), flushFutures.size(), System.currentTimeMillis() - beginAwaitTime);
+
+    return flushFutures.size();
   }
 
   /** ALL FOLLOWING CODE IS ONLY FOR TESTING */
@@ -145,14 +184,14 @@ public class FlushService {
   @VisibleForTesting
   public static FlushService getFlushServiceForTests(
       ScheduledExecutorService flushExecutor,
-      Map<TopicPartition, TopicPartitionChannel> topicPartitionsMap) {
+      ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap) {
     return new FlushService(flushExecutor, topicPartitionsMap);
   }
 
   @VisibleForTesting
   private FlushService(
       ScheduledExecutorService flushExecutor,
-      Map<TopicPartition, TopicPartitionChannel> topicPartitionsMap) {
+      ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap) {
     super();
     this.flushScheduler = flushExecutor;
     this.topicPartitionsMap = topicPartitionsMap;
