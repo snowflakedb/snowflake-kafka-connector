@@ -17,18 +17,33 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.internal.streaming.FlushService.FLUSH_TIMEOUT;
+import static com.snowflake.kafka.connector.internal.streaming.FlushService.FLUSH_TIMEOUT_UNIT;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
+import com.ctc.wstx.io.BufferRecycler;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
 import org.apache.kafka.common.TopicPartition;
 import org.junit.After;
 import org.junit.Before;
@@ -36,9 +51,13 @@ import org.junit.Test;
 import org.mockito.ArgumentMatchers;
 
 public class FlushServiceTest {
-  private ScheduledExecutorService flushExecutor;
+  private ScheduledExecutorService flushScheduler;
+  private ScheduledThreadPoolExecutor flushPoolExecutor;
   private ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap;
   private FlushService flushService;
+
+  // defaults to false, as flush pool executor should only be called in the tryflush
+  private boolean shouldCallFlushPoolExecutor;
 
   private TopicPartition validTp0;
   private TopicPartition validTp1;
@@ -47,10 +66,14 @@ public class FlushServiceTest {
 
   @Before
   public void before() {
-    this.flushExecutor = mock(ScheduledExecutorService.class);
+    this.flushScheduler = mock(ScheduledExecutorService.class);
+    this.flushPoolExecutor = mock(ScheduledThreadPoolExecutor.class);
     this.topicPartitionsMap = new ConcurrentHashMap<>();
     this.flushService =
-        FlushService.getFlushServiceForTests(this.flushExecutor, this.topicPartitionsMap);
+        FlushService.getFlushServiceForTests(
+            this.flushScheduler, this.flushPoolExecutor, this.topicPartitionsMap);
+
+    this.shouldCallFlushPoolExecutor = false;
 
     // init test mocks
     this.validTp0 = new TopicPartition("validTopic0", 0);
@@ -61,6 +84,10 @@ public class FlushServiceTest {
 
   @After
   public void after() {
+    if (!this.shouldCallFlushPoolExecutor) {
+      verifyZeroInteractions(this.flushPoolExecutor);
+    }
+
     this.flushService.shutdown();
     FlushService.getFlushServiceInstance().shutdown();
   }
@@ -71,9 +98,9 @@ public class FlushServiceTest {
     this.flushService.init();
 
     // verify flushing was scheduled
-    verify(this.flushExecutor, times(1))
+    verify(this.flushScheduler, times(1))
         .scheduleAtFixedRate(
-            ArgumentMatchers.any(),
+            any(),
             ArgumentMatchers.eq(FlushService.SCHEDULER_DELAY_MS),
             ArgumentMatchers.eq(FlushService.SCHEDULER_DELAY_MS),
             ArgumentMatchers.eq(TimeUnit.MILLISECONDS));
@@ -88,7 +115,8 @@ public class FlushServiceTest {
     this.flushService.shutdown();
 
     // verify executer shutdown and tpmap clear
-    verify(this.flushExecutor, times(1)).shutdown();
+    verify(this.flushScheduler, times(1)).shutdown();
+    verify(this.flushPoolExecutor, times(1)).shutdown();
     assert this.flushService.getTopicPartitionsMap().size() == 0;
   }
 
@@ -160,32 +188,45 @@ public class FlushServiceTest {
   }
 
   @Test
-  public void testTryFlushPartitionChannels() {
+  public void testTryFlushPartitionChannels() throws ExecutionException, InterruptedException, TimeoutException {
+    this.shouldCallFlushPoolExecutor = true;
+    when(this.flushPoolExecutor.getMaximumPoolSize()).thenReturn(2);
+
     // setup with two channels
     StreamingBufferThreshold streamingBufferThreshold0 = mock(StreamingBufferThreshold.class);
-    when(streamingBufferThreshold0.shouldFlushOnBufferTime(anyLong())).thenReturn(true);
+    final long previousFlushTime0 = 1234L;
+    when(streamingBufferThreshold0.shouldFlushOnBufferTime(previousFlushTime0)).thenReturn(true);
     when(this.validTpChannel0.getStreamingBufferThreshold()).thenReturn(streamingBufferThreshold0);
-    when(this.validTpChannel0.tryFlushCurrentStreamingBuffer())
-        .thenReturn(BufferThreshold.FlushReason.BUFFER_FLUSH_TIME);
+    when(this.validTpChannel0.getPreviousFlushTimeStampMs()).thenReturn(previousFlushTime0);
 
     StreamingBufferThreshold streamingBufferThreshold1 = mock(StreamingBufferThreshold.class);
-    when(streamingBufferThreshold1.shouldFlushOnBufferTime(anyLong())).thenReturn(true);
+    final long previousFlushTime1 = 5678L;
+    when(streamingBufferThreshold1.shouldFlushOnBufferTime(previousFlushTime1)).thenReturn(true);
     when(this.validTpChannel1.getStreamingBufferThreshold()).thenReturn(streamingBufferThreshold1);
-    when(this.validTpChannel1.tryFlushCurrentStreamingBuffer())
-        .thenReturn(BufferThreshold.FlushReason.BUFFER_FLUSH_TIME);
+    when(this.validTpChannel1.getPreviousFlushTimeStampMs()).thenReturn(previousFlushTime1);
 
     this.topicPartitionsMap.put(this.validTp0, this.validTpChannel0);
     this.topicPartitionsMap.put(this.validTp1, this.validTpChannel1);
 
     this.flushService =
-        FlushService.getFlushServiceForTests(this.flushExecutor, this.topicPartitionsMap);
+        FlushService.getFlushServiceForTests(
+            this.flushScheduler, this.flushPoolExecutor, this.topicPartitionsMap);
 
     // test flush
     int flushCount = this.flushService.tryFlushTopicPartitionChannels();
 
     // verify
     assert flushCount == 2;
-    verify(this.validTpChannel0, times(1)).tryFlushCurrentStreamingBuffer();
-    verify(this.validTpChannel1, times(1)).tryFlushCurrentStreamingBuffer();
+
+    verify(streamingBufferThreshold0, times(1)).shouldFlushOnBufferTime(previousFlushTime0);
+    verify(this.validTpChannel0, times(1)).getStreamingBufferThreshold();
+    verify(this.validTpChannel0, times(1)).getPreviousFlushTimeStampMs();
+
+    verify(streamingBufferThreshold1, times(1)).shouldFlushOnBufferTime(previousFlushTime1);
+    verify(this.validTpChannel1, times(1)).getStreamingBufferThreshold();
+    verify(this.validTpChannel1, times(1)).getPreviousFlushTimeStampMs();
+
+    verify(this.flushPoolExecutor, times(2)).submit(any(Callable.class));
+    verify(this.flushPoolExecutor, times(1)).getMaximumPoolSize();
   }
 }

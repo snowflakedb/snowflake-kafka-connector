@@ -31,6 +31,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -56,8 +57,8 @@ public class FlushService {
   private static final long EXECUTOR_THREAD_TIMEOUT = 10;
   private static final TimeUnit EXECUTOR_THREAD_TIMEOUT_UNIT = TimeUnit.SECONDS;
 
-  private static final long FLUSH_TIMEOUT = 10;
-  private static final TimeUnit FLUSH_TIMEOUT_UNIT = TimeUnit.SECONDS;
+  public static final long FLUSH_TIMEOUT = 10;
+  public static final TimeUnit FLUSH_TIMEOUT_UNIT = TimeUnit.SECONDS;
 
   public final KCLogger LOGGER = new KCLogger(this.getClass().toString());
 
@@ -127,7 +128,6 @@ public class FlushService {
             topicPartition.toString()));
 
     this.topicPartitionsMap.put(topicPartition, topicPartitionChannel);
-    this.flushExecutorPool.setMaximumPoolSize(this.topicPartitionsMap.size());
   }
 
   // concurrency considerations: must handle concurrency, called from each tpchannel creation
@@ -135,7 +135,6 @@ public class FlushService {
     if (topicPartition != null && this.topicPartitionsMap.containsKey(topicPartition)) {
       this.topicPartitionsMap.get(topicPartition).tryFlushCurrentStreamingBuffer();
       this.topicPartitionsMap.remove(topicPartition);
-      this.flushExecutorPool.setMaximumPoolSize(this.topicPartitionsMap.size());
       LOGGER.info(
           Utils.formatString(
               "Removing channel for topic partition: {}", topicPartition.toString()));
@@ -153,15 +152,13 @@ public class FlushService {
         Utils.formatString(
             "FlushService checking {} channels against flush time threshold",
             this.topicPartitionsMap.size()));
-
     final long beginFlushTime = System.currentTimeMillis();
 
-    if (this.flushExecutorPool.getMaximumPoolSize() != this.topicPartitionsMap.size()) {
-      LOGGER.info(
-          "max pool size was not set correctly. maxpoolsize: {}, mapsize: {}",
-          this.flushExecutorPool.getMaximumPoolSize(),
-          this.topicPartitionsMap.size());
-      this.flushExecutorPool.setMaximumPoolSize(this.topicPartitionsMap.size());
+    // set pool size if needed
+    int currPoolSize = this.flushExecutorPool.getMaximumPoolSize();
+    int mapSize = this.topicPartitionsMap.size();
+    if (currPoolSize != mapSize) {
+      this.flushExecutorPool.setMaximumPoolSize(mapSize);
     }
 
     // start flushing
@@ -223,16 +220,19 @@ public class FlushService {
   @VisibleForTesting
   public static FlushService getFlushServiceForTests(
       ScheduledExecutorService flushExecutor,
+      ScheduledThreadPoolExecutor flushExecutorPool,
       ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap) {
-    return new FlushService(flushExecutor, topicPartitionsMap);
+    return new FlushService(flushExecutor, flushExecutorPool, topicPartitionsMap);
   }
 
   @VisibleForTesting
   private FlushService(
-      ScheduledExecutorService flushExecutor,
+      ScheduledExecutorService flushScheduler,
+      ScheduledThreadPoolExecutor flushExecutorPool,
       ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap) {
     super();
-    this.flushScheduler = flushExecutor;
+    this.flushScheduler = flushScheduler;
+    this.flushExecutorPool = flushExecutorPool;
     this.topicPartitionsMap = topicPartitionsMap;
   }
 
