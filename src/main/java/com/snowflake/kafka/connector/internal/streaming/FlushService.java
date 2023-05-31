@@ -20,7 +20,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +35,6 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
 import org.apache.kafka.common.TopicPartition;
 
 // TODO @rcheng: docs
@@ -88,14 +86,21 @@ public class FlushService {
         FLUSH_SERVICE_DELAY_MS,
         FLUSH_SERVICE_DELAY_MS,
         TimeUnit.MILLISECONDS);
-    LOGGER.info(Utils.formatString("begin flush checking {} channels with delay {}", this.topicPartitionsMap.size(), FLUSH_SERVICE_DELAY_MS));
+    LOGGER.info(
+        Utils.formatString(
+            "begin flush checking {} channels with delay {}",
+            this.topicPartitionsMap.size(),
+            FLUSH_SERVICE_DELAY_MS));
   }
 
   // clear map, shutdown executors
   public void shutdown() {
-    LOGGER.info(Utils.formatString("shutting down flush service, there are {} channels, ", this.topicPartitionsMap.size()));
+    LOGGER.info(
+        Utils.formatString(
+            "shutting down flush service, there are {} channels, ",
+            this.topicPartitionsMap.size()));
     this.topicPartitionsMap = new ConcurrentHashMap<>();
-    
+
     // shut down scheduler before pool
     this.flushScheduler.shutdown();
     this.flushExecutorPool.shutdown();
@@ -108,7 +113,11 @@ public class FlushService {
       return;
     }
 
-    LOGGER.info(Utils.formatString("Register new channel for {} topicPartition: {}", this.topicPartitionsMap.containsKey(topicPartition) ? "existing" : "new", topicPartition.toString()));
+    LOGGER.info(
+        Utils.formatString(
+            "Register new channel for {} topicPartition: {}",
+            this.topicPartitionsMap.containsKey(topicPartition) ? "existing" : "new",
+            topicPartition.toString()));
 
     this.topicPartitionsMap.put(topicPartition, topicPartitionChannel);
     this.flushExecutorPool.setMaximumPoolSize(this.topicPartitionsMap.size());
@@ -119,17 +128,24 @@ public class FlushService {
       this.topicPartitionsMap.get(topicPartition).tryFlushCurrentStreamingBuffer();
       this.topicPartitionsMap.remove(topicPartition);
       this.flushExecutorPool.setMaximumPoolSize(this.topicPartitionsMap.size());
-      LOGGER.info(Utils.formatString("Removing channel for topic partition: {}", topicPartition.toString()));
+      LOGGER.info(
+          Utils.formatString(
+              "Removing channel for topic partition: {}", topicPartition.toString()));
       return;
     }
-    LOGGER.info(Utils.formatString("Topic partition is null or was not registered, unnecessary remove call"));
+    LOGGER.info(
+        Utils.formatString(
+            "Topic partition is null or was not registered, unnecessary remove call"));
   }
 
   public int tryFlushTopicPartitionChannels() {
     long beginFlushTime = System.currentTimeMillis();
 
     if (this.flushExecutorPool.getMaximumPoolSize() != this.topicPartitionsMap.size()) {
-      LOGGER.info("max pool size was not set correctly. maxpoolsize: {}, mapsize: {}", this.flushExecutorPool.getMaximumPoolSize(), this.topicPartitionsMap.size());
+      LOGGER.info(
+          "max pool size was not set correctly. maxpoolsize: {}, mapsize: {}",
+          this.flushExecutorPool.getMaximumPoolSize(),
+          this.topicPartitionsMap.size());
       this.flushExecutorPool.setMaximumPoolSize(this.topicPartitionsMap.size());
     }
 
@@ -147,33 +163,42 @@ public class FlushService {
           .getStreamingBufferThreshold()
           .shouldFlushOnBufferTime(topicPartitionChannel.getPreviousFlushTimeStampMs())) {
         try {
-          flushFutures.add(this.flushExecutorPool.submit(topicPartitionChannel::tryFlushCurrentStreamingBuffer));
+          flushFutures.add(
+              this.flushExecutorPool.submit(topicPartitionChannel::tryFlushCurrentStreamingBuffer));
         } catch (NullPointerException e) {
           // TODO @rcheng: log
           throw e;
         } catch (RejectedExecutionException e) {
-          // TODO @rcheng: handle when max threads used is full, ok to swallow but queue bloat on just one flush
-          //throw e;
+          // TODO @rcheng: handle when max threads used is full, ok to swallow but queue bloat on
+          // just one flush
+          // throw e;
           LOGGER.info("max threads used, unable to schedule another flush");
         }
       }
     }
 
     long beginAwaitTime = System.currentTimeMillis();
-    flushFutures.forEach(future -> {
-      try {
-        future.get(FLUSH_TIMEOUT, FLUSH_TIMEOUT_UNIT);
-      } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-      } catch (ExecutionException e) {
-        LOGGER.info("Channel flush failed execution");
-      } catch (TimeoutException e) {
-        LOGGER.info("Channel flush timed out");
-      }
-    });
+    flushFutures.forEach(
+        future -> {
+          try {
+            future.get(FLUSH_TIMEOUT, FLUSH_TIMEOUT_UNIT);
+          } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+          } catch (ExecutionException e) {
+            LOGGER.info("Channel flush failed execution");
+          } catch (TimeoutException e) {
+            LOGGER.info("Channel flush timed out");
+          }
+        });
 
     final long currTime = System.currentTimeMillis();
-    LOGGER.info(Utils.formatString("FlushService tried flushing on {} channels. {} ms to join threads, {} ms to try flush"), flushFutures.size(), currTime - beginAwaitTime, currTime - beginFlushTime);
+    LOGGER.info(
+        Utils.formatString(
+            "FlushService tried flushing on {} channels. {} ms to join threads, {} ms to try"
+                + " flush"),
+        flushFutures.size(),
+        currTime - beginAwaitTime,
+        currTime - beginFlushTime);
 
     return flushFutures.size();
   }

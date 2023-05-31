@@ -20,7 +20,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 
-import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -64,7 +63,8 @@ public class FlushServiceIT {
     TopicPartitionChannel scotchChannel = mock(TopicPartitionChannel.class);
 
     // test executor service
-    this.flushService = FlushService.getFlushServiceForTests(flushExecutor, new ConcurrentHashMap<>());
+    this.flushService =
+        FlushService.getFlushServiceForTests(flushExecutor, new ConcurrentHashMap<>());
     this.flushService.init();
 
     // hit threshold with empty map
