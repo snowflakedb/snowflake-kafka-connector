@@ -50,12 +50,13 @@ public class FlushService {
 
   // constants
   public static final int SCHEDULER_THREAD_COUNT = 1;
-  public static final long FLUSH_SERVICE_DELAY_MS = 500;
+  public static final long SCHEDULER_DELAY_MS = 500;
 
-  private static final int FLUSH_EXECUTOR_MIN_THREAD_COUNT = 1;
-  private static final long THREAD_TIMEOUT = 10;
-  private static final TimeUnit THREAD_TIMEOUT_UNIT = TimeUnit.SECONDS;
-  private static final long FLUSH_TIMEOUT = 1;
+  private static final int EXECUTOR_MIN_THREAD_COUNT = 1;
+  private static final long EXECUTOR_THREAD_TIMEOUT = 10;
+  private static final TimeUnit EXECUTOR_THREAD_TIMEOUT_UNIT = TimeUnit.SECONDS;
+
+  private static final long FLUSH_TIMEOUT = 10;
   private static final TimeUnit FLUSH_TIMEOUT_UNIT = TimeUnit.SECONDS;
 
   public final KCLogger LOGGER = new KCLogger(this.getClass().toString());
@@ -65,35 +66,38 @@ public class FlushService {
   private ThreadPoolExecutor flushExecutorPool;
   private ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap;
 
+  // single threaded scheduler periodically tries flushing all tpchannels in the map. it uses the thread pool that should at max have 1 tpchannel : 1 thread, waiting for all threads to finish flushing before continuing
   private FlushService() {
     this.flushScheduler = Executors.newScheduledThreadPool(SCHEDULER_THREAD_COUNT);
     this.flushTaskQueue = new SynchronousQueue<Runnable>(true);
     this.flushExecutorPool =
         new ThreadPoolExecutor(
-            FLUSH_EXECUTOR_MIN_THREAD_COUNT,
-            FLUSH_EXECUTOR_MIN_THREAD_COUNT,
-            THREAD_TIMEOUT,
-            THREAD_TIMEOUT_UNIT,
+            EXECUTOR_MIN_THREAD_COUNT,
+            EXECUTOR_MIN_THREAD_COUNT,
+            EXECUTOR_THREAD_TIMEOUT,
+            EXECUTOR_THREAD_TIMEOUT_UNIT,
             this.flushTaskQueue);
     this.flushExecutorPool.allowCoreThreadTimeOut(true);
     this.topicPartitionsMap = new ConcurrentHashMap<>();
   }
 
   // schedule flushing
+  // concurrency considerations: should only be called from SnowflakeSinkConnector.java
   public void init() {
     this.flushScheduler.scheduleAtFixedRate(
         this::tryFlushTopicPartitionChannels,
-        FLUSH_SERVICE_DELAY_MS,
-        FLUSH_SERVICE_DELAY_MS,
+        SCHEDULER_DELAY_MS,
+        SCHEDULER_DELAY_MS,
         TimeUnit.MILLISECONDS);
     LOGGER.info(
         Utils.formatString(
             "begin flush checking {} channels with delay {}",
             this.topicPartitionsMap.size(),
-            FLUSH_SERVICE_DELAY_MS));
+            SCHEDULER_DELAY_MS));
   }
 
   // clear map, shutdown executors
+  // concurrency considerations: should only be called from SnowflakeSinkConnector.java
   public void shutdown() {
     LOGGER.info(
         Utils.formatString(
@@ -106,6 +110,7 @@ public class FlushService {
     this.flushExecutorPool.shutdown();
   }
 
+  // concurrency considerations: must handle concurrency, called from each tpchannel creation
   public void registerTopicPartitionChannel(
       TopicPartition topicPartition, TopicPartitionChannel topicPartitionChannel) {
     if (topicPartition == null || topicPartitionChannel == null) {
@@ -123,6 +128,7 @@ public class FlushService {
     this.flushExecutorPool.setMaximumPoolSize(this.topicPartitionsMap.size());
   }
 
+  // concurrency considerations: must handle concurrency, called from each tpchannel creation
   public void removeTopicPartitionChannel(TopicPartition topicPartition) {
     if (topicPartition != null && this.topicPartitionsMap.containsKey(topicPartition)) {
       this.topicPartitionsMap.get(topicPartition).tryFlushCurrentStreamingBuffer();
@@ -138,8 +144,14 @@ public class FlushService {
             "Topic partition is null or was not registered, unnecessary remove call"));
   }
 
+  // concurrency considerations: should only be called from scheduled thread, which is currently single threaded so it is ok
   public int tryFlushTopicPartitionChannels() {
-    long beginFlushTime = System.currentTimeMillis();
+    LOGGER.info(
+        Utils.formatString(
+            "FlushService checking {} channels against flush time threshold",
+            this.topicPartitionsMap.size()));
+
+    final long beginFlushTime = System.currentTimeMillis();
 
     if (this.flushExecutorPool.getMaximumPoolSize() != this.topicPartitionsMap.size()) {
       LOGGER.info(
@@ -149,13 +161,8 @@ public class FlushService {
       this.flushExecutorPool.setMaximumPoolSize(this.topicPartitionsMap.size());
     }
 
-    LOGGER.info(
-        Utils.formatString(
-            "FlushService checking {} channels against flush time threshold",
-            this.topicPartitionsMap.size()));
-
+    // start flushing
     List<Future> flushFutures = new ArrayList<>();
-
     for (TopicPartitionChannel topicPartitionChannel : this.topicPartitionsMap.values()) {
       // TODO @rcheng potential opt: faster to save buffer threshold locally vs accessing it every
       // time
@@ -169,35 +176,35 @@ public class FlushService {
           // TODO @rcheng: log
           throw e;
         } catch (RejectedExecutionException e) {
-          // TODO @rcheng: handle when max threads used is full, ok to swallow but queue bloat on
-          // just one flush
-          // throw e;
+          // really shouldnt happen?
           LOGGER.info("max threads used, unable to schedule another flush");
         }
       }
     }
 
-    long beginAwaitTime = System.currentTimeMillis();
+    // join all flush threads, we want to block on this to reduce thread usage and ensure 1:1 tpchannel to thread mapping
+    final long beginJoinTime = System.currentTimeMillis();
     flushFutures.forEach(
         future -> {
           try {
             future.get(FLUSH_TIMEOUT, FLUSH_TIMEOUT_UNIT);
-          } catch (InterruptedException e) {
-            throw new RuntimeException(e);
           } catch (ExecutionException e) {
             LOGGER.info("Channel flush failed execution");
           } catch (TimeoutException e) {
             LOGGER.info("Channel flush timed out");
+          } catch (Exception e) {
+            LOGGER.info("Unexpected exception, swallowing exception. message: {}, cause: {}", e.getMessage(), e.getCause());
           }
         });
 
+    // log info
     final long currTime = System.currentTimeMillis();
     LOGGER.info(
         Utils.formatString(
             "FlushService tried flushing on {} channels. {} ms to join threads, {} ms to try"
                 + " flush"),
         flushFutures.size(),
-        currTime - beginAwaitTime,
+        currTime - beginJoinTime,
         currTime - beginFlushTime);
 
     return flushFutures.size();

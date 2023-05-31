@@ -74,8 +74,8 @@ public class FlushServiceTest {
     verify(this.flushExecutor, times(1))
         .scheduleAtFixedRate(
             ArgumentMatchers.any(),
-            ArgumentMatchers.eq(FlushService.FLUSH_SERVICE_DELAY_MS),
-            ArgumentMatchers.eq(FlushService.FLUSH_SERVICE_DELAY_MS),
+            ArgumentMatchers.eq(FlushService.SCHEDULER_DELAY_MS),
+            ArgumentMatchers.eq(FlushService.SCHEDULER_DELAY_MS),
             ArgumentMatchers.eq(TimeUnit.MILLISECONDS));
   }
 

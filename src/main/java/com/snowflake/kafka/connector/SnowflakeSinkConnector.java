@@ -142,8 +142,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
       this.flushService.shutdown();
     } else if (FlushService.getFlushServiceInstance() != null) {
       FlushService.getFlushServiceInstance().shutdown();
-    } else {
-      // TODO @rcheng: log no flush service
     }
 
     LOGGER.info("SnowflakeSinkConnector:stopped");
