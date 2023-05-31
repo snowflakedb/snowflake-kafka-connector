@@ -22,11 +22,9 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -40,7 +38,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.apache.kafka.common.TopicPartition;
-import org.graalvm.compiler.core.common.util.Util;
 
 // TODO @rcheng: docs
 public class FlushService {
@@ -129,6 +126,8 @@ public class FlushService {
   }
 
   public int tryFlushTopicPartitionChannels() {
+    long beginFlushTime = System.currentTimeMillis();
+
     if (this.flushExecutorPool.getMaximumPoolSize() != this.topicPartitionsMap.size()) {
       LOGGER.info("max pool size was not set correctly. maxpoolsize: {}, mapsize: {}", this.flushExecutorPool.getMaximumPoolSize(), this.topicPartitionsMap.size());
       this.flushExecutorPool.setMaximumPoolSize(this.topicPartitionsMap.size());
@@ -173,7 +172,8 @@ public class FlushService {
       }
     });
 
-    LOGGER.info(Utils.formatString("FlushService tried flushing on {} channels. Took {} ms to join threads"), flushFutures.size(), System.currentTimeMillis() - beginAwaitTime);
+    final long currTime = System.currentTimeMillis();
+    LOGGER.info(Utils.formatString("FlushService tried flushing on {} channels. {} ms to join threads, {} ms to try flush"), flushFutures.size(), currTime - beginAwaitTime, currTime - beginFlushTime);
 
     return flushFutures.size();
   }
