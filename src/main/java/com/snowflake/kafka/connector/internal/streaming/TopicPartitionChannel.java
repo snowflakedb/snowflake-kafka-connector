@@ -296,9 +296,9 @@ public class TopicPartitionChannel {
         this.streamingBuffer.insert(kafkaSinkRecord);
         this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
         // # of records or size based flushing
-        if (this.streamingBufferThreshold.isFlushBufferedBytesBased(
+        if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
                 streamingBuffer.getBufferSizeBytes())
-            || this.streamingBufferThreshold.isFlushBufferedRecordCountBased(
+            || this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
                 streamingBuffer.getNumOfRecords())) {
           copiedStreamingBuffer = streamingBuffer;
           this.streamingBuffer = new StreamingBuffer();
@@ -441,7 +441,7 @@ public class TopicPartitionChannel {
    * <p>Previous flush time here means last time we called insertRows API with rows present in
    */
   protected void insertBufferedRecordsIfFlushTimeThresholdReached() {
-    if (this.streamingBufferThreshold.isFlushTimeBased(this.previousFlushTimeStampMs)) {
+    if (this.streamingBufferThreshold.shouldFlushOnBufferTime(this.previousFlushTimeStampMs)) {
       LOGGER.debug(
           "Time based flush for channel:{}, CurrentTimeMs:{}, previousFlushTimeMs:{},"
               + " bufferThresholdSeconds:{}",
