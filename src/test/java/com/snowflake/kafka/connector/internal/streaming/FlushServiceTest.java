@@ -17,33 +17,22 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.internal.streaming.FlushService.FLUSH_TIMEOUT;
-import static com.snowflake.kafka.connector.internal.streaming.FlushService.FLUSH_TIMEOUT_UNIT;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
-import com.ctc.wstx.io.BufferRecycler;
-import com.snowflake.kafka.connector.internal.BufferThreshold;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
 import org.apache.kafka.common.TopicPartition;
 import org.junit.After;
 import org.junit.Before;
@@ -188,7 +177,8 @@ public class FlushServiceTest {
   }
 
   @Test
-  public void testTryFlushPartitionChannels() throws ExecutionException, InterruptedException, TimeoutException {
+  public void testTryFlushPartitionChannels()
+      throws ExecutionException, InterruptedException, TimeoutException {
     this.shouldCallFlushPoolExecutor = true;
     when(this.flushPoolExecutor.getMaximumPoolSize()).thenReturn(2);
 
