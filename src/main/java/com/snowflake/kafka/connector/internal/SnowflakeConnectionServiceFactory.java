@@ -61,7 +61,6 @@ public class SnowflakeConnectionServiceFactory {
         throw SnowflakeErrors.ERROR_0017.getException();
       }
       this.url = new SnowflakeURL(conf.get(Utils.SF_URL));
-      this.prop = InternalUtils.createProperties(conf, this.url.sslEnabled());
       this.kafkaProvider =
           SnowflakeSinkConnectorConfig.KafkaProvider.of(conf.get(PROVIDER_CONFIG)).name();
       // TODO: Ideally only one property is required, but because we dont pass it around in JDBC and
@@ -72,6 +71,8 @@ public class SnowflakeConnectionServiceFactory {
       this.proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
       this.connectorName = conf.get(Utils.NAME);
       this.ingestionMethodConfig = IngestionMethodConfig.determineIngestionMethod(conf);
+      this.prop =
+          InternalUtils.createProperties(conf, this.url.sslEnabled(), ingestionMethodConfig);
       return this;
     }
 

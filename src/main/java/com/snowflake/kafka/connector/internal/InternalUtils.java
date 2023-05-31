@@ -1,7 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
@@ -18,6 +20,7 @@ import net.snowflake.client.core.SFSessionProperty;
 import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
 import net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import net.snowflake.ingest.connection.IngestStatus;
+import org.graalvm.compiler.core.common.util.Util;
 
 class InternalUtils {
   // JDBC parameter list
@@ -105,14 +108,20 @@ class InternalUtils {
     return date;
   }
 
+  static Properties createProperties(Map<String, String> conf, boolean sslEnabled) {
+    return createProperties(conf, sslEnabled, IngestionMethodConfig.SNOWPIPE);
+  }
+
   /**
    * create a properties for snowflake connection
    *
    * @param conf a map contains all parameters
    * @param sslEnabled if ssl is enabled
+   * @param ingestionMethodConfig which ingestion method is provided.
    * @return a Properties instance
    */
-  static Properties createProperties(Map<String, String> conf, boolean sslEnabled) {
+  static Properties createProperties(
+      Map<String, String> conf, boolean sslEnabled, IngestionMethodConfig ingestionMethodConfig) {
     Properties properties = new Properties();
 
     // decrypt rsa key
@@ -169,6 +178,17 @@ class InternalUtils {
      *     Documentation Release Notes </a>
      */
     properties.put(SFSessionProperty.ALLOW_UNDERSCORES_IN_HOST.getPropertyKey(), "true");
+
+    if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE_STREAMING) {
+      final String providedSFRoleInConfig = conf.get(Utils.SF_ROLE);
+      if (!Strings.isNullOrEmpty(providedSFRoleInConfig)) {
+        LOGGER.debug("Using provided role {} for JDBC connection.", providedSFRoleInConfig);
+        properties.put(SFSessionProperty.ROLE, providedSFRoleInConfig);
+      }
+      else {
+        LOGGER.debug("No role is provided, default role for the user will be used for JDBC connection.");
+      }
+    }
 
     // required parameter check
     if (!properties.containsKey(JDBC_PRIVATE_KEY)) {
