@@ -301,7 +301,8 @@ public class SnowflakeSinkTask extends SinkTask {
 
     getSink().insert(records);
 
-    logWarningForPutAndPrecommit(startTime, Utils.formatString("called PUT with {} records", recordSize));
+    logWarningForPutAndPrecommit(
+        startTime, Utils.formatString("called PUT with {} records", recordSize));
   }
 
   /**
@@ -345,7 +346,12 @@ public class SnowflakeSinkTask extends SinkTask {
       this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
     }
 
-    logWarningForPutAndPrecommit(startTime, Utils.formatString("called PRECOMMIT on all {} partitions, safe to commit {} partitions", offsets.size(), committedOffsets.size()));
+    logWarningForPutAndPrecommit(
+        startTime,
+        Utils.formatString(
+            "called PRECOMMIT on all {} partitions, safe to commit {} partitions",
+            offsets.size(),
+            committedOffsets.size()));
     return committedOffsets;
   }
 
@@ -396,15 +402,16 @@ public class SnowflakeSinkTask extends SinkTask {
 
   void logWarningForPutAndPrecommit(long startTime, String logContent) {
     final long executionTimeMs = getDurationFromStartMs(startTime);
-    String logExecutionContent = Utils.formatString("{}, executionTime: {} ms", logContent, executionTimeMs);
+    String logExecutionContent =
+        Utils.formatString("{}, executionTime: {} ms", logContent, executionTimeMs);
 
     if (executionTimeMs > 300000) {
       // This won't be frequently printed. It is vary rare to have execution greater than 300
       // seconds.
       // But having this warning helps customer to debug their Kafka Connect config.
       this.DYNAMIC_LOGGER.warn(
-          "{}. Expected call to be under {} ms. If there is CommitFailedException in the"
-              + " log or there is duplicated records, refer to this link for solution: "
+          "{}. Expected call to be under {} ms. If there is CommitFailedException in the log or"
+              + " there is duplicated records, refer to this link for solution: "
               + "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
           logExecutionContent,
           executionTimeMs);
