@@ -265,7 +265,6 @@ public class TopicPartitionChannel {
       this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
     }
 
-    // register with flush service for background flushing
     FlushService.getFlushServiceInstance().registerTopicPartitionChannel(this.topicPartition, this);
   }
 
@@ -1011,8 +1010,6 @@ public class TopicPartitionChannel {
               this.getChannelName(), e.getMessage());
       this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
       LOGGER.error(errMsg, e);
-    } finally {
-      FlushService.getFlushServiceInstance().removeTopicPartitionChannel(this.topicPartition);
     }
   }
 

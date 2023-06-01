@@ -113,8 +113,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     telemetryClient.reportKafkaConnectStart(connectorStartTime, this.config);
 
-    setupComplete = true;
-
     this.flushService = FlushService.getFlushServiceInstance();
     if (this.flushService != null) {
       this.flushService.init();
@@ -123,6 +121,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
     }
 
     LOGGER.info("SnowflakeSinkConnector:started");
+
+    setupComplete = true;
   }
 
   /**
@@ -139,9 +139,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     // shutdown flush service
     if (this.flushService != null) {
-      this.flushService.shutdown();
+      this.flushService.shutdown(true);
     } else if (FlushService.getFlushServiceInstance() != null) {
-      FlushService.getFlushServiceInstance().shutdown();
+      FlushService.getFlushServiceInstance().shutdown(true);
     }
 
     LOGGER.info("SnowflakeSinkConnector:stopped");

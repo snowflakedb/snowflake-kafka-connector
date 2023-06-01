@@ -31,6 +31,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -63,6 +64,7 @@ public class FlushService {
   public final KCLogger LOGGER = new KCLogger(this.getClass().toString());
 
   private ScheduledExecutorService flushScheduler;
+  private ScheduledFuture flushScheduleFuture;
   private BlockingQueue<Runnable> flushTaskQueue;
   private ThreadPoolExecutor flushExecutorPool;
   private ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap;
@@ -72,6 +74,7 @@ public class FlushService {
   // flushing before continuing
   private FlushService() {
     this.flushScheduler = Executors.newScheduledThreadPool(SCHEDULER_THREAD_COUNT);
+    this.flushScheduleFuture = null;
     this.flushTaskQueue = new SynchronousQueue<Runnable>(true);
     this.flushExecutorPool =
         new ThreadPoolExecutor(
@@ -87,7 +90,7 @@ public class FlushService {
   // schedule flushing
   // concurrency considerations: should only be called from SnowflakeSinkConnector.java
   public void init() {
-    this.flushScheduler.scheduleAtFixedRate(
+    this.flushScheduleFuture = this.flushScheduler.scheduleAtFixedRate(
         this::tryFlushTopicPartitionChannels,
         SCHEDULER_DELAY_MS,
         SCHEDULER_DELAY_MS,
@@ -101,16 +104,26 @@ public class FlushService {
 
   // clear map, shutdown executors
   // concurrency considerations: should only be called from SnowflakeSinkConnector.java
-  public void shutdown() {
+  public void shutdown(boolean shouldForceFlush) {
     LOGGER.info(
         Utils.formatString(
-            "shutting down flush service, there are {} channels, ",
+            "shutting down flush service, flushing all {} channels, ",
             this.topicPartitionsMap.size()));
-    this.topicPartitionsMap = new ConcurrentHashMap<>();
+
 
     // shut down scheduler before pool
-    this.flushScheduler.shutdown();
-    this.flushExecutorPool.shutdown();
+    try {
+      this.flushScheduler.awaitTermination(FLUSH_TIMEOUT, FLUSH_TIMEOUT_UNIT);
+      this.flushExecutorPool.awaitTermination(FLUSH_TIMEOUT, FLUSH_TIMEOUT_UNIT);
+    } catch (InterruptedException e) {
+      LOGGER.info("failed to terminate threads");
+      throw new RuntimeException(e);
+    }
+
+    if (shouldForceFlush) {
+      this.tryFlushTopicPartitionChannels();
+    }
+    this.topicPartitionsMap = new ConcurrentHashMap<>();
   }
 
   // concurrency considerations: must handle concurrency, called from each tpchannel creation
@@ -132,17 +145,18 @@ public class FlushService {
 
   // concurrency considerations: must handle concurrency, called from each tpchannel creation
   public void removeTopicPartitionChannel(TopicPartition topicPartition) {
-    if (topicPartition != null && this.topicPartitionsMap.containsKey(topicPartition)) {
-      this.topicPartitionsMap.get(topicPartition).tryFlushCurrentStreamingBuffer();
-      this.topicPartitionsMap.remove(topicPartition);
+    if (topicPartition == null || !this.topicPartitionsMap.containsKey(topicPartition)) {
       LOGGER.info(
           Utils.formatString(
-              "Removing channel for topic partition: {}", topicPartition.toString()));
+              "Invalid topic partition given for removal. TopicPartition: {}", topicPartition == null ? "null" : topicPartition.toString()));
       return;
     }
+
+    this.topicPartitionsMap.get(topicPartition).tryFlushCurrentStreamingBuffer();
+    this.topicPartitionsMap.remove(topicPartition);
     LOGGER.info(
         Utils.formatString(
-            "Topic partition is null or was not registered, unnecessary remove call"));
+            "Removing channel for topic partition: {}", topicPartition.toString()));
   }
 
   // concurrency considerations: should only be called from scheduled thread, which is currently
@@ -220,18 +234,21 @@ public class FlushService {
   @VisibleForTesting
   public static FlushService getFlushServiceForTests(
       ScheduledExecutorService flushExecutor,
+      ScheduledFuture flushScheduleFuture,
       ScheduledThreadPoolExecutor flushExecutorPool,
       ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap) {
-    return new FlushService(flushExecutor, flushExecutorPool, topicPartitionsMap);
+    return new FlushService(flushExecutor, flushScheduleFuture, flushExecutorPool, topicPartitionsMap);
   }
 
   @VisibleForTesting
   private FlushService(
       ScheduledExecutorService flushScheduler,
+      ScheduledFuture flushScheduleFuture,
       ScheduledThreadPoolExecutor flushExecutorPool,
       ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap) {
     super();
     this.flushScheduler = flushScheduler;
+    this.flushScheduleFuture = flushScheduleFuture;
     this.flushExecutorPool = flushExecutorPool;
     this.topicPartitionsMap = topicPartitionsMap;
   }
