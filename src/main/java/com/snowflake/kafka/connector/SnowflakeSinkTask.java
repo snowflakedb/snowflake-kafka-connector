@@ -147,7 +147,7 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
-    this.DYNAMIC_LOGGER.debug("starting task...");
+    this.DYNAMIC_LOGGER.info("starting task...");
 
     // get task id and start time
     this.taskStartTime = System.currentTimeMillis();
@@ -227,7 +227,7 @@ public class SnowflakeSinkTask extends SinkTask {
             .setSinkTaskContext(this.context)
             .build();
 
-    DYNAMIC_LOGGER.debug(
+    DYNAMIC_LOGGER.info(
         "task started, execution time: {} milliseconds",
         this.taskConfigId,
         getDurationFromStartMs(this.taskStartTime));
@@ -243,7 +243,7 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.setIsStoppedToTrue(); // close cleaner thread
     }
 
-    this.DYNAMIC_LOGGER.debug(
+    this.DYNAMIC_LOGGER.info(
         "task stopped, total task runtime: {} milliseconds",
         getDurationFromStartMs(this.taskStartTime));
   }
@@ -258,7 +258,7 @@ public class SnowflakeSinkTask extends SinkTask {
     long startTime = System.currentTimeMillis();
     partitions.forEach(
         tp -> this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp));
-    this.DYNAMIC_LOGGER.debug(
+    this.DYNAMIC_LOGGER.info(
         "task opened with {} partitions, execution time: {} milliseconds",
         partitions.size(),
         getDurationFromStartMs(startTime));
@@ -279,7 +279,7 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.close(partitions);
     }
 
-    this.DYNAMIC_LOGGER.debug(
+    this.DYNAMIC_LOGGER.info(
         "task closed, execution time: {} milliseconds",
         this.taskConfigId,
         getDurationFromStartMs(startTime));
@@ -292,15 +292,16 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void put(final Collection<SinkRecord> records) {
-    if (enableRebalancing && records.size() > 0) {
+    final long recordSize = records.size();
+    if (enableRebalancing && recordSize > 0) {
       processRebalancingTest();
     }
 
-    long startTime = System.currentTimeMillis();
+    final long startTime = System.currentTimeMillis();
 
     getSink().insert(records);
 
-    logWarningForPutAndPrecommit(startTime, records.size(), "put");
+    logWarningForPutAndPrecommit(startTime, Utils.formatString("called PUT with {} records", recordSize));
   }
 
   /**
@@ -344,7 +345,7 @@ public class SnowflakeSinkTask extends SinkTask {
       this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
     }
 
-    logWarningForPutAndPrecommit(startTime, offsets.size(), "precommit");
+    logWarningForPutAndPrecommit(startTime, Utils.formatString("called PRECOMMIT on all {} partitions, safe to commit {} partitions", offsets.size(), committedOffsets.size()));
     return committedOffsets;
   }
 
@@ -393,26 +394,22 @@ public class SnowflakeSinkTask extends SinkTask {
     return currTime - startTime;
   }
 
-  void logWarningForPutAndPrecommit(long startTime, int size, String apiName) {
-    long executionTimeMs = getDurationFromStartMs(startTime);
+  void logWarningForPutAndPrecommit(long startTime, String logContent) {
+    final long executionTimeMs = getDurationFromStartMs(startTime);
+    String logExecutionContent = Utils.formatString("{}, executionTime: {} ms", logContent, executionTimeMs);
+
     if (executionTimeMs > 300000) {
       // This won't be frequently printed. It is vary rare to have execution greater than 300
       // seconds.
       // But having this warning helps customer to debug their Kafka Connect config.
       this.DYNAMIC_LOGGER.warn(
-          "{} {}. Time: {} ms = {} seconds > 300 seconds. If there is CommitFailedException in the"
+          "{}. Expected call to be under {} ms. If there is CommitFailedException in the"
               + " log or there is duplicated records, refer to this link for solution: "
               + "https://docs.snowflake.com/en/user-guide/kafka-connector-ts.html#resolving-specific-issues",
-          apiName,
-          size,
-          executionTimeMs,
-          executionTimeMs / 1000);
-    } else {
-      this.DYNAMIC_LOGGER.info(
-          "successfully called {} with {} records, execution time: {} ms",
-          apiName,
-          size,
+          logExecutionContent,
           executionTimeMs);
+    } else {
+      this.DYNAMIC_LOGGER.info("Successfully " + logExecutionContent);
     }
   }
 
