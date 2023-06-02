@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
@@ -34,9 +33,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.kafka.common.TopicPartition;
-import org.eclipse.jetty.util.thread.ThreadPool;
 
 /**
  * This class checks and tries to flush the buffer in all {@link TopicPartitionChannel}.
@@ -127,17 +124,25 @@ public class FlushService {
 
     // shut down scheduler before pool
     try {
-      boolean didFlushSchedulerTerminate = this.flushScheduler.awaitTermination(THREAD_TIMEOUT, THREAD_TIMEOUT_UNIT);
-      boolean didFlushExecutorPoolTerminate = this.flushExecutorPool.awaitTermination(THREAD_TIMEOUT, THREAD_TIMEOUT_UNIT);
+      boolean didFlushSchedulerTerminate =
+          this.flushScheduler.awaitTermination(THREAD_TIMEOUT, THREAD_TIMEOUT_UNIT);
+      boolean didFlushExecutorPoolTerminate =
+          this.flushExecutorPool.awaitTermination(THREAD_TIMEOUT, THREAD_TIMEOUT_UNIT);
       if (!didFlushSchedulerTerminate || !didFlushExecutorPoolTerminate) {
-        LOGGER.warn("Unable to shut down flush service threads, exceeded thread timeout: {} seconds", THREAD_TIMEOUT);
+        LOGGER.warn(
+            "Unable to shut down flush service threads, exceeded thread timeout: {} seconds",
+            THREAD_TIMEOUT);
       }
     } catch (InterruptedException ex) {
-      LOGGER.info(Utils.getCustomExceptionStr("Interrupted while trying to shut down flush service threads", ex));
+      LOGGER.info(
+          Utils.getCustomExceptionStr(
+              "Interrupted while trying to shut down flush service threads", ex));
     }
 
     // flush all partitions
-    this.topicPartitionsMap.values().forEach(tpChannel -> tpChannel.tryFlushCurrentStreamingBuffer(true));
+    this.topicPartitionsMap
+        .values()
+        .forEach(tpChannel -> tpChannel.tryFlushCurrentStreamingBuffer(true));
     this.topicPartitionsMap = new ConcurrentHashMap<>();
   }
 
@@ -215,17 +220,23 @@ public class FlushService {
           .shouldFlushOnBufferTime(topicPartitionChannel.getPreviousFlushTimeStampMs())) {
         try {
           flushFutures.add(
-              this.flushExecutorPool.submit(() -> topicPartitionChannel.tryFlushCurrentStreamingBuffer(false)));
+              this.flushExecutorPool.submit(
+                  () -> topicPartitionChannel.tryFlushCurrentStreamingBuffer(false)));
         } catch (RejectedExecutionException ex) {
           // RejectedExecutionException thrown if there are no idle threads
-          LOGGER.warn(Utils.getCustomExceptionStr("No available thread to flush channel " + topicPartitionChannel.toString(), ex));
+          LOGGER.warn(
+              Utils.getCustomExceptionStr(
+                  "No available thread to flush channel " + topicPartitionChannel.toString(), ex));
         } catch (Exception ex) {
-          LOGGER.warn(Utils.getCustomExceptionStr("Unable to flush channel " + topicPartitionChannel.toString(), ex));
+          LOGGER.warn(
+              Utils.getCustomExceptionStr(
+                  "Unable to flush channel " + topicPartitionChannel.toString(), ex));
         }
       }
     }
 
-    // join all flush threads, we want to block on this to and ensure 1:1 tpChannel to thread mapping
+    // join all flush threads, we want to block on this to and ensure 1:1 tpChannel to thread
+    // mapping
     final long beginJoinTime = System.currentTimeMillis();
     flushFutures.forEach(
         future -> {
@@ -233,7 +244,8 @@ public class FlushService {
             future.get(THREAD_TIMEOUT, THREAD_TIMEOUT_UNIT);
           } catch (Exception ex) {
             // future.get
-            LOGGER.warn(Utils.getCustomExceptionStr("Unexpected exception during flush execution", ex));
+            LOGGER.warn(
+                Utils.getCustomExceptionStr("Unexpected exception during flush execution", ex));
           }
         });
 
@@ -241,7 +253,8 @@ public class FlushService {
 
     LOGGER.info(
         Utils.formatString(
-            "FlushService tried flushing on {} / {} channels that hit the flush time threshold. Max flush execution time: {}"),
+            "FlushService tried flushing on {} / {} channels that hit the flush time threshold. Max"
+                + " flush execution time: {}"),
         tryFlushCount,
         this.topicPartitionsMap.size(),
         System.currentTimeMillis() - beginJoinTime);

@@ -23,24 +23,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
-import com.snowflake.kafka.connector.internal.TestUtils;
-import net.snowflake.ingest.internal.apache.arrow.flatbuf.Null;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.After;
 import org.junit.Before;
@@ -69,9 +61,7 @@ public class FlushServiceTest {
     this.topicPartitionsMap = new ConcurrentHashMap<>();
     this.flushService =
         FlushService.getFlushServiceForTests(
-            this.flushScheduler,
-            this.flushPoolExecutor,
-            this.topicPartitionsMap);
+            this.flushScheduler, this.flushPoolExecutor, this.topicPartitionsMap);
 
     // init test mocks
     this.validTp0 = new TopicPartition("validTopic0", 0);
@@ -133,7 +123,8 @@ public class FlushServiceTest {
             any(),
             ArgumentMatchers.eq(FlushService.SCHEDULER_DELAY_MS),
             ArgumentMatchers.eq(FlushService.SCHEDULER_DELAY_MS),
-            ArgumentMatchers.eq(TimeUnit.MILLISECONDS))).thenThrow(exToThrow);
+            ArgumentMatchers.eq(TimeUnit.MILLISECONDS)))
+        .thenThrow(exToThrow);
 
     // test activate doesn't throw error
     this.flushService.activate();
@@ -158,14 +149,18 @@ public class FlushServiceTest {
     this.testShutdownFailureRunner(false, false);
   }
 
-  private void testShutdownFailureRunner(boolean shouldFlushSchedulerTerminate, boolean shouldFlushPoolExecutorTerminate) throws InterruptedException {
+  private void testShutdownFailureRunner(
+      boolean shouldFlushSchedulerTerminate, boolean shouldFlushPoolExecutorTerminate)
+      throws InterruptedException {
     this.runnerIteration++;
 
     // setup with one channel
     this.topicPartitionsMap.put(this.validTp0, this.validTpChannel0);
 
-    when(this.flushScheduler.awaitTermination(anyLong(), any())).thenReturn(shouldFlushSchedulerTerminate);
-    when(this.flushPoolExecutor.awaitTermination(anyLong(), any())).thenReturn(shouldFlushPoolExecutorTerminate);
+    when(this.flushScheduler.awaitTermination(anyLong(), any()))
+        .thenReturn(shouldFlushSchedulerTerminate);
+    when(this.flushPoolExecutor.awaitTermination(anyLong(), any()))
+        .thenReturn(shouldFlushPoolExecutorTerminate);
 
     // test shutdown shouldn't crash
     this.flushService.shutdown();
@@ -267,9 +262,7 @@ public class FlushServiceTest {
 
     this.flushService =
         FlushService.getFlushServiceForTests(
-            this.flushScheduler,
-            this.flushPoolExecutor,
-            this.topicPartitionsMap);
+            this.flushScheduler, this.flushPoolExecutor, this.topicPartitionsMap);
 
     // test flush
     int flushCount = this.flushService.tryFlushTopicPartitionChannels();
@@ -293,9 +286,7 @@ public class FlushServiceTest {
   public void testTryFlushZeroPartitionChannels() {
     this.flushService =
         FlushService.getFlushServiceForTests(
-            this.flushScheduler,
-            this.flushPoolExecutor,
-            this.topicPartitionsMap);
+            this.flushScheduler, this.flushPoolExecutor, this.topicPartitionsMap);
 
     // test flush does nothing
     assert this.flushService.tryFlushTopicPartitionChannels() == 0;
@@ -309,9 +300,7 @@ public class FlushServiceTest {
 
     this.flushService =
         FlushService.getFlushServiceForTests(
-            flushScheduler,
-            flushPoolExecutor,
-            this.topicPartitionsMap);
+            flushScheduler, flushPoolExecutor, this.topicPartitionsMap);
 
     // test and verify activate scheduler
     this.flushService.activate();
@@ -356,23 +345,3 @@ public class FlushServiceTest {
     assert this.flushService.getTopicPartitionsMap().size() == 0;
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

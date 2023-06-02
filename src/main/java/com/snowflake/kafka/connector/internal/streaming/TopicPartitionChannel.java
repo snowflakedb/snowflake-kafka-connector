@@ -420,8 +420,11 @@ public class TopicPartitionChannel {
       }
 
       // force flush if required, otherwise check buffer thresholds
-      this.streamingBuffer.setFlushReason(isForceFlush ? BufferThreshold.FlushReason.KC_FORCED_FLUSH
-          : this.streamingBufferThreshold.shouldFlushOnThreshold(this.previousFlushTimeStampMs, currBufferByteSize, currBufferRecordCount));
+      this.streamingBuffer.setFlushReason(
+          isForceFlush
+              ? BufferThreshold.FlushReason.KC_FORCED_FLUSH
+              : this.streamingBufferThreshold.shouldFlushOnThreshold(
+                  this.previousFlushTimeStampMs, currBufferByteSize, currBufferRecordCount));
 
       // get flushable streaming buffer and reset current buffer
       if (!this.streamingBuffer.getFlushReason().equals(BufferThreshold.FlushReason.NONE)) {

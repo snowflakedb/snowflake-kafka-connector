@@ -112,8 +112,7 @@ public abstract class BufferThreshold {
    * @return true if the currRecordCount > configRecordCountThreshold
    */
   public boolean shouldFlushOnBufferRecordCount(final long currBufferedRecordCount) {
-    return currBufferedRecordCount != 0
-        && currBufferedRecordCount >= bufferRecordCountThreshold;
+    return currBufferedRecordCount != 0 && currBufferedRecordCount >= bufferRecordCountThreshold;
   }
 
   /**
@@ -138,14 +137,18 @@ public abstract class BufferThreshold {
    * @param currBufferedRecordCount The current count of records in the buffer
    * @return A flush reason
    */
-  public FlushReason shouldFlushOnThreshold(final long previousFlushTimeStampMs, final long currBufferByteSize, final long currBufferedRecordCount) {
+  public FlushReason shouldFlushOnThreshold(
+      final long previousFlushTimeStampMs,
+      final long currBufferByteSize,
+      final long currBufferedRecordCount) {
     if (currBufferByteSize >= bufferByteSizeThreshold) {
       return FlushReason.BUFFER_BYTE_SIZE;
     }
     if (currBufferedRecordCount >= bufferRecordCountThreshold) {
       return FlushReason.BUFFER_RECORD_COUNT;
     }
-    if (System.currentTimeMillis() - previousFlushTimeStampMs >= (this.bufferFlushTimeThresholdMs)) {
+    if (System.currentTimeMillis() - previousFlushTimeStampMs
+        >= (this.bufferFlushTimeThresholdMs)) {
       return FlushReason.BUFFER_FLUSH_TIME;
     }
 

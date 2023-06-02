@@ -15,9 +15,6 @@ public class StreamingBufferThreshold extends BufferThreshold {
       long bufferFlushTimeThreshold,
       long bufferByteSizeThreshold,
       long bufferRecordCountThreshold) {
-    super(
-        bufferFlushTimeThreshold,
-        bufferByteSizeThreshold,
-        bufferRecordCountThreshold);
+    super(bufferFlushTimeThreshold, bufferByteSizeThreshold, bufferRecordCountThreshold);
   }
 }
