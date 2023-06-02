@@ -115,7 +115,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     this.flushService = FlushService.getFlushServiceInstance();
     if (this.flushService != null) {
-      this.flushService.init();
+      this.flushService.activate();
     } else {
       LOGGER.info("unable to get flushService");
     }
@@ -139,9 +139,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     // shutdown flush service
     if (this.flushService != null) {
-      this.flushService.shutdown(true);
+      this.flushService.shutdown();
     } else if (FlushService.getFlushServiceInstance() != null) {
-      FlushService.getFlushServiceInstance().shutdown(true);
+      FlushService.getFlushServiceInstance().shutdown();
     }
 
     LOGGER.info("SnowflakeSinkConnector:stopped");

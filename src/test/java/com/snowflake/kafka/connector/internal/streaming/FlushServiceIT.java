@@ -1,4 +1,4 @@
-///*
+/// *
 // * Copyright (c) 2023 Snowflake Inc. All rights reserved.
 // *
 // * Licensed under the Apache License, Version 2.0 (the
@@ -15,12 +15,12 @@
 // * under the License.
 // */
 //
-//package com.snowflake.kafka.connector.internal.streaming;
+// package com.snowflake.kafka.connector.internal.streaming;
 //
-//import org.junit.After;
-//import org.junit.Test;
+// import org.junit.After;
+// import org.junit.Test;
 //
-//public class FlushServiceIT {
+// public class FlushServiceIT {
 //  private FlushService flushService;
 //
 //  @After
@@ -65,4 +65,4 @@
 //    //
 //    //    this.flushService.shutdown();
 //  }
-//}
+// }

@@ -21,9 +21,6 @@ import java.util.concurrent.TimeUnit;
 public abstract class BufferThreshold {
   private static final KCLogger LOGGER = new KCLogger(BufferThreshold.class.getName());
 
-  // What ingestion method is defined in connector.
-  private final IngestionMethodConfig ingestionMethodConfig;
-
   /**
    * Time based buffer flush threshold in seconds. Corresponds to the duration since last kafka
    * flush Set in config
@@ -59,6 +56,7 @@ public abstract class BufferThreshold {
     BUFFER_FLUSH_TIME(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC),
     BUFFER_BYTE_SIZE(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES),
     BUFFER_RECORD_COUNT(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS),
+    KC_FORCED_FLUSH("kc forced flush");
     ;
 
     private final String str;
@@ -76,18 +74,15 @@ public abstract class BufferThreshold {
   /**
    * Public constructor
    *
-   * @param ingestionMethodConfig enum accepting ingestion method (selected in config json)
    * @param bufferFlushTimeThreshold flush time threshold in seconds given in connector config
    * @param bufferByteSizeThreshold buffer size threshold in bytes given in connector config
    * @param bufferRecordCountThreshold record count threshold in number of kafka records given in
    *     connector config
    */
   public BufferThreshold(
-      IngestionMethodConfig ingestionMethodConfig,
       long bufferFlushTimeThreshold,
       long bufferByteSizeThreshold,
       long bufferRecordCountThreshold) {
-    this.ingestionMethodConfig = ingestionMethodConfig;
     this.bufferFlushTimeThreshold = bufferFlushTimeThreshold;
     this.bufferFlushTimeThresholdMs = TimeUnit.SECONDS.toMillis(this.bufferFlushTimeThreshold);
     this.bufferByteSizeThreshold = bufferByteSizeThreshold;
@@ -113,12 +108,12 @@ public abstract class BufferThreshold {
    * <p>Threshold is config parameter: {@link
    * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_COUNT_RECORDS}
    *
-   * @param currentBufferedRecordCount current size of buffer in number of kafka records
+   * @param currBufferedRecordCount current size of buffer in number of kafka records
    * @return true if the currRecordCount > configRecordCountThreshold
    */
-  public boolean shouldFlushOnBufferRecordCount(final long currentBufferedRecordCount) {
-    return currentBufferedRecordCount != 0
-        && currentBufferedRecordCount >= bufferRecordCountThreshold;
+  public boolean shouldFlushOnBufferRecordCount(final long currBufferedRecordCount) {
+    return currBufferedRecordCount != 0
+        && currBufferedRecordCount >= bufferRecordCountThreshold;
   }
 
   /**
@@ -133,6 +128,28 @@ public abstract class BufferThreshold {
   public boolean shouldFlushOnBufferTime(final long previousFlushTimeStampMs) {
     final long currentTimeMs = System.currentTimeMillis();
     return (currentTimeMs - previousFlushTimeStampMs) >= (this.bufferFlushTimeThresholdMs);
+  }
+
+  /**
+   * Check if the buffer should flush
+   *
+   * @param previousFlushTimeStampMs Last time the buffer flushed
+   * @param currBufferByteSize The current size of the buffer
+   * @param currBufferedRecordCount The current count of records in the buffer
+   * @return A flush reason
+   */
+  public FlushReason shouldFlushOnThreshold(final long previousFlushTimeStampMs, final long currBufferByteSize, final long currBufferedRecordCount) {
+    if (currBufferByteSize >= bufferByteSizeThreshold) {
+      return FlushReason.BUFFER_BYTE_SIZE;
+    }
+    if (currBufferedRecordCount >= bufferRecordCountThreshold) {
+      return FlushReason.BUFFER_RECORD_COUNT;
+    }
+    if (System.currentTimeMillis() - previousFlushTimeStampMs >= (this.bufferFlushTimeThresholdMs)) {
+      return FlushReason.BUFFER_FLUSH_TIME;
+    }
+
+    return FlushReason.NONE;
   }
 
   /** Returns the buffer flush time threshold */

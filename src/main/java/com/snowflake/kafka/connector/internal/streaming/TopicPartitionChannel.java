@@ -204,7 +204,7 @@ public class TopicPartitionChannel {
    * @param tableName table to ingest in snowflake
    * @param streamingBufferThreshold bytes, count of records and flush time thresholds.
    * @param sfConnectorConfig configuration set for snowflake connector
-   * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
+   * @param kafkaRecordErrorReporter kafka error reporter for sending records to DLQ
    * @param sinkTaskContext context on Kafka Connect's runtime
    * @param conn the snowflake connection service
    * @param recordService record service for processing incoming offsets from Kafka
@@ -296,7 +296,7 @@ public class TopicPartitionChannel {
       this.streamingBuffer.insert(kafkaSinkRecord);
       this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
 
-      this.tryFlushCurrentStreamingBuffer();
+      this.tryFlushCurrentStreamingBuffer(false);
     } else {
       LOGGER.debug(
           "Skip adding offset:{} to buffer for channel:{} because"
@@ -404,30 +404,31 @@ public class TopicPartitionChannel {
         record.headers());
   }
 
-  protected BufferThreshold.FlushReason tryFlushCurrentStreamingBuffer() {
+  protected BufferThreshold.FlushReason tryFlushCurrentStreamingBuffer(boolean isForceFlush) {
     StreamingBuffer flushableStreamingBuffer = null;
 
     try {
       this.bufferLock.lock();
+
       long currBufferByteSize = this.streamingBuffer.getBufferSizeBytes();
       long currBufferRecordCount = this.streamingBuffer.getSinkRecords().size();
 
-      // check if buffer can flush
-      if (this.streamingBufferThreshold.shouldFlushOnBufferTime(this.previousFlushTimeStampMs)) {
-        this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_FLUSH_TIME);
-      } else if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(currBufferByteSize)) {
-        this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_BYTE_SIZE);
-      } else if (this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
-          currBufferRecordCount)) {
-        this.streamingBuffer.setFlushReason(BufferThreshold.FlushReason.BUFFER_RECORD_COUNT);
+      // return early if there is nothing in buffer
+      if (currBufferByteSize == 0 || currBufferRecordCount == 0) {
+        LOGGER.debug("No data in buffer, will not flush");
+        return BufferThreshold.FlushReason.NONE;
       }
+
+      // force flush if required, otherwise check buffer thresholds
+      this.streamingBuffer.setFlushReason(isForceFlush ? BufferThreshold.FlushReason.KC_FORCED_FLUSH
+          : this.streamingBufferThreshold.shouldFlushOnThreshold(this.previousFlushTimeStampMs, currBufferByteSize, currBufferRecordCount));
 
       // get flushable streaming buffer and reset current buffer
       if (!this.streamingBuffer.getFlushReason().equals(BufferThreshold.FlushReason.NONE)) {
         flushableStreamingBuffer = this.streamingBuffer;
         this.streamingBuffer = new StreamingBuffer();
 
-        LOGGER.debug(
+        LOGGER.info(
             "Flushable buffer based on {} for channel:{}. previousFlushTime:{}"
                 + " currentBufferByteSize:{}, currentBufferRecordCount:{},"
                 + " connectorBufferThresholds:{}",
@@ -1002,6 +1003,8 @@ public class TopicPartitionChannel {
    */
   public void closeChannel() {
     try {
+      this.tryFlushCurrentStreamingBuffer(true);
+      FlushService.getFlushServiceInstance().removeTopicPartitionChannel(this.topicPartition);
       this.channel.close().get();
     } catch (InterruptedException | ExecutionException e) {
       final String errMsg =

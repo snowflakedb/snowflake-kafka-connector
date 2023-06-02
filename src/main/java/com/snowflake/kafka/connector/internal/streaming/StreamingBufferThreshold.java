@@ -16,7 +16,6 @@ public class StreamingBufferThreshold extends BufferThreshold {
       long bufferByteSizeThreshold,
       long bufferRecordCountThreshold) {
     super(
-        IngestionMethodConfig.SNOWPIPE_STREAMING,
         bufferFlushTimeThreshold,
         bufferByteSizeThreshold,
         bufferRecordCountThreshold);

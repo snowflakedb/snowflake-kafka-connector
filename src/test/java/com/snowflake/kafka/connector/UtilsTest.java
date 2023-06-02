@@ -254,7 +254,7 @@ public class UtilsTest {
     StackTraceElement[] stackTrace = new StackTraceElement[0];
 
     Exception nullMessageEx = new Exception();
-    assert Utils.getExceptionMessage(customMessage, nullMessageEx)
+    assert Utils.getCustomExceptionStr(customMessage, nullMessageEx)
         .equals(
             Utils.formatString(
                 Utils.GET_EXCEPTION_FORMAT,
@@ -264,7 +264,7 @@ public class UtilsTest {
 
     Exception nullCauseEx = new Exception(exceptionMessage);
     nullCauseEx.initCause(null);
-    assert Utils.getExceptionMessage(customMessage, nullCauseEx)
+    assert Utils.getCustomExceptionStr(customMessage, nullCauseEx)
         .equals(
             Utils.formatString(
                 Utils.GET_EXCEPTION_FORMAT,
@@ -275,7 +275,7 @@ public class UtilsTest {
     Exception stacktraceEx = new Exception(exceptionMessage);
     stacktraceEx.initCause(cause);
     stacktraceEx.getCause().setStackTrace(stackTrace);
-    assert Utils.getExceptionMessage(customMessage, stacktraceEx)
+    assert Utils.getCustomExceptionStr(customMessage, stacktraceEx)
         .equals(
             Utils.formatString(Utils.GET_EXCEPTION_FORMAT, customMessage, exceptionMessage, "[]"));
   }

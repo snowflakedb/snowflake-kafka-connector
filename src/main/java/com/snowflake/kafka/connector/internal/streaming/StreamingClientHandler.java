@@ -112,7 +112,7 @@ public class StreamingClientHandler {
       client.close();
       LOGGER.info("Successfully closed Streaming Client:{}", clientName);
     } catch (Exception e) {
-      LOGGER.error(Utils.getExceptionMessage("Failure closing Streaming client", e));
+      LOGGER.error(Utils.getCustomExceptionStr("Failure closing Streaming client", e));
     }
   }
 
