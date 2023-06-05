@@ -565,7 +565,6 @@ public class SnowflakeSinkConnectorConfig {
             9,
             ConfigDef.Width.NONE,
             ENABLE_FLUSH_SERVICE_DISPLAY);
-
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {

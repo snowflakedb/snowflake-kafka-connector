@@ -71,7 +71,7 @@ public class FlushService {
    * The flush service uses a single threaded scheduler to periodically try flushing all registered
    * tpchannels. Each tpchannel that needs flushing receives its own thread from the thread pool
    *
-   * Must be initialized with the connector config to enable or disable this service
+   * <p>Must be initialized with the connector config to enable or disable this service
    *
    * <p>Private constructor for singleton
    */
@@ -121,7 +121,8 @@ public class FlushService {
   }
 
   /**
-   * Shut down the flush service. Specifically the scheduler, and thread pool. Clear the registered channels. Not threadsafe, should not be called in parallel
+   * Shut down the flush service. Specifically the scheduler, and thread pool. Clear the registered
+   * channels. Not threadsafe, should not be called in parallel
    */
   public void shutdown() {
     LOGGER.info(

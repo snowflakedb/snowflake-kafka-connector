@@ -14,7 +14,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
@@ -198,8 +197,7 @@ public class TopicPartitionChannelIT {
     Assert.assertTrue(topicPartitionChannel.isChannelClosed());
 
     // send data to open channel
-    records2 =
-        TestUtils.createJsonStringSinkRecords(1, noOfRecords, topic, PARTITION_2);
+    records2 = TestUtils.createJsonStringSinkRecords(1, noOfRecords, topic, PARTITION_2);
     sfSinkService.insert(records2);
 
     // close the last channel
@@ -209,18 +207,8 @@ public class TopicPartitionChannelIT {
     Assert.assertTrue(topicPartitionChannel2.isChannelClosed());
 
     // verify that the right number of records were committed if flush service was active
-    TestUtils.assertWithRetry(
-        () ->
-            sfSinkService.getOffset(this.topicPartition)
-                == 1,
-        20,
-        5);
-    TestUtils.assertWithRetry(
-        () ->
-            sfSinkService.getOffset(this.topicPartition2)
-                == 2,
-        20,
-        5);
+    TestUtils.assertWithRetry(() -> sfSinkService.getOffset(this.topicPartition) == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> sfSinkService.getOffset(this.topicPartition2) == 2, 20, 5);
   }
 
   /**

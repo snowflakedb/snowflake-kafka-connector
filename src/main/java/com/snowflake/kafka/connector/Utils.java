@@ -413,11 +413,9 @@ public class Utils {
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
       // TODO: enable flush service for snowpipe as well
-      if (config.containsKey(
-          SnowflakeSinkConnectorConfig.ENABLE_FLUSH_SERVICE_CONFIG)
+      if (config.containsKey(SnowflakeSinkConnectorConfig.ENABLE_FLUSH_SERVICE_CONFIG)
           && Boolean.parseBoolean(
-          config.get(
-              SnowflakeSinkConnectorConfig.ENABLE_FLUSH_SERVICE_CONFIG))) {
+              config.get(SnowflakeSinkConnectorConfig.ENABLE_FLUSH_SERVICE_CONFIG))) {
         invalidConfigParams.put(
             SnowflakeSinkConnectorConfig.ENABLE_FLUSH_SERVICE_CONFIG,
             Utils.formatString(

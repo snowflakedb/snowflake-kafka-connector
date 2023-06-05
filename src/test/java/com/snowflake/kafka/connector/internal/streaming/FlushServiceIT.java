@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
@@ -117,35 +116,48 @@ public class FlushServiceIT {
     final long initialNumRecords = 5;
 
     List<SinkRecord> initialCalicoCatRecords =
-        TestUtils.createJsonStringSinkRecords(0, initialNumRecords, this.calicoCatTp.topic(), this.calicoCatTp.partition());
+        TestUtils.createJsonStringSinkRecords(
+            0, initialNumRecords, this.calicoCatTp.topic(), this.calicoCatTp.partition());
     List<SinkRecord> initialOrangeCatRecords =
-        TestUtils.createJsonStringSinkRecords(0, initialNumRecords, this.orangeCatTp.topic(), this.orangeCatTp.partition());
+        TestUtils.createJsonStringSinkRecords(
+            0, initialNumRecords, this.orangeCatTp.topic(), this.orangeCatTp.partition());
     sfSinkService.insert(initialCalicoCatRecords);
     sfSinkService.insert(initialOrangeCatRecords);
 
     // send 1 record, under buffer threshold
     final long testNumRecords = 1;
     List<SinkRecord> testCalicoCatRecords =
-        TestUtils.createJsonStringSinkRecords(initialNumRecords, testNumRecords, this.calicoCatTp.topic(), this.calicoCatTp.partition());
+        TestUtils.createJsonStringSinkRecords(
+            initialNumRecords,
+            testNumRecords,
+            this.calicoCatTp.topic(),
+            this.calicoCatTp.partition());
     List<SinkRecord> testOrangeCatRecords =
-        TestUtils.createJsonStringSinkRecords(initialNumRecords, testNumRecords, this.orangeCatTp.topic(), this.orangeCatTp.partition());
+        TestUtils.createJsonStringSinkRecords(
+            initialNumRecords,
+            testNumRecords,
+            this.orangeCatTp.topic(),
+            this.orangeCatTp.partition());
     sfSinkService.insert(testCalicoCatRecords);
     sfSinkService.insert(testOrangeCatRecords);
 
-    // if flush service is active, verify that data was committed. otherwise no additional data should be committed
+    // if flush service is active, verify that data was committed. otherwise no additional data
+    // should be committed
     if (this.isActive) {
       TestUtils.assertWithRetry(
-          () -> sfSinkService.getOffset(this.calicoCatTp) == initialNumRecords + testNumRecords, WAIT_INTERVAL_SEC, MAX_RETRY);
+          () -> sfSinkService.getOffset(this.calicoCatTp) == initialNumRecords + testNumRecords,
+          WAIT_INTERVAL_SEC,
+          MAX_RETRY);
       TestUtils.assertWithRetry(
-          () -> sfSinkService.getOffset(this.orangeCatTp) == initialNumRecords + testNumRecords, WAIT_INTERVAL_SEC, MAX_RETRY);
+          () -> sfSinkService.getOffset(this.orangeCatTp) == initialNumRecords + testNumRecords,
+          WAIT_INTERVAL_SEC,
+          MAX_RETRY);
       FlushService.getFlushServiceInstance().shutdown();
     } else {
       // else wait max timeout to confirm that the offsets were never updated
       Thread.sleep(TimeUnit.SECONDS.toMillis(WAIT_INTERVAL_SEC * MAX_RETRY));
-      assert sfSinkService.getOffset(this.calicoCatTp)
-          == initialNumRecords;
-      assert sfSinkService.getOffset(this.orangeCatTp)
-          == initialNumRecords;
+      assert sfSinkService.getOffset(this.calicoCatTp) == initialNumRecords;
+      assert sfSinkService.getOffset(this.orangeCatTp) == initialNumRecords;
     }
   }
 }
