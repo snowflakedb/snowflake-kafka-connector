@@ -10,8 +10,11 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
@@ -157,6 +160,67 @@ public class TopicPartitionChannelIT {
             + (noOfRecords + noOfRecords)
             + " actual: "
             + TestUtils.tableSize(testTableName);
+  }
+
+  @Test
+  public void testFlushClosedChannel() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    Set<TopicPartition> tpSet = new HashSet<>();
+    tpSet.add(this.topicPartition);
+    tpSet.add(this.topicPartition2);
+
+    // Creates tpChannel with two partitions
+    SnowflakeSinkServiceV2 sfSinkService =
+        (SnowflakeSinkServiceV2)
+            SnowflakeSinkServiceFactory.builder(
+                    this.conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+                .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+                .setSinkTaskContext(new InMemorySinkTaskContext(tpSet))
+                .addTask(this.testTableName, this.topicPartition)
+                .addTask(this.testTableName, this.topicPartition2)
+                .build();
+
+    // send 1 record to each partition, which is less than buffer threshold
+    final long noOfRecords = 1;
+    List<SinkRecord> records =
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, PARTITION);
+    List<SinkRecord> records2 =
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, PARTITION_2);
+    sfSinkService.insert(records);
+    sfSinkService.insert(records2);
+
+    // immediately close one channel
+    TopicPartitionChannel topicPartitionChannel =
+        sfSinkService.getTopicPartitionChannelFromCacheKey(testChannelName).get();
+    topicPartitionChannel.closeChannel();
+    Assert.assertTrue(topicPartitionChannel.isChannelClosed());
+
+    // send data to open channel
+    records2 =
+        TestUtils.createJsonStringSinkRecords(1, noOfRecords, topic, PARTITION_2);
+    sfSinkService.insert(records2);
+
+    // close the last channel
+    TopicPartitionChannel topicPartitionChannel2 =
+        sfSinkService.getTopicPartitionChannelFromCacheKey(testChannelName2).get();
+    topicPartitionChannel2.closeChannel();
+    Assert.assertTrue(topicPartitionChannel2.isChannelClosed());
+
+    // verify that the right number of records were committed if flush service was active
+    TestUtils.assertWithRetry(
+        () ->
+            sfSinkService.getOffset(this.topicPartition)
+                == 1,
+        20,
+        5);
+    TestUtils.assertWithRetry(
+        () ->
+            sfSinkService.getOffset(this.topicPartition2)
+                == 2,
+        20,
+        5);
   }
 
   /**

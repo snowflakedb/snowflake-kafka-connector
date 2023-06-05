@@ -115,9 +115,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     this.flushService = FlushService.getFlushServiceInstance();
     if (this.flushService != null) {
-      this.flushService.activate();
-    } else {
-      LOGGER.info("unable to get flushService");
+      this.flushService.activateScheduledFlushing(Boolean.parseBoolean(
+          config.getOrDefault(
+              SnowflakeSinkConnectorConfig.ENABLE_FLUSH_SERVICE_CONFIG, "false")));
     }
 
     LOGGER.info("SnowflakeSinkConnector:started");

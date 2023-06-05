@@ -29,7 +29,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -66,10 +65,13 @@ public class FlushService {
   private ScheduledExecutorService flushScheduler;
   private ThreadPoolExecutor flushExecutorPool;
   private ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap;
+  private boolean isActive = false;
 
   /**
    * The flush service uses a single threaded scheduler to periodically try flushing all registered
    * tpchannels. Each tpchannel that needs flushing receives its own thread from the thread pool
+   *
+   * Must be initialized with the connector config to enable or disable this service
    *
    * <p>Private constructor for singleton
    */
@@ -84,37 +86,42 @@ public class FlushService {
             new SynchronousQueue<Runnable>(true));
     this.flushExecutorPool.allowCoreThreadTimeOut(true);
     this.topicPartitionsMap = new ConcurrentHashMap<>();
-
-    LOGGER.info("Successfully created the flush service, currently inactive");
+    this.isActive = false;
   }
 
   /**
    * Activates the flush service - start trying to flush all registered tpchannels. Not threadsafe,
    * should be called once during runtime from SnowflakeSinkConnector.java
    */
-  public void activate() {
-    try {
-      this.flushScheduler.scheduleAtFixedRate(
-          this::tryFlushTopicPartitionChannels,
-          SCHEDULER_DELAY_MS,
-          SCHEDULER_DELAY_MS,
-          TimeUnit.MILLISECONDS);
-      LOGGER.info(
-          "Flush service activated, begin checking {} channels with delay {} ms",
-          this.topicPartitionsMap.size(),
-          SCHEDULER_DELAY_MS);
-    } catch (RejectedExecutionException ex) {
-      // RejectedExecutionException is only thrown if flush scheduler already has something
-      // scheduled
-      LOGGER.warn(Utils.getCustomExceptionStr("Flush service has already been activated", ex));
-    } catch (Exception ex) {
-      LOGGER.warn(Utils.getCustomExceptionStr("Unable to activate flush service", ex));
+  public void activateScheduledFlushing(boolean isEnabled) {
+    if (isEnabled) {
+      try {
+        this.flushScheduler.scheduleAtFixedRate(
+            this::tryFlushTopicPartitionChannels,
+            SCHEDULER_DELAY_MS,
+            SCHEDULER_DELAY_MS,
+            TimeUnit.MILLISECONDS);
+        this.isActive = true;
+
+        LOGGER.info(
+            "Flush service activated, begin checking {} channels with delay {} ms",
+            this.topicPartitionsMap.size(),
+            SCHEDULER_DELAY_MS);
+      } catch (RejectedExecutionException ex) {
+        // RejectedExecutionException is only thrown if flush scheduler already has something
+        // scheduled
+        LOGGER.warn(Utils.getCustomExceptionStr("Flush service has already been activated", ex));
+      } catch (Exception ex) {
+        LOGGER.warn(Utils.getCustomExceptionStr("Unable to activate flush service", ex));
+      }
+    } else {
+      LOGGER.info("Flush service is not enabled");
+      this.shutdown();
     }
   }
 
   /**
-   * Shut down the flush service. Specifically the scheduler, thread pool and force flush all
-   * registered tpChannels. Not threadsafe, should not be called in parallel
+   * Shut down the flush service. Specifically the scheduler, and thread pool. Clear the registered channels. Not threadsafe, should not be called in parallel
    */
   public void shutdown() {
     LOGGER.info(
@@ -122,28 +129,14 @@ public class FlushService {
             "Shutting down flush service with {} registered channels...",
             this.topicPartitionsMap.size()));
 
-    // shut down scheduler before pool
     try {
-      boolean didFlushSchedulerTerminate =
-          this.flushScheduler.awaitTermination(THREAD_TIMEOUT, THREAD_TIMEOUT_UNIT);
-      boolean didFlushExecutorPoolTerminate =
-          this.flushExecutorPool.awaitTermination(THREAD_TIMEOUT, THREAD_TIMEOUT_UNIT);
-      if (!didFlushSchedulerTerminate || !didFlushExecutorPoolTerminate) {
-        LOGGER.warn(
-            "Unable to shut down flush service threads, exceeded thread timeout: {} seconds",
-            THREAD_TIMEOUT);
-      }
-    } catch (InterruptedException ex) {
-      LOGGER.info(
-          Utils.getCustomExceptionStr(
-              "Interrupted while trying to shut down flush service threads", ex));
+      this.isActive = false;
+      this.flushScheduler.shutdown();
+      this.flushExecutorPool.shutdown();
+      this.topicPartitionsMap = new ConcurrentHashMap<>();
+    } catch (Exception ex) {
+      LOGGER.warn(Utils.getCustomExceptionStr("Failed to shut down flush service: ", ex));
     }
-
-    // flush all partitions
-    this.topicPartitionsMap
-        .values()
-        .forEach(tpChannel -> tpChannel.tryFlushCurrentStreamingBuffer(true));
-    this.topicPartitionsMap = new ConcurrentHashMap<>();
   }
 
   /**
@@ -193,8 +186,8 @@ public class FlushService {
    * @return The number of flushed channels
    */
   public int tryFlushTopicPartitionChannels() {
-    // return if there are no registered partition channels
-    if (this.topicPartitionsMap.size() == 0) {
+    // return if not initialized or nothing to flush
+    if (!this.isActive || this.topicPartitionsMap.size() == 0) {
       return 0;
     }
 
@@ -268,20 +261,23 @@ public class FlushService {
   @VisibleForTesting
   public static FlushService getFlushServiceForTests(
       ScheduledExecutorService flushExecutor,
-      ScheduledThreadPoolExecutor flushExecutorPool,
-      ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap) {
-    return new FlushService(flushExecutor, flushExecutorPool, topicPartitionsMap);
+      ThreadPoolExecutor flushExecutorPool,
+      ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap,
+      boolean isInitialized) {
+    return new FlushService(flushExecutor, flushExecutorPool, topicPartitionsMap, isInitialized);
   }
 
   @VisibleForTesting
   private FlushService(
       ScheduledExecutorService flushScheduler,
       ThreadPoolExecutor flushExecutorPool,
-      ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap) {
+      ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap,
+      boolean isInitialized) {
     super();
     this.flushScheduler = flushScheduler;
     this.flushExecutorPool = flushExecutorPool;
     this.topicPartitionsMap = topicPartitionsMap;
+    this.isActive = isInitialized;
   }
 
   @VisibleForTesting

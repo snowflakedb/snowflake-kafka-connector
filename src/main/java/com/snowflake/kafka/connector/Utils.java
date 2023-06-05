@@ -412,6 +412,18 @@ public class Utils {
                 "Streaming client optimization is only available with {}.",
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
+      // TODO: enable flush service for snowpipe as well
+      if (config.containsKey(
+          SnowflakeSinkConnectorConfig.ENABLE_FLUSH_SERVICE_CONFIG)
+          && Boolean.parseBoolean(
+          config.get(
+              SnowflakeSinkConnectorConfig.ENABLE_FLUSH_SERVICE_CONFIG))) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.ENABLE_FLUSH_SERVICE_CONFIG,
+            Utils.formatString(
+                "Flush Service is only available with {}.",
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      }
     }
 
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)

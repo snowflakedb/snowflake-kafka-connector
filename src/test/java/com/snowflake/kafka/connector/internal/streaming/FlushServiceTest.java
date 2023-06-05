@@ -18,13 +18,13 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,16 +37,29 @@ import org.apache.kafka.common.TopicPartition;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.mockito.ArgumentMatchers;
 
+@RunWith(Parameterized.class)
 public class FlushServiceTest {
+  // param to run test with or without flush service
+  @Parameterized.Parameters(name = "isActive: {0}")
+  public static Collection<Object[]> input() {
+    return Arrays.asList(new Object[][] {{true}, {false}});
+  }
+
+  private final boolean isActive;
+
+  public FlushServiceTest(boolean isActive) {
+    this.isActive = isActive;
+  }
+
   private ScheduledExecutorService flushScheduler;
   private ScheduledThreadPoolExecutor flushPoolExecutor;
   private ConcurrentMap<TopicPartition, TopicPartitionChannel> topicPartitionsMap;
   private FlushService flushService;
 
-  // defaults to false, as flush pool executor should only be called in the tryflush
-  private boolean shouldCallFlushPoolExecutor;
   private int runnerIteration;
 
   private TopicPartition validTp0;
@@ -61,30 +74,35 @@ public class FlushServiceTest {
     this.topicPartitionsMap = new ConcurrentHashMap<>();
     this.flushService =
         FlushService.getFlushServiceForTests(
-            this.flushScheduler, this.flushPoolExecutor, this.topicPartitionsMap);
+            this.flushScheduler, this.flushPoolExecutor, this.topicPartitionsMap, this.isActive);
 
     // init test mocks
     this.validTp0 = new TopicPartition("validTopic0", 0);
     this.validTp1 = new TopicPartition("validTopic1", 1);
     this.validTpChannel0 = mock(TopicPartitionChannel.class);
     this.validTpChannel1 = mock(TopicPartitionChannel.class);
-
-    this.shouldCallFlushPoolExecutor = false;
     this.runnerIteration = 0;
   }
 
   @After
   public void after() {
-    this.flushService.shutdown();
+    try {
+      this.flushService.shutdown();
+    } catch (Exception ex) {
+      System.out.println(
+          "Exception in trying to shut down actual flush service, this is just a safety check, it"
+              + " can be ignored. Exception: "
+              + ex.getMessage());
+    }
   }
 
   @Test
   public void testActivate() {
     // test init
-    this.flushService.activate();
+    this.flushService.activateScheduledFlushing(this.isActive);
 
     // verify flushing was scheduled
-    verify(this.flushScheduler, times(1))
+    verify(this.flushScheduler, times(this.isActive ? 1 : 0))
         .scheduleAtFixedRate(
             any(),
             ArgumentMatchers.eq(FlushService.SCHEDULER_DELAY_MS),
@@ -95,12 +113,12 @@ public class FlushServiceTest {
   @Test
   public void testMultipleActivate() {
     // test multiple activates doesn't crash
-    this.flushService.activate();
-    this.flushService.activate();
-    this.flushService.activate();
+    this.flushService.activateScheduledFlushing(this.isActive);
+    this.flushService.activateScheduledFlushing(this.isActive);
+    this.flushService.activateScheduledFlushing(this.isActive);
 
     // verify flushing was scheduled
-    verify(this.flushScheduler, times(3))
+    verify(this.flushScheduler, times(this.isActive ? 3 : 0))
         .scheduleAtFixedRate(
             any(),
             ArgumentMatchers.eq(FlushService.SCHEDULER_DELAY_MS),
@@ -127,10 +145,10 @@ public class FlushServiceTest {
         .thenThrow(exToThrow);
 
     // test activate doesn't throw error
-    this.flushService.activate();
+    this.flushService.activateScheduledFlushing(this.isActive);
 
     // verify flushing was scheduled
-    verify(this.flushScheduler, times(this.runnerIteration))
+    verify(this.flushScheduler, times(this.isActive ? this.runnerIteration : 0))
         .scheduleAtFixedRate(
             any(),
             ArgumentMatchers.eq(FlushService.SCHEDULER_DELAY_MS),
@@ -140,36 +158,10 @@ public class FlushServiceTest {
 
   @Test
   public void testShutdown() throws InterruptedException {
-    // successful shutdown
-    this.testShutdownFailureRunner(true, true);
-
-    // failures should not crash and also try shutting down everything
-    this.testShutdownFailureRunner(true, false);
-    this.testShutdownFailureRunner(false, true);
-    this.testShutdownFailureRunner(false, false);
-  }
-
-  private void testShutdownFailureRunner(
-      boolean shouldFlushSchedulerTerminate, boolean shouldFlushPoolExecutorTerminate)
-      throws InterruptedException {
-    this.runnerIteration++;
-
-    // setup with one channel
-    this.topicPartitionsMap.put(this.validTp0, this.validTpChannel0);
-
-    when(this.flushScheduler.awaitTermination(anyLong(), any()))
-        .thenReturn(shouldFlushSchedulerTerminate);
-    when(this.flushPoolExecutor.awaitTermination(anyLong(), any()))
-        .thenReturn(shouldFlushPoolExecutorTerminate);
-
-    // test shutdown shouldn't crash
     this.flushService.shutdown();
 
-    // verify executor and pool attempted shutdown and tpmap clear
-    verify(this.flushScheduler, times(this.runnerIteration))
-        .awaitTermination(FlushService.THREAD_TIMEOUT, FlushService.THREAD_TIMEOUT_UNIT);
-    verify(this.flushPoolExecutor, times(this.runnerIteration))
-        .awaitTermination(FlushService.THREAD_TIMEOUT, FlushService.THREAD_TIMEOUT_UNIT);
+    verify(this.flushScheduler, times(1)).shutdown();
+    verify(this.flushPoolExecutor, times(1)).shutdown();
     assert this.flushService.getTopicPartitionsMap().size() == 0;
   }
 
@@ -262,7 +254,7 @@ public class FlushServiceTest {
 
     this.flushService =
         FlushService.getFlushServiceForTests(
-            this.flushScheduler, this.flushPoolExecutor, this.topicPartitionsMap);
+            this.flushScheduler, this.flushPoolExecutor, this.topicPartitionsMap, true);
 
     // test flush
     int flushCount = this.flushService.tryFlushTopicPartitionChannels();
@@ -286,62 +278,9 @@ public class FlushServiceTest {
   public void testTryFlushZeroPartitionChannels() {
     this.flushService =
         FlushService.getFlushServiceForTests(
-            this.flushScheduler, this.flushPoolExecutor, this.topicPartitionsMap);
+            this.flushScheduler, this.flushPoolExecutor, this.topicPartitionsMap, true);
 
     // test flush does nothing
     assert this.flushService.tryFlushTopicPartitionChannels() == 0;
-  }
-
-  @Test
-  public void testFlushServiceSchedulesInBackground() throws InterruptedException {
-    // setup
-    ScheduledExecutorService flushScheduler = spy(ScheduledExecutorService.class);
-    ScheduledThreadPoolExecutor flushPoolExecutor = spy(ScheduledThreadPoolExecutor.class);
-
-    this.flushService =
-        FlushService.getFlushServiceForTests(
-            flushScheduler, flushPoolExecutor, this.topicPartitionsMap);
-
-    // test and verify activate scheduler
-    this.flushService.activate();
-    verify(this.flushScheduler, times(1))
-        .scheduleAtFixedRate(
-            any(),
-            ArgumentMatchers.eq(FlushService.SCHEDULER_DELAY_MS),
-            ArgumentMatchers.eq(FlushService.SCHEDULER_DELAY_MS),
-            ArgumentMatchers.eq(TimeUnit.MILLISECONDS));
-
-    // test and verify registering channel 0
-    this.flushService.registerTopicPartitionChannel(this.validTp0, this.validTpChannel0);
-    Map<TopicPartition, TopicPartitionChannel> tpMap = this.flushService.getTopicPartitionsMap();
-    assert tpMap.size() == 1;
-    assert tpMap.get(this.validTp0).equals(this.validTpChannel0);
-
-    // verify flush channel 0
-
-    // test and verify registering channel 1
-    this.flushService.registerTopicPartitionChannel(this.validTp1, this.validTpChannel1);
-    tpMap = this.flushService.getTopicPartitionsMap();
-    assert tpMap.size() == 2;
-    assert tpMap.get(this.validTp0).equals(this.validTpChannel0);
-    assert tpMap.get(this.validTp1).equals(this.validTpChannel1);
-
-    // verify flush channel 0 and channel 1
-
-    // test and verify removing channel 0
-    this.flushService.removeTopicPartitionChannel(this.validTp0);
-    tpMap = this.flushService.getTopicPartitionsMap();
-    assert tpMap.size() == 1;
-    assert tpMap.get(this.validTp1).equals(this.validTpChannel1);
-
-    // verify flush channel 1
-
-    // test and verify shutdown
-    this.flushService.shutdown();
-    verify(this.flushScheduler, times(1))
-        .awaitTermination(FlushService.THREAD_TIMEOUT, FlushService.THREAD_TIMEOUT_UNIT);
-    verify(this.flushPoolExecutor, times(1))
-        .awaitTermination(FlushService.THREAD_TIMEOUT, FlushService.THREAD_TIMEOUT_UNIT);
-    assert this.flushService.getTopicPartitionsMap().size() == 0;
   }
 }

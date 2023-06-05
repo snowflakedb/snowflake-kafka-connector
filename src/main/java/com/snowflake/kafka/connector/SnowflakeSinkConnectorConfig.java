@@ -172,6 +172,13 @@ public class SnowflakeSinkConnectorConfig {
       "Enable MDC context to prepend log messages. Note that this is only available after Apache"
           + " Kafka 2.3";
 
+  // Flush service
+  public static final String ENABLE_FLUSH_SERVICE_CONFIG = "enable.flush.service";
+  public static final String ENABLE_FLUSH_SERVICE_DISPLAY = "Enable background flush service";
+  public static final String ENABLE_FLUSH_SERVICE_DEFAULT = "false";
+  public static final String ENABLE_FLUSH_SERVICE_DOC =
+      "Enable background flush service to ensure buffers are flushed in a timely manner";
+
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked
    * before actually sending records to Kafka connector.
@@ -547,7 +554,18 @@ public class SnowflakeSinkConnectorConfig {
             CONNECTOR_CONFIG,
             8,
             ConfigDef.Width.NONE,
-            ENABLE_MDC_LOGGING_DISPLAY);
+            ENABLE_MDC_LOGGING_DISPLAY)
+        .define(
+            ENABLE_FLUSH_SERVICE_CONFIG,
+            Type.BOOLEAN,
+            ENABLE_FLUSH_SERVICE_DEFAULT,
+            Importance.LOW,
+            ENABLE_FLUSH_SERVICE_DOC,
+            CONNECTOR_CONFIG,
+            9,
+            ConfigDef.Width.NONE,
+            ENABLE_FLUSH_SERVICE_DISPLAY);
+
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {
