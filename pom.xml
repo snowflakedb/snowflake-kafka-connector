@@ -381,6 +381,7 @@
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
             <version>7.2.1</version>
+            <scope>provided</scope>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -393,6 +394,7 @@
             <groupId>io.confluent</groupId>
             <artifactId>kafka-connect-avro-converter</artifactId>
             <version>7.2.1</version>
+            <scope>provided</scope>
         </dependency>
 
         <!--JDBC driver for building connection with Snowflake-->
