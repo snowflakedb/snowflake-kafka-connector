@@ -131,6 +131,7 @@ public class FlushService {
             this.topicPartitionsMap.size()));
 
     try {
+      // shut down scheduler first, pool threads are able to timeout if scheduler throws an error
       this.isActive = false;
       this.flushScheduler.shutdown();
       this.flushExecutorPool.shutdown();
@@ -168,7 +169,8 @@ public class FlushService {
    * @param topicPartition The topic partition the channel ingests from
    */
   public void removeTopicPartitionChannel(TopicPartition topicPartition) {
-    if (topicPartition == null || !this.topicPartitionsMap.containsKey(topicPartition)) {
+    if (topicPartition == null
+        || !this.topicPartitionsMap.containsKey(topicPartition)) {
       LOGGER.info(
           Utils.formatString(
               "Invalid topic partition given for removal. TopicPartition: {}",
@@ -237,7 +239,6 @@ public class FlushService {
           try {
             future.get(THREAD_TIMEOUT, THREAD_TIMEOUT_UNIT);
           } catch (Exception ex) {
-            // future.get
             LOGGER.warn(
                 Utils.getCustomExceptionStr("Unexpected exception during flush execution", ex));
           }
