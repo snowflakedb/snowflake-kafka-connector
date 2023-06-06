@@ -38,7 +38,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
 import org.apache.kafka.common.TopicPartition;
 import org.junit.After;
 import org.junit.Before;
@@ -170,7 +169,11 @@ public class FlushServiceTest {
     this.testShutdownRunner(true, true, 4, 2);
   }
 
-  private void testShutdownRunner(boolean shouldFlushSchedulerThrow, boolean shouldFlushPoolExecutorThrow, int flushSchedulerCount, int flushPoolExecutorCount) {
+  private void testShutdownRunner(
+      boolean shouldFlushSchedulerThrow,
+      boolean shouldFlushPoolExecutorThrow,
+      int flushSchedulerCount,
+      int flushPoolExecutorCount) {
     if (shouldFlushSchedulerThrow) {
       doThrow(new SecurityException()).when(this.flushScheduler).shutdown();
     } else {
@@ -258,7 +261,8 @@ public class FlushServiceTest {
   }
 
   @Test
-  public void testTryFlushPartitionChannels() throws ExecutionException, InterruptedException, TimeoutException {
+  public void testTryFlushPartitionChannels()
+      throws ExecutionException, InterruptedException, TimeoutException {
     // setup with two channels
     StreamingBufferThreshold streamingBufferThreshold0 = mock(StreamingBufferThreshold.class);
     final long previousFlushTime0 = 1234L;
@@ -366,13 +370,16 @@ public class FlushServiceTest {
   }
 
   @Test
-  public void testTryFlushPartitionChannelsFutureGetException() throws ExecutionException, InterruptedException, TimeoutException {
-    // future.get may throw the following 2 exceptions, in addition to ExecutionException which is out of scope
+  public void testTryFlushPartitionChannelsFutureGetException()
+      throws ExecutionException, InterruptedException, TimeoutException {
+    // future.get may throw the following 2 exceptions, in addition to ExecutionException which is
+    // out of scope
     this.testTryFlushPartitionChannelsFutureGetExceptionRunner(new InterruptedException());
     this.testTryFlushPartitionChannelsFutureGetExceptionRunner(new TimeoutException());
   }
 
-  private void testTryFlushPartitionChannelsFutureGetExceptionRunner(Exception ex) throws ExecutionException, InterruptedException, TimeoutException {
+  private void testTryFlushPartitionChannelsFutureGetExceptionRunner(Exception ex)
+      throws ExecutionException, InterruptedException, TimeoutException {
     this.runnerIteration++;
 
     // setup with two channels

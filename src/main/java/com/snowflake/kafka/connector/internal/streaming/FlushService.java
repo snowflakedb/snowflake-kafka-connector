@@ -169,8 +169,7 @@ public class FlushService {
    * @param topicPartition The topic partition the channel ingests from
    */
   public void removeTopicPartitionChannel(TopicPartition topicPartition) {
-    if (topicPartition == null
-        || !this.topicPartitionsMap.containsKey(topicPartition)) {
+    if (topicPartition == null || !this.topicPartitionsMap.containsKey(topicPartition)) {
       LOGGER.info(
           Utils.formatString(
               "Invalid topic partition given for removal. TopicPartition: {}",
