@@ -12,11 +12,11 @@ class TestTailIngestion:
         self.nameSalt = nameSalt
 
         self.topicNum = 1
-        self.partitionNum = 1
-        self.recordNum = 100
+        self.initialRecordCount = 100
+        self.testRecordCount = 10
 
         # create topic and partitions in constructor since the post REST api will automatically create topic with only one partition
-        self.driver.createTopics(self.topic, partitionNum=self.partitionNum, replicationNum=1)
+        self.driver.createTopics(self.topic, partitionNum=1, replicationNum=1)
 
     def getConfigFileName(self):
         return self.fileName + ".json"
@@ -24,30 +24,29 @@ class TestTailIngestion:
     def send(self):
         # set up data to send
         key = []
-        value = []
-        for e in range(self.recordNum):
-            value.append(json.dumps(
+        records_100 = []
+        records_10 = []
+        for e in range(self.initialRecordCount):
+            records_100.append(json.dumps(
                 {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
             ).encode('utf-8'))
 
-        # send 100 rows and immediately stop
-        self.driver.sendBytesData(self.topic, value, key, partition=0)
-        sleep (5)
-        self.driver.deleteConnector(self.topic)
+        for e in range(self.testRecordCount):
+            records_10.append(json.dumps(
+                {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
+            ).encode('utf-8'))
 
-        # sleep (2)
-        #
-        # # ensure kafka just flushed on time
-        # self.driver.deleteConnector(self.topic)
-        # sleep(10)
-        # self.driver.createConnector(self.getConfigFileName(), self.nameSalt)
-        # self.driver.sendBytesData(self.topic, value, key, partition=0)
-        #
-        # sleep(2)
-        #
-        # # send 100 rows and immediately shut down
-        # self.driver.sendBytesData(self.topic, value, key, partition=0)
-        # self.driver.deleteConnector(self.topic)
+        # send 100 rows which should trigger a flush
+        self.driver.sendBytesData(self.topic, records_100, key, partition=0)
+
+        # send 10 rows, which shouldnt hit any buffer thresholds
+        self.driver.sendBytesData(self.topic, records_10, key, partition=0)
+
+        # wait to ensure data is all sent
+        sleep(2)
+
+        # delete connector should force flush the above 10 rows
+        self.driver.deleteConnector(self.topic)
 
 
     def verify(self, round):
@@ -55,7 +54,7 @@ class TestTailIngestion:
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         print("Count records in table {}={}".format(self.topic, str(res)))
 
-        goalCount = self.recordNum * self.partitionNum
+        goalCount = self.initialRecordCount + self.testRecordCount
 
         if res < (goalCount):
             print("Topic:" + self.topic + " count is less, will retry")
