@@ -724,7 +724,7 @@ public class Utils {
    * @return A string with the provided custom message and the exception's message and cause
    */
   public static String getCustomExceptionStr(String customMessage, Exception ex) {
-    return customMessage + ". " + getExceptionStr(ex);
+    return customMessage + ", " + getExceptionStr(ex);
   }
 
   /**

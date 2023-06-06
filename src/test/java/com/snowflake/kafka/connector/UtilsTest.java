@@ -254,29 +254,33 @@ public class UtilsTest {
     StackTraceElement[] stackTrace = new StackTraceElement[0];
 
     Exception nullMessageEx = new Exception();
-    assert Utils.getCustomExceptionStr(customMessage, nullMessageEx)
+    assert Utils.getExceptionStr(nullMessageEx)
         .equals(
             Utils.formatString(
                 Utils.GET_EXCEPTION_FORMAT,
-                customMessage,
                 Utils.GET_EXCEPTION_MISSING_MESSAGE,
                 Utils.GET_EXCEPTION_MISSING_CAUSE));
 
     Exception nullCauseEx = new Exception(exceptionMessage);
-    nullCauseEx.initCause(null);
-    assert Utils.getCustomExceptionStr(customMessage, nullCauseEx)
+    assert Utils.getExceptionStr(nullCauseEx)
         .equals(
             Utils.formatString(
                 Utils.GET_EXCEPTION_FORMAT,
-                customMessage,
                 exceptionMessage,
                 Utils.GET_EXCEPTION_MISSING_CAUSE));
 
     Exception stacktraceEx = new Exception(exceptionMessage);
     stacktraceEx.initCause(cause);
     stacktraceEx.getCause().setStackTrace(stackTrace);
-    assert Utils.getCustomExceptionStr(customMessage, stacktraceEx)
+    assert Utils.getExceptionStr(stacktraceEx)
         .equals(
-            Utils.formatString(Utils.GET_EXCEPTION_FORMAT, customMessage, exceptionMessage, "[]"));
+            Utils.formatString(Utils.GET_EXCEPTION_FORMAT,  exceptionMessage, "[]"));
+  }
+
+  @Test public void testGetCustomExceptionMessage() {
+    String customMessage = "custom message blah blah";
+    Exception ex = new Exception();
+
+    assert (customMessage + ", " + Utils.getExceptionStr(ex)).equals(Utils.getCustomExceptionStr(customMessage, ex));
   }
 }
