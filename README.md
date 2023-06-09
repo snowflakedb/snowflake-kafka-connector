@@ -7,7 +7,7 @@ Snowflake-kafka-connector is a plugin of Apache Kafka Connect - ingests data fro
 The following requirements must be met before you can merge your PR:
 - Tests: all test suites must pass, see the [test README](https://github.com/snowflakedb/snowflake-kafka-connector/blob/master/README-TEST.md)
 - Formatter: run this script [`./format.sh`](https://github.com/snowflakedb/snowflake-kafka-connector/blob/master/format.sh) from root
-- CLA: all contributers must sign the Snowflake CLA. This is a one time signature, and the instructions should be generated on each PR by the CLA bot if necessary
+- CLA: all contributers must sign the Snowflake CLA. This is a one time signature, we will work with you to get this signed after you open a PR.
 
 Thank you for contributing! We will review and approve PRs as soon as we can.
 
