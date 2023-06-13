@@ -20,7 +20,6 @@ import net.snowflake.client.core.SFSessionProperty;
 import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
 import net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import net.snowflake.ingest.connection.IngestStatus;
-import org.graalvm.compiler.core.common.util.Util;
 
 class InternalUtils {
   // JDBC parameter list
@@ -108,6 +107,14 @@ class InternalUtils {
     return date;
   }
 
+  /**
+   * Use this function if you want to create properties from user provide Snowflake kafka connector
+   * config.
+   *
+   * @param conf User provided kafka connector configu
+   * @param sslEnabled is sslEnabled?
+   * @return Properties object which will be passed down to JDBC connection
+   */
   static Properties createProperties(Map<String, String> conf, boolean sslEnabled) {
     return createProperties(conf, sslEnabled, IngestionMethodConfig.SNOWPIPE);
   }
@@ -184,9 +191,9 @@ class InternalUtils {
       if (!Strings.isNullOrEmpty(providedSFRoleInConfig)) {
         LOGGER.debug("Using provided role {} for JDBC connection.", providedSFRoleInConfig);
         properties.put(SFSessionProperty.ROLE, providedSFRoleInConfig);
-      }
-      else {
-        LOGGER.debug("No role is provided, default role for the user will be used for JDBC connection.");
+      } else {
+        LOGGER.debug(
+            "No role is provided, default role for the user will be used for JDBC connection.");
       }
     }
 
