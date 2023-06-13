@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -236,25 +237,15 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   public boolean tableExist(final String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-    String query = "desc table identifier(?)";
-    PreparedStatement stmt = null;
     boolean exist;
     try {
-      stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
-      stmt.execute();
-      exist = true;
-    } catch (Exception e) {
+      // connection object already specifies a db and schema
+      DatabaseMetaData metadata = conn.getMetaData();
+      // metadata.getTables returning one row -> the table exists
+      exist = metadata.getTables(null, null, tableName, null).next();
+    } catch (SQLException e) {
       LOGGER.debug("table {} doesn't exist", tableName);
       exist = false;
-    } finally {
-      if (stmt != null) {
-        try {
-          stmt.close();
-        } catch (SQLException e) {
-          e.printStackTrace();
-        }
-      }
     }
     return exist;
   }
