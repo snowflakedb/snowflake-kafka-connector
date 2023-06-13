@@ -63,7 +63,7 @@ jobs:
         SHELL: "/bin/bash"
       run: |
         cd test
-        ./build_apache.sh ../../snowflake-kafka-connector package
+        ./build_runtime_jar.sh ../../snowflake-kafka-connector package confluent
 
     - name: Stress Tests of Confluent Platform Version ${{ matrix.confluent_version }} against Snowflake in ${{ matrix.snowflake_cloud }}
       env:

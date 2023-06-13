@@ -16,7 +16,6 @@
  */
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkTask.TASK_INSTANCE_TAG_FORMAT;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
@@ -35,6 +34,7 @@ import static com.snowflake.kafka.connector.Utils.SF_USER;
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -253,6 +253,9 @@ public class TestUtils {
     // On top of existing configurations, add
     configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
     configuration.put(Utils.TASK_ID, "0");
+    configuration.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     return configuration;
   }
@@ -375,6 +378,10 @@ public class TestUtils {
   /** @return snowflake connection for test */
   public static SnowflakeConnectionService getConnectionService() {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
+  }
+
+  public static SnowflakeConnectionService getConnectionServiceForStreaming() {
+    return SnowflakeConnectionServiceFactory.builder().setProperties(getConfForStreaming()).build();
   }
 
   /**
@@ -729,10 +736,6 @@ public class TestUtils {
         assert contentMap.get(columnName) == null : "value should be null";
       }
     }
-  }
-
-  public static String getExpectedLogTagWithoutCreationCount(String taskId, int taskOpenCount) {
-    return Utils.formatString(TASK_INSTANCE_TAG_FORMAT, taskId, taskOpenCount, "").split("#")[0];
   }
 
   public static SnowflakeStreamingIngestClient createStreamingClient(

@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
-import com.snowflake.kafka.connector.internal.EnableLogging;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.SnowflakeTelemetryServiceV2;
 import java.sql.Connection;
 
 /**
@@ -9,17 +10,26 @@ import java.sql.Connection;
  */
 public class SnowflakeTelemetryServiceFactory {
 
-  public static SnowflakeTelemetryServiceBuilder builder(Connection conn) {
-    return new SnowflakeTelemetryServiceBuilder(conn);
+  public static SnowflakeTelemetryServiceBuilder builder(
+      Connection conn, IngestionMethodConfig ingestionMethodConfig) {
+    return new SnowflakeTelemetryServiceBuilder(conn, ingestionMethodConfig);
   }
 
   /** Builder for TelemetryService */
-  public static class SnowflakeTelemetryServiceBuilder extends EnableLogging {
+  public static class SnowflakeTelemetryServiceBuilder {
     private final SnowflakeTelemetryService service;
 
-    /** @param conn snowflake connection is required for telemetry service */
-    public SnowflakeTelemetryServiceBuilder(Connection conn) {
-      this.service = new SnowflakeTelemetryServiceV1(conn);
+    /**
+     * @param conn snowflake connection is required for telemetry service
+     * @param ingestionMethodConfig Snowpipe or Snowpipe Streaming
+     */
+    public SnowflakeTelemetryServiceBuilder(
+        Connection conn, IngestionMethodConfig ingestionMethodConfig) {
+      if (ingestionMethodConfig.equals(IngestionMethodConfig.SNOWPIPE)) {
+        this.service = new SnowflakeTelemetryServiceV1(conn);
+      } else {
+        this.service = new SnowflakeTelemetryServiceV2(conn);
+      }
     }
 
     /**

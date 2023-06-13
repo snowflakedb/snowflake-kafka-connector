@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DELIVERY_GUARANTEE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
@@ -12,6 +11,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CON
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -127,18 +127,16 @@ public class StreamingUtils {
   }
 
   /**
-   * Check if Streaming snowpipe related config provided by config(customer's config) has valid and
-   * allowed values
+   * Validate Streaming snowpipe related config provided by config(customer's config)
    *
    * @param inputConfig given in connector json file
-   * @return true if valid, also logs error if invalid.
+   * @return map of invalid parameters
    */
-  public static boolean isStreamingSnowpipeConfigValid(final Map<String, String> inputConfig) {
+  public static ImmutableMap<String, String> validateStreamingSnowpipeConfig(
+      final Map<String, String> inputConfig) {
+    Map<String, String> invalidParams = new HashMap<>();
 
-    boolean configIsValid = true;
-
-    // For snowpipe_streaming, role should be non empty and delivery guarantee should be exactly
-    // once. (Which is default)
+    // For snowpipe_streaming, role should be non empty
     if (inputConfig.containsKey(INGESTION_METHOD_OPT)) {
       try {
         // This throws an exception if config value is invalid.
@@ -149,44 +147,22 @@ public class StreamingUtils {
             .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE_STREAMING.toString())) {
 
           // check if buffer thresholds are within permissible range
-          if (!BufferThreshold.validateBufferThreshold(
-              inputConfig, IngestionMethodConfig.SNOWPIPE_STREAMING)) {
-            configIsValid = false;
-          }
+          invalidParams.putAll(
+              BufferThreshold.validateBufferThreshold(
+                  inputConfig, IngestionMethodConfig.SNOWPIPE_STREAMING));
 
-          if (!validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig)) {
-            configIsValid = false;
-          }
-
-          if (!validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig)) {
-            configIsValid = false;
-          }
+          invalidParams.putAll(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
+          invalidParams.putAll(validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig));
 
           // Validate if snowflake role is present
           if (!inputConfig.containsKey(Utils.SF_ROLE)
               || Strings.isNullOrEmpty(inputConfig.get(Utils.SF_ROLE))) {
-            LOGGER.error(
-                "Config:{} should be present if ingestionMethod is:{}",
+            invalidParams.put(
                 Utils.SF_ROLE,
-                inputConfig.get(INGESTION_METHOD_OPT));
-            configIsValid = false;
-          }
-          // setting delivery guarantee to EOS.
-          // It is fine for customer to not set this value if Streaming SNOWPIPE is used.
-          SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee deliveryGuarantee =
-              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.of(
-                  inputConfig.getOrDefault(
-                      DELIVERY_GUARANTEE,
-                      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.name()));
-
-          if (deliveryGuarantee.equals(
-              SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.AT_LEAST_ONCE)) {
-            LOGGER.error(
-                "Config:{} should be:{} if ingestion method is:{}",
-                DELIVERY_GUARANTEE,
-                SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee.EXACTLY_ONCE.toString(),
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-            configIsValid = false;
+                Utils.formatString(
+                    "Config:{} should be present if ingestionMethod is:{}",
+                    Utils.SF_ROLE,
+                    inputConfig.get(INGESTION_METHOD_OPT)));
           }
 
           /**
@@ -203,48 +179,54 @@ public class StreamingUtils {
           }
 
           // Valid schematization for Snowpipe Streaming
-          if (!validateSchematizationConfig(inputConfig)) {
-            configIsValid = false;
-          }
+          invalidParams.putAll(validateSchematizationConfig(inputConfig));
         }
       } catch (ConfigException exception) {
-        LOGGER.error("Kafka config:{} error:{}", INGESTION_METHOD_OPT, exception.getMessage());
-        configIsValid = false;
+        invalidParams.put(
+            INGESTION_METHOD_OPT,
+            Utils.formatString(
+                "Kafka config:{} error:{}", INGESTION_METHOD_OPT, exception.getMessage()));
       }
     }
-    return configIsValid;
+
+    return ImmutableMap.copyOf(invalidParams);
   }
 
   /**
    * Validates if key and value converters are allowed values if {@link
    * IngestionMethodConfig#SNOWPIPE_STREAMING} is used.
    *
-   * <p>return true if allowed, false otherwise.
+   * <p>Map if invalid parameters
    */
-  private static boolean validateConfigConverters(
+  private static Map<String, String> validateConfigConverters(
       final String inputConfigConverterField, Map<String, String> inputConfig) {
-    if (inputConfig.containsKey(inputConfigConverterField)) {
-      if (DISALLOWED_CONVERTERS_STREAMING.contains(inputConfig.get(inputConfigConverterField))) {
-        LOGGER.error(
-            "Config:{} has provided value:{}. If ingestionMethod is:{}, Snowflake Custom"
-                + " Converters are not allowed. \n"
-                + "Invalid Converters:{}",
-            inputConfigConverterField,
-            inputConfig.get(inputConfigConverterField),
-            IngestionMethodConfig.SNOWPIPE_STREAMING,
-            Iterables.toString(DISALLOWED_CONVERTERS_STREAMING));
-        return false;
-      }
+    Map<String, String> invalidParams = new HashMap<>();
+
+    if (inputConfig.containsKey(inputConfigConverterField)
+        && DISALLOWED_CONVERTERS_STREAMING.contains(inputConfig.get(inputConfigConverterField))) {
+      invalidParams.put(
+          inputConfigConverterField,
+          Utils.formatString(
+              "Config:{} has provided value:{}. If ingestionMethod is:{}, Snowflake Custom"
+                  + " Converters are not allowed. \n"
+                  + "Invalid Converters:{}",
+              inputConfigConverterField,
+              inputConfig.get(inputConfigConverterField),
+              IngestionMethodConfig.SNOWPIPE_STREAMING,
+              Iterables.toString(DISALLOWED_CONVERTERS_STREAMING)));
     }
-    return true;
+
+    return invalidParams;
   }
 
   /**
    * Validates if the configs are allowed values when schematization is enabled.
    *
-   * <p>return true if allowed, false otherwise.
+   * <p>return a map of invalid params
    */
-  private static boolean validateSchematizationConfig(Map<String, String> inputConfig) {
+  private static Map<String, String> validateSchematizationConfig(Map<String, String> inputConfig) {
+    Map<String, String> invalidParams = new HashMap<>();
+
     if (inputConfig.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)) {
       BOOLEAN_VALIDATOR.ensureValid(
           SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
@@ -257,12 +239,14 @@ public class StreamingUtils {
               || inputConfig
                   .get(VALUE_CONVERTER_CONFIG_FIELD)
                   .contains(BYTE_ARRAY_CONVERTER_KEYWORD))) {
-        LOGGER.error(
-            "The value converter:{} is not supported with schematization.",
-            inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD));
-        return false;
+        invalidParams.put(
+            inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD),
+            Utils.formatString(
+                "The value converter:{} is not supported with schematization.",
+                inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD)));
       }
     }
-    return true;
+
+    return invalidParams;
   }
 }

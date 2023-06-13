@@ -4,45 +4,49 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import org.apache.kafka.connect.sink.SinkRecord;
 
 /**
  * Helper class associated to runtime of Kafka Connect which can help to identify if there is a need
  * to flush the buffered records.
  */
 public abstract class BufferThreshold {
-  private static final LoggerHandler LOGGER = new LoggerHandler(BufferThreshold.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(BufferThreshold.class.getName());
 
   // What ingestion method is defined in connector.
   private final IngestionMethodConfig ingestionMethodConfig;
 
   /**
-   * Set in config (Time based flush) in seconds
+   * Time based buffer flush threshold in seconds. Corresponds to the duration since last kafka
+   * flush Set in config
    *
    * <p>Config parameter: {@link
    * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
    */
-  private final long flushTimeThresholdSeconds;
+  private final long bufferFlushTimeThreshold;
 
   /**
-   * Set in config (buffer size based flush) in bytes
+   * Size based buffer flush threshold in bytes. Corresponds to the buffer size in kafka Set in
+   * config
    *
    * <p>Config parameter: {@link
    * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES}
    */
-  private final long bufferSizeThresholdBytes;
+  private final long bufferByteSizeThreshold;
 
   /**
-   * Set in config (Threshold before we call insertRows API) corresponds to # of records in kafka
+   * Count based buffer flush threshold. Corresponds to the record count in kafka Set in config.
    *
    * <p>Config parameter: {@link
    * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_COUNT_RECORDS}
    */
-  private final long bufferKafkaRecordCountThreshold;
+  private final long bufferRecordCountThreshold;
 
   private final long SECOND_TO_MILLIS = TimeUnit.SECONDS.toMillis(1);
 
@@ -50,67 +54,67 @@ public abstract class BufferThreshold {
    * Public constructor
    *
    * @param ingestionMethodConfig enum accepting ingestion method (selected in config json)
-   * @param flushTimeThresholdSeconds flush time threshold in seconds given in connector config
-   * @param bufferSizeThresholdBytes buffer size threshold in bytes given in connector config
-   * @param bufferKafkaRecordCountThreshold buffer size threshold in # of kafka records given in
+   * @param bufferFlushTimeThreshold flush time threshold in seconds given in connector config
+   * @param bufferByteSizeThreshold buffer size threshold in bytes given in connector config
+   * @param bufferRecordCountThreshold record count threshold in number of kafka records given in
    *     connector config
    */
   public BufferThreshold(
       IngestionMethodConfig ingestionMethodConfig,
-      long flushTimeThresholdSeconds,
-      long bufferSizeThresholdBytes,
-      long bufferKafkaRecordCountThreshold) {
+      long bufferFlushTimeThreshold,
+      long bufferByteSizeThreshold,
+      long bufferRecordCountThreshold) {
     this.ingestionMethodConfig = ingestionMethodConfig;
-    this.flushTimeThresholdSeconds = flushTimeThresholdSeconds;
-    this.bufferSizeThresholdBytes = bufferSizeThresholdBytes;
-    this.bufferKafkaRecordCountThreshold = bufferKafkaRecordCountThreshold;
+    this.bufferFlushTimeThreshold = bufferFlushTimeThreshold;
+    this.bufferByteSizeThreshold = bufferByteSizeThreshold;
+    this.bufferRecordCountThreshold = bufferRecordCountThreshold;
   }
 
   /**
-   * Returns true if size of current buffer is more than threshold provided (Both in bytes).
+   * Returns true the buffer should flush based on the current buffer byte size
    *
    * <p>Threshold is config parameter: {@link
    * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES}
    *
-   * @param currentBufferSizeInBytes current size of buffer in bytes
-   * @return true if bytes threshold has reached.
+   * @param currBufferByteSize current size of buffer in bytes
+   * @return true if the currByteSize > configByteSizeThreshold
    */
-  public boolean isFlushBufferedBytesBased(final long currentBufferSizeInBytes) {
-    return currentBufferSizeInBytes >= bufferSizeThresholdBytes;
+  public boolean shouldFlushOnBufferByteSize(final long currBufferByteSize) {
+    return currBufferByteSize >= bufferByteSizeThreshold;
   }
 
   /**
-   * Returns true if number of ({@link SinkRecord})s in current buffer is more than threshold
-   * provided.
+   * Returns true the buffer should flush based on the current buffer record count
    *
    * <p>Threshold is config parameter: {@link
    * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_COUNT_RECORDS}
    *
-   * @param currentBufferedRecordCount current size of buffer in terms of number of kafka records
-   * @return true if number of kafka threshold has reached in buffer.
+   * @param currentBufferedRecordCount current size of buffer in number of kafka records
+   * @return true if the currRecordCount > configRecordCountThreshold
    */
-  public boolean isFlushBufferedRecordCountBased(final long currentBufferedRecordCount) {
+  public boolean shouldFlushOnBufferRecordCount(final long currentBufferedRecordCount) {
     return currentBufferedRecordCount != 0
-        && currentBufferedRecordCount >= bufferKafkaRecordCountThreshold;
+        && currentBufferedRecordCount >= bufferRecordCountThreshold;
   }
 
   /**
-   * If difference between current time and previous flush time is more than threshold return true.
+   * Returns true the buffer should flush based on the last flush time
    *
-   * @param previousFlushTimeStampMs when were previous buffered records were flushed into internal
-   *     stage for snowpipe based implementation or previous buffered records were sent in
-   *     insertRows API of Streaming Snowpipe.
-   * @return true if time based threshold has reached.
+   * <p>Threshold is config parameter: {@link
+   * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
+   *
+   * @param previousFlushTimeStampMs when the previous buffered records flushed
+   * @return true if currentTime - previousTime > configTimeThreshold
    */
-  public boolean isFlushTimeBased(final long previousFlushTimeStampMs) {
+  public boolean shouldFlushOnBufferTime(final long previousFlushTimeStampMs) {
     final long currentTimeMs = System.currentTimeMillis();
     return (currentTimeMs - previousFlushTimeStampMs)
-        >= (this.flushTimeThresholdSeconds * SECOND_TO_MILLIS);
+        >= (this.bufferFlushTimeThreshold * SECOND_TO_MILLIS);
   }
 
   /** @return Get flush time threshold in seconds */
   public long getFlushTimeThresholdSeconds() {
-    return flushTimeThresholdSeconds;
+    return this.bufferFlushTimeThreshold;
   }
 
   /**
@@ -121,21 +125,28 @@ public abstract class BufferThreshold {
    *
    * @param providedSFConnectorConfig provided by customer
    * @param ingestionMethodConfig ingestion method used. Check {@link IngestionMethodConfig}
-   * @return true if all thresholds are valid.
+   * @return invalid config parameters, if exists
    */
-  public static boolean validateBufferThreshold(
+  public static ImmutableMap<String, String> validateBufferThreshold(
       Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
-    return verifyBufferFlushTimeThreshold(providedSFConnectorConfig, ingestionMethodConfig)
-        && verifyBufferCountThreshold(providedSFConnectorConfig)
-        && verifyBufferBytesThreshold(providedSFConnectorConfig);
+    Map<String, String> invalidConfigParams = new HashMap<>();
+    invalidConfigParams.putAll(
+        verifyBufferFlushTimeThreshold(providedSFConnectorConfig, ingestionMethodConfig));
+    invalidConfigParams.putAll(verifyBufferCountThreshold(providedSFConnectorConfig));
+    invalidConfigParams.putAll(verifyBufferBytesThreshold(providedSFConnectorConfig));
+    return ImmutableMap.copyOf(invalidConfigParams);
   }
 
-  private static boolean verifyBufferFlushTimeThreshold(
+  private static ImmutableMap<String, String> verifyBufferFlushTimeThreshold(
       Map<String, String> providedSFConnectorConfig, IngestionMethodConfig ingestionMethodConfig) {
+    Map<String, String> invalidConfigParams = new HashMap();
+
     if (!providedSFConnectorConfig.containsKey(
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC)) {
-      LOGGER.error("Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
-      return false;
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+          Utils.formatString(
+              "Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
     } else {
       String providedFlushTimeSecondsInStr =
           providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
@@ -148,29 +159,36 @@ public abstract class BufferThreshold {
                 ? BUFFER_FLUSH_TIME_SEC_MIN
                 : STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC;
         if (providedFlushTimeSecondsInConfig < thresholdTimeToCompare) {
-          LOGGER.error(
-              "{} is {}, it should be greater than {}",
+          invalidConfigParams.put(
               SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-              providedFlushTimeSecondsInConfig,
-              thresholdTimeToCompare);
-          return false;
+              Utils.formatString(
+                  "{} is {}, it should be greater than {}",
+                  SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+                  providedFlushTimeSecondsInConfig,
+                  thresholdTimeToCompare));
         }
       } catch (NumberFormatException e) {
-        LOGGER.error(
-            "{} should be an integer. Invalid integer was provided:{}",
+        invalidConfigParams.put(
             SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-            providedFlushTimeSecondsInStr);
-        return false;
+            Utils.formatString(
+                "{} should be an integer. Invalid integer was provided:{}",
+                SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+                providedFlushTimeSecondsInStr));
       }
     }
-    return true;
+
+    return ImmutableMap.copyOf(invalidConfigParams);
   }
 
-  private static boolean verifyBufferBytesThreshold(Map<String, String> providedSFConnectorConfig) {
+  private static ImmutableMap<String, String> verifyBufferBytesThreshold(
+      Map<String, String> providedSFConnectorConfig) {
+    Map<String, String> invalidConfigParams = new HashMap();
+
     // verify buffer.size.bytes
     if (!providedSFConnectorConfig.containsKey(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES)) {
-      LOGGER.error("Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
-      return false;
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+          Utils.formatString("Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
     } else {
       final String providedBufferSizeBytesStr =
           providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES);
@@ -179,58 +197,69 @@ public abstract class BufferThreshold {
         if (providedBufferSizeBytesConfig
             < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN) // 1 byte
         {
-          LOGGER.error(
-              "{} is too low at {}. It must be {} or greater.",
+          invalidConfigParams.put(
               SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-              providedBufferSizeBytesConfig,
-              SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN);
-          return false;
+              Utils.formatString(
+                  "{} is too low at {}. It must be {} or greater.",
+                  SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+                  providedBufferSizeBytesConfig,
+                  SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN));
         }
       } catch (NumberFormatException e) {
-        LOGGER.error(
-            "Config {} should be an integer. Provided:{}",
+        invalidConfigParams.put(
             SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-            providedBufferSizeBytesStr);
-        return false;
+            Utils.formatString(
+                "Config {} should be an integer. Provided:{}",
+                SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
+                providedBufferSizeBytesStr));
       }
     }
-    return true;
+
+    return ImmutableMap.copyOf(invalidConfigParams);
   }
 
-  private static boolean verifyBufferCountThreshold(Map<String, String> providedSFConnectorConfig) {
+  private static ImmutableMap<String, String> verifyBufferCountThreshold(
+      Map<String, String> providedSFConnectorConfig) {
+    Map<String, String> invalidConfigParams = new HashMap();
+
     // verify buffer.count.records
     if (!providedSFConnectorConfig.containsKey(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS)) {
-      LOGGER.error("Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
-      return false;
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+          Utils.formatString(
+              "Config {} is empty", SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
     } else {
       final String providedBufferCountRecordsStr =
           providedSFConnectorConfig.get(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS);
       try {
         long providedBufferCountRecords = Long.parseLong(providedBufferCountRecordsStr);
         if (providedBufferCountRecords <= 0) {
-          LOGGER.error(
-              "Config {} is {}, it should at least 1",
+          invalidConfigParams.put(
               SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-              providedBufferCountRecords);
-          return false;
+              Utils.formatString(
+                  "Config {} is {}, it should at least 1",
+                  SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+                  providedBufferCountRecords));
         }
       } catch (NumberFormatException e) {
-        LOGGER.error(
-            "Config {} should be a positive integer. Provided:{}",
+        invalidConfigParams.put(
             SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-            providedBufferCountRecordsStr);
-        return false;
+            Utils.formatString(
+                "Config {} should be a positive integer. Provided:{}",
+                SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
+                providedBufferCountRecordsStr));
       }
     }
-    return true;
+
+    return ImmutableMap.copyOf(invalidConfigParams);
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("flushTimeThresholdSeconds", this.flushTimeThresholdSeconds)
-        .add("bufferSizeThresholdBytes", this.bufferSizeThresholdBytes)
-        .add("bufferKafkaRecordCountThreshold", this.bufferKafkaRecordCountThreshold)
+        .add("bufferFlushTimeThreshold", this.bufferFlushTimeThreshold)
+        .add("bufferByteSizeThreshold", this.bufferByteSizeThreshold)
+        .add("bufferRecordCountThreshold", this.bufferRecordCountThreshold)
         .toString();
   }
 }
