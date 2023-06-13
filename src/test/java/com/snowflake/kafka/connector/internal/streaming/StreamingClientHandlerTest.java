@@ -63,7 +63,7 @@ public class StreamingClientHandlerTest {
   @Test
   public void testCreateClientOverrideBdecVersion() {
     // remove bdec version
-    this.connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
+    this.connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "3");
 
     // test create
     SnowflakeStreamingIngestClient client =
