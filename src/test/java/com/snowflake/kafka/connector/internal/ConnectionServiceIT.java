@@ -212,6 +212,17 @@ public class ConnectionServiceIT {
     TestUtils.executeQuery("create table " + tableName + " (num int)");
     assert !conn.isTableCompatible(tableName);
     TestUtils.dropTable(tableName);
+
+    assert !conn.tableExist(tableName);
+
+    // case where the table was already present and reason why we need an upper case while searching
+    TestUtils.executeQuery(
+        "create or replace table "
+            + tableName
+            + " (record_metadata variant, record_content variant)");
+    assert conn.isTableCompatible(tableName);
+    assert conn.tableExist(tableName);
+    TestUtils.dropTable(tableName);
   }
 
   @Test

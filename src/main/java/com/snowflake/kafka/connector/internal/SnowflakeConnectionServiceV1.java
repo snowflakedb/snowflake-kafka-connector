@@ -242,7 +242,14 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       // connection object already specifies a db and schema
       DatabaseMetaData metadata = conn.getMetaData();
       // metadata.getTables returning one row -> the table exists
-      exist = metadata.getTables(null, null, tableName, null).next();
+      exist =
+          metadata
+              .getTables(
+                  null /* catalog */,
+                  null /*Schema pattern*/,
+                  tableName.toUpperCase(),
+                  null /*Types of tables*/)
+              .next();
     } catch (SQLException e) {
       LOGGER.debug("table {} doesn't exist", tableName);
       exist = false;
