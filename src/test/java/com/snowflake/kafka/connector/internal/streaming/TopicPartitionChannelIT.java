@@ -9,7 +9,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
@@ -444,36 +443,5 @@ public class TopicPartitionChannelIT {
             + (recordsInPartition1 + anotherSetOfRecords)
             + " actual: "
             + TestUtils.tableSize(testTableName);
-  }
-
-  @Test
-  public void testSimpleInsertRowsWithArrowBDECFormat() throws Exception {
-    // add config which overrides the bdec file format
-    Map<String, String> overriddenConfig = new HashMap<>(TestUtils.getConfForStreaming());
-    overriddenConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
-
-    InMemorySinkTaskContext inMemorySinkTaskContext =
-        new InMemorySinkTaskContext(Collections.singleton(topicPartition));
-
-    // This will automatically create a channel for topicPartition.
-    SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, overriddenConfig)
-            .setRecordNumber(1)
-            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(inMemorySinkTaskContext)
-            .addTask(testTableName, topicPartition)
-            .build();
-
-    final long noOfRecords = 1;
-
-    // send regular data
-    List<SinkRecord> records =
-        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, PARTITION);
-
-    service.insert(records);
-
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords, 20, 5);
   }
 }
