@@ -108,10 +108,10 @@ class InternalUtils {
   }
 
   /**
-   * Use this function if you want to create properties from user provide Snowflake kafka connector
+   * Use this function if you want to create properties from user provided Snowflake kafka connector
    * config.
    *
-   * @param conf User provided kafka connector configu
+   * @param conf User provided kafka connector config
    * @param sslEnabled is sslEnabled?
    * @return Properties object which will be passed down to JDBC connection
    */
@@ -189,11 +189,11 @@ class InternalUtils {
     if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE_STREAMING) {
       final String providedSFRoleInConfig = conf.get(Utils.SF_ROLE);
       if (!Strings.isNullOrEmpty(providedSFRoleInConfig)) {
-        LOGGER.debug("Using provided role {} for JDBC connection.", providedSFRoleInConfig);
+        LOGGER.info("Using provided role {} for JDBC connection.", providedSFRoleInConfig);
         properties.put(SFSessionProperty.ROLE, providedSFRoleInConfig);
       } else {
-        LOGGER.debug(
-            "No role is provided, default role for the user will be used for JDBC connection.");
+        LOGGER.info(
+            "Snowflake role is not provided, user's default role will be used for JDBC connection");
       }
     }
 
