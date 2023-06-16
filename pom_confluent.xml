@@ -136,7 +136,7 @@
                             </confluentControlCenterIntegration>
                             <singleMessageTransforms>false
                             </singleMessageTransforms>
-                            <supportedEncodings>UTF-8</supportedEncodings>
+                            <supportedEncodings>any</supportedEncodings>
                         </configuration>
                     </execution>
                 </executions>
