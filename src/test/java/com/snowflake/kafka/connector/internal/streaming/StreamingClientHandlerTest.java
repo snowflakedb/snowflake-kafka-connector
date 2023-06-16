@@ -60,7 +60,7 @@ public class StreamingClientHandlerTest {
     }
   }
 
-  @Test(expected=IllegalArgumentException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testCreateClientInvalidBdecVersion() {
     // add invalid bdec version
     this.connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
