@@ -109,7 +109,7 @@ class InternalUtils {
 
   /**
    * Use this function if you want to create properties from user provided Snowflake kafka connector
-   * config.
+   * config. It assumes the caller wants to use this Property for Snowpipe based Kafka Connector.
    *
    * @param conf User provided kafka connector config
    * @param sslEnabled is sslEnabled?
