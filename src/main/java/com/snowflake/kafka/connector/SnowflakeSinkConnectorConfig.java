@@ -115,7 +115,6 @@ public class SnowflakeSinkConnectorConfig {
 
   // This is the streaming bdec file version which can be defined in config
   // NOTE: Please do not override this value unless recommended from snowflake
-  // TODO @rcheng: remove?
   public static final String SNOWPIPE_STREAMING_FILE_VERSION = "snowflake.streaming.file.version";
 
   // TESTING
