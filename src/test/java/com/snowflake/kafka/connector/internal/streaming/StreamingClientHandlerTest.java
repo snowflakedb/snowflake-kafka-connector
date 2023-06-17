@@ -61,9 +61,7 @@ public class StreamingClientHandlerTest {
     }
   }
 
-  @Ignore
   @Test(expected = IllegalArgumentException.class)
-  // should reenable after we update sdk version >= 2.0.1
   public void testCreateClientInvalidBdecVersion() {
     // add invalid bdec version
     this.connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
