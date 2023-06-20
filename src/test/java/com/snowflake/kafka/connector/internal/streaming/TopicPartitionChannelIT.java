@@ -446,8 +446,8 @@ public class TopicPartitionChannelIT {
             + TestUtils.tableSize(testTableName);
   }
 
-  @Test
-  public void testSimpleInsertRowsWithArrowBDECFormat() throws Exception {
+  @Test(expected = IllegalArgumentException.class)
+  public void testSimpleInsertRowsFailureWithArrowBDECFormat() throws Exception {
     // add config which overrides the bdec file format
     Map<String, String> overriddenConfig = new HashMap<>(TestUtils.getConfForStreaming());
     overriddenConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
@@ -471,9 +471,7 @@ public class TopicPartitionChannelIT {
     List<SinkRecord> records =
         TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, PARTITION);
 
+    // should throw because we don't take arrow version 1 anymore
     service.insert(records);
-
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords, 20, 5);
   }
 }
