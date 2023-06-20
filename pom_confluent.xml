@@ -486,7 +486,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>31.0.1-jre</version>
+            <version>32.0.1-jre</version>
         </dependency>
 
         <!-- https://github.com/failsafe-lib/failsafe-->
