@@ -30,6 +30,7 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
 
   private final String stageName;
   private final SimpleIngestManager ingestManager;
+  private final String pipeName;
   private SnowflakeTelemetryService telemetry = null;
 
   private String beginMark = null;
@@ -45,6 +46,7 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
       PrivateKey privateKey,
       String userAgentSuffix) {
     this.stageName = stageName;
+    this.pipeName = pipeName;
     try {
       this.ingestManager =
           new SimpleIngestManager(
