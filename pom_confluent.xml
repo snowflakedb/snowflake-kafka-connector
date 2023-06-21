@@ -342,7 +342,7 @@
             <!-- This dependency won't be present in the kafka connect runtime, hence we are packaging this in an uber jar -->
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-fips</artifactId>
-            <version>1.0.3</version>
+            <version>1.0.7</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.apache.kafka/connect-api -->
