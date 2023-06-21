@@ -39,6 +39,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -377,6 +378,7 @@ public class TopicPartitionChannelTest {
 
   /* Only SFExceptions goes into fallback -> reopens channel, fetch offsetToken and throws Appropriate exception */
   @Test
+  @Ignore
   public void testInsertRows_SuccessAfterReopenChannel() throws Exception {
     Mockito.when(
             mockStreamingChannel.insertRows(

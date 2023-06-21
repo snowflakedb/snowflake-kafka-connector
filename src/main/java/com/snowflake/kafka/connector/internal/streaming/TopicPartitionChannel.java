@@ -261,9 +261,7 @@ public class TopicPartitionChannel {
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
     this.processedOffset.set(lastCommittedOffsetToken);
-    if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
-    }
+    this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
   }
 
   /**
@@ -876,16 +874,16 @@ public class TopicPartitionChannel {
       final long offsetRecoveredFromSnowflake) {
     // If we don't get a valid offset token from server side, reset the processed offset to invalid
     // and rely on kafka to send us the correct data
-    if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      this.offsetPersistedInSnowflake.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-      this.processedOffset.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-      LOGGER.warn(
-          "{} Channel:{}, OffsetRecoveredFromSnowflake:{}, skip reset kafka offset",
-          streamingApiFallbackInvoker,
-          this.getChannelName(),
-          offsetRecoveredFromSnowflake);
-      return;
-    }
+    //    if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+    //      this.offsetPersistedInSnowflake.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+    //      this.processedOffset.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+    //      LOGGER.warn(
+    //          "{} Channel:{}, OffsetRecoveredFromSnowflake:{}, skip reset kafka offset",
+    //          streamingApiFallbackInvoker,
+    //          this.getChannelName(),
+    //          offsetRecoveredFromSnowflake);
+    //      return;
+    //    }
 
     final long offsetToResetInKafka = offsetRecoveredFromSnowflake + 1L;
     // reset the buffer
