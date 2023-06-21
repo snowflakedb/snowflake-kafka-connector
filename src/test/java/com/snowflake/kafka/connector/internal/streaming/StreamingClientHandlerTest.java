@@ -60,18 +60,13 @@ public class StreamingClientHandlerTest {
     }
   }
 
-  @Test
-  public void testCreateClientOverrideBdecVersion() {
-    // remove bdec version
+  @Test(expected = IllegalArgumentException.class)
+  public void testCreateClientInvalidBdecVersion() {
+    // add invalid bdec version
     this.connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
 
     // test create
-    SnowflakeStreamingIngestClient client =
-        this.streamingClientHandler.createClient(this.connectorConfig);
-
-    // verify valid client against config
-    assert !client.isClosed();
-    assert client.getName().contains(this.connectorConfig.get(Utils.NAME));
+    this.streamingClientHandler.createClient(this.connectorConfig);
   }
 
   @Test
