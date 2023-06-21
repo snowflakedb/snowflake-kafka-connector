@@ -148,7 +148,7 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
             // Log errors
             if (InternalUtils.IngestedFileStatus.FAILED.equals(ingestionStatus)
                 || InternalUtils.IngestedFileStatus.PARTIALLY_LOADED.equals(ingestionStatus)) {
-              LOGGER.warn("Failed to load file {}", file.getPath());
+              LOGGER.warn("Failed to load file {} for pipe {}", file.getPath(), this.pipeName);
             }
           }
         }
