@@ -42,7 +42,7 @@ import org.junit.Test;
 
 public class SnowflakeSinkServiceV2IT {
 
-  private SnowflakeConnectionService conn = TestUtils.getConnectionService();
+  private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
   private String table = TestUtils.randomTableName();
   private int partition = 0;
   private int partition2 = 1;

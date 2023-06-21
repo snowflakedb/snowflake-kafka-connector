@@ -1,7 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
@@ -106,13 +108,27 @@ class InternalUtils {
   }
 
   /**
+   * Use this function if you want to create properties from user provided Snowflake kafka connector
+   * config. It assumes the caller wants to use this Property for Snowpipe based Kafka Connector.
+   *
+   * @param conf User provided kafka connector config
+   * @param sslEnabled is sslEnabled?
+   * @return Properties object which will be passed down to JDBC connection
+   */
+  static Properties createProperties(Map<String, String> conf, boolean sslEnabled) {
+    return createProperties(conf, sslEnabled, IngestionMethodConfig.SNOWPIPE);
+  }
+
+  /**
    * create a properties for snowflake connection
    *
    * @param conf a map contains all parameters
    * @param sslEnabled if ssl is enabled
+   * @param ingestionMethodConfig which ingestion method is provided.
    * @return a Properties instance
    */
-  static Properties createProperties(Map<String, String> conf, boolean sslEnabled) {
+  static Properties createProperties(
+      Map<String, String> conf, boolean sslEnabled, IngestionMethodConfig ingestionMethodConfig) {
     Properties properties = new Properties();
 
     // decrypt rsa key
@@ -169,6 +185,17 @@ class InternalUtils {
      *     Documentation Release Notes </a>
      */
     properties.put(SFSessionProperty.ALLOW_UNDERSCORES_IN_HOST.getPropertyKey(), "true");
+
+    if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE_STREAMING) {
+      final String providedSFRoleInConfig = conf.get(Utils.SF_ROLE);
+      if (!Strings.isNullOrEmpty(providedSFRoleInConfig)) {
+        LOGGER.info("Using provided role {} for JDBC connection.", providedSFRoleInConfig);
+        properties.put(SFSessionProperty.ROLE, providedSFRoleInConfig);
+      } else {
+        LOGGER.info(
+            "Snowflake role is not provided, user's default role will be used for JDBC connection");
+      }
+    }
 
     // required parameter check
     if (!properties.containsKey(JDBC_PRIVATE_KEY)) {
