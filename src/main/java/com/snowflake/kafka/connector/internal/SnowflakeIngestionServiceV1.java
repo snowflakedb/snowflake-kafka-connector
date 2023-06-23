@@ -30,6 +30,7 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
 
   private final String stageName;
   private final SimpleIngestManager ingestManager;
+  private final String pipeName;
   private SnowflakeTelemetryService telemetry = null;
 
   private String beginMark = null;
@@ -45,6 +46,7 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
       PrivateKey privateKey,
       String userAgentSuffix) {
     this.stageName = stageName;
+    this.pipeName = pipeName;
     try {
       this.ingestManager =
           new SimpleIngestManager(
@@ -142,7 +144,14 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
           if (fileStatus.containsKey(file.getPath())) {
             numOfRecords++;
 
-            fileStatus.put(file.getPath(), convertIngestStatus(file.getStatus()));
+            final InternalUtils.IngestedFileStatus ingestionStatus =
+                convertIngestStatus(file.getStatus());
+            fileStatus.put(file.getPath(), ingestionStatus);
+            // Log errors
+            if (InternalUtils.IngestedFileStatus.FAILED.equals(ingestionStatus)
+                || InternalUtils.IngestedFileStatus.PARTIALLY_LOADED.equals(ingestionStatus)) {
+              LOGGER.warn("Failed to load file {} for pipe {}", file.getPath(), this.pipeName);
+            }
           }
         }
       }
