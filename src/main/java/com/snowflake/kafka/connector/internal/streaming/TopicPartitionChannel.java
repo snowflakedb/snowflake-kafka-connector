@@ -94,6 +94,9 @@ public class TopicPartitionChannel {
   private final AtomicLong processedOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
+  // The first offset
+  private long firstOffsetSeen = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+
   /**
    * Offsets are reset in kafka when one of following cases arises in which we rely on source of
    * truth (Which is Snowflake's committed offsetToken)
@@ -261,7 +264,9 @@ public class TopicPartitionChannel {
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
     this.processedOffset.set(lastCommittedOffsetToken);
-    this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
+    if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
+    }
   }
 
   /**
@@ -278,6 +283,11 @@ public class TopicPartitionChannel {
   public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
+
+    // Set the first
+    if (firstOffsetSeen == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      firstOffsetSeen = kafkaSinkRecord.kafkaOffset();
+    }
 
     // Ignore adding to the buffer until we see the expected offset value
     if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord, currentProcessedOffset)) {
@@ -872,20 +882,10 @@ public class TopicPartitionChannel {
   private void resetChannelMetadataAfterRecovery(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
       final long offsetRecoveredFromSnowflake) {
-    // If we don't get a valid offset token from server side, reset the processed offset to invalid
-    // and rely on kafka to send us the correct data
-    //    if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-    //      this.offsetPersistedInSnowflake.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-    //      this.processedOffset.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-    //      LOGGER.warn(
-    //          "{} Channel:{}, OffsetRecoveredFromSnowflake:{}, skip reset kafka offset",
-    //          streamingApiFallbackInvoker,
-    //          this.getChannelName(),
-    //          offsetRecoveredFromSnowflake);
-    //      return;
-    //    }
-
-    final long offsetToResetInKafka = offsetRecoveredFromSnowflake + 1L;
+    final long offsetToResetInKafka =
+        offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+            ? firstOffsetSeen
+            : offsetRecoveredFromSnowflake + 1L;
     // reset the buffer
     this.bufferLock.lock();
     try {
@@ -956,7 +956,7 @@ public class TopicPartitionChannel {
     try {
       offsetToken = this.channel.getLatestCommittedOffsetToken();
       if (offsetToken == null) {
-        LOGGER.warn(
+        LOGGER.info(
             "OffsetToken not present for channelName:{}, will rely on kafka consumer offset as"
                 + " source of truth",
             this.getChannelName());
