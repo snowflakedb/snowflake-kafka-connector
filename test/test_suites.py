@@ -26,6 +26,7 @@ from test_suit.test_schema_mapping import TestSchemaMapping
 from test_suit.test_auto_table_creation import TestAutoTableCreation
 from test_suit.test_auto_table_creation_topic2table import TestAutoTableCreationTopic2Table
 
+from test_suit.test_schema_evolution_json import TestSchemaEvolutionJson
 from test_suit.test_schema_evolution_avro_sr import TestSchemaEvolutionAvroSR
 
 from test_suit.test_schema_evolution_w_auto_table_creation_json import \
@@ -151,6 +152,9 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         )),
         ("TestAutoTableCreationTopic2Table", EndToEndTestSuite(
             test_instance=TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress, testSet), clean=True, run_in_confluent=True, run_in_apache=False
+        )),
+        ("TestSchemaEvolutionJson", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
         ("TestSchemaEvolutionAvroSR", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionAvroSR(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=False
