@@ -94,7 +94,8 @@ public class TopicPartitionChannel {
   private final AtomicLong processedOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
-  // The first offset
+  // The first offset that KC sees when it starts/restarts, we will use this to tell Kafka which
+  // offset to resend when there is a failure and the channel offset token is NULL
   private long firstOffsetSeen = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
   /**
@@ -284,7 +285,7 @@ public class TopicPartitionChannel {
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
 
-    // Set the first
+    // Set the first offset seen if needed
     if (firstOffsetSeen == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       firstOffsetSeen = kafkaSinkRecord.kafkaOffset();
     }
@@ -882,6 +883,13 @@ public class TopicPartitionChannel {
   private void resetChannelMetadataAfterRecovery(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
       final long offsetRecoveredFromSnowflake) {
+    if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      LOGGER.info(
+          "{} Channel:{}, offset token is NULL, will use first offset seen instead",
+          streamingApiFallbackInvoker,
+          this.getChannelName(),
+          offsetRecoveredFromSnowflake);
+    }
     final long offsetToResetInKafka =
         offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
             ? firstOffsetSeen
