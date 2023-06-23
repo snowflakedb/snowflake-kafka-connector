@@ -267,6 +267,11 @@ public class TopicPartitionChannel {
     this.processedOffset.set(lastCommittedOffsetToken);
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
+    } else {
+      LOGGER.info(
+          "TopicPartitionChannel:{}, offset token is NULL, will rely on Kafka to send us the"
+              + " correct offset instead",
+          this.getChannelName());
     }
   }
 
@@ -885,10 +890,10 @@ public class TopicPartitionChannel {
       final long offsetRecoveredFromSnowflake) {
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       LOGGER.info(
-          "{} Channel:{}, offset token is NULL, will use first offset seen instead",
+          "{} Channel:{}, offset token is NULL, will use first offset seen:{} instead",
           streamingApiFallbackInvoker,
           this.getChannelName(),
-          offsetRecoveredFromSnowflake);
+          firstOffsetSeen);
     }
     final long offsetToResetInKafka =
         offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
