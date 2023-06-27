@@ -420,7 +420,7 @@ public class SnowflakeSinkTask extends SinkTask {
           logExecutionContent,
           executionTimeMs);
     } else {
-      this.DYNAMIC_LOGGER.info("Successfully " + logExecutionContent);
+      this.DYNAMIC_LOGGER.debug("Successfully " + logExecutionContent);
     }
   }
 
