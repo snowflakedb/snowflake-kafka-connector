@@ -1,3 +1,4 @@
+import datetime
 import json
 from time import sleep
 
@@ -12,6 +13,7 @@ class TestSchemaEvolutionDropTable:
         self.fileName = "travis_correct_schema_evolution_drop_table"
         self.table = self.fileName + nameSalt
         self.recordNum = 100
+        self.expectedRowCount = 0
         self.topic = self.table + "0"
 
         self.driver.snowflake_conn.cursor().execute(
@@ -43,12 +45,16 @@ class TestSchemaEvolutionDropTable:
         for e in range(self.recordNum):
             key.append(json.dumps({'number': str(e)}).encode('utf-8'))
             value.append(json.dumps(self.record).encode('utf-8'))
+        print("aaaaaaaa")
+        print(len(value))
         self.driver.sendBytesData(self.topic, value, key)
+        self.expectedRowCount += self.recordNum
 
         # Sleep for some time and then verify the rows are ingested
         sleep(60)
         self.verify("0")
 
+        print("aaaaaaa recreating table " + str(datetime.datetime.now()))
         # Recreate the table
         self.driver.snowflake_conn.cursor().execute(
             "Create or replace table {} (PERFORMANCE_STRING STRING, RECORD_METADATA VARIANT)".format(self.table))
@@ -58,6 +64,7 @@ class TestSchemaEvolutionDropTable:
         # Ingest another set of rows
         sleep(30)
         self.driver.sendBytesData(self.topic, value, key)
+        self.expectedRowCount += self.recordNum
 
     def verify(self, round):
         rows = self.driver.snowflake_conn.cursor().execute(
@@ -81,8 +88,9 @@ class TestSchemaEvolutionDropTable:
 
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.table)).fetchone()[0]
+        print(self.table + " aaaaaaaaaa")
         if res != self.recordNum:
-            print("Number of record expected: {}, got: {}".format(self.recordNum * 2, res))
+            print("Number of record expected: {}, got: {}".format(self.recordNum, res))
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
     def clean(self):

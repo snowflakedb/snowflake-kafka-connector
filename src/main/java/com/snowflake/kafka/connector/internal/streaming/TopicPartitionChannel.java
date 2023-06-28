@@ -96,7 +96,7 @@ public class TopicPartitionChannel {
 
   // The first offset that KC sees when it starts/restarts, we will use this to tell Kafka which
   // offset to resend when there is a failure and the channel offset token is NULL
-  private long firstOffsetSeen = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+  private long latestConsumerOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
   /**
    * Offsets are reset in kafka when one of following cases arises in which we rely on source of
@@ -287,18 +287,27 @@ public class TopicPartitionChannel {
    * @param kafkaSinkRecord input record from Kafka
    */
   public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
+    LOGGER.info(
+        "aaaaaaaaaa "
+            + kafkaSinkRecord.topic()
+            + " "
+            + kafkaSinkRecord.kafkaPartition()
+            + " "
+            + kafkaSinkRecord.kafkaOffset()
+            + " "
+            + kafkaSinkRecord.value());
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
 
     // Set the first offset seen if needed
-    if (firstOffsetSeen == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      firstOffsetSeen = kafkaSinkRecord.kafkaOffset();
+    if (latestConsumerOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      latestConsumerOffset = kafkaSinkRecord.kafkaOffset();
     }
 
     // Ignore adding to the buffer until we see the expected offset value
-    if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord, currentProcessedOffset)) {
-      return;
-    }
+    //    if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord, currentProcessedOffset)) {
+    //      return;
+    //    }
 
     // Accept the incoming record only if we don't have a valid offset token at server side, or the
     // incoming record offset is 1 + the processed offset
@@ -359,7 +368,8 @@ public class TopicPartitionChannel {
    */
   private boolean shouldIgnoreAddingRecordToBuffer(
       SinkRecord kafkaSinkRecord, long currentProcessedOffset) {
-    if (!isOffsetResetInKafka) {
+    if (!isOffsetResetInKafka
+        || currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       return false;
     }
 
@@ -515,7 +525,7 @@ public class TopicPartitionChannel {
                 StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
         // If there is no valid offset token at server side even after the reset, retry it again
         if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-          insertBufferedRecords(streamingBufferToInsert);
+          // insertBufferedRecords(streamingBufferToInsert);
         }
       }
       return response;
@@ -614,6 +624,15 @@ public class TopicPartitionChannel {
       List<Long> offsets = recordsAndOffsets.getValue();
       InsertValidationResponse finalResponse = new InsertValidationResponse();
       boolean needToResetOffset = false;
+      if (!records.isEmpty()) {
+        LOGGER.info(
+            "aaaaaaaaaa "
+                + records.size()
+                + " "
+                + offsets.get(0)
+                + " "
+                + records.get(0).get("RECORD_METADATA"));
+      }
       if (!enableSchemaEvolution) {
         finalResponse =
             this.channel.insertRows(
@@ -893,12 +912,17 @@ public class TopicPartitionChannel {
           "{} Channel:{}, offset token is NULL, will use first offset seen:{} instead",
           streamingApiFallbackInvoker,
           this.getChannelName(),
-          firstOffsetSeen);
+          latestConsumerOffset);
     }
+
     final long offsetToResetInKafka =
         offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
-            ? firstOffsetSeen
+            ? latestConsumerOffset
             : offsetRecoveredFromSnowflake + 1L;
+    if (offsetToResetInKafka == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      return;
+    }
+
     // reset the buffer
     this.bufferLock.lock();
     try {
@@ -924,7 +948,7 @@ public class TopicPartitionChannel {
       this.bufferLock.unlock();
     }
     LOGGER.warn(
-        "{} Channel:{}, OffsetRecoveredFromSnowflake:{}, Reset kafka offset to:{}",
+        "{} Channel:{}, OffsetRecoveredFromSnowflake:{}, reset kafka offset to:{}",
         streamingApiFallbackInvoker,
         this.getChannelName(),
         offsetRecoveredFromSnowflake,
@@ -962,26 +986,15 @@ public class TopicPartitionChannel {
    *     snowflake.
    */
   private long fetchLatestCommittedOffsetFromSnowflake() {
-    LOGGER.debug(
-        "Fetching last committed offset for partition channel:{}",
-        this.channel.getFullyQualifiedName());
+    LOGGER.debug("Fetching last committed offset for partition channel:{}", this.getChannelName());
     String offsetToken = null;
     try {
       offsetToken = this.channel.getLatestCommittedOffsetToken();
-      if (offsetToken == null) {
-        LOGGER.info(
-            "OffsetToken not present for channelName:{}, will rely on kafka consumer offset as"
-                + " source of truth",
-            this.getChannelName());
-        return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
-      } else {
-        long latestCommittedOffsetInSnowflake = Long.parseLong(offsetToken);
-        LOGGER.info(
-            "Fetched offsetToken:{} for channelName:{}",
-            latestCommittedOffsetInSnowflake,
-            this.channel.getFullyQualifiedName());
-        return latestCommittedOffsetInSnowflake;
-      }
+      LOGGER.info(
+          "Fetched offsetToken for channelName:{}, offset:{}", this.getChannelName(), offsetToken);
+      return offsetToken == null
+          ? NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+          : Long.parseLong(offsetToken);
     } catch (NumberFormatException ex) {
       LOGGER.error(
           "The offsetToken string does not contain a parsable long:{} for channel:{}",
@@ -1081,6 +1094,10 @@ public class TopicPartitionChannel {
   @VisibleForTesting
   protected SnowflakeTelemetryService getTelemetryServiceV2() {
     return this.telemetryServiceV2;
+  }
+
+  protected void setLatestConsumerOffset(long consumerOffset) {
+    this.latestConsumerOffset = consumerOffset;
   }
 
   /**

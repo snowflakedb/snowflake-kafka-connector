@@ -266,7 +266,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     String partitionChannelKey =
         partitionChannelKey(topicPartition.topic(), topicPartition.partition());
     if (partitionsToChannel.containsKey(partitionChannelKey)) {
-      return partitionsToChannel.get(partitionChannelKey).getOffsetSafeToCommitToKafka();
+      long offset = partitionsToChannel.get(partitionChannelKey).getOffsetSafeToCommitToKafka();
+      partitionsToChannel.get(partitionChannelKey).setLatestConsumerOffset(offset);
+      return offset;
     } else {
       LOGGER.warn(
           "Topic: {} Partition: {} hasn't been initialized to get offset",
