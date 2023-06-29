@@ -61,7 +61,7 @@ class TestSchemaEvolutionMultiTopicDropTable:
             self.driver.sendBytesData(topic, value, key)
 
         # Sleep for some time and then verify the rows are ingested
-        sleep(60)
+        sleep(90)
         self.verify("0")
 
         # Recreate the table
@@ -71,7 +71,6 @@ class TestSchemaEvolutionMultiTopicDropTable:
             "alter table {} set ENABLE_SCHEMA_EVOLUTION = true".format(self.table))
 
         # Ingest another set of rows
-        sleep(30)
         for i, topic in enumerate(self.topics):
             key = []
             value = []
