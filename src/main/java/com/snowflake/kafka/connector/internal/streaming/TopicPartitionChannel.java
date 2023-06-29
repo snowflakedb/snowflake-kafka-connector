@@ -893,7 +893,8 @@ public class TopicPartitionChannel {
           latestConsumerOffset);
     }
 
-    // The offset token in the channel is null, use the consumer offset managed by the connector
+    // If the offset token in the channel is null, use the consumer offset managed by the connector;
+    // otherwise use the offset token stored in the channel
     final long offsetToResetInKafka =
         offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
             ? latestConsumerOffset
