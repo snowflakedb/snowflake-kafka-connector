@@ -94,7 +94,7 @@ public class TopicPartitionChannel {
   private final AtomicLong processedOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
-  // The in-memory consumer offset managed by us, we need this to tell Kafka which
+  // The in-memory consumer offset managed by the connector, we need this to tell Kafka which
   // offset to resend when the channel offset token is NULL
   private long latestConsumerOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
@@ -287,15 +287,6 @@ public class TopicPartitionChannel {
    * @param kafkaSinkRecord input record from Kafka
    */
   public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
-    LOGGER.info(
-        "aaaaaaaaaa "
-            + kafkaSinkRecord.topic()
-            + " "
-            + kafkaSinkRecord.kafkaPartition()
-            + " "
-            + kafkaSinkRecord.kafkaOffset()
-            + " "
-            + kafkaSinkRecord.value());
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
 
@@ -619,15 +610,6 @@ public class TopicPartitionChannel {
       List<Long> offsets = recordsAndOffsets.getValue();
       InsertValidationResponse finalResponse = new InsertValidationResponse();
       boolean needToResetOffset = false;
-      if (!records.isEmpty()) {
-        LOGGER.info(
-            "aaaaaaaaaa "
-                + records.size()
-                + " "
-                + offsets.get(0)
-                + " "
-                + records.get(0).get("RECORD_METADATA"));
-      }
       if (!enableSchemaEvolution) {
         finalResponse =
             this.channel.insertRows(
@@ -904,13 +886,14 @@ public class TopicPartitionChannel {
       final long offsetRecoveredFromSnowflake) {
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       LOGGER.info(
-          "{} Channel:{}, offset token is NULL, will use first offset seen:{} instead",
+          "{} Channel:{}, offset token is NULL, will use the consumer offset managed by the"
+              + " connector instead, consumer offset:{}",
           streamingApiFallbackInvoker,
           this.getChannelName(),
           latestConsumerOffset);
     }
 
-    // If there is no offset token in the channel
+    // The offset token in the channel is null, use the consumer offset managed by the connector
     final long offsetToResetInKafka =
         offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
             ? latestConsumerOffset
