@@ -94,8 +94,8 @@ public class TopicPartitionChannel {
   private final AtomicLong processedOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
-  // The first offset that KC sees when it starts/restarts, we will use this to tell Kafka which
-  // offset to resend when there is a failure and the channel offset token is NULL
+  // The in-memory consumer offset managed by us, we need this to tell Kafka which
+  // offset to resend when the channel offset token is NULL
   private long latestConsumerOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
   /**
@@ -299,15 +299,15 @@ public class TopicPartitionChannel {
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
 
-    // Set the first offset seen if needed
+    // Set the consumer offset to be the first record that Kafka sends us
     if (latestConsumerOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       latestConsumerOffset = kafkaSinkRecord.kafkaOffset();
     }
 
     // Ignore adding to the buffer until we see the expected offset value
-    //    if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord, currentProcessedOffset)) {
-    //      return;
-    //    }
+    if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord, currentProcessedOffset)) {
+      return;
+    }
 
     // Accept the incoming record only if we don't have a valid offset token at server side, or the
     // incoming record offset is 1 + the processed offset
@@ -520,13 +520,8 @@ public class TopicPartitionChannel {
       // Due to schema evolution, we may need to reopen the channel and reset the offset in kafka
       // since it's possible that not all rows are ingested
       if (response.needToResetOffset()) {
-        final long offsetRecoveredFromSnowflake =
-            streamingApiFallbackSupplier(
-                StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
-        // If there is no valid offset token at server side even after the reset, retry it again
-        if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-          // insertBufferedRecords(streamingBufferToInsert);
-        }
+        streamingApiFallbackSupplier(
+            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
       }
       return response;
     } catch (TopicPartitionChannelInsertionException ex) {
@@ -915,6 +910,7 @@ public class TopicPartitionChannel {
           latestConsumerOffset);
     }
 
+    // If there is no offset token in the channel
     final long offsetToResetInKafka =
         offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
             ? latestConsumerOffset
@@ -1097,7 +1093,9 @@ public class TopicPartitionChannel {
   }
 
   protected void setLatestConsumerOffset(long consumerOffset) {
-    this.latestConsumerOffset = consumerOffset;
+    if (consumerOffset > this.latestConsumerOffset) {
+      this.latestConsumerOffset = consumerOffset;
+    }
   }
 
   /**
