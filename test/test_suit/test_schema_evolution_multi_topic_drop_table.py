@@ -106,6 +106,6 @@ class TestSchemaEvolutionMultiTopicDropTable:
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
     def clean(self):
-        print(self.table)
+        print(self.table + " aaaaaaaaaaaa")
         # self.driver.cleanTableStagePipe(self.table)
         return
