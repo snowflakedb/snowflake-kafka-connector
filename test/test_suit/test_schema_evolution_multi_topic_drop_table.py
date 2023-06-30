@@ -9,7 +9,7 @@ from test_suit.test_utils import NonRetryableError
 class TestSchemaEvolutionMultiTopicDropTable:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_evolution_json"
+        self.fileName = "travis_correct_schema_evolution_multi_topic_drop_table"
         self.topics = []
         self.table = self.fileName + nameSalt
         self.recordNum = 100
@@ -106,4 +106,6 @@ class TestSchemaEvolutionMultiTopicDropTable:
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
     def clean(self):
-        self.driver.cleanTableStagePipe(self.table)
+        print(self.table)
+        # self.driver.cleanTableStagePipe(self.table)
+        return
