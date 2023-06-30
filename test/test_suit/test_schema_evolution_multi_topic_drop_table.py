@@ -101,11 +101,16 @@ class TestSchemaEvolutionMultiTopicDropTable:
 
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.table)).fetchone()[0]
+
+        res1 = self.driver.snowflake_conn.cursor().execute(
+            "SELECT * FROM {}".format(self.table)).fetchall()
+        res2 = list(res1)
+        for aa in res2:
+            print(aa)
+
         if res != self.recordNum * len(self.topics):
             print("Number of record expected: {}, got: {}".format(self.recordNum * len(self.topics), res))
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
     def clean(self):
-        print(self.table + " aaaaaaaaaaaa")
-        # self.driver.cleanTableStagePipe(self.table)
-        return
+        self.driver.cleanTableStagePipe(self.table)
