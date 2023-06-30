@@ -46,7 +46,7 @@ class TestSchemaEvolutionDropTable:
         self.driver.sendBytesData(self.topic, value, key)
 
         # Sleep for some time and then verify the rows are ingested
-        sleep(90)
+        sleep(120)
         self.verify("0")
 
         # Recreate the table

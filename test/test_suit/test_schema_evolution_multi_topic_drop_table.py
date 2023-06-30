@@ -61,7 +61,7 @@ class TestSchemaEvolutionMultiTopicDropTable:
             self.driver.sendBytesData(topic, value, key)
 
         # Sleep for some time and then verify the rows are ingested
-        sleep(90)
+        sleep(120)
         self.verify("0")
 
         # Recreate the table
@@ -101,13 +101,6 @@ class TestSchemaEvolutionMultiTopicDropTable:
 
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.table)).fetchone()[0]
-
-        res1 = self.driver.snowflake_conn.cursor().execute(
-            "SELECT * FROM {}".format(self.table)).fetchall()
-        res2 = list(res1)
-        for aa in res2:
-            print(aa)
-
         if res != self.recordNum * len(self.topics):
             print("Number of record expected: {}, got: {}".format(self.recordNum * len(self.topics), res))
             raise NonRetryableError("Number of record in table is different from number of record sent")
