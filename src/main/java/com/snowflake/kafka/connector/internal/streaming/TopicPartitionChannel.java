@@ -83,19 +83,22 @@ public class TopicPartitionChannel {
 
   // -------- private final fields -------- //
 
-  // This offset is updated when Snowflake has received offset from insertRows API
-  // We will update this value after calling offsetToken API for this channel
+  // This offset represents the data persisted in Snowflake. More specifically it is the Snowflake
+  // offset determined from the insertRows API call. It is set after calling the fetchOffsetToken
+  // API for this channel
   private final AtomicLong offsetPersistedInSnowflake =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
-  // This offset is updated every time KC processed an offset, it's used to make sure that we won't
-  // process records that are already processed. It will be reset to the latest committed token
-  // every time we fetch it from Snowflake
+  // This offset represents the data buffered in KC. More specifically it is the KC offset to ensure
+  // exactly once functionality. On creation it is set to the latest committed token in Snowflake
+  // (see offsetPersistedInSnowflake) and updated on each new row from KC.
   private final AtomicLong processedOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
-  // The in-memory consumer offset managed by the connector, we need this to tell Kafka which
-  // offset to resend when the channel offset token is NULL
+  // This offset is a fallback to represent the data buffered in KC. It is similar to
+  // processedOffset, however it is only used to resend the offset when the channel offset token is
+  // NULL. It is updated to the first offset sent by KC (see processedOffset) or the offset
+  // persisted in Snowflake (see offsetPersistedInSnowflake)
   private long latestConsumerOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
   /**
@@ -359,6 +362,8 @@ public class TopicPartitionChannel {
    */
   private boolean shouldIgnoreAddingRecordToBuffer(
       SinkRecord kafkaSinkRecord, long currentProcessedOffset) {
+    // Don't skip rows if there is no offset reset or there is no offset token information in the
+    // channel
     if (!isOffsetResetInKafka
         || currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       return false;
