@@ -114,12 +114,16 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     String query;
     if (overwrite) {
       query =
-          "create or replace table identifier(?) (record_metadata "
-              + "variant, record_content variant)";
+          "create or replace table if not exists identifier(?) (record_metadata "
+              + "variant, record_content variant, row_id number "
+              + "autoincrement, inserted_at timestamp_ntz "
+              + "default sysdate())";
     } else {
       query =
           "create table if not exists identifier(?) (record_metadata "
-              + "variant, record_content variant)";
+              + "variant, record_content variant, row_id number "
+              + "autoincrement, inserted_at timestamp_ntz "
+              + "default sysdate())";
     }
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
