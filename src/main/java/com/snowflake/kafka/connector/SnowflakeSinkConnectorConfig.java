@@ -159,7 +159,7 @@ public class SnowflakeSinkConnectorConfig {
       "enable.streaming.client.optimization";
   public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DISPLAY =
       "Enable streaming client optimization";
-  public static final boolean ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT = false;
+  public static final boolean ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT = true;
   public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DOC =
       "Whether to optimize the streaming client to reduce cost. Note that this may affect"
           + " throughput or latency and can only be set if Streaming Snowpipe is enabled";
