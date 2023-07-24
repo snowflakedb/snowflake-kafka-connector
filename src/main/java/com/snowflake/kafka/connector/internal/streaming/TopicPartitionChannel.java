@@ -229,7 +229,8 @@ public class TopicPartitionChannel {
    * @param recordService record service for processing incoming offsets from Kafka
    * @param telemetryService Telemetry Service which includes the Telemetry Client, sends Json data
    *     to Snowflake
-   * @param enableCustomJMXMonitoring whether or not we enable Mbean for required classes and emit JMX metrics for monitoring
+   * @param enableCustomJMXMonitoring whether or not we enable Mbean for required classes and emit
+   *     JMX metrics for monitoring
    */
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
@@ -294,9 +295,15 @@ public class TopicPartitionChannel {
     // jmx and telemetry
     this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
     this.metricRegistry = new MetricRegistry();
-    this.metricsJmxReporter =
-        new MetricsJmxReporter(this.metricRegistry, conn.getConnectorName());
-    this.channelStatus = new SnowflakeTelemetryChannelStatus(this.tableName, this.topicPartition.topic(), this.topicPartition.partition(), this.channelName, this.enableCustomJMXMonitoring, this.metricsJmxReporter);
+    this.metricsJmxReporter = new MetricsJmxReporter(this.metricRegistry, conn.getConnectorName());
+    this.channelStatus =
+        new SnowflakeTelemetryChannelStatus(
+            this.tableName,
+            this.topicPartition.topic(),
+            this.topicPartition.partition(),
+            this.channelName,
+            this.enableCustomJMXMonitoring,
+            this.metricsJmxReporter);
   }
 
   /**

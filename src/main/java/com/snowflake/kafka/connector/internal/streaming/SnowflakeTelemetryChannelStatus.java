@@ -30,18 +30,15 @@ import com.google.common.collect.Maps;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
-
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
 public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo {
-  private static final KCLogger LOGGER = new KCLogger(SnowflakeTelemetryChannelStatus.class.getName());
+  private static final KCLogger LOGGER =
+      new KCLogger(SnowflakeTelemetryChannelStatus.class.getName());
 
   private final String topicName;
   private final int partition;
@@ -56,6 +53,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
   /** offsets - see {@link TopicPartitionChannel} for description of offsets */
   private AtomicLong offsetPersistedInSnowflake;
+
   private AtomicLong processedOffset;
   private AtomicLong latestConsumerOffset;
 
@@ -65,16 +63,22 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   private AtomicLong totalBufferFlushCount; // total number of buffer flushes
 
   // TODO @rcheng latencies
-//  // ------------ following metrics are not cumulative, reset every time sent ------------//
-//  // Need to update two values atomically when calculating lag, thus a lock is required to protect the access
-//  private final Lock lagLock;
-//
-//  // Average lag of Kafka
-//  private AtomicLong averageKafkaLagMs; // average lag on Kafka side
-//  private AtomicLong averageKafkaLagRecordCount; // record count
+  //  // ------------ following metrics are not cumulative, reset every time sent ------------//
+  //  // Need to update two values atomically when calculating lag, thus a lock is required to
+  // protect the access
+  //  private final Lock lagLock;
+  //
+  //  // Average lag of Kafka
+  //  private AtomicLong averageKafkaLagMs; // average lag on Kafka side
+  //  private AtomicLong averageKafkaLagRecordCount; // record count
 
-
-  public SnowflakeTelemetryChannelStatus(final String tableName, final String topicName, final int partition, final String channelName, final boolean enableCustomJMXConfig, final MetricsJmxReporter metricsJmxReporter) {
+  public SnowflakeTelemetryChannelStatus(
+      final String tableName,
+      final String topicName,
+      final int partition,
+      final String channelName,
+      final boolean enableCustomJMXConfig,
+      final MetricsJmxReporter metricsJmxReporter) {
     super(tableName);
     this.topicName = topicName;
     this.partition = partition;
@@ -88,12 +92,12 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     this.offsetPersistedInSnowflake = new AtomicLong(-1);
     this.processedOffset = new AtomicLong(-1);
     this.latestConsumerOffset = new AtomicLong(-1);
-    
+
     // buffer
     this.totalNumberOfRecords = new AtomicLong(0);
     this.totalSizeOfDataInBytes = new AtomicLong(0);
     this.totalBufferFlushCount = new AtomicLong(0);
-    
+
     if (this.enableCustomJMXConfig) {
       registerChannelJMXMetrics(channelName, metricsJmxReporter);
     }
@@ -106,14 +110,12 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
    * @param msg ObjectNode in which extra fields needs to be added.
    */
   @Override
-  public void dumpTo(ObjectNode msg) {
-
-  }
+  public void dumpTo(ObjectNode msg) {}
 
   /**
    * @return true if it would suggest that their was no update to corresponding implementation's
-   * member variables. Or, in other words, the corresponding partition didnt receive any
-   * records, in which case we would not call telemetry API.
+   *     member variables. Or, in other words, the corresponding partition didnt receive any
+   *     records, in which case we would not call telemetry API.
    */
   @Override
   public boolean isEmpty() {
@@ -122,7 +124,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   }
 
   // --------------- JMX Metrics --------------- //
-  
+
   /**
    * Registers all the Metrics inside the metricRegistry. The registered metric will be a subclass
    * of {@link Metric}
@@ -157,7 +159,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
       // offset
       currentMetricRegistry.register(
-          constructMetricName(channelName, OFFSET_SUB_DOMAIN, MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE),
+          constructMetricName(
+              channelName, OFFSET_SUB_DOMAIN, MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE),
           (Gauge<Long>) () -> this.offsetPersistedInSnowflake.get());
 
       currentMetricRegistry.register(
