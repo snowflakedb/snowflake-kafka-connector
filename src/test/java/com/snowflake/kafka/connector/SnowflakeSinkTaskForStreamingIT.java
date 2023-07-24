@@ -64,9 +64,12 @@ public class SnowflakeSinkTaskForStreamingIT {
     TestUtils.dropTable(topicName);
   }
 
-  @Test
-  public void testSinkTask() throws Exception {
+  /** @param useOAuth true if using oauth as authentication, otherwise use snowflake_jwt */
+  private void sinkTaskTest(boolean useOAuth) throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
+    if (useOAuth) {
+      config = TestUtils.getConfForStreamingWithOAuth();
+    }
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(BUFFER_COUNT_RECORDS, "1"); // override
 
@@ -101,6 +104,17 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     sinkTask.close(topicPartitions);
     sinkTask.stop();
+  }
+
+  @Test
+  public void testSinkTask() throws Exception {
+    sinkTaskTest(false);
+  }
+
+  // TODO: Added after SNOW-352846 is released
+  // @Test
+  public void testSinkTaskWithOAuth() throws Exception {
+    sinkTaskTest(true);
   }
 
   @Test

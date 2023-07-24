@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
 import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
+import static com.snowflake.kafka.connector.Utils.OAUTH;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import static org.junit.Assert.assertEquals;
 
@@ -895,6 +896,66 @@ public class ConnectorConfigTest {
     for (String param : emptyParams) {
       paramsToRemove.add(param);
       this.invalidConfigRunner(paramsToRemove);
+    }
+  }
+
+  @Test
+  public void testOAuthAuthenticator() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR, OAUTH);
+    config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID, "client_id");
+    config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET, "client_secret");
+    config.put(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN, "refresh_token");
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testInvalidAuthenticator() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR, "invalid_authenticator");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.AUTHENTICATOR);
+    }
+  }
+
+  @Test
+  public void testEmptyClientId() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR, OAUTH);
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET, "client_secret");
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN, "refresh_token");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID);
+    }
+  }
+
+  @Test
+  public void testEmptyClientSecret() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR, OAUTH);
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID, "client_id");
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN, "refresh_token");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET);
+    }
+  }
+
+  @Test
+  public void testEmptyRefreshToken() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR, OAUTH);
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID, "client_id");
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET, "client_secret");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN);
     }
   }
 
