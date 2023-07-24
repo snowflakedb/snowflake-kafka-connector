@@ -24,11 +24,13 @@ public class SnowflakeTelemetryPipeCreation extends SnowflakeTelemetryBasicInfo 
   int fileCountReprocessPurge =
       0; // files on stage that are purged due to reprocessing when cleaner starts
   long startTime; // start time of the pipe
+  private final String stageName;
   private final String pipeName;
 
   public SnowflakeTelemetryPipeCreation(
       final String tableName, final String stageName, final String pipeName) {
-    super(tableName, stageName);
+    super(tableName);
+    this.stageName = stageName;
     this.pipeName = pipeName;
     this.startTime = System.currentTimeMillis();
   }
