@@ -51,7 +51,6 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
-import org.checkerframework.checker.units.qual.A;
 
 /**
  * This is a wrapper on top of Streaming Ingest Channel which is responsible for ingesting rows to
@@ -214,7 +213,8 @@ public class TopicPartitionChannel {
    * @param recordService record service for processing incoming offsets from Kafka
    * @param telemetryService Telemetry Service which includes the Telemetry Client, sends Json data
    *     to Snowflake
-   * @param enableCustomJMXMonitoring whether or not we enable Mbean for required classes and emit JMX metrics for monitoring
+   * @param enableCustomJMXMonitoring whether or not we enable Mbean for required classes and emit
+   *     JMX metrics for monitoring
    */
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
@@ -266,13 +266,28 @@ public class TopicPartitionChannel {
     this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
     this.metricRegistry = new MetricRegistry();
     this.metricsJmxReporter =
-        new MetricsJmxReporter(this.metricRegistry, sfConnectorConfig.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "default_jmx_connector_name"));
-    this.channelStatus = new SnowflakeTelemetryChannelStatus(this.tableName, this.topicPartition.topic(), this.topicPartition.partition(), this.channelName, this.enableCustomJMXMonitoring, this.metricsJmxReporter);
+        new MetricsJmxReporter(
+            this.metricRegistry,
+            sfConnectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.NAME, "default_jmx_connector_name"));
+    this.channelStatus =
+        new SnowflakeTelemetryChannelStatus(
+            this.tableName,
+            this.topicPartition.topic(),
+            this.topicPartition.partition(),
+            this.channelName,
+            this.enableCustomJMXMonitoring,
+            this.metricsJmxReporter);
 
     // Open channel and reset the offset in kafka
     this.channel = Preconditions.checkNotNull(openChannelForTable());
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
-    this.offsetManager = new OffsetManager(lastCommittedOffsetToken, lastCommittedOffsetToken, NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, this.channelStatus);
+    this.offsetManager =
+        new OffsetManager(
+            lastCommittedOffsetToken,
+            lastCommittedOffsetToken,
+            NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+            this.channelStatus);
 
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
@@ -296,7 +311,8 @@ public class TopicPartitionChannel {
    * @param kafkaSinkRecord input record from Kafka
    */
   public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
-    final long currentOffsetPersistedInSnowflake = this.offsetManager.getOffsetPersistedInSnowflake();
+    final long currentOffsetPersistedInSnowflake =
+        this.offsetManager.getOffsetPersistedInSnowflake();
     final long currentProcessedOffset = this.offsetManager.getProcessedOffset();
     final long kafkaSinkRecordOffset = kafkaSinkRecord.kafkaOffset();
 
@@ -324,10 +340,8 @@ public class TopicPartitionChannel {
         long streamingRecordCount = this.streamingBuffer.getNumOfRecords();
 
         // # of records or size based flushing
-        if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
-                streamingBufferBytes)
-            || this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
-                streamingRecordCount)) {
+        if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(streamingBufferBytes)
+            || this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(streamingRecordCount)) {
           copiedStreamingBuffer = streamingBuffer;
           this.streamingBuffer = new StreamingBuffer();
 
@@ -1325,20 +1339,26 @@ public class TopicPartitionChannel {
     // API for this channel
     private final AtomicLong offsetPersistedInSnowflake;
 
-    // This offset represents the data buffered in KC. More specifically it is the KC offset to ensure
+    // This offset represents the data buffered in KC. More specifically it is the KC offset to
+    // ensure
     // exactly once functionality. On creation it is set to the latest committed token in Snowflake
     // (see offsetPersistedInSnowflake) and updated on each new row from KC.
     private final AtomicLong processedOffset;
 
     // This offset is a fallback to represent the data buffered in KC. It is similar to
-    // processedOffset, however it is only used to resend the offset when the channel offset token is
+    // processedOffset, however it is only used to resend the offset when the channel offset token
+    // is
     // NULL. It is updated to the first offset sent by KC (see processedOffset) or the offset
     // persisted in Snowflake (see offsetPersistedInSnowflake)
     private long latestConsumerOffset;
 
     private final SnowflakeTelemetryChannelStatus channelStatus;
 
-    OffsetManager(long offsetPersistedInSnowflake, long processedOffset, long latestConsumerOffset, SnowflakeTelemetryChannelStatus channelStatus) {
+    OffsetManager(
+        long offsetPersistedInSnowflake,
+        long processedOffset,
+        long latestConsumerOffset,
+        SnowflakeTelemetryChannelStatus channelStatus) {
       this.offsetPersistedInSnowflake = new AtomicLong(offsetPersistedInSnowflake);
       this.processedOffset = new AtomicLong(processedOffset);
       this.latestConsumerOffset = latestConsumerOffset;
@@ -1363,9 +1383,11 @@ public class TopicPartitionChannel {
     public long getOffsetPersistedInSnowflake() {
       return this.offsetPersistedInSnowflake.get();
     }
+
     public long getProcessedOffset() {
       return this.processedOffset.get();
     }
+
     public long getLatestConsumerOffset() {
       return this.latestConsumerOffset;
     }

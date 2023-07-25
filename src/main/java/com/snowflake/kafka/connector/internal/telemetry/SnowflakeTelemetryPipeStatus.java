@@ -1,9 +1,9 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.FILE_COUNT_SUB_DOMAIN;
+import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.FILE_COUNT_TABLE_STAGE_INGESTION_FAIL;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.LATENCY_SUB_DOMAIN;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.OFFSET_SUB_DOMAIN;
-import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.FILE_COUNT_TABLE_STAGE_INGESTION_FAIL;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constructMetricName;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_COMMIT_LAG_FILE_COUNT;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_COMMIT_LAG_MS;
@@ -40,7 +40,6 @@ import com.google.common.collect.Maps;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil.EventType;
-
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
