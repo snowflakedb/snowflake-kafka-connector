@@ -296,7 +296,11 @@ public class TopicPartitionChannel {
     // jmx
     this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
     this.metricRegistry = new MetricRegistry();
-    this.metricsJmxReporter = new MetricsJmxReporter(this.metricRegistry, this.sfConnectorConfig.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "noConnectorNameFound"));
+    this.metricsJmxReporter =
+        new MetricsJmxReporter(
+            this.metricRegistry,
+            this.sfConnectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.NAME, "noConnectorNameFound"));
 
     // telemetry
     this.channelStatus =
