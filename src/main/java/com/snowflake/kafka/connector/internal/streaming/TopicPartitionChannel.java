@@ -8,16 +8,19 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MA
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
+import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
@@ -172,6 +175,15 @@ public class TopicPartitionChannel {
   // Reference to the Snowflake connection service
   private final SnowflakeConnectionService conn;
 
+  // telemetry
+  private final SnowflakeTelemetryChannelStatus channelStatus;
+  // non null
+  private final MetricRegistry metricRegistry;
+
+  // Wrapper on Metric registry instance which will hold all registered metrics for this pipe
+  private final MetricsJmxReporter metricsJmxReporter;
+  private final boolean enableCustomJMXMonitoring;
+
   /**
    * Used to send telemetry to Snowflake. Currently, TelemetryClient created from a Snowflake
    * Connection Object, i.e. not a session-less Client
@@ -200,7 +212,8 @@ public class TopicPartitionChannel {
         sinkTaskContext,
         null, /* Null Connection */
         new RecordService(null /* Null Telemetry Service*/),
-        null);
+        null,
+        false);
   }
 
   /**
@@ -217,6 +230,8 @@ public class TopicPartitionChannel {
    * @param recordService record service for processing incoming offsets from Kafka
    * @param telemetryService Telemetry Service which includes the Telemetry Client, sends Json data
    *     to Snowflake
+   * @param enableCustomJMXMonitoring whether or not we enable Mbean for required classes and emit
+   *     JMX metrics for monitoring
    */
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
@@ -229,7 +244,8 @@ public class TopicPartitionChannel {
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn,
       RecordService recordService,
-      SnowflakeTelemetryService telemetryService) {
+      SnowflakeTelemetryService telemetryService,
+      boolean enableCustomJMXMonitoring) {
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
     Preconditions.checkState(!streamingIngestClient.isClosed());
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
@@ -276,6 +292,25 @@ public class TopicPartitionChannel {
               + " correct offset instead",
           this.getChannelName());
     }
+
+    // jmx
+    this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
+    this.metricRegistry = new MetricRegistry();
+    this.metricsJmxReporter =
+        new MetricsJmxReporter(
+            this.metricRegistry,
+            this.sfConnectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.NAME, "noConnectorNameFound"));
+
+    // telemetry
+    this.channelStatus =
+        new SnowflakeTelemetryChannelStatus(
+            this.tableName,
+            this.topicPartition.topic(),
+            this.topicPartition.partition(),
+            this.channelName,
+            this.enableCustomJMXMonitoring,
+            this.metricsJmxReporter);
   }
 
   /**

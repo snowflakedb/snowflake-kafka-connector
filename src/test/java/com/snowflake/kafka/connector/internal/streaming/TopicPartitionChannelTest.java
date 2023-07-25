@@ -224,7 +224,8 @@ public class TopicPartitionChannelTest {
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
             new RecordService(mockTelemetryService),
-            mockTelemetryService);
+            mockTelemetryService,
+            false);
 
     topicPartitionChannel.closeChannel();
   }
@@ -488,7 +489,8 @@ public class TopicPartitionChannelTest {
               mockSinkTaskContext,
               conn,
               new RecordService(),
-              mockTelemetryService);
+              mockTelemetryService,
+              false);
 
       final int noOfRecords = 3;
       List<SinkRecord> records =
@@ -612,7 +614,8 @@ public class TopicPartitionChannelTest {
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
             new RecordService(mockTelemetryService),
-            mockTelemetryService);
+            mockTelemetryService,
+            false);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
