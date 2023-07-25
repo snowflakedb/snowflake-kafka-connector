@@ -209,7 +209,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
       Utils.updateConfigErrorMessage(result, invalidKey, invalidProxyParams.get(invalidKey));
     }
 
-    // If private key or private key passphrase is provided through file, skip validation
+    // If using snowflake_jwt and authentication, and private key or private key passphrase is
+    // provided through file, skip validation
     if (connectorConfigs
             .getOrDefault(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT)
             .equals(Utils.SNOWFLAKE_JWT)

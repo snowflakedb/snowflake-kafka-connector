@@ -367,6 +367,7 @@ public class TestUtils {
       }
       confWithOAuth.put(Utils.SF_AUTHENTICATOR, OAUTH);
       confWithOAuth.remove(Utils.SF_PRIVATE_KEY);
+      confWithOAuth.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
     }
     return new HashMap<>(confWithOAuth);
   }
@@ -477,13 +478,21 @@ public class TestUtils {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
   }
 
-  /** @return snowflake connection using OAuth authentication */
+  /** @return snowflake connection using OAuth authentication for test */
   public static SnowflakeConnectionService getOAuthConnectionService() {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConfWithOAuth()).build();
   }
 
+  /** @return snowflake streaming ingest connection for test */
   public static SnowflakeConnectionService getConnectionServiceForStreaming() {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConfForStreaming()).build();
+  }
+
+  /** @return snowflake streaming ingest connection using OAuth authentication for test */
+  public static SnowflakeConnectionService getOAuthConnectionServiceForStreaming() {
+    return SnowflakeConnectionServiceFactory.builder()
+        .setProperties(getConfForStreamingWithOAuth())
+        .build();
   }
 
   /**

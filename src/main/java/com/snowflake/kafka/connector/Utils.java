@@ -837,7 +837,7 @@ public class Utils {
                   try {
                     return e.getKey() + "=" + URLEncoder.encode(e.getValue(), "UTF-8");
                   } catch (UnsupportedEncodingException ex) {
-                    throw new RuntimeException(ex);
+                    throw SnowflakeErrors.ERROR_1004.getException(ex);
                   }
                 })
             .collect(Collectors.joining("&"));
@@ -859,16 +859,17 @@ public class Utils {
             return respBody.get(tokenType).toString().replaceAll("^\"|\"$", "");
           }
         }
-      } catch (Exception e) {
-        // Exponential backoff retries
-        try {
-          Thread.sleep((1L << retries) * 1000L);
-        } catch (InterruptedException ex) {
-          throw SnowflakeErrors.ERROR_1004.getException(ex);
-        }
+      } catch (Exception ignored) {
+      }
+
+      // Exponential backoff retries
+      try {
+        Thread.sleep((1L << retries) * 1000L);
+      } catch (InterruptedException e) {
+        throw SnowflakeErrors.ERROR_1004.getException(e);
       }
     }
-    throw SnowflakeErrors.ERROR_1004.getException("Failed to get access token");
+    throw SnowflakeErrors.ERROR_1004.getException("Failed to get access token after retries");
   }
 
   /**

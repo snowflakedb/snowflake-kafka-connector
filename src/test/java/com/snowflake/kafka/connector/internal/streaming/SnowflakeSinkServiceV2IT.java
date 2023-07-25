@@ -22,6 +22,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -39,16 +40,37 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+@RunWith(Parameterized.class)
 public class SnowflakeSinkServiceV2IT {
 
-  private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
+  private SnowflakeConnectionService conn;
   private String table = TestUtils.randomTableName();
   private int partition = 0;
   private int partition2 = 1;
   private String topic = "test";
   private TopicPartition topicPartition = new TopicPartition(topic, partition);
   private static ObjectMapper MAPPER = new ObjectMapper();
+
+  // use OAuth as authenticator or not
+  private boolean useOAuth;
+
+  @Parameterized.Parameters(name = "useOAuth: {0}")
+  public static Collection<Object[]> input() {
+    // TODO: Added {true} after SNOW-352846 is released
+    return Arrays.asList(new Object[][] {{false}});
+  }
+
+  public SnowflakeSinkServiceV2IT(boolean useOAuth) {
+    this.useOAuth = useOAuth;
+    if (!useOAuth) {
+      conn = TestUtils.getConnectionServiceForStreaming();
+    } else {
+      conn = TestUtils.getOAuthConnectionServiceForStreaming();
+    }
+  }
 
   @After
   public void afterEach() {
@@ -57,22 +79,8 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testSinkServiceV2Builder() {
-    sinkServiceV2BuilderTest(false);
-  }
+    Map<String, String> config = getConfig();
 
-  // TODO: Added after SNOW-352846 is released
-  // @Test
-  public void testSinkServiceV2BuilderWithOAuth() {
-    sinkServiceV2BuilderTest(true);
-  }
-
-  private void sinkServiceV2BuilderTest(boolean useOAuth) {
-    Map<String, String> config;
-    if (useOAuth) {
-      config = TestUtils.getConfForStreamingWithOAuth();
-    } else {
-      config = TestUtils.getConfForStreaming();
-    }
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     SnowflakeSinkService service =
@@ -105,7 +113,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testChannelCloseIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -149,7 +157,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testRebalanceOpenCloseIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -194,7 +202,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testStreamingIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -258,7 +266,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testStreamingIngest_multipleChannelPartitions() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -309,7 +317,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testStreamingIngestion_timeBased() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -346,7 +354,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testNativeJsonInputIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -445,7 +453,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testNativeAvroInputIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     // avro
     SchemaBuilder schemaBuilder =
@@ -606,7 +614,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testBrokenIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -675,7 +683,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testBrokenRecordIngestionFollowedUpByValidRecord() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -731,7 +739,7 @@ public class SnowflakeSinkServiceV2IT {
    */
   @Test
   public void testBrokenRecordIngestionAfterValidRecord() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -785,7 +793,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test(expected = ConnectException.class)
   public void testMissingPropertiesForStreamingClient() {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     config.remove(Utils.SF_ROLE);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
@@ -1165,6 +1173,14 @@ public class SnowflakeSinkServiceV2IT {
       stmt.close();
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
+  }
+
+  private Map<String, String> getConfig() {
+    if (!useOAuth) {
+      return TestUtils.getConfForStreaming();
+    } else {
+      return TestUtils.getConfForStreamingWithOAuth();
     }
   }
 }

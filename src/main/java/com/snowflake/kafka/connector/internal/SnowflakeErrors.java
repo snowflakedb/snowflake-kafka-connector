@@ -141,9 +141,7 @@ public enum SnowflakeErrors {
       "Snowflake connection is closed",
       "Either the current connection is closed or hasn't connect to snowflake" + " server"),
   ERROR_1004(
-      "1004",
-      "Fetching OAuth access token fail",
-      "Fail to get OAuth access token from authorization server"),
+      "1004", "Fetching OAuth token fail", "Fail to get OAuth token from authorization server"),
   // SQL issues 2---
   ERROR_2001(
       "2001", "Failed to prepare SQL statement", "SQL Exception, reported by Snowflake JDBC"),

@@ -305,6 +305,46 @@ public class SnowflakeSinkConnectorConfig {
             6,
             ConfigDef.Width.NONE,
             SNOWFLAKE_ROLE)
+        .define(
+            AUTHENTICATOR,
+            Type.STRING,
+            "",
+            Importance.LOW,
+            "Authenticator for JDBC and streaming ingest sdk",
+            SNOWFLAKE_LOGIN_INFO,
+            7,
+            ConfigDef.Width.NONE,
+            AUTHENTICATOR)
+        .define(
+            OAUTH_CLIENT_ID,
+            Type.STRING,
+            "",
+            Importance.HIGH,
+            "Client id of target OAuth integration",
+            SNOWFLAKE_LOGIN_INFO,
+            8,
+            ConfigDef.Width.NONE,
+            OAUTH_CLIENT_ID)
+        .define(
+            OAUTH_CLIENT_SECRET,
+            Type.STRING,
+            "",
+            Importance.HIGH,
+            "Client secret of target OAuth integration",
+            SNOWFLAKE_LOGIN_INFO,
+            9,
+            ConfigDef.Width.NONE,
+            OAUTH_CLIENT_SECRET)
+        .define(
+            OAUTH_REFRESH_TOKEN,
+            Type.STRING,
+            "",
+            Importance.HIGH,
+            "Refresh token for OAuth",
+            SNOWFLAKE_LOGIN_INFO,
+            10,
+            ConfigDef.Width.NONE,
+            OAUTH_REFRESH_TOKEN)
         // proxy
         .define(
             JVM_PROXY_HOST,
