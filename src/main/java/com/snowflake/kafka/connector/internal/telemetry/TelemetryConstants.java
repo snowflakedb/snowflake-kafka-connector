@@ -13,6 +13,8 @@ public final class TelemetryConstants {
   public static final String FLUSHED_OFFSET = "flushed_offset";
   public static final String COMMITTED_OFFSET = "committed_offset";
   public static final String PURGED_OFFSET = "purged_offset";
+  public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "offset_persisted_in_snowflake";
+  public static final String LATEST_CONSUMER_OFFSET = "latest_consumer_offset";
 
   public static final String RECORD_NUMBER = "record_number";
   public static final String BYTE_NUMBER = "byte_number";

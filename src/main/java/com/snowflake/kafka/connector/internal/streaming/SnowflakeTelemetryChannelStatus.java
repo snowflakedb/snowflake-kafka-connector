@@ -21,6 +21,11 @@ import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.LATENCY_SUB_DOMAIN;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.OFFSET_SUB_DOMAIN;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constructMetricName;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.BYTE_NUMBER;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.LATEST_CONSUMER_OFFSET;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PROCESSED_OFFSET;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.RECORD_NUMBER;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Metric;
@@ -58,11 +63,12 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   private AtomicLong offsetPersistedInSnowflake;
   private AtomicLong processedOffset;
   private AtomicLong latestConsumerOffset;
+  private final long DEFAULT_OFFSET_VALUE = -1;
 
   // buffer
   private AtomicLong totalNumberOfRecords; // total number of record
   private AtomicLong totalSizeOfDataInBytes; // total size of data
-  private AtomicLong totalBufferFlushCount; // total number of buffer flushes
+  private final long DEFAULT_BUFFER_VALUE = 0;
 
   // TODO @rcheng latencies
 //  // ------------ following metrics are not cumulative, reset every time sent ------------//
@@ -92,22 +98,10 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     // buffer
     this.totalNumberOfRecords = new AtomicLong(0);
     this.totalSizeOfDataInBytes = new AtomicLong(0);
-    this.totalBufferFlushCount = new AtomicLong(0);
     
     if (this.enableCustomJMXConfig) {
       registerChannelJMXMetrics(channelName, metricsJmxReporter);
     }
-  }
-
-  /**
-   * Adds the required fields into the given ObjectNode which will then be used as payload in
-   * Telemetry API
-   *
-   * @param msg ObjectNode in which extra fields needs to be added.
-   */
-  @Override
-  public void dumpTo(ObjectNode msg) {
-
   }
 
   /**
@@ -118,7 +112,50 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   @Override
   public boolean isEmpty() {
     // Check that all properties are still at the default value.
-    return false;
+    return this.offsetPersistedInSnowflake.get() == DEFAULT_OFFSET_VALUE
+        && this.processedOffset.get() == DEFAULT_OFFSET_VALUE
+        && this.latestConsumerOffset.get() == DEFAULT_OFFSET_VALUE
+        && this.totalNumberOfRecords.get() == DEFAULT_BUFFER_VALUE
+        && this.totalSizeOfDataInBytes.get() == DEFAULT_BUFFER_VALUE;
+  }
+
+  // --------------- Update properties --------------- //
+
+  public void setOffsetPersistedInSnowflake(long offsetPersistedInSnowflake) {
+    this.offsetPersistedInSnowflake.set(offsetPersistedInSnowflake);
+  }
+
+  public void setProcessedOffset(long processedOffset) {
+    this.processedOffset.set(processedOffset);
+  }
+
+  public void setLatestConsumerOffset(long latestConsumerOffset) {
+    this.latestConsumerOffset.set(latestConsumerOffset);
+  }
+
+  public void addTotalNumberOfRecords(long totalNumberOfRecords) {
+    this.totalNumberOfRecords.addAndGet(totalNumberOfRecords);
+  }
+
+  public void addTotalSizeOfDataInBytes(long totalSizeOfDataInBytes) {
+    this.totalSizeOfDataInBytes.addAndGet(totalSizeOfDataInBytes);
+  }
+
+  // --------------- Telemetry --------------- //
+
+  /**
+   * Adds the required fields into the given ObjectNode which will then be used as payload in
+   * Telemetry API
+   *
+   * @param msg ObjectNode in which extra fields needs to be added.
+   */
+  @Override
+  public void dumpTo(ObjectNode msg) {
+    msg.put(OFFSET_PERSISTED_IN_SNOWFLAKE, offsetPersistedInSnowflake.get());
+    msg.put(PROCESSED_OFFSET, processedOffset.get());
+    msg.put(LATEST_CONSUMER_OFFSET, latestConsumerOffset.get());
+    msg.put(RECORD_NUMBER, totalNumberOfRecords.get());
+    msg.put(BYTE_NUMBER, totalSizeOfDataInBytes.get());
   }
 
   // --------------- JMX Metrics --------------- //
@@ -176,10 +213,6 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       currentMetricRegistry.register(
           constructMetricName(channelName, BUFFER_SUB_DOMAIN, MetricsUtil.BUFFER_RECORD_COUNT),
           (Gauge<Long>) () -> this.totalNumberOfRecords.get());
-
-      currentMetricRegistry.register(
-          constructMetricName(channelName, BUFFER_SUB_DOMAIN, MetricsUtil.BUFFER_FLUSH_COUNT),
-          (Gauge<Long>) () -> this.totalBufferFlushCount.get());
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());
     }

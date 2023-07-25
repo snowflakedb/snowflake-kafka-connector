@@ -40,7 +40,7 @@ import org.apache.kafka.common.config.ConfigException;
  */
 public class SnowflakeSinkConnectorConfig {
 
-  static final String NAME = Utils.NAME;
+  public static final String NAME = Utils.NAME;
   public static final String TOPICS = "topics";
 
   // Connector config
