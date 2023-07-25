@@ -203,8 +203,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.sinkTaskContext,
             this.conn,
             this.recordService,
-            this.conn.getTelemetryClient(),
-            this.enableCustomJMXMonitoring));
+            this.conn.getTelemetryClient()));
   }
 
   /**
