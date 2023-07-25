@@ -13,6 +13,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
@@ -292,10 +293,12 @@ public class TopicPartitionChannel {
           this.getChannelName());
     }
 
-    // jmx and telemetry
+    // jmx
     this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
     this.metricRegistry = new MetricRegistry();
-    this.metricsJmxReporter = new MetricsJmxReporter(this.metricRegistry, conn.getConnectorName());
+    this.metricsJmxReporter = new MetricsJmxReporter(this.metricRegistry, this.sfConnectorConfig.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "noConnectorNameFound"));
+
+    // telemetry
     this.channelStatus =
         new SnowflakeTelemetryChannelStatus(
             this.tableName,

@@ -30,17 +30,14 @@ import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstant
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.START_TIME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TABLE_NAME;
 
-import com.codahale.metrics.Gauge;
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.Metric;
-import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil.EventType;
-import java.util.Arrays;
+import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -283,7 +280,6 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     msg.put(STAGE_NAME, stageName);
     msg.put(PIPE_NAME, pipeName);
 
-    // TODO @rcheng: changed from metricsutil to telemetry?
     msg.put(PROCESSED_OFFSET, processedOffset.get());
     msg.put(FLUSHED_OFFSET, flushedOffset.get());
     msg.put(COMMITTED_OFFSET, committedOffset.get());
