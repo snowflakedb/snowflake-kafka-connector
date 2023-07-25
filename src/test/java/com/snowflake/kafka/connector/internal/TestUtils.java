@@ -357,18 +357,18 @@ public class TestUtils {
 
   public static Map<String, String> getConfWithOAuth() {
     if (confWithOAuth == null) {
-      Map<String, String> config = getConf();
-      assert (config.containsKey(PASSWORD) || config.containsKey(Utils.SF_OAUTH_REFRESH_TOKEN))
-          && config.containsKey(Utils.SF_OAUTH_CLIENT_ID)
-          && config.containsKey(Utils.SF_OAUTH_CLIENT_SECRET);
-      if (!config.containsKey(Utils.SF_OAUTH_REFRESH_TOKEN)) {
-        config.put(Utils.SF_OAUTH_REFRESH_TOKEN, getRefreshToken(config));
+      confWithOAuth = new HashMap<>(getConf());
+      assert (confWithOAuth.containsKey(PASSWORD)
+              || confWithOAuth.containsKey(Utils.SF_OAUTH_REFRESH_TOKEN))
+          && confWithOAuth.containsKey(Utils.SF_OAUTH_CLIENT_ID)
+          && confWithOAuth.containsKey(Utils.SF_OAUTH_CLIENT_SECRET);
+      if (!confWithOAuth.containsKey(Utils.SF_OAUTH_REFRESH_TOKEN)) {
+        confWithOAuth.put(Utils.SF_OAUTH_REFRESH_TOKEN, getRefreshToken(confWithOAuth));
       }
-      config.put(Utils.SF_AUTHENTICATOR, OAUTH);
-      config.remove(Utils.SF_PRIVATE_KEY);
-      confWithOAuth = config;
+      confWithOAuth.put(Utils.SF_AUTHENTICATOR, OAUTH);
+      confWithOAuth.remove(Utils.SF_PRIVATE_KEY);
     }
-    return confWithOAuth;
+    return new HashMap<>(confWithOAuth);
   }
 
   /**

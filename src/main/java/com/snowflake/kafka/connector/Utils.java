@@ -860,7 +860,7 @@ public class Utils {
           }
         }
       } catch (Exception e) {
-        // Exponential backoff retires
+        // Exponential backoff retries
         try {
           Thread.sleep((1L << retries) * 1000L);
         } catch (InterruptedException ex) {
