@@ -70,14 +70,6 @@ public class MetricsUtil {
    */
   public static final String PURGED_OFFSET = "purged-offset";
 
-  /**
-   * See {@link com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} for offset
-   * description
-   */
-  public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
-
-  public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
-
   // Buffer related constants
   public static final String BUFFER_SUB_DOMAIN = "buffer";
 
@@ -86,9 +78,6 @@ public class MetricsUtil {
 
   // in memory buffer count representing the number of records in kafka
   public static final String BUFFER_RECORD_COUNT = "buffer-record-count";
-
-  // in memory buffer flush count
-  public static final String BUFFER_FLUSH_COUNT = "buffer-flush-count";
 
   // Event Latency related constants
 
