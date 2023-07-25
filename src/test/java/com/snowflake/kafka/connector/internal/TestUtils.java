@@ -29,7 +29,6 @@ import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
 import static com.snowflake.kafka.connector.Utils.OAUTH;
 import static com.snowflake.kafka.connector.Utils.REFRESH_TOKEN;
 import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
-import static com.snowflake.kafka.connector.Utils.SF_OAUTH_CLIENT_SECRET;
 import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
 import static com.snowflake.kafka.connector.Utils.SF_URL;
 import static com.snowflake.kafka.connector.Utils.SF_USER;
@@ -361,8 +360,8 @@ public class TestUtils {
       Map<String, String> config = getConf();
       assert (config.containsKey(PASSWORD) || config.containsKey(Utils.SF_OAUTH_REFRESH_TOKEN))
           && config.containsKey(Utils.SF_OAUTH_CLIENT_ID)
-          && config.containsKey(SF_OAUTH_CLIENT_SECRET);
-      if (!config.containsKey(OAUTH_REFRESH_TOKEN)) {
+          && config.containsKey(Utils.SF_OAUTH_CLIENT_SECRET);
+      if (!config.containsKey(Utils.SF_OAUTH_REFRESH_TOKEN)) {
         config.put(Utils.SF_OAUTH_REFRESH_TOKEN, getRefreshToken(config));
       }
       config.put(Utils.SF_AUTHENTICATOR, OAUTH);

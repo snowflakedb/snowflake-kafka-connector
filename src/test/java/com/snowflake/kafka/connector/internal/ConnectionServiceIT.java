@@ -42,6 +42,8 @@ public class ConnectionServiceIT {
 
   @Test
   public void testOAuthAZ() {
+    Map<String, String> confWithOAuth = TestUtils.getConfWithOAuth();
+    assert confWithOAuth.containsKey(Utils.SF_OAUTH_CLIENT_ID);
     SnowflakeConnectionServiceFactory.builder().setProperties(TestUtils.getConfWithOAuth()).build();
   }
 
