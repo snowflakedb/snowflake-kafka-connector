@@ -283,7 +283,6 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     msg.put(STAGE_NAME, stageName);
     msg.put(PIPE_NAME, pipeName);
 
-    // TODO @rcheng: changed from metricsutil to telemetry?
     msg.put(PROCESSED_OFFSET, processedOffset.get());
     msg.put(FLUSHED_OFFSET, flushedOffset.get());
     msg.put(COMMITTED_OFFSET, committedOffset.get());
