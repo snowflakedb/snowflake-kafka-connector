@@ -91,7 +91,6 @@ public class MetricsUtil {
   public static final String BUFFER_FLUSH_COUNT = "buffer-flush-count";
 
   // Event Latency related constants
-
   public static final String LATENCY_SUB_DOMAIN = "latencies";
 
   public enum EventType {

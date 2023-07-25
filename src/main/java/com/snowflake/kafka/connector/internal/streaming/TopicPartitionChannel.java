@@ -155,7 +155,7 @@ public class TopicPartitionChannel {
   // Reference to the Snowflake connection service
   private final SnowflakeConnectionService conn;
 
-  // Offset managmenet
+  // Offset management
   private final OffsetManager offsetManager;
 
   // telemetry
