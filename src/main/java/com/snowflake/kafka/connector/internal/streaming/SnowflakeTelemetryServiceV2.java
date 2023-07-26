@@ -39,12 +39,6 @@ public class SnowflakeTelemetryServiceV2 extends SnowflakeTelemetryService {
   }
 
   @Override
-  public void reportKafkaPartitionUsage(
-      SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {
-    throw new IllegalStateException("Snowpipe Streaming Doesnt Have Pipe Usage");
-  }
-
-  @Override
   public ObjectNode getObjectNode() {
     ObjectNode objectNode = getDefaultObjectNode(IngestionMethodConfig.SNOWPIPE_STREAMING);
     return objectNode;

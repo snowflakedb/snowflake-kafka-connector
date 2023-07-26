@@ -9,6 +9,10 @@ public final class TelemetryConstants {
   public static final String STAGE_NAME = "stage_name";
   public static final String PIPE_NAME = "pipe_name";
 
+  public static final String TOPIC_NAME = "topic_name";
+  public static final String PARTITION = "partition";
+  public static final String CHANNEL_NAME = "channel_name";
+
   public static final String PROCESSED_OFFSET = "processed_offset";
   public static final String FLUSHED_OFFSET = "flushed_offset";
   public static final String COMMITTED_OFFSET = "committed_offset";

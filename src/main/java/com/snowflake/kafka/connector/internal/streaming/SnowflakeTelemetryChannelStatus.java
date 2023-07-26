@@ -22,10 +22,13 @@ import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.LATENCY
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.OFFSET_SUB_DOMAIN;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constructMetricName;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.BYTE_NUMBER;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.CHANNEL_NAME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.LATEST_CONSUMER_OFFSET;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PARTITION;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PROCESSED_OFFSET;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.RECORD_NUMBER;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TOPIC_NAME;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Metric;
@@ -51,21 +54,20 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   private final boolean enableCustomJMXConfig;
   private final MetricsJmxReporter metricsJmxReporter;
 
-  private AtomicLong startTime; // start time of the status recording period
+  private final AtomicLong startTime; // start time of the status recording period
 
   // JMX Metrics related to Latencies
   private ConcurrentMap<MetricsUtil.EventType, Timer> eventsByType = Maps.newConcurrentMap();
 
   /** offsets - see {@link TopicPartitionChannel} for description of offsets */
-  private AtomicLong offsetPersistedInSnowflake;
-
-  private AtomicLong processedOffset;
-  private AtomicLong latestConsumerOffset;
+  private final AtomicLong offsetPersistedInSnowflake;
+  private final AtomicLong processedOffset;
+  private final AtomicLong latestConsumerOffset;
   private final long DEFAULT_OFFSET_VALUE = -1;
 
   // buffer
-  private AtomicLong totalNumberOfRecords; // total number of record
-  private AtomicLong totalSizeOfDataInBytes; // total size of data
+  private final AtomicLong totalNumberOfRecords; // total number of record
+  private final AtomicLong totalSizeOfDataInBytes; // total size of data
   private final long DEFAULT_BUFFER_VALUE = 0;
 
   // TODO @rcheng latencies
@@ -155,6 +157,10 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
    */
   @Override
   public void dumpTo(ObjectNode msg) {
+    msg.put(TOPIC_NAME, this.topicName);
+    msg.put(PARTITION, this.partition);
+    msg.put(CHANNEL_NAME, this.channelName);
+
     msg.put(OFFSET_PERSISTED_IN_SNOWFLAKE, offsetPersistedInSnowflake.get());
     msg.put(PROCESSED_OFFSET, processedOffset.get());
     msg.put(LATEST_CONSUMER_OFFSET, latestConsumerOffset.get());
