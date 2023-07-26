@@ -131,16 +131,16 @@ public abstract class SnowflakeTelemetryService {
    */
   public void reportKafkaPartitionUsage(
       final SnowflakeTelemetryBasicInfo partitionUsage, boolean isClosing) {
-      if (partitionUsage.isEmpty()) {
-        return;
-      }
-      ObjectNode msg = getObjectNode();
+    if (partitionUsage.isEmpty()) {
+      return;
+    }
+    ObjectNode msg = getObjectNode();
 
-      partitionUsage.dumpTo(msg);
-      msg.put(IS_PARTITION_CLOSING, isClosing);
-      msg.put(TABLE_NAME, partitionUsage.tableName);
+    partitionUsage.dumpTo(msg);
+    msg.put(IS_PARTITION_CLOSING, isClosing);
+    msg.put(TABLE_NAME, partitionUsage.tableName);
 
-      send(TelemetryType.KAFKA_PARTITION_USAGE, msg);
+    send(TelemetryType.KAFKA_PARTITION_USAGE, msg);
   }
 
   /**

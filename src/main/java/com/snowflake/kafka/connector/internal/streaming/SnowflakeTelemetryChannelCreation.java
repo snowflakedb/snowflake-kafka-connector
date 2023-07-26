@@ -1,16 +1,9 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.CHANNEL_NAME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.FILE_COUNT_REPROCESS_PURGE;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.FILE_COUNT_RESTART;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.IS_REUSE_PIPE;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.IS_REUSE_STAGE;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.IS_REUSE_TABLE;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PARTITION;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PIPE_NAME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.STAGE_NAME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.START_TIME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TABLE_NAME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TOPIC_NAME;
 
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
@@ -28,7 +21,10 @@ public class SnowflakeTelemetryChannelCreation extends SnowflakeTelemetryBasicIn
   boolean isReuseTable = false; // is the create reusing existing table
 
   public SnowflakeTelemetryChannelCreation(
-      final String tableName, final String topicName, final int partition, final String channelName) {
+      final String tableName,
+      final String topicName,
+      final int partition,
+      final String channelName) {
     super(tableName);
     this.topicName = topicName;
     this.partition = partition;

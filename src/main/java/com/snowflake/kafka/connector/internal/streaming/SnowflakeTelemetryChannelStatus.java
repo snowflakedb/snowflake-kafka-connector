@@ -61,6 +61,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
   /** offsets - see {@link TopicPartitionChannel} for description of offsets */
   private final AtomicLong offsetPersistedInSnowflake;
+
   private final AtomicLong processedOffset;
   private final AtomicLong latestConsumerOffset;
   private final long DEFAULT_OFFSET_VALUE = -1;

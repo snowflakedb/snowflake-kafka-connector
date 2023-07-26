@@ -264,7 +264,12 @@ public class TopicPartitionChannel {
 
     // telemetry
     this.telemetryService = telemetryService;
-    this.telemetryService.reportKafkaPartitionStart(new SnowflakeTelemetryChannelCreation(this.tableName, this.topicPartition.topic(), this.topicPartition.partition(), this.channelName));
+    this.telemetryService.reportKafkaPartitionStart(
+        new SnowflakeTelemetryChannelCreation(
+            this.tableName,
+            this.topicPartition.topic(),
+            this.topicPartition.partition(),
+            this.channelName));
 
     // jmx
     this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
@@ -1356,8 +1361,7 @@ public class TopicPartitionChannel {
 
     private final SnowflakeTelemetryChannelStatus channelStatus;
 
-    OffsetManager(
-        SnowflakeTelemetryChannelStatus channelStatus) {
+    OffsetManager(SnowflakeTelemetryChannelStatus channelStatus) {
       this.offsetPersistedInSnowflake = new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
       this.processedOffset = new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
       this.latestConsumerOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
