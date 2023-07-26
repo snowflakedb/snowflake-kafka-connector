@@ -23,13 +23,13 @@ public final class TelemetryConstants {
   public static final String RECORD_NUMBER = "record_number";
   public static final String BYTE_NUMBER = "byte_number";
 
-  public static final String FILE_COUNT_ON_STAGE = "file_count_on_stage";
-  public static final String FILE_COUNT_ON_INGESTION = "file_count_on_ingestion";
-  public static final String FILE_COUNT_PURGED = "file_count_purged";
+  public static final String FILE_COUNT_ON_STAGE = "file-count-on-stage";
+  public static final String FILE_COUNT_ON_INGESTION = "file-count-on-ingestion";
+  public static final String FILE_COUNT_PURGED = "file-count-purged";
   public static final String FILE_COUNT_TABLE_STAGE_INGEST_FAIL =
       "file_count_table_stage_ingest_fail";
   public static final String FILE_COUNT_TABLE_STAGE_BROKEN_RECORD =
-      "file_count_table_stage_broken_record";
+      "file-count-table-stage-broken-record";
 
   public static final String CLEANER_RESTART_COUNT = "cleaner_restart_count";
 
