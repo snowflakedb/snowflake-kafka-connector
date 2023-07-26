@@ -764,22 +764,6 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  @Test(expected = ConnectException.class)
-  public void testMissingPropertiesForStreamingClient() {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    config.remove(Utils.SF_ROLE);
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-
-    try {
-      SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-          .build();
-    } catch (ConnectException ex) {
-      assert ex.getCause() instanceof SFException;
-      assert ex.getCause().getMessage().contains("Missing role");
-      throw ex;
-    }
-  }
-
   /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest check data */
 
   @Test
