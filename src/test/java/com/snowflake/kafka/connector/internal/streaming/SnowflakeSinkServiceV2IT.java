@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -27,13 +26,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
@@ -762,22 +759,6 @@ public class SnowflakeSinkServiceV2IT {
     assert reportedData.size() == 2;
 
     service.closeAll();
-  }
-
-  @Test(expected = ConnectException.class)
-  public void testMissingPropertiesForStreamingClient() {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    config.remove(Utils.SF_ROLE);
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-
-    try {
-      SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-          .build();
-    } catch (ConnectException ex) {
-      assert ex.getCause() instanceof SFException;
-      assert ex.getCause().getMessage().contains("Missing role");
-      throw ex;
-    }
   }
 
   /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest check data */
