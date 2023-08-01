@@ -292,12 +292,11 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void put(final Collection<SinkRecord> records) {
+    final long startTime = System.currentTimeMillis();
     final long recordSize = records.size();
     if (enableRebalancing && recordSize > 0) {
       processRebalancingTest();
     }
-
-    final long startTime = System.currentTimeMillis();
 
     getSink().insert(records);
 

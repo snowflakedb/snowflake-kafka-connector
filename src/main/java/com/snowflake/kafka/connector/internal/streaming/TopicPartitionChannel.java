@@ -259,9 +259,9 @@ public class TopicPartitionChannel {
         this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
     this.enableSchemaEvolution =
         this.enableSchematization
-            && this.conn != null
-            && this.conn.hasSchemaEvolutionPermission(
-                tableName, sfConnectorConfig.get(SNOWFLAKE_ROLE));
+            && this.conn != null;
+//            && this.conn.hasSchemaEvolutionPermission(
+//                tableName, sfConnectorConfig.get(SNOWFLAKE_ROLE));
 
     // Open channel and reset the offset in kafka
     this.channel = Preconditions.checkNotNull(openChannelForTable());
