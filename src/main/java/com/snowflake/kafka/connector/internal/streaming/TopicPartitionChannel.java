@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 import static java.time.temporal.ChronoUnit.SECONDS;
@@ -257,11 +256,9 @@ public class TopicPartitionChannel {
     /* Schematization related properties */
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
-    this.enableSchemaEvolution =
-        this.enableSchematization
-            && this.conn != null;
-//            && this.conn.hasSchemaEvolutionPermission(
-//                tableName, sfConnectorConfig.get(SNOWFLAKE_ROLE));
+    this.enableSchemaEvolution = this.enableSchematization && this.conn != null;
+    //            && this.conn.hasSchemaEvolutionPermission(
+    //                tableName, sfConnectorConfig.get(SNOWFLAKE_ROLE));
 
     // Open channel and reset the offset in kafka
     this.channel = Preconditions.checkNotNull(openChannelForTable());
