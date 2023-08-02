@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
@@ -176,7 +177,33 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     createTableIfNotExists(tableName);
 
     // Create channel for the given partition
-    createStreamingChannelForTopicPartition(tableName, topicPartition);
+    createStreamingChannelForTopicPartition(tableName, topicPartition, null);
+  }
+
+  /**
+   * Initializes multiple Channels and partitionsToChannel maps with new instances of {@link
+   * TopicPartitionChannel}
+   *
+   * @param partitions collection of topic partition
+   * @param topic2Table map of topic to table name
+   */
+  @Override
+  public void startTasks(Collection<TopicPartition> partitions, Map<String, String> topic2Table) {
+    Map<String, Boolean> tableName2SchemaEvolutionPermission = new HashMap<>();
+    partitions.forEach(
+        tp -> {
+          String tableName = Utils.tableName(tp.topic(), topic2Table);
+
+          if (!tableName2SchemaEvolutionPermission.containsKey(tableName)) {
+            createTableIfNotExists(tableName);
+            tableName2SchemaEvolutionPermission.put(
+                tableName,
+                this.conn.hasSchemaEvolutionPermission(
+                    tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
+          }
+          createStreamingChannelForTopicPartition(
+              tableName, tp, tableName2SchemaEvolutionPermission.get(tableName));
+        });
   }
 
   /**
@@ -186,7 +213,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * presented or not.
    */
   private void createStreamingChannelForTopicPartition(
-      final String tableName, final TopicPartition topicPartition) {
+      final String tableName,
+      final TopicPartition topicPartition,
+      Boolean hasSchemaEvolutionPermission) {
     final String partitionChannelKey =
         partitionChannelKey(topicPartition.topic(), topicPartition.partition());
     // Create new instance of TopicPartitionChannel which will always open the channel.
@@ -197,6 +226,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             topicPartition,
             partitionChannelKey, // Streaming channel name
             tableName,
+            hasSchemaEvolutionPermission,
             new StreamingBufferThreshold(this.flushTimeSeconds, this.fileSizeBytes, this.recordNum),
             this.connectorConfig,
             this.kafkaRecordErrorReporter,

@@ -194,6 +194,7 @@ public class TopicPartitionChannel {
         topicPartition,
         channelName,
         tableName,
+        null,
         streamingBufferThreshold,
         sfConnectorConfig,
         kafkaRecordErrorReporter,
@@ -209,6 +210,8 @@ public class TopicPartitionChannel {
    *     (TopicPartitionChannel)
    * @param channelName channel Name which is deterministic for topic and partition
    * @param tableName table to ingest in snowflake
+   * @param hasSchemaEvolutionPermission if the role has permission to perform schema evolution on
+   *     the table, null if unknown
    * @param streamingBufferThreshold bytes, count of records and flush time thresholds.
    * @param sfConnectorConfig configuration set for snowflake connector
    * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
@@ -223,6 +226,7 @@ public class TopicPartitionChannel {
       TopicPartition topicPartition,
       final String channelName,
       final String tableName,
+      Boolean hasSchemaEvolutionPermission,
       final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
@@ -257,11 +261,15 @@ public class TopicPartitionChannel {
     /* Schematization related properties */
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
-    this.enableSchemaEvolution =
-        this.enableSchematization
-            && this.conn != null
-            && this.conn.hasSchemaEvolutionPermission(
-                tableName, sfConnectorConfig.get(SNOWFLAKE_ROLE));
+
+    if (hasSchemaEvolutionPermission == null) {
+      hasSchemaEvolutionPermission =
+          this.conn != null
+              && this.conn.hasSchemaEvolutionPermission(
+                  tableName, sfConnectorConfig.get(SNOWFLAKE_ROLE));
+    }
+
+    this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
 
     // Open channel and reset the offset in kafka
     this.channel = Preconditions.checkNotNull(openChannelForTable());
