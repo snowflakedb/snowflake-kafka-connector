@@ -194,7 +194,7 @@ public class TopicPartitionChannel {
         topicPartition,
         channelName,
         tableName,
-        null,
+        null, /* Null schemaEvolutionPermission*/
         streamingBufferThreshold,
         sfConnectorConfig,
         kafkaRecordErrorReporter,
