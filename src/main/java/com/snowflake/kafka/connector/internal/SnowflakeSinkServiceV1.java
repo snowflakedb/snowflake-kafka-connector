@@ -108,7 +108,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     String stageName = Utils.stageName(conn.getConnectorName(), tableName);
     String nameIndex = getNameIndex(topicPartition.topic(), topicPartition.partition());
     if (pipes.containsKey(nameIndex)) {
-      LOGGER.error("task is already registered, name: {}", nameIndex);
+      LOGGER.warn("task is already registered with {} partition", nameIndex);
     } else {
       String pipeName =
           Utils.pipeName(conn.getConnectorName(), tableName, topicPartition.partition());
