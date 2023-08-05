@@ -329,12 +329,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               topicPartitionChannel == null ? null : topicPartitionChannel.getChannelName(),
               topicPartition.topic(),
               topicPartition.partition());
+          partitionsToChannel.remove(partitionChannelKey);
         });
     LOGGER.info(
-        "Closing {} partitions and Clearing partitionsToChannel Map of size:{}",
+        "Closing {} partitions from partitionsToChannel Map of size:{}",
         partitions.size(),
         partitionsToChannel.size());
-    partitionsToChannel.clear();
   }
 
   @Override
