@@ -743,4 +743,7 @@ public class TestUtils {
         .setProperties(clientProperties)
         .build();
   }
+  public static SnowflakeConnectionService getConnectionServiceForStreaming() {
+    return SnowflakeConnectionServiceFactory.builder().setProperties(getConfForStreaming()).build();
+  }
 }
