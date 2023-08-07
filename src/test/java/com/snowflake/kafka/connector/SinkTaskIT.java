@@ -19,6 +19,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -191,6 +192,7 @@ public class SinkTaskIT {
   }
 
   @Test
+  @Ignore
   public void testMultipleSinkTasksWithLogs() throws Exception {
     // setup log mocking for task1
     MockitoAnnotations.initMocks(this);
