@@ -335,6 +335,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         "Closing {} partitions from partitionsToChannel Map of size:{}",
         partitions.size(),
         partitionsToChannel.size());
+    partitionsToChannel.forEach((s, topicPartitionChannel) -> LOGGER.info(
+            "Buffer props for channel:{} is:{}, bufferSize:{}, count:{}",
+            topicPartitionChannel.getChannelName(),
+            topicPartitionChannel.getStreamingBuffer(),
+            topicPartitionChannel.getStreamingBuffer().getBufferSizeBytes(),
+            topicPartitionChannel.getStreamingBuffer().isEmpty()));
   }
 
   @Override
