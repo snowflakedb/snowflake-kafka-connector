@@ -19,12 +19,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -281,6 +276,59 @@ public class SnowflakeSinkServiceV2IT {
         () -> service.getOffset(new TopicPartition(topic, partition2)) == recordsInPartition2,
         20,
         5);
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testStreamingIngest_startTasksWithMultipleChannelPartitions() throws Exception {
+    final int partitionCount = 5;
+    final int recordsInEachPartition = 2;
+
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(5)
+            .setFlushTime(5)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .build();
+
+    ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
+    for (int partition = 0; partition < partitionCount; partition++) {
+      topicPartitions.add(new TopicPartition(topic, partition));
+    }
+    Map<String, String> topic2Table = new HashMap<>();
+    topic2Table.put(topic, table);
+    service.startTasks(topicPartitions, topic2Table);
+
+    List<SinkRecord> records = new ArrayList<>();
+    for (int partition = 0; partition < partitionCount; partition++) {
+      records.addAll(
+          TestUtils.createJsonStringSinkRecords(0, recordsInEachPartition, topic, partition));
+    }
+
+    service.insert(records);
+
+    TestUtils.assertWithRetry(
+        () -> {
+          service.insert(new ArrayList<>()); // trigger time based flush
+          return TestUtils.tableSize(table) == recordsInEachPartition * partitionCount;
+        },
+        10,
+        20);
+
+    for (int partition = 0; partition < partitionCount; partition++) {
+      int finalPartition = partition;
+      TestUtils.assertWithRetry(
+          () ->
+              service.getOffset(new TopicPartition(topic, finalPartition))
+                  == recordsInEachPartition,
+          20,
+          5);
+    }
 
     service.closeAll();
   }
