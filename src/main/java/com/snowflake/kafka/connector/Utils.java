@@ -24,6 +24,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.OAuthConstants;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -81,7 +82,8 @@ public class Utils {
   public static final String SF_SSL = "sfssl"; // for test only
   public static final String SF_WAREHOUSE = "sfwarehouse"; // for test only
   public static final String PRIVATE_KEY_PASSPHRASE = "snowflake.private.key" + ".passphrase";
-  public static final String SF_AUTHENTICATOR = "snowflake.authenticator";
+  public static final String SF_AUTHENTICATOR =
+      "snowflake.authenticator"; // TODO: SNOW-889748 change to enum
   public static final String SF_OAUTH_CLIENT_ID = "snowflake.oauth.client.id";
   public static final String SF_OAUTH_CLIENT_SECRET = "snowflake.oauth.client.secret";
   public static final String SF_OAUTH_REFRESH_TOKEN = "snowflake.oauth.refresh.token";
@@ -127,19 +129,6 @@ public class Utils {
   public static final String GET_EXCEPTION_FORMAT = "{}, Exception message: {}, cause: {}";
   public static final String GET_EXCEPTION_MISSING_MESSAGE = "missing exception message";
   public static final String GET_EXCEPTION_MISSING_CAUSE = "missing exception cause";
-
-  // OAuth
-  public static final String TOKEN_REQUEST_ENDPOINT = "/oauth/token-request";
-  public static final String OAUTH_CONTENT_TYPE_HEADER = "application/x-www-form-urlencoded";
-  public static final String BASIC_AUTH_HEADER_PREFIX = "Basic ";
-  public static final String GRANT_TYPE_PARAM = "grant_type";
-  public static final String REFRESH_TOKEN = "refresh_token";
-  public static final String ACCESS_TOKEN = "access_token";
-  public static final String SNOWFLAKE_JWT = "snowflake_jwt";
-  public static final String OAUTH = "oauth";
-  public static final String REDIRECT_URI = "redirect_uri";
-  public static final String DEFAULT_REDIRECT_URI = "https://localhost.com/oauth";
-  public static final int OAUTH_MAX_RETRY = 5;
 
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
@@ -476,25 +465,27 @@ public class Utils {
           Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
     }
 
-    switch (config.getOrDefault(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, SNOWFLAKE_JWT)) {
-      case SNOWFLAKE_JWT:
+    switch (config.getOrDefault(
+        SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, OAuthConstants.SNOWFLAKE_JWT)) {
+        // TODO: SNOW-889748 change to enum
+      case OAuthConstants.SNOWFLAKE_JWT:
         if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY)) {
           invalidConfigParams.put(
               SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
               Utils.formatString(
                   "{} cannot be empty when using {} authenticator.",
                   SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
-                  SNOWFLAKE_JWT));
+                  OAuthConstants.SNOWFLAKE_JWT));
         }
         break;
-      case OAUTH:
+      case OAuthConstants.OAUTH:
         if (!config.containsKey(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID)) {
           invalidConfigParams.put(
               SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID,
               Utils.formatString(
                   "{} cannot be empty when using {} authenticator.",
                   SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID,
-                  OAUTH));
+                  OAuthConstants.OAUTH));
         }
         if (!config.containsKey(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET)) {
           invalidConfigParams.put(
@@ -502,7 +493,7 @@ public class Utils {
               Utils.formatString(
                   "{} cannot be empty when using {} authenticator.",
                   SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET,
-                  OAUTH));
+                  OAuthConstants.OAUTH));
         }
         if (!config.containsKey(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN)) {
           invalidConfigParams.put(
@@ -510,7 +501,7 @@ public class Utils {
               Utils.formatString(
                   "{} cannot be empty when using {} authenticator.",
                   SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN,
-                  OAUTH));
+                  OAuthConstants.OAUTH));
         }
         break;
       default:
@@ -519,8 +510,8 @@ public class Utils {
             Utils.formatString(
                 "{} should be one of {} or {}.",
                 SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE,
-                SNOWFLAKE_JWT,
-                OAUTH));
+                OAuthConstants.SNOWFLAKE_JWT,
+                OAuthConstants.OAUTH));
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER)) {
@@ -792,7 +783,13 @@ public class Utils {
   public static String getSnowflakeOAuthAccessToken(
       SnowflakeURL url, String clientId, String clientSecret, String refreshToken) {
     return getSnowflakeOAuthToken(
-        url, clientId, clientSecret, refreshToken, REFRESH_TOKEN, REFRESH_TOKEN, ACCESS_TOKEN);
+        url,
+        clientId,
+        clientSecret,
+        refreshToken,
+        OAuthConstants.REFRESH_TOKEN,
+        OAuthConstants.REFRESH_TOKEN,
+        OAuthConstants.ACCESS_TOKEN);
   }
 
   /**
@@ -818,16 +815,16 @@ public class Utils {
       String credentialType,
       String tokenType) {
     Map<String, String> headers = new HashMap<>();
-    headers.put(HttpHeaders.CONTENT_TYPE, OAUTH_CONTENT_TYPE_HEADER);
+    headers.put(HttpHeaders.CONTENT_TYPE, OAuthConstants.OAUTH_CONTENT_TYPE_HEADER);
     headers.put(
         HttpHeaders.AUTHORIZATION,
-        BASIC_AUTH_HEADER_PREFIX
+        OAuthConstants.BASIC_AUTH_HEADER_PREFIX
             + Base64.getEncoder().encodeToString((clientId + ":" + clientSecret).getBytes()));
 
     Map<String, String> payload = new HashMap<>();
-    payload.put(GRANT_TYPE_PARAM, grantType);
+    payload.put(OAuthConstants.GRANT_TYPE_PARAM, grantType);
     payload.put(credentialType, credential);
-    payload.put(REDIRECT_URI, DEFAULT_REDIRECT_URI);
+    payload.put(OAuthConstants.REDIRECT_URI, OAuthConstants.DEFAULT_REDIRECT_URI);
 
     // Encode and convert payload into string entity
     String payloadString =
@@ -844,11 +841,11 @@ public class Utils {
     final StringEntity entity =
         new StringEntity(payloadString, ContentType.APPLICATION_FORM_URLENCODED);
 
-    HttpPost post = makeOAuthHttpPost(url, TOKEN_REQUEST_ENDPOINT, headers, entity);
+    HttpPost post = makeOAuthHttpPost(url, OAuthConstants.TOKEN_REQUEST_ENDPOINT, headers, entity);
 
     // Request access token
     CloseableHttpClient client = HttpClientBuilder.create().build();
-    for (int retries = 0; retries < OAUTH_MAX_RETRY; retries++) {
+    for (int retries = 0; retries < OAuthConstants.OAUTH_MAX_RETRY; retries++) {
       try (CloseableHttpResponse httpResponse = client.execute(post)) {
         String respBodyString = EntityUtils.toString(httpResponse.getEntity());
 

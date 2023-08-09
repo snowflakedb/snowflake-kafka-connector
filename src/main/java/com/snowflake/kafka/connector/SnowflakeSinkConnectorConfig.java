@@ -19,6 +19,7 @@ package com.snowflake.kafka.connector;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.OAuthConstants;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.Arrays;
@@ -307,8 +308,8 @@ public class SnowflakeSinkConnectorConfig {
             SNOWFLAKE_ROLE)
         .define(
             AUTHENTICATOR_TYPE,
-            Type.STRING,
-            Utils.SNOWFLAKE_JWT,
+            Type.STRING, // TODO: SNOW-889748 change to enum and add validator
+            OAuthConstants.SNOWFLAKE_JWT,
             Importance.LOW,
             "Authenticator for JDBC and streaming ingest sdk",
             SNOWFLAKE_LOGIN_INFO,

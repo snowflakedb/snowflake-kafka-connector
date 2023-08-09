@@ -26,8 +26,6 @@ import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
 import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_USER;
 import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
 import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
-import static com.snowflake.kafka.connector.Utils.OAUTH;
-import static com.snowflake.kafka.connector.Utils.REFRESH_TOKEN;
 import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
 import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
 import static com.snowflake.kafka.connector.Utils.SF_URL;
@@ -365,7 +363,7 @@ public class TestUtils {
       if (!confWithOAuth.containsKey(Utils.SF_OAUTH_REFRESH_TOKEN)) {
         confWithOAuth.put(Utils.SF_OAUTH_REFRESH_TOKEN, getRefreshToken(confWithOAuth));
       }
-      confWithOAuth.put(Utils.SF_AUTHENTICATOR, OAUTH);
+      confWithOAuth.put(Utils.SF_AUTHENTICATOR, OAuthConstants.OAUTH);
       confWithOAuth.remove(Utils.SF_PRIVATE_KEY);
       confWithOAuth.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
     }
@@ -875,7 +873,7 @@ public class TestUtils {
         getAZCode(config),
         AZ_GRANT_TYPE,
         AZ_CREDENTIAL_TYPE_CODE,
-        REFRESH_TOKEN);
+        OAuthConstants.REFRESH_TOKEN);
   }
 
   private static String getAZCode(Map<String, String> config) {

@@ -4,10 +4,10 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
 import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
-import static com.snowflake.kafka.connector.Utils.OAUTH;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import static org.junit.Assert.assertEquals;
 
+import com.snowflake.kafka.connector.internal.OAuthConstants;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -902,7 +902,7 @@ public class ConnectorConfigTest {
   @Test
   public void testOAuthAuthenticator() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, OAUTH);
+    config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, OAuthConstants.OAUTH);
     config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID, "client_id");
     config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET, "client_secret");
     config.put(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN, "refresh_token");
@@ -924,7 +924,7 @@ public class ConnectorConfigTest {
   public void testEmptyClientId() {
     try {
       Map<String, String> config = getConfig();
-      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, OAUTH);
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, OAuthConstants.OAUTH);
       config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET, "client_secret");
       config.put(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN, "refresh_token");
       Utils.validateConfig(config);
@@ -937,7 +937,7 @@ public class ConnectorConfigTest {
   public void testEmptyClientSecret() {
     try {
       Map<String, String> config = getConfig();
-      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, OAUTH);
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, OAuthConstants.OAUTH);
       config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID, "client_id");
       config.put(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN, "refresh_token");
       Utils.validateConfig(config);
@@ -950,7 +950,7 @@ public class ConnectorConfigTest {
   public void testEmptyRefreshToken() {
     try {
       Map<String, String> config = getConfig();
-      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, OAUTH);
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, OAuthConstants.OAUTH);
       config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID, "client_id");
       config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET, "client_secret");
       Utils.validateConfig(config);

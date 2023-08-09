@@ -16,6 +16,7 @@ import com.google.common.collect.Iterables;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
+import com.snowflake.kafka.connector.internal.OAuthConstants;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -101,11 +102,11 @@ public class StreamingUtils {
     connectorConfig.computeIfPresent(
         Utils.SF_AUTHENTICATOR,
         (key, value) -> {
-          if (value.equals(Utils.SNOWFLAKE_JWT)) {
+          if (value.equals(OAuthConstants.SNOWFLAKE_JWT)) {
             streamingPropertiesMap.put(
                 STREAMING_CONSTANT_AUTHORIZATION_TYPE, STREAMING_CONSTANT_JWT);
           }
-          if (value.equals(Utils.OAUTH)) {
+          if (value.equals(OAuthConstants.OAUTH)) {
             streamingPropertiesMap.put(
                 STREAMING_CONSTANT_AUTHORIZATION_TYPE, STREAMING_CONSTANT_OAUTH);
           }

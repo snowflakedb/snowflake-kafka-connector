@@ -17,6 +17,7 @@
 package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.OAuthConstants;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -212,8 +213,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
     // If using snowflake_jwt and authentication, and private key or private key passphrase is
     // provided through file, skip validation
     if (connectorConfigs
-            .getOrDefault(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT)
-            .equals(Utils.SNOWFLAKE_JWT)
+            .getOrDefault(Utils.SF_AUTHENTICATOR, OAuthConstants.SNOWFLAKE_JWT)
+            .equals(OAuthConstants.SNOWFLAKE_JWT)
         && (connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, "").contains("${file:")
             || connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, "").contains("${file:")))
       return result;
