@@ -237,9 +237,9 @@ public class ConnectorIT {
   @Test
   public void testValidateInvalidAuthenticator() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR, "invalid_authenticator");
+    config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, "invalid_authenticator");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(validateMap, new String[] {SnowflakeSinkConnectorConfig.AUTHENTICATOR});
+    assertPropHasError(validateMap, new String[] {SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE});
   }
 
   @Test

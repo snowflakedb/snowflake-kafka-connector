@@ -71,7 +71,7 @@ public class SnowflakeSinkConnectorConfig {
   static final String SNOWFLAKE_DATABASE = Utils.SF_DATABASE;
   static final String SNOWFLAKE_SCHEMA = Utils.SF_SCHEMA;
   static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
-  static final String AUTHENTICATOR = Utils.SF_AUTHENTICATOR;
+  static final String AUTHENTICATOR_TYPE = Utils.SF_AUTHENTICATOR;
   static final String OAUTH_CLIENT_ID = Utils.SF_OAUTH_CLIENT_ID;
   static final String OAUTH_CLIENT_SECRET = Utils.SF_OAUTH_CLIENT_SECRET;
   static final String OAUTH_REFRESH_TOKEN = Utils.SF_OAUTH_REFRESH_TOKEN;
@@ -306,15 +306,15 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Width.NONE,
             SNOWFLAKE_ROLE)
         .define(
-            AUTHENTICATOR,
+            AUTHENTICATOR_TYPE,
             Type.STRING,
-            "",
+            Utils.SNOWFLAKE_JWT,
             Importance.LOW,
             "Authenticator for JDBC and streaming ingest sdk",
             SNOWFLAKE_LOGIN_INFO,
             7,
             ConfigDef.Width.NONE,
-            AUTHENTICATOR)
+            AUTHENTICATOR_TYPE)
         .define(
             OAUTH_CLIENT_ID,
             Type.STRING,

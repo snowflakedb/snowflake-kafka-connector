@@ -30,8 +30,8 @@ class InternalUtils {
   static final String JDBC_SSL = "ssl";
   static final String JDBC_SESSION_KEEP_ALIVE = "client_session_keep_alive";
   static final String JDBC_WAREHOUSE = "warehouse"; // for test only
-  static final String JDBC_AUTHENTICATOR = "authenticator";
-  static final String JDBC_TOKEN = "token";
+  static final String JDBC_AUTHENTICATOR = SFSessionProperty.AUTHENTICATOR.getPropertyKey();
+  static final String JDBC_TOKEN = SFSessionProperty.TOKEN.getPropertyKey();
   // internal parameters
   static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; // 10 days
 

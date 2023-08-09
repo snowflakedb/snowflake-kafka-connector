@@ -84,7 +84,7 @@ public class Utils {
   public static final String SF_AUTHENTICATOR = "snowflake.authenticator";
   public static final String SF_OAUTH_CLIENT_ID = "snowflake.oauth.client.id";
   public static final String SF_OAUTH_CLIENT_SECRET = "snowflake.oauth.client.secret";
-  public static final String SF_OAUTH_REFRESH_TOKEN = "snowflake.refresh.token";
+  public static final String SF_OAUTH_REFRESH_TOKEN = "snowflake.oauth.refresh.token";
 
   /**
    * This value should be present if ingestion method is {@link
@@ -476,7 +476,7 @@ public class Utils {
           Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
     }
 
-    switch (config.getOrDefault(SnowflakeSinkConnectorConfig.AUTHENTICATOR, SNOWFLAKE_JWT)) {
+    switch (config.getOrDefault(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, SNOWFLAKE_JWT)) {
       case SNOWFLAKE_JWT:
         if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY)) {
           invalidConfigParams.put(
@@ -515,10 +515,10 @@ public class Utils {
         break;
       default:
         invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.AUTHENTICATOR,
+            SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE,
             Utils.formatString(
                 "{} should be one of {} or {}.",
-                SnowflakeSinkConnectorConfig.AUTHENTICATOR,
+                SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE,
                 SNOWFLAKE_JWT,
                 OAUTH));
     }
