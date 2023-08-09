@@ -29,7 +29,7 @@ public interface SnowflakeSinkService {
    * @param partitions collection of topic partitions
    * @param topic2Table a mapping from topic to table
    */
-  void startTasks(Collection<TopicPartition> partitions, Map<String, String> topic2Table);
+  void startPartitions(Collection<TopicPartition> partitions, Map<String, String> topic2Table);
 
   /**
    * call pipe to insert a collections of JSON records will trigger time based flush

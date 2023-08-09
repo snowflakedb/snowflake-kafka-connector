@@ -188,7 +188,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * @param topic2Table map of topic to table name
    */
   @Override
-  public void startTasks(Collection<TopicPartition> partitions, Map<String, String> topic2Table) {
+  public void startPartitions(
+      Collection<TopicPartition> partitions, Map<String, String> topic2Table) {
     Map<String, Boolean> tableName2SchemaEvolutionPermission = new HashMap<>();
     partitions.forEach(
         tp -> {

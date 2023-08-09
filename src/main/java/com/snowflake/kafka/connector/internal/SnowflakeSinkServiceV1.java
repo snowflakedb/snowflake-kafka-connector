@@ -119,14 +119,9 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     }
   }
 
-  /**
-   * Create multiple ingesting tasks
-   *
-   * @param partitions collection of topic partitions
-   * @param topic2Table a mapping from topic to table
-   */
   @Override
-  public void startTasks(Collection<TopicPartition> partitions, Map<String, String> topic2Table) {
+  public void startPartitions(
+      Collection<TopicPartition> partitions, Map<String, String> topic2Table) {
     partitions.forEach(tp -> this.startTask(Utils.tableName(tp.topic(), topic2Table), tp));
   }
 

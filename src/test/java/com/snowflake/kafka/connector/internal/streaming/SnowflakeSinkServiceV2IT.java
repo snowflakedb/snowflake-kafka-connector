@@ -302,7 +302,7 @@ public class SnowflakeSinkServiceV2IT {
     }
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, table);
-    service.startTasks(topicPartitions, topic2Table);
+    service.startPartitions(topicPartitions, topic2Table);
 
     List<SinkRecord> records = new ArrayList<>();
     for (int partition = 0; partition < partitionCount; partition++) {

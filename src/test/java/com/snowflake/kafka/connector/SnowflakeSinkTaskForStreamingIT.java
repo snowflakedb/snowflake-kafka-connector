@@ -313,7 +313,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // verify expected num tasks opened
     Mockito.verify(serviceSpy, Mockito.times(1))
-        .startTasks(Mockito.anyCollection(), Mockito.anyMap());
+        .startPartitions(Mockito.anyCollection(), Mockito.anyMap());
 
     for (String topicStr : expectedTopic2TableConfig.keySet()) {
       TopicPartition topic = null;
