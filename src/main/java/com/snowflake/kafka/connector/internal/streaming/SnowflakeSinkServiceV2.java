@@ -19,10 +19,8 @@ import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -335,18 +333,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               topicPartition.partition());
           partitionsToChannel.remove(partitionChannelKey);
         });
-    List<String> partitionsNotClosed =
-        partitionsToChannel.keySet().stream()
-            .filter(
-                key ->
-                    partitions.stream()
-                        .noneMatch(
-                            tp -> key.equals(partitionChannelKey(tp.topic(), tp.partition()))))
-            .collect(Collectors.toList());
     LOGGER.info(
-        "Closing {} partitions and remaining partitions which are not closed are:{}",
+        "Closing {} partitions and remaining partitions which are not closed are:{}, with size:{}",
         partitions.size(),
-        partitionsNotClosed.toString());
+        partitionsToChannel.keySet().toString(),
+        partitionsToChannel.size());
   }
 
   @Override
