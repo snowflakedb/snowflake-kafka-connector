@@ -177,7 +177,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     createTableIfNotExists(tableName);
 
     // Create channel for the given partition
-    createStreamingChannelForTopicPartition(tableName, topicPartition, null);
+    createStreamingChannelForTopicPartition(
+        tableName,
+        topicPartition,
+        this.conn != null
+            && this.conn.hasSchemaEvolutionPermission(
+                tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
   }
 
   /**
@@ -199,8 +204,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             createTableIfNotExists(tableName);
             tableName2SchemaEvolutionPermission.put(
                 tableName,
-                this.conn.hasSchemaEvolutionPermission(
-                    tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
+                this.conn != null
+                    && this.conn.hasSchemaEvolutionPermission(
+                        tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
           }
           createStreamingChannelForTopicPartition(
               tableName, tp, tableName2SchemaEvolutionPermission.get(tableName));
@@ -216,7 +222,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private void createStreamingChannelForTopicPartition(
       final String tableName,
       final TopicPartition topicPartition,
-      Boolean hasSchemaEvolutionPermission) {
+      boolean hasSchemaEvolutionPermission) {
     final String partitionChannelKey =
         partitionChannelKey(topicPartition.topic(), topicPartition.partition());
     // Create new instance of TopicPartitionChannel which will always open the channel.
