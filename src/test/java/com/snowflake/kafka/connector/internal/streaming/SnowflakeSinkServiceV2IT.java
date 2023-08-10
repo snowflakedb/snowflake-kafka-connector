@@ -871,7 +871,7 @@ public class SnowflakeSinkServiceV2IT {
 
     service.closeAll();
   }
-  
+
   /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest check data */
 
   @Test
