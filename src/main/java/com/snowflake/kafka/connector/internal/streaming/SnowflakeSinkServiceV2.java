@@ -167,16 +167,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.partitionsToChannel = partitionsToChannel;
 
     this.tableName2SchemaEvolutionPermission = new HashMap<>();
-    this.topicToTableMap.forEach(
-        (topic, tableName) -> {
-          if (!this.tableName2SchemaEvolutionPermission.containsKey(tableName)) {
-            this.tableName2SchemaEvolutionPermission.put(
-                tableName,
-                this.conn != null
-                    && this.conn.hasSchemaEvolutionPermission(
-                        tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
-          }
-        });
+    if (this.topicToTableMap != null) {
+      this.topicToTableMap.forEach(
+          (topic, tableName) -> {
+            if (!this.tableName2SchemaEvolutionPermission.containsKey(tableName)) {
+              this.tableName2SchemaEvolutionPermission.put(
+                  tableName,
+                  this.conn != null
+                      && this.conn.hasSchemaEvolutionPermission(
+                          tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
+            }
+          });
+    }
   }
 
   /**
