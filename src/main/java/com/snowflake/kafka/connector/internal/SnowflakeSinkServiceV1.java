@@ -104,7 +104,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
    * @param topicPartition TopicPartition passed from Kafka
    */
   @Override
-  public void startTask(final String tableName, final TopicPartition topicPartition) {
+  public void startPartition(final String tableName, final TopicPartition topicPartition) {
     String stageName = Utils.stageName(conn.getConnectorName(), tableName);
     String nameIndex = getNameIndex(topicPartition.topic(), topicPartition.partition());
     if (pipes.containsKey(nameIndex)) {
@@ -122,7 +122,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   @Override
   public void startPartitions(
       Collection<TopicPartition> partitions, Map<String, String> topic2Table) {
-    partitions.forEach(tp -> this.startTask(Utils.tableName(tp.topic(), topic2Table), tp));
+    partitions.forEach(tp -> this.startPartition(Utils.tableName(tp.topic(), topic2Table), tp));
   }
 
   @Override
@@ -154,7 +154,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
           "Topic: {} Partition: {} hasn't been initialized by OPEN " + "function",
           record.topic(),
           record.kafkaPartition());
-      startTask(
+      startPartition(
           Utils.tableName(record.topic(), this.topic2TableMap),
           new TopicPartition(record.topic(), record.kafkaPartition()));
     }

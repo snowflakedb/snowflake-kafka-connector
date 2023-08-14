@@ -95,6 +95,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
 
+  // Cache for schema evolution
+  private Map<String, Boolean> tableName2SchemaEvolutionPermission = new HashMap<>();
+
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
     if (conn == null || conn.isClosed()) {
@@ -123,6 +126,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             .getClient(this.connectorConfig);
 
     this.partitionsToChannel = new HashMap<>();
+
+    this.tableName2SchemaEvolutionPermission = new HashMap<>();
   }
 
   @VisibleForTesting
@@ -160,6 +165,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             .getClient(this.connectorConfig);
     this.enableSchematization = enableSchematization;
     this.partitionsToChannel = partitionsToChannel;
+
+    this.tableName2SchemaEvolutionPermission = new HashMap<>();
+    this.topicToTableMap.forEach(
+        (topic, tableName) -> {
+          if (!this.tableName2SchemaEvolutionPermission.containsKey(tableName)) {
+            this.tableName2SchemaEvolutionPermission.put(
+                tableName,
+                this.conn != null
+                    && this.conn.hasSchemaEvolutionPermission(
+                        tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
+          }
+        });
   }
 
   /**
@@ -172,17 +189,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * @param topicPartition TopicPartition passed from Kafka
    */
   @Override
-  public void startTask(String tableName, TopicPartition topicPartition) {
+  public void startPartition(String tableName, TopicPartition topicPartition) {
     // the table should be present before opening a channel so let's do a table existence check here
     createTableIfNotExists(tableName);
 
     // Create channel for the given partition
     createStreamingChannelForTopicPartition(
-        tableName,
-        topicPartition,
-        this.conn != null
-            && this.conn.hasSchemaEvolutionPermission(
-                tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
+        tableName, topicPartition, tableName2SchemaEvolutionPermission.get(tableName));
   }
 
   /**
@@ -195,19 +208,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void startPartitions(
       Collection<TopicPartition> partitions, Map<String, String> topic2Table) {
-    Map<String, Boolean> tableName2SchemaEvolutionPermission = new HashMap<>();
     partitions.forEach(
         tp -> {
           String tableName = Utils.tableName(tp.topic(), topic2Table);
+          createTableIfNotExists(tableName);
 
-          if (!tableName2SchemaEvolutionPermission.containsKey(tableName)) {
-            createTableIfNotExists(tableName);
-            tableName2SchemaEvolutionPermission.put(
-                tableName,
-                this.conn != null
-                    && this.conn.hasSchemaEvolutionPermission(
-                        tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
-          }
           createStreamingChannelForTopicPartition(
               tableName, tp, tableName2SchemaEvolutionPermission.get(tableName));
         });
@@ -289,7 +294,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           "Topic: {} Partition: {} hasn't been initialized by OPEN function",
           record.topic(),
           record.kafkaPartition());
-      startTask(
+      startPartition(
           Utils.tableName(record.topic(), this.topicToTableMap),
           new TopicPartition(record.topic(), record.kafkaPartition()));
     }
@@ -548,6 +553,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       } else {
         this.conn.createTable(tableName);
       }
+    }
+
+    // Populate schema evolution cache if needed
+    if (!tableName2SchemaEvolutionPermission.containsKey(tableName)) {
+      tableName2SchemaEvolutionPermission.put(
+          tableName,
+          conn.hasSchemaEvolutionPermission(tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
     }
   }
 }

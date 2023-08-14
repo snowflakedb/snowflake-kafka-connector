@@ -20,7 +20,7 @@ public interface SnowflakeSinkService {
    * @param tableName destination table name
    * @param topicPartition TopicPartition passed from Kafka
    */
-  void startTask(String tableName, TopicPartition topicPartition);
+  void startPartition(String tableName, TopicPartition topicPartition);
 
   /**
    * Start a collection of TopicPartition. This should handle any configuration parsing and one-time

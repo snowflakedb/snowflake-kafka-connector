@@ -888,7 +888,7 @@ public class SinkServiceIT {
     SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
     service.insert(new SinkRecord(topic, partition, null, null, input.schema(), input.value(), 0));
-    service.startTask(table, new TopicPartition(topic, partition));
+    service.startPartition(table, new TopicPartition(topic, partition));
   }
 
   @Test
