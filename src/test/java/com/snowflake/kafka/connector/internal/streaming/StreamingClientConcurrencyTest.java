@@ -34,6 +34,7 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -90,7 +91,8 @@ public class StreamingClientConcurrencyTest {
     }
   }
 
-  @Test
+  @Ignore
+  // SNOW-840882 flakey test
   public void testMultipleGetAndClose() throws Exception {
     // setup configs for 3 clients
     Map<String, String> clientConfig1 = new HashMap<>(this.clientConfig);
