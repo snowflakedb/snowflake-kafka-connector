@@ -96,7 +96,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
 
   // Cache for schema evolution
-  private Map<String, Boolean> tableName2SchemaEvolutionPermission = new HashMap<>();
+  private final Map<String, Boolean> tableName2SchemaEvolutionPermission;
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
