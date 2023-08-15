@@ -20,7 +20,16 @@ public interface SnowflakeSinkService {
    * @param tableName destination table name
    * @param topicPartition TopicPartition passed from Kafka
    */
-  void startTask(String tableName, TopicPartition topicPartition);
+  void startPartition(String tableName, TopicPartition topicPartition);
+
+  /**
+   * Start a collection of TopicPartition. This should handle any configuration parsing and one-time
+   * setup of the task.
+   *
+   * @param partitions collection of topic partitions
+   * @param topic2Table a mapping from topic to table
+   */
+  void startPartitions(Collection<TopicPartition> partitions, Map<String, String> topic2Table);
 
   /**
    * call pipe to insert a collections of JSON records will trigger time based flush
