@@ -170,13 +170,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     if (this.topicToTableMap != null) {
       this.topicToTableMap.forEach(
           (topic, tableName) -> {
-            if (!this.tableName2SchemaEvolutionPermission.containsKey(tableName)) {
-              this.tableName2SchemaEvolutionPermission.put(
-                  tableName,
-                  this.conn != null
-                      && this.conn.hasSchemaEvolutionPermission(
-                          tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
-            }
+            populateSchemaEvolutionPermissions(tableName);
           });
     }
   }
@@ -558,10 +552,20 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     // Populate schema evolution cache if needed
+    populateSchemaEvolutionPermissions(tableName);
+  }
+
+  private void populateSchemaEvolutionPermissions(String tableName) {
     if (!tableName2SchemaEvolutionPermission.containsKey(tableName)) {
-      tableName2SchemaEvolutionPermission.put(
-          tableName,
-          conn.hasSchemaEvolutionPermission(tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
+      if (enableSchematization) {
+        tableName2SchemaEvolutionPermission.put(
+            tableName,
+            conn != null
+                && conn.hasSchemaEvolutionPermission(
+                    tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
+      } else {
+        tableName2SchemaEvolutionPermission.put(tableName, false);
+      }
     }
   }
 }

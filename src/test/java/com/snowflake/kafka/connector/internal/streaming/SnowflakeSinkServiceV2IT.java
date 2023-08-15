@@ -370,7 +370,59 @@ public class SnowflakeSinkServiceV2IT {
   }
 
   @Test
-  public void testStreamingIngest_startTasksWithMultipleChannelPartitions() throws Exception {
+  public void testStreamingIngest_multipleChannelPartitionsWithTopic2Table() throws Exception {
+    final int partitionCount = 5;
+    final int recordsInEachPartition = 2;
+
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    Map<String, String> topic2Table = new HashMap<>();
+    topic2Table.put(topic, table);
+
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(5)
+            .setFlushTime(5)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setTopic2TableMap(topic2Table)
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .build();
+
+    for (int partition = 0; partition < partitionCount; partition++) {
+      service.startPartition(table, new TopicPartition(topic, partition));
+    }
+
+    List<SinkRecord> records = new ArrayList<>();
+    for (int partition = 0; partition < partitionCount; partition++) {
+      records.addAll(
+          TestUtils.createJsonStringSinkRecords(0, recordsInEachPartition, topic, partition));
+    }
+
+    service.insert(records);
+
+    TestUtils.assertWithRetry(
+        () -> {
+          service.insert(new ArrayList<>()); // trigger time based flush
+          return TestUtils.tableSize(table) == recordsInEachPartition * partitionCount;
+        },
+        10,
+        20);
+
+    for (int partition = 0; partition < partitionCount; partition++) {
+      int finalPartition = partition;
+      TestUtils.assertWithRetry(
+          () ->
+              service.getOffset(new TopicPartition(topic, finalPartition))
+                  == recordsInEachPartition,
+          20,
+          5);
+    }
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testStreamingIngest_startPartitionsWithMultipleChannelPartitions() throws Exception {
     final int partitionCount = 5;
     final int recordsInEachPartition = 2;
 
