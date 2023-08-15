@@ -371,13 +371,21 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testStreamingIngest_multipleChannelPartitionsWithTopic2Table() throws Exception {
-    final int partitionCount = 5;
+    final int partitionCount = 3;
     final int recordsInEachPartition = 2;
+    final int topicCount = 3;
 
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    ArrayList<String> topics = new ArrayList<>();
+    for (int topic = 0; topic < topicCount; topic++) {
+      topics.add(TestUtils.randomTableName());
+    }
+
+    // only insert fist topic to topicTable
     Map<String, String> topic2Table = new HashMap<>();
-    topic2Table.put(topic, table);
+    topic2Table.put(topics.get(0), table);
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
@@ -388,34 +396,41 @@ public class SnowflakeSinkServiceV2IT {
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
 
-    for (int partition = 0; partition < partitionCount; partition++) {
-      service.startPartition(table, new TopicPartition(topic, partition));
+    for (int topic = 0; topic < topicCount; topic++) {
+      for (int partition = 0; partition < partitionCount; partition++) {
+        service.startPartition(topics.get(topic), new TopicPartition(topics.get(topic), partition));
+      }
+
+      List<SinkRecord> records = new ArrayList<>();
+      for (int partition = 0; partition < partitionCount; partition++) {
+        records.addAll(
+            TestUtils.createJsonStringSinkRecords(
+                0, recordsInEachPartition, topics.get(topic), partition));
+      }
+
+      service.insert(records);
     }
 
-    List<SinkRecord> records = new ArrayList<>();
-    for (int partition = 0; partition < partitionCount; partition++) {
-      records.addAll(
-          TestUtils.createJsonStringSinkRecords(0, recordsInEachPartition, topic, partition));
-    }
-
-    service.insert(records);
-
-    TestUtils.assertWithRetry(
-        () -> {
-          service.insert(new ArrayList<>()); // trigger time based flush
-          return TestUtils.tableSize(table) == recordsInEachPartition * partitionCount;
-        },
-        10,
-        20);
-
-    for (int partition = 0; partition < partitionCount; partition++) {
-      int finalPartition = partition;
+    for (int topic = 0; topic < topicCount; topic++) {
+      int finalTopic = topic;
       TestUtils.assertWithRetry(
-          () ->
-              service.getOffset(new TopicPartition(topic, finalPartition))
-                  == recordsInEachPartition,
-          20,
-          5);
+          () -> {
+            service.insert(new ArrayList<>()); // trigger time based flush
+            return TestUtils.tableSize(topics.get(finalTopic))
+                == recordsInEachPartition * partitionCount;
+          },
+          10,
+          20);
+
+      for (int partition = 0; partition < partitionCount; partition++) {
+        int finalPartition = partition;
+        TestUtils.assertWithRetry(
+            () ->
+                service.getOffset(new TopicPartition(topics.get(finalTopic), finalPartition))
+                    == recordsInEachPartition,
+            20,
+            5);
+      }
     }
 
     service.closeAll();
