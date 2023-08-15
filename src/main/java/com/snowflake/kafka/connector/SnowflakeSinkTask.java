@@ -258,8 +258,7 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void open(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    partitions.forEach(
-        tp -> this.sink.startTask(Utils.tableName(tp.topic(), this.topic2table), tp));
+    this.sink.startPartitions(partitions, this.topic2table);
     this.DYNAMIC_LOGGER.info(
         "task opened with {} partitions, execution time: {} milliseconds",
         partitions.size(),
