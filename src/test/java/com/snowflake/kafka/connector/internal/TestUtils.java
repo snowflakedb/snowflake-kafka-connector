@@ -363,7 +363,7 @@ public class TestUtils {
       if (!confWithOAuth.containsKey(Utils.SF_OAUTH_REFRESH_TOKEN)) {
         confWithOAuth.put(Utils.SF_OAUTH_REFRESH_TOKEN, getRefreshToken(confWithOAuth));
       }
-      confWithOAuth.put(Utils.SF_AUTHENTICATOR, OAuthConstants.OAUTH);
+      confWithOAuth.put(Utils.SF_AUTHENTICATOR, Utils.OAUTH);
       confWithOAuth.remove(Utils.SF_PRIVATE_KEY);
       confWithOAuth.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
     }

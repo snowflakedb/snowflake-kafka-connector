@@ -184,9 +184,9 @@ class InternalUtils {
 
     // Set credential
     if (!properties.containsKey(JDBC_AUTHENTICATOR)) {
-      properties.put(JDBC_AUTHENTICATOR, OAuthConstants.SNOWFLAKE_JWT);
+      properties.put(JDBC_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
     }
-    if (properties.getProperty(JDBC_AUTHENTICATOR).equals(OAuthConstants.SNOWFLAKE_JWT)) {
+    if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.SNOWFLAKE_JWT)) {
       // JWT key pair auth
       if (!privateKeyPassphrase.isEmpty()) {
         properties.put(
@@ -195,7 +195,7 @@ class InternalUtils {
       } else if (!privateKey.isEmpty()) {
         properties.put(JDBC_PRIVATE_KEY, parsePrivateKey(privateKey));
       }
-    } else if (properties.getProperty(JDBC_AUTHENTICATOR).equals(OAuthConstants.OAUTH)) {
+    } else if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.OAUTH)) {
       // OAuth auth
       if (oAuthClientId.isEmpty()) {
         throw SnowflakeErrors.ERROR_0026.getException();
@@ -243,7 +243,7 @@ class InternalUtils {
     }
 
     // required parameter check, the OAuth parameter is already checked when fetching access token
-    if (properties.getProperty(JDBC_AUTHENTICATOR).equals(OAuthConstants.SNOWFLAKE_JWT)
+    if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.SNOWFLAKE_JWT)
         && !properties.containsKey(JDBC_PRIVATE_KEY)) {
       throw SnowflakeErrors.ERROR_0013.getException();
     }

@@ -88,6 +88,10 @@ public class Utils {
   public static final String SF_OAUTH_CLIENT_SECRET = "snowflake.oauth.client.secret";
   public static final String SF_OAUTH_REFRESH_TOKEN = "snowflake.oauth.refresh.token";
 
+  // authenticator type
+  public static final String SNOWFLAKE_JWT = "snowflake_jwt";
+  public static final String OAUTH = "oauth";
+
   /**
    * This value should be present if ingestion method is {@link
    * IngestionMethodConfig#SNOWPIPE_STREAMING}
@@ -466,26 +470,26 @@ public class Utils {
     }
 
     switch (config.getOrDefault(
-        SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, OAuthConstants.SNOWFLAKE_JWT)) {
+        SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.SNOWFLAKE_JWT)) {
         // TODO: SNOW-889748 change to enum
-      case OAuthConstants.SNOWFLAKE_JWT:
+      case Utils.SNOWFLAKE_JWT:
         if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY)) {
           invalidConfigParams.put(
               SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
               Utils.formatString(
                   "{} cannot be empty when using {} authenticator.",
                   SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
-                  OAuthConstants.SNOWFLAKE_JWT));
+                  Utils.SNOWFLAKE_JWT));
         }
         break;
-      case OAuthConstants.OAUTH:
+      case Utils.OAUTH:
         if (!config.containsKey(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID)) {
           invalidConfigParams.put(
               SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID,
               Utils.formatString(
                   "{} cannot be empty when using {} authenticator.",
                   SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID,
-                  OAuthConstants.OAUTH));
+                  Utils.OAUTH));
         }
         if (!config.containsKey(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET)) {
           invalidConfigParams.put(
@@ -493,7 +497,7 @@ public class Utils {
               Utils.formatString(
                   "{} cannot be empty when using {} authenticator.",
                   SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET,
-                  OAuthConstants.OAUTH));
+                  Utils.OAUTH));
         }
         if (!config.containsKey(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN)) {
           invalidConfigParams.put(
@@ -501,7 +505,7 @@ public class Utils {
               Utils.formatString(
                   "{} cannot be empty when using {} authenticator.",
                   SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN,
-                  OAuthConstants.OAUTH));
+                  Utils.OAUTH));
         }
         break;
       default:
@@ -510,8 +514,8 @@ public class Utils {
             Utils.formatString(
                 "{} should be one of {} or {}.",
                 SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE,
-                OAuthConstants.SNOWFLAKE_JWT,
-                OAuthConstants.OAUTH));
+                Utils.SNOWFLAKE_JWT,
+                Utils.OAUTH));
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER)) {
