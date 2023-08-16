@@ -21,7 +21,7 @@ import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
 import net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import net.snowflake.ingest.connection.IngestStatus;
 
-class InternalUtils {
+public class InternalUtils {
   // JDBC parameter list
   static final String JDBC_DATABASE = "db";
   static final String JDBC_SCHEMA = "schema";
@@ -342,7 +342,7 @@ class InternalUtils {
   }
 
   /** Interfaces to define the lambda function to be used by backoffAndRetry */
-  interface backoffFunction {
+  public interface backoffFunction {
     Object apply() throws Exception;
   }
 

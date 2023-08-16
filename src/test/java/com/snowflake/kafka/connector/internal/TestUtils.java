@@ -30,8 +30,8 @@ import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
 import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
 import static com.snowflake.kafka.connector.Utils.SF_URL;
 import static com.snowflake.kafka.connector.Utils.SF_USER;
+import static com.snowflake.kafka.connector.Utils.buildOAuthHttpPostRequest;
 import static com.snowflake.kafka.connector.Utils.getSnowflakeOAuthToken;
-import static com.snowflake.kafka.connector.Utils.makeOAuthHttpPost;
 
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -902,7 +902,7 @@ public class TestUtils {
     JsonObject loginPayload = new JsonObject();
     loginPayload.add("data", loginData);
     HttpPost loginRequest =
-        makeOAuthHttpPost(
+        buildOAuthHttpPostRequest(
             url, AZ_LOGIN_ENDPOINT, headers, buildStringEntity(loginPayload.toString()));
 
     // Login
@@ -924,7 +924,7 @@ public class TestUtils {
     // Build AZ code request
     loginData.addProperty(AZ_MASTER_TOKEN, masterToken);
     HttpPost aZCodeRequest =
-        makeOAuthHttpPost(
+        buildOAuthHttpPostRequest(
             url, AZ_REQUEST_ENDPOINT, headers, buildStringEntity(loginData.toString()));
 
     // Request AZ code

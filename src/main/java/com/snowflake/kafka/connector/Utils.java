@@ -23,9 +23,11 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT
 
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
+import com.snowflake.kafka.connector.internal.InternalUtils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.OAuthConstants;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeInternalOperations;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
@@ -59,7 +61,6 @@ import net.snowflake.client.jdbc.internal.apache.http.entity.StringEntity;
 import net.snowflake.client.jdbc.internal.apache.http.impl.client.CloseableHttpClient;
 import net.snowflake.client.jdbc.internal.apache.http.impl.client.HttpClientBuilder;
 import net.snowflake.client.jdbc.internal.apache.http.util.EntityUtils;
-import net.snowflake.client.jdbc.internal.google.api.client.http.HttpStatusCodes;
 import net.snowflake.client.jdbc.internal.google.gson.JsonObject;
 import net.snowflake.client.jdbc.internal.google.gson.JsonParser;
 import org.apache.kafka.common.config.Config;
@@ -469,8 +470,9 @@ public class Utils {
           Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
     }
 
-    switch (config.getOrDefault(
-        SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.SNOWFLAKE_JWT)) {
+    switch (config
+        .getOrDefault(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.SNOWFLAKE_JWT)
+        .toLowerCase()) {
         // TODO: SNOW-889748 change to enum
       case Utils.SNOWFLAKE_JWT:
         if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY)) {
@@ -845,32 +847,30 @@ public class Utils {
     final StringEntity entity =
         new StringEntity(payloadString, ContentType.APPLICATION_FORM_URLENCODED);
 
-    HttpPost post = makeOAuthHttpPost(url, OAuthConstants.TOKEN_REQUEST_ENDPOINT, headers, entity);
+    HttpPost post =
+        buildOAuthHttpPostRequest(url, OAuthConstants.TOKEN_REQUEST_ENDPOINT, headers, entity);
 
     // Request access token
     CloseableHttpClient client = HttpClientBuilder.create().build();
-    for (int retries = 0; retries < OAuthConstants.OAUTH_MAX_RETRY; retries++) {
-      try (CloseableHttpResponse httpResponse = client.execute(post)) {
-        String respBodyString = EntityUtils.toString(httpResponse.getEntity());
-
-        if (httpResponse.getStatusLine().getStatusCode() == HttpStatusCodes.STATUS_CODE_OK) {
-          JsonObject respBody = JsonParser.parseString(respBodyString).getAsJsonObject();
-          if (respBody.has(tokenType)) {
-            // Trim surrounding quotation marks
-            return respBody.get(tokenType).toString().replaceAll("^\"|\"$", "");
-          }
-        }
-      } catch (Exception ignored) {
-      }
-
-      // Exponential backoff retries
-      try {
-        Thread.sleep((1L << retries) * 1000L);
-      } catch (InterruptedException e) {
-        throw SnowflakeErrors.ERROR_1004.getException(e);
-      }
+    try {
+      return InternalUtils.backoffAndRetry(
+              null,
+              SnowflakeInternalOperations.FETCH_OAUTH_TOKEN,
+              () -> {
+                try (CloseableHttpResponse httpResponse = client.execute(post)) {
+                  String respBodyString = EntityUtils.toString(httpResponse.getEntity());
+                  JsonObject respBody = JsonParser.parseString(respBodyString).getAsJsonObject();
+                  // Trim surrounding quotation marks
+                  return respBody.get(tokenType).toString().replaceAll("^\"|\"$", "");
+                } catch (Exception e) {
+                  throw SnowflakeErrors.ERROR_1004.getException(
+                      "Failed to get Oauth access token after retries");
+                }
+              })
+          .toString();
+    } catch (Exception e) {
+      throw SnowflakeErrors.ERROR_1004.getException(e);
     }
-    throw SnowflakeErrors.ERROR_1004.getException("Failed to get access token after retries");
   }
 
   /**
@@ -881,7 +881,7 @@ public class Utils {
    * @param entity payload entity
    * @return HttpPost request for OAuth
    */
-  public static HttpPost makeOAuthHttpPost(
+  public static HttpPost buildOAuthHttpPostRequest(
       SnowflakeURL url, String path, Map<String, String> headers, StringEntity entity) {
     // Build post request
     URI uri;
