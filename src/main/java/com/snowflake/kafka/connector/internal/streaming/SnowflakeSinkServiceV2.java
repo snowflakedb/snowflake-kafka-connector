@@ -118,10 +118,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     this.connectorConfig = connectorConfig;
 
-    this.enableSchematization = Boolean.parseBoolean(connectorConfig.getOrDefault(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "false"));
+    this.enableSchematization =
+        Boolean.parseBoolean(
+            connectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "false"));
     this.behaviorOnNullValues =
         SnowflakeSinkConnectorConfig.BehaviorOnNullValues.valueOf(
-            connectorConfig.getOrDefault(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString()));
+            connectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
+                SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString()));
 
     this.streamingIngestClient =
         StreamingClientProvider.getStreamingClientProviderInstance()

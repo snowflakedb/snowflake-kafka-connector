@@ -23,7 +23,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
@@ -106,7 +105,11 @@ public class RecordService {
               connectorConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
     }
     if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)) {
-      this.ingestTombstoneRecords = connectorConfig.get(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG).equalsIgnoreCase(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
+      this.ingestTombstoneRecords =
+          connectorConfig
+              .get(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)
+              .equalsIgnoreCase(
+                  SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
     }
   }
 
@@ -119,9 +122,7 @@ public class RecordService {
 
   // TESTING ONLY - create empty record service
   @VisibleForTesting
-  public RecordService() {
-
-  }
+  public RecordService() {}
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
     metadataConfig = metadataConfigIn;

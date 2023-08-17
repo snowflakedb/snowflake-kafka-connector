@@ -1,11 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.common.TopicPartition;
@@ -25,7 +23,8 @@ public class SnowflakeSinkServiceFactory {
       SnowflakeConnectionService conn,
       IngestionMethodConfig ingestionType,
       Map<String, String> connectorConfig) {
-    return new SnowflakeSinkServiceBuilder(conn, ingestionType, connectorConfig == null ? new HashMap<>() : connectorConfig);
+    return new SnowflakeSinkServiceBuilder(
+        conn, ingestionType, connectorConfig == null ? new HashMap<>() : connectorConfig);
   }
 
   /** Builder class to create instance of {@link SnowflakeSinkService} */

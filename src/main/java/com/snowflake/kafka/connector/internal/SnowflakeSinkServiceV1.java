@@ -94,8 +94,10 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     // Setting the default value in constructor
     // meaning it will not ignore the null values (Tombstone records wont be ignored/filtered)
     this.behaviorOnNullValues =
-            SnowflakeSinkConnectorConfig.BehaviorOnNullValues.valueOf(
-                connectorConfig.getOrDefault(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString()));
+        SnowflakeSinkConnectorConfig.BehaviorOnNullValues.valueOf(
+            connectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
+                SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString()));
   }
 
   /**

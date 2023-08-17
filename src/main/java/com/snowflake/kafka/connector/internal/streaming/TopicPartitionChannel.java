@@ -259,7 +259,10 @@ public class TopicPartitionChannel {
         !Strings.isNullOrEmpty(StreamingUtils.getDlqTopicName(this.sfConnectorConfig));
 
     /* Schematization related properties */
-    this.enableSchematization = Boolean.parseBoolean(sfConnectorConfig.getOrDefault(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "false"));
+    this.enableSchematization =
+        Boolean.parseBoolean(
+            sfConnectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "false"));
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
 
     // Open channel and reset the offset in kafka

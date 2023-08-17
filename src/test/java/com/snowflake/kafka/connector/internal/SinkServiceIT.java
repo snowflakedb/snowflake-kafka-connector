@@ -18,7 +18,6 @@ import java.sql.ResultSet;
 import java.util.*;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.kafka.common.Configurable;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -53,7 +52,8 @@ public class SinkServiceIT {
   @Test
   public void testSinkServiceBuilder() {
     // default value
-    SnowflakeSinkService service = SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null).build();
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null).build();
 
     assert service.getFileSize() == SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
     assert service.getFlushTime() == SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT;
@@ -85,7 +85,10 @@ public class SinkServiceIT {
 
     // connection test
     assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_5010, () -> SnowflakeSinkServiceFactory.builder(null, IngestionMethodConfig.SNOWPIPE, null).build());
+        SnowflakeErrors.ERROR_5010,
+        () ->
+            SnowflakeSinkServiceFactory.builder(null, IngestionMethodConfig.SNOWPIPE, null)
+                .build());
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_5010,
         () -> {
@@ -154,7 +157,9 @@ public class SinkServiceIT {
     conn.createStage(stage);
 
     Map<String, String> connectorConfig = new HashMap<>();
-    connectorConfig.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
+    connectorConfig.put(
+        SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
+        SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
@@ -219,7 +224,9 @@ public class SinkServiceIT {
     conn.createStage(stage);
 
     Map<String, String> connectorConfig = new HashMap<>();
-    connectorConfig.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, String.valueOf(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE));
+    connectorConfig.put(
+        SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
+        String.valueOf(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE));
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
@@ -259,12 +266,15 @@ public class SinkServiceIT {
   }
 
   @Test
-  public void testTombstoneRecords_DEFAULT_behavior_ingestion_CommunityJsonConverter() throws Exception {
+  public void testTombstoneRecords_DEFAULT_behavior_ingestion_CommunityJsonConverter()
+      throws Exception {
     conn.createTable(table);
     conn.createStage(stage);
 
     Map<String, String> connectorConfig = new HashMap<>();
-    connectorConfig.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
+    connectorConfig.put(
+        SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
+        SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
@@ -286,9 +296,9 @@ public class SinkServiceIT {
     TestUtils.assertWithRetry(
         () ->
             conn.listStage(
-                    stage,
-                    FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition))
-                .size()
+                        stage,
+                        FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition))
+                    .size()
                 == 1,
         5,
         4);
@@ -333,7 +343,9 @@ public class SinkServiceIT {
     conn.createStage(stage);
 
     Map<String, String> connectorConfig = new HashMap<>();
-    connectorConfig.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE.toString());
+    connectorConfig.put(
+        SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
+        SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE.toString());
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
@@ -939,7 +951,9 @@ public class SinkServiceIT {
     conn.createTable(table);
     conn.createStage(stage);
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null).setRecordNumber(1).build();
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
+            .setRecordNumber(1)
+            .build();
     TopicPartition topicPartition = new TopicPartition(topic, partition);
     service.getOffset(topicPartition);
     List<TopicPartition> topicPartitionList = new ArrayList<>();
