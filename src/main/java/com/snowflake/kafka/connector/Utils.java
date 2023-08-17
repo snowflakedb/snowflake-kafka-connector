@@ -812,6 +812,7 @@ public class Utils {
    * @param tokenType type of OAuth token to get, either access_token or refresh_token
    * @return OAuth token
    */
+  // TODO: SNOW-895296 Integrate OAuth utils with streaming ingest SDK
   public static String getSnowflakeOAuthToken(
       SnowflakeURL url,
       String clientId,
