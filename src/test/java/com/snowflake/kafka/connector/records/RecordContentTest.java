@@ -235,10 +235,9 @@ public class RecordContentTest {
 
   @Test
   public void testSchematizationStringField() throws JsonProcessingException {
-    RecordService service = new RecordService();
+    RecordService service = new RecordService(true, false);
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
-    service.setEnableSchematization(true);
     String value = "{\"name\":\"sf\",\"answer\":42}";
     byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
     SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
@@ -257,10 +256,9 @@ public class RecordContentTest {
 
   @Test
   public void testColumnNameFormatting() throws JsonProcessingException {
-    RecordService service = new RecordService();
+    RecordService service = new RecordService(true, false);
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
-    service.setEnableSchematization(true);
     String value = "{\"\\\"NaMe\\\"\":\"sf\",\"AnSwEr\":42}";
     byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
     SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);

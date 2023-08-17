@@ -221,7 +221,6 @@ public class SnowflakeSinkTask extends SinkTask {
             .setFlushTime(bufferFlushTime)
             .setTopic2TableMap(topic2table)
             .setMetadataConfig(metadataConfig)
-            .setBehaviorOnNullValuesConfig(behavior)
             .setCustomJMXMetrics(enableCustomJMXMonitoring)
             .setErrorReporter(kafkaRecordErrorReporter)
             .setSinkTaskContext(this.context)

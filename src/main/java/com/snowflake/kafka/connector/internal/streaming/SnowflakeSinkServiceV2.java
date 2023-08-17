@@ -109,7 +109,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.flushTimeSeconds = StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
     this.conn = conn;
     this.telemetryService = conn.getTelemetryClient();
-    this.recordService = new RecordService(this.telemetryService);
+    this.recordService = new RecordService(connectorConfig);
     this.topicToTableMap = new HashMap<>();
 
     // Setting the default value in constructor
@@ -118,8 +118,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     this.connectorConfig = connectorConfig;
 
-    this.enableSchematization =
-        this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
+    this.enableSchematization = Boolean.parseBoolean(connectorConfig.getOrDefault(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "false"));
+    this.behaviorOnNullValues =
+        SnowflakeSinkConnectorConfig.BehaviorOnNullValues.valueOf(
+            connectorConfig.getOrDefault(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString()));
 
     this.streamingIngestClient =
         StreamingClientProvider.getStreamingClientProviderInstance()
@@ -464,19 +466,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   @Override
-  public void setBehaviorOnNullValuesConfig(
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
-    this.behaviorOnNullValues = behavior;
-  }
-
-  @Override
   public void setCustomJMXMetrics(boolean enableJMX) {
     this.enableCustomJMXMonitoring = enableJMX;
-  }
-
-  @Override
-  public SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig() {
-    return this.behaviorOnNullValues;
   }
 
   /* Set this to send records to DLQ. */

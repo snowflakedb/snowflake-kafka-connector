@@ -76,7 +76,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
 
-  SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
+  SnowflakeSinkServiceV1(SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
     }
@@ -88,12 +88,14 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     this.conn = conn;
     isStopped = false;
     this.telemetryService = conn.getTelemetryClient();
-    this.recordService = new RecordService(this.telemetryService);
+    this.recordService = new RecordService(connectorConfig);
     this.topic2TableMap = new HashMap<>();
 
     // Setting the default value in constructor
     // meaning it will not ignore the null values (Tombstone records wont be ignored/filtered)
-    this.behaviorOnNullValues = SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
+    this.behaviorOnNullValues =
+            SnowflakeSinkConnectorConfig.BehaviorOnNullValues.valueOf(
+                connectorConfig.getOrDefault(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString()));
   }
 
   /**
@@ -304,19 +306,8 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   }
 
   @Override
-  public void setBehaviorOnNullValuesConfig(
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
-    this.behaviorOnNullValues = behavior;
-  }
-
-  @Override
   public void setCustomJMXMetrics(boolean enableJMX) {
     this.enableCustomJMXMonitoring = enableJMX;
-  }
-
-  @Override
-  public SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig() {
-    return this.behaviorOnNullValues;
   }
 
   /**

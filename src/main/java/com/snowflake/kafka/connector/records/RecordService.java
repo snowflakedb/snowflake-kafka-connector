@@ -23,7 +23,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
@@ -70,8 +70,6 @@ public class RecordService {
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
 
-  private boolean enableSchematization = false;
-
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
   static final ThreadLocal<SimpleDateFormat> ISO_DATE_TIME_FORMAT =
@@ -89,60 +87,44 @@ public class RecordService {
 
   // This class is designed to work with empty metadata config map
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
-
-  /** Send Telemetry Data to Snowflake */
-  private final SnowflakeTelemetryService telemetryService;
+  private Map<String, String> connectorConfig;
+  private boolean enableSchematization;
+  private boolean ingestTombstoneRecords;
 
   /**
    * process records output JSON format: { "meta": { "offset": 123, "topic": "topic name",
    * "partition": 123, "key":"key name" } "content": "record content" }
    *
    * <p>create a JsonRecordService instance
-   *
-   * @param telemetryService Telemetry Service Instance. Can be null.
    */
-  public RecordService(SnowflakeTelemetryService telemetryService) {
-    this.telemetryService = telemetryService;
-  }
+  public RecordService(Map<String, String> connectorConfig) {
+    this.connectorConfig = connectorConfig;
 
-  /** Record service with null telemetry Service, only use it for testing. */
-  @VisibleForTesting
-  public RecordService() {
-    this.telemetryService = null;
-  }
-
-  public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
-    metadataConfig = metadataConfigIn;
-  }
-
-  /**
-   * extract enableSchematization from the connector config and set the value for the recordService
-   *
-   * <p>The extracted boolean is returned for external usage.
-   *
-   * @param connectorConfig the connector config map
-   * @return a boolean indicating whether schematization is enabled
-   */
-  public boolean setAndGetEnableSchematizationFromConfig(
-      final Map<String, String> connectorConfig) {
     if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)) {
       this.enableSchematization =
           Boolean.parseBoolean(
               connectorConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
     }
-    return this.enableSchematization;
+    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)) {
+      this.ingestTombstoneRecords = connectorConfig.get(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG).equalsIgnoreCase(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
+    }
   }
 
-  /**
-   * Directly set the enableSchematization through param
-   *
-   * <p>This method is only for testing
-   *
-   * @param enableSchematization whether we should enable schematization or not
-   */
+  // TESTING ONLY - inject schematization and tombstone behavior
   @VisibleForTesting
-  public void setEnableSchematization(final boolean enableSchematization) {
+  public RecordService(boolean enableSchematization, boolean ingestTombstoneRecords) {
     this.enableSchematization = enableSchematization;
+    this.ingestTombstoneRecords = ingestTombstoneRecords;
+  }
+
+  // TESTING ONLY - create empty record service
+  @VisibleForTesting
+  public RecordService() {
+
+  }
+
+  public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
+    metadataConfig = metadataConfigIn;
   }
 
   /**
@@ -152,18 +134,24 @@ public class RecordService {
    * @return a Row wrapper which contains both actual content(payload) and metadata
    */
   private SnowflakeTableRow processRecord(SinkRecord record) {
-    if (record.value() == null || record.valueSchema() == null) {
-      throw SnowflakeErrors.ERROR_5016.getException();
-    }
-    if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME)) {
-      throw SnowflakeErrors.ERROR_0009.getException();
-    }
-    if (!(record.value() instanceof SnowflakeRecordContent)) {
-      throw SnowflakeErrors.ERROR_0010.getException(
-          "Input record should be SnowflakeRecordContent object");
-    }
+    SnowflakeRecordContent valueContent;
 
-    SnowflakeRecordContent valueContent = (SnowflakeRecordContent) record.value();
+    if (record.value() == null || record.valueSchema() == null) {
+      if (this.ingestTombstoneRecords) {
+        valueContent = new SnowflakeRecordContent();
+      } else {
+        throw SnowflakeErrors.ERROR_5016.getException();
+      }
+    } else {
+      if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME)) {
+        throw SnowflakeErrors.ERROR_0009.getException();
+      }
+      if (!(record.value() instanceof SnowflakeRecordContent)) {
+        throw SnowflakeErrors.ERROR_0010.getException(
+            "Input record should be SnowflakeRecordContent object");
+      }
+      valueContent = (SnowflakeRecordContent) record.value();
+    }
 
     ObjectNode meta = MAPPER.createObjectNode();
     if (metadataConfig.topicFlag) {

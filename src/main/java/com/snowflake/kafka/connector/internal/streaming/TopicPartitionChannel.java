@@ -11,6 +11,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
@@ -258,9 +259,7 @@ public class TopicPartitionChannel {
         !Strings.isNullOrEmpty(StreamingUtils.getDlqTopicName(this.sfConnectorConfig));
 
     /* Schematization related properties */
-    this.enableSchematization =
-        this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
-
+    this.enableSchematization = Boolean.parseBoolean(sfConnectorConfig.getOrDefault(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "false"));
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
 
     // Open channel and reset the offset in kafka

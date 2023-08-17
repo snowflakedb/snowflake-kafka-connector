@@ -224,7 +224,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            new RecordService(mockTelemetryService),
+            new RecordService(),
             mockTelemetryService);
 
     topicPartitionChannel.closeChannel();
@@ -614,7 +614,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            new RecordService(mockTelemetryService),
+            new RecordService(),
             mockTelemetryService);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);

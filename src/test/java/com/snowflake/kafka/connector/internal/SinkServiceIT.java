@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
@@ -17,6 +18,7 @@ import java.sql.ResultSet;
 import java.util.*;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.kafka.common.Configurable;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -51,7 +53,7 @@ public class SinkServiceIT {
   @Test
   public void testSinkServiceBuilder() {
     // default value
-    SnowflakeSinkService service = SnowflakeSinkServiceFactory.builder(conn).build();
+    SnowflakeSinkService service = SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null).build();
 
     assert service.getFileSize() == SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
     assert service.getFlushTime() == SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT;
@@ -59,7 +61,7 @@ public class SinkServiceIT {
 
     // set some value
     service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
             .setFileSize(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT * 4)
             .setFlushTime(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN + 10)
             .setRecordNumber(10)
@@ -71,7 +73,7 @@ public class SinkServiceIT {
 
     // set some invalid value
     service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
             .setRecordNumber(-100)
             .setFlushTime(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN - 10)
             .setFileSize(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN - 1)
@@ -83,13 +85,13 @@ public class SinkServiceIT {
 
     // connection test
     assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_5010, () -> SnowflakeSinkServiceFactory.builder(null).build());
+        SnowflakeErrors.ERROR_5010, () -> SnowflakeSinkServiceFactory.builder(null, IngestionMethodConfig.SNOWPIPE, null).build());
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_5010,
         () -> {
           SnowflakeConnectionService conn = TestUtils.getConnectionService();
           conn.close();
-          SnowflakeSinkServiceFactory.builder(conn).build();
+          SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null).build();
         });
   }
 
@@ -98,7 +100,7 @@ public class SinkServiceIT {
     conn.createTable(table);
     conn.createStage(stage);
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
             .setRecordNumber(1)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
@@ -150,18 +152,16 @@ public class SinkServiceIT {
   public void testTombstoneRecords_DEFAULT_behavior_ingestion_SFJsonConverter() throws Exception {
     conn.createTable(table);
     conn.createStage(stage);
+
+    Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
+
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
             .setRecordNumber(1)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // Verifying it here to see if it fallbacks to default behavior - which is to ingest empty json
-    // string
-    Assert.assertTrue(
-        service
-            .getBehaviorOnNullValuesConfig()
-            .equals(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT));
     SnowflakeConverter converter = new SnowflakeJsonConverter();
     SchemaAndValue input = converter.toConnectData(topic, null);
     long offset = 0;
@@ -217,19 +217,16 @@ public class SinkServiceIT {
   public void testTombstoneRecords_IGNORE_behavior_ingestion_SFJsonConverter() throws Exception {
     conn.createTable(table);
     conn.createStage(stage);
+
+    Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, String.valueOf(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE));
+
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
             .setRecordNumber(1)
             .addTask(table, new TopicPartition(topic, partition))
-            .setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE)
             .build();
 
-    // Verifying it here to see if it fallbacks to default behavior - which is to ingest empty json
-    // string
-    Assert.assertTrue(
-        service
-            .getBehaviorOnNullValuesConfig()
-            .equals(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE));
     SnowflakeConverter converter = new SnowflakeJsonConverter();
     SchemaAndValue input = converter.toConnectData(topic, null);
     long offset = 0;
@@ -262,23 +259,88 @@ public class SinkServiceIT {
   }
 
   @Test
+  public void testTombstoneRecords_DEFAULT_behavior_ingestion_CommunityJsonConverter() throws Exception {
+    conn.createTable(table);
+    conn.createStage(stage);
+
+    Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
+
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
+            .setRecordNumber(1)
+            .addTask(table, new TopicPartition(topic, partition))
+            .build();
+
+    JsonConverter converter = new JsonConverter();
+    HashMap<String, String> converterConfig = new HashMap<String, String>();
+    converterConfig.put("schemas.enable", "false");
+    converter.configure(converterConfig, false);
+    SchemaAndValue input = converter.toConnectData(topic, null);
+    long offset = 0;
+
+    SinkRecord record1 =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), offset);
+    service.insert(Collections.singletonList(record1));
+    TestUtils.assertWithRetry(
+        () ->
+            conn.listStage(
+                    stage,
+                    FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition))
+                .size()
+                == 1,
+        5,
+        4);
+    service.callAllGetOffset();
+    List<String> files =
+        conn.listStage(
+            stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, partition));
+    String fileName = files.get(0);
+
+    assert FileNameUtils.fileNameToTimeIngested(fileName) < System.currentTimeMillis();
+    assert FileNameUtils.fileNameToPartition(fileName) == partition;
+    assert FileNameUtils.fileNameToStartOffset(fileName) == offset;
+    assert FileNameUtils.fileNameToEndOffset(fileName) == offset;
+
+    // wait for ingest
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 30, 20);
+
+    ResultSet resultSet = TestUtils.showTable(table);
+    LinkedList<String> contentResult = new LinkedList<>();
+    while (resultSet.next()) {
+      contentResult.add(resultSet.getString("RECORD_CONTENT"));
+    }
+    resultSet.close();
+
+    assert contentResult.size() == 1;
+
+    ObjectNode emptyNode = MAPPER.createObjectNode();
+    assert contentResult.get(0).equalsIgnoreCase(emptyNode.toString());
+
+    // change cleaner
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, partition) == 0, 30, 20);
+
+    assert service.getOffset(new TopicPartition(topic, partition)) == offset + 1;
+
+    service.closeAll();
+  }
+
+  @Test
   public void testTombstoneRecords_IGNORE_behavior_ingestion_CommunityJsonConverter()
       throws Exception {
     conn.createTable(table);
     conn.createStage(stage);
+
+    Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE.toString());
+
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
             .setRecordNumber(1)
             .addTask(table, new TopicPartition(topic, partition))
-            .setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE)
             .build();
 
-    // Verifying it here to see if it fallbacks to default behavior - which is to ingest empty json
-    // string
-    Assert.assertTrue(
-        service
-            .getBehaviorOnNullValuesConfig()
-            .equals(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE));
     JsonConverter converter = new JsonConverter();
     HashMap<String, String> converterConfig = new HashMap<String, String>();
     converterConfig.put("schemas.enable", "false");
@@ -393,7 +455,7 @@ public class SinkServiceIT {
             startOffset + 3);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
             .setRecordNumber(recordCount)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
@@ -581,7 +643,7 @@ public class SinkServiceIT {
     conn.createStage(stage);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
             .setRecordNumber(recordCount)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
@@ -664,7 +726,7 @@ public class SinkServiceIT {
             startOffset + 2);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
             .setRecordNumber(recordCount)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
@@ -704,7 +766,7 @@ public class SinkServiceIT {
             topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(), 2);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
             .setRecordNumber(recordCount)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
@@ -756,7 +818,7 @@ public class SinkServiceIT {
     SinkRecord brokenValue = new SinkRecord(topic, partition, null, null, null, null, 0);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
             .setRecordNumber(recordCount)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
@@ -773,7 +835,7 @@ public class SinkServiceIT {
     int numLimit = 100;
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
             .setRecordNumber(numLimit)
             .setFlushTime(30)
             .addTask(table, new TopicPartition(topic, partition))
@@ -820,7 +882,7 @@ public class SinkServiceIT {
     long size = 10000;
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
             .setFileSize(size)
             .setFlushTime(10)
             .addTask(table, new TopicPartition(topic, partition))
@@ -852,7 +914,7 @@ public class SinkServiceIT {
     long flushTime = 20;
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
             .setFlushTime(flushTime)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
@@ -877,7 +939,7 @@ public class SinkServiceIT {
     conn.createTable(table);
     conn.createStage(stage);
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn).setRecordNumber(1).build();
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null).setRecordNumber(1).build();
     TopicPartition topicPartition = new TopicPartition(topic, partition);
     service.getOffset(topicPartition);
     List<TopicPartition> topicPartitionList = new ArrayList<>();
@@ -925,7 +987,7 @@ public class SinkServiceIT {
     assert getStageSize(stage, table, 0) == 4;
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
             .addTask(table, new TopicPartition(topic, partition))
             .setRecordNumber(1) // immediate flush
             .build();
@@ -974,7 +1036,7 @@ public class SinkServiceIT {
             offset);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
@@ -1007,7 +1069,7 @@ public class SinkServiceIT {
     SnowflakeConnectionService spyConn = spy(conn);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(spyConn)
+        SnowflakeSinkServiceFactory.builder(spyConn, IngestionMethodConfig.SNOWPIPE, null)
             .setRecordNumber(1)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
@@ -1074,7 +1136,7 @@ public class SinkServiceIT {
     SnowflakeConnectionService spyConn = spy(conn);
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(spyConn)
+        SnowflakeSinkServiceFactory.builder(spyConn, IngestionMethodConfig.SNOWPIPE, null)
             .setRecordNumber(1)
             .addTask(table, new TopicPartition(topic, partition))
             .build();
