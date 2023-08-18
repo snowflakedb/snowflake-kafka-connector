@@ -88,7 +88,7 @@ public class RecordService {
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
   private Map<String, String> connectorConfig;
   private boolean enableSchematization;
-  private boolean ingestTombstoneRecords;
+  private boolean ingestTombstoneRecords = true; // since BEHAVIOR_ON_NULL_VALUES_CONFIG defaults to ingestion
 
   /**
    * process records output JSON format: { "meta": { "offset": 123, "topic": "topic name",

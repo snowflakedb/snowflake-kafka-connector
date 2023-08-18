@@ -8,9 +8,15 @@ import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+
+import io.confluent.connect.avro.AvroConverter;
+import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.storage.Converter;
 import org.junit.After;
@@ -21,63 +27,79 @@ import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class TombstoneRecordIngestionIT {
+  // sf converters only supported in snowpipe
   @Parameterized.Parameters(name = "ingestionMethod: {0}, converter: {1}")
   public static Collection<Object[]> input() {
     return Arrays.asList(
         new Object[][] {
           {
-//            IngestionMethodConfig.SNOWPIPE,
-//            ConnectorConfigTest.CustomSfConverter.JSON_CONVERTER.converter
-//          },
-////          {
-////            IngestionMethodConfig.SNOWPIPE,
-////            ConnectorConfigTest.CustomSfConverter.AVRO_CONVERTER.converter
-////          },
-////          {
-////            IngestionMethodConfig.SNOWPIPE,
-////            ConnectorConfigTest.CustomSfConverter.AVRO_CONVERTER_WITHOUT_SCHEMA_REGISTRY.converter
-////          },
-//          {
-//            IngestionMethodConfig.SNOWPIPE,
-//            ConnectorConfigTest.CommunityConverterSubset.JSON_CONVERTER.converter
-//          },
-////          {
-////            IngestionMethodConfig.SNOWPIPE,
-////            ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER.converter
-////          },
-//          {
-//            IngestionMethodConfig.SNOWPIPE,
-//            ConnectorConfigTest.CommunityConverterSubset.STRING_CONVERTER.converter
-//          },
-//          {
-//            IngestionMethodConfig.SNOWPIPE,
-//            ConnectorConfigTest.CommunityConverterSubset.JSON_CONVERTER.converter
+            IngestionMethodConfig.SNOWPIPE,
+            ConnectorConfigTest.CustomSfConverter.JSON_CONVERTER.converter
           },
-//          {
-//            IngestionMethodConfig.SNOWPIPE,
-//            ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER.converter
-//          },
           {
-            IngestionMethodConfig.SNOWPIPE_STREAMING,
+              IngestionMethodConfig.SNOWPIPE,
+              ConnectorConfigTest.CustomSfConverter.AVRO_CONVERTER.converter
+          },
+          {
+              IngestionMethodConfig.SNOWPIPE,
+              ConnectorConfigTest.CustomSfConverter.AVRO_CONVERTER_WITHOUT_SCHEMA_REGISTRY.converter
+          },
+          {
+            IngestionMethodConfig.SNOWPIPE,
+            ConnectorConfigTest.CommunityConverterSubset.JSON_CONVERTER.converter
+          },
+          {
+            IngestionMethodConfig.SNOWPIPE,
+            ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER.converter
+          },
+          {
+            IngestionMethodConfig.SNOWPIPE,
             ConnectorConfigTest.CommunityConverterSubset.STRING_CONVERTER.converter
           },
           {
             IngestionMethodConfig.SNOWPIPE_STREAMING,
             ConnectorConfigTest.CommunityConverterSubset.JSON_CONVERTER.converter
+          },
+          {
+              IngestionMethodConfig.SNOWPIPE_STREAMING,
+              ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER.converter
+          },
+          {
+            IngestionMethodConfig.SNOWPIPE_STREAMING,
+            ConnectorConfigTest.CommunityConverterSubset.STRING_CONVERTER.converter
           }
-//          {
-//            IngestionMethodConfig.SNOWPIPE_STREAMING,
-//            ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER.converter
-//          }
         });
   }
 
-  private IngestionMethodConfig ingestionMethod;
-  private Converter converter;
+  private final IngestionMethodConfig ingestionMethod;
+  private final Converter converter;
+  private final boolean isAvroConverter;
 
   public TombstoneRecordIngestionIT(IngestionMethodConfig ingestionMethod, Converter converter) {
     this.ingestionMethod = ingestionMethod;
-    this.converter = converter;
+    this.isAvroConverter = converter.toString().toLowerCase().contains("avro");
+    this.table = TestUtils.randomTableName();
+
+    // setup connection
+    if (this.ingestionMethod.equals(IngestionMethodConfig.SNOWPIPE)) {
+      this.conn = TestUtils.getConnectionService();
+      this.stage = Utils.stageName(TestUtils.TEST_CONNECTOR_NAME, table);
+      this.pipe = Utils.pipeName(TestUtils.TEST_CONNECTOR_NAME, table, partition);
+    } else {
+      this.conn = TestUtils.getConnectionServiceForStreaming();
+    }
+
+    // setup converter
+    Map<String, String> converterConfig = new HashMap<>();
+    if (this.isAvroConverter) {
+      SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
+      this.converter = new AvroConverter(schemaRegistry);
+      converterConfig.put("schema.registry.url", "http://fake-url");
+    } else {
+      this.converter = converter;
+    }
+    converterConfig.put("schemas.enable", "false");
+    this.converter.configure(converterConfig, false);
   }
 
   private final int partition = 0;
@@ -90,30 +112,11 @@ public class TombstoneRecordIngestionIT {
   private String stage;
   private String pipe;
 
-  @Before
-  public void setup() {
-    this.table = TestUtils.randomTableName();
-
-    if (this.ingestionMethod.equals(IngestionMethodConfig.SNOWPIPE)) {
-      this.conn = TestUtils.getConnectionService();
-      this.stage = Utils.stageName(TestUtils.TEST_CONNECTOR_NAME, table);
-      this.pipe = Utils.pipeName(TestUtils.TEST_CONNECTOR_NAME, table, partition);
-    } else {
-      this.conn = TestUtils.getConnectionServiceForStreaming();
-    }
-
-    Map<String, String> converterConfig = new HashMap<>();
-    converterConfig.put("schemas.enable", "false");
-    converter.configure(converterConfig, false);
-  }
-
   @After
   public void afterEach() {
     if (this.ingestionMethod.equals(IngestionMethodConfig.SNOWPIPE)) {
       conn.dropStage(stage);
       conn.dropPipe(pipe);
-    } else {
-
     }
 
     TestUtils.dropTable(table);
@@ -202,8 +205,20 @@ public class TombstoneRecordIngestionIT {
             record1Offset);
 
     // make normal record
+    byte[] normalRecordData = "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8);
+    if (isAvroConverter) {
+      SchemaBuilder schemaBuilder =
+          SchemaBuilder.struct()
+              .field("int16", Schema.INT16_SCHEMA);
+
+      Struct original =
+          new Struct(schemaBuilder.build())
+              .put("int16", (short) 12);
+
+      normalRecordData = converter.fromConnectData(topic, original.schema(), original);
+    }
     SchemaAndValue record2Input =
-        converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+        converter.toConnectData(topic, normalRecordData);
     long record2Offset = 1;
     SinkRecord record2 =
         new SinkRecord(
@@ -220,7 +235,7 @@ public class TombstoneRecordIngestionIT {
     service.insert(Collections.singletonList(record2));
     service.callAllGetOffset();
 
-    // verify only normal record was ingested to stage
+    // verify only normal record was ingested to table
     TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 30, 20);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == record2Offset + 1, 20, 5);
