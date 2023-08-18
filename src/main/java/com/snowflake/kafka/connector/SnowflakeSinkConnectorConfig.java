@@ -678,7 +678,7 @@ public class SnowflakeSinkConnectorConfig {
 
     @Override
     public String toString() {
-      return name();
+      return name().toLowerCase(Locale.ROOT);
     }
   }
 

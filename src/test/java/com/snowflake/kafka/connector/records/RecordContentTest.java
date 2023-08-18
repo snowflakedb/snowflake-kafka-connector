@@ -125,8 +125,8 @@ public class RecordContentTest {
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testEmptyValue() {
-    RecordService service = new RecordService();
+  public void testEmptyValueDisabledTombstone() {
+    RecordService service = new RecordService(false, false);
 
     SinkRecord record =
         new SinkRecord(topic, partition, null, null, Schema.STRING_SCHEMA, null, partition);
@@ -134,10 +134,10 @@ public class RecordContentTest {
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testEmptyValueSchema() throws IOException {
+  public void testEmptyValueSchemaDisabledTombstone() throws IOException {
     JsonNode data = mapper.readTree("{\"name\":123}");
     SnowflakeRecordContent content = new SnowflakeRecordContent(data);
-    RecordService service = new RecordService();
+    RecordService service = new RecordService(false, false);
 
     SinkRecord record = new SinkRecord(topic, partition, null, null, null, content, partition);
     service.getProcessedRecordForSnowpipe(record);
