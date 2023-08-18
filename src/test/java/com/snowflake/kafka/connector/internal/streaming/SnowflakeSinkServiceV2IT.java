@@ -1361,6 +1361,10 @@ public class SnowflakeSinkServiceV2IT {
   public void testTombstoneIngestion() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    config.put(
+        SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
+        SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
+
     conn.createTable(table);
 
     // opens a channel for partition 0, table and topic
