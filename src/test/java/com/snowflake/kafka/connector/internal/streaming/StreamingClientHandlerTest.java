@@ -31,11 +31,13 @@ import org.mockito.Mockito;
 public class StreamingClientHandlerTest {
   private StreamingClientHandler streamingClientHandler;
   private Map<String, String> connectorConfig;
+  private Map<String, String> connectorConfigWithOAuth;
 
   @Before
   public void setup() {
     this.streamingClientHandler = new StreamingClientHandler();
     this.connectorConfig = TestUtils.getConfForStreaming();
+    this.connectorConfigWithOAuth = TestUtils.getConfForStreamingWithOAuth();
   }
 
   @Test
@@ -46,6 +48,12 @@ public class StreamingClientHandlerTest {
     // verify valid client against config
     assert !client.isClosed();
     assert client.getName().contains(this.connectorConfig.get(Utils.NAME));
+  }
+
+  // TODO: Remove error expectation after SNOW-859929 is released
+  @Test(expected = ConnectException.class)
+  public void testCreateOAuthClient() {
+    this.streamingClientHandler.createClient(this.connectorConfigWithOAuth);
   }
 
   @Test
