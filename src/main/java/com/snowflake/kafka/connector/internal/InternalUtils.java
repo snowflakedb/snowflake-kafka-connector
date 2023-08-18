@@ -21,7 +21,7 @@ import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
 import net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import net.snowflake.ingest.connection.IngestStatus;
 
-class InternalUtils {
+public class InternalUtils {
   // JDBC parameter list
   static final String JDBC_DATABASE = "db";
   static final String JDBC_SCHEMA = "schema";
@@ -36,6 +36,8 @@ class InternalUtils {
 
   static final String JDBC_LOGIN_TIMEOUT = "loginTimeout";
 
+  static final String JDBC_AUTHENTICATOR = SFSessionProperty.AUTHENTICATOR.getPropertyKey();
+  static final String JDBC_TOKEN = SFSessionProperty.TOKEN.getPropertyKey();
   // internal parameters
   static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; // 10 days
 
@@ -117,22 +119,22 @@ class InternalUtils {
    * config. It assumes the caller wants to use this Property for Snowpipe based Kafka Connector.
    *
    * @param conf User provided kafka connector config
-   * @param sslEnabled is sslEnabled?
+   * @param url target server url
    * @return Properties object which will be passed down to JDBC connection
    */
-  static Properties createProperties(Map<String, String> conf, int networkTimeout, int loginTimeout,  boolean sslEnabled) {
-    return createProperties(conf, sslEnabled, networkTimeout, loginTimeout, IngestionMethodConfig.SNOWPIPE);
+  static Properties createProperties(Map<String, String> conf, int networkTimeout, int loginTimeout, SnowflakeURL url) {
+    return createProperties(conf, networkTimeout, loginTimeout, url, IngestionMethodConfig.SNOWPIPE);
   }
 
   /**
    * create a properties for snowflake connection
    *
    * @param conf a map contains all parameters
-   * @param sslEnabled if ssl is enabled
+   * @param url target server url
    * @param ingestionMethodConfig which ingestion method is provided.
    * @return a Properties instance
    */
-  static Properties createProperties(Map<String, String> conf, boolean sslEnabled, int networkTimeout, int loginTimeout, IngestionMethodConfig ingestionMethodConfig) {
+  static Properties createProperties(Map<String, String> conf, int networkTimeout, int loginTimeout, SnowflakeURL url,  IngestionMethodConfig ingestionMethodConfig) {
     Properties properties = new Properties();
 
     // add application parameter to identify connector created from CONFLUENT_CLOUD
@@ -140,6 +142,14 @@ class InternalUtils {
     // decrypt rsa key
     String privateKey = "";
     String privateKeyPassphrase = "";
+
+    // OAuth params
+    String oAuthClientId = "";
+    String oAuthClientSecret = "";
+    String oAuthRefreshToken = "";
+
+    // OAuth access token
+    String token = "";
 
     for (Map.Entry<String, String> entry : conf.entrySet()) {
       // case insensitive
@@ -162,21 +172,57 @@ class InternalUtils {
         case Utils.PRIVATE_KEY_PASSPHRASE:
           privateKeyPassphrase = entry.getValue();
           break;
+        case Utils.SF_AUTHENTICATOR:
+          properties.put(JDBC_AUTHENTICATOR, entry.getValue());
+          break;
+        case Utils.SF_OAUTH_CLIENT_ID:
+          oAuthClientId = entry.getValue();
+          break;
+        case Utils.SF_OAUTH_CLIENT_SECRET:
+          oAuthClientSecret = entry.getValue();
+          break;
+        case Utils.SF_OAUTH_REFRESH_TOKEN:
+          oAuthRefreshToken = entry.getValue();
+          break;
         default:
           // ignore unrecognized keys
       }
     }
 
-    if (!privateKeyPassphrase.isEmpty()) {
-      properties.put(
-          JDBC_PRIVATE_KEY,
-          EncryptionUtils.parseEncryptedPrivateKey(privateKey, privateKeyPassphrase));
-    } else if (!privateKey.isEmpty()) {
-      properties.put(JDBC_PRIVATE_KEY, parsePrivateKey(privateKey));
+    // Set credential
+    if (!properties.containsKey(JDBC_AUTHENTICATOR)) {
+      properties.put(JDBC_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
+    }
+    if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.SNOWFLAKE_JWT)) {
+      // JWT key pair auth
+      if (!privateKeyPassphrase.isEmpty()) {
+        properties.put(
+            JDBC_PRIVATE_KEY,
+            EncryptionUtils.parseEncryptedPrivateKey(privateKey, privateKeyPassphrase));
+      } else if (!privateKey.isEmpty()) {
+        properties.put(JDBC_PRIVATE_KEY, parsePrivateKey(privateKey));
+      }
+    } else if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.OAUTH)) {
+      // OAuth auth
+      if (oAuthClientId.isEmpty()) {
+        throw SnowflakeErrors.ERROR_0026.getException();
+      }
+      if (oAuthClientSecret.isEmpty()) {
+        throw SnowflakeErrors.ERROR_0027.getException();
+      }
+      if (oAuthRefreshToken.isEmpty()) {
+        throw SnowflakeErrors.ERROR_0028.getException();
+      }
+      String accessToken =
+          Utils.getSnowflakeOAuthAccessToken(
+              url, oAuthClientId, oAuthClientSecret, oAuthRefreshToken);
+      properties.put(JDBC_TOKEN, accessToken);
+    } else {
+      throw SnowflakeErrors.ERROR_0029.getException();
     }
 
     // set ssl
-    if (sslEnabled) {
+    if (url.sslEnabled()) {
       properties.put(JDBC_SSL, "on");
     } else {
       properties.put(JDBC_SSL, "off");
@@ -212,8 +258,9 @@ class InternalUtils {
       }
     }
 
-    // required parameter check
-    if (!properties.containsKey(JDBC_PRIVATE_KEY)) {
+    // required parameter check, the OAuth parameter is already checked when fetching access token
+    if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.SNOWFLAKE_JWT)
+        && !properties.containsKey(JDBC_PRIVATE_KEY)) {
       throw SnowflakeErrors.ERROR_0013.getException();
     }
 
@@ -311,7 +358,7 @@ class InternalUtils {
   }
 
   /** Interfaces to define the lambda function to be used by backoffAndRetry */
-  interface backoffFunction {
+  public interface backoffFunction {
     Object apply() throws Exception;
   }
 

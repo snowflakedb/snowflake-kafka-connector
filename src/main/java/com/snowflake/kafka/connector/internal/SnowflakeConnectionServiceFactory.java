@@ -89,7 +89,7 @@ public class SnowflakeConnectionServiceFactory {
       this.connectorName = conf.get(Utils.NAME);
       this.ingestionMethodConfig = IngestionMethodConfig.determineIngestionMethod(conf);
       this.prop =
-          InternalUtils.createProperties(conf, this.url.sslEnabled(), this.networkTimeOut, this.loginTimeOut, ingestionMethodConfig);
+          InternalUtils.createProperties(conf, this.networkTimeOut, this.loginTimeOut, this.url, ingestionMethodConfig);
       return this;
     }
 

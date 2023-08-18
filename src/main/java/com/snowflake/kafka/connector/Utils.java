@@ -23,25 +23,46 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT
 
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
+import com.snowflake.kafka.connector.internal.InternalUtils;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.OAuthConstants;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeInternalOperations;
+import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.URLEncoder;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import net.snowflake.client.jdbc.internal.apache.http.HttpHeaders;
+import net.snowflake.client.jdbc.internal.apache.http.client.methods.CloseableHttpResponse;
+import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpPost;
+import net.snowflake.client.jdbc.internal.apache.http.client.utils.URIBuilder;
+import net.snowflake.client.jdbc.internal.apache.http.entity.ContentType;
+import net.snowflake.client.jdbc.internal.apache.http.entity.StringEntity;
+import net.snowflake.client.jdbc.internal.apache.http.impl.client.CloseableHttpClient;
+import net.snowflake.client.jdbc.internal.apache.http.impl.client.HttpClientBuilder;
+import net.snowflake.client.jdbc.internal.apache.http.util.EntityUtils;
+import net.snowflake.client.jdbc.internal.google.gson.JsonObject;
+import net.snowflake.client.jdbc.internal.google.gson.JsonParser;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.ConfigValue;
@@ -62,6 +83,15 @@ public class Utils {
   public static final String SF_SSL = "sfssl"; // for test only
   public static final String SF_WAREHOUSE = "sfwarehouse"; // for test only
   public static final String PRIVATE_KEY_PASSPHRASE = "snowflake.private.key" + ".passphrase";
+  public static final String SF_AUTHENTICATOR =
+      "snowflake.authenticator"; // TODO: SNOW-889748 change to enum
+  public static final String SF_OAUTH_CLIENT_ID = "snowflake.oauth.client.id";
+  public static final String SF_OAUTH_CLIENT_SECRET = "snowflake.oauth.client.secret";
+  public static final String SF_OAUTH_REFRESH_TOKEN = "snowflake.oauth.refresh.token";
+
+  // authenticator type
+  public static final String SNOWFLAKE_JWT = "snowflake_jwt";
+  public static final String OAUTH = "oauth";
 
   /**
    * This value should be present if ingestion method is {@link
@@ -441,11 +471,54 @@ public class Utils {
           Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
     }
 
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY)) {
-      invalidConfigParams.put(
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
-          Utils.formatString(
-              "{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY));
+    switch (config
+        .getOrDefault(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.SNOWFLAKE_JWT)
+        .toLowerCase()) {
+        // TODO: SNOW-889748 change to enum
+      case Utils.SNOWFLAKE_JWT:
+        if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY)) {
+          invalidConfigParams.put(
+              SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
+              Utils.formatString(
+                  "{} cannot be empty when using {} authenticator.",
+                  SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
+                  Utils.SNOWFLAKE_JWT));
+        }
+        break;
+      case Utils.OAUTH:
+        if (!config.containsKey(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID)) {
+          invalidConfigParams.put(
+              SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID,
+              Utils.formatString(
+                  "{} cannot be empty when using {} authenticator.",
+                  SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID,
+                  Utils.OAUTH));
+        }
+        if (!config.containsKey(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET)) {
+          invalidConfigParams.put(
+              SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET,
+              Utils.formatString(
+                  "{} cannot be empty when using {} authenticator.",
+                  SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET,
+                  Utils.OAUTH));
+        }
+        if (!config.containsKey(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN)) {
+          invalidConfigParams.put(
+              SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN,
+              Utils.formatString(
+                  "{} cannot be empty when using {} authenticator.",
+                  SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN,
+                  Utils.OAUTH));
+        }
+        break;
+      default:
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE,
+            Utils.formatString(
+                "{} should be one of {} or {}.",
+                SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE,
+                Utils.SNOWFLAKE_JWT,
+                Utils.OAUTH));
     }
 
     if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER)) {
@@ -703,6 +776,133 @@ public class Utils {
       format = format.replaceFirst("\\{}", Objects.toString(vars[i]).replaceAll("\\$", "\\\\\\$"));
     }
     return format;
+  }
+
+  /**
+   * Get OAuth access token given refresh token
+   *
+   * @param url OAuth server url
+   * @param clientId OAuth clientId
+   * @param clientSecret OAuth clientSecret
+   * @param refreshToken OAuth refresh token
+   * @return OAuth access token
+   */
+  public static String getSnowflakeOAuthAccessToken(
+      SnowflakeURL url, String clientId, String clientSecret, String refreshToken) {
+    return getSnowflakeOAuthToken(
+        url,
+        clientId,
+        clientSecret,
+        refreshToken,
+        OAuthConstants.REFRESH_TOKEN,
+        OAuthConstants.REFRESH_TOKEN,
+        OAuthConstants.ACCESS_TOKEN);
+  }
+
+  /**
+   * Get OAuth token given integration info <a
+   * href="https://docs.snowflake.com/en/user-guide/oauth-snowflake-overview">Snowflake OAuth
+   * Overview</a>
+   *
+   * @param url OAuth server url
+   * @param clientId OAuth clientId
+   * @param clientSecret OAuth clientSecret
+   * @param credential OAuth credential, either az code or refresh token
+   * @param grantType OAuth grant type, either authorization_code or refresh_token
+   * @param credentialType OAuth credential key, either code or refresh_token
+   * @param tokenType type of OAuth token to get, either access_token or refresh_token
+   * @return OAuth token
+   */
+  // TODO: SNOW-895296 Integrate OAuth utils with streaming ingest SDK
+  public static String getSnowflakeOAuthToken(
+      SnowflakeURL url,
+      String clientId,
+      String clientSecret,
+      String credential,
+      String grantType,
+      String credentialType,
+      String tokenType) {
+    Map<String, String> headers = new HashMap<>();
+    headers.put(HttpHeaders.CONTENT_TYPE, OAuthConstants.OAUTH_CONTENT_TYPE_HEADER);
+    headers.put(
+        HttpHeaders.AUTHORIZATION,
+        OAuthConstants.BASIC_AUTH_HEADER_PREFIX
+            + Base64.getEncoder().encodeToString((clientId + ":" + clientSecret).getBytes()));
+
+    Map<String, String> payload = new HashMap<>();
+    payload.put(OAuthConstants.GRANT_TYPE_PARAM, grantType);
+    payload.put(credentialType, credential);
+    payload.put(OAuthConstants.REDIRECT_URI, OAuthConstants.DEFAULT_REDIRECT_URI);
+
+    // Encode and convert payload into string entity
+    String payloadString =
+        payload.entrySet().stream()
+            .map(
+                e -> {
+                  try {
+                    return e.getKey() + "=" + URLEncoder.encode(e.getValue(), "UTF-8");
+                  } catch (UnsupportedEncodingException ex) {
+                    throw SnowflakeErrors.ERROR_1004.getException(ex);
+                  }
+                })
+            .collect(Collectors.joining("&"));
+    final StringEntity entity =
+        new StringEntity(payloadString, ContentType.APPLICATION_FORM_URLENCODED);
+
+    HttpPost post =
+        buildOAuthHttpPostRequest(url, OAuthConstants.TOKEN_REQUEST_ENDPOINT, headers, entity);
+
+    // Request access token
+    CloseableHttpClient client = HttpClientBuilder.create().build();
+    try {
+      return InternalUtils.backoffAndRetry(
+              null,
+              SnowflakeInternalOperations.FETCH_OAUTH_TOKEN,
+              () -> {
+                try (CloseableHttpResponse httpResponse = client.execute(post)) {
+                  String respBodyString = EntityUtils.toString(httpResponse.getEntity());
+                  JsonObject respBody = JsonParser.parseString(respBodyString).getAsJsonObject();
+                  // Trim surrounding quotation marks
+                  return respBody.get(tokenType).toString().replaceAll("^\"|\"$", "");
+                } catch (Exception e) {
+                  throw SnowflakeErrors.ERROR_1004.getException(
+                      "Failed to get Oauth access token after retries");
+                }
+              })
+          .toString();
+    } catch (Exception e) {
+      throw SnowflakeErrors.ERROR_1004.getException(e);
+    }
+  }
+
+  /**
+   * Build OAuth http post request base on headers and payload
+   *
+   * @param url target url
+   * @param headers headers key value pairs
+   * @param entity payload entity
+   * @return HttpPost request for OAuth
+   */
+  public static HttpPost buildOAuthHttpPostRequest(
+      SnowflakeURL url, String path, Map<String, String> headers, StringEntity entity) {
+    // Build post request
+    URI uri;
+    try {
+      uri =
+          new URIBuilder().setHost(url.toString()).setScheme(url.getScheme()).setPath(path).build();
+    } catch (URISyntaxException e) {
+      throw SnowflakeErrors.ERROR_1004.getException(e);
+    }
+
+    // Add headers
+    HttpPost post = new HttpPost(uri);
+    for (Map.Entry<String, String> e : headers.entrySet()) {
+      post.addHeader(e.getKey(), e.getValue());
+    }
+
+    post.setEntity(entity);
+
+    return post;
   }
 
   /**
