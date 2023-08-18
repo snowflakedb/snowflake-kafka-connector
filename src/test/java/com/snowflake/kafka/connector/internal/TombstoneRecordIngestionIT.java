@@ -6,12 +6,11 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -20,7 +19,6 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.storage.Converter;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -37,12 +35,12 @@ public class TombstoneRecordIngestionIT {
             ConnectorConfigTest.CustomSfConverter.JSON_CONVERTER.converter
           },
           {
-              IngestionMethodConfig.SNOWPIPE,
-              ConnectorConfigTest.CustomSfConverter.AVRO_CONVERTER.converter
+            IngestionMethodConfig.SNOWPIPE,
+            ConnectorConfigTest.CustomSfConverter.AVRO_CONVERTER.converter
           },
           {
-              IngestionMethodConfig.SNOWPIPE,
-              ConnectorConfigTest.CustomSfConverter.AVRO_CONVERTER_WITHOUT_SCHEMA_REGISTRY.converter
+            IngestionMethodConfig.SNOWPIPE,
+            ConnectorConfigTest.CustomSfConverter.AVRO_CONVERTER_WITHOUT_SCHEMA_REGISTRY.converter
           },
           {
             IngestionMethodConfig.SNOWPIPE,
@@ -61,8 +59,8 @@ public class TombstoneRecordIngestionIT {
             ConnectorConfigTest.CommunityConverterSubset.JSON_CONVERTER.converter
           },
           {
-              IngestionMethodConfig.SNOWPIPE_STREAMING,
-              ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER.converter
+            IngestionMethodConfig.SNOWPIPE_STREAMING,
+            ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER.converter
           },
           {
             IngestionMethodConfig.SNOWPIPE_STREAMING,
@@ -207,18 +205,13 @@ public class TombstoneRecordIngestionIT {
     // make normal record
     byte[] normalRecordData = "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8);
     if (isAvroConverter) {
-      SchemaBuilder schemaBuilder =
-          SchemaBuilder.struct()
-              .field("int16", Schema.INT16_SCHEMA);
+      SchemaBuilder schemaBuilder = SchemaBuilder.struct().field("int16", Schema.INT16_SCHEMA);
 
-      Struct original =
-          new Struct(schemaBuilder.build())
-              .put("int16", (short) 12);
+      Struct original = new Struct(schemaBuilder.build()).put("int16", (short) 12);
 
       normalRecordData = converter.fromConnectData(topic, original.schema(), original);
     }
-    SchemaAndValue record2Input =
-        converter.toConnectData(topic, normalRecordData);
+    SchemaAndValue record2Input = converter.toConnectData(topic, normalRecordData);
     long record2Offset = 1;
     SinkRecord record2 =
         new SinkRecord(

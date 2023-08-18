@@ -18,7 +18,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -129,8 +128,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // meaning it will not ignore the null values (Tombstone records wont be ignored/filtered)
     this.behaviorOnNullValues =
         Arrays.stream(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.values())
-            .filter(behavior -> behavior.toString().equalsIgnoreCase(connectorConfig.get(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)))
-                .findAny().orElse(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT);
+            .filter(
+                behavior ->
+                    behavior
+                        .toString()
+                        .equalsIgnoreCase(
+                            connectorConfig.get(
+                                SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)))
+            .findAny()
+            .orElse(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT);
 
     this.streamingIngestClient =
         StreamingClientProvider.getStreamingClientProviderInstance()
