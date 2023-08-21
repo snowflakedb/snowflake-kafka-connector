@@ -708,16 +708,14 @@ public class ConnectorConfigTest {
     Arrays.stream(CommunityConverterSubset.values())
         .forEach(
             converter -> {
-              config.put(
-                  SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD, converter.name);
+              config.put(SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD, converter.name);
               Utils.validateConfig(config);
             });
 
     Arrays.stream(CommunityConverterSubset.values())
         .forEach(
             converter -> {
-              config.put(
-                  SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD, converter.name);
+              config.put(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD, converter.name);
               Utils.validateConfig(config);
             });
   }
@@ -734,8 +732,7 @@ public class ConnectorConfigTest {
         .forEach(
             converter -> {
               try {
-                config.put(
-                    SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD, converter.name);
+                config.put(SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD, converter.name);
                 config.put(
                     SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
                     "org.apache.kafka.connect.storage.StringConverter");
@@ -765,8 +762,7 @@ public class ConnectorConfigTest {
                     SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
                     "org.apache.kafka.connect.storage.StringConverter");
                 config.put(
-                    SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
-                    converter.name);
+                    SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD, converter.name);
 
                 Utils.validateConfig(config);
               } catch (SnowflakeKafkaConnectorException exception) {

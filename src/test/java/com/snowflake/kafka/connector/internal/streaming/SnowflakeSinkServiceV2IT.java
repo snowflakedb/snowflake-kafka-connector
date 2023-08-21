@@ -1356,6 +1356,7 @@ public class SnowflakeSinkServiceV2IT {
       Assert.assertEquals(NumberFormatException.class, ex.getCause().getClass());
     }
   }
+
   private void createNonNullableColumn(String tableName, String colName) {
     String createTableQuery = "alter table identifier(?) add " + colName + " int not null";
 
