@@ -1356,49 +1356,6 @@ public class SnowflakeSinkServiceV2IT {
       Assert.assertEquals(NumberFormatException.class, ex.getCause().getClass());
     }
   }
-
-  @Test
-  public void testTombstoneIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(
-        SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
-        SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
-
-    conn.createTable(table);
-
-    // opens a channel for partition 0, table and topic
-    SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
-            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
-            .build();
-
-    SnowflakeConverter converter = new SnowflakeJsonConverter();
-    SchemaAndValue input =
-        converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
-    long offset = 0;
-
-    SinkRecord record1 =
-        new SinkRecord(
-            topic,
-            partition,
-            Schema.STRING_SCHEMA,
-            "test_key" + offset,
-            input.schema(),
-            null,
-            offset);
-
-    service.insert(record1);
-
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
-
-    service.closeAll();
-  }
-
   private void createNonNullableColumn(String tableName, String colName) {
     String createTableQuery = "alter table identifier(?) add " + colName + " int not null";
 

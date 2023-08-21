@@ -709,7 +709,7 @@ public class ConnectorConfigTest {
         .forEach(
             converter -> {
               config.put(
-                  SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD, converter.toString());
+                  SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD, converter.name);
               Utils.validateConfig(config);
             });
 
@@ -717,7 +717,7 @@ public class ConnectorConfigTest {
         .forEach(
             converter -> {
               config.put(
-                  SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD, converter.toString());
+                  SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD, converter.name);
               Utils.validateConfig(config);
             });
   }
@@ -735,7 +735,7 @@ public class ConnectorConfigTest {
             converter -> {
               try {
                 config.put(
-                    SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD, converter.toString());
+                    SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD, converter.name);
                 config.put(
                     SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
                     "org.apache.kafka.connect.storage.StringConverter");
@@ -766,7 +766,7 @@ public class ConnectorConfigTest {
                     "org.apache.kafka.connect.storage.StringConverter");
                 config.put(
                     SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
-                    converter.toString());
+                    converter.name);
 
                 Utils.validateConfig(config);
               } catch (SnowflakeKafkaConnectorException exception) {
