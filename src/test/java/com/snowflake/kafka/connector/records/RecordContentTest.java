@@ -22,8 +22,6 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
 public class RecordContentTest {
   private ObjectMapper mapper = new ObjectMapper();
@@ -278,20 +276,30 @@ public class RecordContentTest {
 
   @Test
   public void testRecordServiceConfigCreation() {
-    this.testRecordServiceConfigCreationRunner(true, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE.toString());
-    this.testRecordServiceConfigCreationRunner(false, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE.toString());
-    this.testRecordServiceConfigCreationRunner(true, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
-    this.testRecordServiceConfigCreationRunner(false, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
+    this.testRecordServiceConfigCreationRunner(
+        true, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE.toString());
+    this.testRecordServiceConfigCreationRunner(
+        false, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE.toString());
+    this.testRecordServiceConfigCreationRunner(
+        true, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
+    this.testRecordServiceConfigCreationRunner(
+        false, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
   }
 
-  private void testRecordServiceConfigCreationRunner(boolean enableSchematization, String behavior) {
+  private void testRecordServiceConfigCreationRunner(
+      boolean enableSchematization, String behavior) {
     Map<String, String> config = new HashMap<>();
 
-    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, String.valueOf(enableSchematization));
+    config.put(
+        SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
+        String.valueOf(enableSchematization));
     config.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, behavior);
 
     RecordService recordService = new RecordService(config);
 
-    assert recordService.getEnableSchematization() == enableSchematization && recordService.getIngestTombstoneRecords() == (behavior.equals(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString()));
+    assert recordService.getEnableSchematization() == enableSchematization
+        && recordService.getIngestTombstoneRecords()
+            == (behavior.equals(
+                SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString()));
   }
 }

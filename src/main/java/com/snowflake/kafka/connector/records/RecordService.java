@@ -510,8 +510,7 @@ public class RecordService {
    * @see com.snowflake.kafka.connector.records.SnowflakeJsonConverter#toConnectData when bytes ==
    *     null case
    */
-  public boolean shouldSkipNullValue(
-      SinkRecord record) {
+  public boolean shouldSkipNullValue(SinkRecord record) {
     if (this.ingestTombstoneRecords) {
       return false;
     } else {
