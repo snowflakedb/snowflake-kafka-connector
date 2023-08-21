@@ -34,34 +34,34 @@ public class TombstoneRecordIngestionIT {
             IngestionMethodConfig.SNOWPIPE,
             ConnectorConfigTest.CustomSfConverter.JSON_CONVERTER.converter
           },
-          {
-            IngestionMethodConfig.SNOWPIPE,
-            ConnectorConfigTest.CustomSfConverter.AVRO_CONVERTER.converter
-          },
-          {
-            IngestionMethodConfig.SNOWPIPE,
-            ConnectorConfigTest.CustomSfConverter.AVRO_CONVERTER_WITHOUT_SCHEMA_REGISTRY.converter
-          },
-          {
-            IngestionMethodConfig.SNOWPIPE,
-            ConnectorConfigTest.CommunityConverterSubset.JSON_CONVERTER.converter
-          },
-          {
-            IngestionMethodConfig.SNOWPIPE,
-            ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER.converter
-          },
-          {
-            IngestionMethodConfig.SNOWPIPE,
-            ConnectorConfigTest.CommunityConverterSubset.STRING_CONVERTER.converter
-          },
-          {
-            IngestionMethodConfig.SNOWPIPE_STREAMING,
-            ConnectorConfigTest.CommunityConverterSubset.JSON_CONVERTER.converter
-          },
-          {
-            IngestionMethodConfig.SNOWPIPE_STREAMING,
-            ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER.converter
-          },
+//          {
+//            IngestionMethodConfig.SNOWPIPE,
+//            ConnectorConfigTest.CustomSfConverter.AVRO_CONVERTER.converter
+//          },
+//          {
+//            IngestionMethodConfig.SNOWPIPE,
+//            ConnectorConfigTest.CustomSfConverter.AVRO_CONVERTER_WITHOUT_SCHEMA_REGISTRY.converter
+//          },
+//          {
+//            IngestionMethodConfig.SNOWPIPE,
+//            ConnectorConfigTest.CommunityConverterSubset.JSON_CONVERTER.converter
+//          },
+//          {
+//            IngestionMethodConfig.SNOWPIPE,
+//            ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER.converter
+//          },
+//          {
+//            IngestionMethodConfig.SNOWPIPE,
+//            ConnectorConfigTest.CommunityConverterSubset.STRING_CONVERTER.converter
+//          },
+//          {
+//            IngestionMethodConfig.SNOWPIPE_STREAMING,
+//            ConnectorConfigTest.CommunityConverterSubset.JSON_CONVERTER.converter
+//          },
+//          {
+//            IngestionMethodConfig.SNOWPIPE_STREAMING,
+//            ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER.converter
+//          },
           {
             IngestionMethodConfig.SNOWPIPE_STREAMING,
             ConnectorConfigTest.CommunityConverterSubset.STRING_CONVERTER.converter

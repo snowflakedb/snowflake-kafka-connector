@@ -93,17 +93,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
     // Setting the default value in constructor
     // meaning it will not ignore the null values (Tombstone records wont be ignored/filtered)
-    this.behaviorOnNullValues =
-        Arrays.stream(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.values())
-            .filter(
-                behavior ->
-                    behavior
-                        .toString()
-                        .equalsIgnoreCase(
-                            connectorConfig.get(
-                                SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)))
-            .findAny()
-            .orElse(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT);
+    this.behaviorOnNullValues = Utils.getBehaviorOnNullValuesEnum(connectorConfig);
   }
 
   /**
@@ -140,7 +130,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     // note that records can be empty
     for (SinkRecord record : records) {
       // check if need to handle null value records
-      if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
+      if (recordService.shouldSkipNullValue(record)) {
         continue;
       }
       // Might happen a count of record based flushing

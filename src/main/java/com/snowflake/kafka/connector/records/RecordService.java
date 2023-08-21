@@ -126,7 +126,7 @@ public class RecordService {
   public RecordService() {}
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
-    metadataConfig = metadataConfigIn;
+    this.metadataConfig = metadataConfigIn;
   }
 
   /**
@@ -506,15 +506,13 @@ public class RecordService {
    * <p>If the value is an empty JSON node, we could assume the value passed was null.
    *
    * @param record record sent from Kafka to KC
-   * @param behaviorOnNullValues behavior passed inside KC
    * @return true if we would skip adding it to buffer
    * @see com.snowflake.kafka.connector.records.SnowflakeJsonConverter#toConnectData when bytes ==
    *     null case
    */
   public boolean shouldSkipNullValue(
-      SinkRecord record,
-      final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues) {
-    if (behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+      SinkRecord record) {
+    if (this.ingestTombstoneRecords) {
       return false;
     } else {
       boolean isRecordValueNull = false;
@@ -559,5 +557,17 @@ public class RecordService {
       }
     }
     return false;
+  }
+
+  // TESTING ONLY
+  @VisibleForTesting
+  public boolean getEnableSchematization() {
+    return this.enableSchematization;
+  }
+
+  // TESTING ONLY
+  @VisibleForTesting
+  public boolean getIngestTombstoneRecords() {
+    return this.ingestTombstoneRecords;
   }
 }

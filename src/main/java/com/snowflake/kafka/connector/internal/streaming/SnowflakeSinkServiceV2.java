@@ -126,17 +126,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     // Setting the default value in constructor
     // meaning it will not ignore the null values (Tombstone records wont be ignored/filtered)
-    this.behaviorOnNullValues =
-        Arrays.stream(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.values())
-            .filter(
-                behavior ->
-                    behavior
-                        .toString()
-                        .equalsIgnoreCase(
-                            connectorConfig.get(
-                                SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)))
-            .findAny()
-            .orElse(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT);
+    this.behaviorOnNullValues = Utils.getBehaviorOnNullValuesEnum(connectorConfig);
 
     this.streamingIngestClient =
         StreamingClientProvider.getStreamingClientProviderInstance()
@@ -276,7 +266,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // note that records can be empty but, we will still need to check for time based flush
     for (SinkRecord record : records) {
       // check if need to handle null value records
-      if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
+      if (recordService.shouldSkipNullValue(record)) {
         continue;
       }
       // While inserting into buffer, we will check for count threshold and buffered bytes
