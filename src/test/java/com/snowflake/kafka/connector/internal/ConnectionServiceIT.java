@@ -41,6 +41,13 @@ public class ConnectionServiceIT {
   }
 
   @Test
+  public void testOAuthAZ() {
+    Map<String, String> confWithOAuth = TestUtils.getConfWithOAuth();
+    assert confWithOAuth.containsKey(Utils.SF_OAUTH_CLIENT_ID);
+    SnowflakeConnectionServiceFactory.builder().setProperties(TestUtils.getConfWithOAuth()).build();
+  }
+
+  @Test
   public void testSetSSLProperties() {
     Map<String, String> testConfig = TestUtils.getConf();
     testConfig.put(Utils.SF_URL, "https://sfctest0.snowflakecomputing.com");
@@ -108,7 +115,7 @@ public class ConnectionServiceIT {
         });
 
     SnowflakeURL url = TestUtils.getUrl();
-    Properties prop = InternalUtils.createProperties(TestUtils.getConf(), url.sslEnabled());
+    Properties prop = InternalUtils.createProperties(TestUtils.getConf(), url);
     String appName = TestUtils.TEST_CONNECTOR_NAME;
 
     service =
