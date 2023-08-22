@@ -904,7 +904,13 @@ public class SnowflakeSinkServiceV2IT {
 
     SinkRecord correctValue =
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "key", correctInputValue.schema(), correctInputValue.value(), 2);
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "key",
+            correctInputValue.schema(),
+            correctInputValue.value(),
+            2);
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
@@ -952,7 +958,13 @@ public class SnowflakeSinkServiceV2IT {
 
     SinkRecord correctValue =
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "key", correctInputValue.schema(), correctInputValue.value(), 0);
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "key",
+            correctInputValue.schema(),
+            correctInputValue.value(),
+            0);
 
     SinkRecord brokenValue =
         new SinkRecord(
