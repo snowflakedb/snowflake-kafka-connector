@@ -107,7 +107,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     this.totalSizeOfDataInBytes = new AtomicLong(0);
 
     if (this.enableCustomJMXConfig) {
-      registerChannelJMXMetrics(channelName, metricsJmxReporter);
+      this.metricsJmxReporter.start();
+      registerChannelJMXMetrics(channelName, this.metricsJmxReporter);
     }
   }
 
@@ -130,22 +131,28 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
   public void setOffsetPersistedInSnowflake(long offsetPersistedInSnowflake) {
     this.offsetPersistedInSnowflake.set(offsetPersistedInSnowflake);
+
+    LOGGER.debug("revi - update persisted offset");
   }
 
   public void setProcessedOffset(long processedOffset) {
     this.processedOffset.set(processedOffset);
+    LOGGER.debug("revi - update processed offset");
   }
 
   public void setLatestConsumerOffset(long latestConsumerOffset) {
     this.latestConsumerOffset.set(latestConsumerOffset);
+    LOGGER.debug("revi - update latest consumer offset");
   }
 
   public void addTotalNumberOfRecords(long totalNumberOfRecords) {
     this.totalNumberOfRecords.addAndGet(totalNumberOfRecords);
+    LOGGER.debug("revi - update total number of records");
   }
 
   public void addTotalSizeOfDataInBytes(long totalSizeOfDataInBytes) {
     this.totalSizeOfDataInBytes.addAndGet(totalSizeOfDataInBytes);
+    LOGGER.debug("revi - update total data size");
   }
 
   // --------------- Telemetry --------------- //
@@ -191,18 +198,9 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
         metricsJmxReporter.getMetricRegistry().getMetrics().keySet().toString());
     metricsJmxReporter.removeMetricsFromRegistry(channelName);
 
-    try {
-      // Latency JMX
-      // create meter per event type
-      Arrays.stream(MetricsUtil.EventType.values())
-          .forEach(
-              eventType ->
-                  eventsByType.put(
-                      eventType,
-                      currentMetricRegistry.timer(
-                          constructMetricName(
-                              channelName, LATENCY_SUB_DOMAIN, eventType.getMetricName()))));
+    LOGGER.debug("revi - registering channelname {}, metricsjmxreporter {}", channelName, metricsJmxReporter.toString());
 
+    try {
       // offset
       currentMetricRegistry.register(
           constructMetricName(
@@ -217,6 +215,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
           constructMetricName(channelName, OFFSET_SUB_DOMAIN, MetricsUtil.LATEST_CONSUMER_OFFSET),
           (Gauge<Long>) () -> this.latestConsumerOffset.get());
 
+      LOGGER.debug("revi - added offset gauges");
+
       // buffer
       currentMetricRegistry.register(
           constructMetricName(channelName, BUFFER_SUB_DOMAIN, MetricsUtil.BUFFER_SIZE_BYTES),
@@ -225,6 +225,9 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       currentMetricRegistry.register(
           constructMetricName(channelName, BUFFER_SUB_DOMAIN, MetricsUtil.BUFFER_RECORD_COUNT),
           (Gauge<Long>) () -> this.totalNumberOfRecords.get());
+
+      LOGGER.debug("revi - added buffer gauges");
+
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());
     }
