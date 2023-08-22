@@ -312,26 +312,24 @@ public class RecordContentTest {
     String keyStr = "string";
 
     SinkRecord allNullRecord =
-        new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, keyStr, null, null, partition);
+        new SinkRecord(topic, partition, Schema.STRING_SCHEMA, keyStr, null, null, partition);
     SinkRecord nullValueRecord =
         new SinkRecord(
             topic, partition, Schema.STRING_SCHEMA, keyStr, sv.schema(), null, partition);
     SinkRecord nullValueSchemaRecord =
-        new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, keyStr, null, sv.value(), partition);
+        new SinkRecord(topic, partition, Schema.STRING_SCHEMA, keyStr, null, sv.value(), partition);
 
     assert service.getProcessedRecordForStreamingIngest(allNullRecord).values().stream()
             .filter(value -> value.toString().contains(topic) && value.toString().contains(keyStr))
             .count()
         == 1;
     assert service.getProcessedRecordForStreamingIngest(nullValueRecord).values().stream()
-        .filter(value -> value.toString().contains(topic) && value.toString().contains(keyStr))
-        .count()
+            .filter(value -> value.toString().contains(topic) && value.toString().contains(keyStr))
+            .count()
         == 1;
     assert service.getProcessedRecordForStreamingIngest(nullValueSchemaRecord).values().stream()
-        .filter(value -> value.toString().contains(topic) && value.toString().contains(keyStr))
-        .count()
+            .filter(value -> value.toString().contains(topic) && value.toString().contains(keyStr))
+            .count()
         == 1;
   }
 
