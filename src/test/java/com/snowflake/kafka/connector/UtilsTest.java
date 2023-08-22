@@ -279,24 +279,4 @@ public class UtilsTest {
         .equals(
             Utils.formatString(Utils.GET_EXCEPTION_FORMAT, customMessage, exceptionMessage, "[]"));
   }
-
-  @Test
-  public void testValidGetBehaviorOnNullValuesEnum() {
-    Map<String, String> config = new HashMap<>();
-    SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior =
-        SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE;
-    config.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, behavior.toString());
-
-    assert Utils.getBehaviorOnNullValuesEnum(config).equals(behavior);
-  }
-
-  @Test
-  public void testInvalidGetBehaviorOnNullValuesEnum() {
-    Map<String, String> config = new HashMap<>();
-    config.put(
-        SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, "not expected behavior");
-
-    assert Utils.getBehaviorOnNullValuesEnum(config)
-        .equals(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT);
-  }
 }

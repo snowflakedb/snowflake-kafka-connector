@@ -138,11 +138,16 @@ public class RecordService {
   private SnowflakeTableRow processRecord(SinkRecord record) {
     SnowflakeRecordContent valueContent;
 
+    // cannot ingest null key
+    if (record.key() == null || record.keySchema() == null) {
+      throw SnowflakeErrors.ERROR_5016.getException();
+    }
+
     if (record.value() == null || record.valueSchema() == null) {
       if (this.ingestTombstoneRecords) {
         valueContent = new SnowflakeRecordContent();
       } else {
-        throw SnowflakeErrors.ERROR_5016.getException();
+        throw SnowflakeErrors.ERROR_5023.getException();
       }
     } else {
       if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME)) {

@@ -724,19 +724,6 @@ public class Utils {
     return formatString(GET_EXCEPTION_FORMAT, customMessage, message, cause);
   }
 
-  public static SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesEnum(
-      Map<String, String> config) {
-    return Arrays.stream(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.values())
-        .filter(
-            behavior ->
-                behavior
-                    .toString()
-                    .equalsIgnoreCase(
-                        config.get(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)))
-        .findAny()
-        .orElse(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT);
-  }
-
   private static void handleInvalidParameters(ImmutableMap<String, String> invalidConfigParams) {
     // log all invalid params and throw exception
     if (!invalidConfigParams.isEmpty()) {

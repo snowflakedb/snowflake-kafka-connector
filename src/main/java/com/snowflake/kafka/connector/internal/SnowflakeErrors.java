@@ -262,10 +262,7 @@ public enum SnowflakeErrors {
   ERROR_5016(
       "5016",
       "Invalid SinkRecord received",
-      "SinkRecord.value and SinkRecord.valueSchema cannot be null unless tombstone record ingestion"
-          + " is enabled (see "
-          + SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG
-          + " for more information."),
+      "SinkRecord.key and SinkRecord.keySchema cannot be null"),
   ERROR_5017(
       "5017", "Invalid api call to cached put", "Cached put only support AWS, Azure and GCS."),
   ERROR_5018("5018", "Failed to execute cached put", "Error in cached put command"),
@@ -275,7 +272,14 @@ public enum SnowflakeErrors {
       "5021",
       "Failed to get data schema",
       "Failed to get data schema. Unrecognizable data type in JSON object"),
-  ERROR_5022("5022", "Invalid column name", "Failed to find column in the schema");
+  ERROR_5022("5022", "Invalid column name", "Failed to find column in the schema"),
+  ERROR_5023(
+      "5016",
+      "Invalid SinkRecord received",
+      "SinkRecord.value and SinkRecord.valueSchema cannot be null unless tombstone record ingestion"
+          + " is enabled (see "
+          + SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG
+          + " for more information."),;
 
   // properties
 
