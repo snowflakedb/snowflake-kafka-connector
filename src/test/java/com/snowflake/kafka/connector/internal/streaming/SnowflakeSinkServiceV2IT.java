@@ -976,7 +976,13 @@ public class SnowflakeSinkServiceV2IT {
 
     SinkRecord anotherCorrectValue =
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "key", correctInputValue.schema(), correctInputValue.value(), 3);
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "key",
+            correctInputValue.schema(),
+            correctInputValue.value(),
+            3);
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
