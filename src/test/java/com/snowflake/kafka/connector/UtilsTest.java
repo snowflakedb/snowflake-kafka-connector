@@ -294,7 +294,7 @@ public class UtilsTest {
         SnowflakeErrors.ERROR_1004,
         () -> Utils.getSnowflakeOAuthAccessToken(url, "INVALID", "INVALID", "INVALID"));
   }
-  
+
   @Test
   public void testValidGetBehaviorOnNullValuesEnum() {
     Map<String, String> config = new HashMap<>();
