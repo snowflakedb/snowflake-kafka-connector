@@ -5,7 +5,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
