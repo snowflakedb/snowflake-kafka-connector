@@ -302,4 +302,57 @@ public class RecordContentTest {
             == (behavior.equals(
                 SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString()));
   }
+
+  @Test
+  public void testGetProcessedRecordNullValue() throws JsonProcessingException {
+    RecordService service = new RecordService(false, true);
+    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
+
+    SchemaAndValue sv = jsonConverter.toConnectData(topic, null);
+    String keyStr = "string";
+
+    SinkRecord allNullRecord =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, keyStr, null, null, partition);
+    SinkRecord nullValueRecord =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, keyStr, sv.schema(), null, partition);
+    SinkRecord nullValueSchemaRecord =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, keyStr, null, sv.value(), partition);
+
+    assert service.getProcessedRecordForStreamingIngest(allNullRecord).values().stream()
+            .filter(value -> value.toString().contains(topic) && value.toString().contains(keyStr))
+            .count()
+        == 1;
+    assert service.getProcessedRecordForStreamingIngest(nullValueRecord).values().stream()
+        .filter(value -> value.toString().contains(topic) && value.toString().contains(keyStr))
+        .count()
+        == 1;
+    assert service.getProcessedRecordForStreamingIngest(nullValueSchemaRecord).values().stream()
+        .filter(value -> value.toString().contains(topic) && value.toString().contains(keyStr))
+        .count()
+        == 1;
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testGetProcessedRecordNullKeyFails() throws JsonProcessingException {
+    RecordService service = new RecordService(false, true);
+    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
+
+    SchemaAndValue sv = jsonConverter.toConnectData(topic, null);
+
+    SinkRecord allNullRecord =
+        new SinkRecord(topic, partition, null, null, sv.schema(), sv.value(), partition);
+    SinkRecord nullKeyRecord =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, null, sv.schema(), sv.value(), partition);
+    SinkRecord nullKeySchemaRecord =
+        new SinkRecord(topic, partition, null, "string", sv.schema(), sv.value(), partition);
+
+    // null key schema or key will fail
+    service.getProcessedRecordForStreamingIngest(allNullRecord);
+    service.getProcessedRecordForStreamingIngest(nullKeyRecord);
+    service.getProcessedRecordForStreamingIngest(nullKeySchemaRecord);
+  }
 }

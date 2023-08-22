@@ -279,7 +279,8 @@ public enum SnowflakeErrors {
       "SinkRecord.value and SinkRecord.valueSchema cannot be null unless tombstone record ingestion"
           + " is enabled (see "
           + SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG
-          + " for more information."),;
+          + " for more information."),
+  ;
 
   // properties
 
