@@ -280,7 +280,7 @@ public class UtilsTest {
         .equals(
             Utils.formatString(Utils.GET_EXCEPTION_FORMAT, customMessage, exceptionMessage, "[]"));
   }
-  
+
   @Test
   public void testGetSnowflakeOAuthAccessToken() {
     Map<String, String> config = TestUtils.getConfForStreamingWithOAuth();
