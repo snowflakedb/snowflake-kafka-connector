@@ -13,13 +13,14 @@ public class StreamingBufferThresholdTest {
     BufferThreshold streamingBufferThreshold =
         new StreamingBufferThreshold(10, bytesThresholdForBuffer, 100);
 
-    Assert.assertTrue(streamingBufferThreshold.isFlushBufferedBytesBased(bytesThresholdForBuffer));
+    Assert.assertTrue(
+        streamingBufferThreshold.shouldFlushOnBufferByteSize(bytesThresholdForBuffer));
 
     Assert.assertTrue(
-        streamingBufferThreshold.isFlushBufferedBytesBased(bytesThresholdForBuffer + 1));
+        streamingBufferThreshold.shouldFlushOnBufferByteSize(bytesThresholdForBuffer + 1));
 
     Assert.assertFalse(
-        streamingBufferThreshold.isFlushBufferedBytesBased(bytesThresholdForBuffer - 1));
+        streamingBufferThreshold.shouldFlushOnBufferByteSize(bytesThresholdForBuffer - 1));
   }
 
   @Test
@@ -31,15 +32,15 @@ public class StreamingBufferThresholdTest {
         new StreamingBufferThreshold(10, 10_000, bufferThresholdRecordCount);
 
     Assert.assertTrue(
-        streamingBufferThreshold.isFlushBufferedRecordCountBased(bufferThresholdRecordCount));
+        streamingBufferThreshold.shouldFlushOnBufferRecordCount(bufferThresholdRecordCount));
 
     Assert.assertTrue(
-        streamingBufferThreshold.isFlushBufferedRecordCountBased(bufferThresholdRecordCount + 1));
+        streamingBufferThreshold.shouldFlushOnBufferRecordCount(bufferThresholdRecordCount + 1));
 
     Assert.assertFalse(
-        streamingBufferThreshold.isFlushBufferedRecordCountBased(bufferThresholdRecordCount - 1));
+        streamingBufferThreshold.shouldFlushOnBufferRecordCount(bufferThresholdRecordCount - 1));
 
-    Assert.assertFalse(streamingBufferThreshold.isFlushBufferedRecordCountBased(0));
+    Assert.assertFalse(streamingBufferThreshold.shouldFlushOnBufferRecordCount(0));
   }
 
   @Test
@@ -53,16 +54,16 @@ public class StreamingBufferThresholdTest {
     StreamingBufferThreshold streamingBufferThreshold =
         new StreamingBufferThreshold(flushTimeThresholdSeconds, 10_0000, 100);
 
-    Assert.assertTrue(streamingBufferThreshold.isFlushTimeBased(previousFlushTimeStampMs));
+    Assert.assertTrue(streamingBufferThreshold.shouldFlushOnBufferTime(previousFlushTimeStampMs));
 
     // setting flush time to right now..
     previousFlushTimeStampMs = System.currentTimeMillis();
 
-    Assert.assertFalse(streamingBufferThreshold.isFlushTimeBased(previousFlushTimeStampMs));
+    Assert.assertFalse(streamingBufferThreshold.shouldFlushOnBufferTime(previousFlushTimeStampMs));
 
     // Subtracting 10 seconds
     previousFlushTimeStampMs = System.currentTimeMillis() - (10 * 1000);
 
-    Assert.assertTrue(streamingBufferThreshold.isFlushTimeBased(previousFlushTimeStampMs));
+    Assert.assertTrue(streamingBufferThreshold.shouldFlushOnBufferTime(previousFlushTimeStampMs));
   }
 }

@@ -6,29 +6,43 @@ from test_suit.test_utils import NonRetryableError
 
 # test if the table is updated with the correct column, and if the table is
 # recreated and updated after it's being dropped
-class TestSchemaEvolutionDropTable:
+class TestSchemaEvolutionMultiTopicDropTable:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_evolution_drop_table"
+        self.fileName = "travis_correct_schema_evolution_multi_topic_drop_table"
+        self.topics = []
         self.table = self.fileName + nameSalt
         self.recordNum = 100
-        self.topic = self.table + "0"
+
+        for i in range(2):
+            self.topics.append(self.table + str(i))
 
         self.driver.snowflake_conn.cursor().execute(
             "Create or replace table {} (PERFORMANCE_STRING STRING)".format(self.table))
+
         self.driver.snowflake_conn.cursor().execute(
             "alter table {} set ENABLE_SCHEMA_EVOLUTION = true".format(self.table))
 
-        self.record = {
+        self.records = []
+
+        self.records.append({
             'PERFORMANCE_STRING': 'Excellent',
             '"case_sensitive_PERFORMANCE_CHAR"': 'A',
             'RATING_INT': 100
-        }
+        })
+
+        self.records.append({
+            'PERFORMANCE_STRING': 'Excellent',
+            'RATING_DOUBLE': 0.99,
+            'APPROVAL': True
+        })
 
         self.gold_type = {
             'PERFORMANCE_STRING': 'VARCHAR',
             'case_sensitive_PERFORMANCE_CHAR': 'VARCHAR',
             'RATING_INT': 'NUMBER',
+            'RATING_DOUBLE': 'FLOAT',
+            'APPROVAL': 'BOOLEAN',
             'RECORD_METADATA': 'VARIANT'
         }
 
@@ -38,12 +52,13 @@ class TestSchemaEvolutionDropTable:
         return self.fileName + ".json"
 
     def send(self):
-        key = []
-        value = []
-        for e in range(self.recordNum):
-            key.append(json.dumps({'number': str(e)}).encode('utf-8'))
-            value.append(json.dumps(self.record).encode('utf-8'))
-        self.driver.sendBytesData(self.topic, value, key)
+        for i, topic in enumerate(self.topics):
+            key = []
+            value = []
+            for e in range(self.recordNum):
+                key.append(json.dumps({'number': str(e)}).encode('utf-8'))
+                value.append(json.dumps(self.records[i]).encode('utf-8'))
+            self.driver.sendBytesData(topic, value, key)
 
         # Sleep for some time and then verify the rows are ingested
         sleep(120)
@@ -56,7 +71,13 @@ class TestSchemaEvolutionDropTable:
             "alter table {} set ENABLE_SCHEMA_EVOLUTION = true".format(self.table))
 
         # Ingest another set of rows
-        self.driver.sendBytesData(self.topic, value, key)
+        for i, topic in enumerate(self.topics):
+            key = []
+            value = []
+            for e in range(self.recordNum):
+                key.append(json.dumps({'number': str(e)}).encode('utf-8'))
+                value.append(json.dumps(self.records[i]).encode('utf-8'))
+            self.driver.sendBytesData(topic, value, key)
 
     def verify(self, round):
         rows = self.driver.snowflake_conn.cursor().execute(
@@ -80,8 +101,8 @@ class TestSchemaEvolutionDropTable:
 
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.table)).fetchone()[0]
-        if res != self.recordNum:
-            print("Number of record expected: {}, got: {}".format(self.recordNum, res))
+        if res != self.recordNum * len(self.topics):
+            print("Number of record expected: {}, got: {}".format(self.recordNum * len(self.topics), res))
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
     def clean(self):

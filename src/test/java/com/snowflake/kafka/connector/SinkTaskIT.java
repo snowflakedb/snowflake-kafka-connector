@@ -188,8 +188,6 @@ public class SinkTaskIT {
 
     sinkTask.close(topicPartitions);
     sinkTask.stop();
-
-    sinkTask.logWarningForPutAndPrecommit(System.currentTimeMillis() - 400 * 1000, 1, "put");
   }
 
   @Test
@@ -217,7 +215,7 @@ public class SinkTaskIT {
     task1.start(task1Config);
 
     // verify task1 start logs
-    Mockito.verify(logger, Mockito.times(2)).debug(Mockito.contains("start"));
+    Mockito.verify(logger, Mockito.times(2)).info(Mockito.contains("start"));
 
     // open tasks
     ArrayList<TopicPartition> topicPartitions0 = new ArrayList<>();
@@ -229,7 +227,7 @@ public class SinkTaskIT {
     task1.open(topicPartitions1);
 
     // verify task1 open logs
-    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("open"));
+    Mockito.verify(logger, Mockito.times(1)).info(Mockito.contains("open"));
 
     // put regular data to tasks
     ArrayList<SinkRecord> records = new ArrayList<>();
@@ -255,7 +253,7 @@ public class SinkTaskIT {
     task1.put(records);
 
     // verify task1 put logs
-    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("put"));
+    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("PUT"));
 
     // send broken data to task1
     String brokenJson = "{ broken json";
@@ -275,7 +273,7 @@ public class SinkTaskIT {
     task1.put(records);
 
     // verify task1 broken put logs, 4 bc in addition to last call
-    Mockito.verify(logger, Mockito.times(2)).debug(Mockito.contains("put"));
+    Mockito.verify(logger, Mockito.times(2)).debug(Mockito.contains("PUT"));
 
     // commit offset
     Map<TopicPartition, OffsetAndMetadata> offsetMap0 = new HashMap<>();
@@ -287,20 +285,20 @@ public class SinkTaskIT {
     offsetMap1 = task1.preCommit(offsetMap1);
 
     // verify task1 precommit logs
-    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("precommit"));
+    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("PRECOMMIT"));
 
     // close tasks
     task0.close(topicPartitions0);
     task1.close(topicPartitions1);
 
     // verify task1 close logs
-    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("closed"));
+    Mockito.verify(logger, Mockito.times(1)).info(Mockito.contains("closed"));
     // stop tasks
     task0.stop();
     task1.stop();
 
     // verify task1 stop logs
-    Mockito.verify(logger, Mockito.times(1)).debug(Mockito.contains("stop"));
+    Mockito.verify(logger, Mockito.times(1)).info(Mockito.contains("stop"));
 
     assert offsetMap1.get(topicPartitions0.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
     assert offsetMap0.get(topicPartitions1.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;

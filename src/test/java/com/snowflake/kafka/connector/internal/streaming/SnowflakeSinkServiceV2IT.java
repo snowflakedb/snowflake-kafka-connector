@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -27,13 +26,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
@@ -42,7 +39,7 @@ import org.junit.Test;
 
 public class SnowflakeSinkServiceV2IT {
 
-  private SnowflakeConnectionService conn = TestUtils.getConnectionService();
+  private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
   private String table = TestUtils.randomTableName();
   private int partition = 0;
   private int partition2 = 1;
@@ -764,22 +761,6 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  @Test(expected = ConnectException.class)
-  public void testMissingPropertiesForStreamingClient() {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    config.remove(Utils.SF_ROLE);
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-
-    try {
-      SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-          .build();
-    } catch (ConnectException ex) {
-      assert ex.getCause() instanceof SFException;
-      assert ex.getCause().getMessage().contains("Missing role");
-      throw ex;
-    }
-  }
-
   /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest check data */
 
   @Test
@@ -949,7 +930,6 @@ public class SnowflakeSinkServiceV2IT {
     SchemaAndValue avroInputValue = avroConverter.toConnectData(topic, converted);
 
     long startOffset = 0;
-    long endOffset = 0;
 
     SinkRecord avroRecordValue =
         new SinkRecord(
@@ -969,12 +949,22 @@ public class SnowflakeSinkServiceV2IT {
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // Schema evolution should kick in to update the schema and then the rows should be ingested
+    // The first insert should fail and schema evolution will kick in to update the schema
     service.insert(avroRecordValue);
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == endOffset + 1, 20, 5);
+        () ->
+            service.getOffset(new TopicPartition(topic, partition))
+                == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        20,
+        5);
 
     TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_AVRO_SCHEMA_FOR_TABLE_CREATION);
+
+    // Retry the insert should succeed now with the updated schema
+    service.insert(avroRecordValue);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
+
     TestUtils.checkTableContentOneRow(
         table, SchematizationTestUtils.CONTENT_FOR_AVRO_TABLE_CREATION);
 
@@ -1029,7 +1019,6 @@ public class SnowflakeSinkServiceV2IT {
     SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
 
     long startOffset = 0;
-    long endOffset = 0;
 
     SinkRecord jsonRecordValue =
         new SinkRecord(
@@ -1049,11 +1038,21 @@ public class SnowflakeSinkServiceV2IT {
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // Schema evolution should kick in to update the schema and then the rows should be ingested
+    // The first insert should fail and schema evolution will kick in to update the schema
+    service.insert(jsonRecordValue);
+    TestUtils.assertWithRetry(
+        () ->
+            service.getOffset(new TopicPartition(topic, partition))
+                == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        20,
+        5);
+    TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_JSON_SCHEMA_FOR_TABLE_CREATION);
+
+    // Retry the insert should succeed now with the updated schema
     service.insert(jsonRecordValue);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
-    TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_JSON_SCHEMA_FOR_TABLE_CREATION);
+
     TestUtils.checkTableContentOneRow(
         table, SchematizationTestUtils.CONTENT_FOR_JSON_TABLE_CREATION);
 
@@ -1103,7 +1102,26 @@ public class SnowflakeSinkServiceV2IT {
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // Schema evolution should kick in to update the schema and then the rows should be ingested
+    // The first insert should fail and schema evolution will kick in to add the column
+    service.insert(jsonRecordValue);
+    TestUtils.assertWithRetry(
+        () ->
+            service.getOffset(new TopicPartition(topic, partition))
+                == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        20,
+        5);
+
+    // The second insert should fail again and schema evolution will kick in to update the
+    // nullability
+    service.insert(jsonRecordValue);
+    TestUtils.assertWithRetry(
+        () ->
+            service.getOffset(new TopicPartition(topic, partition))
+                == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        20,
+        5);
+
+    // Retry the insert should succeed now with the updated schema
     service.insert(jsonRecordValue);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);

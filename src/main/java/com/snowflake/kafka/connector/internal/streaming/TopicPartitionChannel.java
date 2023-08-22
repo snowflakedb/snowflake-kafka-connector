@@ -83,16 +83,23 @@ public class TopicPartitionChannel {
 
   // -------- private final fields -------- //
 
-  // This offset is updated when Snowflake has received offset from insertRows API
-  // We will update this value after calling offsetToken API for this channel
+  // This offset represents the data persisted in Snowflake. More specifically it is the Snowflake
+  // offset determined from the insertRows API call. It is set after calling the fetchOffsetToken
+  // API for this channel
   private final AtomicLong offsetPersistedInSnowflake =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
-  // This offset is updated every time KC processed an offset, it's used to make sure that we won't
-  // process records that are already processed. It will be reset to the latest committed token
-  // every time we fetch it from Snowflake
+  // This offset represents the data buffered in KC. More specifically it is the KC offset to ensure
+  // exactly once functionality. On creation it is set to the latest committed token in Snowflake
+  // (see offsetPersistedInSnowflake) and updated on each new row from KC.
   private final AtomicLong processedOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+
+  // This offset is a fallback to represent the data buffered in KC. It is similar to
+  // processedOffset, however it is only used to resend the offset when the channel offset token is
+  // NULL. It is updated to the first offset sent by KC (see processedOffset) or the offset
+  // persisted in Snowflake (see offsetPersistedInSnowflake)
+  private long latestConsumerOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
   /**
    * Offsets are reset in kafka when one of following cases arises in which we rely on source of
@@ -267,6 +274,11 @@ public class TopicPartitionChannel {
     this.processedOffset.set(lastCommittedOffsetToken);
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
+    } else {
+      LOGGER.info(
+          "TopicPartitionChannel:{}, offset token is NULL, will rely on Kafka to send us the"
+              + " correct offset instead",
+          this.getChannelName());
     }
   }
 
@@ -285,6 +297,11 @@ public class TopicPartitionChannel {
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
 
+    // Set the consumer offset to be the first record that Kafka sends us
+    if (latestConsumerOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      latestConsumerOffset = kafkaSinkRecord.kafkaOffset();
+    }
+
     // Ignore adding to the buffer until we see the expected offset value
     if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord, currentProcessedOffset)) {
       return;
@@ -300,9 +317,9 @@ public class TopicPartitionChannel {
         this.streamingBuffer.insert(kafkaSinkRecord);
         this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
         // # of records or size based flushing
-        if (this.streamingBufferThreshold.isFlushBufferedBytesBased(
+        if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
                 streamingBuffer.getBufferSizeBytes())
-            || this.streamingBufferThreshold.isFlushBufferedRecordCountBased(
+            || this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
                 streamingBuffer.getNumOfRecords())) {
           copiedStreamingBuffer = streamingBuffer;
           this.streamingBuffer = new StreamingBuffer();
@@ -349,7 +366,10 @@ public class TopicPartitionChannel {
    */
   private boolean shouldIgnoreAddingRecordToBuffer(
       SinkRecord kafkaSinkRecord, long currentProcessedOffset) {
-    if (!isOffsetResetInKafka) {
+    // Don't skip rows if there is no offset reset or there is no offset token information in the
+    // channel
+    if (!isOffsetResetInKafka
+        || currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       return false;
     }
 
@@ -445,7 +465,7 @@ public class TopicPartitionChannel {
    * <p>Previous flush time here means last time we called insertRows API with rows present in
    */
   protected void insertBufferedRecordsIfFlushTimeThresholdReached() {
-    if (this.streamingBufferThreshold.isFlushTimeBased(this.previousFlushTimeStampMs)) {
+    if (this.streamingBufferThreshold.shouldFlushOnBufferTime(this.previousFlushTimeStampMs)) {
       LOGGER.debug(
           "Time based flush for channel:{}, CurrentTimeMs:{}, previousFlushTimeMs:{},"
               + " bufferThresholdSeconds:{}",
@@ -500,13 +520,8 @@ public class TopicPartitionChannel {
       // Due to schema evolution, we may need to reopen the channel and reset the offset in kafka
       // since it's possible that not all rows are ingested
       if (response.needToResetOffset()) {
-        final long offsetRecoveredFromSnowflake =
-            streamingApiFallbackSupplier(
-                StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
-        // If there is no valid offset token at server side even after the reset, retry it again
-        if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-          insertBufferedRecords(streamingBufferToInsert);
-        }
+        streamingApiFallbackSupplier(
+            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
       }
       return response;
     } catch (TopicPartitionChannelInsertionException ex) {
@@ -643,9 +658,6 @@ public class TopicPartitionChannel {
             }
           }
         }
-        // TODO SNOW-758492: for schematization, sleep a few seconds after the insert to avoid
-        // combining channels with different schemas
-        Thread.sleep(2000);
       }
       return new InsertRowsResponse(finalResponse, needToResetOffset);
     }
@@ -881,20 +893,25 @@ public class TopicPartitionChannel {
   private void resetChannelMetadataAfterRecovery(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
       final long offsetRecoveredFromSnowflake) {
-    // If we don't get a valid offset token from server side, reset the processed offset to invalid
-    // and rely on kafka to send us the correct data
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      this.offsetPersistedInSnowflake.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-      this.processedOffset.set(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-      LOGGER.warn(
-          "{} Channel:{}, OffsetRecoveredFromSnowflake:{}, skip reset kafka offset",
+      LOGGER.info(
+          "{} Channel:{}, offset token is NULL, will use the consumer offset managed by the"
+              + " connector instead, consumer offset:{}",
           streamingApiFallbackInvoker,
           this.getChannelName(),
-          offsetRecoveredFromSnowflake);
+          latestConsumerOffset);
+    }
+
+    // If the offset token in the channel is null, use the consumer offset managed by the connector;
+    // otherwise use the offset token stored in the channel
+    final long offsetToResetInKafka =
+        offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+            ? latestConsumerOffset
+            : offsetRecoveredFromSnowflake + 1L;
+    if (offsetToResetInKafka == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       return;
     }
 
-    final long offsetToResetInKafka = offsetRecoveredFromSnowflake + 1L;
     // reset the buffer
     this.bufferLock.lock();
     try {
@@ -920,7 +937,7 @@ public class TopicPartitionChannel {
       this.bufferLock.unlock();
     }
     LOGGER.warn(
-        "{} Channel:{}, OffsetRecoveredFromSnowflake:{}, Reset kafka offset to:{}",
+        "{} Channel:{}, OffsetRecoveredFromSnowflake:{}, reset kafka offset to:{}",
         streamingApiFallbackInvoker,
         this.getChannelName(),
         offsetRecoveredFromSnowflake,
@@ -958,26 +975,15 @@ public class TopicPartitionChannel {
    *     snowflake.
    */
   private long fetchLatestCommittedOffsetFromSnowflake() {
-    LOGGER.debug(
-        "Fetching last committed offset for partition channel:{}",
-        this.channel.getFullyQualifiedName());
+    LOGGER.debug("Fetching last committed offset for partition channel:{}", this.getChannelName());
     String offsetToken = null;
     try {
       offsetToken = this.channel.getLatestCommittedOffsetToken();
-      if (offsetToken == null) {
-        LOGGER.warn(
-            "OffsetToken not present for channelName:{}, will rely on kafka consumer offset as"
-                + " source of truth",
-            this.getChannelName());
-        return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
-      } else {
-        long latestCommittedOffsetInSnowflake = Long.parseLong(offsetToken);
-        LOGGER.info(
-            "Fetched offsetToken:{} for channelName:{}",
-            latestCommittedOffsetInSnowflake,
-            this.channel.getFullyQualifiedName());
-        return latestCommittedOffsetInSnowflake;
-      }
+      LOGGER.info(
+          "Fetched offsetToken for channelName:{}, offset:{}", this.getChannelName(), offsetToken);
+      return offsetToken == null
+          ? NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+          : Long.parseLong(offsetToken);
     } catch (NumberFormatException ex) {
       LOGGER.error(
           "The offsetToken string does not contain a parsable long:{} for channel:{}",
@@ -1077,6 +1083,12 @@ public class TopicPartitionChannel {
   @VisibleForTesting
   protected SnowflakeTelemetryService getTelemetryServiceV2() {
     return this.telemetryServiceV2;
+  }
+
+  protected void setLatestConsumerOffset(long consumerOffset) {
+    if (consumerOffset > this.latestConsumerOffset) {
+      this.latestConsumerOffset = consumerOffset;
+    }
   }
 
   /**

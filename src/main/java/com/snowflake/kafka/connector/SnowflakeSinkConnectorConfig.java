@@ -45,20 +45,23 @@ public class SnowflakeSinkConnectorConfig {
 
   // Connector config
   private static final String CONNECTOR_CONFIG = "Connector Config";
-  public static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
-  public static final long BUFFER_COUNT_RECORDS_DEFAULT = 10000;
-  public static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
-  public static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
-  public static final long BUFFER_SIZE_BYTES_MIN = 1;
   static final String TOPICS_TABLES_MAP = "snowflake.topic2table.map";
 
   // For tombstone records
   public static final String BEHAVIOR_ON_NULL_VALUES_CONFIG = "behavior.on.null.values";
 
-  // Time in seconds
-  public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
-  public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 120;
+  // Buffer thresholds
   public static final String BUFFER_FLUSH_TIME_SEC = "buffer.flush.time";
+  public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 120;
+  public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
+
+  public static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
+  public static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
+  public static final long BUFFER_SIZE_BYTES_MIN = 1;
+
+  public static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
+  public static final long BUFFER_COUNT_RECORDS_DEFAULT = 10000;
+  public static final long BUFFER_COUNT_RECORDS_MIN = 1;
 
   // Snowflake connection and database config
   private static final String SNOWFLAKE_LOGIN_INFO = "Snowflake Login Info";
@@ -163,7 +166,7 @@ public class SnowflakeSinkConnectorConfig {
       "enable.streaming.client.optimization";
   public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DISPLAY =
       "Enable streaming client optimization";
-  public static final boolean ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT = false;
+  public static final boolean ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT = true;
   public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DOC =
       "Whether to optimize the streaming client to reduce cost. Note that this may affect"
           + " throughput or latency and can only be set if Streaming Snowpipe is enabled";
