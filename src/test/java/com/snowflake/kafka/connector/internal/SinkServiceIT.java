@@ -536,7 +536,7 @@ public class SinkServiceIT {
 
     SinkRecord correctValue =
         new SinkRecord(
-            topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(), 2);
+            topic, partition, Schema.STRING_SCHEMA, "key", correctInputValue.schema(), correctInputValue.value(), 2);
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
@@ -724,7 +724,7 @@ public class SinkServiceIT {
     SnowflakeConverter converter = new SnowflakeJsonConverter();
     SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
-    service.insert(new SinkRecord(topic, partition, null, null, input.schema(), input.value(), 0));
+    service.insert(new SinkRecord(topic, partition, Schema.STRING_SCHEMA, "key", input.schema(), input.value(), 0));
     service.startPartition(table, new TopicPartition(topic, partition));
   }
 
