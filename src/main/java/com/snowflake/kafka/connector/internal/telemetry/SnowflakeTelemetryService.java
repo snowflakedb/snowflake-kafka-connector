@@ -11,7 +11,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TABLE_NAME;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -49,8 +48,7 @@ public abstract class SnowflakeTelemetryService {
   private static final String TIME = "time";
   private static final String VERSION = "version";
   private static final String KAFKA_VERSION = "kafka_version";
-  protected static final String IS_PIPE_CLOSING = "is_pipe_closing"; // TODO @rcheng dep
-  private static final String IS_PARTITION_CLOSING = "is_partition_closing";
+  protected static final String IS_PIPE_CLOSING = "is_pipe_closing";
 
   // Telemetry instance fetched from JDBC
   protected Telemetry telemetry;
@@ -124,24 +122,16 @@ public abstract class SnowflakeTelemetryService {
   }
 
   /**
-   * Report connector's partition usage.
+   * report connector's partition usage.
    *
-   * @param partitionUsage SnowflakePipeStatus object
+   * <p>It depends on the underlying implementation of Kafka connector, i.e weather it is Snowpipe
+   * or Snowpipe Streaming
+   *
+   * @param partitionStatus SnowflakePipeStatus object
    * @param isClosing is the underlying pipe/channel closing
    */
-  public void reportKafkaPartitionUsage(
-      final SnowflakeTelemetryBasicInfo partitionUsage, boolean isClosing) {
-    if (partitionUsage.isEmpty()) {
-      return;
-    }
-    ObjectNode msg = getObjectNode();
-
-    partitionUsage.dumpTo(msg);
-    msg.put(IS_PARTITION_CLOSING, isClosing);
-    msg.put(TABLE_NAME, partitionUsage.tableName);
-
-    send(TelemetryType.KAFKA_PARTITION_USAGE, msg);
-  }
+  public abstract void reportKafkaPartitionUsage(
+      final SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing);
 
   /**
    * Get default object Node which will be part of every telemetry being sent to snowflake. Based on
@@ -154,15 +144,14 @@ public abstract class SnowflakeTelemetryService {
   /**
    * report connector partition start
    *
-   * @param partitionStart SnowflakeTelemetryBasicInfor object
+   * @param pipeCreation SnowflakeTelemetryBasicInfor object
    */
-  public void reportKafkaPartitionStart(final SnowflakeTelemetryBasicInfo partitionStart) {
+  public void reportKafkaPartitionStart(final SnowflakeTelemetryBasicInfo pipeCreation) {
     ObjectNode msg = getObjectNode();
 
-    partitionStart.dumpTo(msg);
-    msg.put(TABLE_NAME, partitionStart.tableName);
+    pipeCreation.dumpTo(msg);
 
-    send(TelemetryType.KAFKA_PARTITION_START, msg);
+    send(SnowflakeTelemetryServiceV1.TelemetryType.KAFKA_PIPE_START, msg);
   }
 
   /**
@@ -280,10 +269,8 @@ public abstract class SnowflakeTelemetryService {
     KAFKA_START("kafka_start"),
     KAFKA_STOP("kafka_stop"),
     KAFKA_FATAL_ERROR("kafka_fatal_error"),
-    KAFKA_PARTITION_USAGE("kafka_partition_usage"),
-    KAFKA_PARTITION_START("kafka_partition_start"),
-    KAFKA_PIPE_USAGE("kafka_pipe_usage"), // TODO @rcheng dep
-    KAFKA_PIPE_START("kafka_pipe_start"); // TODO @rcheng dep
+    KAFKA_PIPE_USAGE("kafka_pipe_usage"),
+    KAFKA_PIPE_START("kafka_pipe_start");
 
     private final String name;
 

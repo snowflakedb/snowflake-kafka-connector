@@ -87,10 +87,8 @@ public class MetricsUtil {
   // in memory buffer count representing the number of records in kafka
   public static final String BUFFER_RECORD_COUNT = "buffer-record-count";
 
-  // in memory buffer flush count
-  public static final String BUFFER_FLUSH_COUNT = "buffer-flush-count";
-
   // Event Latency related constants
+
   public static final String LATENCY_SUB_DOMAIN = "latencies";
 
   public enum EventType {
