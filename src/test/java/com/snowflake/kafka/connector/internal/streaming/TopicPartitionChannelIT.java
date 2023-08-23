@@ -87,8 +87,7 @@ public class TopicPartitionChannelIT {
             new StreamingBufferThreshold(10, 10_000, 1),
             config,
             new InMemoryKafkaRecordErrorReporter(),
-            new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
-            conn.getTelemetryClient());
+            new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
 
     // since channel is updated, try to insert data again or may be call getOffsetToken
     // We will reopen the channel in since the older channel in service is stale because we
@@ -201,9 +200,6 @@ public class TopicPartitionChannelIT {
         snowflakeSinkServiceV2.getTopicPartitionChannelFromCacheKey(testChannelName).get();
 
     Assert.assertNotNull(topicPartitionChannel);
-
-    Assert.assertTrue(
-        topicPartitionChannel.getTelemetryService() instanceof SnowflakeTelemetryServiceV2);
 
     // close channel
     topicPartitionChannel.closeChannel();

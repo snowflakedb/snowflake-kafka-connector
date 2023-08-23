@@ -2,17 +2,20 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SUB_DOMAIN;
+import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.OFFSET_SUB_DOMAIN;
+import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constructMetricName;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
+import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
@@ -20,6 +23,7 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
+import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
@@ -82,6 +86,30 @@ public class TopicPartitionChannel {
   // used to communicate to the streaming ingest's insertRows API
   // This is non final because we might decide to get the new instance of Channel
   private SnowflakeStreamingIngestChannel channel;
+
+  // -------- private final fields -------- //
+
+  // This offset represents the data persisted in Snowflake. More specifically it is the Snowflake
+  // offset determined from the insertRows API call. It is set after calling the fetchOffsetToken
+  // API for this channel
+  private final AtomicLong offsetPersistedInSnowflake =
+      new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+
+  // This offset represents the data buffered in KC. More specifically it is the KC offset to ensure
+  // exactly once functionality. On creation it is set to the latest committed token in Snowflake
+  // (see offsetPersistedInSnowflake) and updated on each new row from KC.
+  private final AtomicLong processedOffset =
+      new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+
+  // This offset is a fallback to represent the data buffered in KC. It is similar to
+  // processedOffset, however it is only used to resend the offset when the channel offset token is
+  // NULL. It is updated to the first offset sent by KC (see processedOffset) or the offset
+  // persisted in Snowflake (see offsetPersistedInSnowflake)
+  private long latestConsumerOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+
+  private final AtomicLong bufferByteSize = new AtomicLong();
+  private final AtomicLong bufferRecordSize = new AtomicLong();
+  private final AtomicLong bufferFlushTime = new AtomicLong();
 
   /**
    * Offsets are reset in kafka when one of following cases arises in which we rely on source of
@@ -154,23 +182,11 @@ public class TopicPartitionChannel {
   // Reference to the Snowflake connection service
   private final SnowflakeConnectionService conn;
 
-  // Offset management
-  private final OffsetManager offsetManager;
-
-  // telemetry
-  private final SnowflakeTelemetryChannelStatus channelStatus;
-  // non null
-  private final MetricRegistry metricRegistry;
-
-  // Wrapper on Metric registry instance which will hold all registered metrics for this pipe
-  private final MetricsJmxReporter metricsJmxReporter;
-  private final boolean enableCustomJMXMonitoring;
-
   /**
    * Used to send telemetry to Snowflake. Currently, TelemetryClient created from a Snowflake
    * Connection Object, i.e. not a session-less Client
    */
-  private final SnowflakeTelemetryService telemetryService;
+  private final SnowflakeTelemetryService telemetryServiceV2;
 
   /** Testing only, initialize TopicPartitionChannel without the connection service */
   @VisibleForTesting
@@ -182,8 +198,7 @@ public class TopicPartitionChannel {
       final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
-      SinkTaskContext sinkTaskContext,
-      SnowflakeTelemetryService telemetryService) {
+      SinkTaskContext sinkTaskContext) {
     this(
         streamingIngestClient,
         topicPartition,
@@ -195,8 +210,8 @@ public class TopicPartitionChannel {
         kafkaRecordErrorReporter,
         sinkTaskContext,
         null, /* Null Connection */
-        new RecordService(telemetryService),
-        telemetryService,
+        new RecordService(null /* Null Telemetry Service*/),
+        null,
         false);
   }
 
@@ -216,8 +231,6 @@ public class TopicPartitionChannel {
    * @param recordService record service for processing incoming offsets from Kafka
    * @param telemetryService Telemetry Service which includes the Telemetry Client, sends Json data
    *     to Snowflake
-   * @param enableCustomJMXMonitoring whether or not we enable Mbean for required classes and emit
-   *     JMX metrics for monitoring
    */
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
@@ -245,6 +258,7 @@ public class TopicPartitionChannel {
     this.conn = conn;
 
     this.recordService = recordService;
+    this.telemetryServiceV2 = telemetryService;
 
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -262,39 +276,11 @@ public class TopicPartitionChannel {
 
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
 
-    // telemetry
-    this.telemetryService = telemetryService;
-    this.telemetryService.reportKafkaPartitionStart(
-        new SnowflakeTelemetryChannelCreation(
-            this.tableName,
-            this.topicPartition.topic(),
-            this.topicPartition.partition(),
-            this.channelName));
-
-    // jmx
-    this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
-    this.metricRegistry = new MetricRegistry();
-    this.metricsJmxReporter =
-        new MetricsJmxReporter(
-            this.metricRegistry,
-            sfConnectorConfig.getOrDefault(
-                SnowflakeSinkConnectorConfig.NAME, "default_jmx_connector_name"));
-    this.channelStatus =
-        new SnowflakeTelemetryChannelStatus(
-            this.tableName,
-            this.topicPartition.topic(),
-            this.topicPartition.partition(),
-            this.channelName,
-            this.enableCustomJMXMonitoring,
-            this.metricsJmxReporter);
-
     // Open channel and reset the offset in kafka
-    this.offsetManager = new OffsetManager(this.channelStatus);
     this.channel = Preconditions.checkNotNull(openChannelForTable());
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
-    this.offsetManager.setOffsetPersistedInSnowflake(lastCommittedOffsetToken);
-    this.offsetManager.setProcessedOffset(lastCommittedOffsetToken);
-
+    this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
+    this.processedOffset.set(lastCommittedOffsetToken);
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
     } else {
@@ -302,6 +288,11 @@ public class TopicPartitionChannel {
           "TopicPartitionChannel:{}, offset token is NULL, will rely on Kafka to send us the"
               + " correct offset instead",
           this.getChannelName());
+    }
+
+    if (enableCustomJMXMonitoring) {
+      MetricsJmxReporter metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), conn.getConnectorName());
+      this.registerChannelJMXMetrics(channelName, metricsJmxReporter);
     }
   }
 
@@ -317,14 +308,12 @@ public class TopicPartitionChannel {
    * @param kafkaSinkRecord input record from Kafka
    */
   public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
-    final long currentOffsetPersistedInSnowflake =
-        this.offsetManager.getOffsetPersistedInSnowflake();
-    final long currentProcessedOffset = this.offsetManager.getProcessedOffset();
-    final long kafkaSinkRecordOffset = kafkaSinkRecord.kafkaOffset();
+    final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
+    final long currentProcessedOffset = this.processedOffset.get();
 
     // Set the consumer offset to be the first record that Kafka sends us
-    if (this.offsetManager.getLatestConsumerOffset() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      this.offsetManager.setLatestConsumerOffset(kafkaSinkRecordOffset);
+    if (latestConsumerOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      latestConsumerOffset = kafkaSinkRecord.kafkaOffset();
     }
 
     // Ignore adding to the buffer until we see the expected offset value
@@ -335,32 +324,26 @@ public class TopicPartitionChannel {
     // Accept the incoming record only if we don't have a valid offset token at server side, or the
     // incoming record offset is 1 + the processed offset
     if (currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
-        || kafkaSinkRecordOffset >= currentProcessedOffset + 1) {
+        || kafkaSinkRecord.kafkaOffset() >= currentProcessedOffset + 1) {
       StreamingBuffer copiedStreamingBuffer = null;
       bufferLock.lock();
       try {
         this.streamingBuffer.insert(kafkaSinkRecord);
-        this.offsetManager.setProcessedOffset(kafkaSinkRecordOffset);
-
-        long streamingBufferBytes = this.streamingBuffer.getBufferSizeBytes();
-        long streamingRecordCount = this.streamingBuffer.getNumOfRecords();
-
+        this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
         // # of records or size based flushing
-        if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(streamingBufferBytes)
-            || this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(streamingRecordCount)) {
+        if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
+                streamingBuffer.getBufferSizeBytes())
+            || this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
+                streamingBuffer.getNumOfRecords())) {
           copiedStreamingBuffer = streamingBuffer;
           this.streamingBuffer = new StreamingBuffer();
-
-          this.channelStatus.addTotalSizeOfDataInBytes(streamingBufferBytes);
-          this.channelStatus.addTotalNumberOfRecords(streamingRecordCount);
-
           LOGGER.debug(
               "Flush based on buffered bytes or buffered number of records for"
                   + " channel:{},currentBufferSizeInBytes:{}, currentBufferedRecordCount:{},"
                   + " connectorBufferThresholds:{}",
               this.getChannelName(),
-              streamingBufferBytes,
-              streamingRecordCount,
+              copiedStreamingBuffer.getBufferSizeBytes(),
+              copiedStreamingBuffer.getSinkRecords().size(),
               this.streamingBufferThreshold);
         }
       } finally {
@@ -376,7 +359,7 @@ public class TopicPartitionChannel {
       LOGGER.debug(
           "Skip adding offset:{} to buffer for channel:{} because"
               + " offsetPersistedInSnowflake:{}, processedOffset:{}",
-          kafkaSinkRecordOffset,
+          kafkaSinkRecord.kafkaOffset(),
           this.getChannelName(),
           currentOffsetPersistedInSnowflake,
           currentProcessedOffset);
@@ -775,7 +758,7 @@ public class TopicPartitionChannel {
           String.format(
               "Error inserting Records using Streaming API with msg:%s",
               insertErrors.get(0).getException().getMessage());
-      this.telemetryService.reportKafkaConnectFatalError(errMsg);
+      this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
       throw new DataException(errMsg, insertErrors.get(0).getException());
     }
   }
@@ -930,14 +913,14 @@ public class TopicPartitionChannel {
               + " connector instead, consumer offset:{}",
           streamingApiFallbackInvoker,
           this.getChannelName(),
-          this.offsetManager.getLatestConsumerOffset());
+          latestConsumerOffset);
     }
 
     // If the offset token in the channel is null, use the consumer offset managed by the connector;
     // otherwise use the offset token stored in the channel
     final long offsetToResetInKafka =
         offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
-            ? this.offsetManager.getLatestConsumerOffset()
+            ? latestConsumerOffset
             : offsetRecoveredFromSnowflake + 1L;
     if (offsetToResetInKafka == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       return;
@@ -958,8 +941,8 @@ public class TopicPartitionChannel {
 
       // Need to update the in memory processed offset otherwise if same offset is send again, it
       // might get rejected.
-      this.offsetManager.setOffsetPersistedInSnowflake(offsetRecoveredFromSnowflake);
-      this.offsetManager.setProcessedOffset(offsetRecoveredFromSnowflake);
+      this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
+      this.processedOffset.set(offsetRecoveredFromSnowflake);
 
       // State that there was some exception and only clear that state when we have received offset
       // starting from offsetRecoveredFromSnowflake
@@ -1057,13 +1040,12 @@ public class TopicPartitionChannel {
   public void closeChannel() {
     try {
       this.channel.close().get();
-      this.telemetryService.reportKafkaPartitionUsage(this.channelStatus, true);
     } catch (InterruptedException | ExecutionException e) {
       final String errMsg =
           String.format(
               "Failure closing Streaming Channel name:%s msg:%s",
               this.getChannelName(), e.getMessage());
-      this.telemetryService.reportKafkaConnectFatalError(errMsg);
+      this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
       LOGGER.error(errMsg, e);
     }
   }
@@ -1091,7 +1073,7 @@ public class TopicPartitionChannel {
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("previousFlushTimeStampMs", this.previousFlushTimeStampMs)
-        .add("offsetPersistedInSnowflake", this.offsetManager.getOffsetPersistedInSnowflake())
+        .add("offsetPersistedInSnowflake", this.offsetPersistedInSnowflake)
         .add("channelName", this.getChannelName())
         .add("isStreamingIngestClientClosed", this.streamingIngestClient.isClosed())
         .toString();
@@ -1099,7 +1081,7 @@ public class TopicPartitionChannel {
 
   @VisibleForTesting
   protected long getOffsetPersistedInSnowflake() {
-    return this.offsetManager.getOffsetPersistedInSnowflake();
+    return this.offsetPersistedInSnowflake.get();
   }
 
   @VisibleForTesting
@@ -1113,13 +1095,13 @@ public class TopicPartitionChannel {
   }
 
   @VisibleForTesting
-  protected SnowflakeTelemetryService getTelemetryService() {
-    return this.telemetryService;
+  protected SnowflakeTelemetryService getTelemetryServiceV2() {
+    return this.telemetryServiceV2;
   }
 
   protected void setLatestConsumerOffset(long consumerOffset) {
-    if (consumerOffset > this.offsetManager.getLatestConsumerOffset()) {
-      this.offsetManager.setLatestConsumerOffset(consumerOffset);
+    if (consumerOffset > this.latestConsumerOffset) {
+      this.latestConsumerOffset = consumerOffset;
     }
   }
 
@@ -1340,59 +1322,44 @@ public class TopicPartitionChannel {
     }
   }
 
-  private class OffsetManager {
-    // This offset represents the data persisted in Snowflake. More specifically it is the Snowflake
-    // offset determined from the insertRows API call. It is set after calling the fetchOffsetToken
-    // API for this channel
-    private final AtomicLong offsetPersistedInSnowflake;
+  /**
+   * Registers all the Metrics inside the metricRegistry.
+   *
+   * @param channelName channelName
+   * @param metricsJmxReporter wrapper class for registering all metrics related to above connector
+   *     and pipe
+   */
+  private void registerChannelJMXMetrics(
+      final String channelName, MetricsJmxReporter metricsJmxReporter) {
+    MetricRegistry currentMetricRegistry = metricsJmxReporter.getMetricRegistry();
 
-    // This offset represents the data buffered in KC. More specifically it is the KC offset to
-    // ensure
-    // exactly once functionality. On creation it is set to the latest committed token in Snowflake
-    // (see offsetPersistedInSnowflake) and updated on each new row from KC.
-    private final AtomicLong processedOffset;
+    // Lazily remove all registered metrics from the registry since this can be invoked during
+    // partition reassignment
+    LOGGER.debug(
+        "Registering metrics for channel:{}, existing:{}",
+        channelName,
+        metricsJmxReporter.getMetricRegistry().getMetrics().keySet().toString());
+    metricsJmxReporter.removeMetricsFromRegistry(channelName);
 
-    // This offset is a fallback to represent the data buffered in KC. It is similar to
-    // processedOffset, however it is only used to resend the offset when the channel offset token
-    // is
-    // NULL. It is updated to the first offset sent by KC (see processedOffset) or the offset
-    // persisted in Snowflake (see offsetPersistedInSnowflake)
-    private long latestConsumerOffset;
+    try {
+      // offset
+      currentMetricRegistry.register(
+          constructMetricName(
+              channelName, OFFSET_SUB_DOMAIN, MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE),
+          (Gauge<Long>) this.offsetPersistedInSnowflake::get);
 
-    private final SnowflakeTelemetryChannelStatus channelStatus;
+      currentMetricRegistry.register(
+          constructMetricName(channelName, OFFSET_SUB_DOMAIN, MetricsUtil.PROCESSED_OFFSET),
+          (Gauge<Long>) this.processedOffset::get);
 
-    OffsetManager(SnowflakeTelemetryChannelStatus channelStatus) {
-      this.offsetPersistedInSnowflake = new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-      this.processedOffset = new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-      this.latestConsumerOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
-      this.channelStatus = channelStatus;
+      currentMetricRegistry.register(
+          constructMetricName(channelName, OFFSET_SUB_DOMAIN, MetricsUtil.LATEST_CONSUMER_OFFSET),
+          (Gauge<Long>) () -> this.latestConsumerOffset);
+
+    } catch (IllegalArgumentException ex) {
+      LOGGER.warn("Metrics already present:{}", ex.getMessage());
     }
 
-    public void setOffsetPersistedInSnowflake(long offsetPersistedInSnowflake) {
-      this.offsetPersistedInSnowflake.set(offsetPersistedInSnowflake);
-      this.channelStatus.setOffsetPersistedInSnowflake(offsetPersistedInSnowflake);
-    }
-
-    public void setProcessedOffset(long processedOffset) {
-      this.processedOffset.set(processedOffset);
-      this.channelStatus.setProcessedOffset(processedOffset);
-    }
-
-    public void setLatestConsumerOffset(long latestConsumerOffset) {
-      this.latestConsumerOffset = latestConsumerOffset;
-      this.channelStatus.setLatestConsumerOffset(latestConsumerOffset);
-    }
-
-    public long getOffsetPersistedInSnowflake() {
-      return this.offsetPersistedInSnowflake.get();
-    }
-
-    public long getProcessedOffset() {
-      return this.processedOffset.get();
-    }
-
-    public long getLatestConsumerOffset() {
-      return this.latestConsumerOffset;
-    }
+    metricsJmxReporter.start();
   }
 }

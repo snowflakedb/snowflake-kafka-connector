@@ -92,8 +92,7 @@ public class SnowflakeSinkTaskStreamingTest {
             new StreamingBufferThreshold(10, 10_000, 1),
             config,
             errorReporter,
-            inMemorySinkTaskContext,
-            mockTelemetryService);
+            inMemorySinkTaskContext);
 
     Map topicPartitionChannelMap =
         Collections.singletonMap(partitionChannelKey(topicName, partition), topicPartitionChannel);
