@@ -26,8 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-
-import net.snowflake.client.jdbc.internal.yammer.metrics.core.MetricsRegistry;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -821,18 +819,19 @@ public class TopicPartitionChannelTest {
   @Test
   public void testRegisterJmxMetrics() {
     MetricRegistry metricRegistry = Mockito.spy(MetricRegistry.class);
-    MetricsJmxReporter metricsJmxReporter = Mockito.spy(new MetricsJmxReporter(metricRegistry, TEST_CONNECTOR_NAME));
+    MetricsJmxReporter metricsJmxReporter =
+        Mockito.spy(new MetricsJmxReporter(metricRegistry, TEST_CONNECTOR_NAME));
 
     TopicPartitionChannel topicPartitionChannel =
-      new TopicPartitionChannel(
-          mockStreamingClient,
-          topicPartition,
-          TEST_CHANNEL_NAME,
-          TEST_TABLE_NAME,
-          streamingBufferThreshold,
-          sfConnectorConfig,
-          mockKafkaRecordErrorReporter,
-          mockSinkTaskContext);
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            streamingBufferThreshold,
+            sfConnectorConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext);
 
     // test
     topicPartitionChannel.registerChannelJMXMetrics(TEST_CHANNEL_NAME, metricsJmxReporter);
