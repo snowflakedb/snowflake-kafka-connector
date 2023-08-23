@@ -290,21 +290,29 @@ public class RecordContentTest {
     // null value
     this.testGetProcessedRecordRunner(
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, keyStr, sv.schema(), null, partition), "{}", keyStr);
+            topic, partition, Schema.STRING_SCHEMA, keyStr, sv.schema(), null, partition),
+        "{}",
+        keyStr);
     this.testGetProcessedRecordRunner(
-        new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, keyStr, null, sv.value(), partition), "{}", keyStr);
+        new SinkRecord(topic, partition, Schema.STRING_SCHEMA, keyStr, null, sv.value(), partition),
+        "{}",
+        keyStr);
 
     // null key
     this.testGetProcessedRecordRunner(
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, null, sv.schema(), sv.value(), partition), "{}", "");
+            topic, partition, Schema.STRING_SCHEMA, null, sv.schema(), sv.value(), partition),
+        "{}",
+        "");
     this.testGetProcessedRecordRunner(
-        new SinkRecord(
-            topic, partition, null, keyStr, sv.schema(), sv.value(), partition), "{}", "");
+        new SinkRecord(topic, partition, null, keyStr, sv.schema(), sv.value(), partition),
+        "{}",
+        "");
   }
 
-  private void testGetProcessedRecordRunner(SinkRecord record, String expectedRecordContent, String expectedRecordMetadataKey) throws JsonProcessingException {
+  private void testGetProcessedRecordRunner(
+      SinkRecord record, String expectedRecordContent, String expectedRecordMetadataKey)
+      throws JsonProcessingException {
     RecordService service = new RecordService();
     Map<String, Object> recordData = service.getProcessedRecordForStreamingIngest(record);
 

@@ -72,8 +72,7 @@ public class RecordService {
 
   private boolean enableSchematization = false;
   private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues =
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues
-          .DEFAULT;
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
