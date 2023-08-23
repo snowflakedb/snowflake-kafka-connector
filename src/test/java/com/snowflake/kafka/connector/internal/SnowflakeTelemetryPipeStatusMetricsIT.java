@@ -6,7 +6,6 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import java.nio.charset.StandardCharsets;
@@ -44,7 +43,7 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
 
     // This means that default is true.
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
+        SnowflakeSinkServiceFactory.builder(conn)
             .addTask(tableName, new TopicPartition(topic, partition))
             .setRecordNumber(1)
             .build();
@@ -182,7 +181,7 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
 
     // This means that default is true.
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, null)
+        SnowflakeSinkServiceFactory.builder(conn)
             .setCustomJMXMetrics(false)
             .addTask(tableName, new TopicPartition(topic, partition))
             .setRecordNumber(1)

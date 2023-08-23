@@ -130,7 +130,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     // note that records can be empty
     for (SinkRecord record : records) {
       // check if need to handle null value records
-      if (recordService.shouldSkipNullValue(record)) {
+      if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
         continue;
       }
       // Might happen a count of record based flushing

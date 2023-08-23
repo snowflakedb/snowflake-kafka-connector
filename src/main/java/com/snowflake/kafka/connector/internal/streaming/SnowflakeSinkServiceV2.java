@@ -259,7 +259,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // note that records can be empty but, we will still need to check for time based flush
     for (SinkRecord record : records) {
       // check if need to handle null value records
-      if (recordService.shouldSkipNullValue(record)) {
+      if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
         continue;
       }
       // While inserting into buffer, we will check for count threshold and buffered bytes

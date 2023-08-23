@@ -70,6 +70,11 @@ public class RecordService {
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
 
+  private boolean enableSchematization = false;
+  private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues =
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues
+          .DEFAULT; // since BEHAVIOR_ON_NULL_VALUES_CONFIG defaults to ingestion
+
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
   static final ThreadLocal<SimpleDateFormat> ISO_DATE_TIME_FORMAT =
@@ -90,29 +95,26 @@ public class RecordService {
   /** Send Telemetry Data to Snowflake */
   private final SnowflakeTelemetryService telemetryService;
 
-  private boolean enableSchematization;
-  private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues =
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues
-          .DEFAULT; // since BEHAVIOR_ON_NULL_VALUES_CONFIG defaults to ingestion
-
   /**
    * process records output JSON format: { "meta": { "offset": 123, "topic": "topic name",
    * "partition": 123, "key":"key name" } "content": "record content" }
    *
    * <p>create a JsonRecordService instance
+   *
+   * @param telemetryService Telemetry Service Instance. Can be null.
    */
   public RecordService(SnowflakeTelemetryService telemetryService) {
     this.telemetryService = telemetryService;
   }
 
-  // TESTING ONLY - create empty record service
+  /** Record service with null telemetry Service, only use it for testing. */
   @VisibleForTesting
   public RecordService() {
     this(null);
   }
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
-    this.metadataConfig = metadataConfigIn;
+    metadataConfig = metadataConfigIn;
   }
   /**
    * extract enableSchematization from the connector config and set the value for the recordService
@@ -166,16 +168,11 @@ public class RecordService {
   private SnowflakeTableRow processRecord(SinkRecord record) {
     SnowflakeRecordContent valueContent;
 
-    // cannot ingest null key
-    if (record.key() == null || record.keySchema() == null) {
-      throw SnowflakeErrors.ERROR_5016.getException();
-    }
-
     if (record.value() == null || record.valueSchema() == null) {
       if (this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
         valueContent = new SnowflakeRecordContent();
       } else {
-        throw SnowflakeErrors.ERROR_5023.getException();
+        throw SnowflakeErrors.ERROR_5016.getException();
       }
     } else {
       if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME)) {
@@ -539,12 +536,15 @@ public class RecordService {
    * <p>If the value is an empty JSON node, we could assume the value passed was null.
    *
    * @param record record sent from Kafka to KC
+   *               @param behaviorOnNullValues behavior passed inside KC
    * @return true if we would skip adding it to buffer
    * @see com.snowflake.kafka.connector.records.SnowflakeJsonConverter#toConnectData when bytes ==
    *     null case
    */
-  public boolean shouldSkipNullValue(SinkRecord record) {
-    if (this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+  public boolean shouldSkipNullValue(
+      SinkRecord record,
+      final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues) {
+    if (behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
       return false;
     } else {
       boolean isRecordValueNull = false;
