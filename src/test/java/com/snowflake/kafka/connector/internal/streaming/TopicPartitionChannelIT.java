@@ -22,10 +22,11 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TopicPartitionChannelIT {
-  private static int PARTITION = 0, PARTITION_2 = 1;
 
   private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
   private String testTableName;
+
+  private static int PARTITION = 0, PARTITION_2 = 1;
   private String topic;
   private TopicPartition topicPartition, topicPartition2;
   private String testChannelName, testChannelName2;
@@ -34,11 +35,12 @@ public class TopicPartitionChannelIT {
   public void beforeEach() {
     testTableName = TestUtils.randomTableName();
     topic = testTableName;
-
     topicPartition = new TopicPartition(topic, PARTITION);
+
     topicPartition2 = new TopicPartition(topic, PARTITION_2);
 
     testChannelName = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION);
+
     testChannelName2 = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION_2);
   }
 
@@ -200,6 +202,9 @@ public class TopicPartitionChannelIT {
         snowflakeSinkServiceV2.getTopicPartitionChannelFromCacheKey(testChannelName).get();
 
     Assert.assertNotNull(topicPartitionChannel);
+
+    Assert.assertTrue(
+        topicPartitionChannel.getTelemetryServiceV2() instanceof SnowflakeTelemetryServiceV2);
 
     // close channel
     topicPartitionChannel.closeChannel();

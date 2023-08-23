@@ -38,7 +38,7 @@ public class StreamingClientHandlerTest {
   public void setup() {
     this.streamingClientHandler = new StreamingClientHandler();
     this.connectorConfig = TestUtils.getConfForStreaming();
-    // this.connectorConfigWithOAuth = TestUtils.getConfForStreamingWithOAuth();
+    // this.connectorConfigWithOAuth = TestUtils.getConfForStreamingWithOAuth(); // TODO @rcheng remove
   }
 
   @Test
@@ -53,7 +53,7 @@ public class StreamingClientHandlerTest {
 
   // TODO: Remove error expectation after SNOW-859929 is released
   @Test(expected = ConnectException.class)
-  @Ignore
+  @Ignore // TODO @rcheng remove
   public void testCreateOAuthClient() {
     this.streamingClientHandler.createClient(this.connectorConfigWithOAuth);
   }

@@ -13,9 +13,9 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
-import com.snowflake.kafka.connector.internal.streaming.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.StreamingBufferThreshold;
 import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -63,8 +63,7 @@ public class SnowflakeSinkTaskStreamingTest {
         Mockito.mock(SnowflakeConnectionServiceV1.class);
     SnowflakeStreamingIngestClient mockStreamingClient =
         Mockito.mock(SnowflakeStreamingIngestClient.class);
-    SnowflakeTelemetryServiceV2 mockTelemetryService =
-        Mockito.mock(SnowflakeTelemetryServiceV2.class);
+    SnowflakeTelemetryService mockTelemetryService = Mockito.mock(SnowflakeTelemetryService.class);
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
     SnowflakeStreamingIngestChannel mockStreamingChannel =

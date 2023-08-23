@@ -13,6 +13,7 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -58,7 +59,7 @@ public class TopicPartitionChannelTest {
 
   @Mock private SnowflakeConnectionService mockSnowflakeConnectionService;
 
-  @Mock private SnowflakeTelemetryServiceV2 mockTelemetryService;
+  @Mock private SnowflakeTelemetryService mockTelemetryService;
 
   private static final String TOPIC = "TEST";
 
@@ -93,13 +94,11 @@ public class TopicPartitionChannelTest {
     mockStreamingChannel = Mockito.mock(SnowflakeStreamingIngestChannel.class);
     mockKafkaRecordErrorReporter = Mockito.mock(KafkaRecordErrorReporter.class);
     mockSinkTaskContext = Mockito.mock(SinkTaskContext.class);
-    mockTelemetryService = Mockito.mock(SnowflakeTelemetryServiceV2.class);
-
+    mockTelemetryService = Mockito.mock(SnowflakeTelemetryService.class);
     Mockito.when(mockStreamingClient.isClosed()).thenReturn(false);
     Mockito.when(mockStreamingClient.openChannel(ArgumentMatchers.any(OpenChannelRequest.class)))
         .thenReturn(mockStreamingChannel);
     Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
-
     this.topicPartition = new TopicPartition(TOPIC, PARTITION);
     this.sfConnectorConfig = TestUtils.getConfig();
     this.streamingBufferThreshold = new StreamingBufferThreshold(10, 10_000, 1);

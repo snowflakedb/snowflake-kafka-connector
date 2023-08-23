@@ -283,7 +283,7 @@ public class UtilsTest {
   }
 
   @Test
-  @Ignore
+  @Ignore // TODO @rcheng remove
   public void testGetSnowflakeOAuthAccessToken() {
     Map<String, String> config = TestUtils.getConfForStreamingWithOAuth();
     SnowflakeURL url = new SnowflakeURL(config.get(Utils.SF_URL));

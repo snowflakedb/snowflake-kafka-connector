@@ -1327,7 +1327,7 @@ public class TopicPartitionChannel {
    *
    * @param channelName channelName
    * @param metricsJmxReporter wrapper class for registering all metrics related to above connector
-   *     and pipe
+   *     and channel
    */
   private void registerChannelJMXMetrics(
       final String channelName, MetricsJmxReporter metricsJmxReporter) {
