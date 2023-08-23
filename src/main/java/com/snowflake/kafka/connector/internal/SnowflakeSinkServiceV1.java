@@ -69,11 +69,14 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   private final SnowflakeTelemetryService telemetryService;
   private Map<String, String> topic2TableMap;
 
+  // Behavior to be set at the start of connector start. (For tombstone records)
+  private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues;
+
   // default is true unless the configuration provided is false;
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
 
-  SnowflakeSinkServiceV1(SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
+  SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
     }
@@ -85,8 +88,12 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     this.conn = conn;
     isStopped = false;
     this.telemetryService = conn.getTelemetryClient();
-    this.recordService = new RecordService(connectorConfig);
+    this.recordService = new RecordService(this.telemetryService);
     this.topic2TableMap = new HashMap<>();
+
+    // Setting the default value in constructor
+    // meaning it will not ignore the null values (Tombstone records wont be ignored/filtered)
+    this.behaviorOnNullValues = SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
   }
 
   /**
@@ -297,8 +304,19 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   }
 
   @Override
+  public void setBehaviorOnNullValuesConfig(
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
+    this.behaviorOnNullValues = behavior;
+  }
+
+  @Override
   public void setCustomJMXMetrics(boolean enableJMX) {
     this.enableCustomJMXMonitoring = enableJMX;
+  }
+
+  @Override
+  public SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig() {
+    return this.behaviorOnNullValues;
   }
 
   /**

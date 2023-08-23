@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.records;
 
 import static org.junit.Assert.assertEquals;
 
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
 import java.io.IOException;
 import java.net.URL;
@@ -49,12 +48,9 @@ public class ProcessRecordTest {
             testCase.value.value(),
             partition);
 
-    try {
-      String got = service.getProcessedRecordForSnowpipe(record);
-      assertEquals(testCase.expectedJson, mapper.readTree(got));
-    } catch (Exception ex) {
-      assert testCase.expectedException.getMessage().equals(ex.getMessage());
-    }
+    String got = service.getProcessedRecordForSnowpipe(record);
+
+    assertEquals(testCase.expected, mapper.readTree(got));
   }
 
   @Parameterized.Parameters(name = "{index}: {0}")
@@ -66,8 +62,7 @@ public class ProcessRecordTest {
             getAvro(),
             mapper.readTree(
                 "{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":\"string"
-                    + " value\"}}"),
-            null),
+                    + " value\"}}")),
         new Case(
             "string key, avro without registry value",
             getString(),
@@ -75,79 +70,68 @@ public class ProcessRecordTest {
             mapper.readTree(
                 "{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":\"string"
                     + " value\"}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":\"string"
-                    + " value\"}}"),
-            null),
+                    + " value\"}}")),
         new Case(
             "string key, json value",
             getString(),
             getJson(),
             mapper.readTree(
                 "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":\"string"
-                    + " value\"}}"),
-            null),
+                    + " value\"}}")),
         new Case(
             "avro key, avro value",
             getAvro(),
             getAvro(),
             mapper.readTree(
-                "{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":{\"int\":222},\"key_schema_id\":1}}"),
-            null),
+                "{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":{\"int\":222},\"key_schema_id\":1}}")),
         new Case(
             "avro key, avro without registry value",
             getAvro(),
             getAvroWithoutRegistryValue(),
             mapper.readTree(
-                "{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":{\"int\":222},\"key_schema_id\":1}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"int\":222}],\"key_schema_id\":1}}"),
-            null),
+                "{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":{\"int\":222},\"key_schema_id\":1}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"int\":222}],\"key_schema_id\":1}}")),
         new Case(
             "avro key, json value",
             getAvro(),
             getJson(),
             mapper.readTree(
-                "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":{\"int\":222},\"key_schema_id\":1}}"),
-            null),
+                "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":{\"int\":222},\"key_schema_id\":1}}")),
         new Case(
             "avro without registry key, avro value",
             getAvroWithoutRegistryKey(),
             getAvro(),
             mapper.readTree(
-                "{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":{\"id\":\"aabbccdd\"}}}"),
-            null),
+                "{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":{\"id\":\"aabbccdd\"}}}")),
         new Case(
             "avro without registry key, avro without registry value",
             getAvroWithoutRegistryKey(),
             getAvroWithoutRegistryValue(),
             mapper.readTree(
-                "{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":{\"id\":\"aabbccdd\"}}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"id\":\"aabbccdd\"}]}}"),
-            null),
+                "{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":{\"id\":\"aabbccdd\"}}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"id\":\"aabbccdd\"}]}}")),
         new Case(
             "avro without registry key, json value",
             getAvroWithoutRegistryKey(),
             getJson(),
             mapper.readTree(
-                "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":{\"id\":\"aabbccdd\"}}}"),
-            null),
+                "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":{\"id\":\"aabbccdd\"}}}")),
         new Case(
             "json key, avro value",
             getJson(),
             getAvro(),
             mapper.readTree(
-                "{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":{\"some_field\":\"some_value\"}}}"),
-            null),
+                "{\"content\":{\"int\":222},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"schema_id\":1,\"key\":{\"some_field\":\"some_value\"}}}")),
         new Case(
             "json key, avro without registry value",
             getJson(),
             getAvroWithoutRegistryValue(),
             mapper.readTree(
-                "{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":{\"some_field\":\"some_value\"}}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"some_field\":\"some_value\"}]}}"),
-            null),
+                "{\"content\":{\"name\":\"foo\",\"age\":30},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":{\"some_field\":\"some_value\"}}}{\"content\":{\"name\":\"bar\",\"age\":29},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":[{\"some_field\":\"some_value\"}]}}")),
         new Case(
             "json key, json value",
             getJson(),
             getJson(),
             mapper.readTree(
-                "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":{\"some_field\":\"some_value\"}}}"),
-            null),
+                "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0,\"key\":{\"some_field\":\"some_value\"}}}")),
         new Case(
             "multi line avro key, multi line avro value",
             getAvroMultiLine(),
@@ -156,15 +140,13 @@ public class ProcessRecordTest {
                 "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"topic\":\"test\",\"offset\":0,\"partition\":0,\"key\":[{\"username\":\"miguno\",\"tweet\":\"Rock:"
                     + " Nerf paper, scissors is"
                     + " fine.\",\"timestamp\":1366150681},{\"username\":\"BlizzardCS\",\"tweet\":\"Works"
-                    + " as intended.  Terran is IMBA.\",\"timestamp\":1366154481}]}}"),
-            null),
+                    + " as intended.  Terran is IMBA.\",\"timestamp\":1366154481}]}}")),
         new Case(
             "null key, json value",
             getNull(),
             getJson(),
             mapper.readTree(
-                "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0}}"),
-            SnowflakeErrors.ERROR_5016.getException()));
+                "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0}}")));
   }
 
   public static SchemaAndValue getString() {
@@ -229,20 +211,13 @@ public class ProcessRecordTest {
     String name;
     SchemaAndValue key;
     SchemaAndValue value;
-    JsonNode expectedJson;
-    Exception expectedException;
+    JsonNode expected;
 
-    public Case(
-        String name,
-        SchemaAndValue key,
-        SchemaAndValue value,
-        JsonNode expectedJson,
-        Exception expectedException) {
+    public Case(String name, SchemaAndValue key, SchemaAndValue value, JsonNode expected) {
       this.name = name;
       this.key = key;
       this.value = value;
-      this.expectedJson = expectedJson;
-      this.expectedException = expectedException;
+      this.expected = expected;
     }
 
     @Override

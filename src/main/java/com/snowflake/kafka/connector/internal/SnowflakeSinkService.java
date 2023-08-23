@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
@@ -133,8 +134,14 @@ public interface SnowflakeSinkService {
   /** @return current file size limitation */
   long getFileSize();
 
+  /* Set the behavior on what action to perform when this( @see com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BEHAVIOR_ON_NULL_VALUES_CONFIG ) config is set. */
+  void setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior);
+
   /* Should we emit Custom SF JMX Metrics to Mbean Server? If true (Default), we emit in form of SimpleMbeans */
   void setCustomJMXMetrics(boolean enableJMX);
+
+  /* Only used in testing and verifying what was the passed value of this behavior from config to sink service*/
+  SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig();
 
   /* Set Error reporter which can be used to send records to DLQ (Dead Letter Queue) */
   default void setErrorReporter(KafkaRecordErrorReporter kafkaRecordErrorReporter) {}

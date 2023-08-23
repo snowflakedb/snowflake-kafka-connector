@@ -1,10 +1,10 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkTaskContext;
@@ -23,8 +23,17 @@ public class SnowflakeSinkServiceFactory {
       SnowflakeConnectionService conn,
       IngestionMethodConfig ingestionType,
       Map<String, String> connectorConfig) {
-    return new SnowflakeSinkServiceBuilder(
-        conn, ingestionType, connectorConfig == null ? new HashMap<>() : connectorConfig);
+    return new SnowflakeSinkServiceBuilder(conn, ingestionType, connectorConfig);
+  }
+
+  /**
+   * Basic builder which internally uses SinkServiceV1 (Snowpipe)
+   *
+   * @param conn connection instance for connecting to snowflake
+   * @return A wrapper(Builder) having SinkService instance
+   */
+  public static SnowflakeSinkServiceBuilder builder(SnowflakeConnectionService conn) {
+    return new SnowflakeSinkServiceBuilder(conn);
   }
 
   /** Builder class to create instance of {@link SnowflakeSinkService} */
@@ -38,12 +47,16 @@ public class SnowflakeSinkServiceFactory {
         IngestionMethodConfig ingestionType,
         Map<String, String> connectorConfig) {
       if (ingestionType == IngestionMethodConfig.SNOWPIPE) {
-        this.service = new SnowflakeSinkServiceV1(conn, connectorConfig);
+        this.service = new SnowflakeSinkServiceV1(conn);
       } else {
         this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
       }
 
       LOGGER.info("{} created", this.service.getClass().getName());
+    }
+
+    private SnowflakeSinkServiceBuilder(SnowflakeConnectionService conn) {
+      this(conn, IngestionMethodConfig.SNOWPIPE, null /* Not required for V1 */);
     }
 
     /**
@@ -95,6 +108,13 @@ public class SnowflakeSinkServiceFactory {
     public SnowflakeSinkServiceBuilder setMetadataConfig(SnowflakeMetadataConfig configMap) {
       this.service.setMetadataConfig(configMap);
       LOGGER.info("metadata config map is {}", configMap.toString());
+      return this;
+    }
+
+    public SnowflakeSinkServiceBuilder setBehaviorOnNullValuesConfig(
+        SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
+      this.service.setBehaviorOnNullValuesConfig(behavior);
+      LOGGER.info("Config Behavior on null value is {}", behavior.toString());
       return this;
     }
 

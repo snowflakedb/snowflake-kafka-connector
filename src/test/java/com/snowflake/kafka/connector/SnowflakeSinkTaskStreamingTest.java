@@ -126,8 +126,8 @@ public class SnowflakeSinkTaskStreamingTest {
         new SinkRecord(
             topicName,
             partition,
-            Schema.STRING_SCHEMA,
-            "String",
+            null,
+            null,
             brokenInputValue.schema(),
             brokenInputValue.value(),
             0);

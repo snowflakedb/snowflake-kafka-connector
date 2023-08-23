@@ -128,7 +128,8 @@ public class RecordContentTest {
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testEmptyValueDisabledTombstone() {
-    RecordService service = new RecordService(false, false);
+    RecordService service = new RecordService();
+    service.setBehaviorOnNullValues(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE);
 
     SinkRecord record =
         new SinkRecord(topic, partition, null, null, Schema.STRING_SCHEMA, null, partition);
@@ -139,7 +140,8 @@ public class RecordContentTest {
   public void testEmptyValueSchemaDisabledTombstone() throws IOException {
     JsonNode data = mapper.readTree("{\"name\":123}");
     SnowflakeRecordContent content = new SnowflakeRecordContent(data);
-    RecordService service = new RecordService(false, false);
+    RecordService service = new RecordService();
+    service.setBehaviorOnNullValues(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE);
 
     SinkRecord record = new SinkRecord(topic, partition, null, null, null, content, partition);
     service.getProcessedRecordForSnowpipe(record);
@@ -237,7 +239,7 @@ public class RecordContentTest {
 
   @Test
   public void testSchematizationStringField() throws JsonProcessingException {
-    RecordService service = new RecordService(true, false);
+    RecordService service = new RecordService();
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
     String value = "{\"name\":\"sf\",\"answer\":42}";
@@ -258,7 +260,7 @@ public class RecordContentTest {
 
   @Test
   public void testColumnNameFormatting() throws JsonProcessingException {
-    RecordService service = new RecordService(true, false);
+    RecordService service = new RecordService();
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
     String value = "{\"\\\"NaMe\\\"\":\"sf\",\"AnSwEr\":42}";
@@ -275,37 +277,8 @@ public class RecordContentTest {
   }
 
   @Test
-  public void testRecordServiceConfigCreation() {
-    this.testRecordServiceConfigCreationRunner(
-        true, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE.toString());
-    this.testRecordServiceConfigCreationRunner(
-        false, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE.toString());
-    this.testRecordServiceConfigCreationRunner(
-        true, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
-    this.testRecordServiceConfigCreationRunner(
-        false, SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
-  }
-
-  private void testRecordServiceConfigCreationRunner(
-      boolean enableSchematization, String behavior) {
-    Map<String, String> config = new HashMap<>();
-
-    config.put(
-        SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
-        String.valueOf(enableSchematization));
-    config.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, behavior);
-
-    RecordService recordService = new RecordService(config);
-
-    assert recordService.getEnableSchematization() == enableSchematization
-        && recordService.getIngestTombstoneRecords()
-            == (behavior.equals(
-                SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString()));
-  }
-
-  @Test
   public void testGetProcessedRecordNullValue() throws JsonProcessingException {
-    RecordService service = new RecordService(false, true);
+    RecordService service = new RecordService();
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
     SchemaAndValue sv = jsonConverter.toConnectData(topic, null);
@@ -331,26 +304,5 @@ public class RecordContentTest {
             .filter(value -> value.toString().contains(topic) && value.toString().contains(keyStr))
             .count()
         == 1;
-  }
-
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testGetProcessedRecordNullKeyFails() throws JsonProcessingException {
-    RecordService service = new RecordService(false, true);
-    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
-
-    SchemaAndValue sv = jsonConverter.toConnectData(topic, null);
-
-    SinkRecord allNullRecord =
-        new SinkRecord(topic, partition, null, null, sv.schema(), sv.value(), partition);
-    SinkRecord nullKeyRecord =
-        new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, null, sv.schema(), sv.value(), partition);
-    SinkRecord nullKeySchemaRecord =
-        new SinkRecord(topic, partition, null, "string", sv.schema(), sv.value(), partition);
-
-    // null key schema or key will fail
-    service.getProcessedRecordForStreamingIngest(allNullRecord);
-    service.getProcessedRecordForStreamingIngest(nullKeyRecord);
-    service.getProcessedRecordForStreamingIngest(nullKeySchemaRecord);
   }
 }

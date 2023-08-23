@@ -172,6 +172,18 @@ public class SnowflakeSinkTask extends SinkTask {
     final long bufferFlushTime =
         Long.parseLong(parsedConfig.get(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
 
+    // Falling back to default behavior which is to ingest an empty json string if we get null
+    // value. (Tombstone record)
+    SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior =
+        SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
+    if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)) {
+      // we can always assume here that value passed in would be an allowed value, otherwise the
+      // connector would never start or reach the sink task stage
+      behavior =
+          SnowflakeSinkConnectorConfig.BehaviorOnNullValues.valueOf(
+              parsedConfig.get(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG));
+    }
+
     // we would have already validated the config inside SFConnector start()
     boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
     if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.JMX_OPT)) {
@@ -209,6 +221,7 @@ public class SnowflakeSinkTask extends SinkTask {
             .setFlushTime(bufferFlushTime)
             .setTopic2TableMap(topic2table)
             .setMetadataConfig(metadataConfig)
+            .setBehaviorOnNullValuesConfig(behavior)
             .setCustomJMXMetrics(enableCustomJMXMonitoring)
             .setErrorReporter(kafkaRecordErrorReporter)
             .setSinkTaskContext(this.context)

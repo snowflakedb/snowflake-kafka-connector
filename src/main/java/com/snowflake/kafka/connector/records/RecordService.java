@@ -34,6 +34,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -86,10 +88,11 @@ public class RecordService {
 
   // This class is designed to work with empty metadata config map
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
-  private Map<String, String> connectorConfig;
+  /** Send Telemetry Data to Snowflake */
+  private final SnowflakeTelemetryService telemetryService;
   private boolean enableSchematization;
-  private boolean ingestTombstoneRecords =
-      true; // since BEHAVIOR_ON_NULL_VALUES_CONFIG defaults to ingestion
+  private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues =
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT; // since BEHAVIOR_ON_NULL_VALUES_CONFIG defaults to ingestion
 
   /**
    * process records output JSON format: { "meta": { "offset": 123, "topic": "topic name",
@@ -97,36 +100,59 @@ public class RecordService {
    *
    * <p>create a JsonRecordService instance
    */
-  public RecordService(Map<String, String> connectorConfig) {
-    this.connectorConfig = connectorConfig;
+  public RecordService(SnowflakeTelemetryService telemetryService) {
+    this.telemetryService = telemetryService;
+  }
 
+  // TESTING ONLY - create empty record service
+  @VisibleForTesting
+  public RecordService() {
+    this(null);
+  }
+
+  public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
+    this.metadataConfig = metadataConfigIn;
+  }
+  /**
+   * extract enableSchematization from the connector config and set the value for the recordService
+   *
+   * <p>The extracted boolean is returned for external usage.
+   *
+   * @param connectorConfig the connector config map
+   * @return a boolean indicating whether schematization is enabled
+   */
+  public boolean setAndGetEnableSchematizationFromConfig(
+      final Map<String, String> connectorConfig) {
     if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)) {
       this.enableSchematization =
           Boolean.parseBoolean(
               connectorConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
     }
-    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)) {
-      this.ingestTombstoneRecords =
-          connectorConfig
-              .get(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)
-              .equalsIgnoreCase(
-                  SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
-    }
+    return this.enableSchematization;
   }
 
-  // TESTING ONLY - inject schematization and tombstone behavior
+  /**
+   * Directly set the enableSchematization through param
+   *
+   * <p>This method is only for testing
+   *
+   * @param enableSchematization whether we should enable schematization or not
+   */
   @VisibleForTesting
-  public RecordService(boolean enableSchematization, boolean ingestTombstoneRecords) {
+  public void setEnableSchematization(final boolean enableSchematization) {
     this.enableSchematization = enableSchematization;
-    this.ingestTombstoneRecords = ingestTombstoneRecords;
   }
 
-  // TESTING ONLY - create empty record service
+  /**
+   * Directly set the behaviorOnNullValues through param
+   *
+   * <p>This method is only for testing
+   *
+   * @param behaviorOnNullValues how to handle null values
+   */
   @VisibleForTesting
-  public RecordService() {}
-
-  public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
-    this.metadataConfig = metadataConfigIn;
+  public void setBehaviorOnNullValues(final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues) {
+    this.behaviorOnNullValues = behaviorOnNullValues;
   }
 
   /**
@@ -144,7 +170,7 @@ public class RecordService {
     }
 
     if (record.value() == null || record.valueSchema() == null) {
-      if (this.ingestTombstoneRecords) {
+      if (this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
         valueContent = new SnowflakeRecordContent();
       } else {
         throw SnowflakeErrors.ERROR_5023.getException();
@@ -516,7 +542,7 @@ public class RecordService {
    *     null case
    */
   public boolean shouldSkipNullValue(SinkRecord record) {
-    if (this.ingestTombstoneRecords) {
+    if (this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
       return false;
     } else {
       boolean isRecordValueNull = false;
@@ -561,17 +587,5 @@ public class RecordService {
       }
     }
     return false;
-  }
-
-  // TESTING ONLY
-  @VisibleForTesting
-  public boolean getEnableSchematization() {
-    return this.enableSchematization;
-  }
-
-  // TESTING ONLY
-  @VisibleForTesting
-  public boolean getIngestTombstoneRecords() {
-    return this.ingestTombstoneRecords;
   }
 }
