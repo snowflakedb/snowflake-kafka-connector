@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SUB_DOMAIN;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.OFFSET_SUB_DOMAIN;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constructMetricName;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
@@ -291,7 +290,8 @@ public class TopicPartitionChannel {
     }
 
     if (enableCustomJMXMonitoring) {
-      MetricsJmxReporter metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), conn.getConnectorName());
+      MetricsJmxReporter metricsJmxReporter =
+          new MetricsJmxReporter(new MetricRegistry(), conn.getConnectorName());
       this.registerChannelJMXMetrics(channelName, metricsJmxReporter);
     }
   }
