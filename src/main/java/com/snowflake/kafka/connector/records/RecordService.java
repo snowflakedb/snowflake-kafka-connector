@@ -536,7 +536,7 @@ public class RecordService {
    * <p>If the value is an empty JSON node, we could assume the value passed was null.
    *
    * @param record record sent from Kafka to KC
-   *               @param behaviorOnNullValues behavior passed inside KC
+   * @param behaviorOnNullValues behavior passed inside KC
    * @return true if we would skip adding it to buffer
    * @see com.snowflake.kafka.connector.records.SnowflakeJsonConverter#toConnectData when bytes ==
    *     null case
