@@ -38,7 +38,8 @@ public class StreamingClientHandlerTest {
   public void setup() {
     this.streamingClientHandler = new StreamingClientHandler();
     this.connectorConfig = TestUtils.getConfForStreaming();
-    // this.connectorConfigWithOAuth = TestUtils.getConfForStreamingWithOAuth(); // TODO @rcheng remove
+    // this.connectorConfigWithOAuth = TestUtils.getConfForStreamingWithOAuth(); // TODO @rcheng
+    // remove
   }
 
   @Test
