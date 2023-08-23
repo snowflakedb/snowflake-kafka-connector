@@ -297,8 +297,7 @@ public enum SnowflakeErrors {
       "5021",
       "Failed to get data schema",
       "Failed to get data schema. Unrecognizable data type in JSON object"),
-  ERROR_5022("5022", "Invalid column name", "Failed to find column in the schema"),
-  ;
+  ERROR_5022("5022", "Invalid column name", "Failed to find column in the schema");
 
   // properties
 

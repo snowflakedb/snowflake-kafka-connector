@@ -278,32 +278,38 @@ public class RecordContentTest {
   }
 
   @Test
-  public void testGetProcessedRecordNullValue() throws JsonProcessingException {
-    RecordService service = new RecordService();
+  public void testGetProcessedRecord() throws JsonProcessingException {
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
-
     SchemaAndValue sv = jsonConverter.toConnectData(topic, null);
     String keyStr = "string";
 
-    SinkRecord allNullRecord =
-        new SinkRecord(topic, partition, Schema.STRING_SCHEMA, keyStr, null, null, partition);
-    SinkRecord nullValueRecord =
-        new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, keyStr, sv.schema(), null, partition);
-    SinkRecord nullValueSchemaRecord =
-        new SinkRecord(topic, partition, Schema.STRING_SCHEMA, keyStr, null, sv.value(), partition);
+    // all null
+    this.testGetProcessedRecordRunner(
+        new SinkRecord(topic, partition, null, null, null, null, partition), "{}", "");
 
-    assert service.getProcessedRecordForStreamingIngest(allNullRecord).values().stream()
-            .filter(value -> value.toString().contains(topic) && value.toString().contains(keyStr))
-            .count()
-        == 1;
-    assert service.getProcessedRecordForStreamingIngest(nullValueRecord).values().stream()
-            .filter(value -> value.toString().contains(topic) && value.toString().contains(keyStr))
-            .count()
-        == 1;
-    assert service.getProcessedRecordForStreamingIngest(nullValueSchemaRecord).values().stream()
-            .filter(value -> value.toString().contains(topic) && value.toString().contains(keyStr))
-            .count()
-        == 1;
+    // null value
+    this.testGetProcessedRecordRunner(
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, keyStr, sv.schema(), null, partition), "{}", keyStr);
+    this.testGetProcessedRecordRunner(
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, keyStr, null, sv.value(), partition), "{}", keyStr);
+
+    // null key
+    this.testGetProcessedRecordRunner(
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, null, sv.schema(), sv.value(), partition), "{}", "");
+    this.testGetProcessedRecordRunner(
+        new SinkRecord(
+            topic, partition, null, keyStr, sv.schema(), sv.value(), partition), "{}", "");
+  }
+
+  private void testGetProcessedRecordRunner(SinkRecord record, String expectedRecordContent, String expectedRecordMetadataKey) throws JsonProcessingException {
+    RecordService service = new RecordService();
+    Map<String, Object> recordData = service.getProcessedRecordForStreamingIngest(record);
+
+    assert recordData.size() == 2;
+    assert recordData.get("RECORD_CONTENT").equals(expectedRecordContent);
+    assert recordData.get("RECORD_METADATA").toString().contains(expectedRecordMetadataKey);
   }
 }

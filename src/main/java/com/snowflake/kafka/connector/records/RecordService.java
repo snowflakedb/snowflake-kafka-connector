@@ -73,7 +73,7 @@ public class RecordService {
   private boolean enableSchematization = false;
   private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues =
       SnowflakeSinkConnectorConfig.BehaviorOnNullValues
-          .DEFAULT; // since BEHAVIOR_ON_NULL_VALUES_CONFIG defaults to ingestion
+          .DEFAULT;
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
@@ -317,7 +317,7 @@ public class RecordService {
   }
 
   void putKey(SinkRecord record, ObjectNode meta) {
-    if (record.key() == null) {
+    if (record.key() == null || record.keySchema() == null) {
       return;
     }
 
