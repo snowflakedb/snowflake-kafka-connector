@@ -165,6 +165,50 @@ public class TombstoneRecordIngestionIT {
   }
 
   @Test
+  public void testDefaultAllNullTombstoneRecordBehavior() throws Exception {
+    Map<String, String> connectorConfig = TestUtils.getConfig();
+
+    if (this.ingestionMethod.equals(IngestionMethodConfig.SNOWPIPE)) {
+      conn.createTable(table);
+      conn.createStage(stage);
+    } else {
+      connectorConfig = TestUtils.getConfForStreaming();
+    }
+
+    // set default behavior
+    connectorConfig.put(
+        SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
+        SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString());
+
+    TopicPartition topicPartition = new TopicPartition(topic, partition);
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, this.ingestionMethod, connectorConfig)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, topicPartition)
+            .build();
+
+    // make tombstone record
+    SchemaAndValue input = converter.toConnectData(topic, null);
+    long offset = 0;
+    SinkRecord record1 =
+        new SinkRecord(
+            topic, partition, null, null, input.schema(), input.value(), offset);
+
+    // test insert
+    service.insert(Collections.singletonList(record1));
+    service.callAllGetOffset();
+
+    // verify inserted
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 30, 20);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
+
+    service.closeAll();
+  }
+
+  @Test
   public void testIgnoreTombstoneRecordBehavior() throws Exception {
     Map<String, String> connectorConfig = TestUtils.getConfig();
 
