@@ -106,10 +106,6 @@ public class TopicPartitionChannel {
   // persisted in Snowflake (see offsetPersistedInSnowflake)
   private long latestConsumerOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
-  private final AtomicLong bufferByteSize = new AtomicLong();
-  private final AtomicLong bufferRecordSize = new AtomicLong();
-  private final AtomicLong bufferFlushTime = new AtomicLong();
-
   /**
    * Offsets are reset in kafka when one of following cases arises in which we rely on source of
    * truth (Which is Snowflake's committed offsetToken)
@@ -1329,7 +1325,7 @@ public class TopicPartitionChannel {
    * @param metricsJmxReporter wrapper class for registering all metrics related to above connector
    *     and channel
    */
-  private void registerChannelJMXMetrics(
+  public void registerChannelJMXMetrics(
       final String channelName, MetricsJmxReporter metricsJmxReporter) {
     MetricRegistry currentMetricRegistry = metricsJmxReporter.getMetricRegistry();
 

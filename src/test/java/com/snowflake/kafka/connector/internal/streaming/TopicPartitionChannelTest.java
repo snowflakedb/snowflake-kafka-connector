@@ -3,16 +3,19 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.TestUtils.createBigAvroRecords;
 import static com.snowflake.kafka.connector.internal.TestUtils.createNativeJsonSinkRecords;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 
+import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +26,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+
+import net.snowflake.client.jdbc.internal.yammer.metrics.core.MetricsRegistry;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -811,5 +816,29 @@ public class TopicPartitionChannelTest {
         .insertRows(ArgumentMatchers.any(), ArgumentMatchers.any());
 
     Assert.assertEquals(2L, topicPartitionChannel.fetchOffsetTokenWithRetry());
+  }
+
+  @Test
+  public void testRegisterJmxMetrics() {
+    MetricRegistry metricRegistry = Mockito.spy(MetricRegistry.class);
+    MetricsJmxReporter metricsJmxReporter = Mockito.spy(new MetricsJmxReporter(metricRegistry, TEST_CONNECTOR_NAME));
+
+    TopicPartitionChannel topicPartitionChannel =
+      new TopicPartitionChannel(
+          mockStreamingClient,
+          topicPartition,
+          TEST_CHANNEL_NAME,
+          TEST_TABLE_NAME,
+          streamingBufferThreshold,
+          sfConnectorConfig,
+          mockKafkaRecordErrorReporter,
+          mockSinkTaskContext);
+
+    // test
+    topicPartitionChannel.registerChannelJMXMetrics(TEST_CHANNEL_NAME, metricsJmxReporter);
+
+    // verify 3 metrics registered and started
+    Mockito.verify(metricsJmxReporter, Mockito.times(1)).start();
+    Mockito.verify(metricRegistry, Mockito.times(3)).register(Mockito.anyString(), Mockito.any());
   }
 }
