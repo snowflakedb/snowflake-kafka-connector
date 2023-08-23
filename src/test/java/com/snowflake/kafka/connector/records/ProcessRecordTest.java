@@ -153,7 +153,6 @@ public class ProcessRecordTest {
             getJson(),
             mapper.readTree(
                 "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0}}")),
-
         new Case(
             "null key, null value",
             getNull(),

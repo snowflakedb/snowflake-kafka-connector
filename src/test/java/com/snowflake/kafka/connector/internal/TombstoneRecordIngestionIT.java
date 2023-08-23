@@ -193,8 +193,7 @@ public class TombstoneRecordIngestionIT {
     SchemaAndValue input = converter.toConnectData(topic, null);
     long offset = 0;
     SinkRecord record1 =
-        new SinkRecord(
-            topic, partition, null, null, input.schema(), input.value(), offset);
+        new SinkRecord(topic, partition, null, null, input.schema(), input.value(), offset);
 
     // test insert
     service.insert(Collections.singletonList(record1));
