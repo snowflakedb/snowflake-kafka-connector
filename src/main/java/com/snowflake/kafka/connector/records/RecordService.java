@@ -23,6 +23,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
@@ -34,8 +35,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
-
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -90,9 +89,11 @@ public class RecordService {
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
   /** Send Telemetry Data to Snowflake */
   private final SnowflakeTelemetryService telemetryService;
+
   private boolean enableSchematization;
   private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues =
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT; // since BEHAVIOR_ON_NULL_VALUES_CONFIG defaults to ingestion
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues
+          .DEFAULT; // since BEHAVIOR_ON_NULL_VALUES_CONFIG defaults to ingestion
 
   /**
    * process records output JSON format: { "meta": { "offset": 123, "topic": "topic name",
@@ -151,7 +152,8 @@ public class RecordService {
    * @param behaviorOnNullValues how to handle null values
    */
   @VisibleForTesting
-  public void setBehaviorOnNullValues(final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues) {
+  public void setBehaviorOnNullValues(
+      final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues) {
     this.behaviorOnNullValues = behaviorOnNullValues;
   }
 
