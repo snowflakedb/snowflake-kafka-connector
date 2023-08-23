@@ -241,6 +241,7 @@ public class RecordContentTest {
     RecordService service = new RecordService();
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
+    service.setEnableSchematization(true);
     String value = "{\"name\":\"sf\",\"answer\":42}";
     byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
     SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
@@ -262,6 +263,7 @@ public class RecordContentTest {
     RecordService service = new RecordService();
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
+    service.setEnableSchematization(true);
     String value = "{\"\\\"NaMe\\\"\":\"sf\",\"AnSwEr\":42}";
     byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
     SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
