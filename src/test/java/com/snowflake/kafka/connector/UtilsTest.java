@@ -5,7 +5,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.Map;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
@@ -283,7 +282,6 @@ public class UtilsTest {
   }
 
   @Test
-  @Ignore // TODO @rcheng remove
   public void testGetSnowflakeOAuthAccessToken() {
     Map<String, String> config = TestUtils.getConfForStreamingWithOAuth();
     SnowflakeURL url = new SnowflakeURL(config.get(Utils.SF_URL));

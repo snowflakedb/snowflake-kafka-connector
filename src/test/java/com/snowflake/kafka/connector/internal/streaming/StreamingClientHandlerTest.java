@@ -25,7 +25,6 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -38,8 +37,7 @@ public class StreamingClientHandlerTest {
   public void setup() {
     this.streamingClientHandler = new StreamingClientHandler();
     this.connectorConfig = TestUtils.getConfForStreaming();
-    // this.connectorConfigWithOAuth = TestUtils.getConfForStreamingWithOAuth(); // TODO @rcheng
-    // remove
+    this.connectorConfigWithOAuth = TestUtils.getConfForStreamingWithOAuth();
   }
 
   @Test
@@ -54,7 +52,6 @@ public class StreamingClientHandlerTest {
 
   // TODO: Remove error expectation after SNOW-859929 is released
   @Test(expected = ConnectException.class)
-  @Ignore // TODO @rcheng remove
   public void testCreateOAuthClient() {
     this.streamingClientHandler.createClient(this.connectorConfigWithOAuth);
   }
