@@ -144,22 +144,26 @@ public class TombstoneRecordIngestionIT {
     SchemaAndValue input = converter.toConnectData(topic, null);
     SinkRecord tombstoneRecord1 =
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "tombstoneRecord1", input.schema(), input.value(), 0);
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "tombstoneRecord1",
+            input.schema(),
+            input.value(),
+            0);
     SinkRecord tombstoneRecord2 =
-        new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "tombstoneRecord2", null, null, 1);
-    SinkRecord allNullRecord1 =
-        new SinkRecord(
-            topic, partition, null, null, null, null, 2);
+        new SinkRecord(topic, partition, Schema.STRING_SCHEMA, "tombstoneRecord2", null, null, 1);
+    SinkRecord allNullRecord1 = new SinkRecord(topic, partition, null, null, null, null, 2);
     SinkRecord allNullRecord2 =
-        new SinkRecord(
-            topic, partition, null, null, input.schema(), input.value(), 3);
+        new SinkRecord(topic, partition, null, null, input.schema(), input.value(), 3);
     SinkRecord allNullRecord3 =
         new SinkRecord(
             topic, partition, input.schema(), input.value(), input.schema(), input.value(), 4);
 
     // test insert
-    service.insert(Arrays.asList(tombstoneRecord1, tombstoneRecord2, allNullRecord1, allNullRecord2, allNullRecord3));
+    service.insert(
+        Arrays.asList(
+            tombstoneRecord1, tombstoneRecord2, allNullRecord1, allNullRecord2, allNullRecord3));
     service.callAllGetOffset();
 
     // verify inserted
