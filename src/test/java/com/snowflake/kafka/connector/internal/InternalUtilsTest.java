@@ -78,7 +78,7 @@ public class InternalUtilsTest {
   public void testCreateProperties() {
     Map<String, String> config = TestUtils.getConf();
     SnowflakeURL url = TestUtils.getUrl();
-    Properties prop = InternalUtils.createProperties(config, url.sslEnabled());
+    Properties prop = InternalUtils.createProperties(config, url);
     assert prop.containsKey(InternalUtils.JDBC_DATABASE);
     assert prop.containsKey(InternalUtils.JDBC_PRIVATE_KEY);
     assert prop.containsKey(InternalUtils.JDBC_SCHEMA);
@@ -99,7 +99,7 @@ public class InternalUtilsTest {
         () -> {
           Map<String, String> t = new HashMap<>(config);
           t.remove(Utils.SF_PRIVATE_KEY);
-          InternalUtils.createProperties(t, url.sslEnabled());
+          InternalUtils.createProperties(t, url);
         });
 
     assert TestUtils.assertError(
@@ -107,7 +107,7 @@ public class InternalUtilsTest {
         () -> {
           Map<String, String> t = new HashMap<>(config);
           t.remove(Utils.SF_SCHEMA);
-          InternalUtils.createProperties(t, url.sslEnabled());
+          InternalUtils.createProperties(t, url);
         });
 
     assert TestUtils.assertError(
@@ -115,7 +115,7 @@ public class InternalUtilsTest {
         () -> {
           Map<String, String> t = new HashMap<>(config);
           t.remove(Utils.SF_DATABASE);
-          InternalUtils.createProperties(t, url.sslEnabled());
+          InternalUtils.createProperties(t, url);
         });
 
     assert TestUtils.assertError(
@@ -123,7 +123,7 @@ public class InternalUtilsTest {
         () -> {
           Map<String, String> t = new HashMap<>(config);
           t.remove(Utils.SF_USER);
-          InternalUtils.createProperties(t, url.sslEnabled());
+          InternalUtils.createProperties(t, url);
         });
   }
 

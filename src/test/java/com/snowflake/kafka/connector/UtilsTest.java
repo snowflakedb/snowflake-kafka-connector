@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.Map;
@@ -278,5 +279,19 @@ public class UtilsTest {
     assert Utils.getExceptionMessage(customMessage, stacktraceEx)
         .equals(
             Utils.formatString(Utils.GET_EXCEPTION_FORMAT, customMessage, exceptionMessage, "[]"));
+  }
+
+  @Test
+  public void testGetSnowflakeOAuthAccessToken() {
+    Map<String, String> config = TestUtils.getConfForStreamingWithOAuth();
+    SnowflakeURL url = new SnowflakeURL(config.get(Utils.SF_URL));
+    Utils.getSnowflakeOAuthAccessToken(
+        url,
+        config.get(Utils.SF_OAUTH_CLIENT_ID),
+        config.get(Utils.SF_OAUTH_CLIENT_SECRET),
+        config.get(Utils.SF_OAUTH_REFRESH_TOKEN));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_1004,
+        () -> Utils.getSnowflakeOAuthAccessToken(url, "INVALID", "INVALID", "INVALID"));
   }
 }

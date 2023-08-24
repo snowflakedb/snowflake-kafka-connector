@@ -898,6 +898,66 @@ public class ConnectorConfigTest {
     }
   }
 
+  @Test
+  public void testOAuthAuthenticator() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.OAUTH);
+    config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID, "client_id");
+    config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET, "client_secret");
+    config.put(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN, "refresh_token");
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testInvalidAuthenticator() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, "invalid_authenticator");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE);
+    }
+  }
+
+  @Test
+  public void testEmptyClientId() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.OAUTH);
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET, "client_secret");
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN, "refresh_token");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID);
+    }
+  }
+
+  @Test
+  public void testEmptyClientSecret() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.OAUTH);
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID, "client_id");
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN, "refresh_token");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET);
+    }
+  }
+
+  @Test
+  public void testEmptyRefreshToken() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.OAUTH);
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID, "client_id");
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET, "client_secret");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN);
+    }
+  }
+
   private void invalidConfigRunner(List<String> paramsToRemove) {
     Map<String, String> config = getConfig();
     for (String configParam : paramsToRemove) {
