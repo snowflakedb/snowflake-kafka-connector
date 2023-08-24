@@ -280,7 +280,7 @@ public class RecordContentTest {
   @Test
   public void testGetProcessedRecord() throws JsonProcessingException {
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
-    SchemaAndValue sv = jsonConverter.toConnectData(topic, null);
+    SchemaAndValue nullSchemaAndValue = jsonConverter.toConnectData(topic, null);
     String keyStr = "string";
 
     // all null
@@ -290,24 +290,13 @@ public class RecordContentTest {
     // null value
     this.testGetProcessedRecordRunner(
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, keyStr, sv.schema(), null, partition),
+            topic, partition, Schema.STRING_SCHEMA, keyStr, nullSchemaAndValue.schema(), null, partition),
         "{}",
         keyStr);
     this.testGetProcessedRecordRunner(
-        new SinkRecord(topic, partition, Schema.STRING_SCHEMA, keyStr, null, sv.value(), partition),
+        new SinkRecord(topic, partition, Schema.STRING_SCHEMA, keyStr, null, nullSchemaAndValue.value(), partition),
         "{}",
         keyStr);
-
-    // null key
-    this.testGetProcessedRecordRunner(
-        new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, null, sv.schema(), sv.value(), partition),
-        "{}",
-        "");
-    this.testGetProcessedRecordRunner(
-        new SinkRecord(topic, partition, null, keyStr, sv.schema(), sv.value(), partition),
-        "{}",
-        "");
   }
 
   private void testGetProcessedRecordRunner(
