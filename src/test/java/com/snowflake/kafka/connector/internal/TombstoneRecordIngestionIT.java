@@ -121,7 +121,7 @@ public class TombstoneRecordIngestionIT {
   }
 
   @Test
-  public void testDefaultTombstoneRecordBehavior() throws Exception {
+  public void testDefaultTombstoneAndNullRecordBehavior() throws Exception {
     Map<String, String> connectorConfig = TestUtils.getConfig();
 
     if (this.ingestionMethod.equals(IngestionMethodConfig.SNOWPIPE)) {

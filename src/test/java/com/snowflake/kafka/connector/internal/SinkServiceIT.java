@@ -579,11 +579,11 @@ public class SinkServiceIT {
     service.closeAll();
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testNativeNullValueIngestion() throws Exception {
     long recordCount = 1;
 
-    SinkRecord brokenValue = new SinkRecord(topic, partition, null, null, null, null, 0);
+    SinkRecord allNullRecord = new SinkRecord(topic, partition, null, null, null, null, 0);
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn)
@@ -591,7 +591,11 @@ public class SinkServiceIT {
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    service.insert(brokenValue);
+    service.insert(allNullRecord);
+    service.callAllGetOffset();
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == recordCount, 30, 20);
+
+    service.closeAll();
   }
 
   @Test

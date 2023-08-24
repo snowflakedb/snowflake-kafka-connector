@@ -91,6 +91,7 @@ public class RecordService {
 
   // This class is designed to work with empty metadata config map
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
+
   /** Send Telemetry Data to Snowflake */
   private final SnowflakeTelemetryService telemetryService;
 
@@ -115,6 +116,7 @@ public class RecordService {
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
     metadataConfig = metadataConfigIn;
   }
+
   /**
    * extract enableSchematization from the connector config and set the value for the recordService
    *
@@ -316,7 +318,7 @@ public class RecordService {
   }
 
   void putKey(SinkRecord record, ObjectNode meta) {
-    if (record.key() == null || record.keySchema() == null) {
+    if (record.key() == null) {
       return;
     }
 
