@@ -16,17 +16,16 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
-
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
+import org.apache.kafka.common.config.Config;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.config.ConfigValue;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
@@ -37,14 +36,17 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.kafka.common.config.Config;
-import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.common.config.ConfigValue;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
 /** Various arbitrary helper functions */
 public class Utils {
@@ -106,6 +108,94 @@ public class Utils {
   public static final String GET_EXCEPTION_MISSING_CAUSE = "missing exception cause";
 
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
+
+  private static final Pattern unquotedIdentifierPattern =
+      Pattern.compile("[$][0-9]+|[_a-zA-Z][_a-zA-Z0-9]*[$]?[_a-zA-Z0-9]*");
+
+  private static final String[] reservedKeywords = {
+    "ALL",
+    "ALTER",
+    "AND",
+    "ANY",
+    "AS",
+    "BETWEEN",
+    "BY",
+    "CHECK",
+    "COLUMN",
+    "CONNECT",
+    "CREATE",
+    "CURRENT",
+    "DELETE",
+    "DISTINCT",
+    "DROP",
+    "ELSE",
+    "EXISTS",
+    "FOLLOWING",
+    "FOR",
+    "FROM",
+    "GRANT",
+    "GROUP",
+    "HAVING",
+    "IN",
+    "INSERT",
+    "INTERSECT",
+    "INTO",
+    "IS",
+    "LIKE",
+    "NOT",
+    "NULL",
+    "OF",
+    "ON",
+    "OR",
+    "ORDER",
+    "REVOKE",
+    "ROW",
+    "ROWS",
+    "SAMPLE",
+    "SELECT",
+    "SET",
+    "START",
+    "TABLE",
+    "TABLESAMPLE",
+    "THEN",
+    "TO",
+    "TRIGGER",
+    "UNION",
+    "UNIQUE",
+    "UPDATE",
+    "VALUES",
+    "WHENEVER",
+    "WHERE",
+    "WITH",
+    "INCREMENT",
+    "MINUS",
+    "AGGREGATE",
+    "ILIKE",
+    "REGEXP",
+    "RLIKE",
+    "SOME",
+    "QUALIFY"
+  };
+
+  private static final HashSet<String> reservedKeywordSet =
+      new HashSet<>(Arrays.asList(reservedKeywords));
+
+  /**
+   * Unquoted identifiers must not be reserved keywords, and must consist entirely of uppercase
+   * letters, underscores, digits, and at most one dollar-sign. They also begin with an underscore,
+   * an uppercase letter, or a dollar-sign. If they begin with a dollar-sign, one or more digits
+   * must follow it, and nothing more.
+   *
+   * @param name an unqualified name (the identifier) to be quoted (maybe).
+   * @return a possibly-quoted SQL identifier that will evaluate to the same name.
+   */
+  public static String quoteNameIfNeeded(String name) {
+    int length = name.length();
+    if (name.charAt(0) == '"' && (length >= 2 && name.charAt(length - 1) == '"')) {
+      return name;
+    }
+    return '"' + name.toUpperCase() + '"';
+  }
 
   /**
    * check the connector version from Maven repo, report if any update version is available.

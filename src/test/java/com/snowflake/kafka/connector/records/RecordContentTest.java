@@ -3,13 +3,6 @@ package com.snowflake.kafka.connector.records;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Collections;
-import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.type.TypeReference;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
@@ -20,6 +13,14 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Test;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.Map;
 
 public class RecordContentTest {
   private ObjectMapper mapper = new ObjectMapper();
@@ -251,8 +252,8 @@ public class RecordContentTest {
     // each field should be dumped into string format
     // json string should not be enclosed in additional brackets
     // a non-double-quoted column name will be transformed into uppercase
-    assert got.get("name").equals("sf");
-    assert got.get("answer").equals("42");
+    assert got.get("\"NAME\"").equals("sf");
+    assert got.get("\"ANSWER\"").equals("42");
   }
 
   @Test
@@ -271,6 +272,6 @@ public class RecordContentTest {
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
 
     assert got.containsKey("\"NaMe\"");
-    assert got.containsKey("AnSwEr");
+    assert got.containsKey("\"ANSWER\"");
   }
 }
