@@ -218,11 +218,6 @@ public class TombstoneRecordIngestionIT {
       connectorConfig = TestUtils.getConfForStreaming();
     }
 
-    // set default behavior
-    connectorConfig.put(
-        SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
-        SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE.toString());
-
     TopicPartition topicPartition = new TopicPartition(topic, partition);
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, this.ingestionMethod, connectorConfig)
@@ -231,6 +226,9 @@ public class TombstoneRecordIngestionIT {
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, topicPartition)
             .build();
+
+    // set ignore behavior
+    service.setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE);
 
     // make tombstone record
     SchemaAndValue record1Input = converter.toConnectData(topic, null);
