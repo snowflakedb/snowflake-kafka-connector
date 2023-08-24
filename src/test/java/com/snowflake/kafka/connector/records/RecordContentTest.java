@@ -290,11 +290,24 @@ public class RecordContentTest {
     // null value
     this.testGetProcessedRecordRunner(
         new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, keyStr, nullSchemaAndValue.schema(), null, partition),
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            keyStr,
+            nullSchemaAndValue.schema(),
+            null,
+            partition),
         "{}",
         keyStr);
     this.testGetProcessedRecordRunner(
-        new SinkRecord(topic, partition, Schema.STRING_SCHEMA, keyStr, null, nullSchemaAndValue.value(), partition),
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            keyStr,
+            null,
+            nullSchemaAndValue.value(),
+            partition),
         "{}",
         keyStr);
   }
