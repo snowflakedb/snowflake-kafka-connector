@@ -17,66 +17,20 @@
 
 package com.snowflake.kafka.connector.internal.streaming.telemetry;
 
-import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.FILE_COUNT_SUB_DOMAIN;
-import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.FILE_COUNT_TABLE_STAGE_INGESTION_FAIL;
-import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.LATENCY_SUB_DOMAIN;
-import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.LATEST_CONSUMER_OFFSET;
-import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE;
-import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.OFFSET_SUB_DOMAIN;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constructMetricName;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_COMMIT_LAG_FILE_COUNT;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_COMMIT_LAG_MS;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_INGESTION_LAG_FILE_COUNT;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_INGESTION_LAG_MS;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_KAFKA_LAG_MS;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.AVERAGE_KAFKA_LAG_RECORD_COUNT;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.BYTE_NUMBER;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.CHANNEL_NAME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.CLEANER_RESTART_COUNT;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.COMMITTED_OFFSET;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.END_TIME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.FILE_COUNT_ON_INGESTION;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.FILE_COUNT_ON_STAGE;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.FILE_COUNT_PURGED;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.FILE_COUNT_TABLE_STAGE_BROKEN_RECORD;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.FILE_COUNT_TABLE_STAGE_INGEST_FAIL;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.FLUSHED_OFFSET;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.MEMORY_USAGE;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PIPE_NAME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PROCESSED_OFFSET;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PURGED_OFFSET;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.RECORD_NUMBER;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.STAGE_NAME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.START_TIME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TABLE_NAME;
 
 import com.codahale.metrics.Gauge;
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.Metric;
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Maps;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
-import com.snowflake.kafka.connector.internal.metrics.MetricsUtil.EventType;
-import java.util.Arrays;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.LongUnaryOperator;
-
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants;
+import java.util.concurrent.atomic.AtomicLong;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
-import org.checkerframework.checker.units.qual.A;
 
 /**
- * Extension of {@link SnowflakeTelemetryBasicInfo} class used to send data to snowflake
- * when the TopicPartitionChannel closes
+ * Extension of {@link SnowflakeTelemetryBasicInfo} class used to send data to snowflake when the
+ * TopicPartitionChannel closes
  *
  * <p>Most of the data sent to Snowflake is an aggregated data.
  */
@@ -142,9 +96,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     msg.put(TelemetryConstants.END_TIME, currTime);
   }
 
-  /**
-   * Registers all the Metrics inside the metricRegistry.
-   */
+  /** Registers all the Metrics inside the metricRegistry. */
   private void registerChannelJMXMetrics() {
     LOGGER.debug(
         "Registering new metrics for channel:{}, removing existing metrics:{}",
@@ -158,15 +110,19 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       // offsets
       currentMetricRegistry.register(
           constructMetricName(
-              this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE),
+              this.channelName,
+              MetricsUtil.OFFSET_SUB_DOMAIN,
+              MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE),
           (Gauge<Long>) this.offsetPersistedInSnowflake::get);
 
       currentMetricRegistry.register(
-          constructMetricName(this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.PROCESSED_OFFSET),
+          constructMetricName(
+              this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.PROCESSED_OFFSET),
           (Gauge<Long>) this.processedOffset::get);
 
       currentMetricRegistry.register(
-          constructMetricName(this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.LATEST_CONSUMER_OFFSET),
+          constructMetricName(
+              this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.LATEST_CONSUMER_OFFSET),
           (Gauge<Long>) () -> this.latestConsumerOffset);
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());
@@ -175,9 +131,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     this.metricsJmxReporter.start();
   }
 
-  /**
-   * Unregisters the JMX metrics
-   */
+  /** Unregisters the JMX metrics */
   public void unregisterChannelJMXMetrics() {
     if (this.metricsJmxReporter != null) {
       LOGGER.debug(

@@ -41,8 +41,7 @@ public class SnowflakeTelemetryServiceV2 extends SnowflakeTelemetryService {
 
   @Override
   public void reportKafkaPartitionUsage(
-      SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {
-  }
+      SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {}
 
   @Override
   public ObjectNode getObjectNode() {

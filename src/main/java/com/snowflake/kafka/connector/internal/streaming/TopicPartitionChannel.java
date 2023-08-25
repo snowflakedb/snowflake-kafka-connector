@@ -2,15 +2,11 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.OFFSET_SUB_DOMAIN;
-import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constructMetricName;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
-import com.codahale.metrics.Gauge;
-import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -22,7 +18,6 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
-import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
@@ -54,7 +49,6 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
-import org.checkerframework.checker.units.qual.A;
 
 /**
  * This is a wrapper on top of Streaming Ingest Channel which is responsible for ingesting rows to
@@ -278,7 +272,9 @@ public class TopicPartitionChannel {
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
 
     // telemetry and metrics
-    this.snowflakeTelemetryChannelStatus = new SnowflakeTelemetryChannelStatus(tableName, channelName, enableCustomJMXMonitoring, metricsJmxReporter);
+    this.snowflakeTelemetryChannelStatus =
+        new SnowflakeTelemetryChannelStatus(
+            tableName, channelName, enableCustomJMXMonitoring, metricsJmxReporter);
 
     // Open channel and reset the offset in kafka
     this.channel = Preconditions.checkNotNull(openChannelForTable());

@@ -7,11 +7,9 @@ import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NA
 import static com.snowflake.kafka.connector.internal.TestUtils.createBigAvroRecords;
 import static com.snowflake.kafka.connector.internal.TestUtils.createNativeJsonSinkRecords;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
-import static com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus.NUM_METRICS;
 import static org.mockito.ArgumentMatchers.eq;
 
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.jmx.JmxReporter;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -234,7 +232,8 @@ public class TopicPartitionChannelTest {
             mockSnowflakeConnectionService,
             new RecordService(mockTelemetryService),
             mockTelemetryService,
-            false, null);
+            false,
+            null);
 
     topicPartitionChannel.closeChannel();
   }
@@ -500,7 +499,8 @@ public class TopicPartitionChannelTest {
               conn,
               new RecordService(),
               mockTelemetryService,
-              false, null);
+              false,
+              null);
 
       final int noOfRecords = 3;
       List<SinkRecord> records =
@@ -626,7 +626,8 @@ public class TopicPartitionChannelTest {
             mockSnowflakeConnectionService,
             new RecordService(mockTelemetryService),
             mockTelemetryService,
-            false, null);
+            false,
+            null);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -868,23 +869,33 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
 
     // verify metrics
-    SnowflakeTelemetryChannelStatus resultStatus = topicPartitionChannel.getSnowflakeTelemetryChannelStatus();
+    SnowflakeTelemetryChannelStatus resultStatus =
+        topicPartitionChannel.getSnowflakeTelemetryChannelStatus();
 
-    assert resultStatus.getOffsetPersistedInSnowflake() == topicPartitionChannel.getOffsetPersistedInSnowflake();
+    assert resultStatus.getOffsetPersistedInSnowflake()
+        == topicPartitionChannel.getOffsetPersistedInSnowflake();
     assert resultStatus.getOffsetPersistedInSnowflake() == -1;
     assert resultStatus.getProcessedOffset() == topicPartitionChannel.getProcessedOffset();
     assert resultStatus.getProcessedOffset() == noOfRecords - 1;
-    assert resultStatus.getLatestConsumerOffset() == topicPartitionChannel.getLatestConsumerOffset();
+    assert resultStatus.getLatestConsumerOffset()
+        == topicPartitionChannel.getLatestConsumerOffset();
     assert resultStatus.getLatestConsumerOffset() == 0;
 
-    assert resultStatus.getMetricsJmxReporter().getMetricRegistry().getMetrics().size() == SnowflakeTelemetryChannelStatus.NUM_METRICS;
+    assert resultStatus.getMetricsJmxReporter().getMetricRegistry().getMetrics().size()
+        == SnowflakeTelemetryChannelStatus.NUM_METRICS;
 
     // verify telemetry was sent when channel closed
     topicPartitionChannel.closeChannel();
-    Mockito.verify(this.mockTelemetryService, Mockito.times(1)).reportKafkaPartitionUsage(Mockito.any(SnowflakeTelemetryChannelStatus.class), eq(true));
-    assert topicPartitionChannel.getSnowflakeTelemetryChannelStatus().getMetricsJmxReporter().getMetricRegistry().getMetrics().size() == 0;
+    Mockito.verify(this.mockTelemetryService, Mockito.times(1))
+        .reportKafkaPartitionUsage(Mockito.any(SnowflakeTelemetryChannelStatus.class), eq(true));
+    assert topicPartitionChannel
+            .getSnowflakeTelemetryChannelStatus()
+            .getMetricsJmxReporter()
+            .getMetricRegistry()
+            .getMetrics()
+            .size()
+        == 0;
   }
-
 
   @Test
   public void testTopicPartitionChannelInvalidJmxReporter() throws Exception {
@@ -928,7 +939,8 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
 
     // verify no errors are thrown with invalid jmx reporter but enabled jmx monitoring
-    SnowflakeTelemetryChannelStatus resultStatus = topicPartitionChannel.getSnowflakeTelemetryChannelStatus();
+    SnowflakeTelemetryChannelStatus resultStatus =
+        topicPartitionChannel.getSnowflakeTelemetryChannelStatus();
     assert resultStatus.getMetricsJmxReporter() == null;
 
     topicPartitionChannel.closeChannel();

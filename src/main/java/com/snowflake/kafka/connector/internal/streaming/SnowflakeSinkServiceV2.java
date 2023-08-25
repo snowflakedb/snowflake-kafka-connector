@@ -133,9 +133,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.tableName2SchemaEvolutionPermission = new HashMap<>();
 
     // jmx
-    String connectorName = conn == null || Strings.isNullOrEmpty(this.conn.getConnectorName()) ?
-        "default_connector" :
-        this.conn.getConnectorName();
+    String connectorName =
+        conn == null || Strings.isNullOrEmpty(this.conn.getConnectorName())
+            ? "default_connector"
+            : this.conn.getConnectorName();
     this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), connectorName);
   }
 
