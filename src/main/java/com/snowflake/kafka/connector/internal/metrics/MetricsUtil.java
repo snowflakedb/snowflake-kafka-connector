@@ -70,6 +70,14 @@ public class MetricsUtil {
    */
   public static final String PURGED_OFFSET = "purged-offset";
 
+  /**
+   * See {@link com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} for offset
+   * description
+   */
+  public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
+
+  public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
+
   // Buffer related constants
   public static final String BUFFER_SUB_DOMAIN = "buffer";
 
