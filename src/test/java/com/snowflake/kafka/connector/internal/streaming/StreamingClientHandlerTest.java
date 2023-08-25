@@ -38,7 +38,7 @@ public class StreamingClientHandlerTest {
   public void setup() {
     this.streamingClientHandler = new StreamingClientHandler();
     this.connectorConfig = TestUtils.getConfForStreaming();
-    this.connectorConfigWithOAuth = null;
+    this.connectorConfigWithOAuth = TestUtils.getConfForStreamingWithOAuth();
   }
 
   @Test
@@ -51,11 +51,12 @@ public class StreamingClientHandlerTest {
     assert client.getName().contains(this.connectorConfig.get(Utils.NAME));
   }
 
-  // TODO: Remove error expectation after SNOW-859929 is released
-  @Test(expected = ConnectException.class)
-  @Ignore
+  @Test
+  @Ignore // TODO: Remove ignore after SNOW-859929 is released
   public void testCreateOAuthClient() {
-    this.streamingClientHandler.createClient(this.connectorConfigWithOAuth);
+    if (this.connectorConfigWithOAuth != null) {
+      this.streamingClientHandler.createClient(this.connectorConfigWithOAuth);
+    }
   }
 
   @Test

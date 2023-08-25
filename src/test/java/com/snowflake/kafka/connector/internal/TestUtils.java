@@ -328,13 +328,14 @@ public class TestUtils {
   /* Get configuration map from profile path. Used against prod deployment of Snowflake */
   public static Map<String, String> getConfForStreamingWithOAuth() {
     Map<String, String> configuration = getConfWithOAuth();
-
-    // On top of existing configurations, add
-    configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
-    configuration.put(Utils.TASK_ID, "0");
-    configuration.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    if (configuration != null) {
+      // On top of existing configurations, add
+      configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
+      configuration.put(Utils.TASK_ID, "0");
+      configuration.put(
+          SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+          IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    }
 
     return configuration;
   }
@@ -354,8 +355,16 @@ public class TestUtils {
   }
 
   public static Map<String, String> getConfWithOAuth() {
+    // Return null if we don't have the corresponding OAuth required configuration in the config
+    // file
+    Map<String, String> conf = getConf();
+    if (!conf.containsKey(Utils.SF_OAUTH_CLIENT_ID)
+        || !conf.containsKey(Utils.SF_OAUTH_CLIENT_SECRET)) {
+      return null;
+    }
+
     if (confWithOAuth == null) {
-      confWithOAuth = new HashMap<>(getConf());
+      confWithOAuth = new HashMap<>(conf);
       assert (confWithOAuth.containsKey(PASSWORD)
               || confWithOAuth.containsKey(Utils.SF_OAUTH_REFRESH_TOKEN))
           && confWithOAuth.containsKey(Utils.SF_OAUTH_CLIENT_ID)

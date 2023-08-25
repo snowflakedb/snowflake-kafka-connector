@@ -46,7 +46,6 @@ import java.net.URLEncoder;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
@@ -138,85 +137,9 @@ public class Utils {
 
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
-  private static final Pattern unquotedIdentifierPattern =
-      Pattern.compile("[$][0-9]+|[_a-zA-Z][_a-zA-Z0-9]*[$]?[_a-zA-Z0-9]*");
-
-  private static final String[] reservedKeywords = {
-    "ALL",
-    "ALTER",
-    "AND",
-    "ANY",
-    "AS",
-    "BETWEEN",
-    "BY",
-    "CHECK",
-    "COLUMN",
-    "CONNECT",
-    "CREATE",
-    "CURRENT",
-    "DELETE",
-    "DISTINCT",
-    "DROP",
-    "ELSE",
-    "EXISTS",
-    "FOLLOWING",
-    "FOR",
-    "FROM",
-    "GRANT",
-    "GROUP",
-    "HAVING",
-    "IN",
-    "INSERT",
-    "INTERSECT",
-    "INTO",
-    "IS",
-    "LIKE",
-    "NOT",
-    "NULL",
-    "OF",
-    "ON",
-    "OR",
-    "ORDER",
-    "REVOKE",
-    "ROW",
-    "ROWS",
-    "SAMPLE",
-    "SELECT",
-    "SET",
-    "START",
-    "TABLE",
-    "TABLESAMPLE",
-    "THEN",
-    "TO",
-    "TRIGGER",
-    "UNION",
-    "UNIQUE",
-    "UPDATE",
-    "VALUES",
-    "WHENEVER",
-    "WHERE",
-    "WITH",
-    "INCREMENT",
-    "MINUS",
-    "AGGREGATE",
-    "ILIKE",
-    "REGEXP",
-    "RLIKE",
-    "SOME",
-    "QUALIFY"
-  };
-
-  private static final HashSet<String> reservedKeywordSet =
-      new HashSet<>(Arrays.asList(reservedKeywords));
-
   /**
-   * Unquoted identifiers must not be reserved keywords, and must consist entirely of uppercase
-   * letters, underscores, digits, and at most one dollar-sign. They also begin with an underscore,
-   * an uppercase letter, or a dollar-sign. If they begin with a dollar-sign, one or more digits
-   * must follow it, and nothing more.
-   *
-   * @param name an unqualified name (the identifier) to be quoted (maybe).
-   * @return a possibly-quoted SQL identifier that will evaluate to the same name.
+   * Quote the column name if needed: When there is quote already, we do nothing; otherwise we
+   * convert the name to upper case and add quote
    */
   public static String quoteNameIfNeeded(String name) {
     int length = name.length();
