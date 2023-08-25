@@ -15,6 +15,7 @@ import static org.apache.kafka.connect.data.Schema.Type.INT64;
 import static org.apache.kafka.connect.data.Schema.Type.STRING;
 import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
 
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
@@ -145,7 +146,8 @@ public class SchematizationUtils {
     Schema schema = record.valueSchema();
     if (schema != null) {
       for (Field field : schema.fields()) {
-        schemaMap.put(field.name(), convertToSnowflakeType(field.schema().type()));
+        schemaMap.put(
+            Utils.quoteNameIfNeeded(field.name()), convertToSnowflakeType(field.schema().type()));
       }
     }
     return schemaMap;

@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -72,8 +73,8 @@ public class SchematizationUtilsTest {
     SchemaAndValue schemaAndValue =
         converter.toConnectData(
             "topic", TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
-    String columnName1 = "regionid";
-    String columnName2 = "gender";
+    String columnName1 = Utils.quoteNameIfNeeded("regionid");
+    String columnName2 = Utils.quoteNameIfNeeded("gender");
     SinkRecord recordWithoutSchema =
         new SinkRecord(
             "topic",
