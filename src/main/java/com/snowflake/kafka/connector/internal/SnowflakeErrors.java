@@ -17,6 +17,7 @@
 
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 
@@ -283,7 +284,10 @@ public enum SnowflakeErrors {
   ERROR_5016(
       "5016",
       "Invalid SinkRecord received",
-      "SinkRecord.value and SinkRecord.valueSchema cannot be null"),
+      "SinkRecord.value and SinkRecord.valueSchema cannot be null unless tombstone record ingestion"
+          + " is enabled (see "
+          + SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG
+          + " for more information."),
   ERROR_5017(
       "5017", "Invalid api call to cached put", "Cached put only support AWS, Azure and GCS."),
   ERROR_5018("5018", "Failed to execute cached put", "Error in cached put command"),
