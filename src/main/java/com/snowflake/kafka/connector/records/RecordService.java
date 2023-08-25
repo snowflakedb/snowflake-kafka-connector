@@ -71,6 +71,8 @@ public class RecordService {
   static final String HEADERS = "headers";
 
   private boolean enableSchematization = false;
+  private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues =
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
@@ -108,7 +110,7 @@ public class RecordService {
   /** Record service with null telemetry Service, only use it for testing. */
   @VisibleForTesting
   public RecordService() {
-    this.telemetryService = null;
+    this(null);
   }
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
@@ -146,24 +148,43 @@ public class RecordService {
   }
 
   /**
+   * Directly set the behaviorOnNullValues through param
+   *
+   * <p>This method is only for testing
+   *
+   * @param behaviorOnNullValues how to handle null values
+   */
+  @VisibleForTesting
+  public void setBehaviorOnNullValues(
+      final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues) {
+    this.behaviorOnNullValues = behaviorOnNullValues;
+  }
+
+  /**
    * process given SinkRecord, only support snowflake converters
    *
    * @param record SinkRecord
    * @return a Row wrapper which contains both actual content(payload) and metadata
    */
   private SnowflakeTableRow processRecord(SinkRecord record) {
-    if (record.value() == null || record.valueSchema() == null) {
-      throw SnowflakeErrors.ERROR_5016.getException();
-    }
-    if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME)) {
-      throw SnowflakeErrors.ERROR_0009.getException();
-    }
-    if (!(record.value() instanceof SnowflakeRecordContent)) {
-      throw SnowflakeErrors.ERROR_0010.getException(
-          "Input record should be SnowflakeRecordContent object");
-    }
+    SnowflakeRecordContent valueContent;
 
-    SnowflakeRecordContent valueContent = (SnowflakeRecordContent) record.value();
+    if (record.value() == null || record.valueSchema() == null) {
+      if (this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+        valueContent = new SnowflakeRecordContent();
+      } else {
+        throw SnowflakeErrors.ERROR_5016.getException();
+      }
+    } else {
+      if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME)) {
+        throw SnowflakeErrors.ERROR_0009.getException();
+      }
+      if (!(record.value() instanceof SnowflakeRecordContent)) {
+        throw SnowflakeErrors.ERROR_0010.getException(
+            "Input record should be SnowflakeRecordContent object");
+      }
+      valueContent = (SnowflakeRecordContent) record.value();
+    }
 
     ObjectNode meta = MAPPER.createObjectNode();
     if (metadataConfig.topicFlag) {
@@ -299,6 +320,12 @@ public class RecordService {
   void putKey(SinkRecord record, ObjectNode meta) {
     if (record.key() == null) {
       return;
+    }
+
+    if (record.keySchema() == null) {
+      throw SnowflakeErrors.ERROR_0010.getException(
+          "Unsupported Key format, please implement either String Key Converter or Snowflake"
+              + " Converters");
     }
 
     if (record.keySchema().toString().equals(Schema.STRING_SCHEMA.toString())) {

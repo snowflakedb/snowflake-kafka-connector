@@ -142,11 +142,23 @@ public class ProcessRecordTest {
                     + " fine.\",\"timestamp\":1366150681},{\"username\":\"BlizzardCS\",\"tweet\":\"Works"
                     + " as intended.  Terran is IMBA.\",\"timestamp\":1366154481}]}}")),
         new Case(
+            "json key, null value",
+            getJson(),
+            getNull(),
+            mapper.readTree(
+                "{\"content\":{},\"meta\":{\"topic\":\"test\",\"offset\":0,\"partition\":0,\"schema_id\":0,\"key\":{\"some_field\":\"some_value\"}}}")),
+        new Case(
             "null key, json value",
             getNull(),
             getJson(),
             mapper.readTree(
-                "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0}}")));
+                "{\"content\":{\"some_field\":\"some_value\"},\"meta\":{\"offset\":0,\"topic\":\"test\",\"partition\":0}}")),
+        new Case(
+            "null key, null value",
+            getNull(),
+            getNull(),
+            mapper.readTree(
+                "{\"content\":{},\"meta\":{\"topic\":\"test\",\"offset\":0,\"partition\":0,\"schema_id\":0}}")));
   }
 
   public static SchemaAndValue getString() {
