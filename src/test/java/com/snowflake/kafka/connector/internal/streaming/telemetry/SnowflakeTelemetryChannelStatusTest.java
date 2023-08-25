@@ -1,0 +1,59 @@
+package com.snowflake.kafka.connector.internal.streaming.telemetry;
+
+import com.codahale.metrics.MetricRegistry;
+import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
+import org.junit.Test;
+import org.mockito.Mockito;
+
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
+public class SnowflakeTelemetryChannelStatusTest {
+  private final String tableName = "tableName";
+  private final String channelName = "channelName";
+  private final String connectorName = "connectorName";
+
+  @Test
+  public void testRegisterAndUnregisterJmxMetrics() {
+    MetricRegistry metricRegistry = Mockito.spy(MetricRegistry.class);
+    MetricsJmxReporter metricsJmxReporter =
+        Mockito.spy(new MetricsJmxReporter(metricRegistry, TEST_CONNECTOR_NAME));
+
+    // test register
+    SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus = new SnowflakeTelemetryChannelStatus(tableName, channelName, true, metricsJmxReporter);
+    verify(metricsJmxReporter, times(1)).start();
+    verify(metricRegistry, times(3)).register(Mockito.anyString(), Mockito.any());
+    verify(metricsJmxReporter, times(1)).removeMetricsFromRegistry(channelName);
+
+    // test unregister
+    snowflakeTelemetryChannelStatus.unregisterChannelJMXMetrics();
+    verify(metricsJmxReporter, times(2)).removeMetricsFromRegistry(channelName);
+  }
+
+  @Test
+  public void testDisabledJmx() {
+    MetricRegistry metricRegistry = Mockito.spy(MetricRegistry.class);
+    MetricsJmxReporter metricsJmxReporter =
+        Mockito.spy(new MetricsJmxReporter(metricRegistry, TEST_CONNECTOR_NAME));
+
+    // test register
+    SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus = new SnowflakeTelemetryChannelStatus(tableName, channelName, false, metricsJmxReporter);
+    verify(metricsJmxReporter, times(0)).start();
+    verify(metricRegistry, times(0)).register(Mockito.anyString(), Mockito.any());
+    verify(metricsJmxReporter, times(0)).removeMetricsFromRegistry(channelName);
+
+    // test unregister
+    snowflakeTelemetryChannelStatus.unregisterChannelJMXMetrics();
+    verify(metricsJmxReporter, times(1)).removeMetricsFromRegistry(channelName);
+  }
+
+  @Test
+  public void testInvalidJmxReporter() {
+    // invalid jmx reporter should not error out
+    SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus = new SnowflakeTelemetryChannelStatus(tableName, channelName, true, null);
+    snowflakeTelemetryChannelStatus.unregisterChannelJMXMetrics();
+  }
+
+
+}

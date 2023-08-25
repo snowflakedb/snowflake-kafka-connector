@@ -15,8 +15,9 @@
  * under the License.
  */
 
-package com.snowflake.kafka.connector.internal.streaming;
+package com.snowflake.kafka.connector.internal.streaming.telemetry;
 
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
@@ -41,7 +42,6 @@ public class SnowflakeTelemetryServiceV2 extends SnowflakeTelemetryService {
   @Override
   public void reportKafkaPartitionUsage(
       SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {
-    throw new IllegalStateException("Snowpipe Streaming Doesnt Have Pipe Usage");
   }
 
   @Override

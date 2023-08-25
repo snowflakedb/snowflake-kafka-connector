@@ -7,9 +7,9 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
 
 /** Minimum information needed to sent to Snowflake through Telemetry API */
 public abstract class SnowflakeTelemetryBasicInfo {
-  final String tableName;
+  public final String tableName;
 
-  static final KCLogger LOGGER = new KCLogger(SnowflakeTelemetryBasicInfo.class.getName());
+  public static final KCLogger LOGGER = new KCLogger(SnowflakeTelemetryBasicInfo.class.getName());
 
   /**
    * Base Constructor. Accepts a tableName and StageName.

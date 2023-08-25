@@ -8,11 +8,14 @@ public final class TelemetryConstants {
   public static final String TABLE_NAME = "table_name";
   public static final String STAGE_NAME = "stage_name";
   public static final String PIPE_NAME = "pipe_name";
+  public static final String CHANNEL_NAME = "channel_name";
 
   public static final String PROCESSED_OFFSET = "processed-offset";
   public static final String FLUSHED_OFFSET = "flushed-offset";
   public static final String COMMITTED_OFFSET = "committed-offset";
   public static final String PURGED_OFFSET = "purged-offset";
+  public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
+  public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
 
   public static final String RECORD_NUMBER = "record_number";
   public static final String BYTE_NUMBER = "byte_number";
