@@ -322,6 +322,12 @@ public class RecordService {
       return;
     }
 
+    if (record.keySchema() == null) {
+      throw SnowflakeErrors.ERROR_0010.getException(
+          "Unsupported Key format, please implement either String Key Converter or Snowflake"
+              + " Converters");
+    }
+
     if (record.keySchema().toString().equals(Schema.STRING_SCHEMA.toString())) {
       meta.put(KEY, record.key().toString());
     } else if (SnowflakeJsonSchema.NAME.equals(record.keySchema().name())) {

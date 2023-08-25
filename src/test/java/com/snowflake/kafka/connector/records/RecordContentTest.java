@@ -310,6 +310,34 @@ public class RecordContentTest {
             partition),
         "{}",
         keyStr);
+
+    // null key
+    this.testGetProcessedRecordRunner(
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            null,
+            nullSchemaAndValue.schema(),
+            nullSchemaAndValue.value(),
+            partition),
+        "{}",
+        "");
+    try {
+      this.testGetProcessedRecordRunner(
+          new SinkRecord(
+              topic,
+              partition,
+              null,
+              keyStr,
+              nullSchemaAndValue.schema(),
+              nullSchemaAndValue.value(),
+              partition),
+          "{}",
+          keyStr);
+    } catch (SnowflakeKafkaConnectorException ex) {
+      assert ex.checkErrorCode(SnowflakeErrors.ERROR_0010);
+    }
   }
 
   private void testGetProcessedRecordRunner(
