@@ -2,11 +2,15 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.OFFSET_SUB_DOMAIN;
+import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constructMetricName;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
+import com.codahale.metrics.Gauge;
+import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -17,6 +21,8 @@ import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
+import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
@@ -200,7 +206,8 @@ public class TopicPartitionChannel {
         sinkTaskContext,
         null, /* Null Connection */
         new RecordService(null /* Null Telemetry Service*/),
-        null);
+        null,
+        false);
   }
 
   /**
@@ -232,7 +239,8 @@ public class TopicPartitionChannel {
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn,
       RecordService recordService,
-      SnowflakeTelemetryService telemetryService) {
+      SnowflakeTelemetryService telemetryService,
+      boolean enableCustomJMXMonitoring) {
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
     Preconditions.checkState(!streamingIngestClient.isClosed());
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
@@ -275,6 +283,12 @@ public class TopicPartitionChannel {
           "TopicPartitionChannel:{}, offset token is NULL, will rely on Kafka to send us the"
               + " correct offset instead",
           this.getChannelName());
+    }
+
+    if (enableCustomJMXMonitoring) {
+      MetricsJmxReporter metricsJmxReporter =
+          new MetricsJmxReporter(new MetricRegistry(), conn.getConnectorName());
+      this.registerChannelJMXMetrics(channelName, metricsJmxReporter);
     }
   }
 
@@ -1302,5 +1316,46 @@ public class TopicPartitionChannel {
     public String toString() {
       return "[" + this.name() + "]";
     }
+  }
+
+  /**
+   * Registers all the Metrics inside the metricRegistry.
+   *
+   * @param channelName channelName
+   * @param metricsJmxReporter wrapper class for registering all metrics related to above connector
+   *     and channel
+   */
+  public void registerChannelJMXMetrics(
+      final String channelName, MetricsJmxReporter metricsJmxReporter) {
+    MetricRegistry currentMetricRegistry = metricsJmxReporter.getMetricRegistry();
+
+    // Lazily remove all registered metrics from the registry since this can be invoked during
+    // partition reassignment
+    LOGGER.debug(
+        "Registering metrics for channel:{}, existing:{}",
+        channelName,
+        metricsJmxReporter.getMetricRegistry().getMetrics().keySet().toString());
+    metricsJmxReporter.removeMetricsFromRegistry(channelName);
+
+    try {
+      // offset
+      currentMetricRegistry.register(
+          constructMetricName(
+              channelName, OFFSET_SUB_DOMAIN, MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE),
+          (Gauge<Long>) this.offsetPersistedInSnowflake::get);
+
+      currentMetricRegistry.register(
+          constructMetricName(channelName, OFFSET_SUB_DOMAIN, MetricsUtil.PROCESSED_OFFSET),
+          (Gauge<Long>) this.processedOffset::get);
+
+      currentMetricRegistry.register(
+          constructMetricName(channelName, OFFSET_SUB_DOMAIN, MetricsUtil.LATEST_CONSUMER_OFFSET),
+          (Gauge<Long>) () -> this.latestConsumerOffset);
+
+    } catch (IllegalArgumentException ex) {
+      LOGGER.warn("Metrics already present:{}", ex.getMessage());
+    }
+
+    metricsJmxReporter.start();
   }
 }
