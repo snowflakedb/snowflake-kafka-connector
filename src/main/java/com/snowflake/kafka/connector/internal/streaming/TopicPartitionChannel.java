@@ -87,7 +87,7 @@ public class TopicPartitionChannel {
   // This offset represents the data persisted in Snowflake. More specifically it is the Snowflake
   // offset determined from the insertRows API call. It is set after calling the fetchOffsetToken
   // API for this channel
-  protected final AtomicLong offsetPersistedInSnowflake =
+  private final AtomicLong offsetPersistedInSnowflake =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
   // This offset represents the data buffered in KC. More specifically it is the KC offset to ensure
@@ -309,7 +309,7 @@ public class TopicPartitionChannel {
 
     // Set the consumer offset to be the first record that Kafka sends us
     if (latestConsumerOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      this.setLatestConsumerOffset(kafkaSinkRecord.kafkaOffset(), true);
+      this.setLatestConsumerOffset(kafkaSinkRecord.kafkaOffset());
     }
 
     // Ignore adding to the buffer until we see the expected offset value
@@ -1037,7 +1037,7 @@ public class TopicPartitionChannel {
     try {
       this.channel.close().get();
       this.telemetryServiceV2.reportKafkaPartitionUsage(this.snowflakeTelemetryChannelStatus, true);
-      this.snowflakeTelemetryChannelStatus.unregisterChannelJMXMetrics();
+      this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
     } catch (InterruptedException | ExecutionException e) {
       final String errMsg =
           String.format(
@@ -1078,8 +1078,8 @@ public class TopicPartitionChannel {
     this.snowflakeTelemetryChannelStatus.setProcessedOffset(processedOffset);
   }
 
-  protected void setLatestConsumerOffset(long consumerOffset, boolean force) {
-    if (force || consumerOffset > this.latestConsumerOffset) {
+  protected void setLatestConsumerOffset(long consumerOffset) {
+    if (consumerOffset > this.latestConsumerOffset) {
       this.latestConsumerOffset = consumerOffset;
       this.snowflakeTelemetryChannelStatus.setLatestConsumerOffset(consumerOffset);
     }

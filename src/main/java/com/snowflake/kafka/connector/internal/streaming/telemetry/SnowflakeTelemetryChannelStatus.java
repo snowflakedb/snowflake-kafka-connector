@@ -131,8 +131,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     this.metricsJmxReporter.start();
   }
 
-  /** Unregisters the JMX metrics */
-  public void unregisterChannelJMXMetrics() {
+  /** Unregisters the JMX metrics if possible */
+  public void tryUnregisterChannelJMXMetrics() {
     if (this.metricsJmxReporter != null) {
       LOGGER.debug(
           "Removing metrics for channel:{}, existing metrics:{}",

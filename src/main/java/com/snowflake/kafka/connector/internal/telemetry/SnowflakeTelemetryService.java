@@ -17,6 +17,8 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.Map;
+
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
@@ -49,6 +51,7 @@ public abstract class SnowflakeTelemetryService {
   private static final String VERSION = "version";
   private static final String KAFKA_VERSION = "kafka_version";
   protected static final String IS_PIPE_CLOSING = "is_pipe_closing";
+  protected static final String IS_CHANNEL_CLOSING = "is_channel_closing";
 
   // Telemetry instance fetched from JDBC
   protected Telemetry telemetry;
@@ -90,7 +93,7 @@ public abstract class SnowflakeTelemetryService {
     dataObjectNode.put(KAFKA_VERSION, AppInfoParser.getVersion());
     addUserConnectorPropertiesToDataNode(userProvidedConfig, dataObjectNode);
 
-    send(SnowflakeTelemetryServiceV1.TelemetryType.KAFKA_START, dataObjectNode);
+    send(SnowflakeTelemetryService.TelemetryType.KAFKA_START, dataObjectNode);
   }
 
   /**
@@ -104,7 +107,7 @@ public abstract class SnowflakeTelemetryService {
     msg.put(START_TIME, startTime);
     msg.put(END_TIME, System.currentTimeMillis());
 
-    send(SnowflakeTelemetryServiceV1.TelemetryType.KAFKA_STOP, msg);
+    send(SnowflakeTelemetryService.TelemetryType.KAFKA_STOP, msg);
   }
 
   /**
@@ -118,20 +121,34 @@ public abstract class SnowflakeTelemetryService {
     msg.put(TIME, System.currentTimeMillis());
     msg.put(ERROR_NUMBER, errorDetail);
 
-    send(SnowflakeTelemetryServiceV1.TelemetryType.KAFKA_FATAL_ERROR, msg);
+    send(SnowflakeTelemetryService.TelemetryType.KAFKA_FATAL_ERROR, msg);
   }
 
   /**
    * report connector's partition usage.
    *
-   * <p>It depends on the underlying implementation of Kafka connector, i.e weather it is Snowpipe
-   * or Snowpipe Streaming
-   *
    * @param partitionStatus SnowflakePipeStatus object
    * @param isClosing is the underlying pipe/channel closing
    */
-  public abstract void reportKafkaPartitionUsage(
-      final SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing);
+  public void reportKafkaPartitionUsage(
+      final SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {
+    if (partitionStatus.isEmpty()) {
+      return;
+    }
+    ObjectNode msg = getObjectNode();
+
+    partitionStatus.dumpTo(msg);
+
+    if (partitionStatus.getClass().equals(SnowflakeTelemetryPipeStatus.class)) {
+      msg.put(IS_PIPE_CLOSING, isClosing);
+      send(TelemetryType.KAFKA_PIPE_USAGE, msg);
+    } else if (partitionStatus.getClass().equals(SnowflakeTelemetryChannelStatus.class)) {
+      msg.put(IS_CHANNEL_CLOSING, isClosing);
+      send(TelemetryType.KAFKA_CHANNEL_USAGE, msg);
+    } else {
+      LOGGER.error("Unknown telemetry info given. Must be of type {} for snowpipe or {} for streaming, instead got {}", TelemetryType.KAFKA_PIPE_USAGE, TelemetryType.KAFKA_CHANNEL_USAGE, partitionStatus.getClass());
+    }
+  }
 
   /**
    * Get default object Node which will be part of every telemetry being sent to snowflake. Based on
@@ -270,7 +287,8 @@ public abstract class SnowflakeTelemetryService {
     KAFKA_STOP("kafka_stop"),
     KAFKA_FATAL_ERROR("kafka_fatal_error"),
     KAFKA_PIPE_USAGE("kafka_pipe_usage"),
-    KAFKA_PIPE_START("kafka_pipe_start");
+    KAFKA_PIPE_START("kafka_pipe_start"),
+    KAFKA_CHANNEL_USAGE("kafka_channel_usage");
 
     private final String name;
 

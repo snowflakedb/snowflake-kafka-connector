@@ -317,7 +317,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         partitionChannelKey(topicPartition.topic(), topicPartition.partition());
     if (partitionsToChannel.containsKey(partitionChannelKey)) {
       long offset = partitionsToChannel.get(partitionChannelKey).getOffsetSafeToCommitToKafka();
-      partitionsToChannel.get(partitionChannelKey).setLatestConsumerOffset(offset, false);
+      partitionsToChannel.get(partitionChannelKey).setLatestConsumerOffset(offset);
       return offset;
     } else {
       LOGGER.warn(

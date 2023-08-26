@@ -28,7 +28,7 @@ public class SnowflakeTelemetryChannelStatusTest {
     verify(metricsJmxReporter, times(1)).removeMetricsFromRegistry(channelName);
 
     // test unregister
-    snowflakeTelemetryChannelStatus.unregisterChannelJMXMetrics();
+    snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
     verify(metricsJmxReporter, times(2)).removeMetricsFromRegistry(channelName);
   }
 
@@ -46,7 +46,7 @@ public class SnowflakeTelemetryChannelStatusTest {
     verify(metricsJmxReporter, times(0)).removeMetricsFromRegistry(channelName);
 
     // test unregister
-    snowflakeTelemetryChannelStatus.unregisterChannelJMXMetrics();
+    snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
     verify(metricsJmxReporter, times(1)).removeMetricsFromRegistry(channelName);
   }
 
@@ -55,6 +55,6 @@ public class SnowflakeTelemetryChannelStatusTest {
     // invalid jmx reporter should not error out
     SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(tableName, channelName, true, null);
-    snowflakeTelemetryChannelStatus.unregisterChannelJMXMetrics();
+    snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
   }
 }
