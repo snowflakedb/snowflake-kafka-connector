@@ -16,9 +16,8 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import java.util.Map;
-
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
+import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
@@ -146,7 +145,12 @@ public abstract class SnowflakeTelemetryService {
       msg.put(IS_CHANNEL_CLOSING, isClosing);
       send(TelemetryType.KAFKA_CHANNEL_USAGE, msg);
     } else {
-      LOGGER.error("Unknown telemetry info given. Must be of type {} for snowpipe or {} for streaming, instead got {}", TelemetryType.KAFKA_PIPE_USAGE, TelemetryType.KAFKA_CHANNEL_USAGE, partitionStatus.getClass());
+      LOGGER.error(
+          "Unknown telemetry info given. Must be of type {} for snowpipe or {} for streaming,"
+              + " instead got {}",
+          TelemetryType.KAFKA_PIPE_USAGE,
+          TelemetryType.KAFKA_CHANNEL_USAGE,
+          partitionStatus.getClass());
     }
   }
 
