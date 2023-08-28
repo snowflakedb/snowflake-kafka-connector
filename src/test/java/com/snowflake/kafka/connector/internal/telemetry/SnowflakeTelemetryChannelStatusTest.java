@@ -1,4 +1,4 @@
-package com.snowflake.kafka.connector.internal.streaming.telemetry;
+package com.snowflake.kafka.connector.internal.telemetry;
 
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static org.mockito.Mockito.times;
@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 
 import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import org.junit.Test;
 import org.mockito.Mockito;
 

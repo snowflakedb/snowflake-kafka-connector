@@ -41,7 +41,7 @@ public class SnowflakeTelemetryServiceV2 extends SnowflakeTelemetryService {
   }
 
   @VisibleForTesting
-  SnowflakeTelemetryServiceV2(Telemetry telemetry) {
+  public SnowflakeTelemetryServiceV2(Telemetry telemetry) {
     this.telemetry = telemetry;
   }
 
