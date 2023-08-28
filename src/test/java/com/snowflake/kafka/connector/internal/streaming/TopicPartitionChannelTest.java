@@ -142,8 +142,8 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
@@ -162,8 +162,8 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     Assert.assertEquals(100L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
@@ -187,8 +187,8 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     JsonConverter converter = new JsonConverter();
     HashMap<String, String> converterConfig = new HashMap<String, String>();
@@ -257,8 +257,8 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     try {
       Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
@@ -291,8 +291,8 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     int expectedRetries = MAX_GET_OFFSET_TOKEN_RETRIES;
     Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
@@ -321,8 +321,8 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     try {
       topicPartitionChannel.fetchOffsetTokenWithRetry();
@@ -353,8 +353,8 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     try {
       Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
@@ -381,8 +381,8 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     try {
       Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
@@ -415,8 +415,8 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
     final int noOfRecords = 5;
     // Since record 0 was not able to ingest, all records in this batch will not be added into the
     // buffer.
@@ -553,8 +553,8 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -592,8 +592,8 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -681,8 +681,8 @@ public class TopicPartitionChannelTest {
             new StreamingBufferThreshold(1000, 10_000_000, 10000),
             sfConnectorConfigWithErrors,
             kafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -726,8 +726,8 @@ public class TopicPartitionChannelTest {
             streamingBufferThreshold,
             sfConnectorConfigWithErrors,
             kafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -766,8 +766,8 @@ public class TopicPartitionChannelTest {
             bufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     // Sending 5 records will trigger a buffer bytes based threshold after 4 records have been
     // added. Size of each record after serialization to Json is 260 Bytes
@@ -815,8 +815,8 @@ public class TopicPartitionChannelTest {
             bufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
-        mockSinkTaskContext,
-        mockTelemetryService);
+            mockSinkTaskContext,
+            mockTelemetryService);
 
     // Sending 3 records will trigger a buffer bytes based threshold after 2 records have been
     // added. Size of each record after serialization to Json is ~6 KBytes
