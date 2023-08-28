@@ -17,6 +17,7 @@ import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
@@ -888,6 +889,8 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.closeChannel();
     Mockito.verify(this.mockTelemetryService, Mockito.times(1))
         .reportKafkaPartitionUsage(Mockito.any(SnowflakeTelemetryChannelStatus.class), eq(true));
+    Mockito.verify(this.mockTelemetryService, Mockito.times(1))
+        .reportKafkaPartitionStart(Mockito.any(SnowflakeTelemetryChannelCreation.class));
     assert topicPartitionChannel
             .getSnowflakeTelemetryChannelStatus()
             .getMetricsJmxReporter()

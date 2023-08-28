@@ -16,6 +16,7 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
@@ -165,14 +166,25 @@ public abstract class SnowflakeTelemetryService {
   /**
    * report connector partition start
    *
-   * @param pipeCreation SnowflakeTelemetryBasicInfor object
+   * @param partitionCreation SnowflakeTelemetryBasicInfor object
    */
-  public void reportKafkaPartitionStart(final SnowflakeTelemetryBasicInfo pipeCreation) {
+  public void reportKafkaPartitionStart(final SnowflakeTelemetryBasicInfo partitionCreation) {
     ObjectNode msg = getObjectNode();
 
-    pipeCreation.dumpTo(msg);
+    partitionCreation.dumpTo(msg);
 
-    send(SnowflakeTelemetryServiceV1.TelemetryType.KAFKA_PIPE_START, msg);
+    if (partitionCreation.getClass().equals(SnowflakeTelemetryPipeCreation.class)) {
+      send(TelemetryType.KAFKA_PIPE_START, msg);
+    } else if (partitionCreation.getClass().equals(SnowflakeTelemetryChannelCreation.class)) {
+      send(TelemetryType.KAFKA_CHANNEL_START, msg);
+    } else {
+      LOGGER.error(
+          "Unknown telemetry info given. Must be of type {} for snowpipe or {} for streaming,"
+              + " instead got {}",
+          TelemetryType.KAFKA_PIPE_START,
+          TelemetryType.KAFKA_CHANNEL_START,
+          partitionCreation.getClass());
+    }
   }
 
   /**
@@ -292,7 +304,8 @@ public abstract class SnowflakeTelemetryService {
     KAFKA_FATAL_ERROR("kafka_fatal_error"),
     KAFKA_PIPE_USAGE("kafka_pipe_usage"),
     KAFKA_PIPE_START("kafka_pipe_start"),
-    KAFKA_CHANNEL_USAGE("kafka_channel_usage");
+    KAFKA_CHANNEL_USAGE("kafka_channel_usage"),
+    KAFKA_CHANNEL_START("kafka_channel_start");
 
     private final String name;
 
