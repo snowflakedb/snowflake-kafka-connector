@@ -1,13 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming.telemetry;
 
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.CHANNEL_NAME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.FILE_COUNT_REPROCESS_PURGE;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.FILE_COUNT_RESTART;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.IS_REUSE_PIPE;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.IS_REUSE_STAGE;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.IS_REUSE_TABLE;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PIPE_NAME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.STAGE_NAME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.START_TIME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TABLE_NAME;
 
@@ -23,8 +17,7 @@ public class SnowflakeTelemetryChannelCreation extends SnowflakeTelemetryBasicIn
   long startTime; // start time of the pipe
   private final String channelName;
 
-  public SnowflakeTelemetryChannelCreation(
-      final String tableName, String channelName) {
+  public SnowflakeTelemetryChannelCreation(final String tableName, String channelName) {
     super(tableName);
     this.channelName = channelName;
     this.startTime = System.currentTimeMillis();

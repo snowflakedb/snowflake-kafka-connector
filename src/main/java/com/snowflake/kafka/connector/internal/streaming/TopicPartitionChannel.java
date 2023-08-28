@@ -277,7 +277,8 @@ public class TopicPartitionChannel {
         new SnowflakeTelemetryChannelStatus(
             tableName, channelName, enableCustomJMXMonitoring, metricsJmxReporter);
     if (this.telemetryServiceV2 != null) {
-      this.telemetryServiceV2.reportKafkaPartitionStart(new SnowflakeTelemetryChannelCreation(this.tableName, this.channelName));
+      this.telemetryServiceV2.reportKafkaPartitionStart(
+          new SnowflakeTelemetryChannelCreation(this.tableName, this.channelName));
     }
 
     // Open channel and reset the offset in kafka
@@ -1044,7 +1045,8 @@ public class TopicPartitionChannel {
       this.channel.close().get();
 
       if (this.telemetryServiceV2 != null) {
-        this.telemetryServiceV2.reportKafkaPartitionUsage(this.snowflakeTelemetryChannelStatus, true);
+        this.telemetryServiceV2.reportKafkaPartitionUsage(
+            this.snowflakeTelemetryChannelStatus, true);
       }
 
       this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();

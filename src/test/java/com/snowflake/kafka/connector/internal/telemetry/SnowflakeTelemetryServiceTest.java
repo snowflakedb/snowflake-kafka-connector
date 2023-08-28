@@ -12,7 +12,9 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -20,10 +22,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
-import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
-import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
-import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.telemetry.Telemetry;
 import net.snowflake.client.jdbc.telemetry.TelemetryData;
@@ -50,7 +48,6 @@ public class SnowflakeTelemetryServiceTest {
   public static final String KAFKA_CONFLUENT_AVRO_CONVERTER =
       "io.confluent.connect.avro.AvroConverter";
 
-
   public SnowflakeTelemetryServiceTest(IngestionMethodConfig ingestionMethodConfig) {
     this.startTime = System.currentTimeMillis();
     this.ingestionMethodConfig = ingestionMethodConfig;
@@ -74,15 +71,16 @@ public class SnowflakeTelemetryServiceTest {
     addKeyAndValueConvertersToConfigMap(this.config);
 
     // test report start
-    this.snowflakeTelemetryService.reportKafkaConnectStart(
-        System.currentTimeMillis(), this.config);
+    this.snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), this.config);
 
     // validate data sent
     LinkedList<TelemetryData> sentData = this.mockTelemetryClient.getSentTelemetryData();
     Assert.assertEquals(1, sentData.size());
 
     JsonNode allNode = sentData.get(0).getMessage();
-    Assert.assertEquals(SnowflakeTelemetryService.TelemetryType.KAFKA_START.toString(), allNode.get("type").asText());
+    Assert.assertEquals(
+        SnowflakeTelemetryService.TelemetryType.KAFKA_START.toString(),
+        allNode.get("type").asText());
     Assert.assertEquals("kafka_connector", allNode.get("source").asText());
     Assert.assertEquals(Utils.VERSION, allNode.get("version").asText());
 
@@ -96,7 +94,7 @@ public class SnowflakeTelemetryServiceTest {
             .equalsIgnoreCase(this.ingestionMethodConfig.toString()));
     Assert.assertTrue(
         dataNode.get(TelemetryConstants.START_TIME).asLong() <= System.currentTimeMillis()
-          && dataNode.get(TelemetryConstants.START_TIME).asLong() >= this.startTime);
+            && dataNode.get(TelemetryConstants.START_TIME).asLong() >= this.startTime);
 
     validateBufferProperties(dataNode);
     validateKeyAndValueConverter(dataNode);
@@ -105,15 +103,16 @@ public class SnowflakeTelemetryServiceTest {
   @Test
   public void testReportKafkaConnectStop() {
     // test report start
-    this.snowflakeTelemetryService.reportKafkaConnectStop(
-        System.currentTimeMillis());
+    this.snowflakeTelemetryService.reportKafkaConnectStop(System.currentTimeMillis());
 
     // validate data sent
     LinkedList<TelemetryData> sentData = this.mockTelemetryClient.getSentTelemetryData();
     Assert.assertEquals(1, sentData.size());
 
     JsonNode allNode = sentData.get(0).getMessage();
-    Assert.assertEquals(SnowflakeTelemetryService.TelemetryType.KAFKA_STOP.toString(), allNode.get("type").asText());
+    Assert.assertEquals(
+        SnowflakeTelemetryService.TelemetryType.KAFKA_STOP.toString(),
+        allNode.get("type").asText());
     Assert.assertEquals("kafka_connector", allNode.get("source").asText());
     Assert.assertEquals(Utils.VERSION, allNode.get("version").asText());
 
@@ -121,9 +120,7 @@ public class SnowflakeTelemetryServiceTest {
     Assert.assertNotNull(dataNode);
     Assert.assertTrue(dataNode.has(INGESTION_METHOD_OPT));
     Assert.assertTrue(
-        dataNode
-            .get(INGESTION_METHOD_OPT)
-            .asInt()== this.ingestionMethodConfig.ordinal());
+        dataNode.get(INGESTION_METHOD_OPT).asInt() == this.ingestionMethodConfig.ordinal());
     Assert.assertTrue(
         dataNode.get(TelemetryConstants.START_TIME).asLong() <= System.currentTimeMillis()
             && dataNode.get(TelemetryConstants.START_TIME).asLong() >= this.startTime);
@@ -131,7 +128,8 @@ public class SnowflakeTelemetryServiceTest {
 
   @Test
   public void testReportKafkaConnectFatalError() {
-    final String expectedException = SnowflakeErrors.ERROR_0003.getException("test exception").getMessage();
+    final String expectedException =
+        SnowflakeErrors.ERROR_0003.getException("test exception").getMessage();
 
     // test report start
     this.snowflakeTelemetryService.reportKafkaConnectFatalError(expectedException);
@@ -141,7 +139,9 @@ public class SnowflakeTelemetryServiceTest {
     Assert.assertEquals(1, sentData.size());
 
     JsonNode allNode = sentData.get(0).getMessage();
-    Assert.assertEquals(SnowflakeTelemetryService.TelemetryType.KAFKA_FATAL_ERROR.toString(), allNode.get("type").asText());
+    Assert.assertEquals(
+        SnowflakeTelemetryService.TelemetryType.KAFKA_FATAL_ERROR.toString(),
+        allNode.get("type").asText());
     Assert.assertEquals("kafka_connector", allNode.get("source").asText());
     Assert.assertEquals(Utils.VERSION, allNode.get("version").asText());
 
@@ -149,14 +149,11 @@ public class SnowflakeTelemetryServiceTest {
     Assert.assertNotNull(dataNode);
     Assert.assertTrue(dataNode.has(INGESTION_METHOD_OPT));
     Assert.assertTrue(
-        dataNode
-            .get(INGESTION_METHOD_OPT)
-            .asInt()== this.ingestionMethodConfig.ordinal());
+        dataNode.get(INGESTION_METHOD_OPT).asInt() == this.ingestionMethodConfig.ordinal());
     Assert.assertTrue(
         dataNode.get("time").asLong() <= System.currentTimeMillis()
             && dataNode.get("time").asLong() >= this.startTime);
-    Assert.assertEquals(
-        dataNode.get("error_number").asText(), expectedException);
+    Assert.assertEquals(dataNode.get("error_number").asText(), expectedException);
   }
 
   @Test
@@ -168,14 +165,17 @@ public class SnowflakeTelemetryServiceTest {
     final String expectedChannelName = "channelName";
 
     if (this.ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
-      SnowflakeTelemetryPipeStatus pipeStatus = new SnowflakeTelemetryPipeStatus(expectedTableName, expectedStageName, expectedPipeName, false, null);
+      SnowflakeTelemetryPipeStatus pipeStatus =
+          new SnowflakeTelemetryPipeStatus(
+              expectedTableName, expectedStageName, expectedPipeName, false, null);
       pipeStatus.setProcessedOffset(1);
       pipeStatus.setFlushedOffset(2);
       pipeStatus.setCommittedOffset(3);
 
       partitionUsage = pipeStatus;
     } else {
-      SnowflakeTelemetryChannelStatus channelStatus = new SnowflakeTelemetryChannelStatus(expectedTableName, expectedChannelName,false, null);
+      SnowflakeTelemetryChannelStatus channelStatus =
+          new SnowflakeTelemetryChannelStatus(expectedTableName, expectedChannelName, false, null);
       channelStatus.setProcessedOffset(1);
       channelStatus.setLatestConsumerOffset(2);
       channelStatus.setOffsetPersistedInSnowflake(3);
@@ -198,26 +198,30 @@ public class SnowflakeTelemetryServiceTest {
     Assert.assertNotNull(dataNode);
     Assert.assertTrue(dataNode.has(INGESTION_METHOD_OPT));
     Assert.assertTrue(
-        dataNode
-            .get(INGESTION_METHOD_OPT)
-            .asInt()== this.ingestionMethodConfig.ordinal());
+        dataNode.get(INGESTION_METHOD_OPT).asInt() == this.ingestionMethodConfig.ordinal());
     Assert.assertTrue(
         dataNode.get(TelemetryConstants.START_TIME).asLong() <= System.currentTimeMillis()
             && dataNode.get(TelemetryConstants.START_TIME).asLong() >= this.startTime);
     Assert.assertEquals(1, dataNode.get(TelemetryConstants.PROCESSED_OFFSET).asLong());
     Assert.assertEquals(expectedTableName, dataNode.get(TelemetryConstants.TABLE_NAME).asText());
 
-    if(ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
-      Assert.assertEquals(SnowflakeTelemetryService.TelemetryType.KAFKA_PIPE_USAGE.toString(), allNode.get("type").asText());
+    if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
+      Assert.assertEquals(
+          SnowflakeTelemetryService.TelemetryType.KAFKA_PIPE_USAGE.toString(),
+          allNode.get("type").asText());
       Assert.assertEquals(2, dataNode.get(TelemetryConstants.FLUSHED_OFFSET).asLong());
       Assert.assertEquals(3, dataNode.get(TelemetryConstants.COMMITTED_OFFSET).asLong());
       Assert.assertEquals(expectedPipeName, dataNode.get(TelemetryConstants.PIPE_NAME).asText());
       Assert.assertEquals(expectedStageName, dataNode.get(TelemetryConstants.STAGE_NAME).asText());
     } else {
-      Assert.assertEquals(SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE.toString(), allNode.get("type").asText());
+      Assert.assertEquals(
+          SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE.toString(),
+          allNode.get("type").asText());
       Assert.assertEquals(2, dataNode.get(TelemetryConstants.LATEST_CONSUMER_OFFSET).asLong());
-      Assert.assertEquals(3, dataNode.get(TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE).asLong());
-      Assert.assertEquals(expectedChannelName, dataNode.get(TelemetryConstants.CHANNEL_NAME).asText());
+      Assert.assertEquals(
+          3, dataNode.get(TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE).asLong());
+      Assert.assertEquals(
+          expectedChannelName, dataNode.get(TelemetryConstants.CHANNEL_NAME).asText());
     }
   }
 
@@ -230,7 +234,9 @@ public class SnowflakeTelemetryServiceTest {
     final String expectedChannelName = "channelName";
 
     if (this.ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
-      SnowflakeTelemetryPipeCreation pipeCreation = new SnowflakeTelemetryPipeCreation(expectedTableName, expectedStageName, expectedPipeName);
+      SnowflakeTelemetryPipeCreation pipeCreation =
+          new SnowflakeTelemetryPipeCreation(
+              expectedTableName, expectedStageName, expectedPipeName);
       pipeCreation.setReuseTable(true);
       pipeCreation.setReusePipe(true);
       pipeCreation.setReuseStage(true);
@@ -239,7 +245,8 @@ public class SnowflakeTelemetryServiceTest {
 
       partitionCreation = pipeCreation;
     } else {
-      SnowflakeTelemetryChannelCreation channelCreation = new SnowflakeTelemetryChannelCreation(expectedTableName, expectedChannelName);
+      SnowflakeTelemetryChannelCreation channelCreation =
+          new SnowflakeTelemetryChannelCreation(expectedTableName, expectedChannelName);
       channelCreation.setReuseTable(true);
 
       partitionCreation = channelCreation;
@@ -260,18 +267,17 @@ public class SnowflakeTelemetryServiceTest {
     Assert.assertNotNull(dataNode);
     Assert.assertTrue(dataNode.has(INGESTION_METHOD_OPT));
     Assert.assertTrue(
-        dataNode
-            .get(INGESTION_METHOD_OPT)
-            .asInt()
-            == this.ingestionMethodConfig.ordinal());
+        dataNode.get(INGESTION_METHOD_OPT).asInt() == this.ingestionMethodConfig.ordinal());
     Assert.assertTrue(
         dataNode.get(TelemetryConstants.START_TIME).asLong() <= System.currentTimeMillis()
             && dataNode.get(TelemetryConstants.START_TIME).asLong() >= this.startTime);
     Assert.assertTrue(dataNode.get(TelemetryConstants.IS_REUSE_TABLE).asBoolean());
     Assert.assertEquals(expectedTableName, dataNode.get(TelemetryConstants.TABLE_NAME).asText());
 
-    if(ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
-      Assert.assertEquals(SnowflakeTelemetryService.TelemetryType.KAFKA_PIPE_START.toString(), allNode.get("type").asText());
+    if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
+      Assert.assertEquals(
+          SnowflakeTelemetryService.TelemetryType.KAFKA_PIPE_START.toString(),
+          allNode.get("type").asText());
       Assert.assertTrue(dataNode.get(TelemetryConstants.IS_REUSE_PIPE).asBoolean());
       Assert.assertTrue(dataNode.get(TelemetryConstants.IS_REUSE_STAGE).asBoolean());
       Assert.assertEquals(10, dataNode.get(TelemetryConstants.FILE_COUNT_REPROCESS_PURGE).asInt());
@@ -279,8 +285,11 @@ public class SnowflakeTelemetryServiceTest {
       Assert.assertEquals(expectedStageName, dataNode.get(TelemetryConstants.STAGE_NAME).asText());
       Assert.assertEquals(expectedPipeName, dataNode.get(TelemetryConstants.PIPE_NAME).asText());
     } else {
-      Assert.assertEquals(SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_START.toString(), allNode.get("type").asText());
-      Assert.assertEquals(expectedChannelName, dataNode.get(TelemetryConstants.CHANNEL_NAME).asText());
+      Assert.assertEquals(
+          SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_START.toString(),
+          allNode.get("type").asText());
+      Assert.assertEquals(
+          expectedChannelName, dataNode.get(TelemetryConstants.CHANNEL_NAME).asText());
     }
   }
 
