@@ -192,7 +192,8 @@ public class TopicPartitionChannel {
       final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
-      SinkTaskContext sinkTaskContext) {
+      SinkTaskContext sinkTaskContext,
+      SnowflakeTelemetryService telemetryService) {
     this(
         streamingIngestClient,
         topicPartition,
@@ -204,8 +205,8 @@ public class TopicPartitionChannel {
         kafkaRecordErrorReporter,
         sinkTaskContext,
         null, /* Null Connection */
-        new RecordService(null /* Null Telemetry Service*/),
-        null,
+        new RecordService(telemetryService),
+        telemetryService,
         false,
         null);
   }
@@ -254,7 +255,7 @@ public class TopicPartitionChannel {
     this.conn = conn;
 
     this.recordService = recordService;
-    this.telemetryServiceV2 = telemetryService;
+    this.telemetryServiceV2 = Preconditions.checkNotNull(telemetryService);
 
     this.previousFlushTimeStampMs = System.currentTimeMillis();
 
@@ -276,10 +277,9 @@ public class TopicPartitionChannel {
     this.snowflakeTelemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             tableName, channelName, enableCustomJMXMonitoring, metricsJmxReporter);
-    if (this.telemetryServiceV2 != null) {
       this.telemetryServiceV2.reportKafkaPartitionStart(
           new SnowflakeTelemetryChannelCreation(this.tableName, this.channelName));
-    }
+
 
     // Open channel and reset the offset in kafka
     this.channel = Preconditions.checkNotNull(openChannelForTable());
@@ -759,9 +759,7 @@ public class TopicPartitionChannel {
           String.format(
               "Error inserting Records using Streaming API with msg:%s",
               insertErrors.get(0).getException().getMessage());
-      if (this.telemetryServiceV2 != null) {
         this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
-      }
       throw new DataException(errMsg, insertErrors.get(0).getException());
     }
   }
@@ -1044,10 +1042,8 @@ public class TopicPartitionChannel {
     try {
       this.channel.close().get();
 
-      if (this.telemetryServiceV2 != null) {
         this.telemetryServiceV2.reportKafkaPartitionUsage(
             this.snowflakeTelemetryChannelStatus, true);
-      }
 
       this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
     } catch (InterruptedException | ExecutionException e) {
@@ -1056,9 +1052,7 @@ public class TopicPartitionChannel {
               "Failure closing Streaming Channel name:%s msg:%s",
               this.getChannelName(), e.getMessage());
 
-      if (this.telemetryServiceV2 != null) {
         this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
-      }
       LOGGER.error(errMsg, e);
     }
   }
