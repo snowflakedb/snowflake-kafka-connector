@@ -7,7 +7,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.SnowflakeTelemetryServiceV2;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
