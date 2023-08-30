@@ -1044,7 +1044,6 @@ public class TopicPartitionChannel {
           String.format(
               "Failure closing Streaming Channel name:%s msg:%s",
               this.getChannelName(), e.getMessage());
-
       this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
       LOGGER.error(errMsg, e);
     }
