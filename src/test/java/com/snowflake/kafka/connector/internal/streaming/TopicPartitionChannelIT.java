@@ -205,7 +205,9 @@ public class TopicPartitionChannelIT {
     Assert.assertNotNull(topicPartitionChannel);
 
     Assert.assertTrue(
-        topicPartitionChannel.getTelemetryServiceV2() instanceof com.snowflake.kafka.connector.internal.streaming.SnowflakeTelemetryServiceV2);
+        topicPartitionChannel.getTelemetryServiceV2()
+            instanceof
+            com.snowflake.kafka.connector.internal.streaming.SnowflakeTelemetryServiceV2);
 
     // close channel
     topicPartitionChannel.closeChannel();

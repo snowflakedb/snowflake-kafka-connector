@@ -24,7 +24,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class SnowflakeTelemetryChannelStatus {
