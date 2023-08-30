@@ -40,7 +40,6 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
   // channel properties
   private final String channelName;
-  private final boolean enableCustomJMXConfig;
   private final MetricsJmxReporter metricsJmxReporter;
 
   private final AtomicLong startTime;
@@ -57,7 +56,6 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       final MetricsJmxReporter metricsJmxReporter) {
     super(tableName);
     this.channelName = channelName;
-    this.enableCustomJMXConfig = enableCustomJMXConfig;
     this.metricsJmxReporter = metricsJmxReporter;
 
     this.startTime = new AtomicLong(System.currentTimeMillis());

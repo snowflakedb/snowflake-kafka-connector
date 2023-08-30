@@ -166,7 +166,7 @@ public abstract class SnowflakeTelemetryService {
   /**
    * report connector partition start
    *
-   * @param partitionCreation SnowflakeTelemetryBasicInfor object
+   * @param partitionCreation SnowflakeTelemetryBasicInfo object
    */
   public void reportKafkaPartitionStart(final SnowflakeTelemetryBasicInfo partitionCreation) {
     ObjectNode msg = getObjectNode();
@@ -227,7 +227,7 @@ public abstract class SnowflakeTelemetryService {
    * @param type type of Data
    * @param data JsonData to wrap in a json field called data
    */
-  protected void send(SnowflakeTelemetryServiceV1.TelemetryType type, JsonNode data) {
+  protected void send(SnowflakeTelemetryService.TelemetryType type, JsonNode data) {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(SOURCE, KAFKA_CONNECTOR);
     msg.put(TYPE, type.toString());
