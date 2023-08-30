@@ -23,6 +23,7 @@ import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstant
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TABLE_NAME;
 
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
@@ -35,7 +36,7 @@ public class SnowflakeTelemetryChannelCreation extends SnowflakeTelemetryBasicIn
   private final String channelName;
 
   public SnowflakeTelemetryChannelCreation(final String tableName, String channelName) {
-    super(tableName);
+    super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_START);
     this.channelName = channelName;
     this.startTime = System.currentTimeMillis();
   }

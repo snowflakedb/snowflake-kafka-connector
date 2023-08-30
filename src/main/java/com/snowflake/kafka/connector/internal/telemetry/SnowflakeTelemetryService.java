@@ -138,21 +138,9 @@ public abstract class SnowflakeTelemetryService {
     ObjectNode msg = getObjectNode();
 
     partitionStatus.dumpTo(msg);
+    msg.put(partitionStatus.telemetryType == TelemetryType.KAFKA_PIPE_USAGE ? IS_PIPE_CLOSING : IS_CHANNEL_CLOSING, isClosing);
 
-    if (partitionStatus.getClass().equals(SnowflakeTelemetryPipeStatus.class)) {
-      msg.put(IS_PIPE_CLOSING, isClosing);
-      send(TelemetryType.KAFKA_PIPE_USAGE, msg);
-    } else if (partitionStatus.getClass().equals(SnowflakeTelemetryChannelStatus.class)) {
-      msg.put(IS_CHANNEL_CLOSING, isClosing);
-      send(TelemetryType.KAFKA_CHANNEL_USAGE, msg);
-    } else {
-      LOGGER.error(
-          "Unknown telemetry info given. Must be of type {} for snowpipe or {} for streaming,"
-              + " instead got {}",
-          TelemetryType.KAFKA_PIPE_USAGE,
-          TelemetryType.KAFKA_CHANNEL_USAGE,
-          partitionStatus.getClass());
-    }
+    send(partitionStatus.telemetryType, msg);
   }
 
   /**
@@ -173,18 +161,7 @@ public abstract class SnowflakeTelemetryService {
 
     partitionCreation.dumpTo(msg);
 
-    if (partitionCreation.getClass().equals(SnowflakeTelemetryPipeCreation.class)) {
-      send(TelemetryType.KAFKA_PIPE_START, msg);
-    } else if (partitionCreation.getClass().equals(SnowflakeTelemetryChannelCreation.class)) {
-      send(TelemetryType.KAFKA_CHANNEL_START, msg);
-    } else {
-      LOGGER.error(
-          "Unknown telemetry info given. Must be of type {} for snowpipe or {} for streaming,"
-              + " instead got {}",
-          TelemetryType.KAFKA_PIPE_START,
-          TelemetryType.KAFKA_CHANNEL_START,
-          partitionCreation.getClass());
-    }
+    send(partitionCreation.telemetryType, msg);
   }
 
   /**
@@ -298,7 +275,7 @@ public abstract class SnowflakeTelemetryService {
             ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT + ""));
   }
 
-  enum TelemetryType {
+  public enum TelemetryType {
     KAFKA_START("kafka_start"),
     KAFKA_STOP("kafka_stop"),
     KAFKA_FATAL_ERROR("kafka_fatal_error"),

@@ -24,6 +24,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants;
 import java.util.concurrent.atomic.AtomicLong;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
@@ -54,7 +55,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       final String channelName,
       final boolean enableCustomJMXConfig,
       final MetricsJmxReporter metricsJmxReporter) {
-    super(tableName);
+    super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE);
     this.channelName = channelName;
     this.metricsJmxReporter = metricsJmxReporter;
 
