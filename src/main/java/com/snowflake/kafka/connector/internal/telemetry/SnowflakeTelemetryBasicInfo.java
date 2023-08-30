@@ -17,7 +17,8 @@ public abstract class SnowflakeTelemetryBasicInfo {
    *
    * @param tableName Checks for Nullability
    */
-  public SnowflakeTelemetryBasicInfo(final String tableName, SnowflakeTelemetryService.TelemetryType telemetryType) {
+  public SnowflakeTelemetryBasicInfo(
+      final String tableName, SnowflakeTelemetryService.TelemetryType telemetryType) {
     Preconditions.checkArgument(
         !Strings.isNullOrEmpty(tableName), "tableName cannot be null or empty");
     this.tableName = tableName;

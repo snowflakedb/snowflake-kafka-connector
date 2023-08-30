@@ -16,8 +16,6 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
-import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -138,7 +136,11 @@ public abstract class SnowflakeTelemetryService {
     ObjectNode msg = getObjectNode();
 
     partitionStatus.dumpTo(msg);
-    msg.put(partitionStatus.telemetryType == TelemetryType.KAFKA_PIPE_USAGE ? IS_PIPE_CLOSING : IS_CHANNEL_CLOSING, isClosing);
+    msg.put(
+        partitionStatus.telemetryType == TelemetryType.KAFKA_PIPE_USAGE
+            ? IS_PIPE_CLOSING
+            : IS_CHANNEL_CLOSING,
+        isClosing);
 
     send(partitionStatus.telemetryType, msg);
   }
