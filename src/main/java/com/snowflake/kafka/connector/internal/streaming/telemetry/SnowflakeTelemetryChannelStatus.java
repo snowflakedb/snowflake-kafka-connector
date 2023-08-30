@@ -27,12 +27,6 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Extension of {@link SnowflakeTelemetryBasicInfo} class used to send data to snowflake when the
- * TopicPartitionChannel closes
- *
- * <p>Most of the data sent to Snowflake is an aggregated data.
- */
 public class SnowflakeTelemetryChannelStatus {
   private static final KCLogger LOGGER =
       new KCLogger(SnowflakeTelemetryChannelStatus.class.toString());

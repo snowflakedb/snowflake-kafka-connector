@@ -132,7 +132,7 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
       final String pipeName,
       final boolean enableCustomJMXConfig,
       final MetricsJmxReporter metricsJmxReporter) {
-    super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_PIPE_USAGE);
+    super(tableName);
     this.stageName = stageName;
     this.pipeName = pipeName;
 
