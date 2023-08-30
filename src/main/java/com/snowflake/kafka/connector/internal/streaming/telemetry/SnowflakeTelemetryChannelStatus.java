@@ -25,10 +25,7 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants;
 import java.util.concurrent.atomic.AtomicLong;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * Extension of {@link SnowflakeTelemetryBasicInfo} class used to send data to snowflake when the
@@ -37,7 +34,8 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
  * <p>Most of the data sent to Snowflake is an aggregated data.
  */
 public class SnowflakeTelemetryChannelStatus {
-  private static final KCLogger LOGGER = new KCLogger(SnowflakeTelemetryChannelStatus.class.toString());
+  private static final KCLogger LOGGER =
+      new KCLogger(SnowflakeTelemetryChannelStatus.class.toString());
 
   public static final long NUM_METRICS = 3; // update when new metrics are added
   private static final long INITIAL_OFFSET = -1;
