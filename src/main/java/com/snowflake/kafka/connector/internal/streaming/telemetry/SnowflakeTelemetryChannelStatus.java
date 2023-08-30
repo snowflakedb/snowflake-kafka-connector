@@ -21,6 +21,7 @@ import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constru
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
@@ -35,7 +36,9 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
  *
  * <p>Most of the data sent to Snowflake is an aggregated data.
  */
-public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo {
+public class SnowflakeTelemetryChannelStatus {
+  private static final KCLogger LOGGER = new KCLogger(SnowflakeTelemetryChannelStatus.class.toString());
+
   public static final long NUM_METRICS = 3; // update when new metrics are added
   private static final long INITIAL_OFFSET = -1;
 
@@ -55,7 +58,6 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       final String channelName,
       final boolean enableCustomJMXConfig,
       final MetricsJmxReporter metricsJmxReporter) {
-    super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE);
     this.channelName = channelName;
     this.metricsJmxReporter = metricsJmxReporter;
 
@@ -71,28 +73,6 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
         this.registerChannelJMXMetrics();
       }
     }
-  }
-
-  @Override
-  public boolean isEmpty() {
-    // Check that all properties are still at the default value.
-    return this.offsetPersistedInSnowflake.get() == INITIAL_OFFSET
-        && this.processedOffset.get() == INITIAL_OFFSET
-        && this.latestConsumerOffset == INITIAL_OFFSET;
-  }
-
-  @Override
-  public void dumpTo(ObjectNode msg) {
-    msg.put(TelemetryConstants.TABLE_NAME, this.tableName);
-    msg.put(TelemetryConstants.CHANNEL_NAME, this.channelName);
-
-    msg.put(TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE, offsetPersistedInSnowflake.get());
-    msg.put(TelemetryConstants.PROCESSED_OFFSET, processedOffset.get());
-    msg.put(TelemetryConstants.LATEST_CONSUMER_OFFSET, latestConsumerOffset);
-
-    final long currTime = System.currentTimeMillis();
-    msg.put(TelemetryConstants.START_TIME, startTime.getAndSet(currTime));
-    msg.put(TelemetryConstants.END_TIME, currTime);
   }
 
   /** Registers all the Metrics inside the metricRegistry. */
