@@ -7,6 +7,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.SnowflakeTelemetryServiceV2;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -205,9 +206,7 @@ public class TopicPartitionChannelIT {
     Assert.assertNotNull(topicPartitionChannel);
 
     Assert.assertTrue(
-        topicPartitionChannel.getTelemetryServiceV2()
-            instanceof
-            com.snowflake.kafka.connector.internal.streaming.SnowflakeTelemetryServiceV2);
+        topicPartitionChannel.getTelemetryServiceV2() instanceof SnowflakeTelemetryServiceV2);
 
     // close channel
     topicPartitionChannel.closeChannel();
