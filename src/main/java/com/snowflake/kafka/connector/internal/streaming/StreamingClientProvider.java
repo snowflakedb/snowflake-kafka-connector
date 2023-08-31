@@ -17,6 +17,8 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -84,8 +86,9 @@ public class StreamingClientProvider {
   public SnowflakeStreamingIngestClient getClient(Map<String, String> connectorConfig) {
     if (Boolean.parseBoolean(
         connectorConfig.getOrDefault(
-            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "false"))) {
-      LOGGER.debug(
+            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+            Boolean.toString(ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT)))) {
+      LOGGER.info(
           "Streaming client optimization is enabled, returning the existing streaming client if"
               + " valid");
       this.providerLock.lock();
@@ -97,7 +100,7 @@ public class StreamingClientProvider {
       this.providerLock.unlock();
       return this.parameterEnabledClient;
     } else {
-      LOGGER.debug("Streaming client optimization is disabled, creating a new streaming client");
+      LOGGER.info("Streaming client optimization is disabled, creating a new streaming client");
       return this.streamingClientHandler.createClient(connectorConfig);
     }
   }
