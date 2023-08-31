@@ -151,5 +151,5 @@ public interface SnowflakeSinkService {
 
   /* Get metric registry of an associated pipe */
   @VisibleForTesting
-  Optional<MetricRegistry> getMetricRegistry(final String pipeName);
+  Optional<MetricRegistry> getMetricRegistry(final String partitionIdentifier);
 }

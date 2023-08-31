@@ -6,6 +6,7 @@ import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
+import com.snowflake.kafka.connector.internal.streaming.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.ArrayList;
 import java.util.Collections;

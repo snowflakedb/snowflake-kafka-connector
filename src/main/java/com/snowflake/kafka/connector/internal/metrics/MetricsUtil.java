@@ -131,7 +131,7 @@ public class MetricsUtil {
    *
    * <p>Will be of form <b>pipeName/subDomain/metricName</b>
    *
-   * @param pipeName pipeName based on partition number
+   * @param partitionName partitionNAme based on partition number (pipeName for Snowpipe or partitionChannelKey for Streaming)
    * @param subDomain categorize this metric (Actual ObjectName creation Logic will be handled in
    *     getObjectName)
    * @param metricName actual Metric name for which we will use Gauge, Meter, Histogram

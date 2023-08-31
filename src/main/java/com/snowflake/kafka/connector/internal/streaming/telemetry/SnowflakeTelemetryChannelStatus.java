@@ -37,13 +37,19 @@ public class SnowflakeTelemetryChannelStatus {
   private final String channelName;
   private final MetricsJmxReporter metricsJmxReporter;
 
-  private final AtomicLong startTime;
-
   // offsets
   private AtomicLong offsetPersistedInSnowflake;
   private AtomicLong processedOffset;
-  private long latestConsumerOffset;
+  private AtomicLong latestConsumerOffset;
 
+  /**
+   * Creates a new object tracking {@link com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} metrics with JMX
+   * TODO @rcheng: update comment when extends telemetryBasicInfo
+   * @param tableName the table the channel is ingesting to
+   * @param channelName the name of the TopicPartitionChannel to track
+   * @param enableCustomJMXConfig if JMX metrics are enabled
+   * @param metricsJmxReporter used to report JMX metrics
+   */
   public SnowflakeTelemetryChannelStatus(
       final String tableName,
       final String channelName,
@@ -52,11 +58,9 @@ public class SnowflakeTelemetryChannelStatus {
     this.channelName = channelName;
     this.metricsJmxReporter = metricsJmxReporter;
 
-    this.startTime = new AtomicLong(System.currentTimeMillis());
-
     this.offsetPersistedInSnowflake = new AtomicLong(INITIAL_OFFSET);
     this.processedOffset = new AtomicLong(INITIAL_OFFSET);
-    this.latestConsumerOffset = INITIAL_OFFSET;
+    this.latestConsumerOffset = new AtomicLong(INITIAL_OFFSET);
     if (enableCustomJMXConfig) {
       if (metricsJmxReporter == null) {
         LOGGER.error("Invalid metrics JMX reporter, no metrics will be reported");
@@ -66,7 +70,9 @@ public class SnowflakeTelemetryChannelStatus {
     }
   }
 
-  /** Registers all the Metrics inside the metricRegistry. */
+  /**
+   * Registers all the Metrics inside the metricRegistry.
+   */
   private void registerChannelJMXMetrics() {
     LOGGER.debug(
         "Registering new metrics for channel:{}, removing existing metrics:{}",
@@ -93,7 +99,7 @@ public class SnowflakeTelemetryChannelStatus {
       currentMetricRegistry.register(
           constructMetricName(
               this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.LATEST_CONSUMER_OFFSET),
-          (Gauge<Long>) () -> this.latestConsumerOffset);
+          (Gauge<Long>) this.latestConsumerOffset::get);
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());
     }
@@ -101,7 +107,9 @@ public class SnowflakeTelemetryChannelStatus {
     this.metricsJmxReporter.start();
   }
 
-  /** Unregisters the JMX metrics if possible */
+  /**
+   * Unregisters the JMX metrics if possible
+   */
   public void tryUnregisterChannelJMXMetrics() {
     if (this.metricsJmxReporter != null) {
       LOGGER.debug(
@@ -112,30 +120,58 @@ public class SnowflakeTelemetryChannelStatus {
     }
   }
 
+  /**
+   * Gets the offset persisted in snowflake
+   * @return the offset persisted in snowflake
+   */
   public long getOffsetPersistedInSnowflake() {
     return this.offsetPersistedInSnowflake.get();
   }
 
+  /**
+   * Sets the offset persisted in Snowflake
+   * @param offsetPersistedInSnowflake value to set
+   */
   public void setOffsetPersistedInSnowflake(long offsetPersistedInSnowflake) {
     this.offsetPersistedInSnowflake.set(offsetPersistedInSnowflake);
   }
 
+  /**
+   * Gets the processed offset
+   * @return the processed offset
+   */
   public long getProcessedOffset() {
     return this.processedOffset.get();
   }
 
+  /**
+   * Sets the processed offset
+   * @param processedOffset value to set
+   */
   public void setProcessedOffset(long processedOffset) {
     this.processedOffset.set(processedOffset);
   }
 
+  /**
+   * Gets the latest consumer offset
+   * @return the latest consumer offset
+   */
   public long getLatestConsumerOffset() {
-    return this.latestConsumerOffset;
+    return this.latestConsumerOffset.get();
   }
 
+  /**
+   * Sets the latest consumer offset
+   * @param latestConsumerOffset value to set
+   */
   public void setLatestConsumerOffset(long latestConsumerOffset) {
-    this.latestConsumerOffset = latestConsumerOffset;
+    this.latestConsumerOffset.set(latestConsumerOffset);
   }
 
+  /**
+   * Gets the JMX metrics reporter
+   * @return the JMX metrics reporter
+   */
   public MetricsJmxReporter getMetricsJmxReporter() {
     return this.metricsJmxReporter;
   }

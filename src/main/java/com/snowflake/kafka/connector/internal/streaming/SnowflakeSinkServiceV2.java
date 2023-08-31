@@ -503,8 +503,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   @Override
-  public Optional<MetricRegistry> getMetricRegistry(String pipeName) {
-    return Optional.empty();
+  public Optional<MetricRegistry> getMetricRegistry(String partitionChannelKey) {
+    return this.partitionsToChannel.containsKey(partitionChannelKey) ? Optional.of(this.partitionsToChannel.get(partitionChannelKey).getSnowflakeTelemetryChannelStatus().getMetricsJmxReporter().getMetricRegistry()) : Optional.empty();
   }
 
   /**
