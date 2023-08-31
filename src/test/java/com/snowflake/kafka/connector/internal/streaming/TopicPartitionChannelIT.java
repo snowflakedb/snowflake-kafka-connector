@@ -16,10 +16,7 @@ import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
 
 public class TopicPartitionChannelIT {
 
@@ -101,6 +98,7 @@ public class TopicPartitionChannelIT {
     assert inMemorySinkTaskContext.offsets().get(topicPartition) == 1;
     assert TestUtils.tableSize(testTableName) == noOfRecords
         : "expected: " + noOfRecords + " actual: " + TestUtils.tableSize(testTableName);
+    service.closeAll();
   }
 
   /* This will automatically open the channel. */
@@ -157,6 +155,7 @@ public class TopicPartitionChannelIT {
             + (noOfRecords + noOfRecords)
             + " actual: "
             + TestUtils.tableSize(testTableName);
+    service.closeAll();
   }
 
   /**
@@ -370,6 +369,7 @@ public class TopicPartitionChannelIT {
                 + anotherSetOfRecords)
             + " actual: "
             + TestUtils.tableSize(testTableName);
+    service.closeAll();
   }
 
   @Test
@@ -444,6 +444,7 @@ public class TopicPartitionChannelIT {
             + (recordsInPartition1 + anotherSetOfRecords)
             + " actual: "
             + TestUtils.tableSize(testTableName);
+    service.closeAll();
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -473,5 +474,6 @@ public class TopicPartitionChannelIT {
 
     // should throw because we don't take arrow version 1 anymore
     service.insert(records);
+    service.closeAll();
   }
 }
