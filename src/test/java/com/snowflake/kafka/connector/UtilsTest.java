@@ -5,6 +5,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.Map;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
@@ -295,5 +296,13 @@ public class UtilsTest {
           SnowflakeErrors.ERROR_1004,
           () -> Utils.getSnowflakeOAuthAccessToken(url, "INVALID", "INVALID", "INVALID"));
     }
+  }
+
+  @Test
+  public void testQuoteNameIfNeeded() {
+    Assert.assertEquals("\"ABC\"", Utils.quoteNameIfNeeded("abc"));
+    Assert.assertEquals("\"abc\"", Utils.quoteNameIfNeeded("\"abc\""));
+    Assert.assertEquals("\"ABC\"", Utils.quoteNameIfNeeded("ABC"));
+    Assert.assertEquals("\"A\"", Utils.quoteNameIfNeeded("a"));
   }
 }
