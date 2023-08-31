@@ -43,8 +43,10 @@ public class SnowflakeTelemetryChannelStatus {
   private AtomicLong latestConsumerOffset;
 
   /**
-   * Creates a new object tracking {@link com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} metrics with JMX
+   * Creates a new object tracking {@link
+   * com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} metrics with JMX
    * TODO @rcheng: update comment when extends telemetryBasicInfo
+   *
    * @param tableName the table the channel is ingesting to
    * @param channelName the name of the TopicPartitionChannel to track
    * @param enableCustomJMXConfig if JMX metrics are enabled
@@ -70,9 +72,7 @@ public class SnowflakeTelemetryChannelStatus {
     }
   }
 
-  /**
-   * Registers all the Metrics inside the metricRegistry.
-   */
+  /** Registers all the Metrics inside the metricRegistry. */
   private void registerChannelJMXMetrics() {
     LOGGER.debug(
         "Registering new metrics for channel:{}, removing existing metrics:{}",
@@ -107,9 +107,7 @@ public class SnowflakeTelemetryChannelStatus {
     this.metricsJmxReporter.start();
   }
 
-  /**
-   * Unregisters the JMX metrics if possible
-   */
+  /** Unregisters the JMX metrics if possible */
   public void tryUnregisterChannelJMXMetrics() {
     if (this.metricsJmxReporter != null) {
       LOGGER.debug(
@@ -122,6 +120,7 @@ public class SnowflakeTelemetryChannelStatus {
 
   /**
    * Gets the offset persisted in snowflake
+   *
    * @return the offset persisted in snowflake
    */
   public long getOffsetPersistedInSnowflake() {
@@ -130,6 +129,7 @@ public class SnowflakeTelemetryChannelStatus {
 
   /**
    * Sets the offset persisted in Snowflake
+   *
    * @param offsetPersistedInSnowflake value to set
    */
   public void setOffsetPersistedInSnowflake(long offsetPersistedInSnowflake) {
@@ -138,6 +138,7 @@ public class SnowflakeTelemetryChannelStatus {
 
   /**
    * Gets the processed offset
+   *
    * @return the processed offset
    */
   public long getProcessedOffset() {
@@ -146,6 +147,7 @@ public class SnowflakeTelemetryChannelStatus {
 
   /**
    * Sets the processed offset
+   *
    * @param processedOffset value to set
    */
   public void setProcessedOffset(long processedOffset) {
@@ -154,6 +156,7 @@ public class SnowflakeTelemetryChannelStatus {
 
   /**
    * Gets the latest consumer offset
+   *
    * @return the latest consumer offset
    */
   public long getLatestConsumerOffset() {
@@ -162,6 +165,7 @@ public class SnowflakeTelemetryChannelStatus {
 
   /**
    * Sets the latest consumer offset
+   *
    * @param latestConsumerOffset value to set
    */
   public void setLatestConsumerOffset(long latestConsumerOffset) {
@@ -170,6 +174,7 @@ public class SnowflakeTelemetryChannelStatus {
 
   /**
    * Gets the JMX metrics reporter
+   *
    * @return the JMX metrics reporter
    */
   public MetricsJmxReporter getMetricsJmxReporter() {

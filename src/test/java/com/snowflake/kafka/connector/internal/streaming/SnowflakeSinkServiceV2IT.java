@@ -4,8 +4,6 @@ import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServ
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.codahale.metrics.Gauge;
-import com.codahale.metrics.Metric;
-import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
@@ -15,7 +13,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
-import com.snowflake.kafka.connector.internal.streaming.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
@@ -33,8 +30,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import net.snowflake.client.jdbc.internal.yammer.metrics.core.MetricsRegistry;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -403,23 +398,78 @@ public class SnowflakeSinkServiceV2IT {
         5);
 
     // verify metrics
-    Map<String, Gauge> metricRegistry = service.getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition)).get().getGauges();
-    assert metricRegistry.size() == SnowflakeTelemetryChannelStatus.NUM_METRICS * 2; // two partitions
+    Map<String, Gauge> metricRegistry =
+        service
+            .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition))
+            .get()
+            .getGauges();
+    assert metricRegistry.size()
+        == SnowflakeTelemetryChannelStatus.NUM_METRICS * 2; // two partitions
 
     // partition 1
-    assert (long) metricRegistry.get(MetricsUtil.constructMetricName(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition), MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE)).getValue() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
-    assert (long) metricRegistry.get(MetricsUtil.constructMetricName(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition), MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.PROCESSED_OFFSET)).getValue() == recordsInPartition1 - 1;
-    assert (long) metricRegistry.get(MetricsUtil.constructMetricName(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition), MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.LATEST_CONSUMER_OFFSET)).getValue() == recordsInPartition1;
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        SnowflakeSinkServiceV2.partitionChannelKey(topic, partition),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
+                .getValue()
+        == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        SnowflakeSinkServiceV2.partitionChannelKey(topic, partition),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.PROCESSED_OFFSET))
+                .getValue()
+        == recordsInPartition1 - 1;
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        SnowflakeSinkServiceV2.partitionChannelKey(topic, partition),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.LATEST_CONSUMER_OFFSET))
+                .getValue()
+        == recordsInPartition1;
 
     // partition 2
-    assert (long) metricRegistry.get(MetricsUtil.constructMetricName(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition2), MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE)).getValue() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
-    assert (long) metricRegistry.get(MetricsUtil.constructMetricName(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition2), MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.PROCESSED_OFFSET)).getValue() == recordsInPartition1 - 1;
-    assert (long) metricRegistry.get(MetricsUtil.constructMetricName(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition2), MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.LATEST_CONSUMER_OFFSET)).getValue() == recordsInPartition1;
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        SnowflakeSinkServiceV2.partitionChannelKey(topic, partition2),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
+                .getValue()
+        == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        SnowflakeSinkServiceV2.partitionChannelKey(topic, partition2),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.PROCESSED_OFFSET))
+                .getValue()
+        == recordsInPartition1 - 1;
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        SnowflakeSinkServiceV2.partitionChannelKey(topic, partition2),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.LATEST_CONSUMER_OFFSET))
+                .getValue()
+        == recordsInPartition1;
 
     service.closeAll();
 
     // verify metrics closed
-    assert !service.getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition)).isPresent();
+    assert !service
+        .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition))
+        .isPresent();
   }
 
   @Test
