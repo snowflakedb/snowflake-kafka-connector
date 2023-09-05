@@ -397,7 +397,7 @@ public class SnowflakeSinkServiceV2IT {
         20,
         5);
 
-    // verify metrics
+    // verify all metrics
     Map<String, Gauge> metricRegistry =
         service
             .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition))

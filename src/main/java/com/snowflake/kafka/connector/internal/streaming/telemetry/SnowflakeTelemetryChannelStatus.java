@@ -31,16 +31,15 @@ public class SnowflakeTelemetryChannelStatus {
       new KCLogger(SnowflakeTelemetryChannelStatus.class.toString());
 
   public static final long NUM_METRICS = 3; // update when new metrics are added
-  private static final long INITIAL_OFFSET = -1;
 
   // channel properties
   private final String channelName;
   private final MetricsJmxReporter metricsJmxReporter;
 
   // offsets
-  private AtomicLong offsetPersistedInSnowflake;
-  private AtomicLong processedOffset;
-  private AtomicLong latestConsumerOffset;
+  private final AtomicLong offsetPersistedInSnowflake;
+  private final AtomicLong processedOffset;
+  private final AtomicLong latestConsumerOffset;
 
   /**
    * Creates a new object tracking {@link
@@ -56,13 +55,14 @@ public class SnowflakeTelemetryChannelStatus {
       final String tableName,
       final String channelName,
       final boolean enableCustomJMXConfig,
-      final MetricsJmxReporter metricsJmxReporter) {
+      final MetricsJmxReporter metricsJmxReporter, AtomicLong offsetPersistedInSnowflake, AtomicLong processedOffset, long latestConsumerOffset) {
     this.channelName = channelName;
     this.metricsJmxReporter = metricsJmxReporter;
 
-    this.offsetPersistedInSnowflake = new AtomicLong(INITIAL_OFFSET);
-    this.processedOffset = new AtomicLong(INITIAL_OFFSET);
-    this.latestConsumerOffset = new AtomicLong(INITIAL_OFFSET);
+    this.offsetPersistedInSnowflake = offsetPersistedInSnowflake;
+    this.processedOffset = processedOffset;
+    this.latestConsumerOffset = new AtomicLong(latestConsumerOffset);
+
     if (enableCustomJMXConfig) {
       if (metricsJmxReporter == null) {
         LOGGER.error("Invalid metrics JMX reporter, no metrics will be reported");
