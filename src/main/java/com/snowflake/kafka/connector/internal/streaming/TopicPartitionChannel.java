@@ -100,7 +100,7 @@ public class TopicPartitionChannel {
   // processedOffset, however it is only used to resend the offset when the channel offset token is
   // NULL. It is updated to the first offset sent by KC (see processedOffset) or the offset
   // persisted in Snowflake (see offsetPersistedInSnowflake)
-  private long latestConsumerOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+  private final AtomicLong latestConsumerOffset = new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
   /**
    * Offsets are reset in kafka when one of following cases arises in which we rely on source of
@@ -285,9 +285,9 @@ public class TopicPartitionChannel {
             channelName,
             enableCustomJMXMonitoring,
             metricsJmxReporter,
-            offsetPersistedInSnowflake,
-            processedOffset,
-            lastCommittedOffsetToken);
+            this.offsetPersistedInSnowflake,
+            this.processedOffset,
+            this.latestConsumerOffset);
 
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
@@ -315,8 +315,8 @@ public class TopicPartitionChannel {
     final long currentProcessedOffset = this.processedOffset.get();
 
     // Set the consumer offset to be the first record that Kafka sends us
-    if (latestConsumerOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      this.latestConsumerOffset = kafkaSinkRecord.kafkaOffset();
+    if (latestConsumerOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      this.latestConsumerOffset.set(kafkaSinkRecord.kafkaOffset());
     }
 
     // Ignore adding to the buffer until we see the expected offset value
@@ -923,7 +923,7 @@ public class TopicPartitionChannel {
     // otherwise use the offset token stored in the channel
     final long offsetToResetInKafka =
         offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
-            ? latestConsumerOffset
+            ? latestConsumerOffset.get()
             : offsetRecoveredFromSnowflake + 1L;
     if (offsetToResetInKafka == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       return;
@@ -1089,16 +1089,6 @@ public class TopicPartitionChannel {
   }
 
   @VisibleForTesting
-  protected long getProcessedOffset() {
-    return this.processedOffset.get();
-  }
-
-  @VisibleForTesting
-  protected long getLatestConsumerOffset() {
-    return this.latestConsumerOffset;
-  }
-
-  @VisibleForTesting
   protected boolean isPartitionBufferEmpty() {
     return streamingBuffer.isEmpty();
   }
@@ -1119,8 +1109,8 @@ public class TopicPartitionChannel {
   }
 
   protected void setLatestConsumerOffset(long consumerOffset) {
-    if (consumerOffset > this.latestConsumerOffset) {
-      this.latestConsumerOffset = consumerOffset;
+    if (consumerOffset > this.latestConsumerOffset.get()) {
+      this.latestConsumerOffset.set(consumerOffset);
     }
   }
 

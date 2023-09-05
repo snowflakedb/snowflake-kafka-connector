@@ -58,13 +58,13 @@ public class SnowflakeTelemetryChannelStatus {
       final MetricsJmxReporter metricsJmxReporter,
       AtomicLong offsetPersistedInSnowflake,
       AtomicLong processedOffset,
-      long latestConsumerOffset) {
+      AtomicLong latestConsumerOffset) {
     this.channelName = channelName;
     this.metricsJmxReporter = metricsJmxReporter;
 
     this.offsetPersistedInSnowflake = offsetPersistedInSnowflake;
     this.processedOffset = processedOffset;
-    this.latestConsumerOffset = new AtomicLong(latestConsumerOffset);
+    this.latestConsumerOffset = latestConsumerOffset;
 
     if (enableCustomJMXConfig) {
       if (metricsJmxReporter == null) {

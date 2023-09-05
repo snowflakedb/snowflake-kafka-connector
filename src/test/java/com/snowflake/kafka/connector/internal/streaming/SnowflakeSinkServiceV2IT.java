@@ -367,7 +367,7 @@ public class SnowflakeSinkServiceV2IT {
             .build();
 
     final int recordsInPartition1 = 2;
-    final int recordsInPartition2 = 2;
+    final int recordsInPartition2 = 5;
     List<SinkRecord> recordsPartition1 =
         TestUtils.createJsonStringSinkRecords(0, recordsInPartition1, topic, partition);
 
@@ -453,7 +453,7 @@ public class SnowflakeSinkServiceV2IT {
                         MetricsUtil.OFFSET_SUB_DOMAIN,
                         MetricsUtil.PROCESSED_OFFSET))
                 .getValue()
-        == recordsInPartition1 - 1;
+        == recordsInPartition2 - 1;
     assert (long)
             metricRegistry
                 .get(
@@ -462,7 +462,7 @@ public class SnowflakeSinkServiceV2IT {
                         MetricsUtil.OFFSET_SUB_DOMAIN,
                         MetricsUtil.LATEST_CONSUMER_OFFSET))
                 .getValue()
-        == recordsInPartition1;
+        == recordsInPartition2;
 
     service.closeAll();
 
