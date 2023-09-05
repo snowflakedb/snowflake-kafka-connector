@@ -21,6 +21,7 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -295,7 +296,7 @@ public class RecordService {
       }
       // while the value is always dumped into a string, the Streaming Ingest SDK
       // will transform the value according to its type in the table
-      streamingIngestRow.put(columnName, columnValue);
+      streamingIngestRow.put(Utils.quoteNameIfNeeded(columnName), columnValue);
     }
     // Thrown an exception if the input JsonNode is not in the expected format
     if (streamingIngestRow.isEmpty()) {

@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -32,6 +33,7 @@ public class SchematizationUtilsTest {
   @Test
   public void testGetColumnTypesWithoutSchema() throws JsonProcessingException {
     String columnName = "test";
+    String nonExistingColumnName = "random";
     ObjectMapper mapper = new ObjectMapper();
     JsonConverter jsonConverter = new JsonConverter();
     Map<String, ?> config = Collections.singletonMap("schemas.enable", false);
@@ -52,15 +54,17 @@ public class SchematizationUtilsTest {
             System.currentTimeMillis(),
             TimestampType.CREATE_TIME);
 
+    String processedColumnName = Utils.quoteNameIfNeeded(columnName);
+    String processedNonExistingColumnName = Utils.quoteNameIfNeeded(nonExistingColumnName);
     Map<String, String> columnToTypes =
         SchematizationUtils.getColumnTypes(
-            recordWithoutSchema, Collections.singletonList(columnName));
-    Assert.assertEquals("VARCHAR", columnToTypes.get(columnName));
-    // Get non-existing column name should return VARIANT data type
+            recordWithoutSchema, Collections.singletonList(processedColumnName));
+    Assert.assertEquals("VARCHAR", columnToTypes.get(processedColumnName));
+    // Get non-existing column name should return nothing
     columnToTypes =
         SchematizationUtils.getColumnTypes(
-            recordWithoutSchema, Collections.singletonList("random"));
-    Assert.assertEquals("VARCHAR", columnToTypes.get("random"));
+            recordWithoutSchema, Collections.singletonList(processedNonExistingColumnName));
+    Assert.assertTrue(columnToTypes.isEmpty());
   }
 
   @Test
@@ -72,8 +76,8 @@ public class SchematizationUtilsTest {
     SchemaAndValue schemaAndValue =
         converter.toConnectData(
             "topic", TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
-    String columnName1 = "regionid";
-    String columnName2 = "gender";
+    String columnName1 = Utils.quoteNameIfNeeded("regionid");
+    String columnName2 = Utils.quoteNameIfNeeded("gender");
     SinkRecord recordWithoutSchema =
         new SinkRecord(
             "topic",
