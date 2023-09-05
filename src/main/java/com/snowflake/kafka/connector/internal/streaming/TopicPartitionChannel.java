@@ -100,7 +100,8 @@ public class TopicPartitionChannel {
   // processedOffset, however it is only used to resend the offset when the channel offset token is
   // NULL. It is updated to the first offset sent by KC (see processedOffset) or the offset
   // persisted in Snowflake (see offsetPersistedInSnowflake)
-  private final AtomicLong latestConsumerOffset = new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+  private final AtomicLong latestConsumerOffset =
+      new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
   /**
    * Offsets are reset in kafka when one of following cases arises in which we rely on source of
