@@ -281,7 +281,13 @@ public class TopicPartitionChannel {
     // setup telemetry and metrics
     this.snowflakeTelemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
-            tableName, channelName, enableCustomJMXMonitoring, metricsJmxReporter, offsetPersistedInSnowflake, processedOffset, lastCommittedOffsetToken);
+            tableName,
+            channelName,
+            enableCustomJMXMonitoring,
+            metricsJmxReporter,
+            offsetPersistedInSnowflake,
+            processedOffset,
+            lastCommittedOffsetToken);
 
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);

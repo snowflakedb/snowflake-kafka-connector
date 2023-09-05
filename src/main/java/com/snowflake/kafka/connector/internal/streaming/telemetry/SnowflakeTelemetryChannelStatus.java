@@ -55,7 +55,10 @@ public class SnowflakeTelemetryChannelStatus {
       final String tableName,
       final String channelName,
       final boolean enableCustomJMXConfig,
-      final MetricsJmxReporter metricsJmxReporter, AtomicLong offsetPersistedInSnowflake, AtomicLong processedOffset, long latestConsumerOffset) {
+      final MetricsJmxReporter metricsJmxReporter,
+      AtomicLong offsetPersistedInSnowflake,
+      AtomicLong processedOffset,
+      long latestConsumerOffset) {
     this.channelName = channelName;
     this.metricsJmxReporter = metricsJmxReporter;
 
