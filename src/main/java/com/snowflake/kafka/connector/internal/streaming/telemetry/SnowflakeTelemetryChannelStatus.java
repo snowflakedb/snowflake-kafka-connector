@@ -122,60 +122,6 @@ public class SnowflakeTelemetryChannelStatus {
   }
 
   /**
-   * Gets the offset persisted in snowflake
-   *
-   * @return the offset persisted in snowflake
-   */
-  public long getOffsetPersistedInSnowflake() {
-    return this.offsetPersistedInSnowflake.get();
-  }
-
-  /**
-   * Sets the offset persisted in Snowflake
-   *
-   * @param offsetPersistedInSnowflake value to set
-   */
-  public void setOffsetPersistedInSnowflake(long offsetPersistedInSnowflake) {
-    this.offsetPersistedInSnowflake.set(offsetPersistedInSnowflake);
-  }
-
-  /**
-   * Gets the processed offset
-   *
-   * @return the processed offset
-   */
-  public long getProcessedOffset() {
-    return this.processedOffset.get();
-  }
-
-  /**
-   * Sets the processed offset
-   *
-   * @param processedOffset value to set
-   */
-  public void setProcessedOffset(long processedOffset) {
-    this.processedOffset.set(processedOffset);
-  }
-
-  /**
-   * Gets the latest consumer offset
-   *
-   * @return the latest consumer offset
-   */
-  public long getLatestConsumerOffset() {
-    return this.latestConsumerOffset.get();
-  }
-
-  /**
-   * Sets the latest consumer offset
-   *
-   * @param latestConsumerOffset value to set
-   */
-  public void setLatestConsumerOffset(long latestConsumerOffset) {
-    this.latestConsumerOffset.set(latestConsumerOffset);
-  }
-
-  /**
    * Gets the JMX metrics reporter
    *
    * @return the JMX metrics reporter

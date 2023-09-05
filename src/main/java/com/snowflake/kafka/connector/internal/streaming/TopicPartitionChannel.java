@@ -1073,12 +1073,6 @@ public class TopicPartitionChannel {
     return this.channel.getFullyQualifiedName();
   }
 
-  protected void setLatestConsumerOffset(long consumerOffset) {
-    if (consumerOffset > this.latestConsumerOffset) {
-      this.latestConsumerOffset = consumerOffset;
-      this.snowflakeTelemetryChannelStatus.setLatestConsumerOffset(consumerOffset);
-    }
-  }
 
   @Override
   public String toString() {
@@ -1123,6 +1117,12 @@ public class TopicPartitionChannel {
   @VisibleForTesting
   protected SnowflakeTelemetryChannelStatus getSnowflakeTelemetryChannelStatus() {
     return this.snowflakeTelemetryChannelStatus;
+  }
+
+  protected void setLatestConsumerOffset(long consumerOffset) {
+    if (consumerOffset > this.latestConsumerOffset) {
+      this.latestConsumerOffset = consumerOffset;
+    }
   }
 
   /**
