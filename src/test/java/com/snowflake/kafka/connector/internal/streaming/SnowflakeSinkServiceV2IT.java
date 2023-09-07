@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
+import com.codahale.metrics.Gauge;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
@@ -11,6 +12,8 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
@@ -346,7 +349,7 @@ public class SnowflakeSinkServiceV2IT {
   }
 
   @Test
-  public void testStreamingIngest_multipleChannelPartitions() throws Exception {
+  public void testStreamingIngest_multipleChannelPartitions_withMetrics() throws Exception {
     Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
@@ -360,10 +363,11 @@ public class SnowflakeSinkServiceV2IT {
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .addTask(table, new TopicPartition(topic, partition2)) // Internally calls startTask
+            .setCustomJMXMetrics(true)
             .build();
 
     final int recordsInPartition1 = 2;
-    final int recordsInPartition2 = 2;
+    final int recordsInPartition2 = 5;
     List<SinkRecord> recordsPartition1 =
         TestUtils.createJsonStringSinkRecords(0, recordsInPartition1, topic, partition);
 
@@ -393,7 +397,79 @@ public class SnowflakeSinkServiceV2IT {
         20,
         5);
 
+    // verify all metrics
+    Map<String, Gauge> metricRegistry =
+        service
+            .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition))
+            .get()
+            .getGauges();
+    assert metricRegistry.size()
+        == SnowflakeTelemetryChannelStatus.NUM_METRICS * 2; // two partitions
+
+    // partition 1
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        SnowflakeSinkServiceV2.partitionChannelKey(topic, partition),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
+                .getValue()
+        == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        SnowflakeSinkServiceV2.partitionChannelKey(topic, partition),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.PROCESSED_OFFSET))
+                .getValue()
+        == recordsInPartition1 - 1;
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        SnowflakeSinkServiceV2.partitionChannelKey(topic, partition),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.LATEST_CONSUMER_OFFSET))
+                .getValue()
+        == recordsInPartition1;
+
+    // partition 2
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        SnowflakeSinkServiceV2.partitionChannelKey(topic, partition2),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
+                .getValue()
+        == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        SnowflakeSinkServiceV2.partitionChannelKey(topic, partition2),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.PROCESSED_OFFSET))
+                .getValue()
+        == recordsInPartition2 - 1;
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        SnowflakeSinkServiceV2.partitionChannelKey(topic, partition2),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.LATEST_CONSUMER_OFFSET))
+                .getValue()
+        == recordsInPartition2;
+
     service.closeAll();
+
+    // verify metrics closed
+    assert !service
+        .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition))
+        .isPresent();
   }
 
   @Test

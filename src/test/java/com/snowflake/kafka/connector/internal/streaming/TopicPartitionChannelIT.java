@@ -89,7 +89,8 @@ public class TopicPartitionChannelIT {
             new StreamingBufferThreshold(10, 10_000, 1),
             config,
             new InMemoryKafkaRecordErrorReporter(),
-            new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
+            new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
+            conn.getTelemetryClient());
 
     // since channel is updated, try to insert data again or may be call getOffsetToken
     // We will reopen the channel in since the older channel in service is stale because we
