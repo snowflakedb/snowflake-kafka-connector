@@ -254,8 +254,8 @@ public class RecordContentTest {
     // each field should be dumped into string format
     // json string should not be enclosed in additional brackets
     // a non-double-quoted column name will be transformed into uppercase
-    assert got.get("name").equals("sf");
-    assert got.get("answer").equals("42");
+    assert got.get("\"NAME\"").equals("sf");
+    assert got.get("\"ANSWER\"").equals("42");
   }
 
   @Test
@@ -274,7 +274,7 @@ public class RecordContentTest {
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
 
     assert got.containsKey("\"NaMe\"");
-    assert got.containsKey("AnSwEr");
+    assert got.containsKey("\"ANSWER\"");
   }
 
   @Test

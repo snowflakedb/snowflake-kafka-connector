@@ -127,18 +127,19 @@ public class MetricsUtil {
   /**
    * Construct the actual metrics name that will be passed in by dropwizard framework to {@link
    * MetricsJmxReporter#getObjectName(String, String, String)} We will prefix actual metric name
-   * with pipeName and subcategory of the metric.
+   * with partitionName and subcategory of the metric.
    *
-   * <p>Will be of form <b>pipeName/subDomain/metricName</b>
+   * <p>Will be of form <b>partitionName/subDomain/metricName</b>
    *
-   * @param pipeName pipeName based on partition number
+   * @param partitionName partitionNAme based on partition number (pipeName for Snowpipe or
+   *     partitionChannelKey for Streaming)
    * @param subDomain categorize this metric (Actual ObjectName creation Logic will be handled in
    *     getObjectName)
    * @param metricName actual Metric name for which we will use Gauge, Meter, Histogram
    * @return concatenized String
    */
   public static String constructMetricName(
-      final String pipeName, final String subDomain, final String metricName) {
-    return String.format("%s/%s/%s", pipeName, subDomain, metricName);
+      final String partitionName, final String subDomain, final String metricName) {
+    return String.format("%s/%s/%s", partitionName, subDomain, metricName);
   }
 }

@@ -15,13 +15,17 @@ import static org.apache.kafka.connect.data.Schema.Type.INT64;
 import static org.apache.kafka.connect.data.Schema.Type.STRING;
 import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
 
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.connect.data.Field;
@@ -112,25 +116,30 @@ public class SchematizationUtils {
     Map<String, String> columnToType = new HashMap<>();
     Map<String, String> schemaMap = getSchemaMapFromRecord(record);
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
+    Set<String> columnNamesSet = new HashSet<>(columnNames);
 
-    for (String columnName : columnNames) {
-      if (!columnToType.containsKey(columnName)) {
+    Iterator<Map.Entry<String, JsonNode>> fields = recordNode.fields();
+    while (fields.hasNext()) {
+      Map.Entry<String, JsonNode> field = fields.next();
+      String colName = Utils.quoteNameIfNeeded(field.getKey());
+      if (columnNamesSet.contains(colName)) {
         String type;
         if (schemaMap.isEmpty()) {
           // No schema associated with the record, we will try to infer it based on the data
-          type = inferDataTypeFromJsonObject(recordNode.get(columnName));
+          type = inferDataTypeFromJsonObject(field.getValue());
         } else {
           // Get from the schema
-          type = schemaMap.get(columnName);
+          type = schemaMap.get(field.getKey());
           if (type == null) {
             // only when the type of the value is unrecognizable for JAVA
             throw SnowflakeErrors.ERROR_5022.getException(
-                "column: " + columnName + " schemaMap: " + schemaMap);
+                "column: " + field.getKey() + " schemaMap: " + schemaMap);
           }
         }
-        columnToType.put(columnName, type);
+        columnToType.put(colName, type);
       }
     }
+
     return columnToType;
   }
 

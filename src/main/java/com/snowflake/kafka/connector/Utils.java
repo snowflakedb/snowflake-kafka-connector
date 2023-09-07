@@ -138,6 +138,18 @@ public class Utils {
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
   /**
+   * Quote the column name if needed: When there is quote already, we do nothing; otherwise we
+   * convert the name to upper case and add quote
+   */
+  public static String quoteNameIfNeeded(String name) {
+    int length = name.length();
+    if (name.charAt(0) == '"' && (length >= 2 && name.charAt(length - 1) == '"')) {
+      return name;
+    }
+    return '"' + name.toUpperCase() + '"';
+  }
+
+  /**
    * check the connector version from Maven repo, report if any update version is available.
    *
    * <p>A URl connection timeout is added in case Maven repo is not reachable in a proxy'd

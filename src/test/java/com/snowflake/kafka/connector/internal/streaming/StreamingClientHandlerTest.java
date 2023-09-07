@@ -25,6 +25,7 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -50,10 +51,12 @@ public class StreamingClientHandlerTest {
     assert client.getName().contains(this.connectorConfig.get(Utils.NAME));
   }
 
-  // TODO: Remove error expectation after SNOW-859929 is released
-  @Test(expected = ConnectException.class)
+  @Test
+  @Ignore // TODO: Remove ignore after SNOW-859929 is released
   public void testCreateOAuthClient() {
-    this.streamingClientHandler.createClient(this.connectorConfigWithOAuth);
+    if (this.connectorConfigWithOAuth != null) {
+      this.streamingClientHandler.createClient(this.connectorConfigWithOAuth);
+    }
   }
 
   @Test
