@@ -1096,6 +1096,16 @@ public class TopicPartitionChannel {
   }
 
   @VisibleForTesting
+  protected long getProcessedOffset() {
+    return this.processedOffset.get();
+  }
+
+  @VisibleForTesting
+  protected long getLatestConsumerOffset() {
+    return this.latestConsumerOffset.get();
+  }
+
+  @VisibleForTesting
   protected boolean isPartitionBufferEmpty() {
     return streamingBuffer.isEmpty();
   }

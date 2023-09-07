@@ -22,9 +22,12 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicLong;
+
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.telemetry.Telemetry;
 import net.snowflake.client.jdbc.telemetry.TelemetryData;
+import org.checkerframework.checker.units.qual.A;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -175,10 +178,7 @@ public class SnowflakeTelemetryServiceTest {
       partitionUsage = pipeStatus;
     } else {
       SnowflakeTelemetryChannelStatus channelStatus =
-          new SnowflakeTelemetryChannelStatus(expectedTableName, expectedChannelName, false, null);
-      channelStatus.setProcessedOffset(1);
-      channelStatus.setLatestConsumerOffset(2);
-      channelStatus.setOffsetPersistedInSnowflake(3);
+          new SnowflakeTelemetryChannelStatus(expectedTableName, expectedChannelName, false, null, new AtomicLong(1), new AtomicLong(2), new AtomicLong(3));
 
       partitionUsage = channelStatus;
     }

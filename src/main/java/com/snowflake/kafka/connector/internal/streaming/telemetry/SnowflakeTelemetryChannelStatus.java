@@ -21,6 +21,7 @@ import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constru
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
@@ -28,6 +29,7 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServic
 import com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants;
 import java.util.concurrent.atomic.AtomicLong;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
+import org.checkerframework.checker.units.qual.A;
 
 /**
  * Extension of {@link SnowflakeTelemetryBasicInfo} class used to send data to snowflake when the
@@ -42,6 +44,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   // channel properties
   private final String channelName;
   private final MetricsJmxReporter metricsJmxReporter;
+  private final AtomicLong startTime;
 
   // offsets
   private final AtomicLong offsetPersistedInSnowflake;
@@ -66,6 +69,9 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       AtomicLong offsetPersistedInSnowflake,
       AtomicLong processedOffset,
       AtomicLong latestConsumerOffset) {
+    super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE);
+
+    this.startTime = new AtomicLong(System.currentTimeMillis());
     this.channelName = channelName;
     this.metricsJmxReporter = metricsJmxReporter;
 
@@ -87,7 +93,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     // Check that all properties are still at the default value.
     return this.offsetPersistedInSnowflake.get() == INITIAL_OFFSET
         && this.processedOffset.get() == INITIAL_OFFSET
-        && this.latestConsumerOffset == INITIAL_OFFSET;
+        && this.latestConsumerOffset.get() == INITIAL_OFFSET;
   }
 
   @Override
@@ -97,7 +103,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
     msg.put(TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE, offsetPersistedInSnowflake.get());
     msg.put(TelemetryConstants.PROCESSED_OFFSET, processedOffset.get());
-    msg.put(TelemetryConstants.LATEST_CONSUMER_OFFSET, latestConsumerOffset);
+    msg.put(TelemetryConstants.LATEST_CONSUMER_OFFSET, latestConsumerOffset.get());
 
     final long currTime = System.currentTimeMillis();
     msg.put(TelemetryConstants.START_TIME, startTime.getAndSet(currTime));
@@ -157,5 +163,20 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
    */
   public MetricsJmxReporter getMetricsJmxReporter() {
     return this.metricsJmxReporter;
+  }
+
+  @VisibleForTesting
+  public long getOffsetPersistedInSnowflake() {
+    return this.offsetPersistedInSnowflake.get();
+  }
+
+  @VisibleForTesting
+  public long getProcessedOffset() {
+    return this.processedOffset.get();
+  }
+
+  @VisibleForTesting
+  public long getLatestConsumerOffset() {
+    return this.latestConsumerOffset.get();
   }
 }
