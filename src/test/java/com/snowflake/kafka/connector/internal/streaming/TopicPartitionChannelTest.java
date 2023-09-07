@@ -908,11 +908,11 @@ public class TopicPartitionChannelTest {
     Mockito.verify(this.mockTelemetryService, Mockito.times(1))
         .reportKafkaPartitionStart(Mockito.any(SnowflakeTelemetryChannelCreation.class));
     assert topicPartitionChannel
-        .getSnowflakeTelemetryChannelStatus()
-        .getMetricsJmxReporter()
-        .getMetricRegistry()
-        .getMetrics()
-        .size()
+            .getSnowflakeTelemetryChannelStatus()
+            .getMetricsJmxReporter()
+            .getMetricRegistry()
+            .getMetrics()
+            .size()
         == 0;
   }
 

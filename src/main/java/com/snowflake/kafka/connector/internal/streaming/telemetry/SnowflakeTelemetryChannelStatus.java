@@ -29,7 +29,6 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServic
 import com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants;
 import java.util.concurrent.atomic.AtomicLong;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
-import org.checkerframework.checker.units.qual.A;
 
 /**
  * Extension of {@link SnowflakeTelemetryBasicInfo} class used to send data to snowflake when the
