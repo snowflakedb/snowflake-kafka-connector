@@ -1048,8 +1048,8 @@ public class TopicPartitionChannel {
     try {
       this.channel.close().get();
 
+      // telemetry and metrics
       this.telemetryServiceV2.reportKafkaPartitionUsage(this.snowflakeTelemetryChannelStatus, true);
-
       this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
     } catch (InterruptedException | ExecutionException e) {
       final String errMsg =

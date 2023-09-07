@@ -13,7 +13,9 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
@@ -42,6 +44,7 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
 public class SnowflakeSinkServiceV2IT {
@@ -352,11 +355,16 @@ public class SnowflakeSinkServiceV2IT {
   public void testStreamingIngest_multipleChannelPartitions_withMetrics() throws Exception {
     Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    conn.createTable(table);
+
+    // set up telemetry service spy
+    SnowflakeConnectionService connectionService = Mockito.spy(this.conn);
+    connectionService.createTable(table);
+    SnowflakeTelemetryServiceV2 telemetryService = Mockito.spy((SnowflakeTelemetryServiceV2) this.conn.getTelemetryClient());
+    Mockito.when(connectionService.getTelemetryClient()).thenReturn(telemetryService);
 
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+        SnowflakeSinkServiceFactory.builder(connectionService, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(5)
             .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
@@ -464,12 +472,17 @@ public class SnowflakeSinkServiceV2IT {
                 .getValue()
         == recordsInPartition2;
 
+    // verify telemetry
+    Mockito.verify(telemetryService, Mockito.times(2)).reportKafkaPartitionStart(Mockito.any(SnowflakeTelemetryChannelCreation.class));
+
     service.closeAll();
 
     // verify metrics closed
     assert !service
         .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition))
         .isPresent();
+
+    Mockito.verify(telemetryService, Mockito.times(2)).reportKafkaPartitionUsage(Mockito.any(SnowflakeTelemetryChannelStatus.class), Mockito.eq(true));
   }
 
   @Test

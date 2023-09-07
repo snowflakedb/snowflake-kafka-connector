@@ -18,6 +18,7 @@
 package com.snowflake.kafka.connector.internal.streaming.telemetry;
 
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constructMetricName;
+import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
@@ -32,13 +33,12 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
 
 /**
  * Extension of {@link SnowflakeTelemetryBasicInfo} class used to send data to snowflake when the
- * TopicPartitionChannel closes
+ * TopicPartitionChannel closes. Also creates and registers various metrics with JMX
  *
  * <p>Most of the data sent to Snowflake is an aggregated data.
  */
 public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo {
   public static final long NUM_METRICS = 3; // update when new metrics are added
-  private static final long INITIAL_OFFSET = -1;
 
   // channel properties
   private final String channelName;
@@ -90,9 +90,9 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   @Override
   public boolean isEmpty() {
     // Check that all properties are still at the default value.
-    return this.offsetPersistedInSnowflake.get() == INITIAL_OFFSET
-        && this.processedOffset.get() == INITIAL_OFFSET
-        && this.latestConsumerOffset.get() == INITIAL_OFFSET;
+    return this.offsetPersistedInSnowflake.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+        && this.processedOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+        && this.latestConsumerOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
   }
 
   @Override

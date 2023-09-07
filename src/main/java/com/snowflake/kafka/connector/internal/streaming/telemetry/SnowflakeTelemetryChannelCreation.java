@@ -27,13 +27,13 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServic
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
- * This object is send only once when pipe starts No concurrent modification is made on this object,
+ * This object is sent only once when a channel starts. No concurrent modification is made on this object,
  * thus no lock is required.
  */
 public class SnowflakeTelemetryChannelCreation extends SnowflakeTelemetryBasicInfo {
-  boolean isReuseTable = false; // is the create reusing existing table
-  long startTime; // start time of the channel
+  private final long startTime; // start time of the channel
   private final String channelName;
+  private boolean isReuseTable = false; // is the channel reusing existing table
 
   public SnowflakeTelemetryChannelCreation(final String tableName, String channelName) {
     super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_START);
