@@ -359,12 +359,14 @@ public class SnowflakeSinkServiceV2IT {
     // set up telemetry service spy
     SnowflakeConnectionService connectionService = Mockito.spy(this.conn);
     connectionService.createTable(table);
-    SnowflakeTelemetryServiceV2 telemetryService = Mockito.spy((SnowflakeTelemetryServiceV2) this.conn.getTelemetryClient());
+    SnowflakeTelemetryServiceV2 telemetryService =
+        Mockito.spy((SnowflakeTelemetryServiceV2) this.conn.getTelemetryClient());
     Mockito.when(connectionService.getTelemetryClient()).thenReturn(telemetryService);
 
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(connectionService, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+        SnowflakeSinkServiceFactory.builder(
+                connectionService, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(5)
             .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
@@ -473,7 +475,8 @@ public class SnowflakeSinkServiceV2IT {
         == recordsInPartition2;
 
     // verify telemetry
-    Mockito.verify(telemetryService, Mockito.times(2)).reportKafkaPartitionStart(Mockito.any(SnowflakeTelemetryChannelCreation.class));
+    Mockito.verify(telemetryService, Mockito.times(2))
+        .reportKafkaPartitionStart(Mockito.any(SnowflakeTelemetryChannelCreation.class));
 
     service.closeAll();
 
@@ -482,7 +485,9 @@ public class SnowflakeSinkServiceV2IT {
         .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition))
         .isPresent();
 
-    Mockito.verify(telemetryService, Mockito.times(2)).reportKafkaPartitionUsage(Mockito.any(SnowflakeTelemetryChannelStatus.class), Mockito.eq(true));
+    Mockito.verify(telemetryService, Mockito.times(2))
+        .reportKafkaPartitionUsage(
+            Mockito.any(SnowflakeTelemetryChannelStatus.class), Mockito.eq(true));
   }
 
   @Test

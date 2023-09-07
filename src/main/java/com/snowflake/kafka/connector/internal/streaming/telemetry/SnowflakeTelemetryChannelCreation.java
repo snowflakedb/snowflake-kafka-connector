@@ -27,8 +27,8 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServic
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
- * This object is sent only once when a channel starts. No concurrent modification is made on this object,
- * thus no lock is required.
+ * This object is sent only once when a channel starts. No concurrent modification is made on this
+ * object, thus no lock is required.
  */
 public class SnowflakeTelemetryChannelCreation extends SnowflakeTelemetryBasicInfo {
   private final long startTime; // start time of the channel

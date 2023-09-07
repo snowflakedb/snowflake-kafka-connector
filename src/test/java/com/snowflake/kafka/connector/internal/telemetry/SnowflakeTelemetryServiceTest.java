@@ -214,24 +214,30 @@ public class SnowflakeTelemetryServiceTest {
     Assert.assertTrue(
         dataNode.get(TelemetryConstants.START_TIME).asLong() <= System.currentTimeMillis()
             && dataNode.get(TelemetryConstants.START_TIME).asLong() >= this.startTime);
-    Assert.assertEquals(expectedProcessedOffset, dataNode.get(TelemetryConstants.PROCESSED_OFFSET).asLong());
+    Assert.assertEquals(
+        expectedProcessedOffset, dataNode.get(TelemetryConstants.PROCESSED_OFFSET).asLong());
     Assert.assertEquals(expectedTableName, dataNode.get(TelemetryConstants.TABLE_NAME).asText());
 
     if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
       Assert.assertEquals(
           SnowflakeTelemetryService.TelemetryType.KAFKA_PIPE_USAGE.toString(),
           allNode.get("type").asText());
-      Assert.assertEquals(expectedFlushedOffset, dataNode.get(TelemetryConstants.FLUSHED_OFFSET).asLong());
-      Assert.assertEquals(expectedCommittedOffset, dataNode.get(TelemetryConstants.COMMITTED_OFFSET).asLong());
+      Assert.assertEquals(
+          expectedFlushedOffset, dataNode.get(TelemetryConstants.FLUSHED_OFFSET).asLong());
+      Assert.assertEquals(
+          expectedCommittedOffset, dataNode.get(TelemetryConstants.COMMITTED_OFFSET).asLong());
       Assert.assertEquals(expectedPipeName, dataNode.get(TelemetryConstants.PIPE_NAME).asText());
       Assert.assertEquals(expectedStageName, dataNode.get(TelemetryConstants.STAGE_NAME).asText());
     } else {
       Assert.assertEquals(
           SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE.toString(),
           allNode.get("type").asText());
-      Assert.assertEquals(expectedLatestConsumerOffset, dataNode.get(TelemetryConstants.LATEST_CONSUMER_OFFSET).asLong());
       Assert.assertEquals(
-          expectedOffsetPersistedInSnowflake, dataNode.get(TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE).asLong());
+          expectedLatestConsumerOffset,
+          dataNode.get(TelemetryConstants.LATEST_CONSUMER_OFFSET).asLong());
+      Assert.assertEquals(
+          expectedOffsetPersistedInSnowflake,
+          dataNode.get(TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE).asLong());
       Assert.assertEquals(
           expectedChannelName, dataNode.get(TelemetryConstants.CHANNEL_NAME).asText());
     }
