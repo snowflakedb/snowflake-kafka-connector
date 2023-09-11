@@ -52,7 +52,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
   /**
    * Creates a new object tracking {@link
-   * com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} metrics with JMX and send telemetry data to snowflake
+   * com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} metrics with JMX and
+   * send telemetry data to snowflake
    *
    * @param tableName the table the channel is ingesting to
    * @param channelName the name of the TopicPartitionChannel to track
