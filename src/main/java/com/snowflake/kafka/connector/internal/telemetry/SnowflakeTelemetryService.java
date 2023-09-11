@@ -130,9 +130,6 @@ public abstract class SnowflakeTelemetryService {
    */
   public void reportKafkaPartitionUsage(
       final SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {
-    if (partitionStatus.isEmpty()) {
-      return;
-    }
     ObjectNode msg = getObjectNode();
 
     partitionStatus.dumpTo(msg);

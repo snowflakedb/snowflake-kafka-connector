@@ -43,7 +43,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   // channel properties
   private final String channelName;
   private final MetricsJmxReporter metricsJmxReporter;
-  private final AtomicLong startTime;
+  private final long startTime;
 
   // offsets
   private final AtomicLong offsetPersistedInSnowflake;
@@ -52,8 +52,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
   /**
    * Creates a new object tracking {@link
-   * com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} metrics with JMX
-   * TODO @rcheng: update comment when extends telemetryBasicInfo
+   * com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} metrics with JMX and send telemetry data to snowflake
    *
    * @param tableName the table the channel is ingesting to
    * @param channelName the name of the TopicPartitionChannel to track
@@ -70,7 +69,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       AtomicLong latestConsumerOffset) {
     super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE);
 
-    this.startTime = new AtomicLong(System.currentTimeMillis());
+    this.startTime = System.currentTimeMillis();
     this.channelName = channelName;
     this.metricsJmxReporter = metricsJmxReporter;
 
@@ -105,7 +104,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     msg.put(TelemetryConstants.LATEST_CONSUMER_OFFSET, latestConsumerOffset.get());
 
     final long currTime = System.currentTimeMillis();
-    msg.put(TelemetryConstants.START_TIME, startTime.getAndSet(currTime));
+    msg.put(TelemetryConstants.START_TIME, this.startTime);
     msg.put(TelemetryConstants.END_TIME, currTime);
   }
 
