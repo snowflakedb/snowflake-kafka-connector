@@ -6,6 +6,7 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.records.SnowflakeAvroConverter;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -19,12 +20,17 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.storage.Converter;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.COMMUNITY_CONVERTER_SUBSET;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
 
 @RunWith(Parameterized.class)
 public class TombstoneRecordIngestionIT {
@@ -33,15 +39,22 @@ public class TombstoneRecordIngestionIT {
     return Arrays.asList(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.values());
   }
 
+  private final int partition = 0;
+  private final String topic = "test";
+  private final String table;
+  private final Converter jsonConverter;
+  private final Map<String, String> converterConfig;
+
   private final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior;
   public TombstoneRecordIngestionIT(SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
     this.behavior = behavior;
     this.table = TestUtils.randomTableName();
-  }
 
-  private final int partition = 0;
-  private final String topic = "test";
-  private final String table;
+    this.jsonConverter = new JsonConverter();
+    this.converterConfig = new HashMap<>();
+    this.converterConfig.put("schemas.enable", "false");
+    this.jsonConverter.configure(this.converterConfig, false);
+  }
 
   @After
   public void afterEach() {
@@ -65,57 +78,10 @@ public class TombstoneRecordIngestionIT {
     converterConfig.put("schemas.enable", "false");
 
     // create one normal record
-    int offset = 0;
-    Converter jsonConverter = ConnectorConfigTest.CommunityConverterSubset.JSON_CONVERTER.converter;
-    jsonConverter.configure(converterConfig, false);
-    byte[] normalRecordData = "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8);
-    SchemaAndValue normalRecordInput = jsonConverter.toConnectData(topic, normalRecordData);
-    SinkRecord normalRecord =
-        new SinkRecord(
-            topic,
-            partition,
-            Schema.STRING_SCHEMA,
-            "normalrecord",
-            normalRecordInput.schema(),
-            normalRecordInput.value(),
-            offset++);
-
-    // create null inputs
-    SchemaAndValue nullRecordInput = jsonConverter.toConnectData(topic, null);
-    SinkRecord allNullRecord1 = new SinkRecord(topic, partition, null, null, null, null, offset++);
-    SinkRecord allNullRecord2 =
-        new SinkRecord(topic, partition, null, null, nullRecordInput.schema(), nullRecordInput.value(), offset++);
-    SinkRecord allNullRecord3 =
-        new SinkRecord(
-            topic, partition, nullRecordInput.schema(), nullRecordInput.value(), nullRecordInput.schema(), nullRecordInput.value(), offset++);
-
-    List<SinkRecord> sinkRecords = new ArrayList<>();
-    sinkRecords.addAll(Arrays.asList(normalRecord, allNullRecord1, allNullRecord2, allNullRecord3));
-
-    // create tombstone records from each converter
-    int finalOffset = offset;
-    sinkRecords.addAll(Arrays.stream(ConnectorConfigTest.CommunityConverterSubset.values())
-        .map(converter -> {
-          Converter currConverter = converter.converter;
-          if (converter == ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER) {
-            SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
-            currConverter = new AvroConverter(schemaRegistry);
-            converterConfig.put("schema.registry.url", "http://fake-url");
-          }
-          currConverter.configure(converterConfig, false);
-          SchemaAndValue input = currConverter.toConnectData(topic, null);
-          return new SinkRecord(
-              topic,
-              partition,
-              Schema.STRING_SCHEMA,
-              converter.toString(),
-              input.schema(),
-              input.value(),
-              converter.ordinal() + finalOffset); // add one for the other records
-        }).collect(Collectors.toList()));
+    SinkRecord normalRecord = TestUtils.createNativeJsonSinkRecords(0, 1, topic, partition).get(0);
 
     // test
-    this.testIngestTombstoneRunner(sinkRecords, service);
+    this.testIngestTombstoneRunner(normalRecord, COMMUNITY_CONVERTER_SUBSET, service);
 
     // cleanup
     service.closeAll();
@@ -139,66 +105,16 @@ public class TombstoneRecordIngestionIT {
     converterConfig.put("schemas.enable", "false");
 
     // create one normal record
-    int offset = 0;
-    Converter jsonConverter = ConnectorConfigTest.CommunityConverterSubset.JSON_CONVERTER.converter;
-    jsonConverter.configure(converterConfig, false);
-    SinkRecord normalRecord = TestUtils.createNativeJsonSinkRecords(offset++, 1, topic, partition).get(0);
+    SinkRecord normalRecord = TestUtils.createNativeJsonSinkRecords(0, 1, topic, partition).get(0);
     service.insert(normalRecord); // schematization needs first insert for evolution
 
-    // create null inputs
-    SchemaAndValue nullRecordInput = jsonConverter.toConnectData(topic, null);
-    SinkRecord allNullRecord1 = new SinkRecord(topic, partition, null, null, null, null, offset++);
-    SinkRecord allNullRecord2 =
-        new SinkRecord(topic, partition, null, null, nullRecordInput.schema(), nullRecordInput.value(), offset++);
-    SinkRecord allNullRecord3 =
-        new SinkRecord(
-            topic, partition, nullRecordInput.schema(), nullRecordInput.value(), nullRecordInput.schema(), nullRecordInput.value(), offset++);
-
-    List<SinkRecord> sinkRecords = new ArrayList<>();
-    sinkRecords.addAll(Arrays.asList(normalRecord, allNullRecord1, allNullRecord2, allNullRecord3));
-
-    // create tombstone records from each converter
-    int finalOffset = offset;
-    sinkRecords.addAll(Arrays.stream(ConnectorConfigTest.CommunityConverterSubset.values())
-        .map(converter -> {
-          Converter currConverter = converter.converter;
-          if (converter == ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER) {
-            SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
-            currConverter = new AvroConverter(schemaRegistry);
-            converterConfig.put("schema.registry.url", "http://fake-url");
-          }
-          currConverter.configure(converterConfig, false);
-          SchemaAndValue input = currConverter.toConnectData(topic, null);
-          return new SinkRecord(
-              topic,
-              partition,
-              Schema.STRING_SCHEMA,
-              converter.toString(),
-              input.schema(),
-              input.value(),
-              converter.ordinal() + finalOffset); // add one for the other records
-        }).collect(Collectors.toList()));
-
     // test
-    this.testIngestTombstoneRunner(sinkRecords, service);
+    this.testIngestTombstoneRunner(normalRecord, COMMUNITY_CONVERTER_SUBSET, service);
 
     // cleanup
     service.closeAll();
   }
 
-  // all ingestion methods should have the same behavior for tombstone records
-  private void testIngestTombstoneRunner(List<SinkRecord> sinkRecords, SnowflakeSinkService service) throws Exception {
-    service.insert(sinkRecords);
-    service.callAllGetOffset();
-
-    // verify inserted
-    int expectedOffset = this.behavior == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT ?
-        sinkRecords.size():
-        1;
-    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == expectedOffset, 10, 5);
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == expectedOffset, 10, 5);
-  }
 
   @Test
   public void testSnowpipeTombstoneBehavior() throws Exception {
@@ -220,23 +136,27 @@ public class TombstoneRecordIngestionIT {
     converterConfig.put("schemas.enable", "false");
 
     // create one normal record
-    int offset = 0;
-    Converter jsonConverter = ConnectorConfigTest.CommunityConverterSubset.JSON_CONVERTER.converter;
-    jsonConverter.configure(converterConfig, false);
-    byte[] normalRecordData = "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8);
-    SchemaAndValue normalRecordInput = jsonConverter.toConnectData(topic, normalRecordData);
-    SinkRecord normalRecord =
-        new SinkRecord(
-            topic,
-            partition,
-            Schema.STRING_SCHEMA,
-            "normalrecord",
-            normalRecordInput.schema(),
-            normalRecordInput.value(),
-            offset++);
+    SinkRecord normalRecord = TestUtils.createNativeJsonSinkRecords(0, 1, topic, partition).get(0);
 
-    // create null inputs
-    SchemaAndValue nullRecordInput = jsonConverter.toConnectData(topic, null);
+    // test
+    List<Converter> converters = new ArrayList<>(COMMUNITY_CONVERTER_SUBSET);
+    converters.addAll(CUSTOM_SNOWFLAKE_CONVERTERS);
+    this.testIngestTombstoneRunner(normalRecord, converters, service);
+
+    // cleanup
+    service.closeAll();
+    conn.dropStage(stage);
+    conn.dropPipe(pipe);
+  }
+
+  // all ingestion methods should have the same behavior for tombstone records
+  private void testIngestTombstoneRunner(SinkRecord normalRecord, List<Converter> converters, SnowflakeSinkService service) throws Exception {
+    int offset = 1; // normalRecord should be offset 0
+    List<SinkRecord> sinkRecords = new ArrayList<>();
+    sinkRecords.add(normalRecord);
+
+    // create tombstone records
+    SchemaAndValue nullRecordInput = this.jsonConverter.toConnectData(topic, null);
     SinkRecord allNullRecord1 = new SinkRecord(topic, partition, null, null, null, null, offset++);
     SinkRecord allNullRecord2 =
         new SinkRecord(topic, partition, null, null, nullRecordInput.schema(), nullRecordInput.value(), offset++);
@@ -244,59 +164,44 @@ public class TombstoneRecordIngestionIT {
         new SinkRecord(
             topic, partition, nullRecordInput.schema(), nullRecordInput.value(), nullRecordInput.schema(), nullRecordInput.value(), offset++);
 
+    // add tombstone records
+    sinkRecords.addAll(Arrays.asList(allNullRecord1, allNullRecord2, allNullRecord3));
 
-    List<SinkRecord> sinkRecords = new ArrayList<>();
-    sinkRecords.addAll(Arrays.asList(normalRecord, allNullRecord1, allNullRecord2, allNullRecord3));
+    // create and add tombstone records from each converter
+    Map<String, String> converterConfig = new HashMap<>();
+    converterConfig.put("schemas.enable", "false");
+    for (Converter converter : converters) {
+      // handle avro converter
+      if (converter.toString().contains("io.confluent.connect.avro.AvroConverter")) {
+        SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
+        converter = new AvroConverter(schemaRegistry);
+        converterConfig.put("schema.registry.url", "http://fake-url");
+      }
 
-    // create tombstone records from each community converter
-    int communityConverterOffset = offset;
-    sinkRecords.addAll(Arrays.stream(ConnectorConfigTest.CommunityConverterSubset.values())
-        .map(converter -> {
-          Converter currConverter = converter.converter;
-          if (converter == ConnectorConfigTest.CommunityConverterSubset.AVRO_CONVERTER) {
-            SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
-            currConverter = new AvroConverter(schemaRegistry);
-            converterConfig.put("schema.registry.url", "http://fake-url");
-          }
-          currConverter.configure(converterConfig, false);
-          SchemaAndValue input = currConverter.toConnectData(topic, null);
-          return new SinkRecord(
-              topic,
-              partition,
-              Schema.STRING_SCHEMA,
-              converter.toString(),
-              input.schema(),
-              input.value(),
-              converter.ordinal() + communityConverterOffset); // add one for the other records
-        }).collect(Collectors.toList()));
+      converter.configure(converterConfig, false);
+      SchemaAndValue input = converter.toConnectData(topic, null);
+      sinkRecords.add(new SinkRecord(
+          topic,
+          partition,
+          Schema.STRING_SCHEMA,
+          converter.toString(),
+          input.schema(),
+          input.value(),
+          offset));
 
-    int customConverterOffset = offset + ConnectorConfigTest.CommunityConverterSubset.values().length;
-    sinkRecords.addAll(Arrays.stream(ConnectorConfigTest.CustomSfConverter.values())
-        .map(converter -> {
-          Converter currConverter = converter.converter;
-          if (converter == ConnectorConfigTest.CustomSfConverter.AVRO_CONVERTER) {
-            SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
-            currConverter = new AvroConverter(schemaRegistry);
-            converterConfig.put("schema.registry.url", "http://fake-url");
-          }
-          currConverter.configure(converterConfig, false);
-          SchemaAndValue input = currConverter.toConnectData(topic, null);
-          return new SinkRecord(
-              topic,
-              partition,
-              Schema.STRING_SCHEMA,
-              converter.toString(),
-              input.schema(),
-              input.value(),
-              converter.ordinal() + customConverterOffset); // add one for the other records
-        }).collect(Collectors.toList()));
+      offset++;
+    }
 
-    // test
-    this.testIngestTombstoneRunner(sinkRecords, service);
+    // insert all records
+    service.insert(sinkRecords);
+    service.callAllGetOffset();
 
-    // cleanup
-    service.closeAll();
-    conn.dropStage(stage);
-    conn.dropPipe(pipe);
+    // verify inserted
+    int expectedOffset = this.behavior == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT ?
+        sinkRecords.size():
+        1;
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == expectedOffset, 10, 5);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == expectedOffset, 10, 5);
   }
 }

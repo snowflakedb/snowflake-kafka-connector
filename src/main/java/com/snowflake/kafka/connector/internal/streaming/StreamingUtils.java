@@ -20,6 +20,8 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+
 import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.record.DefaultRecord;
@@ -55,7 +57,7 @@ public class StreamingUtils {
    */
   protected static final long STREAMING_BUFFER_BYTES_DEFAULT = 20_000_000;
 
-  private static final Set<String> DISALLOWED_CONVERTERS_STREAMING = CUSTOM_SNOWFLAKE_CONVERTERS;
+  private static final Set<String> DISALLOWED_CONVERTERS_STREAMING = CUSTOM_SNOWFLAKE_CONVERTERS.stream().map(converter -> converter.getClass().toString()).collect(Collectors.toSet());
   private static final String STRING_CONVERTER_KEYWORD = "StringConverter";
   private static final String BYTE_ARRAY_CONVERTER_KEYWORD = "ByteArrayConverter";
 
