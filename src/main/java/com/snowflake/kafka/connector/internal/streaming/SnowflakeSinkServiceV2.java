@@ -8,6 +8,7 @@ import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionCha
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -15,6 +16,7 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
+import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
@@ -69,6 +71,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // default is true unless the configuration provided is false;
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
+  private MetricsJmxReporter metricsJmxReporter;
 
   /**
    * Fetching this from {@link org.apache.kafka.connect.sink.SinkTaskContext}'s {@link
@@ -128,6 +131,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.partitionsToChannel = new HashMap<>();
 
     this.tableName2SchemaEvolutionPermission = new HashMap<>();
+
+    // jmx
+    String connectorName =
+        conn == null || Strings.isNullOrEmpty(this.conn.getConnectorName())
+            ? "default_connector"
+            : this.conn.getConnectorName();
+    this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), connectorName);
   }
 
   @VisibleForTesting
@@ -242,7 +252,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.conn,
             this.recordService,
             this.conn.getTelemetryClient(),
-            this.enableCustomJMXMonitoring));
+            this.enableCustomJMXMonitoring,
+            this.metricsJmxReporter));
   }
 
   /**
@@ -492,8 +503,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   @Override
-  public Optional<MetricRegistry> getMetricRegistry(String pipeName) {
-    return Optional.empty();
+  public Optional<MetricRegistry> getMetricRegistry(String partitionChannelKey) {
+    return this.partitionsToChannel.containsKey(partitionChannelKey)
+        ? Optional.of(
+            this.partitionsToChannel
+                .get(partitionChannelKey)
+                .getSnowflakeTelemetryChannelStatus()
+                .getMetricsJmxReporter()
+                .getMetricRegistry())
+        : Optional.empty();
   }
 
   /**
