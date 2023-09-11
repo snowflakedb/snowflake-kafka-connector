@@ -1,7 +1,5 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.COMMUNITY_CONVERTER_SUBSET;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
@@ -18,10 +16,25 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.kafka.connect.storage.Converter;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class ConnectorConfigTest {
+  // subset of valid community converters
+  public static final List<Converter> COMMUNITY_CONVERTER_SUBSET =
+      Arrays.asList(
+          new org.apache.kafka.connect.storage.StringConverter(),
+          new org.apache.kafka.connect.json.JsonConverter(),
+          new io.confluent.connect.avro.AvroConverter());
+
+  // custom snowflake converters, not currently allowed for streaming
+  public static final List<Converter> CUSTOM_SNOWFLAKE_CONVERTERS =
+      Arrays.asList(
+          new com.snowflake.kafka.connector.records.SnowflakeJsonConverter(),
+          new com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry(),
+          new com.snowflake.kafka.connector.records.SnowflakeAvroConverter());
 
   @Test
   public void testConfig() {
