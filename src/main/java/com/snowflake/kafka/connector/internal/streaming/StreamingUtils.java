@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.record.DefaultRecord;

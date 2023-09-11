@@ -31,7 +31,6 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.connect.storage.Converter;
 
 /**
  * SnowflakeSinkConnectorConfig class is used for specifying the set of expected configurations. For

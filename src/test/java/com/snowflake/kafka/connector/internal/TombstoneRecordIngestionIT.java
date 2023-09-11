@@ -1,5 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.ConnectorConfigTest.COMMUNITY_CONVERTER_SUBSET;
+import static com.snowflake.kafka.connector.ConnectorConfigTest.CUSTOM_SNOWFLAKE_CONVERTERS;
+
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -19,9 +22,6 @@ import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-
-import static com.snowflake.kafka.connector.ConnectorConfigTest.COMMUNITY_CONVERTER_SUBSET;
-import static com.snowflake.kafka.connector.ConnectorConfigTest.CUSTOM_SNOWFLAKE_CONVERTERS;
 
 @RunWith(Parameterized.class)
 public class TombstoneRecordIngestionIT {
