@@ -142,17 +142,8 @@ public class TombstoneRecordIngestionIT {
     int offset = 0;
     Converter jsonConverter = ConnectorConfigTest.CommunityConverterSubset.JSON_CONVERTER.converter;
     jsonConverter.configure(converterConfig, false);
-    byte[] normalRecordData = "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8);
-    SchemaAndValue normalRecordInput = jsonConverter.toConnectData(topic, normalRecordData);
-    SinkRecord normalRecord =
-        new SinkRecord(
-            topic,
-            partition,
-            Schema.STRING_SCHEMA,
-            "normalrecord",
-            normalRecordInput.schema(),
-            normalRecordInput.value(),
-            offset++);
+    SinkRecord normalRecord = TestUtils.createNativeJsonSinkRecords(offset++, 1, topic, partition).get(0);
+    service.insert(normalRecord); // schematization needs first insert for evolution
 
     // create null inputs
     SchemaAndValue nullRecordInput = jsonConverter.toConnectData(topic, null);
@@ -204,9 +195,9 @@ public class TombstoneRecordIngestionIT {
     int expectedOffset = this.behavior == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT ?
         sinkRecords.size():
         1;
-    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == expectedOffset, 10, 20);
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == expectedOffset, 10, 5);
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == expectedOffset, 10, 20);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == expectedOffset, 10, 5);
   }
 
   @Test
