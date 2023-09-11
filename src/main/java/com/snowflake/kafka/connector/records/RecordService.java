@@ -277,7 +277,8 @@ public class RecordService {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
 
     // return empty if tombstone record
-    if (node.size() == 0 && this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+    if (node.size() == 0
+        && this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
       return streamingIngestRow;
     }
 

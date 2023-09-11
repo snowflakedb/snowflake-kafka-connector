@@ -17,18 +17,13 @@
 package com.snowflake.kafka.connector;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableSet;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
-
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
@@ -196,16 +191,18 @@ public class SnowflakeSinkConnectorConfig {
       "value.converter.schema.registry.url";
 
   // subset of valid community converters
-  public static final List<Converter> COMMUNITY_CONVERTER_SUBSET = Arrays.asList(
-      new org.apache.kafka.connect.storage.StringConverter(),
-      new org.apache.kafka.connect.json.JsonConverter(),
-      new io.confluent.connect.avro.AvroConverter());
+  public static final List<Converter> COMMUNITY_CONVERTER_SUBSET =
+      Arrays.asList(
+          new org.apache.kafka.connect.storage.StringConverter(),
+          new org.apache.kafka.connect.json.JsonConverter(),
+          new io.confluent.connect.avro.AvroConverter());
 
   // custom snowflake converters, not currently allowed for streaming
-  public static final List<Converter> CUSTOM_SNOWFLAKE_CONVERTERS = Arrays.asList(
-      new com.snowflake.kafka.connector.records.SnowflakeJsonConverter(),
-      new com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry(),
-      new com.snowflake.kafka.connector.records.SnowflakeAvroConverter());
+  public static final List<Converter> CUSTOM_SNOWFLAKE_CONVERTERS =
+      Arrays.asList(
+          new com.snowflake.kafka.connector.records.SnowflakeJsonConverter(),
+          new com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry(),
+          new com.snowflake.kafka.connector.records.SnowflakeAvroConverter());
 
   public static void setDefaultValues(Map<String, String> config) {
     setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);

@@ -16,12 +16,8 @@ import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-
-import org.apache.kafka.connect.storage.Converter;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -663,19 +659,21 @@ public class ConnectorConfigTest {
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
 
-    COMMUNITY_CONVERTER_SUBSET
-        .forEach(
-            converter -> {
-              config.put(SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD, converter.getClass().toString());
-              Utils.validateConfig(config);
-            });
+    COMMUNITY_CONVERTER_SUBSET.forEach(
+        converter -> {
+          config.put(
+              SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
+              converter.getClass().toString());
+          Utils.validateConfig(config);
+        });
 
-    COMMUNITY_CONVERTER_SUBSET
-        .forEach(
-            converter -> {
-              config.put(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD, converter.getClass().toString());
-              Utils.validateConfig(config);
-            });
+    COMMUNITY_CONVERTER_SUBSET.forEach(
+        converter -> {
+          config.put(
+              SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+              converter.getClass().toString());
+          Utils.validateConfig(config);
+        });
   }
 
   @Test
@@ -686,22 +684,23 @@ public class ConnectorConfigTest {
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
 
-    CUSTOM_SNOWFLAKE_CONVERTERS
-        .forEach(
-            converter -> {
-              try {
-                config.put(SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD, converter.getClass().toString());
-                config.put(
-                    SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
-                    "org.apache.kafka.connect.storage.StringConverter");
+    CUSTOM_SNOWFLAKE_CONVERTERS.forEach(
+        converter -> {
+          try {
+            config.put(
+                SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
+                converter.getClass().toString());
+            config.put(
+                SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+                "org.apache.kafka.connect.storage.StringConverter");
 
-                Utils.validateConfig(config);
-              } catch (SnowflakeKafkaConnectorException exception) {
-                assert exception
-                    .getMessage()
-                    .contains(SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD);
-              }
-            });
+            Utils.validateConfig(config);
+          } catch (SnowflakeKafkaConnectorException exception) {
+            assert exception
+                .getMessage()
+                .contains(SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD);
+          }
+        });
   }
 
   @Test
@@ -712,23 +711,23 @@ public class ConnectorConfigTest {
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
 
-    CUSTOM_SNOWFLAKE_CONVERTERS
-        .forEach(
-            converter -> {
-              try {
-                config.put(
-                    SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
-                    "org.apache.kafka.connect.storage.StringConverter");
-                config.put(
-                    SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD, converter.getClass().toString());
+    CUSTOM_SNOWFLAKE_CONVERTERS.forEach(
+        converter -> {
+          try {
+            config.put(
+                SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
+                "org.apache.kafka.connect.storage.StringConverter");
+            config.put(
+                SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+                converter.getClass().toString());
 
-                Utils.validateConfig(config);
-              } catch (SnowflakeKafkaConnectorException exception) {
-                assert exception
-                    .getMessage()
-                    .contains(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
-              }
-            });
+            Utils.validateConfig(config);
+          } catch (SnowflakeKafkaConnectorException exception) {
+            assert exception
+                .getMessage()
+                .contains(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
+          }
+        });
   }
 
   @Test
