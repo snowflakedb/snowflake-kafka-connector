@@ -275,6 +275,12 @@ public class RecordService {
   private Map<String, Object> getMapFromJsonNodeForStreamingIngest(JsonNode node)
       throws JsonProcessingException {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
+
+    // return empty if tombstone record
+    if (node.size() == 0 && this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+      return streamingIngestRow;
+    }
+
     Iterator<String> columnNames = node.fieldNames();
     while (columnNames.hasNext()) {
       String columnName = columnNames.next();

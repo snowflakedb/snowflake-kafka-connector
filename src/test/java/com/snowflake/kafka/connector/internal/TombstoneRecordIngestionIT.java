@@ -89,7 +89,6 @@ public class TombstoneRecordIngestionIT {
         new SinkRecord(
             topic, partition, nullRecordInput.schema(), nullRecordInput.value(), nullRecordInput.schema(), nullRecordInput.value(), offset++);
 
-
     List<SinkRecord> sinkRecords = new ArrayList<>();
     sinkRecords.addAll(Arrays.asList(normalRecord, allNullRecord1, allNullRecord2, allNullRecord3));
 
@@ -115,22 +114,12 @@ public class TombstoneRecordIngestionIT {
               converter.ordinal() + finalOffset); // add one for the other records
         }).collect(Collectors.toList()));
 
-    // add all records and test insert
-    service.insert(sinkRecords);
-    service.callAllGetOffset();
-
-    // verify inserted
-    int expectedOffset = this.behavior == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT ?
-        sinkRecords.size():
-        1;
-    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == expectedOffset, 10, 20);
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == expectedOffset, 10, 20);
+    // test
+    this.testIngestTombstoneRunner(sinkRecords, service);
 
     // cleanup
     service.closeAll();
   }
-
 
   @Test
   public void testStreamingTombstoneBehaviorWithSchematization() throws Exception {
@@ -199,7 +188,15 @@ public class TombstoneRecordIngestionIT {
               converter.ordinal() + finalOffset); // add one for the other records
         }).collect(Collectors.toList()));
 
-    // add all records and test insert
+    // test
+    this.testIngestTombstoneRunner(sinkRecords, service);
+
+    // cleanup
+    service.closeAll();
+  }
+
+  // all ingestion methods should have the same behavior for tombstone records
+  private void testIngestTombstoneRunner(List<SinkRecord> sinkRecords, SnowflakeSinkService service) throws Exception {
     service.insert(sinkRecords);
     service.callAllGetOffset();
 
@@ -210,9 +207,6 @@ public class TombstoneRecordIngestionIT {
     TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == expectedOffset, 10, 20);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == expectedOffset, 10, 20);
-
-    // cleanup
-    service.closeAll();
   }
 
   @Test
@@ -306,17 +300,8 @@ public class TombstoneRecordIngestionIT {
               converter.ordinal() + customConverterOffset); // add one for the other records
         }).collect(Collectors.toList()));
 
-    // add all records and test insert
-    service.insert(sinkRecords);
-    service.callAllGetOffset();
-
-    // verify inserted
-    int expectedOffset = this.behavior == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT ?
-        sinkRecords.size():
-        1;
-    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == expectedOffset, 10, 20);
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == expectedOffset, 10, 20);
+    // test
+    this.testIngestTombstoneRunner(sinkRecords, service);
 
     // cleanup
     service.closeAll();
