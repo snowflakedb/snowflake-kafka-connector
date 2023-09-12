@@ -28,7 +28,6 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants;
-
 import java.util.concurrent.atomic.AtomicLong;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -107,7 +106,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     msg.put(TelemetryConstants.TABLE_NAME, this.tableName);
     msg.put(TelemetryConstants.CHANNEL_NAME, this.channelName);
 
-    msg.put(TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE, this.offsetPersistedInSnowflake.get());
+    msg.put(
+        TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE, this.offsetPersistedInSnowflake.get());
     msg.put(TelemetryConstants.PROCESSED_OFFSET, this.processedOffset.get());
     msg.put(TelemetryConstants.LATEST_CONSUMER_OFFSET, this.latestConsumerOffset.get());
     msg.put(TelemetryConstants.CHANNEL_TRY_OPEN_COUNT, this.channelTryOpenCount.get());
@@ -149,7 +149,10 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       // channel
       currentMetricRegistry.register(
           constructMetricName(
-              this.channelName, MetricsUtil.PARTITION_SUB_DOMAIN, MetricsUtil.CHANNEL_TRY_OPEN_COUNT), (Gauge<Long>) this.channelTryOpenCount::get);
+              this.channelName,
+              MetricsUtil.PARTITION_SUB_DOMAIN,
+              MetricsUtil.CHANNEL_TRY_OPEN_COUNT),
+          (Gauge<Long>) this.channelTryOpenCount::get);
 
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());
@@ -194,5 +197,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   }
 
   @VisibleForTesting
-  public long getChannelTryOpenCount() { return this.channelTryOpenCount.get();}
+  public long getChannelTryOpenCount() {
+    return this.channelTryOpenCount.get();
+  }
 }

@@ -33,7 +33,8 @@ public class SnowflakeTelemetryChannelStatusTest {
             new AtomicLong(-1),
             new AtomicLong(0));
     verify(metricsJmxReporter, times(1)).start();
-    verify(metricRegistry, times((int) SnowflakeTelemetryChannelStatus.NUM_METRICS)).register(Mockito.anyString(), Mockito.any());
+    verify(metricRegistry, times((int) SnowflakeTelemetryChannelStatus.NUM_METRICS))
+        .register(Mockito.anyString(), Mockito.any());
     verify(metricsJmxReporter, times(1)).removeMetricsFromRegistry(channelName);
 
     // test unregister
