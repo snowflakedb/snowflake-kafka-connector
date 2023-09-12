@@ -58,6 +58,7 @@ class TestSchemaEvolutionJson:
                 key.append(json.dumps({'number': str(e)}).encode('utf-8'))
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
             self.driver.sendBytesData(topic, value, key)
+            self.driver.sendTombstoneData(topic, 'tombstone', partition=0)
 
     def verify(self, round):
         rows = self.driver.snowflake_conn.cursor().execute(
