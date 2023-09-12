@@ -91,6 +91,11 @@ public class MetricsUtil {
 
   public static final String LATENCY_SUB_DOMAIN = "latencies";
 
+  // Partition related constants
+  public static final String PARTITION_SUB_DOMAIN = "partition";
+
+  public static final String CHANNEL_TRY_OPEN_COUNT = "channel-try-open-count";
+
   public enum EventType {
     /**
      * Time difference between the record put into kafka to record fetched into Kafka Connector Can

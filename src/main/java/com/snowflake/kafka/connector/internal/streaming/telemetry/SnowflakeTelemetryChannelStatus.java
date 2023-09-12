@@ -145,6 +145,12 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
           constructMetricName(
               this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.LATEST_CONSUMER_OFFSET),
           (Gauge<Long>) this.latestConsumerOffset::get);
+
+      // channel
+      currentMetricRegistry.register(
+          constructMetricName(
+              this.channelName, MetricsUtil.PARTITION_SUB_DOMAIN, MetricsUtil.CHANNEL_TRY_OPEN_COUNT), (Gauge<Long>) this.channelTryOpenCount::get);
+
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());
     }
@@ -186,4 +192,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   public long getLatestConsumerOffset() {
     return this.latestConsumerOffset.get();
   }
+
+  @VisibleForTesting
+  public long getChannelTryOpenCount() { return this.channelTryOpenCount.get();}
 }

@@ -14,7 +14,6 @@ import org.mockito.Mockito;
 public class SnowflakeTelemetryChannelStatusTest {
   private final String tableName = "tableName";
   private final String channelName = "channelName";
-  private final String connectorName = "connectorName";
 
   @Test
   public void testRegisterAndUnregisterJmxMetrics() {
@@ -34,7 +33,7 @@ public class SnowflakeTelemetryChannelStatusTest {
             new AtomicLong(-1),
             new AtomicLong(0));
     verify(metricsJmxReporter, times(1)).start();
-    verify(metricRegistry, times(3)).register(Mockito.anyString(), Mockito.any());
+    verify(metricRegistry, times((int) SnowflakeTelemetryChannelStatus.NUM_METRICS)).register(Mockito.anyString(), Mockito.any());
     verify(metricsJmxReporter, times(1)).removeMetricsFromRegistry(channelName);
 
     // test unregister

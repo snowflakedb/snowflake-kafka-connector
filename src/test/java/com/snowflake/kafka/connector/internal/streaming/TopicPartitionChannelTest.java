@@ -897,6 +897,7 @@ public class TopicPartitionChannelTest {
     assert resultStatus.getLatestConsumerOffset()
         == topicPartitionChannel.getLatestConsumerOffset();
     assert resultStatus.getLatestConsumerOffset() == 0;
+    assert resultStatus.getChannelTryOpenCount() == 1;
 
     assert resultStatus.getMetricsJmxReporter().getMetricRegistry().getMetrics().size()
         == SnowflakeTelemetryChannelStatus.NUM_METRICS;
