@@ -28,6 +28,7 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants;
+
 import java.util.concurrent.atomic.AtomicLong;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -38,7 +39,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
  * <p>Most of the data sent to Snowflake is an aggregated data.
  */
 public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo {
-  public static final long NUM_METRICS = 3; // update when new metrics are added
+  public static final long NUM_METRICS = 4; // update when new metrics are added
 
   // channel properties
   private final String channelName;
@@ -49,6 +50,9 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   private final AtomicLong offsetPersistedInSnowflake;
   private final AtomicLong processedOffset;
   private final AtomicLong latestConsumerOffset;
+
+  // channel metrics
+  private final AtomicLong channelTryOpenCount;
 
   /**
    * Creates a new object tracking {@link
@@ -65,9 +69,10 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       final String channelName,
       final boolean enableCustomJMXConfig,
       final MetricsJmxReporter metricsJmxReporter,
-      AtomicLong offsetPersistedInSnowflake,
-      AtomicLong processedOffset,
-      AtomicLong latestConsumerOffset) {
+      final AtomicLong offsetPersistedInSnowflake,
+      final AtomicLong processedOffset,
+      final AtomicLong latestConsumerOffset,
+      final AtomicLong channelTryOpenCount) {
     super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE);
 
     this.startTime = System.currentTimeMillis();
@@ -77,6 +82,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     this.offsetPersistedInSnowflake = offsetPersistedInSnowflake;
     this.processedOffset = processedOffset;
     this.latestConsumerOffset = latestConsumerOffset;
+    this.channelTryOpenCount = channelTryOpenCount;
 
     if (enableCustomJMXConfig) {
       if (metricsJmxReporter == null) {
@@ -92,7 +98,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     // Check that all properties are still at the default value.
     return this.offsetPersistedInSnowflake.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
         && this.processedOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
-        && this.latestConsumerOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+        && this.latestConsumerOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+        && this.channelTryOpenCount.get() == 0;
   }
 
   @Override
@@ -100,9 +107,10 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     msg.put(TelemetryConstants.TABLE_NAME, this.tableName);
     msg.put(TelemetryConstants.CHANNEL_NAME, this.channelName);
 
-    msg.put(TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE, offsetPersistedInSnowflake.get());
-    msg.put(TelemetryConstants.PROCESSED_OFFSET, processedOffset.get());
-    msg.put(TelemetryConstants.LATEST_CONSUMER_OFFSET, latestConsumerOffset.get());
+    msg.put(TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE, this.offsetPersistedInSnowflake.get());
+    msg.put(TelemetryConstants.PROCESSED_OFFSET, this.processedOffset.get());
+    msg.put(TelemetryConstants.LATEST_CONSUMER_OFFSET, this.latestConsumerOffset.get());
+    msg.put(TelemetryConstants.CHANNEL_TRY_OPEN_COUNT, this.channelTryOpenCount.get());
 
     final long currTime = System.currentTimeMillis();
     msg.put(TelemetryConstants.START_TIME, this.startTime);

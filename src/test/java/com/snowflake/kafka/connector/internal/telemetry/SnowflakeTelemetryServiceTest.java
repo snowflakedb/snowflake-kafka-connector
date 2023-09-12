@@ -190,7 +190,8 @@ public class SnowflakeTelemetryServiceTest {
               null,
               new AtomicLong(expectedOffsetPersistedInSnowflake),
               new AtomicLong(expectedProcessedOffset),
-              new AtomicLong(expectedLatestConsumerOffset));
+              new AtomicLong(expectedLatestConsumerOffset),
+              new AtomicLong(0));
 
       partitionUsage = channelStatus;
     }

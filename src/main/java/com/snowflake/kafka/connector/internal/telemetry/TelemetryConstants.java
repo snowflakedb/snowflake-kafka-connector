@@ -49,4 +49,6 @@ public final class TelemetryConstants {
   public static final String IS_REUSE_PIPE = "is_reuse_pipe";
   public static final String FILE_COUNT_RESTART = "file_count_restart";
   public static final String FILE_COUNT_REPROCESS_PURGE = "file_count_reprocess_purge";
+
+  public static final String CHANNEL_TRY_OPEN_COUNT = "channel_try_open_count";
 }
