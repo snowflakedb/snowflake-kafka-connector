@@ -48,12 +48,14 @@ public final class TelemetryConstants {
   public static final String FILE_COUNT_RESTART = "file_count_restart";
   public static final String FILE_COUNT_REPROCESS_PURGE = "file_count_reprocess_purge";
 
-  //************ Streaming Constants ************//
+  // ************ Streaming Constants ************//
   public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
   public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
 
   public static final String TOPIC_PARTITION_CHANNEL_NAME = "topic_partition_channel_name";
-  public static final String TOPIC_PARTITION_CHANNEL_CREATION_TIME = "topic_partition_channel_creation_time";
-  public static final String TOPIC_PARTITION_CHANNEL_CLOSE_TIME = "topic_partition_channel_close_time";
-  //********** ^ Streaming Constants ^ **********//
+  public static final String TOPIC_PARTITION_CHANNEL_CREATION_TIME =
+      "topic_partition_channel_creation_time";
+  public static final String TOPIC_PARTITION_CHANNEL_CLOSE_TIME =
+      "topic_partition_channel_close_time";
+  // ********** ^ Streaming Constants ^ **********//
 }
