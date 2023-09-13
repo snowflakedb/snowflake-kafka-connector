@@ -13,20 +13,18 @@ class TestStringJson:
 
     def send(self):
         value = []
-        for e in range(100):
+        for e in range(99):
             value.append(json.dumps({'number': str(e)}).encode('utf-8'))
         header = [('header1', 'value1'), ('header2', '{}')]
+        value.append('') # append tombstone
         self.driver.sendBytesData(self.topic, value, [], 0, header)
-
-        # send tombstone
-        self.driver.sendTombstoneData(self.topic, 'tombstone_record', partition=0)
 
     def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         if res == 0:
             raise RetryableError()
-        elif res != 101:
+        elif res != 100:
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
         # validate content of line 1

@@ -31,21 +31,19 @@ class TestSnowpipeStreamingStringJson:
             print("Sending in Partition:" + str(p))
             key = []
             value = []
-            for e in range(self.recordNum):
+            for e in range(self.recordNum - 1):
                 value.append(json.dumps(
                     {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
                 ).encode('utf-8'))
+            value.append('') # tombstone
             self.driver.sendBytesData(self.topic, value, key, partition=p)
-
-            # send tombstone
-            self.driver.sendTombstoneData(self.topic, 'tombstone_partition' + str(p), p)
             sleep(2)
 
     def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         print("Count records in table {}={}".format(self.topic, str(res)))
-        goalCount = (self.recordNum + 1) * self.partitionNum # add one tombstone record per partition
+        goalCount = self.recordNum * self.partitionNum
         if res < (goalCount):
             print("Topic:" + self.topic + " count is less, will retry")
             raise RetryableError()

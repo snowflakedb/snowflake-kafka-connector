@@ -54,11 +54,13 @@ class TestSchemaEvolutionJson:
         for i, topic in enumerate(self.topics):
             key = []
             value = []
-            for e in range(self.recordNum):
+            for e in range(self.recordNum - 1):
                 key.append(json.dumps({'number': str(e)}).encode('utf-8'))
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
+            # append tombstone
+            key.append(json.dumps({'number': str(self.recordNum)}).encode('utf-8'))
+            value.append('')
             self.driver.sendBytesData(topic, value, key)
-            self.driver.sendTombstoneData(topic, 'tombstone', partition=0)
 
     def verify(self, round):
         rows = self.driver.snowflake_conn.cursor().execute(
