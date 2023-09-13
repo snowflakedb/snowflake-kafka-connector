@@ -54,12 +54,9 @@ class TestSchemaEvolutionJson:
         for i, topic in enumerate(self.topics):
             key = []
             value = []
-            for e in range(self.recordNum - 1):
+            for e in range(self.recordNum):
                 key.append(json.dumps({'number': str(e)}).encode('utf-8'))
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
-            # append tombstone
-            key.append(json.dumps({'number': str(self.recordNum)}).encode('utf-8'))
-            value.append('')
             self.driver.sendBytesData(topic, value, key)
 
     def verify(self, round):

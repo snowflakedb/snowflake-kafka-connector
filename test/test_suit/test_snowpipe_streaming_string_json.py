@@ -31,11 +31,10 @@ class TestSnowpipeStreamingStringJson:
             print("Sending in Partition:" + str(p))
             key = []
             value = []
-            for e in range(self.recordNum - 1):
+            for e in range(self.recordNum):
                 value.append(json.dumps(
                     {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
                 ).encode('utf-8'))
-            value.append('') # tombstone
             self.driver.sendBytesData(self.topic, value, key, partition=p)
             sleep(2)
 
@@ -43,15 +42,14 @@ class TestSnowpipeStreamingStringJson:
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         print("Count records in table {}={}".format(self.topic, str(res)))
-        goalCount = self.recordNum * self.partitionNum
-        if res < (goalCount):
+        if res < (self.recordNum * self.partitionNum):
             print("Topic:" + self.topic + " count is less, will retry")
             raise RetryableError()
-        elif res > (goalCount):
+        elif res > (self.recordNum * self.partitionNum):
             print("Topic:" + self.topic + " count is more, duplicates detected")
             raise NonRetryableError("Duplication occurred, number of record in table is larger than number of record sent")
         else:
-            print("Table:" + self.topic + " count is exactly " + str(goalCount))
+            print("Table:" + self.topic + " count is exactly " + str(self.recordNum * self.partitionNum))
 
         # for duplicates
         res = self.driver.snowflake_conn.cursor().execute("Select record_metadata:\"offset\"::string as OFFSET_NO,record_metadata:\"partition\"::string as PARTITION_NO from {} group by OFFSET_NO, PARTITION_NO having count(*)>1".format(self.topic)).fetchone()
@@ -69,10 +67,8 @@ class TestSnowpipeStreamingStringJson:
 
             for p in range(self.partitionNum):
                 # unique offset count and partition no are two columns (returns tuple)
-                if rows[p][0] != (self.recordNum + 1) or rows[p][1] != p:
-                    raise NonRetryableError("Unique offsets for partitions count doesnt match: "
-                                            + str(rows[p][0]) + " != " + str(self.recordNum) + ", "
-                                            + str(rows[p][1]) + " != " + str(p))
+                if rows[p][0] != self.recordNum or rows[p][1] != p:
+                    raise NonRetryableError("Unique offsets for partitions count doesnt match")
 
     def clean(self):
         # dropping of stage and pipe doesnt apply for snowpipe streaming. (It executes drop if exists)

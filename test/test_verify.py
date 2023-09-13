@@ -185,9 +185,6 @@ class KafkaTest:
                     self.producer.flush()
         self.producer.flush()
 
-    def sendTombstoneData(self, topic, key, partition=0):
-        self.producer.produce(topic, value='', key=key, partition=partition, headers=[])
-
     def sendAvroSRData(self, topic, value, value_schema, key=[], key_schema="", partition=0):
         if len(key) == 0:
             for i, v in enumerate(value):
@@ -497,31 +494,31 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         ############################ Always run Proxy tests in the end ############################
 
         ############################ Proxy End To End Test ############################
-        #
-        # from test_suit.test_string_json_proxy import TestStringJsonProxy
-        # from test_suites import EndToEndTestSuite
-        #
-        # print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
-        # print("Proxy Test should be the last test, since it modifies the JVM values")
-        #
-        # proxy_tests_suite = [EndToEndTestSuite(
-        #     test_instance=TestStringJsonProxy(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
-        # )]
-        #
-        # end_to_end_proxy_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in proxy_tests_suite]
-        #
-        # proxy_suite_clean_enable_list = [single_end_to_end_test.clean for single_end_to_end_test in proxy_tests_suite]
-        #
-        # proxy_suite_runner = []
-        #
-        # if testSet == "confluent":
-        #     proxy_suite_runner = [single_end_to_end_test.run_in_confluent for single_end_to_end_test in proxy_tests_suite]
-        # elif testSet == "apache":
-        #     proxy_suite_runner = [single_end_to_end_test.run_in_apache for single_end_to_end_test in proxy_tests_suite]
-        # elif testSet != "clean":
-        #     errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-        #
-        # execution(testSet, end_to_end_proxy_tests_suite, proxy_suite_clean_enable_list, proxy_suite_runner, driver, nameSalt)
+
+        from test_suit.test_string_json_proxy import TestStringJsonProxy
+        from test_suites import EndToEndTestSuite
+
+        print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
+        print("Proxy Test should be the last test, since it modifies the JVM values")
+
+        proxy_tests_suite = [EndToEndTestSuite(
+            test_instance=TestStringJsonProxy(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )]
+
+        end_to_end_proxy_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in proxy_tests_suite]
+
+        proxy_suite_clean_enable_list = [single_end_to_end_test.clean for single_end_to_end_test in proxy_tests_suite]
+
+        proxy_suite_runner = []
+
+        if testSet == "confluent":
+            proxy_suite_runner = [single_end_to_end_test.run_in_confluent for single_end_to_end_test in proxy_tests_suite]
+        elif testSet == "apache":
+            proxy_suite_runner = [single_end_to_end_test.run_in_apache for single_end_to_end_test in proxy_tests_suite]
+        elif testSet != "clean":
+            errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
+
+        execution(testSet, end_to_end_proxy_tests_suite, proxy_suite_clean_enable_list, proxy_suite_runner, driver, nameSalt)
         ############################ Proxy End To End Test End ############################
 
 
@@ -578,7 +575,7 @@ if __name__ == "__main__":
     kafkaConnectAddress = sys.argv[3]
     testSet = sys.argv[4]
     testVersion = sys.argv[5]
-    nameSalt = "REVI" #sys.argv[6]
+    nameSalt = sys.argv[6]
     pressure = (sys.argv[7] == 'true')
     enableSSL = (sys.argv[8] == 'true')
 

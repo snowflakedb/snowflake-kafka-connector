@@ -94,13 +94,13 @@ esac
 
 CONFLUENT_FOLDER_NAME="./confluent-$CONFLUENT_VERSION"
 
-#rm -rf $CONFLUENT_FOLDER_NAME || true
-#rm apache.tgz || true
-#
-#echo "Downloading CONFLUENT VERSION using URL: $DOWNLOAD_URL"
-#curl $DOWNLOAD_URL --output apache.tgz
-#tar xzvf apache.tgz > /dev/null 2>&1
-#
+rm -rf $CONFLUENT_FOLDER_NAME || true
+rm apache.tgz || true
+
+echo "Downloading CONFLUENT VERSION using URL: $DOWNLOAD_URL"
+curl $DOWNLOAD_URL --output apache.tgz
+tar xzvf apache.tgz > /dev/null 2>&1
+
 mkdir -p $APACHE_LOG_PATH
 rm $APACHE_LOG_PATH/zookeeper.log $APACHE_LOG_PATH/kafka.log || true
 rm $APACHE_LOG_PATH/kc.log || true
@@ -112,7 +112,7 @@ KAFKA_CONNECT_PLUGIN_PATH="/usr/local/share/kafka/plugins"
 echo "Built zip file using kafka connect maven plugin:"
 ls /tmp/sf-kafka-connect-plugin*
 # Plugin path is used by kafka connect to install plugin, in our case, SF Kafka Connector
-#unzip /tmp/sf-kafka-connect-plugin.zip -d $KAFKA_CONNECT_PLUGIN_PATH
+unzip /tmp/sf-kafka-connect-plugin.zip -d $KAFKA_CONNECT_PLUGIN_PATH
 echo "list KAFKA_CONNECT_PLUGIN_PATH: $KAFKA_CONNECT_PLUGIN_PATH"
 ls $KAFKA_CONNECT_PLUGIN_PATH
 
@@ -120,7 +120,7 @@ ls $KAFKA_CONNECT_PLUGIN_PATH
 echo "Copying connect-log4j.properties file to confluent folder"
 cp -fr ./connect-log4j.properties $CONFLUENT_FOLDER_NAME/"etc/kafka/"
 
-#compile_protobuf_converter_and_data $TEST_SET $CONFLUENT_FOLDER_NAME
+compile_protobuf_converter_and_data $TEST_SET $CONFLUENT_FOLDER_NAME
 
 trap "pkill -9 -P $$" SIGINT SIGTERM EXIT
 
@@ -187,6 +187,6 @@ if [ $testError -ne 0 ]; then
     RED='\033[0;31m'
     NC='\033[0m' # No Color
     echo -e "${RED} There is error above this line ${NC}"
-#    cat $APACHE_LOG_PATH/kc.log
+    cat $APACHE_LOG_PATH/kc.log
     error_exit "=== test_verify.py failed ==="
 fi

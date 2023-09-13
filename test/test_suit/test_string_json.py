@@ -13,10 +13,9 @@ class TestStringJson:
 
     def send(self):
         value = []
-        for e in range(99):
+        for e in range(100):
             value.append(json.dumps({'number': str(e)}).encode('utf-8'))
         header = [('header1', 'value1'), ('header2', '{}')]
-        value.append('') # append tombstone
         self.driver.sendBytesData(self.topic, value, [], 0, header)
 
     def verify(self, round):
