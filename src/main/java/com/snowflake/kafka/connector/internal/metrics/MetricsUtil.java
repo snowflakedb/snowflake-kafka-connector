@@ -11,11 +11,10 @@ public class MetricsUtil {
      * description
      */
     public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
+
     public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
 
-    /**
-     * The number of times the current topic partition channel tried opening a channel
-     */
+    /** The number of times the current topic partition channel tried opening a channel */
     public static final String CURRENT_TP_CHANNEL_OPEN_COUNT = "current-tp-channel-open-count";
   }
 

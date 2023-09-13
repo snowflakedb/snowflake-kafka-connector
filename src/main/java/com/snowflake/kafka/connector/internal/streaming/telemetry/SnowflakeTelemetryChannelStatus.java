@@ -111,7 +111,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     msg.put(TelemetryConstants.Streaming.CHANNEL_NAME, this.channelName);
 
     msg.put(
-        TelemetryConstants.Streaming.OFFSET_PERSISTED_IN_SNOWFLAKE, this.offsetPersistedInSnowflake.get());
+        TelemetryConstants.Streaming.OFFSET_PERSISTED_IN_SNOWFLAKE,
+        this.offsetPersistedInSnowflake.get());
     msg.put(TelemetryConstants.PROCESSED_OFFSET, this.processedOffset.get());
     msg.put(TelemetryConstants.Streaming.LATEST_CONSUMER_OFFSET, this.latestConsumerOffset.get());
     msg.put(TelemetryConstants.CURRENT_TP_CHANNEL_OPEN_COUNT, this.currentTpChannelOpenCount.get());
@@ -147,7 +148,9 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
       currentMetricRegistry.register(
           constructMetricName(
-              this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.Streaming.LATEST_CONSUMER_OFFSET),
+              this.channelName,
+              MetricsUtil.OFFSET_SUB_DOMAIN,
+              MetricsUtil.Streaming.LATEST_CONSUMER_OFFSET),
           (Gauge<Long>) this.latestConsumerOffset::get);
 
       // channel

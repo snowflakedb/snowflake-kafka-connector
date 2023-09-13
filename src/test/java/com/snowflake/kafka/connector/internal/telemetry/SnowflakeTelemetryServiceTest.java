@@ -248,8 +248,7 @@ public class SnowflakeTelemetryServiceTest {
       Assert.assertEquals(
           expectedChannelName, dataNode.get(TelemetryConstants.Streaming.CHANNEL_NAME).asText());
       Assert.assertEquals(
-          expectedConnectorName, dataNode.get(TelemetryConstants.CONNECTOR_NAME).asText()
-      );
+          expectedConnectorName, dataNode.get(TelemetryConstants.CONNECTOR_NAME).asText());
     }
   }
 

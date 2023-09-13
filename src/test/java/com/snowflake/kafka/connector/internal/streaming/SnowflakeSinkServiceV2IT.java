@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.protocol.types.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -418,8 +417,22 @@ public class SnowflakeSinkServiceV2IT {
         == SnowflakeTelemetryChannelStatus.NUM_METRICS * 2; // two partitions
 
     // partition 1
-    this.verifyPartitionMetrics(metricRegistry, partitionChannelKey(topic, partition), NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, recordsInPartition1 - 1, recordsInPartition1, 1, this.conn.getConnectorName());
-    this.verifyPartitionMetrics(metricRegistry, partitionChannelKey(topic, partition2), NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, recordsInPartition2 - 1, recordsInPartition2, 1, this.conn.getConnectorName());
+    this.verifyPartitionMetrics(
+        metricRegistry,
+        partitionChannelKey(topic, partition),
+        NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        recordsInPartition1 - 1,
+        recordsInPartition1,
+        1,
+        this.conn.getConnectorName());
+    this.verifyPartitionMetrics(
+        metricRegistry,
+        partitionChannelKey(topic, partition2),
+        NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        recordsInPartition2 - 1,
+        recordsInPartition2,
+        1,
+        this.conn.getConnectorName());
 
     // verify telemetry
     Mockito.verify(telemetryService, Mockito.times(2))
@@ -437,45 +450,52 @@ public class SnowflakeSinkServiceV2IT {
             Mockito.any(SnowflakeTelemetryChannelStatus.class), Mockito.eq(true));
   }
 
-  private void verifyPartitionMetrics(Map<String, Gauge> metricRegistry, String partitionChannelKey, long offsetPersistedInSnowflake, long processedOffset, long latestConsumerOffset, long currentTpChannelOpenCount, String connectorName) {
+  private void verifyPartitionMetrics(
+      Map<String, Gauge> metricRegistry,
+      String partitionChannelKey,
+      long offsetPersistedInSnowflake,
+      long processedOffset,
+      long latestConsumerOffset,
+      long currentTpChannelOpenCount,
+      String connectorName) {
     // offsets
     assert (long)
-        metricRegistry
-            .get(
-                MetricsUtil.constructMetricName(
-                    partitionChannelKey,
-                    MetricsUtil.OFFSET_SUB_DOMAIN,
-                    MetricsUtil.Streaming.OFFSET_PERSISTED_IN_SNOWFLAKE))
-            .getValue()
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        partitionChannelKey,
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.Streaming.OFFSET_PERSISTED_IN_SNOWFLAKE))
+                .getValue()
         == offsetPersistedInSnowflake;
     assert (long)
-        metricRegistry
-            .get(
-                MetricsUtil.constructMetricName(
-                    partitionChannelKey,
-                    MetricsUtil.OFFSET_SUB_DOMAIN,
-                    MetricsUtil.PROCESSED_OFFSET))
-            .getValue()
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        partitionChannelKey,
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.PROCESSED_OFFSET))
+                .getValue()
         == processedOffset;
     assert (long)
-        metricRegistry
-            .get(
-                MetricsUtil.constructMetricName(
-                    partitionChannelKey,
-                    MetricsUtil.OFFSET_SUB_DOMAIN,
-                    MetricsUtil.Streaming.LATEST_CONSUMER_OFFSET))
-            .getValue()
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        partitionChannelKey,
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.Streaming.LATEST_CONSUMER_OFFSET))
+                .getValue()
         == latestConsumerOffset;
 
     // channel
     assert (long)
-        metricRegistry
-            .get(
-                MetricsUtil.constructMetricName(
-                    partitionChannelKey,
-                    MetricsUtil.PARTITION_SUB_DOMAIN,
-                    MetricsUtil.Streaming.CURRENT_TP_CHANNEL_OPEN_COUNT))
-            .getValue()
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        partitionChannelKey,
+                        MetricsUtil.PARTITION_SUB_DOMAIN,
+                        MetricsUtil.Streaming.CURRENT_TP_CHANNEL_OPEN_COUNT))
+                .getValue()
         == currentTpChannelOpenCount;
   }
 
