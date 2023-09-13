@@ -5,21 +5,6 @@ import java.util.Map;
 
 /** All metrics related constants. Mainly for JMX */
 public class MetricsUtil {
-  public class Streaming {
-    /**
-     * See {@link com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} for offset
-     * description
-     */
-    public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
-
-    public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
-  }
-
-  public static final String JMX_METRIC_PREFIX = "snowflake.kafka.connector";
-
-  // Offset related constants
-  public static final String FILE_COUNT_SUB_DOMAIN = "file-counts";
-
   /**
    * Number of files we call insertFiles API in snowpipe. Note: There is currently a limitation of
    * 5k files being sent to a single rest request. So these metric has no one to one relation
@@ -93,8 +78,20 @@ public class MetricsUtil {
 
   public static final String LATENCY_SUB_DOMAIN = "latencies";
 
-  // Partition related constants
-  public static final String PARTITION_SUB_DOMAIN = "partition";
+  ////////////////////////////////////////////// Streaming Constants //////////////////////////////////////////////
+  /**
+   * See {@link com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} for offset
+   * description
+   */
+  public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
+
+  public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
+
+  public static final String JMX_METRIC_PREFIX = "snowflake.kafka.connector";
+
+  // Offset related constants
+  public static final String FILE_COUNT_SUB_DOMAIN = "file-counts";
+  ////////////////////////////////////////////// Streaming Constants //////////////////////////////////////////////
 
   public enum EventType {
     /**

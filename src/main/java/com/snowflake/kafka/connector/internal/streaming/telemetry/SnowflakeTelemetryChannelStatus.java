@@ -103,16 +103,16 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   public void dumpTo(ObjectNode msg) {
     msg.put(TelemetryConstants.TABLE_NAME, this.tableName);
     msg.put(TelemetryConstants.CONNECTOR_NAME, this.connectorName);
-    msg.put(TelemetryConstants.Streaming.TP_CHANNEL_NAME, this.channelName);
+    msg.put(TelemetryConstants.TP_CHANNEL_NAME, this.channelName);
 
     msg.put(
-        TelemetryConstants.Streaming.OFFSET_PERSISTED_IN_SNOWFLAKE,
+        TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE,
         this.offsetPersistedInSnowflake.get());
     msg.put(TelemetryConstants.PROCESSED_OFFSET, this.processedOffset.get());
-    msg.put(TelemetryConstants.Streaming.LATEST_CONSUMER_OFFSET, this.latestConsumerOffset.get());
+    msg.put(TelemetryConstants.LATEST_CONSUMER_OFFSET, this.latestConsumerOffset.get());
 
-    msg.put(TelemetryConstants.Streaming.TP_CHANNEL_CREATION_TIME, this.channelCreationTime);
-    msg.put(TelemetryConstants.Streaming.TP_CHANNEL_CLOSE_TIME, System.currentTimeMillis());
+    msg.put(TelemetryConstants.TP_CHANNEL_CREATION_TIME, this.channelCreationTime);
+    msg.put(TelemetryConstants.TP_CHANNEL_CLOSE_TIME, System.currentTimeMillis());
   }
 
   /** Registers all the Metrics inside the metricRegistry. */
@@ -131,7 +131,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
           constructMetricName(
               this.channelName,
               MetricsUtil.OFFSET_SUB_DOMAIN,
-              MetricsUtil.Streaming.OFFSET_PERSISTED_IN_SNOWFLAKE),
+              MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE),
           (Gauge<Long>) this.offsetPersistedInSnowflake::get);
 
       currentMetricRegistry.register(
@@ -143,7 +143,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
           constructMetricName(
               this.channelName,
               MetricsUtil.OFFSET_SUB_DOMAIN,
-              MetricsUtil.Streaming.LATEST_CONSUMER_OFFSET),
+              MetricsUtil.LATEST_CONSUMER_OFFSET),
           (Gauge<Long>) this.latestConsumerOffset::get);
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());

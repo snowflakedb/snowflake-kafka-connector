@@ -465,7 +465,7 @@ public class SnowflakeSinkServiceV2IT {
                     MetricsUtil.constructMetricName(
                         partitionChannelKey,
                         MetricsUtil.OFFSET_SUB_DOMAIN,
-                        MetricsUtil.Streaming.OFFSET_PERSISTED_IN_SNOWFLAKE))
+                        MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
                 .getValue()
         == offsetPersistedInSnowflake;
     assert (long)
@@ -483,7 +483,7 @@ public class SnowflakeSinkServiceV2IT {
                     MetricsUtil.constructMetricName(
                         partitionChannelKey,
                         MetricsUtil.OFFSET_SUB_DOMAIN,
-                        MetricsUtil.Streaming.LATEST_CONSUMER_OFFSET))
+                        MetricsUtil.LATEST_CONSUMER_OFFSET))
                 .getValue()
         == latestConsumerOffset;
   }
