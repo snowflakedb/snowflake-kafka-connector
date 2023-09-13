@@ -284,7 +284,7 @@ public class TopicPartitionChannel {
 
     // setup telemetry and metrics
     String connectorName =
-        conn.getConnectorName() == null || conn.getConnectorName().isEmpty()
+        conn == null || conn.getConnectorName() == null || conn.getConnectorName().isEmpty()
             ? "default_connector_name"
             : conn.getConnectorName();
     this.snowflakeTelemetryChannelStatus =
