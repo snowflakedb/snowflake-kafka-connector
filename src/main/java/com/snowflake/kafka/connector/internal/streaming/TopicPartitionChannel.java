@@ -104,7 +104,8 @@ public class TopicPartitionChannel {
   private final AtomicLong latestConsumerOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
-  private final AtomicLong channelTryOpenCount = new AtomicLong(0);
+  // how many times this TopicPartitionChannel called openChannel
+  private final AtomicLong currentTpChannelOpenCount = new AtomicLong(0);
 
   /**
    * Offsets are reset in kafka when one of following cases arises in which we rely on source of
@@ -283,16 +284,20 @@ public class TopicPartitionChannel {
     this.processedOffset.set(lastCommittedOffsetToken);
 
     // setup telemetry and metrics
+    String connectorName = conn.getConnectorName() == null || conn.getConnectorName().isEmpty() ?
+        "default_connector_name" :
+        conn.getConnectorName();
     this.snowflakeTelemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             tableName,
+            connectorName,
             channelName,
             enableCustomJMXMonitoring,
             metricsJmxReporter,
             this.offsetPersistedInSnowflake,
             this.processedOffset,
             this.latestConsumerOffset,
-            this.channelTryOpenCount);
+            this.currentTpChannelOpenCount);
     this.telemetryServiceV2.reportKafkaPartitionStart(
         new SnowflakeTelemetryChannelCreation(this.tableName, this.channelName));
 
@@ -1040,7 +1045,7 @@ public class TopicPartitionChannel {
             .build();
     LOGGER.info(
         "Opening a channel with name:{} for table name:{}", this.channelName, this.tableName);
-    this.channelTryOpenCount.incrementAndGet();
+    this.currentTpChannelOpenCount.incrementAndGet();
     return streamingIngestClient.openChannel(channelRequest);
   }
 

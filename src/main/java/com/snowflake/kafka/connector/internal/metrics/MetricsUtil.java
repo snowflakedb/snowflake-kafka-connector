@@ -5,6 +5,20 @@ import java.util.Map;
 
 /** All metrics related constants. Mainly for JMX */
 public class MetricsUtil {
+  public class Streaming {
+    /**
+     * See {@link com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} for offset
+     * description
+     */
+    public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
+    public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
+
+    /**
+     * The number of times the current topic partition channel tried opening a channel
+     */
+    public static final String CURRENT_TP_CHANNEL_OPEN_COUNT = "current-tp-channel-open-count";
+  }
+
   public static final String JMX_METRIC_PREFIX = "snowflake.kafka.connector";
 
   // Offset related constants
@@ -70,14 +84,6 @@ public class MetricsUtil {
    */
   public static final String PURGED_OFFSET = "purged-offset";
 
-  /**
-   * See {@link com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} for offset
-   * description
-   */
-  public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
-
-  public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
-
   // Buffer related constants
   public static final String BUFFER_SUB_DOMAIN = "buffer";
 
@@ -93,8 +99,6 @@ public class MetricsUtil {
 
   // Partition related constants
   public static final String PARTITION_SUB_DOMAIN = "partition";
-
-  public static final String CHANNEL_TRY_OPEN_COUNT = "channel-try-open-count";
 
   public enum EventType {
     /**

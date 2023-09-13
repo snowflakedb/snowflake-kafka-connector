@@ -13,6 +13,7 @@ import org.mockito.Mockito;
 
 public class SnowflakeTelemetryChannelStatusTest {
   private final String tableName = "tableName";
+  private final String connectorName = "connectorName";
   private final String channelName = "channelName";
 
   @Test
@@ -25,6 +26,7 @@ public class SnowflakeTelemetryChannelStatusTest {
     SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             tableName,
+            connectorName,
             channelName,
             true,
             metricsJmxReporter,
@@ -52,6 +54,7 @@ public class SnowflakeTelemetryChannelStatusTest {
     SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             tableName,
+            connectorName,
             channelName,
             false,
             metricsJmxReporter,
@@ -74,6 +77,7 @@ public class SnowflakeTelemetryChannelStatusTest {
     SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             tableName,
+            connectorName,
             channelName,
             true,
             null,

@@ -8,14 +8,12 @@ public final class TelemetryConstants {
   public static final String TABLE_NAME = "table_name";
   public static final String STAGE_NAME = "stage_name";
   public static final String PIPE_NAME = "pipe_name";
-  public static final String CHANNEL_NAME = "channel_name";
+  public static final String CONNECTOR_NAME = "connector_name";
 
   public static final String PROCESSED_OFFSET = "processed-offset";
   public static final String FLUSHED_OFFSET = "flushed-offset";
   public static final String COMMITTED_OFFSET = "committed-offset";
   public static final String PURGED_OFFSET = "purged-offset";
-  public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
-  public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
 
   public static final String RECORD_NUMBER = "record_number";
   public static final String BYTE_NUMBER = "byte_number";
@@ -50,5 +48,13 @@ public final class TelemetryConstants {
   public static final String FILE_COUNT_RESTART = "file_count_restart";
   public static final String FILE_COUNT_REPROCESS_PURGE = "file_count_reprocess_purge";
 
-  public static final String CHANNEL_TRY_OPEN_COUNT = "channel_try_open_count";
+  public static final String CURRENT_TP_CHANNEL_OPEN_COUNT = "channel_try_open_count";
+
+  public class Streaming {
+    public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
+    public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
+    public static final String CHANNEL_NAME = "channel_name";
+    public static final String CHANNEL_CREATION_TIME = "channel_creation_time";
+    public static final String CHANNEL_CLOSE_TIME = "channel_close_time";
+  }
 }

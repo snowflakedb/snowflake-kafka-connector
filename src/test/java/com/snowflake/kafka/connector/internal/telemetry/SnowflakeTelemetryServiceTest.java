@@ -163,6 +163,7 @@ public class SnowflakeTelemetryServiceTest {
     final String expectedTableName = "tableName";
     final String expectedStageName = "stageName";
     final String expectedPipeName = "pipeName";
+    final String expectedConnectorName = "connectorName";
     final String expectedChannelName = "channelName";
     final long expectedProcessedOffset = 1;
     final long expectedFlushedOffset = 2;
@@ -186,6 +187,7 @@ public class SnowflakeTelemetryServiceTest {
       SnowflakeTelemetryChannelStatus channelStatus =
           new SnowflakeTelemetryChannelStatus(
               expectedTableName,
+              expectedConnectorName,
               expectedChannelName,
               false,
               null,
@@ -236,15 +238,18 @@ public class SnowflakeTelemetryServiceTest {
           allNode.get("type").asText());
       Assert.assertEquals(
           expectedLatestConsumerOffset,
-          dataNode.get(TelemetryConstants.LATEST_CONSUMER_OFFSET).asLong());
+          dataNode.get(TelemetryConstants.Streaming.LATEST_CONSUMER_OFFSET).asLong());
       Assert.assertEquals(
           expectedOffsetPersistedInSnowflake,
-          dataNode.get(TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE).asLong());
+          dataNode.get(TelemetryConstants.Streaming.OFFSET_PERSISTED_IN_SNOWFLAKE).asLong());
       Assert.assertEquals(
           expectedChannelOpenCount,
-          dataNode.get(TelemetryConstants.CHANNEL_TRY_OPEN_COUNT).asLong());
+          dataNode.get(TelemetryConstants.CURRENT_TP_CHANNEL_OPEN_COUNT).asLong());
       Assert.assertEquals(
-          expectedChannelName, dataNode.get(TelemetryConstants.CHANNEL_NAME).asText());
+          expectedChannelName, dataNode.get(TelemetryConstants.Streaming.CHANNEL_NAME).asText());
+      Assert.assertEquals(
+          expectedConnectorName, dataNode.get(TelemetryConstants.CONNECTOR_NAME).asText()
+      );
     }
   }
 
@@ -312,7 +317,7 @@ public class SnowflakeTelemetryServiceTest {
           SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_START.toString(),
           allNode.get("type").asText());
       Assert.assertEquals(
-          expectedChannelName, dataNode.get(TelemetryConstants.CHANNEL_NAME).asText());
+          expectedChannelName, dataNode.get(TelemetryConstants.Streaming.CHANNEL_NAME).asText());
     }
   }
 
