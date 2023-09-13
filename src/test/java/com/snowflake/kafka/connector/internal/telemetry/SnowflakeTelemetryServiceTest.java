@@ -234,7 +234,8 @@ public class SnowflakeTelemetryServiceTest {
       Assert.assertEquals(expectedStageName, dataNode.get(TelemetryConstants.STAGE_NAME).asText());
     } else {
       Assert.assertTrue(
-          dataNode.get(TelemetryConstants.Streaming.CHANNEL_CREATION_TIME).asLong() == expectedChannelCreationTime);
+          dataNode.get(TelemetryConstants.Streaming.CHANNEL_CREATION_TIME).asLong()
+              == expectedChannelCreationTime);
       Assert.assertEquals(
           SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE.toString(),
           allNode.get("type").asText());
@@ -273,7 +274,8 @@ public class SnowflakeTelemetryServiceTest {
       partitionCreation = pipeCreation;
     } else {
       SnowflakeTelemetryChannelCreation channelCreation =
-          new SnowflakeTelemetryChannelCreation(expectedTableName, expectedChannelName, expectedChannelCreationTime);
+          new SnowflakeTelemetryChannelCreation(
+              expectedTableName, expectedChannelName, expectedChannelCreationTime);
       channelCreation.setReuseTable(true);
 
       partitionCreation = channelCreation;
@@ -312,7 +314,9 @@ public class SnowflakeTelemetryServiceTest {
       Assert.assertEquals(expectedStageName, dataNode.get(TelemetryConstants.STAGE_NAME).asText());
       Assert.assertEquals(expectedPipeName, dataNode.get(TelemetryConstants.PIPE_NAME).asText());
     } else {
-      Assert.assertTrue(dataNode.get(TelemetryConstants.Streaming.CHANNEL_CREATION_TIME).asLong() == expectedChannelCreationTime);
+      Assert.assertTrue(
+          dataNode.get(TelemetryConstants.Streaming.CHANNEL_CREATION_TIME).asLong()
+              == expectedChannelCreationTime);
       Assert.assertEquals(
           SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_START.toString(),
           allNode.get("type").asText());
