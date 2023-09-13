@@ -51,8 +51,8 @@ public final class TelemetryConstants {
   public class Streaming {
     public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
     public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
-    public static final String CHANNEL_NAME = "channel_name";
-    public static final String CHANNEL_CREATION_TIME = "channel_creation_time";
-    public static final String CHANNEL_CLOSE_TIME = "channel_close_time";
+    public static final String TP_CHANNEL_NAME = "tp_channel_name";
+    public static final String TP_CHANNEL_CREATION_TIME = "tp_channel_creation_time";
+    public static final String TP_CHANNEL_CLOSE_TIME = "tp_channel_close_time";
   }
 }

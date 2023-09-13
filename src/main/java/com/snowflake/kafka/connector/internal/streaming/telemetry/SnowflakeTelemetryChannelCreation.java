@@ -18,8 +18,8 @@
 package com.snowflake.kafka.connector.internal.streaming.telemetry;
 
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.IS_REUSE_TABLE;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.Streaming.CHANNEL_CREATION_TIME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.Streaming.CHANNEL_NAME;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.Streaming.TP_CHANNEL_CREATION_TIME;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.Streaming.TP_CHANNEL_NAME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TABLE_NAME;
 
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
@@ -31,24 +31,24 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
  * object, thus no lock is required.
  */
 public class SnowflakeTelemetryChannelCreation extends SnowflakeTelemetryBasicInfo {
-  private final long channelCreationTime; // start time of the channel
-  private final String channelName;
+  private final long tpChannelCreationTime; // start time of the channel
+  private final String tpChannelName;
   private boolean isReuseTable = false; // is the channel reusing existing table
 
   public SnowflakeTelemetryChannelCreation(
       final String tableName, final String channelName, final long startTime) {
     super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_START);
-    this.channelName = channelName;
-    this.channelCreationTime = startTime;
+    this.tpChannelName = channelName;
+    this.tpChannelCreationTime = startTime;
   }
 
   @Override
   public void dumpTo(ObjectNode msg) {
     msg.put(TABLE_NAME, this.tableName);
-    msg.put(CHANNEL_NAME, this.channelName);
+    msg.put(TP_CHANNEL_NAME, this.tpChannelName);
 
     msg.put(IS_REUSE_TABLE, this.isReuseTable);
-    msg.put(CHANNEL_CREATION_TIME, channelCreationTime);
+    msg.put(TP_CHANNEL_CREATION_TIME, tpChannelCreationTime);
   }
 
   @Override

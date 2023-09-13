@@ -103,7 +103,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   public void dumpTo(ObjectNode msg) {
     msg.put(TelemetryConstants.TABLE_NAME, this.tableName);
     msg.put(TelemetryConstants.CONNECTOR_NAME, this.connectorName);
-    msg.put(TelemetryConstants.Streaming.CHANNEL_NAME, this.channelName);
+    msg.put(TelemetryConstants.Streaming.TP_CHANNEL_NAME, this.channelName);
 
     msg.put(
         TelemetryConstants.Streaming.OFFSET_PERSISTED_IN_SNOWFLAKE,
@@ -111,9 +111,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     msg.put(TelemetryConstants.PROCESSED_OFFSET, this.processedOffset.get());
     msg.put(TelemetryConstants.Streaming.LATEST_CONSUMER_OFFSET, this.latestConsumerOffset.get());
 
-    final long currTime = System.currentTimeMillis();
-    msg.put(TelemetryConstants.Streaming.CHANNEL_CREATION_TIME, this.channelCreationTime);
-    msg.put(TelemetryConstants.Streaming.CHANNEL_CLOSE_TIME, currTime);
+    msg.put(TelemetryConstants.Streaming.TP_CHANNEL_CREATION_TIME, this.channelCreationTime);
+    msg.put(TelemetryConstants.Streaming.TP_CHANNEL_CLOSE_TIME, System.currentTimeMillis());
   }
 
   /** Registers all the Metrics inside the metricRegistry. */
