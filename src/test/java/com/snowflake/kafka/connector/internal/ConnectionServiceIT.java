@@ -6,7 +6,7 @@ import static com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.SnowflakeTelemetryServiceV2;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceV1;
 import java.sql.ResultSet;
 import java.sql.SQLException;

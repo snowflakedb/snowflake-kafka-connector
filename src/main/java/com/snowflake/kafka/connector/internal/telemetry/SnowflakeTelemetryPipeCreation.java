@@ -29,7 +29,7 @@ public class SnowflakeTelemetryPipeCreation extends SnowflakeTelemetryBasicInfo 
 
   public SnowflakeTelemetryPipeCreation(
       final String tableName, final String stageName, final String pipeName) {
-    super(tableName);
+    super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_PIPE_START);
     this.stageName = stageName;
     this.pipeName = pipeName;
     this.startTime = System.currentTimeMillis();
