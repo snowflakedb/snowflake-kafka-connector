@@ -18,9 +18,9 @@
 package com.snowflake.kafka.connector.internal.streaming.telemetry;
 
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.IS_REUSE_TABLE;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TABLE_NAME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TP_CHANNEL_CREATION_TIME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TP_CHANNEL_NAME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TABLE_NAME;
 
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
