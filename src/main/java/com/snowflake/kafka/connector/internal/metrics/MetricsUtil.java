@@ -78,8 +78,7 @@ public class MetricsUtil {
 
   public static final String LATENCY_SUB_DOMAIN = "latencies";
 
-  ////////////////////////////////////////////// Streaming Constants
-  // //////////////////////////////////////////////
+  //************ Streaming Constants ************//
   /**
    * See {@link com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} for offset
    * description
@@ -87,13 +86,12 @@ public class MetricsUtil {
   public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
 
   public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
+  //********** ^ Streaming Constants ^ **********//
 
   public static final String JMX_METRIC_PREFIX = "snowflake.kafka.connector";
 
   // Offset related constants
   public static final String FILE_COUNT_SUB_DOMAIN = "file-counts";
-  ////////////////////////////////////////////// Streaming Constants
-  // //////////////////////////////////////////////
 
   public enum EventType {
     /**

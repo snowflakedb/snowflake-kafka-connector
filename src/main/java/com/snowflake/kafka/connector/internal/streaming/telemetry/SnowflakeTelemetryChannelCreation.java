@@ -19,8 +19,8 @@ package com.snowflake.kafka.connector.internal.streaming.telemetry;
 
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.IS_REUSE_TABLE;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TABLE_NAME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TP_CHANNEL_CREATION_TIME;
-import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TP_CHANNEL_NAME;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TOPIC_PARTITION_CHANNEL_CREATION_TIME;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TOPIC_PARTITION_CHANNEL_NAME;
 
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -45,10 +45,10 @@ public class SnowflakeTelemetryChannelCreation extends SnowflakeTelemetryBasicIn
   @Override
   public void dumpTo(ObjectNode msg) {
     msg.put(TABLE_NAME, this.tableName);
-    msg.put(TP_CHANNEL_NAME, this.tpChannelName);
+    msg.put(TOPIC_PARTITION_CHANNEL_NAME, this.tpChannelName);
 
     msg.put(IS_REUSE_TABLE, this.isReuseTable);
-    msg.put(TP_CHANNEL_CREATION_TIME, tpChannelCreationTime);
+    msg.put(TOPIC_PARTITION_CHANNEL_CREATION_TIME, tpChannelCreationTime);
   }
 
   @Override
