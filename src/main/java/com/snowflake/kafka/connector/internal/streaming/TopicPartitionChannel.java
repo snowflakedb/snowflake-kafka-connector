@@ -244,6 +244,8 @@ public class TopicPartitionChannel {
       SnowflakeTelemetryService telemetryService,
       boolean enableCustomJMXMonitoring,
       MetricsJmxReporter metricsJmxReporter) {
+    final long startTime = System.currentTimeMillis();
+
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
     Preconditions.checkState(!streamingIngestClient.isClosed());
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
@@ -290,13 +292,14 @@ public class TopicPartitionChannel {
             tableName,
             connectorName,
             channelName,
+            startTime,
             enableCustomJMXMonitoring,
             metricsJmxReporter,
             this.offsetPersistedInSnowflake,
             this.processedOffset,
             this.latestConsumerOffset);
     this.telemetryServiceV2.reportKafkaPartitionStart(
-        new SnowflakeTelemetryChannelCreation(this.tableName, this.channelName));
+        new SnowflakeTelemetryChannelCreation(this.tableName, this.channelName, startTime));
 
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);

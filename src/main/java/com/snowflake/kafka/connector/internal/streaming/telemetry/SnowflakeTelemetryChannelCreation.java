@@ -19,6 +19,7 @@ package com.snowflake.kafka.connector.internal.streaming.telemetry;
 
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.IS_REUSE_TABLE;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.START_TIME;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.Streaming.CHANNEL_CREATION_TIME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.Streaming.CHANNEL_NAME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TABLE_NAME;
 
@@ -31,14 +32,14 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
  * object, thus no lock is required.
  */
 public class SnowflakeTelemetryChannelCreation extends SnowflakeTelemetryBasicInfo {
-  private final long startTime; // start time of the channel
+  private final long channelCreationTime; // start time of the channel
   private final String channelName;
   private boolean isReuseTable = false; // is the channel reusing existing table
 
-  public SnowflakeTelemetryChannelCreation(final String tableName, String channelName) {
+  public SnowflakeTelemetryChannelCreation(final String tableName, final String channelName, final long startTime) {
     super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_START);
     this.channelName = channelName;
-    this.startTime = System.currentTimeMillis();
+    this.channelCreationTime = startTime;
   }
 
   @Override
@@ -47,7 +48,7 @@ public class SnowflakeTelemetryChannelCreation extends SnowflakeTelemetryBasicIn
     msg.put(CHANNEL_NAME, this.channelName);
 
     msg.put(IS_REUSE_TABLE, this.isReuseTable);
-    msg.put(START_TIME, startTime);
+    msg.put(CHANNEL_CREATION_TIME, channelCreationTime);
   }
 
   @Override

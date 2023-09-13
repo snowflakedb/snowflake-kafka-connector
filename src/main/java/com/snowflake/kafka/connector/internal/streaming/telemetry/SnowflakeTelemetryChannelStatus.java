@@ -65,6 +65,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       final String tableName,
       final String connectorName,
       final String channelName,
+      final long startTime,
       final boolean enableCustomJMXConfig,
       final MetricsJmxReporter metricsJmxReporter,
       final AtomicLong offsetPersistedInSnowflake,
@@ -72,7 +73,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       final AtomicLong latestConsumerOffset) {
     super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE);
 
-    this.channelCreationTime = System.currentTimeMillis();
+    this.channelCreationTime = startTime;
     this.connectorName = connectorName;
     this.channelName = channelName;
     this.metricsJmxReporter = metricsJmxReporter;
