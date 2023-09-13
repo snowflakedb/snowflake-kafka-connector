@@ -3,16 +3,21 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.TestUtils.createBigAvroRecords;
 import static com.snowflake.kafka.connector.internal.TestUtils.createNativeJsonSinkRecords;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
+import static org.mockito.ArgumentMatchers.eq;
 
+import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
@@ -832,6 +837,83 @@ public class TopicPartitionChannelTest {
         .insertRows(ArgumentMatchers.any(), ArgumentMatchers.any());
 
     Assert.assertEquals(2L, topicPartitionChannel.fetchOffsetTokenWithRetry());
+  }
+
+  @Test
+  public void testTopicPartitionChannelMetrics() throws Exception {
+    // variables
+    int noOfRecords = 5;
+
+    // setup jmxreporter
+    MetricRegistry metricRegistry = Mockito.spy(MetricRegistry.class);
+    MetricsJmxReporter metricsJmxReporter =
+        Mockito.spy(new MetricsJmxReporter(metricRegistry, TEST_CONNECTOR_NAME));
+
+    // setup insert
+    Mockito.when(
+            mockStreamingChannel.insertRows(
+                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+        .thenReturn(new InsertValidationResponse());
+    Mockito.when(
+            mockStreamingChannel.insertRow(
+                ArgumentMatchers.any(Map.class), ArgumentMatchers.any(String.class)))
+        .thenReturn(new InsertValidationResponse());
+    Mockito.when(mockStreamingChannel.close()).thenReturn(Mockito.mock(CompletableFuture.class));
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            this.mockStreamingClient,
+            this.topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            this.enableSchematization,
+            this.streamingBufferThreshold,
+            this.sfConnectorConfig,
+            this.mockKafkaRecordErrorReporter,
+            this.mockSinkTaskContext,
+            this.mockSnowflakeConnectionService,
+            new RecordService(),
+            this.mockTelemetryService,
+            true,
+            metricsJmxReporter);
+
+    // insert records
+    List<SinkRecord> records =
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, TOPIC, PARTITION);
+    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+
+    Thread.sleep(this.streamingBufferThreshold.getFlushTimeThresholdSeconds() + 1);
+    topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
+
+    // verify metrics
+    SnowflakeTelemetryChannelStatus resultStatus =
+        topicPartitionChannel.getSnowflakeTelemetryChannelStatus();
+
+    assert resultStatus.getOffsetPersistedInSnowflake()
+        == topicPartitionChannel.getOffsetPersistedInSnowflake();
+    assert resultStatus.getOffsetPersistedInSnowflake() == -1;
+    assert resultStatus.getProcessedOffset() == topicPartitionChannel.getProcessedOffset();
+    assert resultStatus.getProcessedOffset() == noOfRecords - 1;
+    assert resultStatus.getLatestConsumerOffset()
+        == topicPartitionChannel.getLatestConsumerOffset();
+    assert resultStatus.getLatestConsumerOffset() == 0;
+
+    assert resultStatus.getMetricsJmxReporter().getMetricRegistry().getMetrics().size()
+        == SnowflakeTelemetryChannelStatus.NUM_METRICS;
+
+    // verify telemetry was sent when channel closed
+    topicPartitionChannel.closeChannel();
+    Mockito.verify(this.mockTelemetryService, Mockito.times(1))
+        .reportKafkaPartitionUsage(Mockito.any(SnowflakeTelemetryChannelStatus.class), eq(true));
+    Mockito.verify(this.mockTelemetryService, Mockito.times(1))
+        .reportKafkaPartitionStart(Mockito.any(SnowflakeTelemetryChannelCreation.class));
+    assert topicPartitionChannel
+            .getSnowflakeTelemetryChannelStatus()
+            .getMetricsJmxReporter()
+            .getMetricRegistry()
+            .getMetrics()
+            .size()
+        == 0;
   }
 
   @Test
