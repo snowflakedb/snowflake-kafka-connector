@@ -35,7 +35,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
  * Extension of {@link SnowflakeTelemetryBasicInfo} class used to send data to snowflake when the
  * TopicPartitionChannel closes. Also creates and registers various metrics with JMX
  *
- * <p>Most of the data sent to Snowflake is an aggregated data.
+ * <p>Most of the data sent to Snowflake is aggregated data.
  */
 public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo {
   public static final long NUM_METRICS = 3; // update when new metrics are added

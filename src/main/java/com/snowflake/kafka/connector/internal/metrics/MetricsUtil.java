@@ -5,6 +5,11 @@ import java.util.Map;
 
 /** All metrics related constants. Mainly for JMX */
 public class MetricsUtil {
+  public static final String JMX_METRIC_PREFIX = "snowflake.kafka.connector";
+
+  // Offset related constants
+  public static final String FILE_COUNT_SUB_DOMAIN = "file-counts";
+
   /**
    * Number of files we call insertFiles API in snowpipe. Note: There is currently a limitation of
    * 5k files being sent to a single rest request. So these metric has no one to one relation
@@ -87,11 +92,6 @@ public class MetricsUtil {
 
   public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
   // ********** ^ Streaming Constants ^ **********//
-
-  public static final String JMX_METRIC_PREFIX = "snowflake.kafka.connector";
-
-  // Offset related constants
-  public static final String FILE_COUNT_SUB_DOMAIN = "file-counts";
 
   public enum EventType {
     /**
