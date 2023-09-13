@@ -32,8 +32,7 @@ public class SnowflakeTelemetryChannelStatusTest {
             metricsJmxReporter,
             new AtomicLong(-1),
             new AtomicLong(-1),
-            new AtomicLong(-1),
-            new AtomicLong(0));
+            new AtomicLong(-1));
     verify(metricsJmxReporter, times(1)).start();
     verify(metricRegistry, times((int) SnowflakeTelemetryChannelStatus.NUM_METRICS))
         .register(Mockito.anyString(), Mockito.any());
@@ -60,8 +59,7 @@ public class SnowflakeTelemetryChannelStatusTest {
             metricsJmxReporter,
             new AtomicLong(-1),
             new AtomicLong(-1),
-            new AtomicLong(-1),
-            new AtomicLong(0));
+            new AtomicLong(-1));
     verify(metricsJmxReporter, times(0)).start();
     verify(metricRegistry, times(0)).register(Mockito.anyString(), Mockito.any());
     verify(metricsJmxReporter, times(0)).removeMetricsFromRegistry(channelName);
@@ -83,8 +81,7 @@ public class SnowflakeTelemetryChannelStatusTest {
             null,
             new AtomicLong(-1),
             new AtomicLong(-1),
-            new AtomicLong(-1),
-            new AtomicLong(0));
+            new AtomicLong(-1));
     snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
   }
 }

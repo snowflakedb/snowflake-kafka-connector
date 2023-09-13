@@ -486,17 +486,6 @@ public class SnowflakeSinkServiceV2IT {
                         MetricsUtil.Streaming.LATEST_CONSUMER_OFFSET))
                 .getValue()
         == latestConsumerOffset;
-
-    // channel
-    assert (long)
-            metricRegistry
-                .get(
-                    MetricsUtil.constructMetricName(
-                        partitionChannelKey,
-                        MetricsUtil.PARTITION_SUB_DOMAIN,
-                        MetricsUtil.Streaming.CURRENT_TP_CHANNEL_OPEN_COUNT))
-                .getValue()
-        == currentTpChannelOpenCount;
   }
 
   @Test

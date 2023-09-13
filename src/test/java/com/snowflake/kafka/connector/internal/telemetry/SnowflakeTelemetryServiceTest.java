@@ -170,7 +170,6 @@ public class SnowflakeTelemetryServiceTest {
     final long expectedCommittedOffset = 3;
     final long expectedOffsetPersistedInSnowflake = 4;
     final long expectedLatestConsumerOffset = 5;
-    final long expectedChannelOpenCount = 0;
 
     SnowflakeTelemetryBasicInfo partitionUsage;
 
@@ -193,8 +192,7 @@ public class SnowflakeTelemetryServiceTest {
               null,
               new AtomicLong(expectedOffsetPersistedInSnowflake),
               new AtomicLong(expectedProcessedOffset),
-              new AtomicLong(expectedLatestConsumerOffset),
-              new AtomicLong(expectedChannelOpenCount));
+              new AtomicLong(expectedLatestConsumerOffset));
 
       partitionUsage = channelStatus;
     }
@@ -242,9 +240,6 @@ public class SnowflakeTelemetryServiceTest {
       Assert.assertEquals(
           expectedOffsetPersistedInSnowflake,
           dataNode.get(TelemetryConstants.Streaming.OFFSET_PERSISTED_IN_SNOWFLAKE).asLong());
-      Assert.assertEquals(
-          expectedChannelOpenCount,
-          dataNode.get(TelemetryConstants.CURRENT_TP_CHANNEL_OPEN_COUNT).asLong());
       Assert.assertEquals(
           expectedChannelName, dataNode.get(TelemetryConstants.Streaming.CHANNEL_NAME).asText());
       Assert.assertEquals(

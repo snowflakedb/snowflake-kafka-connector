@@ -48,8 +48,6 @@ public final class TelemetryConstants {
   public static final String FILE_COUNT_RESTART = "file_count_restart";
   public static final String FILE_COUNT_REPROCESS_PURGE = "file_count_reprocess_purge";
 
-  public static final String CURRENT_TP_CHANNEL_OPEN_COUNT = "channel_try_open_count";
-
   public class Streaming {
     public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
     public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
