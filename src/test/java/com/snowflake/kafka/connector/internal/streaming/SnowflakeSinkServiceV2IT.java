@@ -412,7 +412,8 @@ public class SnowflakeSinkServiceV2IT {
     // verify all metrics
     Map<String, Gauge> metricRegistry =
         service
-            .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, partition))
+            .getMetricRegistry(
+                SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, partition))
             .get()
             .getGauges();
     assert metricRegistry.size()
@@ -444,7 +445,8 @@ public class SnowflakeSinkServiceV2IT {
 
     // verify metrics closed
     assert !service
-        .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, partition))
+        .getMetricRegistry(
+            SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, partition))
         .isPresent();
 
     Mockito.verify(telemetryService, Mockito.times(2))
