@@ -566,6 +566,7 @@ public class RecordService {
       // get valueSchema
       Schema valueSchema = record.valueSchema();
       if (valueSchema instanceof SnowflakeJsonSchema) {
+        // TODO SNOW-916052: will not skip if record.value() == null
         // we can conclude this is a custom/KC defined converter.
         // i.e one of SFJson, SFAvro and SFAvroWithSchemaRegistry Converter
         if (record.value() instanceof SnowflakeRecordContent) {

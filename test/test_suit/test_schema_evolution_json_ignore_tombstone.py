@@ -5,10 +5,10 @@ from test_suit.test_utils import NonRetryableError
 
 # test if the table is updated with the correct column
 # add test if all the records from different topics safely land in the table
-class TestSchemaEvolutionJson:
+class TestSchemaEvolutionJsonIgnoreTombstone:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_evolution_json"
+        self.fileName = "test_schema_evolution_json_ignore_tombstone"
         self.topics = []
         self.table = self.fileName + nameSalt
         self.recordNum = 100
@@ -83,7 +83,7 @@ class TestSchemaEvolutionJson:
 
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.table)).fetchone()[0]
-        if res != len(self.topics) * self.recordNum:
+        if res != len(self.topics) * (self.recordNum - 1):
             print("Number of record expected: {}, got: {}".format(len(self.topics) * self.recordNum, res))
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
