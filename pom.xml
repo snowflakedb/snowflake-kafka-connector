@@ -483,7 +483,7 @@
             <scope>test</scope>
         </dependency>
 
-        <!--Kafka JSON converter-->
+        <!--Kafka JSON converter for SMT unit test-->
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>connect-json</artifactId>
