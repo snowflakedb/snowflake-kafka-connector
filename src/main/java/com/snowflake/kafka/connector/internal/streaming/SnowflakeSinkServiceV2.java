@@ -92,7 +92,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private boolean enableSchematization;
 
   /**
-   * Key is formulated in {@link #partitionChannelKey(String, int)} }
+   * Key is formulated in {@link #partitionChannelKey(String, String, int)} }
    *
    * <p>value is the Streaming Ingest Channel implementation (Wrapped around TopicPartitionChannel)
    */
@@ -235,7 +235,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       final TopicPartition topicPartition,
       boolean hasSchemaEvolutionPermission) {
     final String partitionChannelKey =
-        partitionChannelKey(topicPartition.topic(), topicPartition.partition());
+        partitionChannelKey(
+            conn.getConnectorName(), topicPartition.topic(), topicPartition.partition());
     // Create new instance of TopicPartitionChannel which will always open the channel.
     partitionsToChannel.put(
         partitionChannelKey,
@@ -294,7 +295,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void insert(SinkRecord record) {
-    String partitionChannelKey = partitionChannelKey(record.topic(), record.kafkaPartition());
+    String partitionChannelKey =
+        partitionChannelKey(this.conn.getConnectorName(), record.topic(), record.kafkaPartition());
     // init a new topic partition if it's not presented in cache or if channel is closed
     if (!partitionsToChannel.containsKey(partitionChannelKey)
         || partitionsToChannel.get(partitionChannelKey).isChannelClosed()) {
@@ -314,7 +316,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public long getOffset(TopicPartition topicPartition) {
     String partitionChannelKey =
-        partitionChannelKey(topicPartition.topic(), topicPartition.partition());
+        partitionChannelKey(
+            conn.getConnectorName(), topicPartition.topic(), topicPartition.partition());
     if (partitionsToChannel.containsKey(partitionChannelKey)) {
       long offset = partitionsToChannel.get(partitionChannelKey).getOffsetSafeToCommitToKafka();
       partitionsToChannel.get(partitionChannelKey).setLatestConsumerOffset(offset);
@@ -368,7 +371,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     partitions.forEach(
         topicPartition -> {
           final String partitionChannelKey =
-              partitionChannelKey(topicPartition.topic(), topicPartition.partition());
+              partitionChannelKey(
+                  conn.getConnectorName(), topicPartition.topic(), topicPartition.partition());
           TopicPartitionChannel topicPartitionChannel =
               partitionsToChannel.get(partitionChannelKey);
           // Check for null since it's possible that the something goes wrong even before the
@@ -515,15 +519,19 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   /**
-   * Gets a unique identifier consisting of topic name and partition number.
+   * Gets a unique identifier consisting of connector name, topic name and partition number.
    *
+   * @param connectorName Connector name is always unique. (Two connectors with same name won't be
+   *     allowed by Connector Framework)
+   *     <p>Note: Customers can have same named connector in different connector runtimes (Like DEV
+   *     or PROD)
    * @param topic topic name
    * @param partition partition number
    * @return combinartion of topic and partition
    */
   @VisibleForTesting
-  public static String partitionChannelKey(String topic, int partition) {
-    return topic + "_" + partition;
+  public static String partitionChannelKey(String connectorName, String topic, int partition) {
+    return connectorName + "_" + topic + "_" + partition;
   }
 
   /* Used for testing */
