@@ -90,7 +90,9 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         ("TestStringJson", EndToEndTestSuite(
             test_instance=TestStringJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestStringJsonIgnoreTombstone", EndToEndTesg
+        ("TestStringJsonIgnoreTombstone", EndToEndTestSuite(
+            test_instance=TestStringJsonIgnoreTombstone(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
         ("TestJsonJson", EndToEndTestSuite(
             test_instance=TestJsonJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
