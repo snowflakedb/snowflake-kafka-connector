@@ -58,9 +58,13 @@ class TestSchemaEvolutionJson:
                 key.append(json.dumps({'number': str(e)}).encode('utf-8'))
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
 
-            # append tombstone
-            key.append(json.dumps({'number': str(self.recordNum)}).encode('utf-8'))
-            value.append('')
+            # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
+            if self.driver.testVersion == '2.5.1':
+                value.append(json.dumps(self.records[i]).encode('utf-8'))
+            else:
+                value.append('')
+            key.append(json.dumps({'number': str(i)}).encode('utf-8'))
+
             self.driver.sendBytesData(topic, value, key)
 
     def verify(self, round):
