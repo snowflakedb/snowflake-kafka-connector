@@ -44,8 +44,8 @@
 
     <!-- Set our Language Level to Java 8 -->
     <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
         <skipTests>false</skipTests>
         <skipUnitTests>${skipTests}</skipUnitTests>
         <skipIntegrationTests>${skipTests}</skipIntegrationTests>
@@ -215,6 +215,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.22.0</version>
                 <configuration>
+                    <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>                
                     <skipTests>${skipUnitTests}</skipTests>
                 </configuration>
             </plugin>
@@ -542,5 +543,24 @@
             <version>0.9.0.0</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-api</artifactId>
+                <version>5.10.0</version>
+                <scope>test</scope>
+        </dependency>        
+        <dependency>
+            <groupId>com.streamkap</groupId>
+            <artifactId>streamkap-kafka-connect-common</artifactId>
+            <version>0.0.4</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.streamkap.kafka.connect.transforms</groupId>
+            <artifactId>multi-converter</artifactId>
+            <version>0.0.5</version>
+            <scope>test</scope>
+        </dependency>        
     </dependencies>
 </project>
