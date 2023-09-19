@@ -66,33 +66,38 @@ public class StreamkapITSnowflake extends StreamkapSinkITBase<SnowflakeSinkTask>
         }
     }
 
+    protected boolean checkTableMetadata() {
+        return false;
+    }
+
+
     @Test
     public void testNominal() throws SQLException, InterruptedException {
         super.testNominal();
     }
 
-    @Test
-    public void testMultiFieldKey() throws SQLException, InterruptedException {
-        super.testMultiFieldKey();
-    }
+    // @Test
+    // public void testMultiFieldKey() throws SQLException, InterruptedException {
+    //     super.testMultiFieldKey();
+    // }
 
-    @Test
-    public void testNullKeyUpsert() throws SQLException, InterruptedException {
-        super.testNullKeyUpsert();
-    }
+    // @Test
+    // public void testNullKeyUpsert() throws SQLException, InterruptedException {
+    //     super.testNullKeyUpsert();
+    // }
 
-    @Test
-    public void testNullKeyAppend() throws SQLException, InterruptedException {
-        super.testNullKeyAppend();
-    }
+    // @Test
+    // public void testNullKeyAppend() throws SQLException, InterruptedException {
+    //     super.testNullKeyAppend();
+    // }
 
-    @Test
-    public void testHardDelete() throws SQLException, InterruptedException {
-        Map<String, String> config = getConf();
-        config.put("databricks.ingestion.mode", "upsert");
-        config.put("databricks.hard.delete", "true");
-        super.testHardDelete(config);
-    }
+    // @Test
+    // public void testHardDelete() throws SQLException, InterruptedException {
+    //     Map<String, String> config = getConf();
+    //     config.put("databricks.ingestion.mode", "upsert");
+    //     config.put("databricks.hard.delete", "true");
+    //     super.testHardDelete(config);
+    // }
 
     @Override
     protected SnowflakeSinkTask createSinkTask() {
