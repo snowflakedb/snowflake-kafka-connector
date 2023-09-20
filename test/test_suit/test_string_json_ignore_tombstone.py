@@ -2,10 +2,10 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 
 
-class TestStringJson:
+class TestStringJsonIgnoreTombstone:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_string_json"
+        self.fileName = "test_string_json_ignore_tombstone"
         self.topic = self.fileName + nameSalt
 
     def getConfigFileName(self):
@@ -19,11 +19,7 @@ class TestStringJson:
             value.append(json.dumps({'number': str(e)}).encode('utf-8'))
 
         # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
-        if self.driver.testVersion == '2.5.1':
-            value.append(json.dumps(
-                {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(100)}
-            ).encode('utf-8'))
-        else:
+        if self.driver.testVersion != '2.5.1':
             value.append('')
 
         header = [('header1', 'value1'), ('header2', '{}')]
@@ -32,17 +28,19 @@ class TestStringJson:
     def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
+        goalCount = 99
+        print("Got " + str(res) + " rows. Expected " + str(goalCount) + " rows")
         if res == 0:
             raise RetryableError()
-        elif res != 100:
+        elif res != goalCount:
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
         # validate content of line 1
         oldVersions = ["5.4.0", "5.3.0", "5.2.0", "2.4.0", "2.3.0", "2.2.0"]
         if self.driver.testVersion in oldVersions:
-            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":{}},"offset":0,"partition":0,"topic":"travis_correct_string_json....."}'
+            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":{}},"offset":0,"partition":0,"topic":"test_string_json_ignore_tombstone....."}'
         else:
-            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":[]},"offset":0,"partition":0,"topic":"travis_correct_string_json....."}'
+            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":[]},"offset":0,"partition":0,"topic":"test_string_json_ignore_tombstone....."}'
 
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()

@@ -152,7 +152,7 @@ public class SchematizationUtils {
   private static Map<String, String> getSchemaMapFromRecord(SinkRecord record) {
     Map<String, String> schemaMap = new HashMap<>();
     Schema schema = record.valueSchema();
-    if (schema != null) {
+    if (schema != null && schema.fields() != null) {
       for (Field field : schema.fields()) {
         schemaMap.put(field.name(), convertToSnowflakeType(field.schema().type()));
       }
