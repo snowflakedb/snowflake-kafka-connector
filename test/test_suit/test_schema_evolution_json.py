@@ -54,6 +54,8 @@ class TestSchemaEvolutionJson:
         for i, topic in enumerate(self.topics):
             key = []
             value = []
+
+            # send one less record because we are sending a tombstone record. tombstone ingestion is enabled by default
             for e in range(self.recordNum - 1):
                 key.append(json.dumps({'number': str(e)}).encode('utf-8'))
                 value.append(json.dumps(self.records[i]).encode('utf-8'))

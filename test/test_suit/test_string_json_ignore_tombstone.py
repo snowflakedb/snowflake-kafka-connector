@@ -13,6 +13,8 @@ class TestStringJsonIgnoreTombstone:
 
     def send(self):
         value = []
+
+        # send one less record because we are sending a tombstone record. tombstone ingestion is enabled by default
         for e in range(99):
             value.append(json.dumps({'number': str(e)}).encode('utf-8'))
 

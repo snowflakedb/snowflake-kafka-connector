@@ -31,6 +31,8 @@ class TestSnowpipeStreamingStringJson:
             print("Sending in Partition:" + str(p))
             key = []
             value = []
+
+            # send one less record because we are sending a tombstone record. tombstone ingestion is enabled by default
             for e in range(self.recordNum - 1):
                 value.append(json.dumps(
                     {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
