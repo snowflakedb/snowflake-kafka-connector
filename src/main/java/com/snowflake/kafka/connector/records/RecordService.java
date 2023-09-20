@@ -275,6 +275,13 @@ public class RecordService {
   private Map<String, Object> getMapFromJsonNodeForStreamingIngest(JsonNode node)
       throws JsonProcessingException {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
+
+    // return empty if tombstone record
+    if (node.size() == 0
+        && this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+      return streamingIngestRow;
+    }
+
     Iterator<String> columnNames = node.fieldNames();
     while (columnNames.hasNext()) {
       String columnName = columnNames.next();
@@ -559,6 +566,7 @@ public class RecordService {
       // get valueSchema
       Schema valueSchema = record.valueSchema();
       if (valueSchema instanceof SnowflakeJsonSchema) {
+        // TODO SNOW-916052: will not skip if record.value() == null
         // we can conclude this is a custom/KC defined converter.
         // i.e one of SFJson, SFAvro and SFAvroWithSchemaRegistry Converter
         if (record.value() instanceof SnowflakeRecordContent) {
