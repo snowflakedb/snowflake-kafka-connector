@@ -567,15 +567,16 @@ public class RecordService {
     boolean isRecordValueNull =
         // skip when record value or schema is null
         (record.value() == null || record.valueSchema() == null)
-        ||
-        // skip when snowflake converter and record is null
-        (record.valueSchema() instanceof SnowflakeJsonSchema
-        && record.value() instanceof  SnowflakeRecordContent
-        && ((SnowflakeRecordContent) record.value()).isRecordContentValueNull());
+            ||
+            // skip when snowflake converter and record is null
+            (record.valueSchema() instanceof SnowflakeJsonSchema
+                && record.value() instanceof SnowflakeRecordContent
+                && ((SnowflakeRecordContent) record.value()).isRecordContentValueNull());
 
     if (isRecordValueNull) {
       LOGGER.debug(
-          "Null valued record from topic '{}', partition {} and offset {} was skipped. recordValue = '{}', recordSchema = '{}'",
+          "Null valued record from topic '{}', partition {} and offset {} was skipped. recordValue"
+              + " = '{}', recordSchema = '{}'",
           record.topic(),
           record.kafkaPartition(),
           record.kafkaOffset(),

@@ -187,37 +187,18 @@ public class TombstoneRecordIngestionIT {
       // null key schema
       sinkRecords.add(
           new SinkRecord(
-              topic,
-              partition,
-              null,
-              converter.toString(),
-              input.schema(),
-              input.value(),
-              offset));
+              topic, partition, null, converter.toString(), input.schema(), input.value(), offset));
       offset++;
 
       // null key value
       sinkRecords.add(
           new SinkRecord(
-              topic,
-              partition,
-              Schema.STRING_SCHEMA,
-              null,
-              input.schema(),
-              input.value(),
-              offset));
+              topic, partition, Schema.STRING_SCHEMA, null, input.schema(), input.value(), offset));
       offset++;
 
       // null key schema and value
       sinkRecords.add(
-          new SinkRecord(
-              topic,
-              partition,
-              null,
-              null,
-              input.schema(),
-              input.value(),
-              offset));
+          new SinkRecord(topic, partition, null, null, input.schema(), input.value(), offset));
       offset++;
 
       // null value schema
@@ -246,14 +227,7 @@ public class TombstoneRecordIngestionIT {
 
       // null value schema and value
       sinkRecords.add(
-          new SinkRecord(
-              topic,
-              partition,
-              input.schema(),
-              input.value(),
-              null,
-              null,
-              offset));
+          new SinkRecord(topic, partition, input.schema(), input.value(), null, null, offset));
       offset++;
     }
 
