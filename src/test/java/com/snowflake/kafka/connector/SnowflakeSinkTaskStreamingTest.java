@@ -116,7 +116,7 @@ public class SnowflakeSinkTaskStreamingTest {
             mockStreamingClient,
             config,
             false,
-            topicPartitionChannelMap);
+            topicPartitionChannelMap,0);
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask(mockSinkService, mockConnectionService);
 

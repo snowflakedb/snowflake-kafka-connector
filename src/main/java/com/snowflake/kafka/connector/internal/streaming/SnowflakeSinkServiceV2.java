@@ -123,29 +123,26 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.connectorConfig = connectorConfig;
 
     this.enableSchematization =
-        this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
+            this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
 
     this.streamingIngestClient =
-        StreamingClientProvider.getStreamingClientProviderInstance()
-            .getClient(this.connectorConfig);
+            StreamingClientProvider.getStreamingClientProviderInstance()
+                    .getClient(this.connectorConfig);
 
-    this.nestDepth =
-            this.recordService.setAndGetNestDepthFromConfig(this.connectorConfig);
-
-    this.taskId = connectorConfig.getOrDefault(Utils.TASK_ID, "-1");
-    this.streamingIngestClientName =
-        STREAMING_CLIENT_PREFIX_NAME + conn.getConnectorName() + "_" + taskId;
-    initStreamingClient();
     this.partitionsToChannel = new HashMap<>();
 
     this.tableName2SchemaEvolutionPermission = new HashMap<>();
 
     // jmx
     String connectorName =
-        conn == null || Strings.isNullOrEmpty(this.conn.getConnectorName())
-            ? "default_connector"
-            : this.conn.getConnectorName();
+            conn == null || Strings.isNullOrEmpty(this.conn.getConnectorName())
+                    ? "default_connector"
+                    : this.conn.getConnectorName();
     this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), connectorName);
+
+
+    this.nestDepth =
+            this.recordService.setAndGetNestDepthFromConfig(this.connectorConfig);
   }
 
   @VisibleForTesting
@@ -164,7 +161,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       SnowflakeStreamingIngestClient streamingIngestClient,
       Map<String, String> connectorConfig,
       boolean enableSchematization,
-      Map<String, TopicPartitionChannel> partitionsToChannel) {
+      Map<String, TopicPartitionChannel> partitionsToChannel,
+      int nestDepth) {
     this.flushTimeSeconds = flushTimeSeconds;
     this.fileSizeBytes = fileSizeBytes;
     this.recordNum = recordNum;
@@ -191,6 +189,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             populateSchemaEvolutionPermissions(tableName);
           });
     }
+    this.nestDepth = nestDepth;
   }
 
   /**
@@ -552,7 +551,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   /**
    * Used for testing Only
    *
-   * @param topicPartitionChannelKey look {@link #partitionChannelKey(String, int)} for key format
    * @return TopicPartitionChannel if present in partitionsToChannel Map else null
    */
   @VisibleForTesting
