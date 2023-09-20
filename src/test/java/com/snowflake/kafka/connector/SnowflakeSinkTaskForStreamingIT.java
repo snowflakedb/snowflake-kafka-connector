@@ -3,12 +3,17 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -25,13 +30,12 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
-import org.mockito.AdditionalMatchers;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 import org.slf4j.Logger;
 
@@ -39,6 +43,7 @@ import org.slf4j.Logger;
  * Sink Task IT test which uses {@link
  * com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2}
  */
+@RunWith(Parameterized.class)
 public class SnowflakeSinkTaskForStreamingIT {
 
   private String topicName;
@@ -48,9 +53,22 @@ public class SnowflakeSinkTaskForStreamingIT {
   @Mock Logger logger = Mockito.mock(Logger.class);
 
   @InjectMocks @Spy
-  private LoggerHandler loggerHandler = Mockito.spy(new LoggerHandler(this.getClass().getName()));
+  private KCLogger kcLogger = Mockito.spy(new KCLogger(this.getClass().getName()));
 
   @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
+
+  // use OAuth as authenticator or not
+  private boolean useOAuth;
+
+  @Parameterized.Parameters(name = "useOAuth: {0}")
+  public static Collection<Object[]> input() {
+    // TODO: Added {true} after SNOW-352846 is released
+    return Arrays.asList(new Object[][] {{false}});
+  }
+
+  public SnowflakeSinkTaskForStreamingIT(boolean useOAuth) {
+    this.useOAuth = useOAuth;
+  }
 
   @Before
   public void setup() {
@@ -65,7 +83,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
   @Test
   public void testSinkTask() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(BUFFER_COUNT_RECORDS, "1"); // override
 
@@ -80,12 +98,17 @@ public class SnowflakeSinkTaskForStreamingIT {
     topicPartitions.add(new TopicPartition(topicName, partition));
     sinkTask.open(topicPartitions);
 
+    // commit offset
+    final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
+    offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(0));
+    TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 0, 20, 5);
+
     // send regular data
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition);
     sinkTask.put(records);
 
     // commit offset
-    final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
+    offsetMap.clear();
     offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(10000));
 
     TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 1, 20, 5);
@@ -98,121 +121,8 @@ public class SnowflakeSinkTaskForStreamingIT {
   }
 
   @Test
-  @Ignore
-  public void testMultipleSinkTaskWithLogs() throws Exception {
-    // setup log mocking for task1
-    MockitoAnnotations.initMocks(this);
-    Mockito.when(logger.isInfoEnabled()).thenReturn(true);
-    Mockito.when(logger.isDebugEnabled()).thenReturn(true);
-    Mockito.when(logger.isWarnEnabled()).thenReturn(true);
-
-    // set up configs
-    String task0Id = "0";
-    Map<String, String> config0 = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config0);
-    config0.put(BUFFER_COUNT_RECORDS, "1"); // override
-    config0.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config0.put(Utils.TASK_ID, task0Id);
-
-    String task1Id = "1";
-    int taskOpen1Count = 0;
-    Map<String, String> config1 = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(config1);
-    config1.put(BUFFER_COUNT_RECORDS, "1"); // override
-    config1.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config1.put(Utils.TASK_ID, task1Id);
-
-    SnowflakeSinkTask sinkTask0 = new SnowflakeSinkTask();
-
-    sinkTask0.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
-    sinkTask1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
-
-    // set up task1 logging tag
-    String expectedTask1Tag =
-        TestUtils.getExpectedLogTagWithoutCreationCount(task1Id, taskOpen1Count);
-    Mockito.doCallRealMethod().when(loggerHandler).setLoggerInstanceTag(expectedTask1Tag);
-
-    // start tasks
-    sinkTask0.start(config0);
-    sinkTask1.start(config1);
-
-    // verify task1 start logs
-    Mockito.verify(loggerHandler, Mockito.times(1))
-        .setLoggerInstanceTag(Mockito.contains(expectedTask1Tag));
-    Mockito.verify(logger, Mockito.times(2))
-        .debug(
-            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("start")));
-
-    // open tasks
-    ArrayList<TopicPartition> topicPartitions0 = new ArrayList<>();
-    topicPartitions0.add(new TopicPartition(topicName, partition));
-    ArrayList<TopicPartition> topicPartitions1 = new ArrayList<>();
-    topicPartitions1.add(new TopicPartition(topicName, partition));
-
-    sinkTask0.open(topicPartitions0);
-    sinkTask1.open(topicPartitions1);
-
-    taskOpen1Count++;
-    expectedTask1Tag = TestUtils.getExpectedLogTagWithoutCreationCount(task1Id, taskOpen1Count);
-
-    // verify task1 open logs
-    Mockito.verify(logger, Mockito.times(1))
-        .debug(
-            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("open")));
-
-    // send data to tasks
-    List<SinkRecord> records0 = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition);
-    List<SinkRecord> records1 = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition);
-
-    sinkTask0.put(records0);
-    sinkTask1.put(records1);
-
-    // verify task1 put logs
-    Mockito.verify(logger, Mockito.times(1))
-        .debug(AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("put")));
-
-    // commit offsets
-    final Map<TopicPartition, OffsetAndMetadata> offsetMap0 = new HashMap<>();
-    final Map<TopicPartition, OffsetAndMetadata> offsetMap1 = new HashMap<>();
-    offsetMap0.put(topicPartitions0.get(0), new OffsetAndMetadata(10000));
-    offsetMap1.put(topicPartitions1.get(0), new OffsetAndMetadata(10000));
-
-    TestUtils.assertWithRetry(() -> sinkTask0.preCommit(offsetMap0).size() == 1, 20, 5);
-    TestUtils.assertWithRetry(() -> sinkTask1.preCommit(offsetMap1).size() == 1, 20, 5);
-
-    // verify task1 precommit logs
-    Mockito.verify(logger, Mockito.times(1))
-        .debug(
-            AdditionalMatchers.and(
-                Mockito.contains(expectedTask1Tag), Mockito.contains("precommit")));
-
-    TestUtils.assertWithRetry(
-        () -> sinkTask0.preCommit(offsetMap0).get(topicPartitions0.get(0)).offset() == 1, 20, 5);
-    TestUtils.assertWithRetry(
-        () -> sinkTask1.preCommit(offsetMap1).get(topicPartitions1.get(0)).offset() == 1, 20, 5);
-
-    // close tasks
-    sinkTask0.close(topicPartitions0);
-    sinkTask1.close(topicPartitions1);
-
-    // verify task1 close logs
-    Mockito.verify(logger, Mockito.times(1))
-        .debug(
-            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("closed")));
-
-    // stop tasks
-    sinkTask0.stop();
-    sinkTask1.stop();
-
-    // verify task1 stop logs
-    Mockito.verify(logger, Mockito.times(1))
-        .debug(
-            AdditionalMatchers.and(Mockito.contains(expectedTask1Tag), Mockito.contains("stop")));
-  }
-
-  @Test
   public void testSinkTaskWithMultipleOpenClose() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(BUFFER_COUNT_RECORDS, "1"); // override
 
@@ -302,5 +212,143 @@ public class SnowflakeSinkTaskForStreamingIT {
         });
 
     assert partitionsInTable.size() == 2;
+  }
+
+  @Test
+  public void testTopicToTableRegex() {
+    Map<String, String> config = getConfig();
+
+    testTopicToTableRegexMain(config);
+  }
+
+  // runner for topic to table regex testing, used to test both streaming and snowpipe scenarios.
+  // Unfortunately cannot be moved to test utils due to the scope of some static variables
+  public static void testTopicToTableRegexMain(Map<String, String> config) {
+    // constants
+    String catTable = "cat_table";
+    String catTopicRegex = ".*_cat";
+    String catTopicStr1 = "calico_cat";
+    String catTopicStr2 = "orange_cat";
+
+    String bigCatTable = "big_cat_table";
+    String bigCatTopicRegex = "big.*_.*_cat";
+    String bigCatTopicStr1 = "big_calico_cat";
+    String bigCatTopicStr2 = "biggest_orange_cat";
+
+    String dogTable = "dog_table";
+    String dogTopicRegex = ".*_dog";
+    String dogTopicStr1 = "corgi_dog";
+
+    String catchallTable = "animal_table";
+    String catchAllRegex = ".*";
+    String birdTopicStr1 = "bird";
+
+    // test two regexes. bird should create its own table
+    String twoRegexConfig =
+        Utils.formatString("{}:{}, {}:{}", bigCatTopicRegex, bigCatTable, dogTopicRegex, dogTable);
+    List<String> twoRegexPartitionStrs =
+        Arrays.asList(bigCatTopicStr1, bigCatTopicStr2, dogTopicStr1, birdTopicStr1);
+    Map<String, String> twoRegexExpected = new HashMap<>();
+    twoRegexExpected.put(bigCatTopicStr1, bigCatTable);
+    twoRegexExpected.put(bigCatTopicStr2, bigCatTable);
+    twoRegexExpected.put(dogTopicStr1, dogTable);
+    twoRegexExpected.put(birdTopicStr1, birdTopicStr1);
+    testTopicToTableRegexRunner(config, twoRegexConfig, twoRegexPartitionStrs, twoRegexExpected);
+
+    // test two regexes with catchall. catchall should overlap both regexes and fail the test
+    String twoRegexCatchAllConfig =
+        Utils.formatString(
+            "{}:{}, {}:{},{}:{}",
+            catchAllRegex,
+            catchallTable,
+            catTopicRegex,
+            catTable,
+            dogTopicRegex,
+            dogTable);
+    List<String> twoRegexCatchAllPartitionStrs =
+        Arrays.asList(catTopicStr1, catTopicStr2, bigCatTopicStr1, dogTopicStr1, birdTopicStr1);
+    Map<String, String> twoRegexCatchAllExpected = new HashMap<>();
+    assert TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021,
+        () ->
+            testTopicToTableRegexRunner(
+                config,
+                twoRegexCatchAllConfig,
+                twoRegexCatchAllPartitionStrs,
+                twoRegexCatchAllExpected));
+
+    // test invalid overlapping regexes
+    String invalidTwoRegexConfig =
+        Utils.formatString("{}:{}, {}:{}", catTopicRegex, catTable, bigCatTopicRegex, bigCatTable);
+    List<String> invalidTwoRegexPartitionStrs =
+        Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
+    Map<String, String> invalidTwoRegexExpected = new HashMap<>();
+    assert TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021,
+        () ->
+            testTopicToTableRegexRunner(
+                config,
+                invalidTwoRegexConfig,
+                invalidTwoRegexPartitionStrs,
+                invalidTwoRegexExpected));
+
+    // test catchall regex
+    String catchAllConfig = Utils.formatString("{}:{}", catchAllRegex, catchallTable);
+    List<String> catchAllPartitionStrs =
+        Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
+    Map<String, String> catchAllExpected = new HashMap<>();
+    catchAllExpected.put(catTopicStr1, catchallTable);
+    catchAllExpected.put(catTopicStr2, catchallTable);
+    catchAllExpected.put(dogTopicStr1, catchallTable);
+    catchAllExpected.put(birdTopicStr1, catchallTable);
+    testTopicToTableRegexRunner(config, catchAllConfig, catchAllPartitionStrs, catchAllExpected);
+  }
+
+  private static void testTopicToTableRegexRunner(
+      Map<String, String> connectorBaseConfig,
+      String topic2tableRegex,
+      List<String> partitionStrList,
+      Map<String, String> expectedTopic2TableConfig) {
+    // setup
+    connectorBaseConfig.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, topic2tableRegex);
+
+    // setup partitions
+    List<TopicPartition> testPartitions = new ArrayList<>();
+    for (int i = 0; i < partitionStrList.size(); i++) {
+      testPartitions.add(new TopicPartition(partitionStrList.get(i), i));
+    }
+
+    // mocks
+    SnowflakeSinkService serviceSpy = Mockito.spy(SnowflakeSinkService.class);
+    SnowflakeConnectionService connSpy = Mockito.spy(SnowflakeConnectionService.class);
+    Map<String, String> parsedConfig = SnowflakeSinkTask.getTopicToTableMap(connectorBaseConfig);
+
+    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask(serviceSpy, connSpy, parsedConfig);
+
+    // test topics were mapped correctly
+    sinkTask.open(testPartitions);
+
+    // verify expected num tasks opened
+    Mockito.verify(serviceSpy, Mockito.times(1))
+        .startPartitions(Mockito.anyCollection(), Mockito.anyMap());
+
+    for (String topicStr : expectedTopic2TableConfig.keySet()) {
+      TopicPartition topic = null;
+      String table = expectedTopic2TableConfig.get(topicStr);
+      for (TopicPartition currTp : testPartitions) {
+        if (currTp.topic().equals(topicStr)) {
+          topic = currTp;
+        }
+      }
+      Assert.assertNotNull("Expected topic partition was not opened by the tast", topic);
+    }
+  }
+
+  private Map<String, String> getConfig() {
+    if (!useOAuth) {
+      return TestUtils.getConfForStreaming();
+    } else {
+      return TestUtils.getConfForStreamingWithOAuth();
+    }
   }
 }

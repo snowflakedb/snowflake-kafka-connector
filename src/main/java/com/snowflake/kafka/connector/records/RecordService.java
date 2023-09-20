@@ -16,10 +16,15 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.internal.EnableLogging;
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
@@ -37,7 +42,6 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMappe
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.JsonNodeFactory;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
-import net.snowflake.ingest.internal.apache.arrow.util.VisibleForTesting;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Date;
@@ -51,12 +55,10 @@ import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
 
-import static com.snowflake.kafka.connector.Utils.*;
+public class RecordService {
+  private final KCLogger LOGGER = new KCLogger(RecordService.class.getName());
 
-public class RecordService extends EnableLogging {
   private static final ObjectMapper MAPPER = new ObjectMapper();
-
-  private static final LoggerHandler LOGGER = new LoggerHandler(RecordService.class.getName());
 
   // deleted private to use these values in test
   static final String OFFSET = "offset";
@@ -70,6 +72,8 @@ public class RecordService extends EnableLogging {
   static final String HEADERS = "headers";
 
   private boolean enableSchematization = false;
+  private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues =
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
 
   private int nestDepth = 1;
 
@@ -94,13 +98,26 @@ public class RecordService extends EnableLogging {
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
   private boolean debugLog;
 
+  /** Send Telemetry Data to Snowflake */
+  private final SnowflakeTelemetryService telemetryService;
+
   /**
    * process records output JSON format: { "meta": { "offset": 123, "topic": "topic name",
    * "partition": 123, "key":"key name" } "content": "record content" }
    *
    * <p>create a JsonRecordService instance
+   *
+   * @param telemetryService Telemetry Service Instance. Can be null.
    */
-  public RecordService() {}
+  public RecordService(SnowflakeTelemetryService telemetryService) {
+    this.telemetryService = telemetryService;
+  }
+
+  /** Record service with null telemetry Service, only use it for testing. */
+  @VisibleForTesting
+  public RecordService() {
+    this(null);
+  }
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
     metadataConfig = metadataConfigIn;
@@ -170,6 +187,19 @@ public class RecordService extends EnableLogging {
   }
 
   /**
+   * Directly set the behaviorOnNullValues through param
+   *
+   * <p>This method is only for testing
+   *
+   * @param behaviorOnNullValues how to handle null values
+   */
+  @VisibleForTesting
+  public void setBehaviorOnNullValues(
+      final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues) {
+    this.behaviorOnNullValues = behaviorOnNullValues;
+  }
+
+  /**
    * Directly set the enableSchematization through param
    *
    * <p>This method is only for testing
@@ -193,19 +223,24 @@ public class RecordService extends EnableLogging {
    * @return a Row wrapper which contains both actual content(payload) and metadata
    */
   private SnowflakeTableRow processRecord(SinkRecord record) {
-    if (record.value() == null || record.valueSchema() == null) {
-      LOGGER.error("CAFLOG_NULL - {} ||| {} ||| {}", record, record.kafkaOffset(), record.toString());
-      throw SnowflakeErrors.ERROR_5016.getException();
-    }
-    if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME)) {
-      throw SnowflakeErrors.ERROR_0009.getException();
-    }
-    if (!(record.value() instanceof SnowflakeRecordContent)) {
-      throw SnowflakeErrors.ERROR_0010.getException(
-          "Input record should be SnowflakeRecordContent object");
-    }
+    SnowflakeRecordContent valueContent;
 
-    SnowflakeRecordContent valueContent = (SnowflakeRecordContent) record.value();
+    if (record.value() == null || record.valueSchema() == null) {
+      if (this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+        valueContent = new SnowflakeRecordContent();
+      } else {
+        throw SnowflakeErrors.ERROR_5016.getException();
+      }
+    } else {
+      if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME)) {
+        throw SnowflakeErrors.ERROR_0009.getException();
+      }
+      if (!(record.value() instanceof SnowflakeRecordContent)) {
+        throw SnowflakeErrors.ERROR_0010.getException(
+            "Input record should be SnowflakeRecordContent object");
+      }
+      valueContent = (SnowflakeRecordContent) record.value();
+    }
 
     ObjectNode meta = MAPPER.createObjectNode();
     if (metadataConfig.topicFlag) {
@@ -334,7 +369,7 @@ public class RecordService extends EnableLogging {
       }
       // while the value is always dumped into a string, the Streaming Ingest SDK
       // will transform the value according to its type in the table
-      streamingIngestRow.put(sflColumnName, columnValue);
+      streamingIngestRow.put(Utils.quoteNameIfNeeded(columnName), columnValue);
     }
     // Thrown an exception if the input JsonNode is not in the expected format
     if (streamingIngestRow.isEmpty()) {
@@ -407,6 +442,12 @@ public class RecordService extends EnableLogging {
   void putKey(SinkRecord record, ObjectNode meta) {
     if (record.key() == null) {
       return;
+    }
+
+    if (record.keySchema() == null) {
+      throw SnowflakeErrors.ERROR_0010.getException(
+          "Unsupported Key format, please implement either String Key Converter or Snowflake"
+              + " Converters");
     }
 
     if (record.keySchema().toString().equals(Schema.STRING_SCHEMA.toString())) {
@@ -644,7 +685,7 @@ public class RecordService extends EnableLogging {
         if (record.value() instanceof SnowflakeRecordContent) {
           SnowflakeRecordContent recordValueContent = (SnowflakeRecordContent) record.value();
           if (recordValueContent.isRecordContentValueNull()) {
-            LOG_DEBUG_MSG(
+            LOGGER.debug(
                 "Record value schema is:{} and value is Empty Json Node for topic {}, partition {}"
                     + " and offset {}",
                 valueSchema.getClass().getName(),
@@ -659,7 +700,7 @@ public class RecordService extends EnableLogging {
         // Tombstone handler SMT can be used but we need to check here if value is null if SMT is
         // not used
         if (record.value() == null) {
-          LOG_DEBUG_MSG(
+          LOGGER.debug(
               "Record value is null for topic {}, partition {} and offset {}",
               record.topic(),
               record.kafkaPartition(),
@@ -668,7 +709,7 @@ public class RecordService extends EnableLogging {
         }
       }
       if (isRecordValueNull) {
-        LOG_DEBUG_MSG(
+        LOGGER.debug(
             "Null valued record from topic '{}', partition {} and offset {} was skipped.",
             record.topic(),
             record.kafkaPartition(),

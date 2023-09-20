@@ -11,15 +11,28 @@ function error_exit() {
 
 # check argument number is 1 or 2 or 3
 if [ $# -gt 3 ] || [ $# -lt 1 ]; then
-    error_exit "Usage: ./build_image.sh [<path to snowflake repo>] [verify/package/none] .  Aborting."
+    error_exit "Usage: ./build_runtime_jar.sh [<path to snowflake repo>] [verify/package/none] [apache/confluent].
+    Default for Second argument is verify and third argument is apache. Exiting script"
 fi
 
 SNOWFLAKE_CONNECTOR_PATH=$1
 BUILD_METHOD=$2
+BUILD_FOR_RUNTIME=$3
 
 if [[ -z "${BUILD_METHOD}" ]]; then
     # Default build method verify
     BUILD_METHOD="verify"
+fi
+
+# Set POM file name based on target kafka runtime environment
+if [[ -z "${BUILD_FOR_RUNTIME}" ]]; then
+    # Default build target is for Apache
+    BUILD_FOR_RUNTIME="apache"
+    POM_FILE_NAME="pom.xml"
+fi
+
+if [[ $BUILD_FOR_RUNTIME == "confluent" ]]; then
+    POM_FILE_NAME="pom_confluent.xml"
 fi
 
 # check if connector path is set or checkout from github master
@@ -59,16 +72,23 @@ KAFKA_CONNECT_PLUGIN_PATH="/usr/local/share/kafka/plugins"
 # copy credential to SNOWFLAKE_CONNECTOR_PATH
 cp -rf $SNOWFLAKE_CREDENTIAL_FILE $SNOWFLAKE_CONNECTOR_PATH || true
 
+echo "Building Jar for Runtime: $BUILD_FOR_RUNTIME"
+
 # build and test the local repo
 pushd $SNOWFLAKE_CONNECTOR_PATH
 case $BUILD_METHOD in
 	verify)
+	  # mvn clean should clean the target directory, hence using default pom.xml
 	  mvn clean
-    mvn verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
+	  # mvn verify runs the integration test
+    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 		;;
 	package)
+	  # mvn clean should clean the target directory, hence using default pom.xml
 	  mvn clean
-    mvn package -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
+	  # mvn package with pom_confluent runs the kafka-connect-maven-plugin which creates a zip file
+	  # More information: https://docs.confluent.io/platform/current/connect/kafka-connect-maven-plugin/site/plugin-info.html
+    mvn -f $POM_FILE_NAME package -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 		;;
 	none)
 		echo -e "\n=== skip building, please make sure built connector exist ==="
@@ -83,17 +103,22 @@ popd
 SNOWFLAKE_PLUGIN_NAME=$(ls $SNOWFLAKE_PLUGIN_PATH | grep "$SNOWFLAKE_PLUGIN_NAME_REGEX" | head -n 1)
 echo -e "\nbuilt connector name: $SNOWFLAKE_PLUGIN_NAME"
 
-# copy built connector to plugin path
 mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH || \
-sudo mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH 
-cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $KAFKA_CONNECT_PLUGIN_PATH || true
-echo -e "copied connector to $KAFKA_CONNECT_PLUGIN_PATH"
+sudo mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH
+
+if [[ $BUILD_FOR_RUNTIME == "confluent" ]]; then
+    # For confluent, copy the zip file and unzip it later
+    echo "For confluent RUNTIME: Copying Kafka Connect Maven Generated Zip file to a temporary location"
+    cp $SNOWFLAKE_PLUGIN_PATH/components/packages/snowflakeinc-snowflake-kafka-connector-*.zip /tmp/sf-kafka-connect-plugin.zip
+    ls /tmp/sf-kafka-connect-plugin*
+else
+    # Apache Kafka
+    # Only copy built connector to plugin path
+    cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $KAFKA_CONNECT_PLUGIN_PATH || true
+    echo -e "copied SF Plugin Connector to $KAFKA_CONNECT_PLUGIN_PATH"
+fi
 
 KAFKA_CONNECT_DOCKER_JAR_PATH="$SNOWFLAKE_CONNECTOR_PATH/docker-setup/snowflake-kafka-docker/jars"
 mkdir -m 777 -p $KAFKA_CONNECT_DOCKER_JAR_PATH
 cp $SNOWFLAKE_PLUGIN_PATH/$SNOWFLAKE_PLUGIN_NAME $KAFKA_CONNECT_DOCKER_JAR_PATH || true
 echo -e "copied connector to $KAFKA_CONNECT_DOCKER_JAR_PATH for docker"
-
-echo -e "\n===================================== WARNING ====================================="
-echo -e "not recommended to share this jar with customer unless necessary (PrPr feature, etc)"
-echo -e "absolutely do not let the customer run this jar on their production environment\n"

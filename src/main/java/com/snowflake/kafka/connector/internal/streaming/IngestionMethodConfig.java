@@ -52,31 +52,32 @@ public enum IngestionMethodConfig {
         return result;
     }
 
-    /**
-     * Returns the Ingestion Method found in User Configuration for Snowflake Kafka Connector.
-     *
-     * <p>Default is always {@link IngestionMethodConfig#SNOWPIPE} unless an invalid value is passed
-     * which results in exception.
-     */
-    public static IngestionMethodConfig determineIngestionMethod(Map<String, String> inputConf) {
-        if (inputConf == null
-                || inputConf.isEmpty()
-                || !inputConf.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
-            return IngestionMethodConfig.SNOWPIPE;
-        } else {
-            try {
-                return IngestionMethodConfig.valueOf(
-                        inputConf
-                                .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
-                                .toUpperCase(Locale.ROOT));
-            } catch (IllegalArgumentException ex) {
-                throw ex;
-            }
-        }
-    }
 
-    @Override
-    public String toString() {
-        return name().toLowerCase(Locale.ROOT);
+  /**
+   * Returns the Ingestion Method found in User Configuration for Snowflake Kafka Connector.
+   *
+   * <p>Default is always {@link IngestionMethodConfig#SNOWPIPE} unless an invalid value is passed
+   * which results in exception.
+   */
+  public static IngestionMethodConfig determineIngestionMethod(Map<String, String> inputConf) {
+    if (inputConf == null
+        || inputConf.isEmpty()
+        || !inputConf.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
+      return IngestionMethodConfig.SNOWPIPE;
+    } else {
+      try {
+        return IngestionMethodConfig.valueOf(
+            inputConf
+                .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
+                .toUpperCase(Locale.ROOT));
+      } catch (IllegalArgumentException ex) {
+        throw ex;
+      }
     }
+  }
+
+  @Override
+  public String toString() {
+    return name().toLowerCase(Locale.ROOT);
+  }
 }
