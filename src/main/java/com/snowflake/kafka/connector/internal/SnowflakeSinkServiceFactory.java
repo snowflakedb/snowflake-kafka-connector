@@ -68,7 +68,7 @@ public class SnowflakeSinkServiceFactory {
      * @return Builder instance
      */
     public SnowflakeSinkServiceBuilder addTask(String tableName, TopicPartition topicPartition) {
-      this.service.startTask(tableName, topicPartition);
+      this.service.startPartition(tableName, topicPartition);
       LOGGER.info(
           "create new task in {} - table: {}, topicPartition: {}",
           SnowflakeSinkService.class.getName(),
