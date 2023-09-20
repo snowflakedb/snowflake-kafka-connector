@@ -559,51 +559,30 @@ public class RecordService {
   public boolean shouldSkipNullValue(
       SinkRecord record,
       final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues) {
+    // do not skip when config is DEFAULT
     if (behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
       return false;
-    } else {
-      boolean isRecordValueNull = false;
-      // get valueSchema
-      Schema valueSchema = record.valueSchema();
-      if (valueSchema instanceof SnowflakeJsonSchema) {
-        // TODO SNOW-916052: will not skip if record.value() == null
-        // we can conclude this is a custom/KC defined converter.
-        // i.e one of SFJson, SFAvro and SFAvroWithSchemaRegistry Converter
-        if (record.value() instanceof SnowflakeRecordContent) {
-          SnowflakeRecordContent recordValueContent = (SnowflakeRecordContent) record.value();
-          if (recordValueContent.isRecordContentValueNull()) {
-            LOGGER.debug(
-                "Record value schema is:{} and value is Empty Json Node for topic {}, partition {}"
-                    + " and offset {}",
-                valueSchema.getClass().getName(),
-                record.topic(),
-                record.kafkaPartition(),
-                record.kafkaOffset());
-            isRecordValueNull = true;
-          }
-        }
-      } else {
-        // Else, it is one of the community converters.
-        // Tombstone handler SMT can be used but we need to check here if value is null if SMT is
-        // not used
-        if (record.value() == null) {
-          LOGGER.debug(
-              "Record value is null for topic {}, partition {} and offset {}",
-              record.topic(),
-              record.kafkaPartition(),
-              record.kafkaOffset());
-          isRecordValueNull = true;
-        }
-      }
-      if (isRecordValueNull) {
-        LOGGER.debug(
-            "Null valued record from topic '{}', partition {} and offset {} was skipped.",
-            record.topic(),
-            record.kafkaPartition(),
-            record.kafkaOffset());
-        return true;
-      }
     }
-    return false;
+
+    boolean isRecordValueNull =
+        // skip when record value or schema is null
+        (record.value() == null || record.valueSchema() == null)
+        ||
+        // skip when snowflake converter and record is null
+        (record.valueSchema() instanceof SnowflakeJsonSchema
+        && record.value() instanceof  SnowflakeRecordContent
+        && ((SnowflakeRecordContent) record.value()).isRecordContentValueNull());
+
+    if (isRecordValueNull) {
+      LOGGER.debug(
+          "Null valued record from topic '{}', partition {} and offset {} was skipped. recordValue = '{}', recordSchema = '{}'",
+          record.topic(),
+          record.kafkaPartition(),
+          record.kafkaOffset(),
+          record.value() == null ? "NULL" : record.value(),
+          record.valueSchema() == null ? "NULL" : record.valueSchema().getClass().getName());
+    }
+
+    return isRecordValueNull;
   }
 }

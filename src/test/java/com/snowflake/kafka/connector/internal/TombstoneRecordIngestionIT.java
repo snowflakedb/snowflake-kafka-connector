@@ -150,34 +150,13 @@ public class TombstoneRecordIngestionIT {
   private void testIngestTombstoneRunner(
       SinkRecord normalRecord, List<Converter> converters, SnowflakeSinkService service)
       throws Exception {
+    // add normal record
     int offset = 1; // normalRecord should be offset 0
     List<SinkRecord> sinkRecords = new ArrayList<>();
     sinkRecords.add(normalRecord);
 
-    // create tombstone records
-    SchemaAndValue nullRecordInput = this.jsonConverter.toConnectData(topic, null);
-    SinkRecord allNullRecord1 = new SinkRecord(topic, partition, null, null, null, null, offset++);
-    SinkRecord allNullRecord2 =
-        new SinkRecord(
-            topic,
-            partition,
-            null,
-            null,
-            nullRecordInput.schema(),
-            nullRecordInput.value(),
-            offset++);
-    SinkRecord allNullRecord3 =
-        new SinkRecord(
-            topic,
-            partition,
-            nullRecordInput.schema(),
-            nullRecordInput.value(),
-            nullRecordInput.schema(),
-            nullRecordInput.value(),
-            offset++);
-
-    // add tombstone records
-    sinkRecords.addAll(Arrays.asList(allNullRecord1, allNullRecord2, allNullRecord3));
+    // add all null record
+    sinkRecords.add(new SinkRecord(topic, partition, null, null, null, null, offset++));
 
     // create and add tombstone records from each converter
     Map<String, String> converterConfig = new HashMap<>();
@@ -192,6 +171,8 @@ public class TombstoneRecordIngestionIT {
 
       converter.configure(converterConfig, false);
       SchemaAndValue input = converter.toConnectData(topic, null);
+
+      // valid tombstone
       sinkRecords.add(
           new SinkRecord(
               topic,
@@ -201,7 +182,78 @@ public class TombstoneRecordIngestionIT {
               input.schema(),
               input.value(),
               offset));
+      offset++;
 
+      // null key schema
+      sinkRecords.add(
+          new SinkRecord(
+              topic,
+              partition,
+              null,
+              converter.toString(),
+              input.schema(),
+              input.value(),
+              offset));
+      offset++;
+
+      // null key value
+      sinkRecords.add(
+          new SinkRecord(
+              topic,
+              partition,
+              Schema.STRING_SCHEMA,
+              null,
+              input.schema(),
+              input.value(),
+              offset));
+      offset++;
+
+      // null key schema and value
+      sinkRecords.add(
+          new SinkRecord(
+              topic,
+              partition,
+              null,
+              null,
+              input.schema(),
+              input.value(),
+              offset));
+      offset++;
+
+      // null value schema
+      sinkRecords.add(
+          new SinkRecord(
+              topic,
+              partition,
+              Schema.STRING_SCHEMA,
+              converter.toString(),
+              null,
+              input.value(),
+              offset));
+      offset++;
+
+      // null value value
+      sinkRecords.add(
+          new SinkRecord(
+              topic,
+              partition,
+              Schema.STRING_SCHEMA,
+              converter.toString(),
+              input.schema(),
+              null,
+              offset));
+      offset++;
+
+      // null value schema and value
+      sinkRecords.add(
+          new SinkRecord(
+              topic,
+              partition,
+              input.schema(),
+              input.value(),
+              null,
+              null,
+              offset));
       offset++;
     }
 

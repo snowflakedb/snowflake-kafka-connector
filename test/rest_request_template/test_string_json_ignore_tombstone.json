@@ -10,8 +10,7 @@
     "snowflake.database.name":"SNOWFLAKE_DATABASE",
     "snowflake.schema.name":"SNOWFLAKE_SCHEMA",
     "key.converter":"org.apache.kafka.connect.storage.StringConverter",
-    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-    "value.converter.schemas.enable": "false",
+    "value.converter":"com.snowflake.kafka.connector.records.SnowflakeJsonConverter",
     "behavior.on.null.values": "IGNORE"
   }
 }
