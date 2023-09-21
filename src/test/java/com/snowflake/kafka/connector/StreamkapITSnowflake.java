@@ -33,18 +33,18 @@ public class StreamkapITSnowflake extends StreamkapSinkITBase<SnowflakeSinkTask>
         config.put("behavior.on.null.values", "IGNORE");
         config.put("connector.class", "com.snowflake.kafka.connector.SnowflakeSinkConnector");
         config.put("name", "destination_65019e4b368473fede109f76");
-        config.put("snowflake.database.name", confFromJson.get(Utils.SF_DATABASE));
+        config.put("snowflake.database.name", "JUNIT");
         config.put("snowflake.enable.schematization", "true");
         config.put("snowflake.ingestion.method", "SNOWPIPE_STREAMING");
         config.put("snowflake.private.key", confFromJson.get(Utils.SF_PRIVATE_KEY));
         config.put("snowflake.private.key.passphrase", confFromJson.get(Utils.PRIVATE_KEY_PASSPHRASE));
-        config.put("snowflake.role.name", confFromJson.get(Utils.SF_ROLE));
-        config.put("snowflake.schema.name", confFromJson.get(Utils.SF_SCHEMA));
+        config.put("snowflake.role.name", "STREAMKAP_ROLE_JUNIT");
+        config.put("snowflake.schema.name", "JUNIT");
         config.put("snowflake.schematization.auto", "false");
         config.put("snowflake.topic2table.map",
                 "REGEX_MATCHER>^([-\\w]+\\.)([-\\w]+\\.)?([-\\w]+\\.)?([-\\w]+\\.)?([-\\w]+),$5");
-        config.put("snowflake.url.name", confFromJson.get(Utils.SF_URL));
-        config.put("snowflake.user.name", confFromJson.get(Utils.SF_USER));
+        config.put("snowflake.url.name", "sab25080.prod3.us-west-2.aws.snowflakecomputing.com");
+        config.put("snowflake.user.name", "STREAMKAP_USER_JUNIT");
         config.put("buffer.count.records", "0");
         config.put("buffer.flush.time", "-1");
 
