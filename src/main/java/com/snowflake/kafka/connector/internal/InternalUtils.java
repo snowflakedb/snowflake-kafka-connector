@@ -21,7 +21,7 @@ import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
 import net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import net.snowflake.ingest.connection.IngestStatus;
 
-class InternalUtils {
+public class InternalUtils {
   // JDBC parameter list
   static final String JDBC_DATABASE = "db";
   static final String JDBC_SCHEMA = "schema";
@@ -115,7 +115,7 @@ class InternalUtils {
    * @param sslEnabled is sslEnabled?
    * @return Properties object which will be passed down to JDBC connection
    */
-  static Properties createProperties(Map<String, String> conf, boolean sslEnabled) {
+  public static Properties createProperties(Map<String, String> conf, boolean sslEnabled) {
     return createProperties(conf, sslEnabled, IngestionMethodConfig.SNOWPIPE);
   }
 
