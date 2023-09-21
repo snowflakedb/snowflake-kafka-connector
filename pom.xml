@@ -48,6 +48,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <skipTests>false</skipTests>
         <skipUnitTests>${skipTests}</skipUnitTests>
+        <junit.version>5.10.0</junit.version>
         <skipIntegrationTests>${skipTests}</skipIntegrationTests>
     </properties>
 
@@ -94,7 +95,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.2</version>
+                <version>0.8.8</version>
                 <executions>
                     <execution>
                         <id>pre-unit-test</id>
@@ -153,10 +154,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.22.0</version>
+                <version>3.1.2</version>
                 <configuration>
 			        <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>					
-                    <skipTests>true</skipTests>
+                    <skipTests>${skipUnitTests}</skipTests>
                 </configuration>
             </plugin>
 
@@ -447,9 +448,9 @@
 
         <!--junit for unit test-->
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.1</version>
+            <groupId>org.junit.vintage</groupId>
+            <artifactId>junit-vintage-engine</artifactId>
+			<version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -494,7 +495,7 @@
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>
 			<artifactId>junit-jupiter-api</artifactId>
-			<version>5.10.0</version>
+			<version>${junit.version}</version>
 			<scope>test</scope>
 		</dependency>        
         <dependency>
@@ -509,6 +510,6 @@
             <artifactId>multi-converter</artifactId>
             <version>0.0.5</version>
             <scope>test</scope>
-        </dependency>                
+        </dependency>
     </dependencies>
 </project>
