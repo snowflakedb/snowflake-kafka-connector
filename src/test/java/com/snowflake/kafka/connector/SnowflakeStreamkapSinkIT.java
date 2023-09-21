@@ -14,15 +14,14 @@ import org.junit.jupiter.api.Test;
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.internal.InternalUtils;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
-import com.snowflake.kafka.connector.internal.TestUtils;
 import com.streamkap.common.test.sink.StreamkapSinkITBase;
 
-public class StreamkapITSnowflake extends StreamkapSinkITBase<SnowflakeSinkTask> {
+public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkTask> {
     private static final String SCHEMA_NAME = "junit";
 
     ReplaceField<SinkRecord> renameAmbigiousFields = new ReplaceField.Value<>();
 
-    public StreamkapITSnowflake() throws Exception {
+    public SnowflakeStreamkapSinkIT() throws Exception {
         Map<String, String> config = new HashMap<>();
 
         config.put("renames",
