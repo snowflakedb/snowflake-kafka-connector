@@ -12,7 +12,7 @@
 
     <groupId>com.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>2.0.0</version>
+    <version>2.0.1</version>
     <packaging>jar</packaging>
     <name>Snowflake Kafka Connector</name>
     <description>Snowflake Kafka Connect Sink Connector</description>
@@ -44,10 +44,11 @@
 
     <!-- Set our Language Level to Java 8 -->
     <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
         <skipTests>false</skipTests>
         <skipUnitTests>${skipTests}</skipUnitTests>
+        <junit.version>5.10.0</junit.version>
         <skipIntegrationTests>${skipTests}</skipIntegrationTests>
     </properties>
 
@@ -94,7 +95,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.2</version>
+                <version>0.8.8</version>
                 <executions>
                     <execution>
                         <id>pre-unit-test</id>
@@ -153,8 +154,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.22.0</version>
+                <version>3.1.2</version>
                 <configuration>
+			        <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>					
                     <skipTests>${skipUnitTests}</skipTests>
                 </configuration>
             </plugin>
@@ -446,9 +448,9 @@
 
         <!--junit for unit test-->
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.1</version>
+            <groupId>org.junit.vintage</groupId>
+            <artifactId>junit-vintage-engine</artifactId>
+			<version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -488,6 +490,25 @@
             <groupId>org.apache.kafka</groupId>
             <artifactId>connect-json</artifactId>
             <version>0.9.0.0</version>
+            <scope>test</scope>
+        </dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<version>${junit.version}</version>
+			<scope>test</scope>
+		</dependency>        
+        <dependency>
+            <groupId>com.streamkap</groupId>
+            <artifactId>streamkap-kafka-connect-common</artifactId>
+            <version>0.0.4</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.streamkap.kafka.connect.transforms</groupId>
+            <artifactId>multi-converter</artifactId>
+            <version>0.0.5</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

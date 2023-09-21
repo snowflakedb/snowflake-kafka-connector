@@ -201,7 +201,7 @@ public class TestUtils {
    * @return jdbc connection
    * @throws Exception when meeting error
    */
-  private static Connection getConnection() throws Exception {
+  public static Connection getConnection() throws Exception {
     if (conn != null) {
       return conn;
     }
@@ -216,6 +216,20 @@ public class TestUtils {
 
     Properties properties =
         InternalUtils.createProperties(getConfFromFileName(profileFileName), url.sslEnabled());
+
+    Connection connToSnowflake = new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
+
+    return connToSnowflake;
+  }
+
+  /** Given a profile file path name, generate a connection by constructing a snowflake driver. */
+  public static Connection generateConnectionToSnowflakeWithEncryptedKey()
+      throws Exception {
+    Map<String, String> conf = getConfWithEncryptedKey();
+    SnowflakeURL url = new SnowflakeURL(conf.get(Utils.SF_URL));
+
+    Properties properties =
+        InternalUtils.createProperties(conf, url.sslEnabled());
 
     Connection connToSnowflake = new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
 
@@ -261,11 +275,9 @@ public class TestUtils {
   }
 
   /** @return JDBC config with encrypted private key */
-  static Map<String, String> getConfWithEncryptedKey() {
-    if (conf == null) {
-      getPropertiesMapFromProfile(PROFILE_PATH);
-    }
-    Map<String, String> config = new HashMap<>(conf);
+  public static Map<String, String> getConfWithEncryptedKey() {
+    Map<String, String> c = getPropertiesMapFromProfile(PROFILE_PATH);
+    Map<String, String> config = new HashMap<>(c);
 
     config.remove(Utils.SF_PRIVATE_KEY);
     config.put(Utils.SF_PRIVATE_KEY, getEncryptedPrivateKey());

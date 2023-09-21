@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 import static java.time.temporal.ChronoUnit.SECONDS;
@@ -195,6 +194,7 @@ public class TopicPartitionChannel {
         topicPartition,
         channelName,
         tableName,
+        false, /* No schema evolution permission */
         streamingBufferThreshold,
         sfConnectorConfig,
         kafkaRecordErrorReporter,
@@ -210,6 +210,8 @@ public class TopicPartitionChannel {
    *     (TopicPartitionChannel)
    * @param channelName channel Name which is deterministic for topic and partition
    * @param tableName table to ingest in snowflake
+   * @param hasSchemaEvolutionPermission if the role has permission to perform schema evolution on
+   *     the table
    * @param streamingBufferThreshold bytes, count of records and flush time thresholds.
    * @param sfConnectorConfig configuration set for snowflake connector
    * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
@@ -224,6 +226,7 @@ public class TopicPartitionChannel {
       TopicPartition topicPartition,
       final String channelName,
       final String tableName,
+      boolean hasSchemaEvolutionPermission,
       final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
@@ -263,9 +266,7 @@ public class TopicPartitionChannel {
     this.enableSchemaEvolution =
         this.enableSchematization
             && this.conn != null
-            && (!autoSchematization || 
-              this.conn.hasSchemaEvolutionPermission(
-                tableName, sfConnectorConfig.get(SNOWFLAKE_ROLE)));
+            && (!autoSchematization || hasSchemaEvolutionPermission);
 
     // Open channel and reset the offset in kafka
     this.channel = Preconditions.checkNotNull(openChannelForTable());

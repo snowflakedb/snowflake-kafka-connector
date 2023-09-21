@@ -312,8 +312,8 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask.open(testPartitions);
 
     // verify expected num tasks opened
-    Mockito.verify(serviceSpy, Mockito.times(expectedTopic2TableConfig.size()))
-        .startTask(Mockito.anyString(), Mockito.any(TopicPartition.class));
+    Mockito.verify(serviceSpy, Mockito.times(1))
+        .startPartitions(Mockito.anyCollection(), Mockito.anyMap());
 
     for (String topicStr : expectedTopic2TableConfig.keySet()) {
       TopicPartition topic = null;
@@ -321,7 +321,6 @@ public class SnowflakeSinkTaskForStreamingIT {
       for (TopicPartition currTp : testPartitions) {
         if (currTp.topic().equals(topicStr)) {
           topic = currTp;
-          Mockito.verify(serviceSpy, Mockito.times(1)).startTask(table, topic);
         }
       }
       Assert.assertNotNull("Expected topic partition was not opened by the tast", topic);

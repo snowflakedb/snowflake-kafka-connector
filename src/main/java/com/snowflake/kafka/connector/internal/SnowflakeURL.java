@@ -97,7 +97,7 @@ public class SnowflakeURL {
     return enableJDBCTrace != null && enableJDBCTrace.toLowerCase().contains("true");
   }
 
-  String getJdbcUrl() {
+  public String getJdbcUrl() {
     return jdbcUrl;
   }
 
@@ -105,7 +105,7 @@ public class SnowflakeURL {
     return account;
   }
 
-  boolean sslEnabled() {
+  public boolean sslEnabled() {
     return ssl;
   }
 
