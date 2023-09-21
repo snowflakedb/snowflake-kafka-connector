@@ -25,6 +25,8 @@ class InternalUtils {
   static final String JDBC_SCHEMA = "schema";
   static final String JDBC_USER = "user";
   static final String JDBC_PRIVATE_KEY = "privateKey";
+  static final String APPLICATION = "application";
+  static final String CC_IDENTIFIER = "Confluent_Cloud";
   static final String JDBC_SSL = "ssl";
   static final String JDBC_SESSION_KEEP_ALIVE = "client_session_keep_alive";
   static final String JDBC_WAREHOUSE = "warehouse"; // for test only
@@ -118,6 +120,8 @@ class InternalUtils {
   static Properties createProperties(Map<String, String> conf, boolean sslEnabled, int networkTimeout, int loginTimeout) {
     Properties properties = new Properties();
 
+    // add application parameter to identify connector created from CONFLUENT_CLOUD
+    properties.put(APPLICATION, CC_IDENTIFIER);
     // decrypt rsa key
     String privateKey = "";
     String privateKeyPassphrase = "";
