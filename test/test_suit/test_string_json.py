@@ -24,7 +24,7 @@ class TestStringJson:
                 {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(100)}
             ).encode('utf-8'))
         else:
-            value.append('')
+            value.append(None)
 
         header = [('header1', 'value1'), ('header2', '{}')]
         self.driver.sendBytesData(self.topic, value, [], 0, header)

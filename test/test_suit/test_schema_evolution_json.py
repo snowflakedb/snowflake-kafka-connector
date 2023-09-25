@@ -64,7 +64,7 @@ class TestSchemaEvolutionJson:
             if self.driver.testVersion == '2.5.1':
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
             else:
-                value.append('')
+                value.append(None)
             key.append(json.dumps({'number': str(i)}).encode('utf-8'))
 
             self.driver.sendBytesData(topic, value, key)

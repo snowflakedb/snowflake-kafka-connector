@@ -44,7 +44,7 @@ class TestSnowpipeStreamingStringJson:
                     {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(self.recordNum)}
                 ).encode('utf-8'))
             else:
-                value.append('')
+                value.append(None)
 
             self.driver.sendBytesData(self.topic, value, key, partition=p)
             sleep(2)

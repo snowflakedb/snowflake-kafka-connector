@@ -40,7 +40,7 @@ class TestSnowpipeStreamingStringJsonIgnoreTombstone:
 
             # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
             if self.driver.testVersion != '2.5.1':
-                value.append('')
+                value.append(None)
 
             self.driver.sendBytesData(self.topic, value, key, partition=p)
             sleep(2)
