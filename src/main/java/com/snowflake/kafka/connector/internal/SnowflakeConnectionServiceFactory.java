@@ -21,8 +21,6 @@ public class SnowflakeConnectionServiceFactory {
     private String connectorName;
     private String taskID = "-1";
 
-    private IngestionMethodConfig ingestionMethodConfig;
-
     // whether kafka is hosted on premise or on confluent cloud.
     // This info is provided in the connector configuration
     // This property will be appeneded to user agent while calling snowpipe API in http request
@@ -64,7 +62,7 @@ public class SnowflakeConnectionServiceFactory {
       }
       this.url = new SnowflakeURL(conf.get(Utils.SF_URL));
       this.kafkaProvider =
-          SnowflakeSinkConnectorConfig.KafkaProvider.of(conf.get(PROVIDER_CONFIG)).name();
+              SnowflakeSinkConnectorConfig.KafkaProvider.of(conf.get(PROVIDER_CONFIG)).name();
       // TODO: Ideally only one property is required, but because we dont pass it around in JDBC and
       // snowpipe SDK,
       //  it is better if we have two properties decoupled
@@ -82,7 +80,7 @@ public class SnowflakeConnectionServiceFactory {
       InternalUtils.assertNotEmpty("url", url);
       InternalUtils.assertNotEmpty("connectorName", connectorName);
       return new SnowflakeConnectionServiceV1(
-          prop, url, connectorName, taskID, proxyProperties, kafkaProvider, ingestionMethodConfig);
+              prop, url, connectorName, taskID, proxyProperties, kafkaProvider, ingestionMethodConfig);
     }
   }
 }
