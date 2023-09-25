@@ -41,11 +41,11 @@ Integration test can be run by `mvn verify -Dgpg.skip=true`. Integration test wi
 End to end test spin up an actual Kafka cluster, then send records to Kafka and verify records shows up in Snowflake. To run the test, first make sure evironment variable`SNOWFLAKE_CREDENTIAL_FILE` is set `export SNOWFLAKE_CREDENTIAL_FILE="path/to/profile.json"`. **Then `cd test` to enter the test folder.** End to end test is splited into two steps - building jar file and executing.
 
 ```
-./build_apache.sh <path/to/snowflake-git-repo> <package/verify>
+./build_runtime_jar.sh <path/to/snowflake-git-repo> <package/verify>
 Build the current repo and only run unit test:
-	./build_apache.sh ../../snowflake-kafka-connector package
+	./build_runtime_jar.sh ../../snowflake-kafka-connector package
 Checkout from GitHub master and run integration test:
-	./build_apache.sh
+	./build_runtime_jar.sh
 ```
 
 The above command build a jar file and put it at `/usr/local/share/kafka/plugins`. Then the following command will spin up Kafka and Kafka Connect cluster and execute the test suits. 
@@ -184,7 +184,7 @@ Folders and files in directory test/
 - rest_request_template/: Connector configuration file for end to end test.
 - test_data/: Avro/Profobuf data for end to end test.
 - test_suit/: End to end test cases.
-- build_apache.sh: Build connector jar file.
+- build_runtime_jar.sh: Build connector jar file.
 - build_image.sh: Build a container with the connector jar file and push that to local Docker repo.
 - generate_ssl_key.sh: Generate SSL key on the fly for testing with SSL enabled.
 - run_test_apache.sh: Run end to end test on Apache Kafka.

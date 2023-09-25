@@ -16,7 +16,7 @@
  */
 package com.snowflake.kafka.connector.records;
 
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -26,8 +26,7 @@ import org.apache.kafka.connect.storage.Converter;
 /** Snowflake Converter */
 public abstract class SnowflakeConverter implements Converter {
 
-  protected static final LoggerHandler LOGGER =
-      new LoggerHandler(SnowflakeConverter.class.getName());
+  protected static final KCLogger LOGGER = new KCLogger(SnowflakeConverter.class.getName());
 
   final ObjectMapper mapper = new ObjectMapper();
 

@@ -20,7 +20,16 @@ public interface SnowflakeSinkService {
    * @param tableName destination table name
    * @param topicPartition TopicPartition passed from Kafka
    */
-  void startTask(String tableName, TopicPartition topicPartition);
+  void startPartition(String tableName, TopicPartition topicPartition);
+
+  /**
+   * Start a collection of TopicPartition. This should handle any configuration parsing and one-time
+   * setup of the task.
+   *
+   * @param partitions collection of topic partitions
+   * @param topic2Table a mapping from topic to table
+   */
+  void startPartitions(Collection<TopicPartition> partitions, Map<String, String> topic2Table);
 
   /**
    * call pipe to insert a collections of JSON records will trigger time based flush
@@ -134,21 +143,13 @@ public interface SnowflakeSinkService {
   /* Only used in testing and verifying what was the passed value of this behavior from config to sink service*/
   SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig();
 
-  /**
-   * set the delivery guarantee, giving user the option to enable exactly once semantic
-   *
-   * @param ingestionDeliveryGuarantee ingestion guarantee given inside Config
-   */
-  void setDeliveryGuarantee(
-      SnowflakeSinkConnectorConfig.IngestionDeliveryGuarantee ingestionDeliveryGuarantee);
-
   /* Set Error reporter which can be used to send records to DLQ (Dead Letter Queue) */
   default void setErrorReporter(KafkaRecordErrorReporter kafkaRecordErrorReporter) {}
 
   /* Set the SinkTaskContext object available from SinkTask. It contains utility methods to from Kafka Connect Runtime. */
   default void setSinkTaskContext(SinkTaskContext sinkTaskContext) {}
 
-  /* Get metric registry of an associated pipe */
+  /* Get metric registry of an associated partition */
   @VisibleForTesting
-  Optional<MetricRegistry> getMetricRegistry(final String pipeName);
+  Optional<MetricRegistry> getMetricRegistry(final String partitionIdentifier);
 }

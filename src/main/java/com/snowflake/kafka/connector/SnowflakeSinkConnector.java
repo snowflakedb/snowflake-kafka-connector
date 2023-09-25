@@ -16,7 +16,7 @@
  */
 package com.snowflake.kafka.connector;
 
-import com.snowflake.kafka.connector.internal.LoggerHandler;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
@@ -43,11 +42,10 @@ import org.apache.kafka.connect.sink.SinkConnector;
  */
 public class SnowflakeSinkConnector extends SinkConnector {
   // create logger without correlationId for now
-  private static LoggerHandler LOGGER = new LoggerHandler(SnowflakeSinkConnector.class.getName());
+  private static KCLogger LOGGER = new KCLogger(SnowflakeSinkConnector.class.getName());
 
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
-  private String connectorName; // unique name of this connector instance
 
   // SnowflakeJDBCWrapper provides methods to interact with user's snowflake
   // account and executes queries
@@ -79,18 +77,12 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
-    // ensure we start counting tasks at 0 for this instance
-    SnowflakeSinkTask.setTotalTaskCreationCount(0);
+    LOGGER.info("SnowflakeSinkConnector:starting...");
 
     Utils.checkConnectorVersion();
 
-    LOGGER.info("SnowflakeSinkConnector:start");
     setupComplete = false;
     connectorStartTime = System.currentTimeMillis();
-
-    // initialize logging with global instance Id
-    LoggerHandler.setConnectGlobalInstanceId(this.getKcInstanceId(this.connectorStartTime));
-
     config = new HashMap<>(parsedConfig);
 
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
@@ -99,6 +91,13 @@ public class SnowflakeSinkConnector extends SinkConnector {
     Utils.convertAppName(config);
 
     Utils.validateConfig(config);
+
+    // enable mdc logging if needed
+    KCLogger.toggleGlobalMdcLoggingContext(
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_MDC_LOGGING_CONFIG,
+                SnowflakeSinkConnectorConfig.ENABLE_MDC_LOGGING_DEFAULT)));
 
     // enable proxy
     Utils.enableJVMProxy(config);
@@ -112,6 +111,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
     telemetryClient.reportKafkaConnectStart(connectorStartTime, this.config);
 
     setupComplete = true;
+
+    LOGGER.info("SnowflakeSinkConnector:started");
   }
 
   /**
@@ -124,10 +125,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void stop() {
-    // set task logging to default
-    SnowflakeSinkTask.setTotalTaskCreationCount(-1);
     setupComplete = false;
-    LOGGER.info("SnowflakeSinkConnector:stop");
+    LOGGER.info("SnowflakeSinkConnector:stopped");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
   }
 
@@ -204,34 +203,19 @@ public class SnowflakeSinkConnector extends SinkConnector {
     }
 
     // Verify proxy config is valid
-    try {
-      Utils.validateProxySetting(connectorConfigs);
-    } catch (SnowflakeKafkaConnectorException e) {
-      LOGGER.error("Error validating proxy parameters:{}", e.getMessage());
-      switch (e.getCode()) {
-        case "0022":
-          Utils.updateConfigErrorMessage(
-              result,
-              SnowflakeSinkConnectorConfig.JVM_PROXY_HOST,
-              ": proxy host and port must be provided together");
-          Utils.updateConfigErrorMessage(
-              result,
-              SnowflakeSinkConnectorConfig.JVM_PROXY_PORT,
-              ": proxy host and port must be provided together");
-        case "0023":
-          Utils.updateConfigErrorMessage(
-              result,
-              SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME,
-              ": proxy username and password must be provided together");
-          Utils.updateConfigErrorMessage(
-              result,
-              SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD,
-              ": proxy username and password must be provided together");
-      }
+    Map<String, String> invalidProxyParams = Utils.validateProxySettings(connectorConfigs);
+
+    for (String invalidKey : invalidProxyParams.keySet()) {
+      Utils.updateConfigErrorMessage(result, invalidKey, invalidProxyParams.get(invalidKey));
     }
-    // If private key or private key passphrase is provided through file, skip validation
-    if (connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, "").contains("${file:")
-        || connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, "").contains("${file:"))
+
+    // If using snowflake_jwt and authentication, and private key or private key passphrase is
+    // provided through file, skip validation
+    if (connectorConfigs
+            .getOrDefault(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT)
+            .equals(Utils.SNOWFLAKE_JWT)
+        && (connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, "").contains("${file:")
+            || connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, "").contains("${file:")))
       return result;
 
     // We don't validate name, since it is not included in the return value
@@ -263,6 +247,28 @@ public class SnowflakeSinkConnector extends SinkConnector {
           break;
         case "0013":
           Utils.updateConfigErrorMessage(result, Utils.SF_PRIVATE_KEY, " must be non-empty");
+          break;
+        case "0026":
+          Utils.updateConfigErrorMessage(
+              result,
+              Utils.SF_OAUTH_CLIENT_ID,
+              " must be non-empty when using oauth authenticator");
+          break;
+        case "0027":
+          Utils.updateConfigErrorMessage(
+              result,
+              Utils.SF_OAUTH_CLIENT_SECRET,
+              " must be non-empty when using oauth authenticator");
+          break;
+        case "0028":
+          Utils.updateConfigErrorMessage(
+              result,
+              Utils.SF_OAUTH_REFRESH_TOKEN,
+              " must be non-empty when using oauth authenticator");
+          break;
+        case "0029":
+          Utils.updateConfigErrorMessage(
+              result, Utils.SF_AUTHENTICATOR, " is not a valid authenticator");
           break;
         case "0002":
           Utils.updateConfigErrorMessage(
@@ -306,14 +312,5 @@ public class SnowflakeSinkConnector extends SinkConnector {
   @Override
   public String version() {
     return Utils.VERSION;
-  }
-
-  // returns the instance id as a combo of a random uuid and the current time
-  private String getKcInstanceId(long currTime) {
-    // 9-10 char
-    String combinedId = UUID.randomUUID().toString() + currTime;
-    int unsignedHashCode = Math.abs(combinedId.hashCode());
-
-    return "" + unsignedHashCode;
   }
 }
