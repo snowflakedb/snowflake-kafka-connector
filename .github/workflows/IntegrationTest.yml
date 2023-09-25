@@ -28,9 +28,9 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-maven-
     - name: Install Python
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
-        python-version: '3.6'
+        python-version: '3.9'
         architecture: 'x64'
     - name: Decrypt profile.json in Snowflake Cloud ${{ matrix.snowflake_cloud }}
       run: ./.github/scripts/decrypt_secret.sh ${{ matrix.snowflake_cloud }}
