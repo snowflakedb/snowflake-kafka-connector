@@ -958,7 +958,4 @@ public class TestUtils {
       throw new RuntimeException(e);
     }
   }
-  public static SnowflakeConnectionService getConnectionServiceForStreaming() {
-    return SnowflakeConnectionServiceFactory.builder().setProperties(getConfForStreaming()).build();
-  }
 }
