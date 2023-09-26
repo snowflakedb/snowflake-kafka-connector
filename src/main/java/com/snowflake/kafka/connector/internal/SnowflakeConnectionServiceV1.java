@@ -498,10 +498,9 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
         appendColumnQuery.append(", ");
         logColumn.append(",");
       }
+
       appendColumnQuery
-          .append("\"")
           .append(columnName)
-          .append("\"")
           .append(" ")
           .append(columnToType.get(columnName));
       logColumn.append(columnName).append(" (").append(columnToType.get(columnName)).append(")");
