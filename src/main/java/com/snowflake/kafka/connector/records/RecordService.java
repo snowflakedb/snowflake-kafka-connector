@@ -523,7 +523,7 @@ public class RecordService {
         case STRUCT:
           {
             Struct struct = (Struct) value;
-            if (struct.schema() != schema)
+            if (!struct.schema().equals(schema))
               throw SnowflakeErrors.ERROR_5015.getException("Mismatching schema.");
             ObjectNode obj = JsonNodeFactory.instance.objectNode();
             for (Field field : schema.fields()) {
