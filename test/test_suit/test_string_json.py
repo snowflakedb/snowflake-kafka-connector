@@ -22,14 +22,11 @@ class TestStringJson:
         # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
         if self.driver.testVersion == '2.5.1':
             value.append(json.dumps(
-                {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(self.recordCount - 1)}
-            ).encode('utf-8'))
-            value.append(json.dumps(
                 {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(self.recordCount)}
             ).encode('utf-8'))
         else:
             value.append(None)
-            value.append("") # custom sf converters treat this as a normal record
+        value.append("") # custom sf converters treat this as a normal record
 
         header = [('header1', 'value1'), ('header2', '{}')]
         self.driver.sendBytesData(self.topic, value, [], 0, header)
