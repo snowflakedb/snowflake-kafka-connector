@@ -7,6 +7,7 @@ class TestStringJson:
         self.driver = driver
         self.fileName = "travis_correct_string_json"
         self.topic = self.fileName + nameSalt
+        self.recordCount = 100
 
     def getConfigFileName(self):
         return self.fileName + ".json"
@@ -14,17 +15,21 @@ class TestStringJson:
     def send(self):
         value = []
 
-        # send one less record because we are sending a tombstone record. tombstone ingestion is enabled by default
-        for e in range(99):
+        # send two less record because we are sending tombstone records. tombstone ingestion is enabled by default
+        for e in range(self.recordCount - 2):
             value.append(json.dumps({'number': str(e)}).encode('utf-8'))
 
         # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
         if self.driver.testVersion == '2.5.1':
             value.append(json.dumps(
-                {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(100)}
+                {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(self.recordCount - 1)}
+            ).encode('utf-8'))
+            value.append(json.dumps(
+                {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(self.recordCount)}
             ).encode('utf-8'))
         else:
             value.append(None)
+            value.append("") # custom sf converters treat this as a normal record
 
         header = [('header1', 'value1'), ('header2', '{}')]
         self.driver.sendBytesData(self.topic, value, [], 0, header)

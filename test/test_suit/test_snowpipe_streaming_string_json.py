@@ -32,8 +32,8 @@ class TestSnowpipeStreamingStringJson:
             key = []
             value = []
 
-            # send one less record because we are sending a tombstone record. tombstone ingestion is enabled by default
-            for e in range(self.recordNum - 1):
+            # send two less record because we are sending tombstone records. tombstone ingestion is enabled by default
+            for e in range(self.recordNum - 2):
                 value.append(json.dumps(
                     {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
                 ).encode('utf-8'))
@@ -43,8 +43,12 @@ class TestSnowpipeStreamingStringJson:
                 value.append(json.dumps(
                     {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(self.recordNum)}
                 ).encode('utf-8'))
+                value.append(json.dumps(
+                    {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(self.recordNum)}
+                ).encode('utf-8'))
             else:
                 value.append(None)
+                value.append("") # community converters treat this as a tombstone
 
             self.driver.sendBytesData(self.topic, value, key, partition=p)
             sleep(2)
