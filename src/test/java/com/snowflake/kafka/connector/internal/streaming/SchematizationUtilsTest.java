@@ -161,7 +161,7 @@ public class SchematizationUtilsTest {
               new SinkRecord(
                       "topic", 0, Schema.STRING_SCHEMA, "string", null, processedRecordForStreamingIngest, 0);
       Map<String, String> columnToTypes = SchematizationUtils.getColumnTypes(recordWithoutSchema, Collections.singletonList("PAYLOAD_DETAIL"));
-      assert Objects.equals(columnToTypes.get("PAYLOAD_DETAIL"), "VARIANT");
+      assert Objects.equals(columnToTypes.get("\"PAYLOAD_DETAIL\""), "VARIANT");
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
