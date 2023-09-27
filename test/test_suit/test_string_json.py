@@ -37,9 +37,10 @@ class TestStringJson:
     def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
+
         if res == 0:
             raise RetryableError()
-        elif res != 100:
+        elif res != self.recordCount:
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
         # validate content of line 1

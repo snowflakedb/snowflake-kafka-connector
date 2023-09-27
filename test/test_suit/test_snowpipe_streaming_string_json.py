@@ -41,7 +41,7 @@ class TestSnowpipeStreamingStringJson:
             # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
             if self.driver.testVersion == '2.5.1':
                 value.append(json.dumps(
-                    {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(self.recordNum)}
+                    {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(self.recordNum - 1)}
                 ).encode('utf-8'))
                 value.append(json.dumps(
                     {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(self.recordNum)}
