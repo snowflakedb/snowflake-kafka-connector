@@ -126,7 +126,6 @@ public class SchematizationUtils {
     }
     Map<String, String> columnToType = new HashMap<>();
     Map<String, String> schemaMap = getSchemaMapFromRecord(record);
-
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
     Set<String> columnNamesSet = new HashSet<>(columnNames);
 
@@ -134,7 +133,7 @@ public class SchematizationUtils {
     while (fields.hasNext()) {
       Map.Entry<String, JsonNode> field = fields.next();
       String colName = Utils.quoteNameIfNeeded(field.getKey());
-      if (columnNamesSet.contains(colName)) {
+      if (columnNamesSet.contains(field.getKey())) {
         String type;
         if (schemaMap.isEmpty()) {
           // No schema associated with the record, we will try to infer it based on the data
@@ -145,7 +144,7 @@ public class SchematizationUtils {
           if (type == null) {
             // only when the type of the value is unrecognizable for JAVA
             throw SnowflakeErrors.ERROR_5022.getException(
-                "column: " + field.getKey() + " schemaMap: " + schemaMap);
+                    "column: " + field.getKey() + " schemaMap: " + schemaMap);
           }
         }
         columnToType.put(colName, type);
