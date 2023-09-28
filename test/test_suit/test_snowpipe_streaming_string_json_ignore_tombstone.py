@@ -32,15 +32,16 @@ class TestSnowpipeStreamingStringJsonIgnoreTombstone:
             key = []
             value = []
 
-            # send one less record because we are sending a tombstone record. tombstone ingestion is enabled by default
-            for e in range(self.recordNum - 1):
+            # send two less record because we are sending tombstone records. tombstone ingestion is enabled by default
+            for e in range(self.recordNum - 2):
                 value.append(json.dumps(
                     {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
                 ).encode('utf-8'))
 
             # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
             if self.driver.testVersion != '2.5.1':
-                value.append('')
+                value.append(None)
+                value.append("") # community converters treat this as a tombstone
 
             self.driver.sendBytesData(self.topic, value, key, partition=p)
             sleep(2)
@@ -49,7 +50,7 @@ class TestSnowpipeStreamingStringJsonIgnoreTombstone:
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         print("Count records in table {}={}".format(self.topic, str(res)))
-        goalCount = (self.recordNum - 1) * self.partitionNum
+        goalCount = (self.recordNum - 2) * self.partitionNum
         if res < goalCount:
             print("Topic:" + self.topic + " count is less, will retry")
             raise RetryableError()
@@ -75,7 +76,7 @@ class TestSnowpipeStreamingStringJsonIgnoreTombstone:
 
             for p in range(self.partitionNum):
                 # unique offset count and partition no are two columns (returns tuple)
-                if rows[p][0] != (self.recordNum - 1) or rows[p][1] != p:
+                if rows[p][0] != (self.recordNum - 2) or rows[p][1] != p:
                     raise NonRetryableError("Unique offsets for partitions count doesnt match")
 
     def clean(self):
