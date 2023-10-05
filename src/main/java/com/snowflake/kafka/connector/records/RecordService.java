@@ -401,7 +401,6 @@ public class RecordService {
         columnValue = columnNode.textValue();
         try {
           if (MAPPER.readTree(columnNode.textValue()).isObject() && !this.nestColExcl.contains(columnName)) {
-            depth++;
             streamingIngestRow.putAll(this.getMapFromJsonNodeForStreamingIngest(MAPPER.readTree(columnNode.textValue()), sflColumnName, depth+1));
             continue;
           }
