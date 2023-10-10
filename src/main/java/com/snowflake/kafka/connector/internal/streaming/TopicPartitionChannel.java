@@ -78,6 +78,7 @@ public class TopicPartitionChannel {
   private StreamingBuffer streamingBuffer;
 
   private final Lock bufferLock = new ReentrantLock(true);
+  private final Lock channelLock = new ReentrantLock(true);
 
   // used to communicate to the streaming ingest's insertRows API
   // This is non final because we might decide to get the new instance of Channel
@@ -311,6 +312,103 @@ public class TopicPartitionChannel {
     }
   }
 
+  public void insertRecord(SinkRecord record) {
+    final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
+    final long currentProcessedOffset = this.processedOffset.get();
+
+    // Set the consumer offset to be the first record that Kafka sends us
+    if (latestConsumerOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      this.latestConsumerOffset.set(record.kafkaOffset());
+    }
+
+    // Ignore adding to the buffer until we see the expected offset value
+    if (shouldIgnoreAddingRecordToBuffer(record, currentProcessedOffset)) {
+      return;
+    }
+
+    // Accept the incoming record only if we don't have a valid offset token at server side, or the
+    // incoming record offset is 1 + the processed offset
+    if (currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+        || record.kafkaOffset() >= currentProcessedOffset + 1) {
+      // process record
+      SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(record);
+
+      // broken record
+      if (isRecordBroken(snowflakeRecord)) {
+        // check for error tolerance and log tolerance values
+        // errors.log.enable and errors.tolerance
+        LOGGER.debug(
+            "Broken record offset:{}, topic:{}",
+            record.kafkaOffset(),
+            record.topic());
+        kafkaRecordErrorReporter.reportError(record, new DataException("Broken Record"));
+      } else {
+        // lag telemetry, note that sink record timestamp might be null
+        if (snowflakeRecord.timestamp() != null
+            && snowflakeRecord.timestampType() != NO_TIMESTAMP_TYPE) {
+          // TODO:SNOW-529751 telemetry
+        }
+
+        // Convert this records into Json Schema which has content and metadata, add it to DLQ if
+        // there is an exception
+        try {
+          this.channelLock.lock();
+
+          InsertRowsResponse response = null;
+          response = insertRowWithFallback(record, recordService.getProcessedRecordForStreamingIngest(snowflakeRecord), snowflakeRecord.kafkaOffset());
+
+          LOGGER.info(
+              "Successfully called insertRows for channel:{}, insertResponseHasErrors:{},"
+                  + " needToResetOffset:{}",
+              this.getChannelName(),
+              response.hasErrors(),
+              response.needToResetOffset());
+          if (response.hasErrors()) {
+            handleInsertRowsFailures(
+                response.getInsertErrors(), record);
+          }
+
+          // Due to schema evolution, we may need to reopen the channel and reset the offset in kafka
+          // since it's possible that not all rows are ingested
+          if (response.needToResetOffset()) {
+            streamingApiFallbackSupplier(
+                StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
+
+            this.processedOffset.set(record.kafkaOffset());
+          }
+
+        } catch (JsonProcessingException e) {
+          LOGGER.warn(
+              "Record has JsonProcessingException offset:{}, topic:{}",
+              record.kafkaOffset(),
+              record.topic());
+          kafkaRecordErrorReporter.reportError(record, e);
+        } catch (TopicPartitionChannelInsertionException ex) {
+          // Suppressing the exception because other channels might still continue to ingest
+          LOGGER.warn(
+              String.format(
+                  "Failure inserting for channel:%s", this.getChannelName()),
+              ex);
+        } finally {
+          this.channelLock.unlock();
+        }
+      }
+
+
+
+
+    } else {
+      // TODO @rcheng: update this comment
+      LOGGER.debug(
+          "Skip adding offset:{} to buffer for channel:{} because"
+              + " offsetPersistedInSnowflake:{}, processedOffset:{}",
+          record.kafkaOffset(),
+          this.getChannelName(),
+          currentOffsetPersistedInSnowflake,
+          currentProcessedOffset);
+    }
+  }
+
   /**
    * Inserts the record into buffer
    *
@@ -528,40 +626,41 @@ public class TopicPartitionChannel {
       this.previousFlushTimeStampMs = System.currentTimeMillis();
       return null;
     }
-    InsertRowsResponse response = null;
-    try {
-      response = insertRowsWithFallback(streamingBufferToInsert);
-      // Updates the flush time (last time we called insertRows API)
-      this.previousFlushTimeStampMs = System.currentTimeMillis();
-
-      LOGGER.info(
-          "Successfully called insertRows for channel:{}, buffer:{}, insertResponseHasErrors:{},"
-              + " needToResetOffset:{}",
-          this.getChannelName(),
-          streamingBufferToInsert,
-          response.hasErrors(),
-          response.needToResetOffset());
-      if (response.hasErrors()) {
-        handleInsertRowsFailures(
-            response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
-      }
-
-      // Due to schema evolution, we may need to reopen the channel and reset the offset in kafka
-      // since it's possible that not all rows are ingested
-      if (response.needToResetOffset()) {
-        streamingApiFallbackSupplier(
-            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
-      }
-      return response;
-    } catch (TopicPartitionChannelInsertionException ex) {
-      // Suppressing the exception because other channels might still continue to ingest
-      LOGGER.warn(
-          String.format(
-              "[INSERT_BUFFERED_RECORDS] Failure inserting buffer:%s for channel:%s",
-              streamingBufferToInsert, this.getChannelName()),
-          ex);
-    }
-    return response;
+//    InsertRowsResponse response = null;
+//    try {
+//      response = insertRowsWithFallback(streamingBufferToInsert);
+//      // Updates the flush time (last time we called insertRows API)
+//      this.previousFlushTimeStampMs = System.currentTimeMillis();
+//
+//      LOGGER.info(
+//          "Successfully called insertRows for channel:{}, buffer:{}, insertResponseHasErrors:{},"
+//              + " needToResetOffset:{}",
+//          this.getChannelName(),
+//          streamingBufferToInsert,
+//          response.hasErrors(),
+//          response.needToResetOffset());
+//      if (response.hasErrors()) {
+//        handleInsertRowsFailures(
+//            response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
+//      }
+//
+//      // Due to schema evolution, we may need to reopen the channel and reset the offset in kafka
+//      // since it's possible that not all rows are ingested
+//      if (response.needToResetOffset()) {
+//        streamingApiFallbackSupplier(
+//            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
+//      }
+//      return response;
+//    } catch (TopicPartitionChannelInsertionException ex) {
+//      // Suppressing the exception because other channels might still continue to ingest
+//      LOGGER.warn(
+//          String.format(
+//              "[INSERT_BUFFERED_RECORDS] Failure inserting buffer:%s for channel:%s",
+//              streamingBufferToInsert, this.getChannelName()),
+//          ex);
+//    }
+//    return response;
+    return null;
   }
 
   /**
@@ -577,10 +676,9 @@ public class TopicPartitionChannel {
    * net.snowflake.ingest.streaming.InsertValidationResponse.InsertError} in form of response inside
    * {@link InsertValidationResponse}
    *
-   * @param buffer buffer to insert into snowflake
    * @return InsertRowsResponse a response that wraps around InsertValidationResponse
    */
-  private InsertRowsResponse insertRowsWithFallback(StreamingBuffer buffer) {
+  private InsertRowsResponse insertRowWithFallback(SinkRecord sinkRecord, Map<String, Object> record, long offset) {
     Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
         Fallback.builder(
                 executionAttemptedEvent -> {
@@ -591,7 +689,7 @@ public class TopicPartitionChannel {
                 event ->
                     LOGGER.warn(
                         String.format(
-                            "Failed Attempt to invoke the insertRows API for buffer:%s", buffer),
+                            "Failed Attempt to invoke the insertRows API"),
                         event.getLastException()))
             .onFailure(
                 event ->
@@ -605,19 +703,21 @@ public class TopicPartitionChannel {
 
     return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
         .get(
-            new InsertRowsApiResponseSupplier(
-                this.channel, buffer, this.enableSchemaEvolution, this.conn));
+            new InsertRowApiResponseSupplier(
+                this.channel, sinkRecord, record, offset, this.enableSchemaEvolution, this.conn));
   }
 
   /** Invokes the API given the channel and streaming Buffer. */
-  private static class InsertRowsApiResponseSupplier
+  private static class InsertRowApiResponseSupplier
       implements CheckedSupplier<InsertRowsResponse> {
 
     // Reference to the Snowpipe Streaming channel
     private final SnowflakeStreamingIngestChannel channel;
 
     // Buffer that holds the original sink records from kafka
-    private final StreamingBuffer insertRowsStreamingBuffer;
+    private final SinkRecord sinkRecord;
+    private final Map<String, Object> record;
+    private final long offset;
 
     // Whether the schema evolution is enabled
     private final boolean enableSchemaEvolution;
@@ -625,46 +725,37 @@ public class TopicPartitionChannel {
     // Connection service which will be used to do the ALTER TABLE command for schema evolution
     private final SnowflakeConnectionService conn;
 
-    private InsertRowsApiResponseSupplier(
+    private InsertRowApiResponseSupplier(
         SnowflakeStreamingIngestChannel channelForInsertRows,
-        StreamingBuffer insertRowsStreamingBuffer,
+        SinkRecord sinkRecord,
+        Map<String, Object> record,
+        long offset,
         boolean enableSchemaEvolution,
         SnowflakeConnectionService conn) {
       this.channel = channelForInsertRows;
-      this.insertRowsStreamingBuffer = insertRowsStreamingBuffer;
       this.enableSchemaEvolution = enableSchemaEvolution;
+      this.sinkRecord = sinkRecord;
+      this.record = record;
+      this.offset = offset;
       this.conn = conn;
     }
 
     @Override
     public InsertRowsResponse get() throws Throwable {
       LOGGER.debug(
-          "Invoking insertRows API for channel:{}, streamingBuffer:{}",
-          this.channel.getFullyQualifiedName(),
-          this.insertRowsStreamingBuffer);
-      Pair<List<Map<String, Object>>, List<Long>> recordsAndOffsets =
-          this.insertRowsStreamingBuffer.getData();
-      List<Map<String, Object>> records = recordsAndOffsets.getKey();
-      List<Long> offsets = recordsAndOffsets.getValue();
-      InsertValidationResponse finalResponse = new InsertValidationResponse();
+          "Invoking insertRows API for channel:{}",
+          this.channel.getFullyQualifiedName());
+
+      InsertValidationResponse response = this.channel.insertRow(this.record, Long.toString(this.offset));
       boolean needToResetOffset = false;
-      if (!enableSchemaEvolution) {
-        finalResponse =
-            this.channel.insertRows(
-                records, Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
-      } else {
-        for (int idx = 0; idx < records.size(); idx++) {
-          // For schema evolution, we need to call the insertRows API row by row in order to
-          // preserve the original order, for anything after the first schema mismatch error we will
-          // retry after the evolution
-          InsertValidationResponse response =
-              this.channel.insertRow(records.get(idx), Long.toString(offsets.get(idx)));
+
+      if (enableSchemaEvolution) {
           if (response.hasErrors()) {
             InsertValidationResponse.InsertError insertError = response.getInsertErrors().get(0);
             List<String> extraColNames = insertError.getExtraColNames();
             List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
             long originalSinkRecordIdx =
-                offsets.get(idx) - this.insertRowsStreamingBuffer.getFirstOffset();
+                this.offset - 1;
             if (extraColNames == null && nonNullableColumns == null) {
               InsertValidationResponse.InsertError newInsertError =
                   new InsertValidationResponse.InsertError(
@@ -673,22 +764,20 @@ public class TopicPartitionChannel {
               newInsertError.setExtraColNames(insertError.getExtraColNames());
               newInsertError.setMissingNotNullColNames(insertError.getMissingNotNullColNames());
               // Simply added to the final response if it's not schema related errors
-              finalResponse.addError(insertError);
+              response.addError(insertError);
             } else {
               SchematizationUtils.evolveSchemaIfNeeded(
                   this.conn,
                   this.channel.getTableName(),
                   nonNullableColumns,
                   extraColNames,
-                  this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
+                  this.sinkRecord);
               // Offset reset needed since it's possible that we successfully ingested partial batch
               needToResetOffset = true;
-              break;
             }
           }
-        }
       }
-      return new InsertRowsResponse(finalResponse, needToResetOffset);
+      return new InsertRowsResponse(response, needToResetOffset);
     }
   }
 
@@ -743,11 +832,10 @@ public class TopicPartitionChannel {
    * exception.
    *
    * @param insertErrors errors from validation response. (Only if it has errors)
-   * @param insertedRecordsToBuffer to map {@link SinkRecord} with insertErrors
    */
   private void handleInsertRowsFailures(
       List<InsertValidationResponse.InsertError> insertErrors,
-      List<SinkRecord> insertedRecordsToBuffer) {
+      SinkRecord record) {
     if (logErrors) {
       for (InsertValidationResponse.InsertError insertError : insertErrors) {
         LOGGER.error("Insert Row Error message:{}", insertError.getException().getMessage());
@@ -761,10 +849,8 @@ public class TopicPartitionChannel {
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
       } else {
         for (InsertValidationResponse.InsertError insertError : insertErrors) {
-          // Map error row number to index in sinkRecords list.
-          int rowIndexToOriginalSinkRecord = (int) insertError.getRowIndex();
           this.kafkaRecordErrorReporter.reportError(
-              insertedRecordsToBuffer.get(rowIndexToOriginalSinkRecord),
+              record,
               insertError.getException());
         }
       }
@@ -1146,7 +1232,7 @@ public class TopicPartitionChannel {
    * <p>TODO: SNOW-630885 - When schematization is enabled, we should create the map directly from
    * the SinkRecord instead of first turning it into json
    */
-  private SinkRecord getSnowflakeSinkRecordFromKafkaRecord(final SinkRecord kafkaSinkRecord) {
+  public SinkRecord getSnowflakeSinkRecordFromKafkaRecord(final SinkRecord kafkaSinkRecord) {
     SinkRecord snowflakeRecord = kafkaSinkRecord;
     if (shouldConvertContent(kafkaSinkRecord.value())) {
       snowflakeRecord = handleNativeRecord(kafkaSinkRecord, false);

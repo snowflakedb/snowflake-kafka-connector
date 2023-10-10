@@ -310,7 +310,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
-    channelPartition.insertRecordToBuffer(record);
+    channelPartition.insertRecord(record);
+//    channelPartition.insertRecordToBuffer(record);
   }
 
   @Override
