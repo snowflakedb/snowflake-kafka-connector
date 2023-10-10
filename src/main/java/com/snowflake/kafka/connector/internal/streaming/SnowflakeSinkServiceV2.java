@@ -279,12 +279,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       // threshold.
       insert(record);
     }
-
-    // check all partitions to see if they need to be flushed based on time
-    for (TopicPartitionChannel partitionChannel : partitionsToChannel.values()) {
-      // Time based flushing
-      partitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
-    }
   }
 
   /**
@@ -311,7 +305,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
     channelPartition.insertRecord(record);
-//    channelPartition.insertRecordToBuffer(record);
   }
 
   @Override

@@ -67,7 +67,7 @@ public class TopicPartitionChannelIT {
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(inMemorySinkTaskContext)
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(testTableName, topicPartition)
             .build();
 
@@ -94,7 +94,7 @@ public class TopicPartitionChannelIT {
             new StreamingBufferThreshold(10, 10_000, 1),
             config,
             new InMemoryKafkaRecordErrorReporter(),
-            new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
+            inMemorySinkTaskContext,
             conn.getTelemetryClient());
 
     // since channel is updated, try to insert data again or may be call getOffsetToken
