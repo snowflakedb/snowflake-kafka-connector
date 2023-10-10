@@ -40,6 +40,9 @@ public class InternalUtils {
   // backoff with 1, 2, 4, 8 seconds
   public static final int backoffSec[] = {0, 1, 2, 4, 8};
 
+  // application parameter for partner use
+  static final String APPLICATION = "application";
+
   /**
    * count the size of result set
    *
@@ -222,6 +225,9 @@ public class InternalUtils {
     }
     // put values for optional parameters
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
+
+    // put value for partner application identifier
+    properties.put(APPLICATION, "Confluent_Platform");
 
     /**
      * Behavior change in JDBC release 3.13.25
