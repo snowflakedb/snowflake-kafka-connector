@@ -4,11 +4,29 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static org.apache.kafka.connect.data.Schema.Type.ARRAY;
+import static org.apache.kafka.connect.data.Schema.Type.BOOLEAN;
+import static org.apache.kafka.connect.data.Schema.Type.BYTES;
+import static org.apache.kafka.connect.data.Schema.Type.FLOAT32;
+import static org.apache.kafka.connect.data.Schema.Type.FLOAT64;
+import static org.apache.kafka.connect.data.Schema.Type.INT16;
+import static org.apache.kafka.connect.data.Schema.Type.INT32;
+import static org.apache.kafka.connect.data.Schema.Type.INT64;
+import static org.apache.kafka.connect.data.Schema.Type.STRING;
+import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
+
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.records.RecordService;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import javax.annotation.Nonnull;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
@@ -20,25 +38,6 @@ import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nonnull;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import static org.apache.kafka.connect.data.Schema.Type.ARRAY;
-import static org.apache.kafka.connect.data.Schema.Type.BOOLEAN;
-import static org.apache.kafka.connect.data.Schema.Type.BYTES;
-import static org.apache.kafka.connect.data.Schema.Type.FLOAT32;
-import static org.apache.kafka.connect.data.Schema.Type.FLOAT64;
-import static org.apache.kafka.connect.data.Schema.Type.INT16;
-import static org.apache.kafka.connect.data.Schema.Type.INT32;
-import static org.apache.kafka.connect.data.Schema.Type.INT64;
-import static org.apache.kafka.connect.data.Schema.Type.STRING;
-import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
 
 /** This is a class containing the helper functions related to schematization */
 public class SchematizationUtils {
