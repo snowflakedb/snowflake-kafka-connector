@@ -22,7 +22,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
 
 import com.google.common.collect.ImmutableMap;
-import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.InternalUtils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.OAuthConstants;
@@ -423,9 +422,6 @@ public class Utils {
         || config
             .get(INGESTION_METHOD_OPT)
             .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString())) {
-      invalidConfigParams.putAll(
-          BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE));
-
       if (config.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
           && Boolean.parseBoolean(
               config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG))) {

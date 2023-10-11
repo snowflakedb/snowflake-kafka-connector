@@ -15,7 +15,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.BufferThreshold;
+
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -189,12 +189,6 @@ public class StreamingUtils {
         if (inputConfig
             .get(INGESTION_METHOD_OPT)
             .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE_STREAMING.toString())) {
-
-          // check if buffer thresholds are within permissible range
-          invalidParams.putAll(
-              BufferThreshold.validateBufferThreshold(
-                  inputConfig, IngestionMethodConfig.SNOWPIPE_STREAMING));
-
           invalidParams.putAll(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
           invalidParams.putAll(validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig));
 

@@ -14,7 +14,6 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
-import com.snowflake.kafka.connector.internal.streaming.StreamingBufferThreshold;
 import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
@@ -90,7 +89,6 @@ public class SnowflakeSinkTaskStreamingTest {
             topicPartition,
             SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topicName, partition),
             topicName,
-            new StreamingBufferThreshold(10, 10_000, 1),
             config,
             errorReporter,
             inMemorySinkTaskContext,

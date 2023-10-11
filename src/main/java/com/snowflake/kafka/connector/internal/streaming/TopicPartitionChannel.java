@@ -13,9 +13,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.KCLogger;
-import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
@@ -30,7 +28,6 @@ import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -42,7 +39,6 @@ import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.utils.Pair;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -160,9 +156,6 @@ public class TopicPartitionChannel {
   // Set to false if DLQ topic is null or empty. True if it is a valid string in config
   private final boolean isDLQTopicSet;
 
-  // Used to identify when to flush (Time, bytes or number of records)
-  private final BufferThreshold streamingBufferThreshold;
-
   // Whether schematization has been enabled.
   private final boolean enableSchematization;
 
@@ -187,7 +180,6 @@ public class TopicPartitionChannel {
       TopicPartition topicPartition,
       final String channelName,
       final String tableName,
-      final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
@@ -198,7 +190,6 @@ public class TopicPartitionChannel {
         channelName,
         tableName,
         false, /* No schema evolution permission */
-        streamingBufferThreshold,
         sfConnectorConfig,
         kafkaRecordErrorReporter,
         sinkTaskContext,
@@ -217,7 +208,6 @@ public class TopicPartitionChannel {
    * @param tableName table to ingest in snowflake
    * @param hasSchemaEvolutionPermission if the role has permission to perform schema evolution on
    *     the table
-   * @param streamingBufferThreshold bytes, count of records and flush time thresholds.
    * @param sfConnectorConfig configuration set for snowflake connector
    * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
    * @param sinkTaskContext context on Kafka Connect's runtime
@@ -232,7 +222,6 @@ public class TopicPartitionChannel {
       final String channelName,
       final String tableName,
       boolean hasSchemaEvolutionPermission,
-      final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
@@ -248,7 +237,6 @@ public class TopicPartitionChannel {
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelName = Preconditions.checkNotNull(channelName);
     this.tableName = Preconditions.checkNotNull(tableName);
-    this.streamingBufferThreshold = Preconditions.checkNotNull(streamingBufferThreshold);
     this.sfConnectorConfig = Preconditions.checkNotNull(sfConnectorConfig);
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);

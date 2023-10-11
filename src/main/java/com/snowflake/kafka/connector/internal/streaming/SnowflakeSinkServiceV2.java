@@ -246,7 +246,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             partitionChannelKey, // Streaming channel name
             tableName,
             hasSchemaEvolutionPermission,
-            new StreamingBufferThreshold(this.flushTimeSeconds, this.fileSizeBytes, this.recordNum),
             this.connectorConfig,
             this.kafkaRecordErrorReporter,
             this.sinkTaskContext,

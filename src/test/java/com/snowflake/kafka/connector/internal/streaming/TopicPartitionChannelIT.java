@@ -91,7 +91,6 @@ public class TopicPartitionChannelIT {
             topicPartition,
             testChannelName,
             testTableName,
-            new StreamingBufferThreshold(10, 10_000, 1),
             config,
             new InMemoryKafkaRecordErrorReporter(),
             inMemorySinkTaskContext,
