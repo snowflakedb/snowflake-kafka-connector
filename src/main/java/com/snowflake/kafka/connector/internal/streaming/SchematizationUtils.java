@@ -4,6 +4,31 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.records.RecordService;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import org.apache.kafka.connect.data.Date;
+import org.apache.kafka.connect.data.Decimal;
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Schema.Type;
+import org.apache.kafka.connect.data.Time;
+import org.apache.kafka.connect.data.Timestamp;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nonnull;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import static org.apache.kafka.connect.data.Schema.Type.ARRAY;
 import static org.apache.kafka.connect.data.Schema.Type.BOOLEAN;
 import static org.apache.kafka.connect.data.Schema.Type.BYTES;
@@ -14,26 +39,6 @@ import static org.apache.kafka.connect.data.Schema.Type.INT32;
 import static org.apache.kafka.connect.data.Schema.Type.INT64;
 import static org.apache.kafka.connect.data.Schema.Type.STRING;
 import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
-
-import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import com.snowflake.kafka.connector.records.RecordService;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import javax.annotation.Nonnull;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import org.apache.kafka.connect.data.Field;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.Schema.Type;
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** This is a class containing the helper functions related to schematization */
 public class SchematizationUtils {
@@ -154,7 +159,8 @@ public class SchematizationUtils {
     Schema schema = record.valueSchema();
     if (schema != null && schema.fields() != null) {
       for (Field field : schema.fields()) {
-        schemaMap.put(field.name(), convertToSnowflakeType(field.schema().type()));
+        schemaMap.put(
+            field.name(), convertToSnowflakeType(field.schema().type(), field.schema().name()));
       }
     }
     return schemaMap;
@@ -167,7 +173,7 @@ public class SchematizationUtils {
       // only when the type of the value is unrecognizable for JAVA
       throw SnowflakeErrors.ERROR_5021.getException("class: " + value.getClass());
     }
-    return convertToSnowflakeType(schemaType);
+    return convertToSnowflakeType(schemaType, null);
   }
 
   /** Convert a json node type to kafka data type */
@@ -201,16 +207,26 @@ public class SchematizationUtils {
   }
 
   /** Convert the kafka data type to Snowflake data type */
-  private static String convertToSnowflakeType(Type kafkaType) {
+  private static String convertToSnowflakeType(Type kafkaType, String schemaName) {
     switch (kafkaType) {
       case INT8:
         return "BYTEINT";
       case INT16:
         return "SMALLINT";
       case INT32:
-        return "INT";
+        if (Date.LOGICAL_NAME.equals(schemaName)) {
+          return "DATE";
+        } else if (Time.LOGICAL_NAME.equals(schemaName)) {
+          return "TIME(6)";
+        } else {
+          return "INT";
+        }
       case INT64:
-        return "BIGINT";
+        if (Timestamp.LOGICAL_NAME.equals(schemaName)) {
+          return "TIMESTAMP(6)";
+        } else {
+          return "BIGINT";
+        }
       case FLOAT32:
         return "FLOAT";
       case FLOAT64:
@@ -220,7 +236,11 @@ public class SchematizationUtils {
       case STRING:
         return "VARCHAR";
       case BYTES:
-        return "BINARY";
+        if (Decimal.LOGICAL_NAME.equals(schemaName)) {
+          return "VARCHAR";
+        } else {
+          return "BINARY";
+        }
       case ARRAY:
         return "ARRAY";
       default:

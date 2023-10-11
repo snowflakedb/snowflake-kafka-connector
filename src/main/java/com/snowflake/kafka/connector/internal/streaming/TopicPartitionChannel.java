@@ -778,7 +778,7 @@ public class TopicPartitionChannel {
     }
   }
 
-  // TODO: SNOW-529755 POLL committed offsets in backgraound thread
+  // TODO: SNOW-529755 POLL committed offsets in background thread
 
   /**
    * Get committed offset from Snowflake. It does an HTTP call internally to find out what was the
