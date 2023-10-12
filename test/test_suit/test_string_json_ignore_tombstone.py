@@ -7,7 +7,6 @@ class TestStringJsonIgnoreTombstone:
         self.driver = driver
         self.fileName = "test_string_json_ignore_tombstone"
         self.topic = self.fileName + nameSalt
-        self.recordCount = 100
 
     def getConfigFileName(self):
         return self.fileName + ".json"
@@ -15,15 +14,13 @@ class TestStringJsonIgnoreTombstone:
     def send(self):
         value = []
 
-        # send two less record because we are sending tombstone records. tombstone ingestion is enabled by default
-        for e in range(self.recordCount - 2):
+        # send one less record because we are sending a tombstone record. tombstone ingestion is enabled by default
+        for e in range(99):
             value.append(json.dumps({'number': str(e)}).encode('utf-8'))
 
         # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
         if self.driver.testVersion != '2.5.1':
-            value.append(None)
-
-        value.append("") # custom sf converters treat this as a normal record
+            value.append('')
 
         header = [('header1', 'value1'), ('header2', '{}')]
         self.driver.sendBytesData(self.topic, value, [], 0, header)
@@ -31,7 +28,7 @@ class TestStringJsonIgnoreTombstone:
     def verify(self, round):
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
-        goalCount = self.recordCount - 1 # custom sf converters treat this as a normal record, so only None value is ignored
+        goalCount = 99
         print("Got " + str(res) + " rows. Expected " + str(goalCount) + " rows")
         if res == 0:
             raise RetryableError()

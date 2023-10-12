@@ -55,17 +55,15 @@ class TestSchemaEvolutionJsonIgnoreTombstone:
             key = []
             value = []
 
-            # send two less record because we are sending tombstone records. tombstone ingestion is enabled by default
-            for e in range(self.recordNum - 2):
+            # send one less record because we are sending a tombstone record. tombstone ingestion is enabled by default
+            for e in range(self.recordNum - 1):
                 key.append(json.dumps({'number': str(e)}).encode('utf-8'))
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
 
             # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
             if self.driver.testVersion != '2.5.1':
-                key.append(json.dumps({'number': str(self.recordNum - 1)}).encode('utf-8'))
-                value.append(None)
-                key.append(json.dumps({'number': str(self.recordNum)}).encode('utf-8'))
-                value.append("") # community converters treat this as a tombstone
+                value.append('')
+            key.append(json.dumps({'number': str(i)}).encode('utf-8'))
 
             self.driver.sendBytesData(topic, value, key)
 
@@ -89,7 +87,7 @@ class TestSchemaEvolutionJsonIgnoreTombstone:
 
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.table)).fetchone()[0]
-        if res != len(self.topics) * (self.recordNum - 2):
+        if res != len(self.topics) * (self.recordNum - 1):
             print("Number of record expected: {}, got: {}".format(len(self.topics) * (self.recordNum - 1), res))
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
