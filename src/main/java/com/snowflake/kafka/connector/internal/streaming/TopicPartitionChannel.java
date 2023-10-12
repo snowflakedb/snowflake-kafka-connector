@@ -1378,18 +1378,17 @@ public class TopicPartitionChannel {
     }
 
     @Override
-    public SinkRecord getSinkRecord(long idx) {
+    public List<SinkRecord> getSinkRecords() {
+      return sinkRecords;
+    }
 
+    public SinkRecord getSinkRecord(long idx) {
       int currIndex = (int) idx;
       if(currIndex >= sinkRecords.size()) {
         currIndex = sinkRecords.size()-1;
         LOGGER.info("get the last sink record");
       }
       return sinkRecords.get(currIndex);
-    }
-
-    public SinkRecord getSinkRecord(long idx) {
-      return sinkRecords.get((int) idx);
     }
   }
 
