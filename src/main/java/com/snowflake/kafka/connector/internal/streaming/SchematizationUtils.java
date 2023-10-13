@@ -158,8 +158,13 @@ public class SchematizationUtils {
     Schema schema = record.valueSchema();
     if (schema != null && schema.fields() != null) {
       for (Field field : schema.fields()) {
-        schemaMap.put(
-            field.name(), convertToSnowflakeType(field.schema().type(), field.schema().name()));
+        String snowflakeType = convertToSnowflakeType(field.schema().type(), field.schema().name());
+        LOGGER.info(
+            "Got the snowflake data type for field:{}, schema_name:{}, type:{}",
+            field.name(),
+            field.schema().name(),
+            snowflakeType);
+        schemaMap.put(field.name(), snowflakeType);
       }
     }
     return schemaMap;

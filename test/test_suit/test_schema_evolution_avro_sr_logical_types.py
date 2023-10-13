@@ -9,7 +9,7 @@ from test_suit.test_utils import NonRetryableError
 class TestSchemaEvolutionAvroSRLogicalTypes:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_evolution_avro_sr"
+        self.fileName = "travis_correct_schema_evolution_avro_sr_logical_types"
         self.topics = []
         self.table = self.fileName + nameSalt
         self.recordNum = 100
