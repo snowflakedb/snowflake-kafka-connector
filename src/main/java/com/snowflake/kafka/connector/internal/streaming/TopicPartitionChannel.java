@@ -320,10 +320,7 @@ public class TopicPartitionChannel {
       if (isRecordBroken(snowflakeRecord)) {
         // check for error tolerance and log tolerance values
         // errors.log.enable and errors.tolerance
-        LOGGER.debug(
-            "Broken record offset:{}, topic:{}",
-            record.kafkaOffset(),
-            record.topic());
+        LOGGER.debug("Broken record offset:{}, topic:{}", record.kafkaOffset(), record.topic());
         kafkaRecordErrorReporter.reportError(record, new DataException("Broken Record"));
       } else {
         // lag telemetry, note that sink record timestamp might be null
@@ -337,11 +334,14 @@ public class TopicPartitionChannel {
         try {
           this.channelLock.lock();
 
-          response = insertRowWithFallback(record, recordService.getProcessedRecordForStreamingIngest(snowflakeRecord), snowflakeRecord.kafkaOffset());
+          response =
+              insertRowWithFallback(
+                  record,
+                  recordService.getProcessedRecordForStreamingIngest(snowflakeRecord),
+                  snowflakeRecord.kafkaOffset());
 
           if (response.hasErrors()) {
-            handleInsertRowsFailures(
-                response.getInsertErrors(), record);
+            handleInsertRowsFailures(response.getInsertErrors(), record);
           }
 
           LOGGER.info(
@@ -351,13 +351,14 @@ public class TopicPartitionChannel {
               response.hasErrors(),
               response.needToResetOffset());
 
-          // Due to schema evolution, we may need to reopen the channel and reset the offset in kafka
+          // Due to schema evolution, we may need to reopen the channel and reset the offset in
+          // kafka
           // since it's possible that not all rows are ingested
           if (response.needToResetOffset()) {
             streamingApiFallbackSupplier(
                 StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
           } else {
-          this.processedOffset.set(record.kafkaOffset());
+            this.processedOffset.set(record.kafkaOffset());
           }
 
         } catch (JsonProcessingException e) {
@@ -368,17 +369,11 @@ public class TopicPartitionChannel {
           kafkaRecordErrorReporter.reportError(record, e);
         } catch (TopicPartitionChannelInsertionException ex) {
           // Suppressing the exception because other channels might still continue to ingest
-          LOGGER.warn(
-              String.format(
-                  "Failure inserting for channel:%s", this.getChannelName()),
-              ex);
+          LOGGER.warn(String.format("Failure inserting for channel:%s", this.getChannelName()), ex);
         } finally {
           this.channelLock.unlock();
         }
       }
-
-
-
 
     } else {
       // TODO @rcheng: update this comment
@@ -406,8 +401,7 @@ public class TopicPartitionChannel {
    *     (isOffsetResetInKafka = true)
    * @return true if this record can be skipped to add into buffer, false otherwise.
    */
-  private boolean shouldIgnoreRecord(
-      SinkRecord kafkaSinkRecord, long currentProcessedOffset) {
+  private boolean shouldIgnoreRecord(SinkRecord kafkaSinkRecord, long currentProcessedOffset) {
     // Don't skip rows if there is no offset reset or there is no offset token information in the
     // channel
     if (!isOffsetResetInKafka
@@ -508,7 +502,8 @@ public class TopicPartitionChannel {
    *
    * @return InsertRowsResponse a response that wraps around InsertValidationResponse
    */
-  private InsertRowsResponse insertRowWithFallback(SinkRecord sinkRecord, Map<String, Object> record, long offset) {
+  private InsertRowsResponse insertRowWithFallback(
+      SinkRecord sinkRecord, Map<String, Object> record, long offset) {
     Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
         Fallback.builder(
                 executionAttemptedEvent -> {
@@ -518,8 +513,7 @@ public class TopicPartitionChannel {
             .onFailedAttempt(
                 event ->
                     LOGGER.warn(
-                        String.format(
-                            "Failed Attempt to invoke the insertRows API"),
+                        String.format("Failed Attempt to invoke the insertRows API"),
                         event.getLastException()))
             .onFailure(
                 event ->
@@ -538,8 +532,7 @@ public class TopicPartitionChannel {
   }
 
   /** Invokes the API given the channel. */
-  private static class InsertRowApiResponseSupplier
-      implements CheckedSupplier<InsertRowsResponse> {
+  private static class InsertRowApiResponseSupplier implements CheckedSupplier<InsertRowsResponse> {
 
     // Reference to the Snowpipe Streaming channel
     private final SnowflakeStreamingIngestChannel channel;
@@ -572,28 +565,27 @@ public class TopicPartitionChannel {
 
     @Override
     public InsertRowsResponse get() throws Throwable {
-      LOGGER.debug(
-          "Invoking insertRows API for channel:{}",
-          this.channel.getFullyQualifiedName());
+      LOGGER.debug("Invoking insertRows API for channel:{}", this.channel.getFullyQualifiedName());
 
-      InsertValidationResponse response = this.channel.insertRow(this.record, Long.toString(this.offset));
+      InsertValidationResponse response =
+          this.channel.insertRow(this.record, Long.toString(this.offset));
 
       if (enableSchemaEvolution) {
-          if (response.hasErrors()) {
-            InsertValidationResponse.InsertError insertError = response.getInsertErrors().get(0);
-            List<String> extraColNames = insertError.getExtraColNames();
-            List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
-            if (extraColNames != null || nonNullableColumns != null) {
-              SchematizationUtils.evolveSchemaIfNeeded(
-                  this.conn,
-                  this.channel.getTableName(),
-                  nonNullableColumns,
-                  extraColNames,
-                  this.sinkRecord);
-              // Offset reset needed since it's possible that we successfully ingested partial batch
-              return new InsertRowsResponse(new InsertValidationResponse(), true);
-            }
+        if (response.hasErrors()) {
+          InsertValidationResponse.InsertError insertError = response.getInsertErrors().get(0);
+          List<String> extraColNames = insertError.getExtraColNames();
+          List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
+          if (extraColNames != null || nonNullableColumns != null) {
+            SchematizationUtils.evolveSchemaIfNeeded(
+                this.conn,
+                this.channel.getTableName(),
+                nonNullableColumns,
+                extraColNames,
+                this.sinkRecord);
+            // Offset reset needed since it's possible that we successfully ingested partial batch
+            return new InsertRowsResponse(new InsertValidationResponse(), true);
           }
+        }
       }
       return new InsertRowsResponse(response, false);
     }
@@ -652,8 +644,7 @@ public class TopicPartitionChannel {
    * @param insertErrors errors from validation response. (Only if it has errors)
    */
   private void handleInsertRowsFailures(
-      List<InsertValidationResponse.InsertError> insertErrors,
-      SinkRecord record) {
+      List<InsertValidationResponse.InsertError> insertErrors, SinkRecord record) {
     if (logErrors) {
       for (InsertValidationResponse.InsertError insertError : insertErrors) {
         LOGGER.error("Insert Row Error message:{}", insertError.getException().getMessage());
@@ -667,9 +658,7 @@ public class TopicPartitionChannel {
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
       } else {
         for (InsertValidationResponse.InsertError insertError : insertErrors) {
-          this.kafkaRecordErrorReporter.reportError(
-              record,
-              insertError.getException());
+          this.kafkaRecordErrorReporter.reportError(record, insertError.getException());
         }
       }
     } else {
@@ -811,9 +800,9 @@ public class TopicPartitionChannel {
   }
 
   /**
-   * Resets the offset in kafka, resets metadata related to offsetsz. If we
-   * don't get a valid offset token (because of a table recreation or channel inactivity), we will
-   * rely on kafka to send us the correct offset
+   * Resets the offset in kafka, resets metadata related to offsetsz. If we don't get a valid offset
+   * token (because of a table recreation or channel inactivity), we will rely on kafka to send us
+   * the correct offset
    *
    * <p>Idea behind resetting offset (1 more than what we found in snowflake) is that Kafka should
    * send offsets from this offset number so as to not miss any data.
