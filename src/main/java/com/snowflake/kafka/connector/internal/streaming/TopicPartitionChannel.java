@@ -304,8 +304,8 @@ public class TopicPartitionChannel {
       this.latestConsumerOffset.set(record.kafkaOffset());
     }
 
-    // Ignore adding to the buffer until we see the expected offset value
-    if (shouldIgnoreAddingRecordToBuffer(record, currentProcessedOffset)) {
+    // Ignore records until we see the expected offset value
+    if (shouldIgnoreRecord(record, currentProcessedOffset)) {
       return response;
     }
 
@@ -383,7 +383,7 @@ public class TopicPartitionChannel {
     } else {
       // TODO @rcheng: update this comment
       LOGGER.debug(
-          "Skip adding offset:{} to buffer for channel:{} because"
+          "Skip ingesting current record with offset offset:{} with channel:{} because"
               + " offsetPersistedInSnowflake:{}, processedOffset:{}",
           record.kafkaOffset(),
           this.getChannelName(),
@@ -406,7 +406,7 @@ public class TopicPartitionChannel {
    *     (isOffsetResetInKafka = true)
    * @return true if this record can be skipped to add into buffer, false otherwise.
    */
-  private boolean shouldIgnoreAddingRecordToBuffer(
+  private boolean shouldIgnoreRecord(
       SinkRecord kafkaSinkRecord, long currentProcessedOffset) {
     // Don't skip rows if there is no offset reset or there is no offset token information in the
     // channel
@@ -418,14 +418,14 @@ public class TopicPartitionChannel {
     // Don't ignore if we see the expected offset; otherwise log and skip
     if ((kafkaSinkRecord.kafkaOffset() - currentProcessedOffset) == 1L) {
       LOGGER.debug(
-          "Got the desired offset:{} from Kafka, we can add this offset to buffer for channel:{}",
+          "Got the desired offset:{} from Kafka, we can ingest using this channel:{}",
           kafkaSinkRecord.kafkaOffset(),
           this.getChannelName());
       isOffsetResetInKafka = false;
       return false;
     } else {
       LOGGER.debug(
-          "Ignore adding offset:{} to buffer for channel:{} because we recently encountered"
+          "Ignore current record at offset:{} because we recently encountered"
               + " error and reset offset in Kafka. currentProcessedOffset:{}",
           kafkaSinkRecord.kafkaOffset(),
           this.getChannelName(),
@@ -537,7 +537,7 @@ public class TopicPartitionChannel {
                 this.channel, sinkRecord, record, offset, this.enableSchemaEvolution, this.conn));
   }
 
-  /** Invokes the API given the channel and streaming Buffer. */
+  /** Invokes the API given the channel. */
   private static class InsertRowApiResponseSupplier
       implements CheckedSupplier<InsertRowsResponse> {
 
@@ -811,7 +811,7 @@ public class TopicPartitionChannel {
   }
 
   /**
-   * Resets the offset in kafka, resets metadata related to offsets and clears the buffer. If we
+   * Resets the offset in kafka, resets metadata related to offsetsz. If we
    * don't get a valid offset token (because of a table recreation or channel inactivity), we will
    * rely on kafka to send us the correct offset
    *
