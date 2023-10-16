@@ -100,9 +100,6 @@ public class SnowflakeSinkTaskStreamingTest {
 
     SnowflakeSinkServiceV2 mockSinkService =
         new SnowflakeSinkServiceV2(
-            1,
-            10 * 1024 * 1024,
-            1,
             mockConnectionService,
             new RecordService(),
             mockTelemetryService,

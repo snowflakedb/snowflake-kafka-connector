@@ -35,28 +35,13 @@ public class StreamingUtils {
 
   protected static final int MAX_GET_OFFSET_TOKEN_RETRIES = 3;
 
-  // Buffer related defaults and minimum set at connector level by clients/customers.
-  public static final long STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC =
-      Duration.ofSeconds(1).getSeconds();
-
-  public static final long STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC =
-      Duration.ofSeconds(10).getSeconds();
-
-  protected static final long STREAMING_BUFFER_COUNT_RECORDS_DEFAULT = 10_000L;
-
-  /**
-   * Keeping this default as ~ 20MB.
-   *
-   * <p>Logic behind this optimium value is we will do gzip compression and json to UTF conversion
-   * which will account to almost 95% compression.
-   *
-   * <p>1 MB is an ideal size for streaming ingestion so 95% if 20MB = 1MB
-   */
-  protected static final long STREAMING_BUFFER_BYTES_DEFAULT = 20_000_000;
-
   private static final Set<String> DISALLOWED_CONVERTERS_STREAMING = CUSTOM_SNOWFLAKE_CONVERTERS;
   private static final String STRING_CONVERTER_KEYWORD = "StringConverter";
   private static final String BYTE_ARRAY_CONVERTER_KEYWORD = "ByteArrayConverter";
+
+  // streaming does not use buffer, but we need this variable to retain config validation behaviors
+  public static final long STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC =
+      Duration.ofSeconds(1).getSeconds();
 
   // excluding key, value and headers: 5 bytes length + 10 bytes timestamp + 5 bytes offset + 1
   // byte attributes. (This is not for record metadata, this is before we transform to snowflake
