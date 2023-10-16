@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
@@ -517,6 +516,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   public void setFlushTime(long time) {
     LOGGER.info("Ignore requested flush time {} as streaming does not use the KC buffer", time);
   }
+
   @Override
   public long getRecordNumber() {
     return -1;

@@ -423,8 +423,7 @@ public class Utils {
         || config
             .get(INGESTION_METHOD_OPT)
             .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString())) {
-      invalidConfigParams.putAll(
-          SnowpipeBufferThreshold.validateBufferThreshold(config));
+      invalidConfigParams.putAll(SnowpipeBufferThreshold.validateBufferThreshold(config));
 
       if (config.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
           && Boolean.parseBoolean(

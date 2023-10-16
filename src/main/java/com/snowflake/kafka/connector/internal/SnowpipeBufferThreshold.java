@@ -6,7 +6,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -111,7 +110,8 @@ public class SnowpipeBufferThreshold {
   }
 
   /**
-   * Check if provided snowflake kafka connector buffer properties are within permissible values for Snowpipe. Streaming does not use these buffer properties.
+   * Check if provided snowflake kafka connector buffer properties are within permissible values for
+   * Snowpipe. Streaming does not use these buffer properties.
    *
    * <p>This method invokes three verifiers - Time based threshold, buffer size and buffer count
    * threshold.
@@ -122,8 +122,7 @@ public class SnowpipeBufferThreshold {
   public static ImmutableMap<String, String> validateBufferThreshold(
       Map<String, String> providedSFConnectorConfig) {
     Map<String, String> invalidConfigParams = new HashMap<>();
-    invalidConfigParams.putAll(
-        verifyBufferFlushTimeThreshold(providedSFConnectorConfig));
+    invalidConfigParams.putAll(verifyBufferFlushTimeThreshold(providedSFConnectorConfig));
     invalidConfigParams.putAll(verifyBufferCountThreshold(providedSFConnectorConfig));
     invalidConfigParams.putAll(verifyBufferBytesThreshold(providedSFConnectorConfig));
     return ImmutableMap.copyOf(invalidConfigParams);

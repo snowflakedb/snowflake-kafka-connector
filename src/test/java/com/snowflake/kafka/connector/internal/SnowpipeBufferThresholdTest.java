@@ -12,8 +12,7 @@ public class SnowpipeBufferThresholdTest {
     SnowpipeBufferThreshold snowpipeBufferThreshold =
         new SnowpipeBufferThreshold(10, bytesThresholdForBuffer, 100) {};
 
-    Assert.assertTrue(
-        snowpipeBufferThreshold.shouldFlushOnBufferByteSize(bytesThresholdForBuffer));
+    Assert.assertTrue(snowpipeBufferThreshold.shouldFlushOnBufferByteSize(bytesThresholdForBuffer));
 
     Assert.assertTrue(
         snowpipeBufferThreshold.shouldFlushOnBufferByteSize(bytesThresholdForBuffer + 1));
