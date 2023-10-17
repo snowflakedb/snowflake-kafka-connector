@@ -287,14 +287,7 @@ public class RecordService {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
       Object columnValue;
-      if (columnNode.isArray()) {
-        List<String> itemList = new ArrayList<>();
-        ArrayNode arrayNode = (ArrayNode) columnNode;
-        for (JsonNode e : arrayNode) {
-          itemList.add(e.isTextual() ? e.textValue() : MAPPER.writeValueAsString(e));
-        }
-        columnValue = itemList;
-      } else if (columnNode.isTextual()) {
+      if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
       } else if (columnNode.isNull()) {
         columnValue = null;
