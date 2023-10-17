@@ -294,8 +294,8 @@ public class TopicPartitionChannel {
     }
   }
 
-  public InsertRowsResponse insertRecord(SinkRecord record) {
-    InsertRowsResponse response = null;
+  public InsertRowResponse insertRecord(SinkRecord record) {
+    InsertRowResponse response = null;
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
 
@@ -500,14 +500,14 @@ public class TopicPartitionChannel {
    * net.snowflake.ingest.streaming.InsertValidationResponse.InsertError} in form of response inside
    * {@link InsertValidationResponse}
    *
-   * @return InsertRowsResponse a response that wraps around InsertValidationResponse
+   * @return InsertRowResponse a response that wraps around InsertValidationResponse
    */
-  private InsertRowsResponse insertRowWithFallback(
+  private InsertRowResponse insertRowWithFallback(
       SinkRecord sinkRecord, Map<String, Object> record, long offset) {
     Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
         Fallback.builder(
                 executionAttemptedEvent -> {
-                  insertRowsFallbackSupplier(executionAttemptedEvent.getLastException());
+                  insertRowFallbackSupplier(executionAttemptedEvent.getLastException());
                 })
             .handle(SFException.class)
             .onFailedAttempt(
@@ -532,7 +532,7 @@ public class TopicPartitionChannel {
   }
 
   /** Invokes the API given the channel. */
-  private static class InsertRowApiResponseSupplier implements CheckedSupplier<InsertRowsResponse> {
+  private static class InsertRowApiResponseSupplier implements CheckedSupplier<InsertRowResponse> {
 
     // Reference to the Snowpipe Streaming channel
     private final SnowflakeStreamingIngestChannel channel;
@@ -564,7 +564,7 @@ public class TopicPartitionChannel {
     }
 
     @Override
-    public InsertRowsResponse get() throws Throwable {
+    public InsertRowResponse get() throws Throwable {
       LOGGER.debug("Invoking insertRows API for channel:{}", this.channel.getFullyQualifiedName());
 
       InsertValidationResponse response =
@@ -583,21 +583,21 @@ public class TopicPartitionChannel {
                 extraColNames,
                 this.sinkRecord);
             // Offset reset needed since it's possible that we successfully ingested partial batch
-            return new InsertRowsResponse(new InsertValidationResponse(), true);
+            return new InsertRowResponse(new InsertValidationResponse(), true);
           }
         }
       }
-      return new InsertRowsResponse(response, false);
+      return new InsertRowResponse(response, false);
     }
   }
 
   // A class that wraps around the InsertValidationResponse from Ingest SDK plus some additional
   // information
-  static class InsertRowsResponse {
+  static class InsertRowResponse {
     private final InsertValidationResponse response;
     private final boolean needToResetOffset;
 
-    InsertRowsResponse(InsertValidationResponse response, boolean needToResetOffset) {
+    InsertRowResponse(InsertValidationResponse response, boolean needToResetOffset) {
       this.response = response;
       this.needToResetOffset = needToResetOffset;
     }
@@ -622,7 +622,7 @@ public class TopicPartitionChannel {
    * @throws TopicPartitionChannelInsertionException exception is thrown after channel reopen has
    *     been successful and offsetToken was fetched from Snowflake
    */
-  private void insertRowsFallbackSupplier(Throwable ex)
+  private void insertRowFallbackSupplier(Throwable ex)
       throws TopicPartitionChannelInsertionException {
     final long offsetRecoveredFromSnowflake =
         streamingApiFallbackSupplier(StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK);

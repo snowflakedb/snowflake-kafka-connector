@@ -252,8 +252,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
         continue;
       }
-      // While inserting into buffer, we will check for count threshold and buffered bytes
-      // threshold.
+
       insert(record);
     }
   }
