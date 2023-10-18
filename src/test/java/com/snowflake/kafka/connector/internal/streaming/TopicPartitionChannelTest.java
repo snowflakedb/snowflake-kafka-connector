@@ -453,15 +453,6 @@ public class TopicPartitionChannelTest {
     Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedGetOffsetCount))
         .getLatestCommittedOffsetToken();
 
-    // Now, it should be successful
-    //    Mockito.when(
-    //            mockStreamingChannel.insertRows(
-    //                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
-    //        .thenReturn(new InsertValidationResponse());
-    //
-    //    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
-    //        .thenReturn(Long.toString(noOfRecords - 1));
-
     // Retry the insert again, now everything should be ingested and the offset token should be
     // noOfRecords-1
     records.forEach(topicPartitionChannel::insertRecordToBuffer);
