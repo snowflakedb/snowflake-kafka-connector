@@ -112,7 +112,9 @@ public class TopicPartitionChannel {
    *   <li>If channel fails to fetch offsetToken from Snowflake, we reopen the channel and try to
    *       fetch offset from Snowflake again
    *   <li>If channel fails to ingest a buffer(Buffer containing rows/offsets), we reopen the
-   *       channel and try to fetch offset from Snowflake again. Schematization purposefully fails the first buffer insert in order to alter the table, and then expects Kafka to resend data
+   *       channel and try to fetch offset from Snowflake again. Schematization purposefully fails
+   *       the first buffer insert in order to alter the table, and then expects Kafka to resend
+   *       data
    * </ol>
    *
    * <p>In both cases above, we ask Kafka to send back offsets, strictly from offset number after
@@ -398,12 +400,15 @@ public class TopicPartitionChannel {
     // channel
     if (!isOffsetResetInKafka
         && currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      LOGGER.debug("No offset registered in Snowflake and offset is not being reset, we can add this offset to buffer for channel:{}", currentProcessedOffset);
+      LOGGER.debug(
+          "No offset registered in Snowflake and offset is not being reset, we can add this offset"
+              + " to buffer for channel:{}",
+          currentProcessedOffset);
       return false;
     }
 
     // Don't ignore if we see the expected offset; otherwise log and skip
-    if ((kafkaSinkRecord.kafkaOffset() - currentProcessedOffset ) == 1L) {
+    if ((kafkaSinkRecord.kafkaOffset() - currentProcessedOffset) == 1L) {
       LOGGER.debug(
           "Got the desired offset:{} from Kafka, we can add this offset to buffer for channel:{}",
           kafkaSinkRecord.kafkaOffset(),

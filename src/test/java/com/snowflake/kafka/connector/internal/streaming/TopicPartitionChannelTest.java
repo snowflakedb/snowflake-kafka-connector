@@ -402,7 +402,8 @@ public class TopicPartitionChannelTest {
     int expectedOpenChannelCount = 0;
     int expectedGetOffsetCount = 0;
 
-    // setup mocks to fail first insert and return two null snowflake offsets (open channel and failed insert) before succeeding
+    // setup mocks to fail first insert and return two null snowflake offsets (open channel and
+    // failed insert) before succeeding
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
@@ -453,13 +454,13 @@ public class TopicPartitionChannelTest {
         .getLatestCommittedOffsetToken();
 
     // Now, it should be successful
-//    Mockito.when(
-//            mockStreamingChannel.insertRows(
-//                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
-//        .thenReturn(new InsertValidationResponse());
-//
-//    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
-//        .thenReturn(Long.toString(noOfRecords - 1));
+    //    Mockito.when(
+    //            mockStreamingChannel.insertRows(
+    //                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+    //        .thenReturn(new InsertValidationResponse());
+    //
+    //    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
+    //        .thenReturn(Long.toString(noOfRecords - 1));
 
     // Retry the insert again, now everything should be ingested and the offset token should be
     // noOfRecords-1
