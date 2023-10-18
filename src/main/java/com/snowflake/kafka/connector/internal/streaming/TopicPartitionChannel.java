@@ -281,7 +281,6 @@ public class TopicPartitionChannel {
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
     this.processedOffset.set(lastCommittedOffsetToken);
-    LOGGER.info("[REVI 284] set processedOffset to: {}", this.processedOffset.get());
 
     // setup telemetry and metrics
     String connectorName =
@@ -343,7 +342,7 @@ public class TopicPartitionChannel {
       try {
         this.streamingBuffer.insert(kafkaSinkRecord);
         this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
-        LOGGER.info("[REVI 349] set processedOffset to: {}", this.processedOffset.get());
+
         // # of records or size based flushing
         if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
                 streamingBuffer.getBufferSizeBytes())
@@ -957,7 +956,6 @@ public class TopicPartitionChannel {
       // might get rejected.
       this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
       this.processedOffset.set(offsetRecoveredFromSnowflake);
-      LOGGER.info("[REVI 963] set processedOffset to: {}", this.processedOffset.get());
 
       // State that there was some exception and only clear that state when we have received offset
       // starting from offsetRecoveredFromSnowflake

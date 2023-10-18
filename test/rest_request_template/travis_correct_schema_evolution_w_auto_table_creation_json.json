@@ -7,7 +7,7 @@
     "tasks.max": "1",
     "buffer.flush.time": "10",
     "buffer.count.records": "300",
-    "buffer.size.bytes": "500000000",
+    "buffer.size.bytes": "5000000",
     "snowflake.url.name": "SNOWFLAKE_HOST",
     "snowflake.user.name": "SNOWFLAKE_USER",
     "snowflake.private.key": "SNOWFLAKE_PRIVATE_KEY",
