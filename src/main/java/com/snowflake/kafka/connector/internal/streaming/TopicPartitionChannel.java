@@ -281,6 +281,7 @@ public class TopicPartitionChannel {
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
     this.processedOffset.set(lastCommittedOffsetToken);
+    LOGGER.info("[REVI 284] set processedOffset to: {}", this.processedOffset.get());
 
     // setup telemetry and metrics
     String connectorName =
@@ -323,28 +324,26 @@ public class TopicPartitionChannel {
    * @param kafkaSinkRecord input record from Kafka
    */
   public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
-    final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
-    final long currentProcessedOffset = this.processedOffset.get();
-
     // Set the consumer offset to be the first record that Kafka sends us
     if (latestConsumerOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.latestConsumerOffset.set(kafkaSinkRecord.kafkaOffset());
     }
 
     // Ignore adding to the buffer until we see the expected offset value
-    if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord, currentProcessedOffset)) {
+    if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord, this.processedOffset.get())) {
       return;
     }
 
     // Accept the incoming record only if we don't have a valid offset token at server side, or the
     // incoming record offset is 1 + the processed offset
-    if (currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
-        || kafkaSinkRecord.kafkaOffset() >= currentProcessedOffset + 1) {
+    if (this.processedOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+        || kafkaSinkRecord.kafkaOffset() >= this.processedOffset.get() + 1) {
       StreamingBuffer copiedStreamingBuffer = null;
       bufferLock.lock();
       try {
         this.streamingBuffer.insert(kafkaSinkRecord);
         this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
+        LOGGER.info("[REVI 349] set processedOffset to: {}", this.processedOffset.get());
         // # of records or size based flushing
         if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
                 streamingBuffer.getBufferSizeBytes())
@@ -376,8 +375,8 @@ public class TopicPartitionChannel {
               + " offsetPersistedInSnowflake:{}, processedOffset:{}",
           kafkaSinkRecord.kafkaOffset(),
           this.getChannelName(),
-          currentOffsetPersistedInSnowflake,
-          currentProcessedOffset);
+          this.offsetPersistedInSnowflake.get(),
+          this.processedOffset.get());
     }
   }
 
@@ -958,6 +957,7 @@ public class TopicPartitionChannel {
       // might get rejected.
       this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
       this.processedOffset.set(offsetRecoveredFromSnowflake);
+      LOGGER.info("[REVI 963] set processedOffset to: {}", this.processedOffset.get());
 
       // State that there was some exception and only clear that state when we have received offset
       // starting from offsetRecoveredFromSnowflake
