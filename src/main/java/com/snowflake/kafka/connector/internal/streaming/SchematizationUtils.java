@@ -119,7 +119,7 @@ public class SchematizationUtils {
     }
     Map<String, String> columnToType = new HashMap<>();
     Map<String, String> schemaMap = getSchemaMapFromRecord(record);
-    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
+    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
     Set<String> columnNamesSet = new HashSet<>(columnNames);
 
     Iterator<Map.Entry<String, JsonNode>> fields = recordNode.fields();
@@ -160,7 +160,7 @@ public class SchematizationUtils {
       for (Field field : schema.fields()) {
         String snowflakeType = convertToSnowflakeType(field.schema().type(), field.schema().name());
         LOGGER.info(
-            "Got the snowflake data type for field:{}, schema_name:{}, kafkaType:{},"
+            "Got the snowflake data type for field:{}, schemaName:{}, kafkaType:{},"
                 + " snowflakeType:{}",
             field.name(),
             field.schema().name(),
@@ -179,6 +179,7 @@ public class SchematizationUtils {
       // only when the type of the value is unrecognizable for JAVA
       throw SnowflakeErrors.ERROR_5021.getException("class: " + value.getClass());
     }
+    // Passing null to schemaName when there is no schema information
     return convertToSnowflakeType(schemaType, null);
   }
 

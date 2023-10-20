@@ -446,7 +446,7 @@ public class TopicPartitionChannel {
     Schema schema = isKey ? record.keySchema() : record.valueSchema();
     Object content = isKey ? record.key() : record.value();
     try {
-      newSFContent = new SnowflakeRecordContent(schema, content);
+      newSFContent = new SnowflakeRecordContent(schema, content, true);
     } catch (Exception e) {
       LOGGER.error("Native content parser error:\n{}", e.getMessage());
       try {

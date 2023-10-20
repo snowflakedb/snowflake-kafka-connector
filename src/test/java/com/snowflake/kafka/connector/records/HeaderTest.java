@@ -27,7 +27,7 @@ public class HeaderTest {
 
   public static final SimpleDateFormat ISO_DATE_FORMAT =
       new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-  public static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("HH:mm:ss.SSSXXX");
+  public static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("HH:mm:ss.SSSZ");
 
   static {
     ISO_DATE_FORMAT.setTimeZone(TimeZone.getTimeZone("UTC"));
