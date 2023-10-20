@@ -71,8 +71,7 @@ public class SnowflakeConnectionServiceFactory {
       this.proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
       this.connectorName = conf.get(Utils.NAME);
       this.ingestionMethodConfig = IngestionMethodConfig.determineIngestionMethod(conf);
-      this.prop =
-          InternalUtils.createProperties(conf, this.url.sslEnabled(), ingestionMethodConfig);
+      this.prop = InternalUtils.createProperties(conf, this.url, ingestionMethodConfig);
       return this;
     }
 

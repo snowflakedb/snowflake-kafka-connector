@@ -5,10 +5,10 @@ from test_suit.test_utils import NonRetryableError
 
 # test if the table is updated with the correct column
 # add test if all the records from different topics safely land in the table
-class TestSchemaEvolutionJson:
+class TestSchemaEvolutionJsonIgnoreTombstone:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_evolution_json"
+        self.fileName = "test_schema_evolution_json_ignore_tombstone"
         self.topics = []
         self.table = self.fileName + nameSalt
         self.recordNum = 100
@@ -61,14 +61,11 @@ class TestSchemaEvolutionJson:
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
 
             # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
-            if self.driver.testVersion == '2.5.1':
-                value.append(json.dumps(self.records[i]).encode('utf-8'))
-                value.append(json.dumps(self.records[i]).encode('utf-8'))
-            else:
+            if self.driver.testVersion != '2.5.1':
+                key.append(json.dumps({'number': str(self.recordNum - 1)}).encode('utf-8'))
                 value.append(None)
+                key.append(json.dumps({'number': str(self.recordNum)}).encode('utf-8'))
                 value.append("") # community converters treat this as a tombstone
-            key.append(json.dumps({'number': str(self.recordNum - 1)}).encode('utf-8'))
-            key.append(json.dumps({'number': str(self.recordNum)}).encode('utf-8'))
 
             self.driver.sendBytesData(topic, value, key)
 
@@ -92,8 +89,8 @@ class TestSchemaEvolutionJson:
 
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.table)).fetchone()[0]
-        if res != len(self.topics) * self.recordNum:
-            print("Number of record expected: {}, got: {}".format(len(self.topics) * self.recordNum, res))
+        if res != len(self.topics) * (self.recordNum - 2):
+            print("Number of record expected: {}, got: {}".format(len(self.topics) * (self.recordNum - 1), res))
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
     def clean(self):

@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.records;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -125,8 +126,9 @@ public class RecordContentTest {
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testEmptyValue() {
+  public void testEmptyValueDisabledTombstone() {
     RecordService service = new RecordService();
+    service.setBehaviorOnNullValues(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE);
 
     SinkRecord record =
         new SinkRecord(topic, partition, null, null, Schema.STRING_SCHEMA, null, partition);
@@ -134,10 +136,11 @@ public class RecordContentTest {
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testEmptyValueSchema() throws IOException {
+  public void testEmptyValueSchemaDisabledTombstone() throws IOException {
     JsonNode data = mapper.readTree("{\"name\":123}");
     SnowflakeRecordContent content = new SnowflakeRecordContent(data);
     RecordService service = new RecordService();
+    service.setBehaviorOnNullValues(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE);
 
     SinkRecord record = new SinkRecord(topic, partition, null, null, null, content, partition);
     service.getProcessedRecordForSnowpipe(record);
@@ -251,8 +254,8 @@ public class RecordContentTest {
     // each field should be dumped into string format
     // json string should not be enclosed in additional brackets
     // a non-double-quoted column name will be transformed into uppercase
-    assert got.get("name").equals("sf");
-    assert got.get("answer").equals("42");
+    assert got.get("\"NAME\"").equals("sf");
+    assert got.get("\"ANSWER\"").equals("42");
   }
 
   @Test
@@ -271,6 +274,80 @@ public class RecordContentTest {
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
 
     assert got.containsKey("\"NaMe\"");
-    assert got.containsKey("AnSwEr");
+    assert got.containsKey("\"ANSWER\"");
+  }
+
+  @Test
+  public void testGetProcessedRecord() throws JsonProcessingException {
+    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
+    SchemaAndValue nullSchemaAndValue = jsonConverter.toConnectData(topic, null);
+    String keyStr = "string";
+
+    // all null
+    this.testGetProcessedRecordRunner(
+        new SinkRecord(topic, partition, null, null, null, null, partition), "{}", "");
+
+    // null value
+    this.testGetProcessedRecordRunner(
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            keyStr,
+            nullSchemaAndValue.schema(),
+            null,
+            partition),
+        "{}",
+        keyStr);
+    this.testGetProcessedRecordRunner(
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            keyStr,
+            null,
+            nullSchemaAndValue.value(),
+            partition),
+        "{}",
+        keyStr);
+
+    // null key
+    this.testGetProcessedRecordRunner(
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            null,
+            nullSchemaAndValue.schema(),
+            nullSchemaAndValue.value(),
+            partition),
+        "{}",
+        "");
+    try {
+      this.testGetProcessedRecordRunner(
+          new SinkRecord(
+              topic,
+              partition,
+              null,
+              keyStr,
+              nullSchemaAndValue.schema(),
+              nullSchemaAndValue.value(),
+              partition),
+          "{}",
+          keyStr);
+    } catch (SnowflakeKafkaConnectorException ex) {
+      assert ex.checkErrorCode(SnowflakeErrors.ERROR_0010);
+    }
+  }
+
+  private void testGetProcessedRecordRunner(
+      SinkRecord record, String expectedRecordContent, String expectedRecordMetadataKey)
+      throws JsonProcessingException {
+    RecordService service = new RecordService();
+    Map<String, Object> recordData = service.getProcessedRecordForStreamingIngest(record);
+
+    assert recordData.size() == 2;
+    assert recordData.get("RECORD_CONTENT").equals(expectedRecordContent);
+    assert recordData.get("RECORD_METADATA").toString().contains(expectedRecordMetadataKey);
   }
 }
