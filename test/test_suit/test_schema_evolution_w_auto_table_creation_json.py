@@ -61,8 +61,6 @@ class TestSchemaEvolutionWithAutoTableCreationJson:
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
             self.driver.sendBytesData(topic, value, key)
 
-            sleep(2)
-
             # send second batch that should flush
             key = []
             value = []
@@ -71,9 +69,8 @@ class TestSchemaEvolutionWithAutoTableCreationJson:
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
             self.driver.sendBytesData(topic, value, key)
 
-            sleep(10) # sleep to ensure all data is flushed
-
     def verify(self, round):
+        sleep(60)
         rows = self.driver.snowflake_conn.cursor().execute(
             "desc table {}".format(self.table)).fetchall()
         res_col = {}

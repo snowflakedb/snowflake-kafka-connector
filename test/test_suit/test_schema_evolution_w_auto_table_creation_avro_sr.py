@@ -89,15 +89,11 @@ class TestSchemaEvolutionWithAutoTableCreationAvroSR:
                 value.append(self.records[i])
             self.driver.sendAvroSRData(topic, value, self.valueSchema[i], key=[], key_schema="", partition=0)
 
-            sleep(2)
-
             # send second batch that should flush
             value = []
             for _ in range(self.flushRecordCount):
                 value.append(self.records[i])
             self.driver.sendAvroSRData(topic, value, self.valueSchema[i], key=[], key_schema="", partition=0)
-
-            sleep(10) # sleep to ensure all data is flushed
 
     def verify(self, round):
         rows = self.driver.snowflake_conn.cursor().execute(
