@@ -1,7 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
-
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -42,11 +40,9 @@ public class TopicPartitionChannelIT {
 
     topicPartition2 = new TopicPartition(topic, PARTITION_2);
 
-    testChannelName =
-        SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, PARTITION);
+    testChannelName = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION);
 
-    testChannelName2 =
-        SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, PARTITION_2);
+    testChannelName2 = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION_2);
   }
 
   @After
