@@ -80,7 +80,7 @@ class TestSchemaEvolutionAvroSRLogicalTypes:
         self.valueSchema = []
 
         for valueSchemaStr in self.ValueSchemaStr:
-            self.valueSchema.append(avro.loads(valueSchemaStr))
+            self.valueSchema.append(avro.loads(str(valueSchemaStr)))
 
     def getConfigFileName(self):
         return self.fileName + ".json"
