@@ -1230,7 +1230,9 @@ public class SnowflakeSinkServiceV2IT {
             .field("rating_float32", Schema.FLOAT32_SCHEMA)
             .field("rating_float64", Schema.FLOAT64_SCHEMA)
             .field("approval", Schema.BOOLEAN_SCHEMA)
-            .field("info_array", SchemaBuilder.array(Schema.STRING_SCHEMA).build())
+            .field("info_array_string", SchemaBuilder.array(Schema.STRING_SCHEMA).build())
+            .field("info_array_int", SchemaBuilder.array(Schema.INT32_SCHEMA).build())
+            .field("info_array_json", SchemaBuilder.array(Schema.OPTIONAL_STRING_SCHEMA).build())
             .field(
                 "info_map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build());
 
@@ -1244,7 +1246,11 @@ public class SnowflakeSinkServiceV2IT {
             .put("rating_float32", 0.99f)
             .put("rating_float64", 0.99d)
             .put("approval", true)
-            .put("info_array", Arrays.asList("a", "b"))
+            .put("info_array_string", Arrays.asList("a", "b"))
+            .put("info_array_int", Arrays.asList(1, 2))
+            .put(
+                "info_array_json",
+                Arrays.asList(null, "{\"a\": 1, \"b\": null, \"c\": null, \"d\": \"89asda9s0a\"}"))
             .put("info_map", Collections.singletonMap("field", 3));
 
     SchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();

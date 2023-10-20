@@ -71,14 +71,6 @@
                 <enabled>true</enabled>
             </snapshots>
         </repository>
-        <repository>
-            <id>snowflake-nexus-snapshots</id>
-            <name>Snowflake Nexus snapshots</name>
-            <url>https://nexus.int.snowflakecomputing.com/repository/Snapshots/</url>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
-        </repository>
     </repositories>
 
     <distributionManagement>
