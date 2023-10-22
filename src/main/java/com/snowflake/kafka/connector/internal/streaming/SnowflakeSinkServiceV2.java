@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
@@ -101,6 +100,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // Cache for schema evolution
   private final Map<String, Boolean> tableName2SchemaEvolutionPermission;
 
+  // Used to create a channel name.
+  private final boolean shouldUseConnectorNameInChannelName;
+
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
     if (conn == null || conn.isClosed()) {
@@ -138,6 +140,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             ? "default_connector"
             : this.conn.getConnectorName();
     this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), connectorName);
+    this.shouldUseConnectorNameInChannelName =
+        Boolean.parseBoolean(
+            connectorConfig.getOrDefault(
+                ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME,
+                String.valueOf(ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME_DEFAULT)));
   }
 
   @VisibleForTesting
@@ -183,6 +190,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             populateSchemaEvolutionPermissions(tableName);
           });
     }
+    this.shouldUseConnectorNameInChannelName =
+        Boolean.parseBoolean(
+            connectorConfig.getOrDefault(
+                ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME,
+                String.valueOf(ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME_DEFAULT)));
   }
 
   /**
@@ -236,7 +248,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       boolean hasSchemaEvolutionPermission) {
     final String partitionChannelKey =
         partitionChannelKey(
-            conn.getConnectorName(), topicPartition.topic(), topicPartition.partition());
+            conn.getConnectorName(),
+            topicPartition.topic(),
+            topicPartition.partition(),
+            this.shouldUseConnectorNameInChannelName);
     // Create new instance of TopicPartitionChannel which will always open the channel.
     partitionsToChannel.put(
         partitionChannelKey,
@@ -296,7 +311,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void insert(SinkRecord record) {
     String partitionChannelKey =
-        partitionChannelKey(this.conn.getConnectorName(), record.topic(), record.kafkaPartition());
+        partitionChannelKey(
+            this.conn.getConnectorName(),
+            record.topic(),
+            record.kafkaPartition(),
+            this.shouldUseConnectorNameInChannelName);
     // init a new topic partition if it's not presented in cache or if channel is closed
     if (!partitionsToChannel.containsKey(partitionChannelKey)
         || partitionsToChannel.get(partitionChannelKey).isChannelClosed()) {
@@ -317,7 +336,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   public long getOffset(TopicPartition topicPartition) {
     String partitionChannelKey =
         partitionChannelKey(
-            conn.getConnectorName(), topicPartition.topic(), topicPartition.partition());
+            conn.getConnectorName(),
+            topicPartition.topic(),
+            topicPartition.partition(),
+            this.shouldUseConnectorNameInChannelName);
     if (partitionsToChannel.containsKey(partitionChannelKey)) {
       long offset = partitionsToChannel.get(partitionChannelKey).getOffsetSafeToCommitToKafka();
       partitionsToChannel.get(partitionChannelKey).setLatestConsumerOffset(offset);
@@ -372,7 +394,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         topicPartition -> {
           final String partitionChannelKey =
               partitionChannelKey(
-                  conn.getConnectorName(), topicPartition.topic(), topicPartition.partition());
+                  conn.getConnectorName(),
+                  topicPartition.topic(),
+                  topicPartition.partition(),
+                  this.shouldUseConnectorNameInChannelName);
           TopicPartitionChannel topicPartitionChannel =
               partitionsToChannel.get(partitionChannelKey);
           // Check for null since it's possible that the something goes wrong even before the
@@ -527,11 +552,20 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    *     or PROD)
    * @param topic topic name
    * @param partition partition number
+   * @param shouldUseConnectorNameInChannelName If true, use connectorName, else not
    * @return combinartion of topic and partition
    */
   @VisibleForTesting
-  public static String partitionChannelKey(String connectorName, String topic, int partition) {
-    return connectorName + "_" + topic + "_" + partition;
+  public static String partitionChannelKey(
+      String connectorName,
+      String topic,
+      int partition,
+      final boolean shouldUseConnectorNameInChannelName) {
+    if (shouldUseConnectorNameInChannelName) {
+      return connectorName + "_" + topic + "_" + partition;
+    } else {
+      return topic + "_" + partition;
+    }
   }
 
   /* Used for testing */
