@@ -558,7 +558,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    *     or PROD)
    * @param topic topic name
    * @param partition partition number
-   * @param shouldUseConnectorNameInChannelName If true, use connectorName, else not
+   * @param shouldUseConnectorNameInChannelName If true, use connectorName, else not. This is the
+   *     new format for channel Name.
    * @return combinartion of topic and partition
    */
   @VisibleForTesting
@@ -567,11 +568,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       String topic,
       int partition,
       final boolean shouldUseConnectorNameInChannelName) {
-    if (shouldUseConnectorNameInChannelName) {
-      return connectorName + "_" + topic + "_" + partition;
-    } else {
-      return topic + "_" + partition;
-    }
+    return shouldUseConnectorNameInChannelName
+        ? connectorName + "_" + topic + "_" + partition
+        : topic + "_" + partition;
   }
 
   /* Used for testing */
