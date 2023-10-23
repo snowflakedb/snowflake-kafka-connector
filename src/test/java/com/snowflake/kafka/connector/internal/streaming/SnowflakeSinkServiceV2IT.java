@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
@@ -129,7 +129,7 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
-        ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME,
+        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
     conn.createTable(table);
 
@@ -181,7 +181,7 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
-        ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME,
+        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
     conn.createTable(table);
     TopicPartition tp1 = new TopicPartition(table, partition);
@@ -312,7 +312,7 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
-        ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME,
+        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
     conn.createTable(table);
 
@@ -379,7 +379,7 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
-        ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME,
+        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     // set up telemetry service spy
@@ -1509,6 +1509,65 @@ public class SnowflakeSinkServiceV2IT {
     } catch (IllegalArgumentException ex) {
       Assert.assertEquals(NumberFormatException.class, ex.getCause().getClass());
     }
+  }
+
+  @Test
+  public void testStreamingIngestion_ChannelNameFormats() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    Map<String, String> overriddenConfig = new HashMap<>(config);
+
+    config.put(
+        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+        String.valueOf(this.shouldUseConnectorNameInChannelName));
+
+    conn.createTable(table);
+    // opens a channel for partition 0, table and topic
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
+            .build();
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input =
+        converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+    long offset = 0;
+
+    SinkRecord record1 =
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test_key" + offset,
+            input.schema(),
+            input.value(),
+            offset);
+
+    // No need to verify results
+    service.insert(record1);
+
+    SnowflakeSinkServiceV2 snowflakeSinkServiceV2 = (SnowflakeSinkServiceV2) service;
+
+    TopicPartitionChannel channel =
+        snowflakeSinkServiceV2
+            .getTopicPartitionChannelFromCacheKey(
+                partitionChannelKey(
+                    TEST_CONNECTOR_NAME,
+                    topic,
+                    partition,
+                    this.shouldUseConnectorNameInChannelName))
+            .orElseThrow(RuntimeException::new);
+    assert channel
+        .getChannelName()
+        .toLowerCase()
+        .contains(
+            SnowflakeSinkServiceV2.partitionChannelKey(
+                    TEST_CONNECTOR_NAME, topic, partition, this.shouldUseConnectorNameInChannelName)
+                .toLowerCase());
+    service.closeAll();
   }
 
   private void createNonNullableColumn(String tableName, String colName) {

@@ -168,17 +168,19 @@ public class SnowflakeSinkConnectorConfig {
       "Whether to optimize the streaming client to reduce cost. Note that this may affect"
           + " throughput or latency and can only be set if Streaming Snowpipe is enabled";
 
-  public static final String ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME =
-      "enable.connector_name.in.streaming_channel_name";
-  public static final boolean ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME_DEFAULT = false;
+  public static final String SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2 =
+      "snowflake.enable.streaming.channel.format.v2";
+  public static final boolean SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2_DEFAULT = false;
 
-  public static final String ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME_DISPLAY =
-      "Enable Connector Name in Snowpipe Streaming Channel Name";
+  public static final String SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2_DISPLAY =
+      "Enable Connector Name in Snowpipe Streaming Channel Name - V2 of Channel Name";
 
-  public static final String ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME_DOC =
+  public static final String SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2_DOC =
       "Whether to use connector name in streaming channels. If it is set to false, we will not use"
-          + " connector name in channel name. Note: Please use this config cautiously and it is not"
-          + " advised to use this if you are coming from old Snowflake Kafka Connector Version. ";
+          + " connector name in channel name(Which is version 2 of Channel Name). Note: Please use"
+          + " this config cautiously and it is not advised to use this if you are coming from old"
+          + " Snowflake Kafka Connector Version where Default Channel Name doesnt contain Connector"
+          + " Name, contains Topic Name and Partition # only.";
 
   // MDC logging header
   public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
@@ -605,15 +607,15 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Width.NONE,
             ENABLE_MDC_LOGGING_DISPLAY)
         .define(
-            ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME,
+            SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
             Type.BOOLEAN,
-            ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME_DEFAULT,
+            SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2_DEFAULT,
             Importance.LOW,
-            ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME_DOC,
+            SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2_DOC,
             CONNECTOR_CONFIG,
             9,
             ConfigDef.Width.NONE,
-            ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME_DISPLAY);
+            SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2_DISPLAY);
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {

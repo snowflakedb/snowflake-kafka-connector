@@ -1,8 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
@@ -103,7 +103,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // Cache for schema evolution
   private final Map<String, Boolean> tableName2SchemaEvolutionPermission;
 
-  // Used to create a channel name.
+  // This is the V2 of channel Name creation. (This corresponds to the config
+  // SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2)
   private final boolean shouldUseConnectorNameInChannelName;
 
   public SnowflakeSinkServiceV2(
@@ -146,8 +147,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.shouldUseConnectorNameInChannelName =
         Boolean.parseBoolean(
             connectorConfig.getOrDefault(
-                ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME,
-                String.valueOf(ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME_DEFAULT)));
+                SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+                String.valueOf(SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2_DEFAULT)));
   }
 
   @VisibleForTesting
@@ -196,8 +197,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.shouldUseConnectorNameInChannelName =
         Boolean.parseBoolean(
             connectorConfig.getOrDefault(
-                ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME,
-                String.valueOf(ENABLE_CONNECTOR_NAME_IN_STREAMING_CHANNEL_NAME_DEFAULT)));
+                SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+                String.valueOf(SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2_DEFAULT)));
   }
 
   /**
