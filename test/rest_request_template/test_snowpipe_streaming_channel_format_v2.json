@@ -18,6 +18,6 @@
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "false",
     "jmx": "true",
-    "snowflake.enable.streaming.channel.format.v2": "true"
+    "snowflake.enable.new.channel.name.format": "true"
   }
 }

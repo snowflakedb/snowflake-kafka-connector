@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
@@ -129,7 +129,7 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
-        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
     conn.createTable(table);
 
@@ -181,7 +181,7 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
-        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
     conn.createTable(table);
     TopicPartition tp1 = new TopicPartition(table, partition);
@@ -312,7 +312,7 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
-        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
     conn.createTable(table);
 
@@ -379,7 +379,7 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
-        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     // set up telemetry service spy
@@ -1518,7 +1518,7 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> overriddenConfig = new HashMap<>(config);
 
     config.put(
-        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     conn.createTable(table);

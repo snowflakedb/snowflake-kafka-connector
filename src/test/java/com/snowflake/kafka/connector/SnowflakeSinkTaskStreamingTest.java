@@ -4,7 +4,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 
@@ -77,7 +77,7 @@ public class SnowflakeSinkTaskStreamingTest {
     config.put(ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
     config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
     config.put(
-        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     SnowflakeConnectionService mockConnectionService =

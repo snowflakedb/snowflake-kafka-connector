@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -78,7 +78,7 @@ public class TopicPartitionChannelIT {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
-        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -139,7 +139,7 @@ public class TopicPartitionChannelIT {
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
-        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -207,7 +207,7 @@ public class TopicPartitionChannelIT {
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
-        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -299,7 +299,7 @@ public class TopicPartitionChannelIT {
     config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
-        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -422,7 +422,7 @@ public class TopicPartitionChannelIT {
     config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
-        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -501,7 +501,7 @@ public class TopicPartitionChannelIT {
     overriddenConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
     SnowflakeSinkConnectorConfig.setDefaultValues(overriddenConfig);
     overriddenConfig.put(
-        SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
+        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
         String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     InMemorySinkTaskContext inMemorySinkTaskContext =

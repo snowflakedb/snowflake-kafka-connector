@@ -1,8 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
@@ -94,7 +94,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private boolean enableSchematization;
 
   /**
-   * Key is formulated in {@link #partitionChannelKey(String, String, int)} }
+   * Key is formulated in {@link #partitionChannelKey(String, String, int, boolean)}
    *
    * <p>value is the Streaming Ingest Channel implementation (Wrapped around TopicPartitionChannel)
    */
@@ -103,8 +103,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // Cache for schema evolution
   private final Map<String, Boolean> tableName2SchemaEvolutionPermission;
 
-  // This is the V2 of channel Name creation. (This corresponds to the config
-  // SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2)
+  /**
+   * This is the new format for channel Names. (This corresponds to the config {@link
+   * SnowflakeSinkConnectorConfig#SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT} )
+   */
   private final boolean shouldUseConnectorNameInChannelName;
 
   public SnowflakeSinkServiceV2(
@@ -147,8 +149,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.shouldUseConnectorNameInChannelName =
         Boolean.parseBoolean(
             connectorConfig.getOrDefault(
-                SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
-                String.valueOf(SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2_DEFAULT)));
+                SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
+                String.valueOf(SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT_DEFAULT)));
   }
 
   @VisibleForTesting
@@ -197,8 +199,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.shouldUseConnectorNameInChannelName =
         Boolean.parseBoolean(
             connectorConfig.getOrDefault(
-                SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2,
-                String.valueOf(SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2_DEFAULT)));
+                SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
+                String.valueOf(SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT_DEFAULT)));
   }
 
   /**

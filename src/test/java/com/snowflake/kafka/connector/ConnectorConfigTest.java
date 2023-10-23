@@ -873,7 +873,7 @@ public class ConnectorConfigTest {
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2, "true");
+    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT, "true");
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     Utils.validateConfig(config);
   }
@@ -886,12 +886,12 @@ public class ConnectorConfigTest {
           SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
           IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
       config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-      config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2, "yes");
+      config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT, "yes");
       Utils.validateConfig(config);
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception
           .getMessage()
-          .contains(SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_STREAMING_CHANNEL_FORMAT_V2);
+          .contains(SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT);
     }
   }
 
