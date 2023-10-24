@@ -33,14 +33,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
-
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
-import net.snowflake.ingest.internal.apache.commons.math3.analysis.function.Sin;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.utils.Pair;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -270,7 +267,9 @@ public class TopicPartitionChannel {
     if (shouldInsertRecord(kafkaSinkRecord, currentOffsetPersistedInSnowflake)) {
       try {
         // try insert with fallback
-        finalResponse = insertRowsWithFallback(this.transformData(kafkaSinkRecord), kafkaSinkRecord.kafkaOffset());
+        finalResponse =
+            insertRowsWithFallback(
+                this.transformData(kafkaSinkRecord), kafkaSinkRecord.kafkaOffset());
         LOGGER.info(
             "Successfully called insertRows for channel:{}, insertResponseHasErrors:{}",
             this.getChannelName(),
@@ -284,8 +283,7 @@ public class TopicPartitionChannel {
         // Suppressing the exception because other channels might still continue to ingest
         LOGGER.warn(
             String.format(
-                "[INSERT_RECORDS] Failure inserting rows for channel:%s",
-                this.getChannelName()),
+                "[INSERT_RECORDS] Failure inserting rows for channel:%s", this.getChannelName()),
             ex);
       }
     }
@@ -293,9 +291,12 @@ public class TopicPartitionChannel {
     return finalResponse;
   }
 
-  public boolean shouldInsertRecord(SinkRecord kafkaSinkRecord, long currentOffsetPersistedInSnowflake) {
+  public boolean shouldInsertRecord(
+      SinkRecord kafkaSinkRecord, long currentOffsetPersistedInSnowflake) {
     if (currentOffsetPersistedInSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      LOGGER.debug("Insert record because there is no offsetPersistedInSnowflake for channel:{}", this.getChannelName());
+      LOGGER.debug(
+          "Insert record because there is no offsetPersistedInSnowflake for channel:{}",
+          this.getChannelName());
       return true;
     }
 
@@ -457,8 +458,7 @@ public class TopicPartitionChannel {
             .onFailedAttempt(
                 event ->
                     LOGGER.warn(
-                        String.format(
-                            "Failed Attempt to invoke the insertRows API"),
+                        String.format("Failed Attempt to invoke the insertRows API"),
                         event.getLastException()))
             .onFailure(
                 event ->
@@ -471,9 +471,7 @@ public class TopicPartitionChannel {
             .build();
 
     return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
-        .get(
-            new InsertRowsApiResponseSupplier(
-                this.channel, record, offset));
+        .get(new InsertRowsApiResponseSupplier(this.channel, record, offset));
   }
 
   /** Invokes the API given the channel and streaming Buffer. */
@@ -494,9 +492,7 @@ public class TopicPartitionChannel {
 
     @Override
     public InsertValidationResponse get() throws Throwable {
-      LOGGER.debug(
-          "Invoking insertRows API for channel:{}",
-          this.channel.getFullyQualifiedName());
+      LOGGER.debug("Invoking insertRows API for channel:{}", this.channel.getFullyQualifiedName());
       return this.channel.insertRow(this.record, Long.toString(this.offset));
     }
   }
@@ -530,8 +526,7 @@ public class TopicPartitionChannel {
    * @param insertErrors errors from validation response. (Only if it has errors)
    */
   private void handleInsertRowsFailures(
-      List<InsertValidationResponse.InsertError> insertErrors,
-      SinkRecord sinkRecord) {
+      List<InsertValidationResponse.InsertError> insertErrors, SinkRecord sinkRecord) {
     // evolve schema if needed
     if (enableSchemaEvolution) {
       InsertValidationResponse.InsertError insertError = insertErrors.get(0);
@@ -539,11 +534,7 @@ public class TopicPartitionChannel {
       List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
       if (extraColNames != null || nonNullableColumns != null) {
         SchematizationUtils.evolveSchemaIfNeeded(
-            this.conn,
-            this.channel.getTableName(),
-            nonNullableColumns,
-            extraColNames,
-            sinkRecord);
+            this.conn, this.channel.getTableName(), nonNullableColumns, extraColNames, sinkRecord);
       }
     }
 
@@ -562,8 +553,7 @@ public class TopicPartitionChannel {
       } else {
         for (InsertValidationResponse.InsertError insertError : insertErrors) {
           // Map error row number to index in sinkRecords list.
-          this.kafkaRecordErrorReporter.reportError(sinkRecord,
-              insertError.getException());
+          this.kafkaRecordErrorReporter.reportError(sinkRecord, insertError.getException());
         }
       }
     } else {
@@ -885,8 +875,6 @@ public class TopicPartitionChannel {
   protected SnowflakeTelemetryChannelStatus getSnowflakeTelemetryChannelStatus() {
     return this.snowflakeTelemetryChannelStatus;
   }
-
-
 
   /**
    * Enum representing which Streaming API is invoking the fallback supplier. ({@link
