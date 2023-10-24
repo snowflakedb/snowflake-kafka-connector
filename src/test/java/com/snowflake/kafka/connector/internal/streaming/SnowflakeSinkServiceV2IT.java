@@ -448,24 +448,30 @@ public class SnowflakeSinkServiceV2IT {
         == SnowflakeTelemetryChannelStatus.NUM_METRICS * 2; // two partitions
 
     assert (long)
-        metricRegistry
-            .get(
-                MetricsUtil.constructMetricName(
-                    partitionChannelKey(
-                        TEST_CONNECTOR_NAME, topic, partition, this.shouldUseConnectorNameInChannelName),
-                    MetricsUtil.OFFSET_SUB_DOMAIN,
-                    MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
-            .getValue()
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        partitionChannelKey(
+                            TEST_CONNECTOR_NAME,
+                            topic,
+                            partition,
+                            this.shouldUseConnectorNameInChannelName),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
+                .getValue()
         == 1;
     assert (long)
-        metricRegistry
-            .get(
-                MetricsUtil.constructMetricName(
-                    partitionChannelKey(
-                        TEST_CONNECTOR_NAME, topic, partition2, this.shouldUseConnectorNameInChannelName),
-                    MetricsUtil.OFFSET_SUB_DOMAIN,
-                    MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
-            .getValue()
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        partitionChannelKey(
+                            TEST_CONNECTOR_NAME,
+                            topic,
+                            partition2,
+                            this.shouldUseConnectorNameInChannelName),
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
+                .getValue()
         == 1;
 
     // verify telemetry

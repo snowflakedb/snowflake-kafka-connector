@@ -27,7 +27,6 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.math.BigDecimal;
@@ -47,7 +46,6 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMappe
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.JsonNodeFactory;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
@@ -203,8 +201,7 @@ public class RecordService {
     }
 
     // ignore if no timestamp
-    if (record.timestampType() != NO_TIMESTAMP_TYPE
-        && metadataConfig.createtimeFlag) {
+    if (record.timestampType() != NO_TIMESTAMP_TYPE && metadataConfig.createtimeFlag) {
       meta.put(record.timestampType().name, record.timestamp());
     }
 
@@ -612,7 +609,8 @@ public class RecordService {
     return false;
   }
 
-  public Map<String, Object> transformDataForStreaming(SinkRecord kafkaSinkRecord, KafkaRecordErrorReporter kafkaRecordErrorReporter) {
+  public Map<String, Object> transformDataForStreaming(
+      SinkRecord kafkaSinkRecord, KafkaRecordErrorReporter kafkaRecordErrorReporter) {
     SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
 
     // broken record
@@ -634,8 +632,7 @@ public class RecordService {
       // Convert this records into Json Schema which has content and metadata, add it to DLQ if
       // there is an exception
       try {
-        Map<String, Object> tableRow =
-            this.getProcessedRecordForStreamingIngest(snowflakeRecord);
+        Map<String, Object> tableRow = this.getProcessedRecordForStreamingIngest(snowflakeRecord);
 
         return tableRow;
       } catch (JsonProcessingException e) {

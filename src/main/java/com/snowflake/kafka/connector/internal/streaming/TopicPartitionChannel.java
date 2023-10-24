@@ -5,7 +5,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 import static java.time.temporal.ChronoUnit.SECONDS;
-import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -20,27 +19,20 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
-import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
-import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import dev.failsafe.Failsafe;
 import dev.failsafe.Fallback;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectOutputStream;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -273,13 +265,12 @@ public class TopicPartitionChannel {
     // check SF offset to see if we can insert
     if (shouldInsertRecord(kafkaSinkRecord, currProcessedOffset)) {
       try {
-        Map<String, Object> transformedData = this.recordService.transformDataForStreaming(kafkaSinkRecord, kafkaRecordErrorReporter);
+        Map<String, Object> transformedData =
+            this.recordService.transformDataForStreaming(kafkaSinkRecord, kafkaRecordErrorReporter);
 
         // try insert with fallback if we have data
         if (!transformedData.isEmpty()) {
-          finalResponse =
-              insertRowsWithFallback(
-                  transformedData, kafkaSinkRecord.kafkaOffset());
+          finalResponse = insertRowsWithFallback(transformedData, kafkaSinkRecord.kafkaOffset());
           LOGGER.info(
               "Successfully called insertRows for channel:{}, insertResponseHasErrors:{}",
               this.getChannelName(),
@@ -327,7 +318,6 @@ public class TopicPartitionChannel {
         currentOffsetPersistedInSnowflake);
     return false;
   }
-
 
   /**
    * Uses {@link Fallback} API to reopen the channel if insertRows throws {@link SFException}.
