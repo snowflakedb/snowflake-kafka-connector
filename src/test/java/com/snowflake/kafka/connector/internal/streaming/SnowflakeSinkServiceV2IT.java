@@ -447,25 +447,26 @@ public class SnowflakeSinkServiceV2IT {
     assert metricRegistry.size()
         == SnowflakeTelemetryChannelStatus.NUM_METRICS * 2; // two partitions
 
-    // partition 1
-    this.verifyPartitionMetrics(
-        metricRegistry,
-        partitionChannelKey(
-            TEST_CONNECTOR_NAME, topic, partition, this.shouldUseConnectorNameInChannelName),
-        NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
-        recordsInPartition1 - 1,
-        recordsInPartition1,
-        1,
-        this.conn.getConnectorName());
-    this.verifyPartitionMetrics(
-        metricRegistry,
-        partitionChannelKey(
-            TEST_CONNECTOR_NAME, topic, partition2, this.shouldUseConnectorNameInChannelName),
-        NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
-        recordsInPartition2 - 1,
-        recordsInPartition2,
-        1,
-        this.conn.getConnectorName());
+    assert (long)
+        metricRegistry
+            .get(
+                MetricsUtil.constructMetricName(
+                    partitionChannelKey(
+                        TEST_CONNECTOR_NAME, topic, partition, this.shouldUseConnectorNameInChannelName),
+                    MetricsUtil.OFFSET_SUB_DOMAIN,
+                    MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
+            .getValue()
+        == 1;
+    assert (long)
+        metricRegistry
+            .get(
+                MetricsUtil.constructMetricName(
+                    partitionChannelKey(
+                        TEST_CONNECTOR_NAME, topic, partition2, this.shouldUseConnectorNameInChannelName),
+                    MetricsUtil.OFFSET_SUB_DOMAIN,
+                    MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
+            .getValue()
+        == 1;
 
     // verify telemetry
     Mockito.verify(telemetryService, Mockito.times(2))
@@ -483,44 +484,6 @@ public class SnowflakeSinkServiceV2IT {
     Mockito.verify(telemetryService, Mockito.times(2))
         .reportKafkaPartitionUsage(
             Mockito.any(SnowflakeTelemetryChannelStatus.class), Mockito.eq(true));
-  }
-
-  private void verifyPartitionMetrics(
-      Map<String, Gauge> metricRegistry,
-      String partitionChannelKey,
-      long offsetPersistedInSnowflake,
-      long processedOffset,
-      long latestConsumerOffset,
-      long currentTpChannelOpenCount,
-      String connectorName) {
-    // offsets
-    assert (long)
-            metricRegistry
-                .get(
-                    MetricsUtil.constructMetricName(
-                        partitionChannelKey,
-                        MetricsUtil.OFFSET_SUB_DOMAIN,
-                        MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
-                .getValue()
-        == offsetPersistedInSnowflake;
-    assert (long)
-            metricRegistry
-                .get(
-                    MetricsUtil.constructMetricName(
-                        partitionChannelKey,
-                        MetricsUtil.OFFSET_SUB_DOMAIN,
-                        MetricsUtil.PROCESSED_OFFSET))
-                .getValue()
-        == processedOffset;
-    assert (long)
-            metricRegistry
-                .get(
-                    MetricsUtil.constructMetricName(
-                        partitionChannelKey,
-                        MetricsUtil.OFFSET_SUB_DOMAIN,
-                        MetricsUtil.LATEST_CONSUMER_OFFSET))
-                .getValue()
-        == latestConsumerOffset;
   }
 
   @Test

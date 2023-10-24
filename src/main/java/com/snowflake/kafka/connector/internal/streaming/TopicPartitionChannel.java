@@ -78,6 +78,12 @@ public class TopicPartitionChannel {
   private final AtomicLong offsetPersistedInSnowflake =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
+  // This offset represents the data buffered in KC. More specifically it is the KC offset to ensure
+  // exactly once functionality. On creation it is set to the latest committed token in Snowflake
+  // (see offsetPersistedInSnowflake) and updated on each new row from KC.
+  private final AtomicLong processedOffset =
+      new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+
   private final SnowflakeStreamingIngestClient streamingIngestClient;
 
   // Topic partition Object from connect consisting of topic and partition
@@ -220,6 +226,7 @@ public class TopicPartitionChannel {
     this.channel = Preconditions.checkNotNull(openChannelForTable());
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
+    this.processedOffset.set(lastCommittedOffsetToken);
 
     // setup telemetry and metrics
     String connectorName =
@@ -260,11 +267,11 @@ public class TopicPartitionChannel {
    * @param kafkaSinkRecord input record from Kafka
    */
   public InsertValidationResponse insertRecord(SinkRecord kafkaSinkRecord) {
-    final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
+    final long currProcessedOffset = this.processedOffset.get();
     InsertValidationResponse finalResponse = new InsertValidationResponse();
 
     // check SF offset to see if we can insert
-    if (shouldInsertRecord(kafkaSinkRecord, currentOffsetPersistedInSnowflake)) {
+    if (shouldInsertRecord(kafkaSinkRecord, currProcessedOffset)) {
       try {
         // try insert with fallback
         finalResponse =
@@ -274,6 +281,7 @@ public class TopicPartitionChannel {
             "Successfully called insertRows for channel:{}, insertResponseHasErrors:{}",
             this.getChannelName(),
             finalResponse.hasErrors());
+        this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
 
         // handle errors
         if (finalResponse.hasErrors()) {

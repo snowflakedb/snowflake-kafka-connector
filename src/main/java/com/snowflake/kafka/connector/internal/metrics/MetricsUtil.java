@@ -89,8 +89,6 @@ public class MetricsUtil {
    * description
    */
   public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
-
-  public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
   // ********** ^ Streaming Constants ^ **********//
 
   public enum EventType {
