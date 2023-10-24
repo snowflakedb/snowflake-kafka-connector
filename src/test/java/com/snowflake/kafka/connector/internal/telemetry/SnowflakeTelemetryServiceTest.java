@@ -212,8 +212,6 @@ public class SnowflakeTelemetryServiceTest {
     Assert.assertTrue(dataNode.has(INGESTION_METHOD_OPT));
     Assert.assertTrue(
         dataNode.get(INGESTION_METHOD_OPT).asInt() == this.ingestionMethodConfig.ordinal());
-    Assert.assertEquals(
-        expectedProcessedOffset, dataNode.get(TelemetryConstants.PROCESSED_OFFSET).asLong());
     Assert.assertEquals(expectedTableName, dataNode.get(TelemetryConstants.TABLE_NAME).asText());
 
     if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
@@ -227,6 +225,8 @@ public class SnowflakeTelemetryServiceTest {
           expectedFlushedOffset, dataNode.get(TelemetryConstants.FLUSHED_OFFSET).asLong());
       Assert.assertEquals(
           expectedCommittedOffset, dataNode.get(TelemetryConstants.COMMITTED_OFFSET).asLong());
+      Assert.assertEquals(
+          expectedProcessedOffset, dataNode.get(TelemetryConstants.PROCESSED_OFFSET).asLong());
       Assert.assertEquals(expectedPipeName, dataNode.get(TelemetryConstants.PIPE_NAME).asText());
       Assert.assertEquals(expectedStageName, dataNode.get(TelemetryConstants.STAGE_NAME).asText());
     } else {

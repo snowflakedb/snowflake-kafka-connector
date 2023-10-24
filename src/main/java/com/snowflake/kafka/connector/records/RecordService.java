@@ -18,13 +18,18 @@ package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
+import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
@@ -51,6 +56,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.data.Time;
 import org.apache.kafka.connect.data.Timestamp;
+import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -197,7 +203,7 @@ public class RecordService {
     }
 
     // ignore if no timestamp
-    if (record.timestampType() != TimestampType.NO_TIMESTAMP_TYPE
+    if (record.timestampType() != NO_TIMESTAMP_TYPE
         && metadataConfig.createtimeFlag) {
       meta.put(record.timestampType().name, record.timestamp());
     }
@@ -604,5 +610,122 @@ public class RecordService {
       }
     }
     return false;
+  }
+
+  public Map<String, Object> transformDataForStreaming(SinkRecord kafkaSinkRecord, KafkaRecordErrorReporter kafkaRecordErrorReporter) {
+    SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
+
+    // broken record
+    if (isRecordBroken(snowflakeRecord)) {
+      // check for error tolerance and log tolerance values
+      // errors.log.enable and errors.tolerance
+      LOGGER.debug(
+          "Broken record offset:{}, topic:{}",
+          kafkaSinkRecord.kafkaOffset(),
+          kafkaSinkRecord.topic());
+      kafkaRecordErrorReporter.reportError(kafkaSinkRecord, new DataException("Broken Record"));
+    } else {
+      // lag telemetry, note that sink record timestamp might be null
+      if (snowflakeRecord.timestamp() != null
+          && snowflakeRecord.timestampType() != NO_TIMESTAMP_TYPE) {
+        // TODO:SNOW-529751 telemetry
+      }
+
+      // Convert this records into Json Schema which has content and metadata, add it to DLQ if
+      // there is an exception
+      try {
+        Map<String, Object> tableRow =
+            this.getProcessedRecordForStreamingIngest(snowflakeRecord);
+
+        return tableRow;
+      } catch (JsonProcessingException e) {
+        LOGGER.warn(
+            "Record has JsonProcessingException offset:{}, topic:{}",
+            kafkaSinkRecord.kafkaOffset(),
+            kafkaSinkRecord.topic());
+        kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
+      }
+    }
+
+    // return empty
+    return new HashMap<>();
+  }
+
+  /**
+   * Converts the original kafka sink record into a Json Record. i.e key and values are converted
+   * into Json so that it can be used to insert into variant column of Snowflake Table.
+   *
+   * <p>TODO: SNOW-630885 - When schematization is enabled, we should create the map directly from
+   * the SinkRecord instead of first turning it into json
+   */
+  private SinkRecord getSnowflakeSinkRecordFromKafkaRecord(final SinkRecord kafkaSinkRecord) {
+    SinkRecord snowflakeRecord = kafkaSinkRecord;
+    if (shouldConvertContent(kafkaSinkRecord.value())) {
+      snowflakeRecord = handleNativeRecord(kafkaSinkRecord, false);
+    }
+    if (shouldConvertContent(kafkaSinkRecord.key())) {
+      snowflakeRecord = handleNativeRecord(snowflakeRecord, true);
+    }
+
+    return snowflakeRecord;
+  }
+
+  private boolean shouldConvertContent(final Object content) {
+    return content != null && !(content instanceof SnowflakeRecordContent);
+  }
+
+  /**
+   * This would always return false for streaming ingest use case since isBroken field is never set.
+   * isBroken is set only when using Custom snowflake converters and the content was not json
+   * serializable.
+   *
+   * <p>For Community converters, the kafka record will not be sent to Kafka connector if the record
+   * is not serializable.
+   */
+  private boolean isRecordBroken(final SinkRecord record) {
+    return isContentBroken(record.value()) || isContentBroken(record.key());
+  }
+
+  private boolean isContentBroken(final Object content) {
+    return content != null && ((SnowflakeRecordContent) content).isBroken();
+  }
+
+  private SinkRecord handleNativeRecord(SinkRecord record, boolean isKey) {
+    SnowflakeRecordContent newSFContent;
+    Schema schema = isKey ? record.keySchema() : record.valueSchema();
+    Object content = isKey ? record.key() : record.value();
+    try {
+      newSFContent = new SnowflakeRecordContent(schema, content);
+    } catch (Exception e) {
+      LOGGER.error("Native content parser error:\n{}", e.getMessage());
+      try {
+        // try to serialize this object and send that as broken record
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ObjectOutputStream os = new ObjectOutputStream(out);
+        os.writeObject(content);
+        newSFContent = new SnowflakeRecordContent(out.toByteArray());
+      } catch (Exception serializeError) {
+        LOGGER.error(
+            "Failed to convert broken native record to byte data:\n{}",
+            serializeError.getMessage());
+        throw e;
+      }
+    }
+    // create new sinkRecord
+    Schema keySchema = isKey ? new SnowflakeJsonSchema() : record.keySchema();
+    Object keyContent = isKey ? newSFContent : record.key();
+    Schema valueSchema = isKey ? record.valueSchema() : new SnowflakeJsonSchema();
+    Object valueContent = isKey ? record.value() : newSFContent;
+    return new SinkRecord(
+        record.topic(),
+        record.kafkaPartition(),
+        keySchema,
+        keyContent,
+        valueSchema,
+        valueContent,
+        record.kafkaOffset(),
+        record.timestamp(),
+        record.timestampType(),
+        record.headers());
   }
 }
