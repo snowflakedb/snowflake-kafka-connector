@@ -273,19 +273,23 @@ public class TopicPartitionChannel {
     // check SF offset to see if we can insert
     if (shouldInsertRecord(kafkaSinkRecord, currProcessedOffset)) {
       try {
-        // try insert with fallback
-        finalResponse =
-            insertRowsWithFallback(
-                this.recordService.transformDataForStreaming(kafkaSinkRecord, kafkaRecordErrorReporter), kafkaSinkRecord.kafkaOffset());
-        LOGGER.info(
-            "Successfully called insertRows for channel:{}, insertResponseHasErrors:{}",
-            this.getChannelName(),
-            finalResponse.hasErrors());
-        this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
+        Map<String, Object> transformedData = this.recordService.transformDataForStreaming(kafkaSinkRecord, kafkaRecordErrorReporter);
 
-        // handle errors
-        if (finalResponse.hasErrors()) {
-          handleInsertRowsFailures(finalResponse.getInsertErrors(), kafkaSinkRecord);
+        // try insert with fallback if we have data
+        if (!transformedData.isEmpty()) {
+          finalResponse =
+              insertRowsWithFallback(
+                  transformedData, kafkaSinkRecord.kafkaOffset());
+          LOGGER.info(
+              "Successfully called insertRows for channel:{}, insertResponseHasErrors:{}",
+              this.getChannelName(),
+              finalResponse.hasErrors());
+          this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
+
+          // handle errors
+          if (finalResponse.hasErrors()) {
+            handleInsertRowsFailures(finalResponse.getInsertErrors(), kafkaSinkRecord);
+          }
         }
       } catch (TopicPartitionChannelInsertionException ex) {
         // Suppressing the exception because other channels might still continue to ingest
@@ -623,6 +627,7 @@ public class TopicPartitionChannel {
     // Need to update the in memory processed offset otherwise if same offset is send again, it
     // might get rejected.
     this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
+    this.processedOffset.set(offsetRecoveredFromSnowflake);
 
     // State that there was some exception and only clear that state when we have received offset
     // starting from offsetRecoveredFromSnowflake
