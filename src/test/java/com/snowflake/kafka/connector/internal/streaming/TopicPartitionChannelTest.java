@@ -743,8 +743,6 @@ public class TopicPartitionChannelTest {
     assert resultStatus.getOffsetPersistedInSnowflake()
         == topicPartitionChannel.getOffsetPersistedInSnowflake();
     assert resultStatus.getOffsetPersistedInSnowflake() == -1;
-    assert resultStatus.getProcessedOffset() == topicPartitionChannel.getProcessedOffset();
-    assert resultStatus.getProcessedOffset() == noOfRecords - 1;
 
     assert resultStatus.getMetricsJmxReporter().getMetricRegistry().getMetrics().size()
         == SnowflakeTelemetryChannelStatus.NUM_METRICS;

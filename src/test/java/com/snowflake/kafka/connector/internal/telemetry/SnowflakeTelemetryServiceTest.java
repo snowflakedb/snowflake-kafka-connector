@@ -191,8 +191,7 @@ public class SnowflakeTelemetryServiceTest {
               expectedTpChannelCreationTime,
               false,
               null,
-              new AtomicLong(expectedOffsetPersistedInSnowflake),
-              new AtomicLong(expectedProcessedOffset));
+              new AtomicLong(expectedOffsetPersistedInSnowflake));
 
       partitionUsage = channelStatus;
     }

@@ -81,12 +81,6 @@ public class TopicPartitionChannel {
   private final AtomicLong offsetPersistedInSnowflake =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
-  // This offset represents the current record processed in KC. More specifically it is the KC offset to ensure
-  // exactly once functionality. On creation it is set to the latest committed token in Snowflake
-  // (see offsetPersistedInSnowflake) and updated on each new row from KC.
-  private final AtomicLong processedOffset =
-      new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-
   private final SnowflakeStreamingIngestClient streamingIngestClient;
 
   // Topic partition Object from connect consisting of topic and partition
@@ -229,7 +223,6 @@ public class TopicPartitionChannel {
     this.channel = Preconditions.checkNotNull(openChannelForTable());
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
-    this.processedOffset.set(lastCommittedOffsetToken);
 
     // setup telemetry and metrics
     String connectorName =
@@ -244,8 +237,7 @@ public class TopicPartitionChannel {
             startTime,
             enableCustomJMXMonitoring,
             metricsJmxReporter,
-            this.offsetPersistedInSnowflake,
-            this.processedOffset);
+            this.offsetPersistedInSnowflake);
     this.telemetryServiceV2.reportKafkaPartitionStart(
         new SnowflakeTelemetryChannelCreation(this.tableName, this.channelName, startTime));
 
@@ -296,7 +288,6 @@ public class TopicPartitionChannel {
                 this.getChannelName()),
             ex);
       }
-      this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
     }
 
     return finalResponse;
@@ -707,7 +698,6 @@ public class TopicPartitionChannel {
     // Need to update the in memory processed offset otherwise if same offset is send again, it
     // might get rejected.
     this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
-    this.processedOffset.set(offsetRecoveredFromSnowflake);
 
     // State that there was some exception and only clear that state when we have received offset
     // starting from offsetRecoveredFromSnowflake
@@ -836,11 +826,6 @@ public class TopicPartitionChannel {
   @VisibleForTesting
   protected long getOffsetPersistedInSnowflake() {
     return this.offsetPersistedInSnowflake.get();
-  }
-
-  @VisibleForTesting
-  protected long getProcessedOffset() {
-    return this.processedOffset.get();
   }
 
   @VisibleForTesting
