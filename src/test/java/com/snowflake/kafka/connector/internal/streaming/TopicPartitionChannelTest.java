@@ -79,8 +79,6 @@ public class TopicPartitionChannelTest {
 
   private Map<String, String> sfConnectorConfig;
 
-  private BufferThreshold streamingBufferThreshold;
-
   private SFException SF_EXCEPTION = new SFException(ErrorCode.INVALID_CHANNEL, "INVALID_CHANNEL");
 
   private final boolean enableSchematization;
@@ -108,7 +106,6 @@ public class TopicPartitionChannelTest {
     Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
     this.topicPartition = new TopicPartition(TOPIC, PARTITION);
     this.sfConnectorConfig = TestUtils.getConfig();
-    this.streamingBufferThreshold = new StreamingBufferThreshold(1, 10_000, 1);
     this.sfConnectorConfig.put(
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
         Boolean.toString(this.enableSchematization));
@@ -122,7 +119,6 @@ public class TopicPartitionChannelTest {
         topicPartition,
         TEST_CHANNEL_NAME,
         TEST_TABLE_NAME,
-        streamingBufferThreshold,
         sfConnectorConfig,
         mockKafkaRecordErrorReporter,
         mockSinkTaskContext,
@@ -139,7 +135,6 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
-            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -159,7 +154,6 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
-            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -184,7 +178,6 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
-            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -228,7 +221,6 @@ public class TopicPartitionChannelTest {
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
             true,
-            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -252,7 +244,6 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
-            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -286,7 +277,6 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
-            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -316,7 +306,6 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
-            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -348,7 +337,6 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
-            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -376,7 +364,6 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
-            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -410,7 +397,6 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
-            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -483,10 +469,6 @@ public class TopicPartitionChannelTest {
           .when(conn)
           .appendColumnsToTable(ArgumentMatchers.any(), ArgumentMatchers.any());
 
-      long bufferFlushTimeSeconds = 5L;
-      StreamingBufferThreshold bufferThreshold =
-          new StreamingBufferThreshold(bufferFlushTimeSeconds, 1_000 /* < 1KB */, 10000000L);
-
       Map<String, String> sfConnectorConfigWithErrors = new HashMap<>(sfConnectorConfig);
       sfConnectorConfigWithErrors.put(
           ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
@@ -501,7 +483,6 @@ public class TopicPartitionChannelTest {
               TEST_CHANNEL_NAME,
               TEST_TABLE_NAME,
               this.enableSchematization,
-              bufferThreshold,
               sfConnectorConfigWithErrors,
               kafkaRecordErrorReporter,
               mockSinkTaskContext,
@@ -538,7 +519,6 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
-            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -574,7 +554,6 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
-            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -617,7 +596,6 @@ public class TopicPartitionChannelTest {
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
             false,
-            streamingBufferThreshold,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -663,7 +641,6 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
-            new StreamingBufferThreshold(1000, 10_000_000, 10000),
             sfConnectorConfigWithErrors,
             kafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -704,7 +681,6 @@ public class TopicPartitionChannelTest {
             topicPartition,
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
-            streamingBufferThreshold,
             sfConnectorConfigWithErrors,
             kafkaRecordErrorReporter,
             mockSinkTaskContext,
@@ -746,7 +722,6 @@ public class TopicPartitionChannelTest {
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
             this.enableSchematization,
-            this.streamingBufferThreshold,
             this.sfConnectorConfig,
             this.mockKafkaRecordErrorReporter,
             this.mockSinkTaskContext,
@@ -760,8 +735,6 @@ public class TopicPartitionChannelTest {
     List<SinkRecord> records =
         TestUtils.createJsonStringSinkRecords(0, noOfRecords, TOPIC, PARTITION);
     records.forEach(topicPartitionChannel::insertRecord);
-
-    Thread.sleep(this.streamingBufferThreshold.getFlushTimeThresholdSeconds() + 1);
 
     // verify metrics
     SnowflakeTelemetryChannelStatus resultStatus =
@@ -817,7 +790,6 @@ public class TopicPartitionChannelTest {
             TEST_CHANNEL_NAME,
             TEST_TABLE_NAME,
             this.enableSchematization,
-            this.streamingBufferThreshold,
             this.sfConnectorConfig,
             this.mockKafkaRecordErrorReporter,
             this.mockSinkTaskContext,
@@ -831,8 +803,6 @@ public class TopicPartitionChannelTest {
     List<SinkRecord> records =
         TestUtils.createJsonStringSinkRecords(0, noOfRecords, TOPIC, PARTITION);
     records.forEach(topicPartitionChannel::insertRecord);
-
-    Thread.sleep(this.streamingBufferThreshold.getFlushTimeThresholdSeconds() + 1);
 
     // verify no errors are thrown with invalid jmx reporter but enabled jmx monitoring
     SnowflakeTelemetryChannelStatus resultStatus =

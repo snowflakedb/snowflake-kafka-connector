@@ -15,7 +15,6 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
-import com.snowflake.kafka.connector.internal.streaming.StreamingBufferThreshold;
 import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
@@ -99,8 +98,8 @@ public class SnowflakeSinkTaskStreamingTest {
         .thenReturn(mockStreamingChannel);
 
     Mockito.when(
-            mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+            mockStreamingChannel.insertRow(
+                ArgumentMatchers.any(Map.class), ArgumentMatchers.any(String.class)))
         .thenReturn(validationResponse1);
     Mockito.when(mockConnectionService.getConnectorName()).thenReturn(TEST_CONNECTOR_NAME);
 
@@ -114,7 +113,6 @@ public class SnowflakeSinkTaskStreamingTest {
                 partition,
                 this.shouldUseConnectorNameInChannelName),
             topicName,
-            new StreamingBufferThreshold(10, 10_000, 1),
             config,
             errorReporter,
             inMemorySinkTaskContext,

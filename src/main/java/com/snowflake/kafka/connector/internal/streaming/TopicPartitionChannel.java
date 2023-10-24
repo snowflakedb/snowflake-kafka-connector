@@ -157,9 +157,6 @@ public class TopicPartitionChannel {
   // Set to false if DLQ topic is null or empty. True if it is a valid string in config
   private final boolean isDLQTopicSet;
 
-  // Used to identify when to flush (Time, bytes or number of records)
-  private final BufferThreshold streamingBufferThreshold;
-
   // Whether schematization has been enabled.
   private final boolean enableSchematization;
 
@@ -184,7 +181,6 @@ public class TopicPartitionChannel {
       TopicPartition topicPartition,
       final String channelName,
       final String tableName,
-      final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
@@ -195,7 +191,6 @@ public class TopicPartitionChannel {
         channelName,
         tableName,
         false, /* No schema evolution permission */
-        streamingBufferThreshold,
         sfConnectorConfig,
         kafkaRecordErrorReporter,
         sinkTaskContext,
@@ -214,7 +209,6 @@ public class TopicPartitionChannel {
    * @param tableName table to ingest in snowflake
    * @param hasSchemaEvolutionPermission if the role has permission to perform schema evolution on
    *     the table
-   * @param streamingBufferThreshold bytes, count of records and flush time thresholds.
    * @param sfConnectorConfig configuration set for snowflake connector
    * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
    * @param sinkTaskContext context on Kafka Connect's runtime
@@ -229,7 +223,6 @@ public class TopicPartitionChannel {
       final String channelName,
       final String tableName,
       boolean hasSchemaEvolutionPermission,
-      final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
@@ -245,7 +238,6 @@ public class TopicPartitionChannel {
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelName = Preconditions.checkNotNull(channelName);
     this.tableName = Preconditions.checkNotNull(tableName);
-    this.streamingBufferThreshold = Preconditions.checkNotNull(streamingBufferThreshold);
     this.sfConnectorConfig = Preconditions.checkNotNull(sfConnectorConfig);
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
