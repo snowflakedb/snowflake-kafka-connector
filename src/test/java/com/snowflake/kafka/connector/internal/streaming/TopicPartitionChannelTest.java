@@ -527,7 +527,7 @@ public class TopicPartitionChannelTest {
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
     try {
-      topicPartitionChannel.callInsertRowsOnRecord(records.get(0));
+      topicPartitionChannel.insertRecord(records.get(0));
     } catch (SFException ex) {
       Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
       Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
@@ -564,7 +564,7 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertRecord(records.get(0));
 
     try {
-      topicPartitionChannel.callInsertRowsOnRecord(records.get(0));
+      topicPartitionChannel.insertRecord(records.get(0));
     } catch (RuntimeException ex) {
       Mockito.verify(mockStreamingClient, Mockito.times(1)).openChannel(ArgumentMatchers.any());
       Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
@@ -610,7 +610,7 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertRecord(records.get(0));
 
     try {
-      topicPartitionChannel.callInsertRowsOnRecord(records.get(0));
+      topicPartitionChannel.insertRecord(records.get(0));
     } catch (DataException ex) {
       throw ex;
     }
@@ -648,7 +648,7 @@ public class TopicPartitionChannelTest {
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
-    assert topicPartitionChannel.callInsertRowsOnRecord(records.get(0)).hasErrors();
+    assert topicPartitionChannel.insertRecord(records.get(0)).hasErrors();
 
     assert kafkaRecordErrorReporter.getReportedRecords().size() == 1;
   }
@@ -689,7 +689,7 @@ public class TopicPartitionChannelTest {
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
 
-    assert topicPartitionChannel.callInsertRowsOnRecord(records.get(0)).hasErrors();
+    assert topicPartitionChannel.insertRecord(records.get(0)).hasErrors();
 
     assert kafkaRecordErrorReporter.getReportedRecords().size() == 1;
   }
