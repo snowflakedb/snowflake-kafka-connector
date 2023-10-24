@@ -270,7 +270,7 @@ public class TopicPartitionChannel {
     if (shouldInsertRecord(kafkaSinkRecord, currentOffsetPersistedInSnowflake)) {
       try {
         // try insert with fallback
-        finalResponse = insertRowsWithFallback(this.transformData(kafkaSinkRecord), kafkaSinkRecord);
+        finalResponse = insertRowsWithFallback(this.transformData(kafkaSinkRecord), kafkaSinkRecord.kafkaOffset());
         LOGGER.info(
             "Successfully called insertRows for channel:{}, insertResponseHasErrors:{}",
             this.getChannelName(),
@@ -293,7 +293,7 @@ public class TopicPartitionChannel {
     return finalResponse;
   }
 
-  private boolean shouldInsertRecord(SinkRecord kafkaSinkRecord, long currentOffsetPersistedInSnowflake) {
+  public boolean shouldInsertRecord(SinkRecord kafkaSinkRecord, long currentOffsetPersistedInSnowflake) {
     if (currentOffsetPersistedInSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       LOGGER.debug("Insert record because there is no offsetPersistedInSnowflake for channel:{}", this.getChannelName());
       return true;
@@ -313,6 +313,64 @@ public class TopicPartitionChannel {
         this.getChannelName(),
         currentOffsetPersistedInSnowflake);
     return false;
+  }
+
+  public Map<String, Object> transformData(SinkRecord kafkaSinkRecord) {
+    SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
+
+    // broken record
+    if (isRecordBroken(snowflakeRecord)) {
+      // check for error tolerance and log tolerance values
+      // errors.log.enable and errors.tolerance
+      LOGGER.debug(
+          "Broken record offset:{}, topic:{}",
+          kafkaSinkRecord.kafkaOffset(),
+          kafkaSinkRecord.topic());
+      kafkaRecordErrorReporter.reportError(kafkaSinkRecord, new DataException("Broken Record"));
+    } else {
+      // lag telemetry, note that sink record timestamp might be null
+      if (snowflakeRecord.timestamp() != null
+          && snowflakeRecord.timestampType() != NO_TIMESTAMP_TYPE) {
+        // TODO:SNOW-529751 telemetry
+      }
+
+      // Convert this records into Json Schema which has content and metadata, add it to DLQ if
+      // there is an exception
+      try {
+        Map<String, Object> tableRow =
+            recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
+
+        return tableRow;
+      } catch (JsonProcessingException e) {
+        LOGGER.warn(
+            "Record has JsonProcessingException offset:{}, topic:{}",
+            kafkaSinkRecord.kafkaOffset(),
+            kafkaSinkRecord.topic());
+        kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
+      }
+    }
+
+    // return empty
+    return new HashMap<>();
+  }
+
+  /**
+   * Converts the original kafka sink record into a Json Record. i.e key and values are converted
+   * into Json so that it can be used to insert into variant column of Snowflake Table.
+   *
+   * <p>TODO: SNOW-630885 - When schematization is enabled, we should create the map directly from
+   * the SinkRecord instead of first turning it into json
+   */
+  private SinkRecord getSnowflakeSinkRecordFromKafkaRecord(final SinkRecord kafkaSinkRecord) {
+    SinkRecord snowflakeRecord = kafkaSinkRecord;
+    if (shouldConvertContent(kafkaSinkRecord.value())) {
+      snowflakeRecord = handleNativeRecord(kafkaSinkRecord, false);
+    }
+    if (shouldConvertContent(kafkaSinkRecord.key())) {
+      snowflakeRecord = handleNativeRecord(snowflakeRecord, true);
+    }
+
+    return snowflakeRecord;
   }
 
   private boolean shouldConvertContent(final Object content) {
@@ -389,7 +447,7 @@ public class TopicPartitionChannel {
    *
    * @return InsertRowsResponse a response that wraps around InsertValidationResponse
    */
-  private InsertValidationResponse insertRowsWithFallback(Pair<Map<String, Object>, Long> recordsAndOffsets, SinkRecord sinkRecord) {
+  private InsertValidationResponse insertRowsWithFallback(Map<String, Object> record, long offset) {
     Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
         Fallback.builder(
                 executionAttemptedEvent -> {
@@ -415,36 +473,23 @@ public class TopicPartitionChannel {
     return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
         .get(
             new InsertRowsApiResponseSupplier(
-                this.channel, recordsAndOffsets, sinkRecord, this.enableSchemaEvolution, this.conn));
+                this.channel, record, offset));
   }
 
   /** Invokes the API given the channel and streaming Buffer. */
   private static class InsertRowsApiResponseSupplier
       implements CheckedSupplier<InsertValidationResponse> {
-
-    // Reference to the Snowpipe Streaming channel
     private final SnowflakeStreamingIngestChannel channel;
-
-    private final Pair<Map<String, Object>, Long> recordsAndOffsets;
-    private final SinkRecord sinkRecord;
-
-    // Whether the schema evolution is enabled
-    private final boolean enableSchemaEvolution;
-
-    // Connection service which will be used to do the ALTER TABLE command for schema evolution
-    private final SnowflakeConnectionService conn;
+    private final Map<String, Object> record;
+    private final long offset;
 
     private InsertRowsApiResponseSupplier(
         SnowflakeStreamingIngestChannel channelForInsertRows,
-        Pair<Map<String, Object>, Long> recordsAndOffsets,
-        SinkRecord sinkRecord,
-        boolean enableSchemaEvolution,
-        SnowflakeConnectionService conn) {
+        Map<String, Object> record,
+        long offset) {
       this.channel = channelForInsertRows;
-      this.recordsAndOffsets = recordsAndOffsets;
-      this.sinkRecord = sinkRecord;
-      this.enableSchemaEvolution = enableSchemaEvolution;
-      this.conn = conn;
+      this.record = record;
+      this.offset = offset;
     }
 
     @Override
@@ -452,9 +497,7 @@ public class TopicPartitionChannel {
       LOGGER.debug(
           "Invoking insertRows API for channel:{}",
           this.channel.getFullyQualifiedName());
-      Map<String, Object> record = recordsAndOffsets.getKey();
-      Long offset = recordsAndOffsets.getValue();
-      return this.channel.insertRow(record, Long.toString(offset));
+      return this.channel.insertRow(this.record, Long.toString(this.offset));
     }
   }
 
@@ -843,63 +886,7 @@ public class TopicPartitionChannel {
     return this.snowflakeTelemetryChannelStatus;
   }
 
-  /**
-   * Converts the original kafka sink record into a Json Record. i.e key and values are converted
-   * into Json so that it can be used to insert into variant column of Snowflake Table.
-   *
-   * <p>TODO: SNOW-630885 - When schematization is enabled, we should create the map directly from
-   * the SinkRecord instead of first turning it into json
-   */
-  private SinkRecord getSnowflakeSinkRecordFromKafkaRecord(final SinkRecord kafkaSinkRecord) {
-    SinkRecord snowflakeRecord = kafkaSinkRecord;
-    if (shouldConvertContent(kafkaSinkRecord.value())) {
-      snowflakeRecord = handleNativeRecord(kafkaSinkRecord, false);
-    }
-    if (shouldConvertContent(kafkaSinkRecord.key())) {
-      snowflakeRecord = handleNativeRecord(snowflakeRecord, true);
-    }
 
-    return snowflakeRecord;
-  }
-
-  public Pair<Map<String, Object>, Long> transformData(SinkRecord kafkaSinkRecord) {
-    SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
-
-    // broken record
-    if (isRecordBroken(snowflakeRecord)) {
-      // check for error tolerance and log tolerance values
-      // errors.log.enable and errors.tolerance
-      LOGGER.debug(
-          "Broken record offset:{}, topic:{}",
-          kafkaSinkRecord.kafkaOffset(),
-          kafkaSinkRecord.topic());
-      kafkaRecordErrorReporter.reportError(kafkaSinkRecord, new DataException("Broken Record"));
-    } else {
-      // lag telemetry, note that sink record timestamp might be null
-      if (snowflakeRecord.timestamp() != null
-          && snowflakeRecord.timestampType() != NO_TIMESTAMP_TYPE) {
-        // TODO:SNOW-529751 telemetry
-      }
-
-      // Convert this records into Json Schema which has content and metadata, add it to DLQ if
-      // there is an exception
-      try {
-        Map<String, Object> tableRow =
-            recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
-
-        return new Pair<>(tableRow, snowflakeRecord.kafkaOffset());
-      } catch (JsonProcessingException e) {
-        LOGGER.warn(
-            "Record has JsonProcessingException offset:{}, topic:{}",
-            kafkaSinkRecord.kafkaOffset(),
-            kafkaSinkRecord.topic());
-        kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
-      }
-    }
-
-    // return empty
-    return new Pair<>(new HashMap<>(), -1L);
-  }
 
   /**
    * Enum representing which Streaming API is invoking the fallback supplier. ({@link
