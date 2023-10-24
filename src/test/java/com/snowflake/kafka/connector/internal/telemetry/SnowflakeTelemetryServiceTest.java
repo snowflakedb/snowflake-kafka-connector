@@ -170,7 +170,6 @@ public class SnowflakeTelemetryServiceTest {
     final long expectedFlushedOffset = 2;
     final long expectedCommittedOffset = 3;
     final long expectedOffsetPersistedInSnowflake = 4;
-    final long expectedLatestConsumerOffset = 5;
 
     SnowflakeTelemetryBasicInfo partitionUsage;
 
@@ -193,8 +192,7 @@ public class SnowflakeTelemetryServiceTest {
               false,
               null,
               new AtomicLong(expectedOffsetPersistedInSnowflake),
-              new AtomicLong(expectedProcessedOffset),
-              new AtomicLong(expectedLatestConsumerOffset));
+              new AtomicLong(expectedProcessedOffset));
 
       partitionUsage = channelStatus;
     }
@@ -244,9 +242,6 @@ public class SnowflakeTelemetryServiceTest {
       Assert.assertEquals(
           SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE.toString(),
           allNode.get("type").asText());
-      Assert.assertEquals(
-          expectedLatestConsumerOffset,
-          dataNode.get(TelemetryConstants.LATEST_CONSUMER_OFFSET).asLong());
       Assert.assertEquals(
           expectedOffsetPersistedInSnowflake,
           dataNode.get(TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE).asLong());

@@ -50,7 +50,6 @@ public final class TelemetryConstants {
 
   // ************ Streaming Constants ************//
   public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
-  public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
 
   public static final String TOPIC_PARTITION_CHANNEL_NAME = "topic_partition_channel_name";
   public static final String TOPIC_PARTITION_CHANNEL_CREATION_TIME =
