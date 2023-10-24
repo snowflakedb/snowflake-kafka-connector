@@ -332,8 +332,8 @@ public class TopicPartitionChannel {
     // incoming record offset is 1 + the processed offset
     if (currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
         || kafkaSinkRecord.kafkaOffset() >= currentProcessedOffset + 1) {
-      callInsertRowsOnRecord(kafkaSinkRecord);
       this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
+      callInsertRowsOnRecord(kafkaSinkRecord);
     } else {
       LOGGER.debug(
           "Skip adding offset:{} to buffer for channel:{} because"
