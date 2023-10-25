@@ -422,6 +422,8 @@ public class TopicPartitionChannel {
       if (extraColNames != null || nonNullableColumns != null) {
         SchematizationUtils.evolveSchemaIfNeeded(
             this.conn, this.channel.getTableName(), nonNullableColumns, extraColNames, sinkRecord);
+        streamingApiFallbackSupplier(
+            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
         return;
       }
     }
