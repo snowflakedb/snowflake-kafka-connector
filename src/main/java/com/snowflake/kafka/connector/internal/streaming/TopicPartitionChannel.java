@@ -349,9 +349,9 @@ public class TopicPartitionChannel {
         this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
         // # of records or size based flushing
         if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
-            streamingBuffer.getBufferSizeBytes())
+                streamingBuffer.getBufferSizeBytes())
             || this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
-            streamingBuffer.getNumOfRecords())) {
+                streamingBuffer.getNumOfRecords())) {
           copiedStreamingBuffer = streamingBuffer;
           this.streamingBuffer = new StreamingBuffer();
           LOGGER.debug(
