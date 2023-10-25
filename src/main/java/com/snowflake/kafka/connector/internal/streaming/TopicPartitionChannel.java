@@ -296,27 +296,27 @@ public class TopicPartitionChannel {
   }
 
   public boolean shouldInsertRecord(
-      SinkRecord kafkaSinkRecord, long currentOffsetPersistedInSnowflake) {
-    if (currentOffsetPersistedInSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      SinkRecord kafkaSinkRecord, long currProcessedOffset) {
+    if (currProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       LOGGER.debug(
-          "Insert record because there is no offsetPersistedInSnowflake for channel:{}",
+          "Insert record because there is no currProcessedOffset for channel:{}",
           this.getChannelName());
       return true;
     }
 
-    if (kafkaSinkRecord.kafkaOffset() > currentOffsetPersistedInSnowflake) {
+    if (kafkaSinkRecord.kafkaOffset() == currProcessedOffset) {
       LOGGER.debug(
-          "Insert record because kafkaOffset {} > offsetPersistedInSnowflake {} for channel:{}",
+          "Insert record because kafkaOffset {} > currProcessedOffset {} for channel:{}",
           kafkaSinkRecord.kafkaOffset(),
           this.getChannelName());
       return true;
     }
 
     LOGGER.debug(
-        "Ignore adding kafkaOffset:{} in channel:{}. offsetPersistedInSnowflake:{}",
+        "Ignore adding kafkaOffset:{} in channel:{}. currProcessedOffset:{}",
         kafkaSinkRecord.kafkaOffset(),
         this.getChannelName(),
-        currentOffsetPersistedInSnowflake);
+        currProcessedOffset);
     return false;
   }
 
@@ -422,6 +422,7 @@ public class TopicPartitionChannel {
       if (extraColNames != null || nonNullableColumns != null) {
         SchematizationUtils.evolveSchemaIfNeeded(
             this.conn, this.channel.getTableName(), nonNullableColumns, extraColNames, sinkRecord);
+        return;
       }
     }
 
