@@ -325,31 +325,33 @@ public class TopicPartitionChannel {
    * @param kafkaSinkRecord input record from Kafka
    */
   public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
+    final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
+    final long currentProcessedOffset = this.processedOffset.get();
+
     // Set the consumer offset to be the first record that Kafka sends us
     if (latestConsumerOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.latestConsumerOffset.set(kafkaSinkRecord.kafkaOffset());
     }
 
     // Ignore adding to the buffer until we see the expected offset value
-    if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord, this.processedOffset.get())) {
+    if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord, currentProcessedOffset)) {
       return;
     }
 
     // Accept the incoming record only if we don't have a valid offset token at server side, or the
     // incoming record offset is 1 + the processed offset
-    if (this.processedOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
-        || kafkaSinkRecord.kafkaOffset() >= this.processedOffset.get() + 1) {
+    if (currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+        || kafkaSinkRecord.kafkaOffset() >= currentProcessedOffset + 1) {
       StreamingBuffer copiedStreamingBuffer = null;
       bufferLock.lock();
       try {
         this.streamingBuffer.insert(kafkaSinkRecord);
         this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
-
         // # of records or size based flushing
         if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
-                streamingBuffer.getBufferSizeBytes())
+            streamingBuffer.getBufferSizeBytes())
             || this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
-                streamingBuffer.getNumOfRecords())) {
+            streamingBuffer.getNumOfRecords())) {
           copiedStreamingBuffer = streamingBuffer;
           this.streamingBuffer = new StreamingBuffer();
           LOGGER.debug(
@@ -364,7 +366,6 @@ public class TopicPartitionChannel {
       } finally {
         bufferLock.unlock();
       }
-
       // If we found reaching buffer size threshold or count based threshold, we will immediately
       // flush (Insert them)
       if (copiedStreamingBuffer != null) {
@@ -376,8 +377,8 @@ public class TopicPartitionChannel {
               + " offsetPersistedInSnowflake:{}, processedOffset:{}",
           kafkaSinkRecord.kafkaOffset(),
           this.getChannelName(),
-          this.offsetPersistedInSnowflake.get(),
-          this.processedOffset.get());
+          currentOffsetPersistedInSnowflake,
+          currentProcessedOffset);
     }
   }
 

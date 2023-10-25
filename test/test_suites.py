@@ -25,10 +25,8 @@ from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
 from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
 from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
 from test_suit.test_schema_evolution_avro_sr import TestSchemaEvolutionAvroSR
-from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTable
 from test_suit.test_schema_evolution_json import TestSchemaEvolutionJson
 from test_suit.test_schema_evolution_json_ignore_tombstone import TestSchemaEvolutionJsonIgnoreTombstone
-from test_suit.test_schema_evolution_multi_topic_drop_table import TestSchemaEvolutionMultiTopicDropTable
 from test_suit.test_schema_evolution_nonnullable_json import TestSchemaEvolutionNonNullableJson
 from test_suit.test_schema_evolution_w_auto_table_creation_avro_sr import \
     TestSchemaEvolutionWithAutoTableCreationAvroSR
@@ -194,10 +192,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             test_instance=TestSchemaNotSupportedConverter(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
         )),
-        # ("TestSchemaEvolutionDropTable", EndToEndTestSuite(
-        #     test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
-        #     run_in_apache=True
-        # )),
         ("TestKcDeleteCreate", EndToEndTestSuite(
             test_instance=TestKcDeleteCreate(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
@@ -235,9 +229,5 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         ("TestKcRestart", EndToEndTestSuite(
             test_instance=TestKcRestart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        # ("TestSchemaEvolutionMultiTopicDropTable", EndToEndTestSuite(
-        #     test_instance=TestSchemaEvolutionMultiTopicDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
-        #     run_in_apache=True
-        # )),
     ])
     return test_suites
