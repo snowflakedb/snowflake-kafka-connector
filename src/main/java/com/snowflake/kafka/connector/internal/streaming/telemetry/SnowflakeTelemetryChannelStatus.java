@@ -38,7 +38,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
  * <p>Most of the data sent to Snowflake is aggregated data.
  */
 public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo {
-  public static final long NUM_METRICS = 1; // update when new metrics are added
+  public static final long NUM_METRICS = 2; // update when new metrics are added
 
   // channel properties
   private final String connectorName;
@@ -48,6 +48,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
   // offsets
   private final AtomicLong offsetPersistedInSnowflake;
+  private final AtomicLong processedOffset;
 
   /**
    * Creates a new object tracking {@link
@@ -66,7 +67,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       final long startTime,
       final boolean enableCustomJMXConfig,
       final MetricsJmxReporter metricsJmxReporter,
-      final AtomicLong offsetPersistedInSnowflake) {
+      final AtomicLong offsetPersistedInSnowflake,
+      final AtomicLong processedOffset) {
     super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE);
 
     this.channelCreationTime = startTime;
@@ -75,6 +77,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     this.metricsJmxReporter = metricsJmxReporter;
 
     this.offsetPersistedInSnowflake = offsetPersistedInSnowflake;
+    this.processedOffset = processedOffset;
 
     if (enableCustomJMXConfig) {
       if (metricsJmxReporter == null) {
@@ -99,6 +102,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
     msg.put(
         TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE, this.offsetPersistedInSnowflake.get());
+    msg.put(
+        TelemetryConstants.PROCESSED_OFFSET, this.processedOffset.get());
 
     msg.put(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CREATION_TIME, this.channelCreationTime);
     msg.put(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CLOSE_TIME, System.currentTimeMillis());
@@ -122,6 +127,12 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
               MetricsUtil.OFFSET_SUB_DOMAIN,
               MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE),
           (Gauge<Long>) this.offsetPersistedInSnowflake::get);
+      currentMetricRegistry.register(
+          constructMetricName(
+              this.channelName,
+              MetricsUtil.OFFSET_SUB_DOMAIN,
+              MetricsUtil.PROCESSED_OFFSET),
+          (Gauge<Long>) this.processedOffset::get);
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());
     }

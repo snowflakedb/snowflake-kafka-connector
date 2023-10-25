@@ -233,7 +233,8 @@ public class TopicPartitionChannel {
             startTime,
             enableCustomJMXMonitoring,
             metricsJmxReporter,
-            this.offsetPersistedInSnowflake);
+            this.offsetPersistedInSnowflake,
+            this.processedOffset);
     this.telemetryServiceV2.reportKafkaPartitionStart(
         new SnowflakeTelemetryChannelCreation(this.tableName, this.channelName, startTime));
 
