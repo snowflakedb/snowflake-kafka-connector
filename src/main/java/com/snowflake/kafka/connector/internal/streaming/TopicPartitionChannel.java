@@ -303,7 +303,7 @@ public class TopicPartitionChannel {
       return true;
     }
 
-    if (kafkaSinkRecord.kafkaOffset() == currProcessedOffset) {
+    if (kafkaSinkRecord.kafkaOffset() > currProcessedOffset) {
       LOGGER.debug(
           "Insert record because kafkaOffset {} > currProcessedOffset {} for channel:{}",
           kafkaSinkRecord.kafkaOffset(),
