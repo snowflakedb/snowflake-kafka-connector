@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 
@@ -19,8 +20,10 @@ import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
@@ -36,14 +39,28 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 /** Unit test for testing Snowflake Sink Task Behavior with Snowpipe Streaming */
+@RunWith(Parameterized.class)
 public class SnowflakeSinkTaskStreamingTest {
   private String topicName;
   private static int partition = 0;
   private TopicPartition topicPartition;
+
+  private final boolean shouldUseConnectorNameInChannelName;
+
+  @Parameterized.Parameters
+  public static List<Boolean> input() {
+    return Arrays.asList(Boolean.TRUE, Boolean.FALSE);
+  }
+
+  public SnowflakeSinkTaskStreamingTest(boolean shouldUseConnectorNameInChannelName) {
+    this.shouldUseConnectorNameInChannelName = shouldUseConnectorNameInChannelName;
+  }
 
   @Before
   public void setup() {
@@ -59,6 +76,9 @@ public class SnowflakeSinkTaskStreamingTest {
     config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
     config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
+    config.put(
+        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
+        String.valueOf(this.shouldUseConnectorNameInChannelName));
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     SnowflakeConnectionService mockConnectionService =
         Mockito.mock(SnowflakeConnectionServiceV1.class);
@@ -88,7 +108,11 @@ public class SnowflakeSinkTaskStreamingTest {
         new TopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topicName, partition),
+            SnowflakeSinkServiceV2.partitionChannelKey(
+                TEST_CONNECTOR_NAME,
+                topicName,
+                partition,
+                this.shouldUseConnectorNameInChannelName),
             topicName,
             new StreamingBufferThreshold(10, 10_000, 1),
             config,
@@ -98,7 +122,12 @@ public class SnowflakeSinkTaskStreamingTest {
 
     Map topicPartitionChannelMap =
         Collections.singletonMap(
-            partitionChannelKey(TEST_CONNECTOR_NAME, topicName, partition), topicPartitionChannel);
+            partitionChannelKey(
+                TEST_CONNECTOR_NAME,
+                topicName,
+                partition,
+                this.shouldUseConnectorNameInChannelName),
+            topicPartitionChannel);
 
     SnowflakeSinkServiceV2 mockSinkService =
         new SnowflakeSinkServiceV2(
