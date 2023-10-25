@@ -32,6 +32,8 @@ from test_suit.test_schema_evolution_w_auto_table_creation_avro_sr import \
     TestSchemaEvolutionWithAutoTableCreationAvroSR
 from test_suit.test_schema_evolution_w_auto_table_creation_json import \
     TestSchemaEvolutionWithAutoTableCreationJson
+from test_suit.test_schema_evolution_w_random_row_count import \
+    TestSchemaEvolutionWithRandomRowCount
 from test_suit.test_schema_mapping import TestSchemaMapping
 from test_suit.test_schema_not_supported_converter import TestSchemaNotSupportedConverter
 from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
@@ -184,6 +186,10 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         ("TestSchemaEvolutionWithAutoTableCreationAvroSR", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionWithAutoTableCreationAvroSR(driver, nameSalt), clean=True,
             run_in_confluent=True, run_in_apache=False
+        )),
+        ("TestSchemaEvolutionWithRandomRowCount", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionWithRandomRowCount(driver, nameSalt), clean=True,
+            run_in_confluent=True, run_in_apache=True
         )),
         ("TestSchemaEvolutionNonNullableJson", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionNonNullableJson(driver, nameSalt), clean=True, run_in_confluent=True,

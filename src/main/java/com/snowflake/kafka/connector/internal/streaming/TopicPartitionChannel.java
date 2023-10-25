@@ -126,7 +126,7 @@ public class TopicPartitionChannel {
    * <p>This boolean is used to indicate that we reset offset in kafka and we will only buffer once
    * we see the offset which is one more than an offset present in Snowflake.
    */
-  private boolean isOffsetResetInKafka = false; // TODO @rcheng question: atomic?
+  private boolean isOffsetResetInKafka = false;
 
   private final SnowflakeStreamingIngestClient streamingIngestClient;
 
@@ -399,12 +399,7 @@ public class TopicPartitionChannel {
       SinkRecord kafkaSinkRecord, final long currentProcessedOffset) {
     // Don't skip rows if there is no offset reset and there is no offset token information in the
     // channel
-    if (!isOffsetResetInKafka
-        && currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      LOGGER.debug(
-          "No offset registered in Snowflake and offset is not being reset, we can add this offset"
-              + " to buffer for channel:{}",
-          currentProcessedOffset);
+    if (!isOffsetResetInKafka) {
       return false;
     }
 
