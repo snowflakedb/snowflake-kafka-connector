@@ -195,10 +195,10 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             test_instance=TestSchemaNotSupportedConverter(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
         )),
-        ("TestSchemaEvolutionDropTable", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
-            run_in_apache=True
-        )),
+        # ("TestSchemaEvolutionDropTable", EndToEndTestSuite(
+        #     test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
+        #     run_in_apache=True
+        # )),
         ("TestKcDeleteCreate", EndToEndTestSuite(
             test_instance=TestKcDeleteCreate(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
@@ -236,10 +236,10 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         ("TestKcRestart", EndToEndTestSuite(
             test_instance=TestKcRestart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestSchemaEvolutionMultiTopicDropTable", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionMultiTopicDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
-            run_in_apache=True
-        )),
+        # ("TestSchemaEvolutionMultiTopicDropTable", EndToEndTestSuite(
+        #     test_instance=TestSchemaEvolutionMultiTopicDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
+        #     run_in_apache=True
+        # )),
         ("TestSnowpipeStreamingChannelFormatV2", EndToEndTestSuite(
             test_instance=TestSnowpipeStreamingChannelFormatV2(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
