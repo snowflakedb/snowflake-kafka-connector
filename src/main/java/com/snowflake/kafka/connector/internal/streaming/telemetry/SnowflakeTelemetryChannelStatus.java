@@ -102,8 +102,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
     msg.put(
         TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE, this.offsetPersistedInSnowflake.get());
-    msg.put(
-        TelemetryConstants.PROCESSED_OFFSET, this.processedOffset.get());
+    msg.put(TelemetryConstants.PROCESSED_OFFSET, this.processedOffset.get());
 
     msg.put(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CREATION_TIME, this.channelCreationTime);
     msg.put(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CLOSE_TIME, System.currentTimeMillis());
@@ -129,9 +128,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
           (Gauge<Long>) this.offsetPersistedInSnowflake::get);
       currentMetricRegistry.register(
           constructMetricName(
-              this.channelName,
-              MetricsUtil.OFFSET_SUB_DOMAIN,
-              MetricsUtil.PROCESSED_OFFSET),
+              this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.PROCESSED_OFFSET),
           (Gauge<Long>) this.processedOffset::get);
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());

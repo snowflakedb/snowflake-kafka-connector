@@ -485,22 +485,22 @@ public class SnowflakeSinkServiceV2IT {
       long processedOffset) {
     // offsets
     assert (long)
-        metricRegistry
-            .get(
-                MetricsUtil.constructMetricName(
-                    partitionChannelKey,
-                    MetricsUtil.OFFSET_SUB_DOMAIN,
-                    MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
-            .getValue()
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        partitionChannelKey,
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
+                .getValue()
         == offsetPersistedInSnowflake;
     assert (long)
-        metricRegistry
-            .get(
-                MetricsUtil.constructMetricName(
-                    partitionChannelKey,
-                    MetricsUtil.OFFSET_SUB_DOMAIN,
-                    MetricsUtil.PROCESSED_OFFSET))
-            .getValue()
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        partitionChannelKey,
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.PROCESSED_OFFSET))
+                .getValue()
         == processedOffset;
   }
 

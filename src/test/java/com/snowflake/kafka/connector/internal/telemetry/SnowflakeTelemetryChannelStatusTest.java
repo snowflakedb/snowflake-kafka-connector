@@ -74,7 +74,13 @@ public class SnowflakeTelemetryChannelStatusTest {
     // invalid jmx reporter should not error out
     SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
-            tableName, connectorName, channelName, 1234, true, null, new AtomicLong(-1),
+            tableName,
+            connectorName,
+            channelName,
+            1234,
+            true,
+            null,
+            new AtomicLong(-1),
             new AtomicLong(-1));
     snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
   }
