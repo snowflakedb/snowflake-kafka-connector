@@ -295,8 +295,7 @@ public class TopicPartitionChannel {
     return finalResponse;
   }
 
-  public boolean shouldInsertRecord(
-      SinkRecord kafkaSinkRecord, long currProcessedOffset) {
+  public boolean shouldInsertRecord(SinkRecord kafkaSinkRecord, long currProcessedOffset) {
     if (currProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       LOGGER.debug(
           "Insert record because there is no currProcessedOffset for channel:{}",
