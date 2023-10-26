@@ -19,10 +19,8 @@ import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
@@ -38,28 +36,14 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 /** Unit test for testing Snowflake Sink Task Behavior with Snowpipe Streaming */
-@RunWith(Parameterized.class)
 public class SnowflakeSinkTaskStreamingTest {
   private String topicName;
   private static int partition = 0;
   private TopicPartition topicPartition;
-
-  private final boolean shouldUseConnectorNameInChannelName;
-
-  @Parameterized.Parameters
-  public static List<Boolean> input() {
-    return Arrays.asList(Boolean.TRUE, Boolean.FALSE);
-  }
-
-  public SnowflakeSinkTaskStreamingTest(boolean shouldUseConnectorNameInChannelName) {
-    this.shouldUseConnectorNameInChannelName = shouldUseConnectorNameInChannelName;
-  }
 
   @Before
   public void setup() {

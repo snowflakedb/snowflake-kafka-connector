@@ -243,9 +243,5 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             test_instance=TestSchemaEvolutionMultiTopicDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
         )),
-        ("TestSnowpipeStreamingChannelFormatV2", EndToEndTestSuite(
-            test_instance=TestSnowpipeStreamingChannelFormatV2(driver, nameSalt), clean=True, run_in_confluent=True,
-            run_in_apache=True
-        )),
     ])
     return test_suites

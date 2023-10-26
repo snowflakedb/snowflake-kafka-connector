@@ -61,21 +61,14 @@ public class SnowflakeSinkServiceV2IT {
   // use OAuth as authenticator or not
   private boolean useOAuth;
 
-  private final boolean shouldUseConnectorNameInChannelName;
-
-  @Parameterized.Parameters(name = "useOAuth: {0}, shouldUseConnectorNameInChannelName: {1}")
+  @Parameterized.Parameters(name = "useOAuth: {0}")
   public static Collection<Object[]> input() {
-    // TODO: Add {true, false} and {true, true} after SNOW-352846 is released
-    return Arrays.asList(
-        new Object[][] {
-          {false, false},
-          {false, true}
-        });
+    // TODO: Added {true} after SNOW-352846 is released
+    return Arrays.asList(new Object[][] {{false}});
   }
 
-  public SnowflakeSinkServiceV2IT(boolean useOAuth, boolean shouldUseConnectorNameInChannelName) {
+  public SnowflakeSinkServiceV2IT(boolean useOAuth) {
     this.useOAuth = useOAuth;
-    this.shouldUseConnectorNameInChannelName = shouldUseConnectorNameInChannelName;
     if (!useOAuth) {
       conn = TestUtils.getConnectionServiceForStreaming();
     } else {
