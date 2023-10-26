@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -12,8 +11,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -26,10 +23,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
-@RunWith(Parameterized.class)
 public class TopicPartitionChannelIT {
 
   private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
@@ -40,17 +34,6 @@ public class TopicPartitionChannelIT {
   private TopicPartition topicPartition, topicPartition2;
   private String testChannelName, testChannelName2;
 
-  private final boolean shouldUseConnectorNameInChannelName;
-
-  public TopicPartitionChannelIT(boolean shouldUseConnectorNameInChannelName) {
-    this.shouldUseConnectorNameInChannelName = shouldUseConnectorNameInChannelName;
-  }
-
-  @Parameterized.Parameters(name = "shouldUseConnectorNameInChannelName: {0}")
-  public static Collection<Object[]> input() {
-    return Arrays.asList(new Object[][] {{true}, {false}});
-  }
-
   @Before
   public void beforeEach() {
     testTableName = TestUtils.randomTableName();
@@ -60,12 +43,10 @@ public class TopicPartitionChannelIT {
     topicPartition2 = new TopicPartition(topic, PARTITION_2);
 
     testChannelName =
-        SnowflakeSinkServiceV2.partitionChannelKey(
-            TEST_CONNECTOR_NAME, topic, PARTITION, this.shouldUseConnectorNameInChannelName);
+        SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, PARTITION);
 
     testChannelName2 =
-        SnowflakeSinkServiceV2.partitionChannelKey(
-            TEST_CONNECTOR_NAME, topic, PARTITION_2, this.shouldUseConnectorNameInChannelName);
+        SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, PARTITION_2);
   }
 
   @After
@@ -77,9 +58,6 @@ public class TopicPartitionChannelIT {
   public void testAutoChannelReopenOn_OffsetTokenSFException() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(
-        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
-        String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
@@ -137,10 +115,6 @@ public class TopicPartitionChannelIT {
   public void testInsertRowsOnChannelClosed() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(
-        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
-        String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
@@ -205,10 +179,6 @@ public class TopicPartitionChannelIT {
   public void testAutoChannelReopen_InsertRowsSFException() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(
-        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
-        String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
@@ -297,10 +267,6 @@ public class TopicPartitionChannelIT {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(
-        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
-        String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
@@ -420,10 +386,6 @@ public class TopicPartitionChannelIT {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(
-        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
-        String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
@@ -499,10 +461,6 @@ public class TopicPartitionChannelIT {
     // add config which overrides the bdec file format
     Map<String, String> overriddenConfig = new HashMap<>(TestUtils.getConfForStreaming());
     overriddenConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
-    SnowflakeSinkConnectorConfig.setDefaultValues(overriddenConfig);
-    overriddenConfig.put(
-        SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
-        String.valueOf(this.shouldUseConnectorNameInChannelName));
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));

@@ -168,20 +168,6 @@ public class SnowflakeSinkConnectorConfig {
       "Whether to optimize the streaming client to reduce cost. Note that this may affect"
           + " throughput or latency and can only be set if Streaming Snowpipe is enabled";
 
-  public static final String SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT =
-      "snowflake.enable.new.channel.name.format";
-  public static final boolean SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT_DEFAULT = false;
-
-  public static final String SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT_DISPLAY =
-      "Enable Connector Name in Snowpipe Streaming Channel Name";
-
-  public static final String SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT_DOC =
-      "Whether to use connector name in streaming channels. If it is set to false, we will not use"
-          + " connector name in channel name(Which is new version of Channel Name). Note: Please"
-          + " use this config cautiously and it is not advised to use this if you are coming from"
-          + " old Snowflake Kafka Connector Version where Default Channel Name doesnt contain"
-          + " Connector Name, contains Topic Name and Partition # only.";
-
   // MDC logging header
   public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
   public static final String ENABLE_MDC_LOGGING_DISPLAY = "Enable MDC logging";
@@ -605,17 +591,7 @@ public class SnowflakeSinkConnectorConfig {
             CONNECTOR_CONFIG,
             8,
             ConfigDef.Width.NONE,
-            ENABLE_MDC_LOGGING_DISPLAY)
-        .define(
-            SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
-            Type.BOOLEAN,
-            SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT_DEFAULT,
-            Importance.LOW,
-            SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT_DOC,
-            CONNECTOR_CONFIG,
-            9,
-            ConfigDef.Width.NONE,
-            SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT_DISPLAY);
+            ENABLE_MDC_LOGGING_DISPLAY);
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {

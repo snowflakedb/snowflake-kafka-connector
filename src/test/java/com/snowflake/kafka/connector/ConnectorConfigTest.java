@@ -868,34 +868,6 @@ public class ConnectorConfigTest {
   }
 
   @Test
-  public void testEnableStreamingChannelFormatV2Config() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT, "true");
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    Utils.validateConfig(config);
-  }
-
-  @Test
-  public void testInvalidEnableStreamingChannelFormatV2Config() {
-    try {
-      Map<String, String> config = getConfig();
-      config.put(
-          SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-          IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-      config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-      config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT, "yes");
-      Utils.validateConfig(config);
-    } catch (SnowflakeKafkaConnectorException exception) {
-      assert exception
-          .getMessage()
-          .contains(SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT);
-    }
-  }
-
-  @Test
   public void testInvalidEmptyConfig() {
     try {
       Map<String, String> config = new HashMap<>();
