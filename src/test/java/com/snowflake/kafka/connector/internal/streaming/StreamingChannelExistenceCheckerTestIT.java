@@ -18,6 +18,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+/** IT test related to ChannelExistenceCheckerRequest which Makes server side Calls */
 public class StreamingChannelExistenceCheckerTestIT {
 
   private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();

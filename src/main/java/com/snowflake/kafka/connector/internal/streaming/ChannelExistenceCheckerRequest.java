@@ -3,7 +3,10 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
-/** Class to deserialize a request from a channel status request */
+/**
+ * Class to deserialize a request from a channel status request Please keep this upto date with
+ * {@link net.snowflake.ingest.streaming.internal.ChannelsStatusRequest}
+ */
 class ChannelExistenceCheckerRequest {
 
   // Used to deserialize a channel request

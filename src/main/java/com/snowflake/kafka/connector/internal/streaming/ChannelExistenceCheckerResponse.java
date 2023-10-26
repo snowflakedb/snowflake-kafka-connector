@@ -3,7 +3,10 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
-/** Class used to serialize a response for the channels status endpoint */
+/**
+ * Class used to serialize a response for the channels status endpoint. Please keep this upto date
+ * with {@link net.snowflake.ingest.streaming.internal.ChannelsStatusResponse}
+ */
 public class ChannelExistenceCheckerResponse {
   static class ChannelStatusResponseDTO {
 
