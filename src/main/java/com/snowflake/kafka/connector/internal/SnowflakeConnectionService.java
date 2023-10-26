@@ -282,4 +282,6 @@ public interface SnowflakeConnectionService {
    * @param tableName table name
    */
   void createTableWithOnlyMetadataColumn(String tableName);
+
+  void updateStreamingChannelOffsetToken(String channelName, String offsetToken);
 }

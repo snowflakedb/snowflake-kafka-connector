@@ -1005,4 +1005,9 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   public SnowflakeInternalStage getInternalStage() {
     return this.internalStage;
   }
+
+  @Override
+  public void updateStreamingChannelOffsetToken(String channelName, String offsetToken) {
+
+  }
 }
