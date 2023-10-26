@@ -73,6 +73,11 @@ public class StreamingUtils {
   public static final String STREAMING_CONSTANT_OAUTH_CLIENT_SECRET = "oauth_client_secret";
   public static final String STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN = "oauth_refresh_token";
 
+  public static final String SUCCESSFUL_CHANNEL_UPDATE_RESPONSE_SYSTEM_FUNC_MSG =
+      "UPDATED %s.%s's offset token to %s";
+  public static final String CHANNEL_UPDATE_RESPONSE_CHANNEL_DOESNT_EXIST_SYSTEM_FUNC_MSG =
+      "%s.%s DOES NOT EXIST";
+
   /* Maps streaming client's property keys to what we got from snowflake KC config file. */
   public static Map<String, String> convertConfigForStreamingClient(
       Map<String, String> connectorConfig) {

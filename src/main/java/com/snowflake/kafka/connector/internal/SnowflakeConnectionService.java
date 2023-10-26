@@ -283,5 +283,17 @@ public interface SnowflakeConnectionService {
    */
   void createTableWithOnlyMetadataColumn(String tableName);
 
-  void updateStreamingChannelOffsetToken(String channelName, String offsetToken);
+  /**
+   * Update Streaming Channel OffsetToken without Streaming Client and Streaming Channel
+   *
+   * @param tableName name of table. Otherwise throws exception
+   * @param channelName Channel Name, returns false if doesnt exist.
+   * @param offsetToken OffsetToken you want to set on channelName in associated tableName. This can
+   *     be NULL String, empty or any Valid String.
+   * @return true if Update was successful, false if channel doesnt exist, exception if table
+   *     doesn't exist.
+   */
+  boolean updateStreamingChannelOffsetToken(
+      String tableName, String channelName, String offsetToken)
+      throws SnowflakeKafkaConnectorException;
 }

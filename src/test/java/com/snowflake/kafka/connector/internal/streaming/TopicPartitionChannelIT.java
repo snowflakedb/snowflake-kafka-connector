@@ -6,6 +6,8 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -483,6 +485,67 @@ public class TopicPartitionChannelIT {
 
     // should throw because we don't take arrow version 1 anymore
     service.insert(records);
+    service.closeAll();
+  }
+
+  @Test
+  public void testChannelUpdateOffsetTokenSystemFunction() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    InMemorySinkTaskContext inMemorySinkTaskContext =
+        new InMemorySinkTaskContext(Collections.singleton(topicPartition));
+
+    // This will automatically create a channel for topicPartition.
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(inMemorySinkTaskContext)
+            .addTask(testTableName, topicPartition)
+            .build();
+
+    TopicPartitionChannel topicPartitionChannel =
+        ((SnowflakeSinkServiceV2) service)
+            .getTopicPartitionChannelFromCacheKey(testChannelName)
+            .get();
+    // Channel does exist
+    Assert.assertNotNull(topicPartitionChannel);
+
+    // Update offsetToken for channel which exists
+    final String channelNameExists =
+        SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, PARTITION);
+
+    Assert.assertTrue(
+        conn.updateStreamingChannelOffsetToken(testTableName, channelNameExists, null));
+
+    // Fetch offsetToken from API
+    Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
+
+    Assert.assertTrue(
+        conn.updateStreamingChannelOffsetToken(testTableName, channelNameExists, "NULL"));
+
+    // null String or "NULL" string both should work
+    Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
+
+    final String channelNameDoesntExist =
+        SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, PARTITION_2);
+    Assert.assertFalse(
+        conn.updateStreamingChannelOffsetToken(testTableName, channelNameDoesntExist, "NULL"));
+
+    boolean expectException = false;
+    try {
+      // This will perform a backoff retry
+      Assert.assertFalse(
+          conn.updateStreamingChannelOffsetToken(
+              testTableName + "TABLE_DOESNT_EXIST", channelNameDoesntExist, "NULL"));
+    } catch (SnowflakeKafkaConnectorException e) {
+      assert e.getCode().equals(SnowflakeErrors.ERROR_2018.getCode());
+      expectException = true;
+    }
+
+    Assert.assertTrue(expectException);
+
     service.closeAll();
   }
 }

@@ -196,6 +196,11 @@ public enum SnowflakeErrors {
       "2017",
       "Failed to check schema evolution permission",
       "Failed to check schema evolution permission"),
+
+  ERROR_2018(
+      "2018",
+      "Failed to update Offset Token using System Function",
+      "Failed to update Offset Token using System Function"),
   // Snowpipe related issues 3---
   ERROR_3001("3001", "Failed to ingest file", "Exception reported by Ingest SDK"),
 

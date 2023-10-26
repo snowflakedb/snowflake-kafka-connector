@@ -2,6 +2,8 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.CHANNEL_UPDATE_RESPONSE_CHANNEL_DOESNT_EXIST_SYSTEM_FUNC_MSG;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.SUCCESSFUL_CHANNEL_UPDATE_RESPONSE_SYSTEM_FUNC_MSG;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -1007,7 +1009,65 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
-  public void updateStreamingChannelOffsetToken(String channelName, String offsetToken) {
+  public boolean updateStreamingChannelOffsetToken(
+      String tableName, String channelName, String offsetToken)
+      throws SnowflakeKafkaConnectorException {
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    InternalUtils.assertNotEmpty("channelName", channelName);
+    String fullyQualifiedTableName =
+        prop.getProperty(InternalUtils.JDBC_DATABASE)
+            + "."
+            + prop.getProperty(InternalUtils.JDBC_SCHEMA)
+            + "."
+            + tableName;
+    String query = "select system$snowpipe_streaming_update_channel_offset_token((?), (?), (?));";
+    String offsetTokenToSet = offsetToken == null ? "NULL" : offsetToken;
 
+    try {
+      ResultSet resultSet =
+          (ResultSet)
+              InternalUtils.backoffAndRetry(
+                  telemetry,
+                  SnowflakeInternalOperations.UPDATE_OFFSET_TOKEN_SYS_FUNC,
+                  () -> {
+                    PreparedStatement stmt = conn.prepareStatement(query);
+                    stmt.setString(1, fullyQualifiedTableName);
+                    stmt.setString(2, channelName);
+                    stmt.setString(3, offsetTokenToSet);
+                    return stmt.executeQuery();
+                  });
+      String updateOffsetTokenResultFromSysFunc = null;
+      if (resultSet.next()) {
+        updateOffsetTokenResultFromSysFunc = resultSet.getString(1 /*Only one column*/);
+      }
+      if (updateOffsetTokenResultFromSysFunc == null) {
+        LOGGER.debug("No result found in Updating OffsetToken through System Function");
+        return false;
+      }
+
+      if (updateOffsetTokenResultFromSysFunc.equalsIgnoreCase(
+          String.format(
+              SUCCESSFUL_CHANNEL_UPDATE_RESPONSE_SYSTEM_FUNC_MSG,
+              fullyQualifiedTableName,
+              channelName,
+              offsetTokenToSet))) {
+        LOGGER.debug("Update offset Token successfully for Channel:{}", channelName);
+        return true;
+      } else if (updateOffsetTokenResultFromSysFunc.equalsIgnoreCase(
+          String.format(
+              CHANNEL_UPDATE_RESPONSE_CHANNEL_DOESNT_EXIST_SYSTEM_FUNC_MSG,
+              fullyQualifiedTableName,
+              channelName))) {
+        LOGGER.debug("Channel doesn't exist:{} for table:{}", channelName, tableName);
+      }
+      return false;
+    } catch (Exception e) {
+      LOGGER.debug(
+          "Updating OffsetToken for a Channel:{} in table:{} failed due to:{}",
+          channelName,
+          fullyQualifiedTableName,
+          e.getMessage());
+      throw SnowflakeErrors.ERROR_2018.getException(e, this.telemetry);
+    }
   }
 }

@@ -27,5 +27,7 @@ public enum SnowflakeInternalOperations {
 
   LOAD_HISTORY_SCAN_SNOWPIPE_API,
 
-  FETCH_OAUTH_TOKEN
+  FETCH_OAUTH_TOKEN,
+
+  UPDATE_OFFSET_TOKEN_SYS_FUNC,
 }

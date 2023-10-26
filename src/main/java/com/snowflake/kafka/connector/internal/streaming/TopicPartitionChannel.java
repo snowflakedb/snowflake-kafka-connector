@@ -1010,7 +1010,7 @@ public class TopicPartitionChannel {
       offsetToken = this.channel.getLatestCommittedOffsetToken();
       LOGGER.info(
           "Fetched offsetToken for channelName:{}, offset:{}", this.getChannelName(), offsetToken);
-      return offsetToken == null
+      return offsetToken == null || offsetToken.equalsIgnoreCase("NULL")
           ? NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
           : Long.parseLong(offsetToken);
     } catch (NumberFormatException ex) {
