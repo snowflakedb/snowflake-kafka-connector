@@ -1,8 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
@@ -94,7 +92,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private boolean enableSchematization;
 
   /**
-   * Key is formulated in {@link #partitionChannelKey(String, String, int, boolean)}
+   * Key is formulated in {@link #partitionChannelKey(String, String, int)} }
    *
    * <p>value is the Streaming Ingest Channel implementation (Wrapped around TopicPartitionChannel)
    */
@@ -102,12 +100,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   // Cache for schema evolution
   private final Map<String, Boolean> tableName2SchemaEvolutionPermission;
-
-  /**
-   * This is the new format for channel Names. (This corresponds to the config {@link
-   * SnowflakeSinkConnectorConfig#SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT} )
-   */
-  private final boolean shouldUseConnectorNameInChannelName;
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
@@ -146,11 +138,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             ? "default_connector"
             : this.conn.getConnectorName();
     this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), connectorName);
-    this.shouldUseConnectorNameInChannelName =
-        Boolean.parseBoolean(
-            connectorConfig.getOrDefault(
-                SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
-                String.valueOf(SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT_DEFAULT)));
   }
 
   @VisibleForTesting
@@ -196,11 +183,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             populateSchemaEvolutionPermissions(tableName);
           });
     }
-    this.shouldUseConnectorNameInChannelName =
-        Boolean.parseBoolean(
-            connectorConfig.getOrDefault(
-                SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT,
-                String.valueOf(SNOWFLAKE_ENABLE_NEW_CHANNEL_NAME_FORMAT_DEFAULT)));
   }
 
   /**
@@ -254,10 +236,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       boolean hasSchemaEvolutionPermission) {
     final String partitionChannelKey =
         partitionChannelKey(
-            conn.getConnectorName(),
-            topicPartition.topic(),
-            topicPartition.partition(),
-            this.shouldUseConnectorNameInChannelName);
+            conn.getConnectorName(), topicPartition.topic(), topicPartition.partition());
     // Create new instance of TopicPartitionChannel which will always open the channel.
     partitionsToChannel.put(
         partitionChannelKey,
@@ -317,11 +296,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void insert(SinkRecord record) {
     String partitionChannelKey =
-        partitionChannelKey(
-            this.conn.getConnectorName(),
-            record.topic(),
-            record.kafkaPartition(),
-            this.shouldUseConnectorNameInChannelName);
+        partitionChannelKey(this.conn.getConnectorName(), record.topic(), record.kafkaPartition());
     // init a new topic partition if it's not presented in cache or if channel is closed
     if (!partitionsToChannel.containsKey(partitionChannelKey)
         || partitionsToChannel.get(partitionChannelKey).isChannelClosed()) {
@@ -342,10 +317,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   public long getOffset(TopicPartition topicPartition) {
     String partitionChannelKey =
         partitionChannelKey(
-            conn.getConnectorName(),
-            topicPartition.topic(),
-            topicPartition.partition(),
-            this.shouldUseConnectorNameInChannelName);
+            conn.getConnectorName(), topicPartition.topic(), topicPartition.partition());
     if (partitionsToChannel.containsKey(partitionChannelKey)) {
       long offset = partitionsToChannel.get(partitionChannelKey).getOffsetSafeToCommitToKafka();
       partitionsToChannel.get(partitionChannelKey).setLatestConsumerOffset(offset);
@@ -400,10 +372,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         topicPartition -> {
           final String partitionChannelKey =
               partitionChannelKey(
-                  conn.getConnectorName(),
-                  topicPartition.topic(),
-                  topicPartition.partition(),
-                  this.shouldUseConnectorNameInChannelName);
+                  conn.getConnectorName(), topicPartition.topic(), topicPartition.partition());
           TopicPartitionChannel topicPartitionChannel =
               partitionsToChannel.get(partitionChannelKey);
           // Check for null since it's possible that the something goes wrong even before the
@@ -558,19 +527,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    *     or PROD)
    * @param topic topic name
    * @param partition partition number
-   * @param shouldUseConnectorNameInChannelName If true, use connectorName, else not. This is the
-   *     new format for channel Name.
    * @return combinartion of topic and partition
    */
   @VisibleForTesting
-  public static String partitionChannelKey(
-      String connectorName,
-      String topic,
-      int partition,
-      final boolean shouldUseConnectorNameInChannelName) {
-    return shouldUseConnectorNameInChannelName
-        ? connectorName + "_" + topic + "_" + partition
-        : topic + "_" + partition;
+  public static String partitionChannelKey(String connectorName, String topic, int partition) {
+    return connectorName + "_" + topic + "_" + partition;
   }
 
   /* Used for testing */
