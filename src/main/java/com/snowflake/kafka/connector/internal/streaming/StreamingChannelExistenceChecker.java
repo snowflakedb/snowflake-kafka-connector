@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2023 Snowflake Computing Inc. All rights reserved.
+ */
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static net.snowflake.ingest.streaming.internal.StreamingIngestResponseCode.ERR_CHANNEL_DOES_NOT_EXIST_OR_IS_NOT_AUTHORIZED;
