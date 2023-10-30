@@ -146,7 +146,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   }
 
   @Override
-  public void insert(SinkRecord record) {
+  public boolean insert(SinkRecord record) {
     String nameIndex = getNameIndex(record.topic(), record.kafkaPartition());
     // init a new topic partition
     if (!pipes.containsKey(nameIndex)) {
@@ -159,6 +159,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
           new TopicPartition(record.topic(), record.kafkaPartition()));
     }
     pipes.get(nameIndex).insert(record);
+    return true; // no-op return here
   }
 
   @Override

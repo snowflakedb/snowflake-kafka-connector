@@ -43,7 +43,7 @@ public interface SnowflakeSinkService {
    *
    * @param record record content
    */
-  void insert(final SinkRecord record);
+  boolean insert(final SinkRecord record);
 
   /**
    * retrieve offset of last loaded record for given pipe name

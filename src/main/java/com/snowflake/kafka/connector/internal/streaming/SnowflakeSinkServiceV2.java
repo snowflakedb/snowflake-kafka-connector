@@ -277,7 +277,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
       // While inserting into buffer, we will check for count threshold and buffered bytes
       // threshold.
-      insert(record);
+      boolean isValidInsert = insert(record);
+
+      if (!isValidInsert) {
+        LOGGER.error("Invalidating record batch at offset {}", record.kafkaOffset());
+        break;
+      }
     }
 
     // check all partitions to see if they need to be flushed based on time
@@ -294,7 +299,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * @param record record content
    */
   @Override
-  public void insert(SinkRecord record) {
+  public boolean insert(SinkRecord record) {
     String partitionChannelKey =
         partitionChannelKey(this.conn.getConnectorName(), record.topic(), record.kafkaPartition());
     // init a new topic partition if it's not presented in cache or if channel is closed
@@ -310,7 +315,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
-    channelPartition.insertRecordToBuffer(record);
+    return channelPartition.insertRecordToBuffer(record);
   }
 
   @Override

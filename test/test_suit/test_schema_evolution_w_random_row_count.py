@@ -1,21 +1,21 @@
-from confluent_kafka import avro
+import json
+import random
+
 from test_suit.test_utils import NonRetryableError
 from time import sleep
 
 
-# test if the table is updated with the correct column
-# add test if all the records from different topics safely land in the table
-# the table is suppose to be created with only RECORD_METADATA in the beginning
-# while the rest of columns should be handled by schema evolution
-class TestSchemaEvolutionWithAutoTableCreationAvroSR:
+# test if the ingestion works when the schematization alter table invalidation happens
+# halfway through a batch
+class TestSchemaEvolutionWithRandomRowCount:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_evolution_w_auto_table_creation_avro_sr"
+        self.fileName = "test_schema_evolution_w_random_row_count"
         self.topics = []
         self.table = self.fileName + nameSalt
 
         # records
-        self.initialRecordCount = 12
+        self.initialRecordCount = random.randrange(1,300)
         self.flushRecordCount = 300
         self.recordNum = self.initialRecordCount + self.flushRecordCount
 
@@ -36,32 +36,6 @@ class TestSchemaEvolutionWithAutoTableCreationAvroSR:
             'APPROVAL': True
         })
 
-        self.ValueSchemaStr = []
-
-        self.ValueSchemaStr.append("""
-        {
-            "type":"record",
-            "name":"value_schema_0",
-            "fields":[
-                {"name":"PERFORMANCE_STRING","type":"string"},
-                {"name":"PERFORMANCE_CHAR","type":"string"},
-                {"name":"RATING_INT","type":"int"}
-            ]
-        }
-        """)
-
-        self.ValueSchemaStr.append("""
-        {
-            "type":"record",
-            "name":"value_schema_1",
-            "fields":[
-                {"name":"PERFORMANCE_STRING","type":"string"},
-                {"name":"RATING_DOUBLE","type":"float"},
-                {"name":"APPROVAL","type":"boolean"}
-            ]
-        }
-        """)
-
         self.gold_type = {
             'PERFORMANCE_STRING': 'VARCHAR',
             'PERFORMANCE_CHAR': 'VARCHAR',
@@ -73,29 +47,31 @@ class TestSchemaEvolutionWithAutoTableCreationAvroSR:
 
         self.gold_columns = [columnName for columnName in self.gold_type]
 
-        self.valueSchema = []
-
-        for valueSchemaStr in self.ValueSchemaStr:
-            self.valueSchema.append(avro.loads(valueSchemaStr))
-
     def getConfigFileName(self):
         return self.fileName + ".json"
 
     def send(self):
+        print("Got random record count of {}".format(str(self.initialRecordCount)))
+
         for i, topic in enumerate(self.topics):
             # send initial batch
+            key = []
             value = []
-            for _ in range(self.initialRecordCount):
-                value.append(self.records[i])
-            self.driver.sendAvroSRData(topic, value, self.valueSchema[i], key=[], key_schema="", partition=0)
+            for e in range(self.initialRecordCount):
+                key.append(json.dumps({'number': str(e)}).encode('utf-8'))
+                value.append(json.dumps(self.records[i]).encode('utf-8'))
+            self.driver.sendBytesData(topic, value, key)
 
             # send second batch that should flush
+            key = []
             value = []
-            for _ in range(self.flushRecordCount):
-                value.append(self.records[i])
-            self.driver.sendAvroSRData(topic, value, self.valueSchema[i], key=[], key_schema="", partition=0)
+            for e in range(self.flushRecordCount):
+                key.append(json.dumps({'number': str(e)}).encode('utf-8'))
+                value.append(json.dumps(self.records[i]).encode('utf-8'))
+            self.driver.sendBytesData(topic, value, key)
 
     def verify(self, round):
+        sleep(60)
         rows = self.driver.snowflake_conn.cursor().execute(
             "desc table {}".format(self.table)).fetchall()
         res_col = {}

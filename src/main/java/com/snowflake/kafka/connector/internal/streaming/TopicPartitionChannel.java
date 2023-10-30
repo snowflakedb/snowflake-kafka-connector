@@ -322,7 +322,7 @@ public class TopicPartitionChannel {
    *
    * @param kafkaSinkRecord input record from Kafka
    */
-  public void insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
+  public boolean insertRecordToBuffer(SinkRecord kafkaSinkRecord) {
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
 
@@ -333,7 +333,7 @@ public class TopicPartitionChannel {
 
     // Ignore adding to the buffer until we see the expected offset value
     if (shouldIgnoreAddingRecordToBuffer(kafkaSinkRecord, currentProcessedOffset)) {
-      return;
+      return false;
     }
 
     // Accept the incoming record only if we don't have a valid offset token at server side, or the
@@ -368,7 +368,7 @@ public class TopicPartitionChannel {
       // If we found reaching buffer size threshold or count based threshold, we will immediately
       // flush (Insert them)
       if (copiedStreamingBuffer != null) {
-        insertBufferedRecords(copiedStreamingBuffer);
+        return !insertBufferedRecords(copiedStreamingBuffer).needToResetOffset;
       }
     } else {
       LOGGER.debug(
@@ -379,6 +379,8 @@ public class TopicPartitionChannel {
           currentOffsetPersistedInSnowflake,
           currentProcessedOffset);
     }
+
+    return true;
   }
 
   /**
@@ -528,7 +530,7 @@ public class TopicPartitionChannel {
       this.previousFlushTimeStampMs = System.currentTimeMillis();
       return null;
     }
-    InsertRowsResponse response = null;
+    InsertRowsResponse response = new InsertRowsResponse(null, false);
     try {
       response = insertRowsWithFallback(streamingBufferToInsert);
       // Updates the flush time (last time we called insertRows API)
