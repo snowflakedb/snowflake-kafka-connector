@@ -397,8 +397,7 @@ public class TopicPartitionChannel {
    */
   private boolean shouldIgnoreAddingRecordToBuffer(
       SinkRecord kafkaSinkRecord, final long currentProcessedOffset) {
-    // Don't skip rows if there is no offset reset and there is no offset token information in the
-    // channel
+    // Don't skip rows if there is no offset reset
     if (!isOffsetResetInKafka) {
       return false;
     }
