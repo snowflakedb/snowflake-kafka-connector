@@ -403,7 +403,7 @@ public class TopicPartitionChannel {
     }
 
     // Don't ignore if we see the expected offset; otherwise log and skip
-    if (kafkaSinkRecord.kafkaOffset() == (currentProcessedOffset - 1)) {
+    if ((kafkaSinkRecord.kafkaOffset() - currentProcessedOffset) == 1L) {
       LOGGER.debug(
           "Got the desired offset:{} from Kafka, we can add this offset to buffer for channel:{}",
           kafkaSinkRecord.kafkaOffset(),
