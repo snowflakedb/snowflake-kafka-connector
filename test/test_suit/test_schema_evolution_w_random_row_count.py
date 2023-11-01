@@ -2,7 +2,6 @@ import json
 import random
 
 from test_suit.test_utils import NonRetryableError
-from time import sleep
 
 
 # test if the ingestion works when the schematization alter table invalidation happens
@@ -71,7 +70,6 @@ class TestSchemaEvolutionWithRandomRowCount:
             self.driver.sendBytesData(topic, value, key)
 
     def verify(self, round):
-        sleep(60)
         rows = self.driver.snowflake_conn.cursor().execute(
             "desc table {}".format(self.table)).fetchall()
         res_col = {}

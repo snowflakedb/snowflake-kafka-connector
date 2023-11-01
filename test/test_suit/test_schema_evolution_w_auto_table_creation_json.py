@@ -1,7 +1,6 @@
 import json
 
 from test_suit.test_utils import NonRetryableError
-from time import sleep
 
 
 # test if the table is updated with the correct column
@@ -70,7 +69,6 @@ class TestSchemaEvolutionWithAutoTableCreationJson:
             self.driver.sendBytesData(topic, value, key)
 
     def verify(self, round):
-        sleep(60)
         rows = self.driver.snowflake_conn.cursor().execute(
             "desc table {}".format(self.table)).fetchall()
         res_col = {}
