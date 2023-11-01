@@ -965,6 +965,4 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.closeChannel();
     assert resultStatus.getMetricsJmxReporter() == null;
   }
-
-
 }

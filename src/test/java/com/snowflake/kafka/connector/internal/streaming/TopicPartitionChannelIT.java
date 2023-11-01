@@ -20,11 +20,11 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.apache.kafka.connect.json.JsonConverter;
 import org.junit.Test;
 
 public class TopicPartitionChannelIT {
@@ -489,8 +489,8 @@ public class TopicPartitionChannelIT {
     service.closeAll();
   }
 
-
-  // Sometimes the customers converter will send a NULL record which is dropped by KC, resulting in missing offsets
+  // Sometimes the customers converter will send a NULL record which is dropped by KC, resulting in
+  // missing offsets
   @Test
   public void testMissingOffsetRecordIngestionWithSchematization() throws Exception {
     // setup
@@ -512,9 +512,7 @@ public class TopicPartitionChannelIT {
     HashMap<String, String> converterConfig = new HashMap<>();
     converterConfig.put("schemas.enable", "false");
     converter.configure(converterConfig, false);
-    SchemaAndValue schemaInputValue =
-        converter.toConnectData(
-            "test", null);
+    SchemaAndValue schemaInputValue = converter.toConnectData("test", null);
     service.insert(
         new SinkRecord(
             topic,
@@ -547,7 +545,9 @@ public class TopicPartitionChannelIT {
     // verify offset and table size
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == expectedOffset, 20, 5);
-    assert expectedNumRecords == TestUtils.tableSize(testTableName) : Utils.formatString("expected: {}, actual: {}", expectedNumRecords, TestUtils.tableSize(testTableName));
+    assert expectedNumRecords == TestUtils.tableSize(testTableName)
+        : Utils.formatString(
+            "expected: {}, actual: {}", expectedNumRecords, TestUtils.tableSize(testTableName));
     service.closeAll();
   }
 }
