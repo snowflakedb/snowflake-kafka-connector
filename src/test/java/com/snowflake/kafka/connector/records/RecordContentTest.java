@@ -104,7 +104,7 @@ public class RecordContentTest {
             .put("map", Collections.singletonMap("field", 1))
             .put("mapNonStringKeys", Collections.singletonMap(1, 1));
 
-    content = new SnowflakeRecordContent(schema, original);
+    content = new SnowflakeRecordContent(schema, original, false);
     assert content
         .getData()[0]
         .toString()
@@ -117,7 +117,7 @@ public class RecordContentTest {
             "{\"int8\":12,\"int16\":12,\"int32\":12,\"int64\":12,\"float32\":12.2,\"float64\":12.2,\"boolean\":true,\"string\":\"foo\",\"bytes\":\"Zm9v\",\"array\":[\"a\",\"b\",\"c\"],\"map\":{\"field\":1},\"mapNonStringKeys\":[[1,1]]}");
     Map<String, Object> jsonMap =
         mapper.convertValue(jsonObject, new TypeReference<Map<String, Object>>() {});
-    content = new SnowflakeRecordContent(null, jsonMap);
+    content = new SnowflakeRecordContent(null, jsonMap, false);
     assert content
         .getData()[0]
         .toString()
@@ -206,24 +206,22 @@ public class RecordContentTest {
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testConvertToJsonEmptyValue() {
-    assert RecordService.convertToJson(null, null) == null;
-
     Schema schema = SchemaBuilder.int32().optional().defaultValue(123).build();
-    assert RecordService.convertToJson(schema, null).toString().equals("123");
+    assert RecordService.convertToJson(schema, null, false).toString().equals("123");
 
     schema = SchemaBuilder.int32().build();
-    RecordService.convertToJson(schema, null);
+    RecordService.convertToJson(schema, null, false);
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testConvertToJsonNonOptional() {
     Schema schema = SchemaBuilder.int32().build();
-    RecordService.convertToJson(schema, null);
+    RecordService.convertToJson(schema, null, false);
   }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testConvertToJsonNoSchemaType() {
-    RecordService.convertToJson(null, new SnowflakeJsonSchema());
+    RecordService.convertToJson(null, new SnowflakeJsonSchema(), false);
   }
 
   @Test
@@ -233,7 +231,7 @@ public class RecordContentTest {
     String expected = "\"" + Base64.getEncoder().encodeToString(original.getBytes()) + "\"";
     ByteBuffer buffer = ByteBuffer.wrap(original.getBytes()).asReadOnlyBuffer();
     Schema schema = SchemaBuilder.bytes().build();
-    assert RecordService.convertToJson(schema, buffer).toString().equals(expected);
+    assert RecordService.convertToJson(schema, buffer, false).toString().equals(expected);
   }
 
   @Test

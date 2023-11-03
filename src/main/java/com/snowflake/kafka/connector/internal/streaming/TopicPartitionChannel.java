@@ -446,7 +446,7 @@ public class TopicPartitionChannel {
     Schema schema = isKey ? record.keySchema() : record.valueSchema();
     Object content = isKey ? record.key() : record.value();
     try {
-      newSFContent = new SnowflakeRecordContent(schema, content);
+      newSFContent = new SnowflakeRecordContent(schema, content, true);
     } catch (Exception e) {
       LOGGER.error("Native content parser error:\n{}", e.getMessage());
       try {
@@ -778,7 +778,7 @@ public class TopicPartitionChannel {
     }
   }
 
-  // TODO: SNOW-529755 POLL committed offsets in backgraound thread
+  // TODO: SNOW-529755 POLL committed offsets in background thread
 
   /**
    * Get committed offset from Snowflake. It does an HTTP call internally to find out what was the

@@ -25,6 +25,7 @@ from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
 from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
 from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
 from test_suit.test_schema_evolution_avro_sr import TestSchemaEvolutionAvroSR
+from test_suit.test_schema_evolution_avro_sr_logical_types import TestSchemaEvolutionAvroSRLogicalTypes
 from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTable
 from test_suit.test_schema_evolution_json import TestSchemaEvolutionJson
 from test_suit.test_schema_evolution_json_ignore_tombstone import TestSchemaEvolutionJsonIgnoreTombstone
@@ -39,8 +40,9 @@ from test_suit.test_schema_not_supported_converter import TestSchemaNotSupported
 from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
 from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
 from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
-from test_suit.test_snowpipe_streaming_string_json_ignore_tombstone import TestSnowpipeStreamingStringJsonIgnoreTombstone
 from test_suit.test_snowpipe_streaming_string_json_dlq import TestSnowpipeStreamingStringJsonDLQ
+from test_suit.test_snowpipe_streaming_string_json_ignore_tombstone import \
+    TestSnowpipeStreamingStringJsonIgnoreTombstone
 from test_suit.test_string_avro import TestStringAvro
 from test_suit.test_string_avrosr import TestStringAvrosr
 from test_suit.test_string_json import TestStringJson
@@ -91,7 +93,8 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             test_instance=TestStringJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
         ("TestStringJsonIgnoreTombstone", EndToEndTestSuite(
-            test_instance=TestStringJsonIgnoreTombstone(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestStringJsonIgnoreTombstone(driver, nameSalt), clean=True, run_in_confluent=True,
+            run_in_apache=True
         )),
         ("TestJsonJson", EndToEndTestSuite(
             test_instance=TestJsonJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
@@ -132,7 +135,8 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             run_in_apache=True
         )),
         ("TestSnowpipeStreamingStringJsonIgnoreTombstone", EndToEndTestSuite(
-            test_instance=TestSnowpipeStreamingStringJsonIgnoreTombstone(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSnowpipeStreamingStringJsonIgnoreTombstone(driver, nameSalt), clean=True,
+            run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestSnowpipeStreamingStringJsonDLQ", EndToEndTestSuite(
@@ -176,6 +180,11 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         )),
         ("TestSchemaEvolutionAvroSR", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionAvroSR(driver, nameSalt), clean=True, run_in_confluent=True,
+            run_in_apache=False
+        )),
+        # SNOW-947731: Re-enable after avro-python3 package is updated in merge gate
+        ("TestSchemaEvolutionAvroSRLogicalTypes", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionAvroSRLogicalTypes(driver, nameSalt), clean=True, run_in_confluent=False,
             run_in_apache=False
         )),
         ("TestSchemaEvolutionWithAutoTableCreationJson", EndToEndTestSuite(
