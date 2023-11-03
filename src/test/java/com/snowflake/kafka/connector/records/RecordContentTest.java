@@ -259,6 +259,26 @@ public class RecordContentTest {
   }
 
   @Test
+  public void testSchematizationArrayOfObject() throws JsonProcessingException {
+    RecordService service = new RecordService();
+    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
+
+    service.setEnableSchematization(true);
+    String value =
+        "{\"players\":[{\"name\":\"John Doe\",\"age\":30},{\"name\":\"Jane Doe\",\"age\":30}]}";
+    byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
+    SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
+
+    SinkRecord record =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "string", sv.schema(), sv.value(), partition);
+
+    Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
+    assert got.get("\"PLAYERS\"")
+        .equals("[{\"name\":\"John Doe\",\"age\":30},{\"name\":\"Jane Doe\",\"age\":30}]");
+  }
+
+  @Test
   public void testColumnNameFormatting() throws JsonProcessingException {
     RecordService service = new RecordService();
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();

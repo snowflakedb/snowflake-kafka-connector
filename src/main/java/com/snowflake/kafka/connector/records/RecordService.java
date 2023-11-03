@@ -28,12 +28,10 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServic
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
@@ -287,14 +285,7 @@ public class RecordService {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
       Object columnValue;
-      if (columnNode.isArray()) {
-        List<String> itemList = new ArrayList<>();
-        ArrayNode arrayNode = (ArrayNode) columnNode;
-        for (JsonNode e : arrayNode) {
-          itemList.add(e.isTextual() ? e.textValue() : MAPPER.writeValueAsString(e));
-        }
-        columnValue = itemList;
-      } else if (columnNode.isTextual()) {
+      if (columnNode.isTextual()) {
         columnValue = columnNode.textValue();
       } else if (columnNode.isNull()) {
         columnValue = null;
