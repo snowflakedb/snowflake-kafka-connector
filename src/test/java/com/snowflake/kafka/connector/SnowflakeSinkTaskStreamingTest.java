@@ -94,6 +94,7 @@ public class SnowflakeSinkTaskStreamingTest {
             config,
             errorReporter,
             inMemorySinkTaskContext,
+            mockConnectionService,
             mockTelemetryService);
 
     Map topicPartitionChannelMap =

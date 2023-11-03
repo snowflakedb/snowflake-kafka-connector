@@ -382,7 +382,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           }
           LOGGER.info(
               "Closing partitionChannel:{}, partition:{}, topic:{}",
-              topicPartitionChannel == null ? null : topicPartitionChannel.getChannelName(),
+              topicPartitionChannel == null ? null : topicPartitionChannel.getChannelNameFormatV1(),
               topicPartition.topic(),
               topicPartition.partition());
           partitionsToChannel.remove(partitionChannelKey);
@@ -531,7 +531,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @VisibleForTesting
   public static String partitionChannelKey(String connectorName, String topic, int partition) {
-    return connectorName + "_" + topic + "_" + partition;
+    return topic + "_" + partition;
   }
 
   /* Used for testing */
