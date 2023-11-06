@@ -544,7 +544,8 @@ public class TopicPartitionChannelIT {
 
     // verify offset and table size
     // fails here, offset returned is 0:
-    // "Fetched offsetToken for channelName:TESTDB_KAFKA.KAFKA_TEST.KAFKA_CONNECTOR_TEST_TABLE_1637117689234532997.TEST_CONNECTOR_KAFKA_CONNECTOR_TEST_TABLE_1637117689234532997_0, offset:0"
+    // "Fetched offsetToken for
+    // channelName:TESTDB_KAFKA.KAFKA_TEST.KAFKA_CONNECTOR_TEST_TABLE_1637117689234532997.TEST_CONNECTOR_KAFKA_CONNECTOR_TEST_TABLE_1637117689234532997_0, offset:0"
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == expectedOffset, 20, 5);
     assert expectedNumRecords == TestUtils.tableSize(testTableName)
