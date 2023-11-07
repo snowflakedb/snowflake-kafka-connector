@@ -492,10 +492,13 @@ public class TopicPartitionChannelIT {
   @Test
   public void testPartialBatchChannelInvalidationIngestion_schematization() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
-    config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "500"); // we want to flush on record
+    config.put(
+        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "500"); // we want to flush on record
     config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "500000");
     config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, "500000");
-    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true"); // using schematization to invalidate
+    config.put(
+        SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
+        "true"); // using schematization to invalidate
 
     // setup
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -520,19 +523,21 @@ public class TopicPartitionChannelIT {
 
     List<SinkRecord> firstBatch = new ArrayList<>();
     for (int i = 0; i < firstBatchCount; i++) {
-      firstBatch.add(new SinkRecord(
-          topic,
-          PARTITION,
-          Schema.STRING_SCHEMA,
-          "test",
-          schemaInputValue.schema(),
-          schemaInputValue.value(),
-          i));
+      firstBatch.add(
+          new SinkRecord(
+              topic,
+              PARTITION,
+              Schema.STRING_SCHEMA,
+              "test",
+              schemaInputValue.schema(),
+              schemaInputValue.value(),
+              i));
     }
 
     service.insert(firstBatch);
 
-    // send batch with 500, should kick off a record based flush and schematization on record 19, which will fail the batches
+    // send batch with 500, should kick off a record based flush and schematization on record 19,
+    // which will fail the batches
     List<SinkRecord> secondBatch =
         TestUtils.createNativeJsonSinkRecords(firstBatchCount, secondBatchCount, topic, PARTITION);
     service.insert(secondBatch);
@@ -543,9 +548,17 @@ public class TopicPartitionChannelIT {
 
     // ensure all data was ingested
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == firstBatchCount + secondBatchCount, 20, 5);
+        () ->
+            service.getOffset(new TopicPartition(topic, PARTITION))
+                == firstBatchCount + secondBatchCount,
+        20,
+        5);
     assert TestUtils.tableSize(testTableName) == firstBatchCount + secondBatchCount
-        : "expected: " + firstBatchCount + secondBatchCount + " actual: " + TestUtils.tableSize(testTableName);
+        : "expected: "
+            + firstBatchCount
+            + secondBatchCount
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
 
     service.closeAll();
   }
