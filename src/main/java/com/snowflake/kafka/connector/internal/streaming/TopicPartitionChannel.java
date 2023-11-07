@@ -366,6 +366,7 @@ public class TopicPartitionChannel {
       } finally {
         bufferLock.unlock();
       }
+      
       // If we found reaching buffer size threshold or count based threshold, we will immediately
       // flush (Insert them)
       if (copiedStreamingBuffer != null) {

@@ -244,5 +244,14 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         ("TestKcRestart", EndToEndTestSuite(
             test_instance=TestKcRestart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
+        # do not support out of band table drops due to SNOW-943288, keeping these tests for long term solution
+        # ("TestSchemaEvolutionDropTable", EndToEndTestSuite(
+        #     test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
+        #     run_in_apache=True
+        # )),
+        # ("TestSchemaEvolutionMultiTopicDropTable", EndToEndTestSuite(
+        #     test_instance=TestSchemaEvolutionMultiTopicDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
+        #     run_in_apache=True
+        # )),
     ])
     return test_suites
