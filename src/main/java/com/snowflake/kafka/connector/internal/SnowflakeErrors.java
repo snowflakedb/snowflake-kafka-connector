@@ -17,6 +17,7 @@
 
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 
@@ -107,6 +108,26 @@ public enum SnowflakeErrors {
       "Duplicate case-insensitive column names detected",
       "Duplicate case-insensitive column names detected. Schematization currently does not support"
           + " this."),
+  ERROR_0026(
+      "0026",
+      "Missed oauth client id in connector config",
+      "oauth_client_id must be provided with "
+          + Utils.SF_OAUTH_CLIENT_ID
+          + " parameter when using oauth as authenticator"),
+  ERROR_0027(
+      "0027",
+      "Missed oauth client secret in connector config",
+      "oauth_client_secret must be provided with "
+          + Utils.SF_OAUTH_CLIENT_SECRET
+          + " parameter when using oauth as authenticator"),
+  ERROR_0028(
+      "0028",
+      "Missed oauth refresh token in connector config",
+      "oauth_refresh_token must be provided with "
+          + Utils.SF_OAUTH_REFRESH_TOKEN
+          + " parameter when using oauth as authenticator"),
+  ERROR_0029(
+      "0029", "Invalid authenticator", "Authenticator should be either oauth or snowflake_jwt"),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
@@ -120,6 +141,8 @@ public enum SnowflakeErrors {
       "1003",
       "Snowflake connection is closed",
       "Either the current connection is closed or hasn't connect to snowflake" + " server"),
+  ERROR_1004(
+      "1004", "Fetching OAuth token fail", "Fail to get OAuth token from authorization server"),
   // SQL issues 2---
   ERROR_2001(
       "2001", "Failed to prepare SQL statement", "SQL Exception, reported by Snowflake JDBC"),
@@ -261,7 +284,10 @@ public enum SnowflakeErrors {
   ERROR_5016(
       "5016",
       "Invalid SinkRecord received",
-      "SinkRecord.value and SinkRecord.valueSchema cannot be null"),
+      "SinkRecord.value and SinkRecord.valueSchema cannot be null unless tombstone record ingestion"
+          + " is enabled (see "
+          + SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG
+          + " for more information."),
   ERROR_5017(
       "5017", "Invalid api call to cached put", "Cached put only support AWS, Azure and GCS."),
   ERROR_5018("5018", "Failed to execute cached put", "Error in cached put command"),

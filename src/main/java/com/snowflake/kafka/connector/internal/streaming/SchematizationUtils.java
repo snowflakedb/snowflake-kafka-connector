@@ -15,18 +15,26 @@ import static org.apache.kafka.connect.data.Schema.Type.INT64;
 import static org.apache.kafka.connect.data.Schema.Type.STRING;
 import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
 
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import org.apache.kafka.connect.data.Date;
+import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Schema.Type;
+import org.apache.kafka.connect.data.Time;
+import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -111,26 +119,31 @@ public class SchematizationUtils {
     }
     Map<String, String> columnToType = new HashMap<>();
     Map<String, String> schemaMap = getSchemaMapFromRecord(record);
-    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
+    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
+    Set<String> columnNamesSet = new HashSet<>(columnNames);
 
-    for (String columnName : columnNames) {
-      if (!columnToType.containsKey(columnName)) {
+    Iterator<Map.Entry<String, JsonNode>> fields = recordNode.fields();
+    while (fields.hasNext()) {
+      Map.Entry<String, JsonNode> field = fields.next();
+      String colName = Utils.quoteNameIfNeeded(field.getKey());
+      if (columnNamesSet.contains(colName)) {
         String type;
         if (schemaMap.isEmpty()) {
           // No schema associated with the record, we will try to infer it based on the data
-          type = inferDataTypeFromJsonObject(recordNode.get(columnName));
+          type = inferDataTypeFromJsonObject(field.getValue());
         } else {
           // Get from the schema
-          type = schemaMap.get(columnName);
+          type = schemaMap.get(field.getKey());
           if (type == null) {
             // only when the type of the value is unrecognizable for JAVA
             throw SnowflakeErrors.ERROR_5022.getException(
-                "column: " + columnName + " schemaMap: " + schemaMap);
+                "column: " + field.getKey() + " schemaMap: " + schemaMap);
           }
         }
-        columnToType.put(columnName, type);
+        columnToType.put(colName, type);
       }
     }
+
     return columnToType;
   }
 
@@ -143,9 +156,17 @@ public class SchematizationUtils {
   private static Map<String, String> getSchemaMapFromRecord(SinkRecord record) {
     Map<String, String> schemaMap = new HashMap<>();
     Schema schema = record.valueSchema();
-    if (schema != null) {
+    if (schema != null && schema.fields() != null) {
       for (Field field : schema.fields()) {
-        schemaMap.put(field.name(), convertToSnowflakeType(field.schema().type()));
+        String snowflakeType = convertToSnowflakeType(field.schema().type(), field.schema().name());
+        LOGGER.info(
+            "Got the snowflake data type for field:{}, schemaName:{}, kafkaType:{},"
+                + " snowflakeType:{}",
+            field.name(),
+            field.schema().name(),
+            field.schema().type(),
+            snowflakeType);
+        schemaMap.put(field.name(), snowflakeType);
       }
     }
     return schemaMap;
@@ -158,7 +179,8 @@ public class SchematizationUtils {
       // only when the type of the value is unrecognizable for JAVA
       throw SnowflakeErrors.ERROR_5021.getException("class: " + value.getClass());
     }
-    return convertToSnowflakeType(schemaType);
+    // Passing null to schemaName when there is no schema information
+    return convertToSnowflakeType(schemaType, null);
   }
 
   /** Convert a json node type to kafka data type */
@@ -192,16 +214,26 @@ public class SchematizationUtils {
   }
 
   /** Convert the kafka data type to Snowflake data type */
-  private static String convertToSnowflakeType(Type kafkaType) {
+  private static String convertToSnowflakeType(Type kafkaType, String schemaName) {
     switch (kafkaType) {
       case INT8:
         return "BYTEINT";
       case INT16:
         return "SMALLINT";
       case INT32:
-        return "INT";
+        if (Date.LOGICAL_NAME.equals(schemaName)) {
+          return "DATE";
+        } else if (Time.LOGICAL_NAME.equals(schemaName)) {
+          return "TIME(6)";
+        } else {
+          return "INT";
+        }
       case INT64:
-        return "BIGINT";
+        if (Timestamp.LOGICAL_NAME.equals(schemaName)) {
+          return "TIMESTAMP(6)";
+        } else {
+          return "BIGINT";
+        }
       case FLOAT32:
         return "FLOAT";
       case FLOAT64:
@@ -211,7 +243,11 @@ public class SchematizationUtils {
       case STRING:
         return "VARCHAR";
       case BYTES:
-        return "BINARY";
+        if (Decimal.LOGICAL_NAME.equals(schemaName)) {
+          return "VARCHAR";
+        } else {
+          return "BINARY";
+        }
       case ARRAY:
         return "ARRAY";
       default:

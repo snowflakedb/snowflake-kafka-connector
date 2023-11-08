@@ -6,7 +6,7 @@ import static com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.SnowflakeTelemetryServiceV2;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceV1;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -38,6 +38,13 @@ public class ConnectionServiceIT {
     SnowflakeConnectionServiceFactory.builder()
         .setProperties(TestUtils.getConfWithEncryptedKey())
         .build();
+  }
+
+  @Test
+  public void testOAuthAZ() {
+    Map<String, String> confWithOAuth = TestUtils.getConfWithOAuth();
+    assert confWithOAuth.containsKey(Utils.SF_OAUTH_CLIENT_ID);
+    SnowflakeConnectionServiceFactory.builder().setProperties(TestUtils.getConfWithOAuth()).build();
   }
 
   @Test
@@ -108,7 +115,7 @@ public class ConnectionServiceIT {
         });
 
     SnowflakeURL url = TestUtils.getUrl();
-    Properties prop = InternalUtils.createProperties(TestUtils.getConf(), url.sslEnabled());
+    Properties prop = InternalUtils.createProperties(TestUtils.getConf(), url);
     String appName = TestUtils.TEST_CONNECTOR_NAME;
 
     service =

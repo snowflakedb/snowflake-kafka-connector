@@ -65,6 +65,14 @@ public class StreamingUtils {
   // This is overhead size for calculating while buffering Kafka records.
   public static final int MAX_RECORD_OVERHEAD_BYTES = DefaultRecord.MAX_RECORD_OVERHEAD;
 
+  // TODO: Modify STREAMING_CONSTANT to Constants. after SNOW-352846 is released
+  public static final String STREAMING_CONSTANT_AUTHORIZATION_TYPE = "authorization_type";
+  public static final String STREAMING_CONSTANT_JWT = "JWT";
+  public static final String STREAMING_CONSTANT_OAUTH = "OAuth";
+  public static final String STREAMING_CONSTANT_OAUTH_CLIENT_ID = "oauth_client_id";
+  public static final String STREAMING_CONSTANT_OAUTH_CLIENT_SECRET = "oauth_client_secret";
+  public static final String STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN = "oauth_refresh_token";
+
   /* Maps streaming client's property keys to what we got from snowflake KC config file. */
   public static Map<String, String> convertConfigForStreamingClient(
       Map<String, String> connectorConfig) {
@@ -91,6 +99,20 @@ public class StreamingUtils {
         });
 
     connectorConfig.computeIfPresent(
+        Utils.SF_AUTHENTICATOR,
+        (key, value) -> {
+          if (value.equals(Utils.SNOWFLAKE_JWT)) {
+            streamingPropertiesMap.put(
+                STREAMING_CONSTANT_AUTHORIZATION_TYPE, STREAMING_CONSTANT_JWT);
+          }
+          if (value.equals(Utils.OAUTH)) {
+            streamingPropertiesMap.put(
+                STREAMING_CONSTANT_AUTHORIZATION_TYPE, STREAMING_CONSTANT_OAUTH);
+          }
+          return value;
+        });
+
+    connectorConfig.computeIfPresent(
         Utils.SF_PRIVATE_KEY,
         (key, value) -> {
           streamingPropertiesMap.put(Constants.PRIVATE_KEY, value);
@@ -105,6 +127,28 @@ public class StreamingUtils {
           }
           return value;
         });
+
+    connectorConfig.computeIfPresent(
+        Utils.SF_OAUTH_CLIENT_ID,
+        (key, value) -> {
+          streamingPropertiesMap.put(STREAMING_CONSTANT_OAUTH_CLIENT_ID, value);
+          return value;
+        });
+
+    connectorConfig.computeIfPresent(
+        Utils.SF_OAUTH_CLIENT_SECRET,
+        (key, value) -> {
+          streamingPropertiesMap.put(STREAMING_CONSTANT_OAUTH_CLIENT_SECRET, value);
+          return value;
+        });
+
+    connectorConfig.computeIfPresent(
+        Utils.SF_OAUTH_REFRESH_TOKEN,
+        (key, value) -> {
+          streamingPropertiesMap.put(STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN, value);
+          return value;
+        });
+
     return streamingPropertiesMap;
   }
 

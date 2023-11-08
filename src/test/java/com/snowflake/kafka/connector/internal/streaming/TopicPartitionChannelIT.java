@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -7,6 +9,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -39,9 +42,11 @@ public class TopicPartitionChannelIT {
 
     topicPartition2 = new TopicPartition(topic, PARTITION_2);
 
-    testChannelName = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION);
+    testChannelName =
+        SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, PARTITION);
 
-    testChannelName2 = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION_2);
+    testChannelName2 =
+        SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, PARTITION_2);
   }
 
   @After
@@ -89,7 +94,8 @@ public class TopicPartitionChannelIT {
             new StreamingBufferThreshold(10, 10_000, 1),
             config,
             new InMemoryKafkaRecordErrorReporter(),
-            new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
+            new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
+            conn.getTelemetryClient());
 
     // since channel is updated, try to insert data again or may be call getOffsetToken
     // We will reopen the channel in since the older channel in service is stale because we
@@ -101,6 +107,7 @@ public class TopicPartitionChannelIT {
     assert inMemorySinkTaskContext.offsets().get(topicPartition) == 1;
     assert TestUtils.tableSize(testTableName) == noOfRecords
         : "expected: " + noOfRecords + " actual: " + TestUtils.tableSize(testTableName);
+    service.closeAll();
   }
 
   /* This will automatically open the channel. */
@@ -157,6 +164,7 @@ public class TopicPartitionChannelIT {
             + (noOfRecords + noOfRecords)
             + " actual: "
             + TestUtils.tableSize(testTableName);
+    service.closeAll();
   }
 
   /**
@@ -370,6 +378,7 @@ public class TopicPartitionChannelIT {
                 + anotherSetOfRecords)
             + " actual: "
             + TestUtils.tableSize(testTableName);
+    service.closeAll();
   }
 
   @Test
@@ -444,6 +453,7 @@ public class TopicPartitionChannelIT {
             + (recordsInPartition1 + anotherSetOfRecords)
             + " actual: "
             + TestUtils.tableSize(testTableName);
+    service.closeAll();
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -473,5 +483,6 @@ public class TopicPartitionChannelIT {
 
     // should throw because we don't take arrow version 1 anymore
     service.insert(records);
+    service.closeAll();
   }
 }

@@ -488,7 +488,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   public void appendColumnsToTable(String tableName, Map<String, String> columnToType) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-    StringBuilder appendColumnQuery = new StringBuilder("alter table identifier(?) add column ");
+    StringBuilder appendColumnQuery = new StringBuilder("alter table identifier(?) add column if not exists ");
     boolean first = true;
     StringBuilder logColumn = new StringBuilder("[");
     for (String columnName : columnToType.keySet()) {

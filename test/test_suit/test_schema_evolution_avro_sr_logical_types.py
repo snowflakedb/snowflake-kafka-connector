@@ -1,14 +1,15 @@
-import json
+from decimal import Decimal
 
+from confluent_kafka import avro
 from test_suit.test_utils import NonRetryableError
 
 
 # test if the table is updated with the correct column
 # add test if all the records from different topics safely land in the table
-class TestSchemaEvolutionJson:
+class TestSchemaEvolutionAvroSRLogicalTypes:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_evolution_json"
+        self.fileName = "travis_correct_schema_evolution_avro_sr_logical_types"
         self.topics = []
         self.table = self.fileName + nameSalt
         self.recordNum = 100
@@ -26,51 +27,70 @@ class TestSchemaEvolutionJson:
 
         self.records.append({
             'PERFORMANCE_STRING': 'Excellent',
-            '"case_sensitive_PERFORMANCE_CHAR"': 'A',
-            'RATING_INT': 100
+            'TIME_MILLIS': 10,
+            'DATE': 11,
+            'TIMESTAMP_MILLIS': 12,
+            'DECIMAL': Decimal(4.0)
         })
 
         self.records.append({
             'PERFORMANCE_STRING': 'Excellent',
             'RATING_DOUBLE': 0.99,
-            'APPROVAL': True
         })
+
+        self.ValueSchemaStr = []
+
+        self.ValueSchemaStr.append("""
+        {
+            "type":"record",
+            "name":"value_schema_0",
+            "fields":[
+                {"name":"PERFORMANCE_STRING","type":"string"},
+                {"name":"TIME_MILLIS","type":{"type":"int","logicalType":"time-millis"}},
+                {"name":"DATE","type":{"type":"int","logicalType":"date"}},
+                {"name":"DECIMAL","type":{"type":"bytes","logicalType":"decimal", "precision":4, "scale":2}},
+                {"name":"TIMESTAMP_MILLIS","type":{"type":"long","logicalType":"timestamp-millis"}}
+            ]
+        }
+        """)
+
+        self.ValueSchemaStr.append("""
+        {
+            "type":"record",
+            "name":"value_schema_1",
+            "fields":[
+                {"name":"RATING_DOUBLE","type":"float"},
+                {"name":"PERFORMANCE_STRING","type":"string"}
+            ]
+        }
+        """)
 
         self.gold_type = {
             'PERFORMANCE_STRING': 'VARCHAR',
-            'case_sensitive_PERFORMANCE_CHAR': 'VARCHAR',
-            'RATING_INT': 'NUMBER',
             'RATING_DOUBLE': 'FLOAT',
-            'APPROVAL': 'BOOLEAN',
+            'TIME_MILLIS': 'TIME(6)',
+            'DATE': 'DATE',
+            'TIMESTAMP_MILLIS': 'TIMESTAMP_NTZ(6)',
+            'DECIMAL': 'VARCHAR',
             'RECORD_METADATA': 'VARIANT'
         }
 
         self.gold_columns = [columnName for columnName in self.gold_type]
+
+        self.valueSchema = []
+
+        for valueSchemaStr in self.ValueSchemaStr:
+            self.valueSchema.append(avro.loads(str(valueSchemaStr)))
 
     def getConfigFileName(self):
         return self.fileName + ".json"
 
     def send(self):
         for i, topic in enumerate(self.topics):
-            key = []
             value = []
-
-            # send two less record because we are sending tombstone records. tombstone ingestion is enabled by default
-            for e in range(self.recordNum - 2):
-                key.append(json.dumps({'number': str(e)}).encode('utf-8'))
-                value.append(json.dumps(self.records[i]).encode('utf-8'))
-
-            # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
-            if self.driver.testVersion == '2.5.1':
-                value.append(json.dumps(self.records[i]).encode('utf-8'))
-                value.append(json.dumps(self.records[i]).encode('utf-8'))
-            else:
-                value.append(None)
-                value.append("") # community converters treat this as a tombstone
-            key.append(json.dumps({'number': str(self.recordNum - 1)}).encode('utf-8'))
-            key.append(json.dumps({'number': str(self.recordNum)}).encode('utf-8'))
-
-            self.driver.sendBytesData(topic, value, key)
+            for _ in range(self.recordNum):
+                value.append(self.records[i])
+            self.driver.sendAvroSRData(topic, value, self.valueSchema[i], key=[], key_schema="", partition=0)
 
     def verify(self, round):
         rows = self.driver.snowflake_conn.cursor().execute(

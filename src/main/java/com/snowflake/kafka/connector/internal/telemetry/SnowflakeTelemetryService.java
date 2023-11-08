@@ -49,6 +49,7 @@ public abstract class SnowflakeTelemetryService {
   private static final String VERSION = "version";
   private static final String KAFKA_VERSION = "kafka_version";
   protected static final String IS_PIPE_CLOSING = "is_pipe_closing";
+  protected static final String IS_CHANNEL_CLOSING = "is_channel_closing";
 
   // Telemetry instance fetched from JDBC
   protected Telemetry telemetry;
@@ -90,7 +91,7 @@ public abstract class SnowflakeTelemetryService {
     dataObjectNode.put(KAFKA_VERSION, AppInfoParser.getVersion());
     addUserConnectorPropertiesToDataNode(userProvidedConfig, dataObjectNode);
 
-    send(SnowflakeTelemetryServiceV1.TelemetryType.KAFKA_START, dataObjectNode);
+    send(SnowflakeTelemetryService.TelemetryType.KAFKA_START, dataObjectNode);
   }
 
   /**
@@ -104,7 +105,7 @@ public abstract class SnowflakeTelemetryService {
     msg.put(START_TIME, startTime);
     msg.put(END_TIME, System.currentTimeMillis());
 
-    send(SnowflakeTelemetryServiceV1.TelemetryType.KAFKA_STOP, msg);
+    send(SnowflakeTelemetryService.TelemetryType.KAFKA_STOP, msg);
   }
 
   /**
@@ -118,20 +119,28 @@ public abstract class SnowflakeTelemetryService {
     msg.put(TIME, System.currentTimeMillis());
     msg.put(ERROR_NUMBER, errorDetail);
 
-    send(SnowflakeTelemetryServiceV1.TelemetryType.KAFKA_FATAL_ERROR, msg);
+    send(SnowflakeTelemetryService.TelemetryType.KAFKA_FATAL_ERROR, msg);
   }
 
   /**
    * report connector's partition usage.
    *
-   * <p>It depends on the underlying implementation of Kafka connector, i.e weather it is Snowpipe
-   * or Snowpipe Streaming
-   *
    * @param partitionStatus SnowflakePipeStatus object
    * @param isClosing is the underlying pipe/channel closing
    */
-  public abstract void reportKafkaPartitionUsage(
-      final SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing);
+  public void reportKafkaPartitionUsage(
+      final SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {
+    ObjectNode msg = getObjectNode();
+
+    partitionStatus.dumpTo(msg);
+    msg.put(
+        partitionStatus.telemetryType == TelemetryType.KAFKA_PIPE_USAGE
+            ? IS_PIPE_CLOSING
+            : IS_CHANNEL_CLOSING,
+        isClosing);
+
+    send(partitionStatus.telemetryType, msg);
+  }
 
   /**
    * Get default object Node which will be part of every telemetry being sent to snowflake. Based on
@@ -144,14 +153,14 @@ public abstract class SnowflakeTelemetryService {
   /**
    * report connector partition start
    *
-   * @param pipeCreation SnowflakeTelemetryBasicInfor object
+   * @param partitionCreation SnowflakeTelemetryBasicInfo object
    */
-  public void reportKafkaPartitionStart(final SnowflakeTelemetryBasicInfo pipeCreation) {
+  public void reportKafkaPartitionStart(final SnowflakeTelemetryBasicInfo partitionCreation) {
     ObjectNode msg = getObjectNode();
 
-    pipeCreation.dumpTo(msg);
+    partitionCreation.dumpTo(msg);
 
-    send(SnowflakeTelemetryServiceV1.TelemetryType.KAFKA_PIPE_START, msg);
+    send(partitionCreation.telemetryType, msg);
   }
 
   /**
@@ -194,7 +203,7 @@ public abstract class SnowflakeTelemetryService {
    * @param type type of Data
    * @param data JsonData to wrap in a json field called data
    */
-  protected void send(SnowflakeTelemetryServiceV1.TelemetryType type, JsonNode data) {
+  protected void send(SnowflakeTelemetryService.TelemetryType type, JsonNode data) {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(SOURCE, KAFKA_CONNECTOR);
     msg.put(TYPE, type.toString());
@@ -265,12 +274,14 @@ public abstract class SnowflakeTelemetryService {
             ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT + ""));
   }
 
-  enum TelemetryType {
+  public enum TelemetryType {
     KAFKA_START("kafka_start"),
     KAFKA_STOP("kafka_stop"),
     KAFKA_FATAL_ERROR("kafka_fatal_error"),
     KAFKA_PIPE_USAGE("kafka_pipe_usage"),
-    KAFKA_PIPE_START("kafka_pipe_start");
+    KAFKA_PIPE_START("kafka_pipe_start"),
+    KAFKA_CHANNEL_USAGE("kafka_channel_usage"),
+    KAFKA_CHANNEL_START("kafka_channel_start");
 
     private final String name;
 
