@@ -22,7 +22,6 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.Map;
 import java.util.Properties;
-
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.Pair;
 import net.snowflake.ingest.utils.SFException;

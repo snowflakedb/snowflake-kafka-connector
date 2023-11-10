@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.Pair;
@@ -72,7 +71,8 @@ public class StreamingClientHandler {
    * @param connectorConfig The config to create the client
    * @return A newly created client
    */
-  public Pair<Properties, SnowflakeStreamingIngestClient> createClient(Map<String, String> connectorConfig) {
+  public Pair<Properties, SnowflakeStreamingIngestClient> createClient(
+      Map<String, String> connectorConfig) {
     LOGGER.info("Initializing Streaming Client...");
 
     Properties streamingClientProps = getClientProperties(connectorConfig);

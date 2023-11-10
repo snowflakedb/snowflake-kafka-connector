@@ -27,7 +27,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.junit.After;
 import org.junit.Before;
@@ -112,7 +111,8 @@ public class StreamingClientProviderTest {
     this.invalidClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
     Mockito.when(this.invalidClient.isClosed()).thenReturn(true);
     Map<Properties, SnowflakeStreamingIngestClient> inputMap = new HashMap<>();
-    inputMap.put(StreamingClientHandler.getClientProperties(this.clientConfig1), this.invalidClient);
+    inputMap.put(
+        StreamingClientHandler.getClientProperties(this.clientConfig1), this.invalidClient);
 
     StreamingClientProvider injectedProvider =
         getStreamingClientProviderForTests(inputMap, this.streamingClientHandler);
