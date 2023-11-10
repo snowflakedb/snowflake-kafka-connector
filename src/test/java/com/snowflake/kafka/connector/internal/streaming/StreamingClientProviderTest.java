@@ -29,7 +29,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.utils.Constants;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -172,7 +171,8 @@ public class StreamingClientProviderTest {
 
   @Test
   public void testTwoDifferentClients() {
-    // make configs with different roles, should not use the same client even with optimization enabled
+    // make configs with different roles, should not use the same client even with optimization
+    // enabled
     this.clientConfig1.put(SF_ROLE, "public");
 
     // test

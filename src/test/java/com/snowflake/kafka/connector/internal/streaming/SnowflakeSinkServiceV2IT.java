@@ -1509,7 +1509,8 @@ public class SnowflakeSinkServiceV2IT {
     }
   }
 
-  // note this test relies on testrole_kafka and testrole_kafka_1 roles being granted to test_kafka user
+  // note this test relies on testrole_kafka and testrole_kafka_1 roles being granted to test_kafka
+  // user
   @Test
   public void testStreamingIngest_multipleChannel_distinctClients() throws Exception {
     // create cat and dog configs and partitions
@@ -1527,18 +1528,20 @@ public class SnowflakeSinkServiceV2IT {
     // setup connection and create tables
     String catTopic = "catTopic";
     TopicPartition catTp = new TopicPartition(catTopic, 0);
-    SnowflakeConnectionService catConn = SnowflakeConnectionServiceFactory.builder().setProperties(catConfig).build();
+    SnowflakeConnectionService catConn =
+        SnowflakeConnectionServiceFactory.builder().setProperties(catConfig).build();
     catConn.createTable(catTopic);
 
     String dogTopic = "dogTopic";
     TopicPartition dogTp = new TopicPartition(dogTopic, 1);
-    SnowflakeConnectionService dogconn =  SnowflakeConnectionServiceFactory.builder().setProperties(dogConfig).build();
+    SnowflakeConnectionService dogconn =
+        SnowflakeConnectionServiceFactory.builder().setProperties(dogConfig).build();
     dogconn.createTable(dogTopic);
 
     // create the sink services
     SnowflakeSinkService catService =
         SnowflakeSinkServiceFactory.builder(
-            catConn, IngestionMethodConfig.SNOWPIPE_STREAMING, catConfig)
+                catConn, IngestionMethodConfig.SNOWPIPE_STREAMING, catConfig)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(catTp)))
@@ -1547,7 +1550,7 @@ public class SnowflakeSinkServiceV2IT {
 
     SnowflakeSinkService dogService =
         SnowflakeSinkServiceFactory.builder(
-            dogconn, IngestionMethodConfig.SNOWPIPE_STREAMING, dogConfig)
+                dogconn, IngestionMethodConfig.SNOWPIPE_STREAMING, dogConfig)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(dogTp)))
@@ -1568,14 +1571,8 @@ public class SnowflakeSinkServiceV2IT {
     dogService.insert(dogRecords);
 
     // check data was ingested
-    TestUtils.assertWithRetry(
-        () -> catService.getOffset(catTp) == catRecordCount,
-        20,
-        5);
-    TestUtils.assertWithRetry(
-        () -> dogService.getOffset(dogTp) == dogRecordCount,
-        20,
-        5);
+    TestUtils.assertWithRetry(() -> catService.getOffset(catTp) == catRecordCount, 20, 5);
+    TestUtils.assertWithRetry(() -> dogService.getOffset(dogTp) == dogRecordCount, 20, 5);
 
     // close services
     catService.closeAll();

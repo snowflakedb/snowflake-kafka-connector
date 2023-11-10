@@ -20,7 +20,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -160,7 +159,8 @@ public class StreamingClientHandlerTest {
 
   @Test
   public void testGetClientProperties() {
-    Map<String, String> expectedConfigs = StreamingUtils.convertConfigForStreamingClient(this.connectorConfig);
+    Map<String, String> expectedConfigs =
+        StreamingUtils.convertConfigForStreamingClient(this.connectorConfig);
     Properties gotProps = StreamingClientHandler.getClientProperties(this.connectorConfig);
 
     // test conversion
@@ -174,7 +174,8 @@ public class StreamingClientHandlerTest {
   @Test
   public void testGetNullClientProperties() {
     Map<String, String> expectedConfigs = new HashMap<>();
-    Properties gotProps = StreamingClientHandler.getClientProperties(null); // mostly check against NPE
+    Properties gotProps =
+        StreamingClientHandler.getClientProperties(null); // mostly check against NPE
 
     assert expectedConfigs.size() == gotProps.size();
   }
