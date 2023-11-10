@@ -52,6 +52,12 @@ public class StreamingClientHandler {
     return client != null && !client.isClosed() && client.getName() != null;
   }
 
+  /**
+   * Gets the Properties from the input connector config
+   *
+   * @param connectorConfig configuration properties for a connector
+   * @return the Properties object needed for client creation
+   */
   public static Properties getClientProperties(Map<String, String> connectorConfig) {
     Properties streamingClientProps = new Properties();
     streamingClientProps.putAll(

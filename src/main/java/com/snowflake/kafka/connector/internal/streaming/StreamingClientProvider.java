@@ -37,8 +37,8 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.Pair;
 
 /**
- * Factory that provides the streaming client(s). There should only be one provider, but it may
- * provide multiple clients if optimizations are disabled - see
+ * Static factory that provides the streaming client(s). There should only be one provider per KC worker node, but it may
+ * provide multiple clients per connector if optimizations are disabled - see
  * ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG in the {@link SnowflakeSinkConnectorConfig }
  */
 public class StreamingClientProvider {
@@ -61,7 +61,7 @@ public class StreamingClientProvider {
   public static StreamingClientProvider getStreamingClientProviderForTests(
       Map<Properties, SnowflakeStreamingIngestClient> parameterEnabledPropsAndClients,
       StreamingClientHandler streamingClientHandler) {
-    return new StreamingClientProvider(parameterEnabledPropsAndClients, streamingClientHandler);
+    return new StreamingClientProvider(parameterEnabledPropsAndClients == null ? new HashMap<>() : parameterEnabledPropsAndClients, streamingClientHandler);
   }
 
   /** ONLY FOR TESTING - private constructor to inject properties for testing */
