@@ -17,6 +17,7 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.Utils.SF_ROLE;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.getStreamingClientProviderForTests;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -28,6 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.utils.Constants;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -164,6 +166,46 @@ public class StreamingClientProviderTest {
       Mockito.verify(this.streamingClientHandler, Mockito.times(2))
           .createClient(this.clientConfig1);
       Mockito.verify(this.streamingClientHandler, Mockito.times(1))
+          .createClient(this.clientConfig2);
+    }
+  }
+
+  @Test
+  public void testTwoDifferentClients() {
+    // make configs with different roles, should not use the same client even with optimization enabled
+    this.clientConfig1.put(SF_ROLE, "public");
+
+    // test
+    this.client1 = this.streamingClientProvider.getClient(this.clientConfig1);
+    this.client2 = this.streamingClientProvider.getClient(this.clientConfig2);
+    this.client3 = this.streamingClientProvider.getClient(this.clientConfig2);
+
+    // verify: clients are valid and have expected names
+    assert StreamingClientHandler.isClientValid(client1);
+    assert StreamingClientHandler.isClientValid(client2);
+    assert StreamingClientHandler.isClientValid(client3);
+    assert client1.getName().contains(this.clientConfig1.get(Utils.NAME));
+    assert client2.getName().contains(this.clientConfig2.get(Utils.NAME));
+    assert client3.getName().contains(this.clientConfig2.get(Utils.NAME));
+
+    // verify: client2 and client3 should be the same, but distinct from client1
+    if (this.enableClientOptimization) {
+      assert client2.getName().equals(client3.getName());
+      assert !client1.getName().equals(client2.getName());
+
+      Mockito.verify(this.streamingClientHandler, Mockito.times(1))
+          .createClient(this.clientConfig1);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(1))
+          .createClient(this.clientConfig2);
+    } else {
+      // client 1 and 3 are created from the same config, but will have different names
+      assert !client1.getName().equals(client2.getName());
+      assert !client2.getName().equals(client3.getName());
+      assert !client1.getName().equals(client3.getName());
+
+      Mockito.verify(this.streamingClientHandler, Mockito.times(1))
+          .createClient(this.clientConfig1);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(2))
           .createClient(this.clientConfig2);
     }
   }

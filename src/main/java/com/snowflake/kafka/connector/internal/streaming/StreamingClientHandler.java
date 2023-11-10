@@ -59,8 +59,11 @@ public class StreamingClientHandler {
    */
   public static Properties getClientProperties(Map<String, String> connectorConfig) {
     Properties streamingClientProps = new Properties();
-    streamingClientProps.putAll(
-        StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig)));
+
+    if (connectorConfig != null) {
+      streamingClientProps.putAll(
+          StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig)));
+    }
 
     return streamingClientProps;
   }
@@ -69,7 +72,7 @@ public class StreamingClientHandler {
    * Creates a streaming client from the given config
    *
    * @param connectorConfig The config to create the client
-   * @return A newly created client
+   * @return The client properties and the newly created client
    */
   public Pair<Properties, SnowflakeStreamingIngestClient> createClient(
       Map<String, String> connectorConfig) {
@@ -90,7 +93,6 @@ public class StreamingClientHandler {
 
     try {
       String clientName = this.getNewClientName(connectorConfig);
-
       SnowflakeStreamingIngestClient createdClient =
           SnowflakeStreamingIngestClientFactory.builder(clientName)
               .setProperties(streamingClientProps)

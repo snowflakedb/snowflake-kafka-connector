@@ -33,8 +33,9 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.Pair;
 
 /**
- * Static factory that provides the streaming client(s). There should only be one provider per KC
- * worker node, but it may provide multiple clients per connector if optimizations are disabled -
+ * Static factory that provides streaming client(s). There should only be one provider per KC
+ * worker node, meaning that there may be multiple providers serving one connector and/or multiple connectors on one provider.
+ * If the optimization is disabled, the provider will not reuse old clients,/
  * see ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG in the {@link SnowflakeSinkConnectorConfig }
  */
 public class StreamingClientProvider {

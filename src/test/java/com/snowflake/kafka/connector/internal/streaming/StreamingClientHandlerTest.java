@@ -20,6 +20,8 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
+
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
@@ -154,5 +156,26 @@ public class StreamingClientHandlerTest {
     assert !StreamingClientHandler.isClientValid(unnamedClient);
     Mockito.verify(unnamedClient, Mockito.times(1)).isClosed();
     Mockito.verify(unnamedClient, Mockito.times(1)).getName();
+  }
+
+  @Test
+  public void testGetClientProperties() {
+    Map<String, String> expectedConfigs = StreamingUtils.convertConfigForStreamingClient(this.connectorConfig);
+    Properties gotProps = StreamingClientHandler.getClientProperties(this.connectorConfig);
+
+    // test conversion
+    assert expectedConfigs.size() == gotProps.size();
+    for (String key : expectedConfigs.keySet()) {
+      String value = expectedConfigs.get(key);
+      assert gotProps.get(key).toString().equals(value);
+    }
+  }
+
+  @Test
+  public void testGetNullClientProperties() {
+    Map<String, String> expectedConfigs = new HashMap<>();
+    Properties gotProps = StreamingClientHandler.getClientProperties(null); // mostly check against NPE
+
+    assert expectedConfigs.size() == gotProps.size();
   }
 }
