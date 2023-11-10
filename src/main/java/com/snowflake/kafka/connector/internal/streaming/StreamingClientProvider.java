@@ -21,11 +21,20 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
+
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.utils.Pair;
 
 /**
  * Factory that provides the streaming client(s). There should only be one provider, but it may
@@ -50,28 +59,29 @@ public class StreamingClientProvider {
   /** ONLY FOR TESTING - to get a provider with injected properties */
   @VisibleForTesting
   public static StreamingClientProvider getStreamingClientProviderForTests(
-      SnowflakeStreamingIngestClient parameterEnabledClient,
+      Map<Properties, SnowflakeStreamingIngestClient> parameterEnabledPropsAndClients,
       StreamingClientHandler streamingClientHandler) {
-    return new StreamingClientProvider(parameterEnabledClient, streamingClientHandler);
+    return new StreamingClientProvider(parameterEnabledPropsAndClients, streamingClientHandler);
   }
 
   /** ONLY FOR TESTING - private constructor to inject properties for testing */
   private StreamingClientProvider(
-      SnowflakeStreamingIngestClient parameterEnabledClient,
+      Map<Properties, SnowflakeStreamingIngestClient> registeredClientMap,
       StreamingClientHandler streamingClientHandler) {
     this();
-    this.parameterEnabledClient = parameterEnabledClient;
+    this.registeredClientMap = registeredClientMap;
     this.streamingClientHandler = streamingClientHandler;
   }
 
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProvider.class.getName());
-  private SnowflakeStreamingIngestClient parameterEnabledClient;
+  private Map<Properties, SnowflakeStreamingIngestClient> registeredClientMap;
   private StreamingClientHandler streamingClientHandler;
   private Lock providerLock;
 
   // private constructor for singleton
   private StreamingClientProvider() {
     this.streamingClientHandler = new StreamingClientHandler();
+    this.registeredClientMap = new HashMap<>();
     providerLock = new ReentrantLock(true);
   }
 
@@ -84,25 +94,57 @@ public class StreamingClientProvider {
    * @return A streaming client
    */
   public SnowflakeStreamingIngestClient getClient(Map<String, String> connectorConfig) {
+    SnowflakeStreamingIngestClient resultClient = null;
+
     if (Boolean.parseBoolean(
         connectorConfig.getOrDefault(
             SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
             Boolean.toString(ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT)))) {
-      LOGGER.info(
-          "Streaming client optimization is enabled, returning the existing streaming client if"
-              + " valid");
-      this.providerLock.lock();
-      // recreate streaming client if needed
-      if (!StreamingClientHandler.isClientValid(this.parameterEnabledClient)) {
-        LOGGER.error("Current streaming client is invalid, recreating client");
-        this.parameterEnabledClient = this.streamingClientHandler.createClient(connectorConfig);
+      LOGGER.debug(
+          "Streaming client optimization is enabled per worker node. Reusing valid clients when possible");
+
+      try {
+        this.providerLock.lock();
+
+        // remove invalid clients
+        List<Map.Entry<Properties, SnowflakeStreamingIngestClient>> invalidClientProps =
+            this.registeredClientMap.entrySet().stream()
+            .filter(entry -> !StreamingClientHandler.isClientValid(entry.getValue()))
+            .collect(Collectors.toList());
+        if (!invalidClientProps.isEmpty()) {
+          String invalidClientNames = "";
+
+          for (Map.Entry<Properties, SnowflakeStreamingIngestClient> entry : invalidClientProps) {
+            SnowflakeStreamingIngestClient invalidClient = entry.getValue();
+            invalidClientNames += invalidClient != null && invalidClient.getName() != null && !invalidClient.getName().isEmpty() ?
+                invalidClient.getName()
+                : "noClientNameFound";
+            this.registeredClientMap.remove(entry.getKey());
+          }
+
+          LOGGER.error("Found and removed {} invalid clients: {}", invalidClientProps.size(), invalidClientNames);
+        }
+
+        // look for client corresponding to the input properties or create new client
+        Properties inputProps = StreamingClientHandler.getClientProperties(connectorConfig);
+        if (this.registeredClientMap.containsKey(inputProps)) {
+          resultClient = this.registeredClientMap.get(inputProps);
+          LOGGER.debug("Using existing streaming client with name: {}", resultClient.getName());
+        } else {
+          Pair<Properties, SnowflakeStreamingIngestClient> propertiesAndClient = this.streamingClientHandler.createClient(connectorConfig);
+          resultClient = propertiesAndClient.getSecond();
+          this.registeredClientMap.put(propertiesAndClient.getFirst(), propertiesAndClient.getSecond());
+          LOGGER.debug("Created and registered new client with name: {}", resultClient.getName());
+        }
+      } finally{
+        this.providerLock.unlock();
       }
-      this.providerLock.unlock();
-      return this.parameterEnabledClient;
     } else {
-      LOGGER.info("Streaming client optimization is disabled, creating a new streaming client");
-      return this.streamingClientHandler.createClient(connectorConfig);
+      resultClient = this.streamingClientHandler.createClient(connectorConfig).getSecond();
+      LOGGER.info("Streaming client optimization is disabled, creating a new streaming client with name: {}", resultClient.getName());
     }
+
+    return resultClient;
   }
 
   /**

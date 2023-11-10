@@ -21,7 +21,10 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.Map;
+import java.util.Properties;
+
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.utils.Pair;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
@@ -43,12 +46,17 @@ public class StreamingClientHandlerTest {
 
   @Test
   public void testCreateClient() {
-    SnowflakeStreamingIngestClient client =
+    Pair<Properties, SnowflakeStreamingIngestClient> propsAndClient =
         this.streamingClientHandler.createClient(this.connectorConfig);
+    Properties props = propsAndClient.getFirst();
+    SnowflakeStreamingIngestClient client = propsAndClient.getSecond();
 
     // verify valid client against config
     assert !client.isClosed();
     assert client.getName().contains(this.connectorConfig.get(Utils.NAME));
+
+    // verify props against config
+    assert props.equals(StreamingClientHandler.getClientProperties(this.connectorConfig));
   }
 
   @Test
