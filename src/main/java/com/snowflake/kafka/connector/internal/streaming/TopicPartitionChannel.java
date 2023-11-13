@@ -112,7 +112,9 @@ public class TopicPartitionChannel {
    *   <li>If channel fails to fetch offsetToken from Snowflake, we reopen the channel and try to
    *       fetch offset from Snowflake again
    *   <li>If channel fails to ingest a buffer(Buffer containing rows/offsets), we reopen the
-   *       channel and try to fetch offset from Snowflake again
+   *       channel and try to fetch offset from Snowflake again. Schematization purposefully fails
+   *       the first buffer insert in order to alter the table, and then expects Kafka to resend
+   *       data
    * </ol>
    *
    * <p>In both cases above, we ask Kafka to send back offsets, strictly from offset number after
@@ -124,7 +126,7 @@ public class TopicPartitionChannel {
    * <p>This boolean is used to indicate that we reset offset in kafka and we will only buffer once
    * we see the offset which is one more than an offset present in Snowflake.
    */
-  private boolean isOffsetResetInKafka;
+  private boolean isOffsetResetInKafka = false;
 
   private final SnowflakeStreamingIngestClient streamingIngestClient;
 
@@ -391,14 +393,13 @@ public class TopicPartitionChannel {
    *
    * @param kafkaSinkRecord Record to check for above condition only in case of failures
    *     (isOffsetResetInKafka = true)
+   * @param currentProcessedOffset The current processed offset
    * @return true if this record can be skipped to add into buffer, false otherwise.
    */
   private boolean shouldIgnoreAddingRecordToBuffer(
-      SinkRecord kafkaSinkRecord, long currentProcessedOffset) {
-    // Don't skip rows if there is no offset reset or there is no offset token information in the
-    // channel
-    if (!isOffsetResetInKafka
-        || currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      SinkRecord kafkaSinkRecord, final long currentProcessedOffset) {
+    // Don't skip rows if there is no offset reset
+    if (!isOffsetResetInKafka) {
       return false;
     }
 

@@ -397,15 +397,24 @@ public class TopicPartitionChannelTest {
   /* Only SFExceptions goes into fallback -> reopens channel, fetch offsetToken and throws Appropriate exception */
   @Test
   public void testInsertRows_SuccessAfterReopenChannel() throws Exception {
+    final int noOfRecords = 5;
+    int expectedInsertRowsCount = 0;
+    int expectedOpenChannelCount = 0;
+    int expectedGetOffsetCount = 0;
+
+    // setup mocks to fail first insert and return two null snowflake offsets (open channel and
+    // failed insert) before succeeding
     Mockito.when(
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
-        .thenThrow(SF_EXCEPTION);
+        .thenThrow(SF_EXCEPTION)
+        .thenReturn(new InsertValidationResponse());
+    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
+        .thenReturn(null)
+        .thenReturn(null)
+        .thenReturn(Long.toString(noOfRecords - 1));
 
-    // get null from snowflake first time it is called and null for second time too since insert
-    // rows was failure
-    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenReturn(null);
-
+    // create tpchannel
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
             mockStreamingClient,
@@ -417,37 +426,47 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockTelemetryService);
-    final int noOfRecords = 5;
-    // Since record 0 was not able to ingest, all records in this batch will not be added into the
-    // buffer.
-    List<SinkRecord> records =
-        TestUtils.createJsonStringSinkRecords(0, noOfRecords, TOPIC, PARTITION);
+    expectedOpenChannelCount++;
+    expectedGetOffsetCount++;
 
-    records.forEach(topicPartitionChannel::insertRecordToBuffer);
-
-    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(noOfRecords))
+    // verify initial mock counts after tpchannel creation
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedInsertRowsCount))
         .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
-    Mockito.verify(mockStreamingClient, Mockito.times(noOfRecords + 1))
+    Mockito.verify(mockStreamingClient, Mockito.times(expectedOpenChannelCount))
         .openChannel(ArgumentMatchers.any());
-    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(noOfRecords + 1))
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedGetOffsetCount))
         .getLatestCommittedOffsetToken();
 
-    // Now, it should be successful
-    Mockito.when(
-            mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
-        .thenReturn(new InsertValidationResponse());
+    // Test inserting record 0, which should fail to ingest so the other records are ignored
+    List<SinkRecord> records =
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, TOPIC, PARTITION);
+    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    expectedInsertRowsCount++;
+    expectedOpenChannelCount++;
+    expectedGetOffsetCount++;
 
-    Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
-        .thenReturn(Long.toString(noOfRecords - 1));
+    // verify mocks only tried ingesting once
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedInsertRowsCount))
+        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+    Mockito.verify(mockStreamingClient, Mockito.times(expectedOpenChannelCount))
+        .openChannel(ArgumentMatchers.any());
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedGetOffsetCount))
+        .getLatestCommittedOffsetToken();
 
     // Retry the insert again, now everything should be ingested and the offset token should be
     // noOfRecords-1
     records.forEach(topicPartitionChannel::insertRecordToBuffer);
-    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(noOfRecords * 2))
-        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
-
     Assert.assertEquals(noOfRecords - 1, topicPartitionChannel.fetchOffsetTokenWithRetry());
+    expectedInsertRowsCount += noOfRecords;
+    expectedGetOffsetCount++;
+
+    // verify mocks ingested each record
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedInsertRowsCount))
+        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+    Mockito.verify(mockStreamingClient, Mockito.times(expectedOpenChannelCount))
+        .openChannel(ArgumentMatchers.any());
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedGetOffsetCount))
+        .getLatestCommittedOffsetToken();
   }
 
   @Test
