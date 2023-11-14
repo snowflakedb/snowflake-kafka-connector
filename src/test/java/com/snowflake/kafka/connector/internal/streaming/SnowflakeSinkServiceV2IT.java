@@ -1575,7 +1575,10 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.assertWithRetry(() -> dogService.getOffset(dogTp) == dogRecordCount, 20, 5);
 
     // verify two clients were created
-    assert StreamingClientProvider.getStreamingClientProviderInstance().getRegisteredClientMap().size() == 2;
+    assert StreamingClientProvider.getStreamingClientProviderInstance()
+            .getRegisteredClientMap()
+            .size()
+        == 2;
 
     // close services
     catService.closeAll();

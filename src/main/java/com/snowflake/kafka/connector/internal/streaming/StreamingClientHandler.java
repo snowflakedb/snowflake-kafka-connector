@@ -28,7 +28,6 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.Pair;
@@ -73,12 +72,14 @@ public class StreamingClientHandler {
   public static String getLoggablePropertyStr(Properties properties) {
 
     return properties.entrySet().stream()
-        .filter(propKvp -> !StreamingUtils.SENSITIVE_STREAMING_CONFIG_PROPERTIES.contains(propKvp.getKey().toString()))
-        .collect(Collectors.toList()).toString();
+        .filter(
+            propKvp ->
+                !StreamingUtils.SENSITIVE_STREAMING_CONFIG_PROPERTIES.contains(
+                    propKvp.getKey().toString()))
+        .collect(Collectors.toList())
+        .toString();
 
-
-
-//    while (properties.)
+    //    while (properties.)
   }
 
   /**

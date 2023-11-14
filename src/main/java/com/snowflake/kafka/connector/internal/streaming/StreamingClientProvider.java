@@ -22,7 +22,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -80,7 +79,8 @@ public class StreamingClientProvider {
   private Lock providerLock;
 
   /**
-   * Maps the client's properties to the created SnowflakeStreamingIngestClient with the connectors configs. See {@link StreamingClientHandler#getClientProperties(Map)}
+   * Maps the client's properties to the created SnowflakeStreamingIngestClient with the connectors
+   * configs. See {@link StreamingClientHandler#getClientProperties(Map)}
    */
   private Map<Properties, SnowflakeStreamingIngestClient> registeredClientMap;
 
@@ -150,8 +150,12 @@ public class StreamingClientProvider {
           this.registeredClientMap.put(
               propertiesAndClient.getFirst(), propertiesAndClient.getSecond());
 
-          String propertyStr = StreamingClientHandler.getLoggablePropertyStr(propertiesAndClient.getFirst());
-          LOGGER.debug("Created and registered new client with name: {} and properties: {}", resultClient.getName(), propertyStr);
+          String propertyStr =
+              StreamingClientHandler.getLoggablePropertyStr(propertiesAndClient.getFirst());
+          LOGGER.debug(
+              "Created and registered new client with name: {} and properties: {}",
+              resultClient.getName(),
+              propertyStr);
         }
       } finally {
         this.providerLock.unlock();
@@ -180,6 +184,7 @@ public class StreamingClientProvider {
 
   /**
    * Gets the current registered client map
+   *
    * @return the registered clients and corresponding properties
    */
   public Map<Properties, SnowflakeStreamingIngestClient> getRegisteredClientMap() {
