@@ -72,7 +72,7 @@ public class TopicPartitionChannelTest {
   private static final int PARTITION = 0;
 
   private static final String TEST_CHANNEL_NAME =
-      SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, TOPIC, PARTITION);
+      SnowflakeSinkServiceV2.partitionChannelKey(TOPIC, PARTITION);
   private static final String TEST_TABLE_NAME = "TEST_TABLE";
 
   private TopicPartition topicPartition;
@@ -126,6 +126,7 @@ public class TopicPartitionChannelTest {
         sfConnectorConfig,
         mockKafkaRecordErrorReporter,
         mockSinkTaskContext,
+        mockSnowflakeConnectionService,
         mockTelemetryService);
   }
 
@@ -143,6 +144,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
@@ -163,6 +165,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     Assert.assertEquals(100L, topicPartitionChannel.fetchOffsetTokenWithRetry());
@@ -188,6 +191,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     JsonConverter converter = new JsonConverter();
@@ -258,6 +262,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     try {
@@ -292,6 +297,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     int expectedRetries = MAX_GET_OFFSET_TOKEN_RETRIES;
@@ -322,6 +328,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     try {
@@ -354,6 +361,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     try {
@@ -382,6 +390,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     try {
@@ -425,6 +434,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
     expectedOpenChannelCount++;
     expectedGetOffsetCount++;
@@ -573,6 +583,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
@@ -612,6 +623,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
@@ -701,6 +713,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfigWithErrors,
             kafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
@@ -746,6 +759,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfigWithErrors,
             kafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
@@ -786,6 +800,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     // Sending 5 records will trigger a buffer bytes based threshold after 4 records have been
@@ -835,6 +850,7 @@ public class TopicPartitionChannelTest {
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
+            mockSnowflakeConnectionService,
             mockTelemetryService);
 
     // Sending 3 records will trigger a buffer bytes based threshold after 2 records have been

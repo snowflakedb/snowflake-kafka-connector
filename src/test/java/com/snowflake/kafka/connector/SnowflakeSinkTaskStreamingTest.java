@@ -88,7 +88,7 @@ public class SnowflakeSinkTaskStreamingTest {
         new TopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topicName, partition),
+            SnowflakeSinkServiceV2.partitionChannelKey(topicName, partition),
             topicName,
             new StreamingBufferThreshold(10, 10_000, 1),
             config,
@@ -97,8 +97,7 @@ public class SnowflakeSinkTaskStreamingTest {
             mockTelemetryService);
 
     Map topicPartitionChannelMap =
-        Collections.singletonMap(
-            partitionChannelKey(TEST_CONNECTOR_NAME, topicName, partition), topicPartitionChannel);
+        Collections.singletonMap(partitionChannelKey(topicName, partition), topicPartitionChannel);
 
     SnowflakeSinkServiceV2 mockSinkService =
         new SnowflakeSinkServiceV2(

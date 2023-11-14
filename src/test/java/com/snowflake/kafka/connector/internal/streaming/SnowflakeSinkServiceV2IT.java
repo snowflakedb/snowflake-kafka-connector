@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
@@ -221,8 +220,7 @@ public class SnowflakeSinkServiceV2IT {
 
     Assert.assertTrue(
         snowflakeSinkServiceV2
-            .getTopicPartitionChannelFromCacheKey(
-                partitionChannelKey(TEST_CONNECTOR_NAME, tp2.topic(), tp2.partition()))
+            .getTopicPartitionChannelFromCacheKey(partitionChannelKey(tp2.topic(), tp2.partition()))
             .isPresent());
 
     List<SinkRecord> newRecordsPartition1 =
@@ -412,8 +410,7 @@ public class SnowflakeSinkServiceV2IT {
     // verify all metrics
     Map<String, Gauge> metricRegistry =
         service
-            .getMetricRegistry(
-                SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, partition))
+            .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition))
             .get()
             .getGauges();
     assert metricRegistry.size()
@@ -422,7 +419,7 @@ public class SnowflakeSinkServiceV2IT {
     // partition 1
     this.verifyPartitionMetrics(
         metricRegistry,
-        partitionChannelKey(TEST_CONNECTOR_NAME, topic, partition),
+        partitionChannelKey(topic, partition),
         NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
         recordsInPartition1 - 1,
         recordsInPartition1,
@@ -430,7 +427,7 @@ public class SnowflakeSinkServiceV2IT {
         this.conn.getConnectorName());
     this.verifyPartitionMetrics(
         metricRegistry,
-        partitionChannelKey(TEST_CONNECTOR_NAME, topic, partition2),
+        partitionChannelKey(topic, partition2),
         NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
         recordsInPartition2 - 1,
         recordsInPartition2,
@@ -445,8 +442,7 @@ public class SnowflakeSinkServiceV2IT {
 
     // verify metrics closed
     assert !service
-        .getMetricRegistry(
-            SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, partition))
+        .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition))
         .isPresent();
 
     Mockito.verify(telemetryService, Mockito.times(2))
