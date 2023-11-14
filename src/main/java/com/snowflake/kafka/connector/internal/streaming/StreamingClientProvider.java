@@ -22,6 +22,8 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,9 +76,13 @@ public class StreamingClientProvider {
   }
 
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProvider.class.getName());
-  private Map<Properties, SnowflakeStreamingIngestClient> registeredClientMap;
   private StreamingClientHandler streamingClientHandler;
   private Lock providerLock;
+
+  /**
+   * Maps the client's properties to the created SnowflakeStreamingIngestClient with the connectors configs. See {@link StreamingClientHandler#getClientProperties(Map)}
+   */
+  private Map<Properties, SnowflakeStreamingIngestClient> registeredClientMap;
 
   // private constructor for singleton
   private StreamingClientProvider() {
@@ -113,23 +119,23 @@ public class StreamingClientProvider {
                 .filter(entry -> !StreamingClientHandler.isClientValid(entry.getValue()))
                 .collect(Collectors.toList());
         if (!invalidClientProps.isEmpty()) {
-          String invalidClientNames = "";
+          List<String> invalidClientNames = new ArrayList<>();
 
           for (Map.Entry<Properties, SnowflakeStreamingIngestClient> entry : invalidClientProps) {
             SnowflakeStreamingIngestClient invalidClient = entry.getValue();
-            invalidClientNames +=
+            invalidClientNames.add(
                 invalidClient != null
                         && invalidClient.getName() != null
                         && !invalidClient.getName().isEmpty()
                     ? invalidClient.getName()
-                    : "noClientNameFound";
+                    : "noClientNameFound");
             this.registeredClientMap.remove(entry.getKey());
           }
 
           LOGGER.error(
               "Found and removed {} invalid clients: {}",
               invalidClientProps.size(),
-              invalidClientNames);
+              invalidClientNames.toString());
         }
 
         // look for client corresponding to the input properties or create new client
@@ -143,7 +149,9 @@ public class StreamingClientProvider {
           resultClient = propertiesAndClient.getSecond();
           this.registeredClientMap.put(
               propertiesAndClient.getFirst(), propertiesAndClient.getSecond());
-          LOGGER.debug("Created and registered new client with name: {}", resultClient.getName());
+
+          String propertyStr = StreamingClientHandler.getLoggablePropertyStr(propertiesAndClient.getFirst());
+          LOGGER.debug("Created and registered new client with name: {} and properties: {}", resultClient.getName(), propertyStr);
         }
       } finally {
         this.providerLock.unlock();
@@ -168,5 +176,13 @@ public class StreamingClientProvider {
     this.providerLock.lock();
     this.streamingClientHandler.closeClient(client);
     this.providerLock.unlock();
+  }
+
+  /**
+   * Gets the current registered client map
+   * @return the registered clients and corresponding properties
+   */
+  public Map<Properties, SnowflakeStreamingIngestClient> getRegisteredClientMap() {
+    return this.registeredClientMap;
   }
 }

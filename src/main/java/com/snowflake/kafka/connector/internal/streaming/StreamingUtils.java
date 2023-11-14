@@ -17,7 +17,9 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.snowflake.ingest.utils.Constants;
@@ -73,6 +75,15 @@ public class StreamingUtils {
   public static final String STREAMING_CONSTANT_OAUTH_CLIENT_SECRET = "oauth_client_secret";
   public static final String STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN = "oauth_refresh_token";
 
+  // contains config properties that should not be exposed to the customer as they may contain PII or authentication information
+  public static final List<String> SENSITIVE_STREAMING_CONFIG_PROPERTIES = Arrays.asList(
+      Constants.PRIVATE_KEY,
+      Constants.PRIVATE_KEY_PASSPHRASE,
+      STREAMING_CONSTANT_OAUTH_CLIENT_ID,
+      STREAMING_CONSTANT_OAUTH_CLIENT_SECRET,
+      STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN
+  );
+
   /* Maps streaming client's property keys to what we got from snowflake KC config file. */
   public static Map<String, String> convertConfigForStreamingClient(
       Map<String, String> connectorConfig) {
@@ -115,7 +126,7 @@ public class StreamingUtils {
     connectorConfig.computeIfPresent(
         Utils.SF_PRIVATE_KEY,
         (key, value) -> {
-          streamingPropertiesMap.put(Constants.PRIVATE_KEY, value);
+          streamingPropertiesMap.put(Constants.PRIVATE_KEY,  value);
           return value;
         });
 
@@ -123,7 +134,7 @@ public class StreamingUtils {
         Utils.PRIVATE_KEY_PASSPHRASE,
         (key, value) -> {
           if (!value.isEmpty()) {
-            streamingPropertiesMap.put(Constants.PRIVATE_KEY_PASSPHRASE, value);
+            streamingPropertiesMap.put(Constants.PRIVATE_KEY_PASSPHRASE,  value);
           }
           return value;
         });
@@ -131,14 +142,14 @@ public class StreamingUtils {
     connectorConfig.computeIfPresent(
         Utils.SF_OAUTH_CLIENT_ID,
         (key, value) -> {
-          streamingPropertiesMap.put(STREAMING_CONSTANT_OAUTH_CLIENT_ID, value);
+          streamingPropertiesMap.put(STREAMING_CONSTANT_OAUTH_CLIENT_ID,  value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
         Utils.SF_OAUTH_CLIENT_SECRET,
         (key, value) -> {
-          streamingPropertiesMap.put(STREAMING_CONSTANT_OAUTH_CLIENT_SECRET, value);
+          streamingPropertiesMap.put(STREAMING_CONSTANT_OAUTH_CLIENT_SECRET,  value);
           return value;
         });
 

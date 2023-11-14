@@ -179,4 +179,11 @@ public class StreamingClientHandlerTest {
 
     assert expectedConfigs.size() == gotProps.size();
   }
+
+  @Test
+  public void testGetLoggablePropertyStr() {
+    Properties props = StreamingClientHandler.getClientProperties(this.connectorConfig);
+
+    String test = StreamingClientHandler.getLoggablePropertyStr(props);
+  }
 }
