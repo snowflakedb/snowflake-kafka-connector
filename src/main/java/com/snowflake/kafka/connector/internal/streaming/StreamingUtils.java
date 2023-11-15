@@ -10,7 +10,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -197,17 +196,6 @@ public class StreamingUtils {
 
           invalidParams.putAll(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
           invalidParams.putAll(validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig));
-
-          // Validate if snowflake role is present
-          if (!inputConfig.containsKey(Utils.SF_ROLE)
-              || Strings.isNullOrEmpty(inputConfig.get(Utils.SF_ROLE))) {
-            invalidParams.put(
-                Utils.SF_ROLE,
-                Utils.formatString(
-                    "Config:{} should be present if ingestionMethod is:{}",
-                    Utils.SF_ROLE,
-                    inputConfig.get(INGESTION_METHOD_OPT)));
-          }
 
           /**
            * Only checking in streaming since we are utilizing the values before we send it to
