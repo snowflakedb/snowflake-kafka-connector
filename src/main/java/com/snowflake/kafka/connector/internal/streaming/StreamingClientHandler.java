@@ -22,17 +22,14 @@ import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
-
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.Constants;
@@ -51,11 +48,12 @@ public class StreamingClientHandler {
   // contains upper case config properties that are loggable (not PII data)
   public static final List<String> LOGGABLE_STREAMING_CONFIG_PROPERTIES =
       Stream.of(
-          Constants.ACCOUNT_URL,
-          Constants.ROLE,
-          Constants.USER,
-          StreamingUtils.STREAMING_CONSTANT_AUTHORIZATION_TYPE)
-      .map(String::toUpperCase).collect(Collectors.toList());
+              Constants.ACCOUNT_URL,
+              Constants.ROLE,
+              Constants.USER,
+              StreamingUtils.STREAMING_CONSTANT_AUTHORIZATION_TYPE)
+          .map(String::toUpperCase)
+          .collect(Collectors.toList());
 
   /**
    * Checks if a given client is valid (not null, open and has a name)
@@ -87,7 +85,8 @@ public class StreamingClientHandler {
       Map<String, String> connectorConfig) {
     LOGGER.info("Initializing Streaming Client...");
 
-    Properties streamingClientProps = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
+    Properties streamingClientProps =
+        StreamingUtils.convertConfigForStreamingClient(connectorConfig);
 
     // Override only if bdec version is explicitly set in config, default to the version set
     // inside Ingest SDK
