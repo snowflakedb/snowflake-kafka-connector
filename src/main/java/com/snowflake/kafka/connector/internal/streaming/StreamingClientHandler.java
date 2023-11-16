@@ -22,14 +22,20 @@ import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
+
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
+import net.snowflake.ingest.utils.Constants;
 import net.snowflake.ingest.utils.Pair;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -42,6 +48,15 @@ public class StreamingClientHandler {
 
   private AtomicInteger createdClientId = new AtomicInteger(0);
 
+  // contains upper case config properties that are loggable (not PII data)
+  public static final List<String> LOGGABLE_STREAMING_CONFIG_PROPERTIES =
+      Stream.of(
+          Constants.ACCOUNT_URL,
+          Constants.ROLE,
+          Constants.USER,
+          StreamingUtils.STREAMING_CONSTANT_AUTHORIZATION_TYPE)
+      .map(String::toUpperCase).collect(Collectors.toList());
+
   /**
    * Checks if a given client is valid (not null, open and has a name)
    *
@@ -52,38 +67,12 @@ public class StreamingClientHandler {
     return client != null && !client.isClosed() && client.getName() != null;
   }
 
-  /**
-   * Gets the Properties from the input connector config
-   *
-   * @param connectorConfig configuration properties for a connector
-   * @return the Properties object needed for client creation
-   */
-  public static Properties getClientProperties(Map<String, String> connectorConfig) {
-    Properties streamingClientProps = new Properties();
-
-    if (connectorConfig != null) {
-      streamingClientProps.putAll(
-          StreamingUtils.convertConfigForStreamingClient(new HashMap<>(connectorConfig)));
-    }
-
-    return streamingClientProps;
-  }
-
   public static String getLoggableClientProperties(Properties properties) {
-    String loggableStr = "";
-
-    for (Map.Entry prop : properties.entrySet()) {
-      if (!StreamingUtils.SENSITIVE_STREAMING_CONFIG_PROPERTIES.contains(
-          prop.getKey().toString())) {
-        loggableStr +=
-            Utils.formatString("{}={},", prop.getKey().toString(), prop.getValue().toString());
-      }
-    }
     return properties.entrySet().stream()
         .filter(
             propKvp ->
-                !StreamingUtils.SENSITIVE_STREAMING_CONFIG_PROPERTIES.contains(
-                    propKvp.getKey().toString()))
+                LOGGABLE_STREAMING_CONFIG_PROPERTIES.contains(
+                    propKvp.getKey().toString().toUpperCase()))
         .collect(Collectors.toList())
         .toString();
   }
@@ -98,7 +87,7 @@ public class StreamingClientHandler {
       Map<String, String> connectorConfig) {
     LOGGER.info("Initializing Streaming Client...");
 
-    Properties streamingClientProps = getClientProperties(connectorConfig);
+    Properties streamingClientProps = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
 
     // Override only if bdec version is explicitly set in config, default to the version set
     // inside Ingest SDK

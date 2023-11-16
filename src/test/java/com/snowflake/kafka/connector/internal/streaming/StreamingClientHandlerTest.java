@@ -59,7 +59,7 @@ public class StreamingClientHandlerTest {
     assert client.getName().contains(this.connectorConfig.get(Utils.NAME));
 
     // verify props against config
-    assert props.equals(StreamingClientHandler.getClientProperties(this.connectorConfig));
+    assert props.equals(StreamingUtils.convertConfigForStreamingClient(this.connectorConfig));
   }
 
   @Test
@@ -161,34 +161,11 @@ public class StreamingClientHandlerTest {
   }
 
   @Test
-  public void testGetClientProperties() {
-    Map<String, String> expectedConfigs =
-        StreamingUtils.convertConfigForStreamingClient(this.connectorConfig);
-    Properties gotProps = StreamingClientHandler.getClientProperties(this.connectorConfig);
-
-    // test conversion
-    assert expectedConfigs.size() == gotProps.size();
-    for (String key : expectedConfigs.keySet()) {
-      String value = expectedConfigs.get(key);
-      assert gotProps.get(key).toString().equals(value);
-    }
-  }
-
-  @Test
-  public void testGetNullClientProperties() {
-    Map<String, String> expectedConfigs = new HashMap<>();
-    Properties gotProps =
-        StreamingClientHandler.getClientProperties(null); // mostly check against NPE
-
-    assert expectedConfigs.size() == gotProps.size();
-  }
-
-  @Test
   public void testGetLoggableClientProperties() {
     this.connectorConfig.put("testy test key", "this should not show up");
     this.connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
 
-    Properties props = StreamingClientHandler.getClientProperties(this.connectorConfig);
+    Properties props = StreamingUtils.convertConfigForStreamingClient(this.connectorConfig);
     List<String> expectedProps =
         Arrays.asList(
             Constants.ACCOUNT_URL + "=" + this.connectorConfig.get(Utils.SF_URL),
