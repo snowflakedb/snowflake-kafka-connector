@@ -95,6 +95,7 @@ public class TopicPartitionChannelIT {
             config,
             new InMemoryKafkaRecordErrorReporter(),
             new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
+            conn,
             conn.getTelemetryClient());
 
     // since channel is updated, try to insert data again or may be call getOffsetToken
