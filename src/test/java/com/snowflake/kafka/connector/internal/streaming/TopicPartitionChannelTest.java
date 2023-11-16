@@ -253,29 +253,29 @@ public class TopicPartitionChannelTest {
 
     Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
     Mockito.when(
-                    mockSnowflakeConnectionService.migrateStreamingChannelOffsetToken(
-                            anyString(), anyString(), Mockito.anyString()))
-            .thenReturn(true);
+            mockSnowflakeConnectionService.migrateStreamingChannelOffsetToken(
+                anyString(), anyString(), Mockito.anyString()))
+        .thenReturn(true);
 
     // checking default
     TopicPartitionChannel topicPartitionChannel =
-            new TopicPartitionChannel(
-                    mockStreamingClient,
-                    topicPartition,
-                    TEST_CHANNEL_NAME,
-                    TEST_TABLE_NAME,
-                    true,
-                    streamingBufferThreshold,
-                    sfConnectorConfig,
-                    mockKafkaRecordErrorReporter,
-                    mockSinkTaskContext,
-                    mockSnowflakeConnectionService,
-                    new RecordService(mockTelemetryService),
-                    mockTelemetryService,
-                    false,
-                    null);
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            true,
+            streamingBufferThreshold,
+            sfConnectorConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext,
+            mockSnowflakeConnectionService,
+            new RecordService(mockTelemetryService),
+            mockTelemetryService,
+            false,
+            null);
     Mockito.verify(mockSnowflakeConnectionService, Mockito.times(1))
-            .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
+        .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
 
     Map<String, String> customSfConfig = new HashMap<>(sfConnectorConfig);
     customSfConfig.put(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "true");
@@ -299,28 +299,28 @@ public class TopicPartitionChannelTest {
     Mockito.verify(mockSnowflakeConnectionService, Mockito.times(2))
         .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
 
-
     customSfConfig.put(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "false");
-    SnowflakeConnectionService anotherMockForParamDisabled = Mockito.mock(SnowflakeConnectionService.class);
+    SnowflakeConnectionService anotherMockForParamDisabled =
+        Mockito.mock(SnowflakeConnectionService.class);
 
     topicPartitionChannel =
-            new TopicPartitionChannel(
-                    mockStreamingClient,
-                    topicPartition,
-                    TEST_CHANNEL_NAME,
-                    TEST_TABLE_NAME,
-                    true,
-                    streamingBufferThreshold,
-                    customSfConfig,
-                    mockKafkaRecordErrorReporter,
-                    mockSinkTaskContext,
-                    anotherMockForParamDisabled,
-                    new RecordService(mockTelemetryService),
-                    mockTelemetryService,
-                    false,
-                    null);
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            true,
+            streamingBufferThreshold,
+            customSfConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext,
+            anotherMockForParamDisabled,
+            new RecordService(mockTelemetryService),
+            mockTelemetryService,
+            false,
+            null);
     Mockito.verify(anotherMockForParamDisabled, Mockito.times(0))
-            .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
+        .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
   }
 
   /* Only SFExceptions are retried and goes into fallback. */

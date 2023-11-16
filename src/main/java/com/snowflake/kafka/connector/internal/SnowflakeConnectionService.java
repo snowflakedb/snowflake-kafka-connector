@@ -292,9 +292,10 @@ public interface SnowflakeConnectionService {
    *
    * <p>Destination channel is the original Format containing only topicName and partition number.
    *
-   * <p>We catch all exception that might happen in this method. The caller should always open the
-   * Old Channel format. This old channel format will also be the key to many HashMaps we will
-   * create/
+   * <p>We catch SQLException and JsonProcessingException that might happen in this method. The
+   * caller should always open the Old Channel format. This old channel format will also be the key
+   * to many HashMaps we will create. (For instance {@link
+   * com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2#partitionsToChannel})
    *
    * @param tableName Name of the table
    * @param sourceChannelName sourceChannel name from where the offset Token will be fetched.

@@ -3,7 +3,10 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SchematizationUtils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -55,6 +58,8 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
 
   // User agent suffix we want to pass in to ingest service
   public static final String USER_AGENT_SUFFIX_FORMAT = "SFKafkaConnector/%s provider/%s";
+
+  private final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   SnowflakeConnectionServiceV1(
       Properties prop,
@@ -1004,5 +1009,61 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
 
   public SnowflakeInternalStage getInternalStage() {
     return this.internalStage;
+  }
+
+  @Override
+  public boolean migrateStreamingChannelOffsetToken(
+      String tableName, String sourceChannelName, String destinationChannelName) {
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    InternalUtils.assertNotEmpty("sourceChannelName", sourceChannelName);
+    InternalUtils.assertNotEmpty("destinationChannelName", destinationChannelName);
+    String fullyQualifiedTableName =
+        prop.getProperty(InternalUtils.JDBC_DATABASE)
+            + "."
+            + prop.getProperty(InternalUtils.JDBC_SCHEMA)
+            + "."
+            + tableName;
+    String query = "select SYSTEM$SNOWPIPE_STREAMING_MIGRATE_CHANNEL_OFFSET_TOKEN((?), (?), (?));";
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, fullyQualifiedTableName);
+      stmt.setString(2, sourceChannelName);
+      stmt.setString(3, destinationChannelName);
+      ResultSet resultSet = stmt.executeQuery();
+
+      String migrateOffsetTokenResultFromSysFunc = null;
+      if (resultSet.next()) {
+        migrateOffsetTokenResultFromSysFunc = resultSet.getString(1 /*Only one column*/);
+      }
+      if (migrateOffsetTokenResultFromSysFunc == null) {
+        LOGGER.warn(
+            "No result found in Migrating OffsetToken through System Function for tableName:{},"
+                + " sourceChannel:{}, destinationChannel:{}",
+            fullyQualifiedTableName,
+            sourceChannelName,
+            destinationChannelName);
+        return false;
+      }
+
+      ChannelMigrateOffsetTokenResponseDTO channelMigrateOffsetTokenResponseDTO =
+          OBJECT_MAPPER.readValue(
+              migrateOffsetTokenResultFromSysFunc, ChannelMigrateOffsetTokenResponseDTO.class);
+      LOGGER.info(
+          "Migrate OffsetToken response for table:{}, sourceChannel:{}, destinationChannel:{}"
+              + " is:{}",
+          tableName,
+          sourceChannelName,
+          destinationChannelName,
+          channelMigrateOffsetTokenResponseDTO);
+      return true;
+    } catch (SQLException | JsonProcessingException e) {
+      LOGGER.error(
+          "Migrating OffsetToken for a SourceChannel:{} in table:{} failed due to:{}",
+          sourceChannelName,
+          fullyQualifiedTableName,
+          e.getMessage());
+      return false;
+    }
   }
 }
