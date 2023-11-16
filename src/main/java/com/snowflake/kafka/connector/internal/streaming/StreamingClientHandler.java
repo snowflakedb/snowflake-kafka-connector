@@ -73,8 +73,10 @@ public class StreamingClientHandler {
     String loggableStr = "";
 
     for (Map.Entry prop : properties.entrySet()) {
-      if (!StreamingUtils.SENSITIVE_STREAMING_CONFIG_PROPERTIES.contains(prop.getKey().toString())) {
-        loggableStr += Utils.formatString("{}={},", prop.getKey().toString(), prop.getValue().toString());
+      if (!StreamingUtils.SENSITIVE_STREAMING_CONFIG_PROPERTIES.contains(
+          prop.getKey().toString())) {
+        loggableStr +=
+            Utils.formatString("{}={},", prop.getKey().toString(), prop.getValue().toString());
       }
     }
     return properties.entrySet().stream()

@@ -20,7 +20,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -190,19 +189,22 @@ public class StreamingClientHandlerTest {
     this.connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
 
     Properties props = StreamingClientHandler.getClientProperties(this.connectorConfig);
-    List<String> expectedProps = Arrays.asList(
-        Constants.ACCOUNT_URL + "=" + this.connectorConfig.get(Utils.SF_URL),
-        Constants.ROLE + "=" + this.connectorConfig.get(Utils.SF_ROLE),
-        Constants.USER + "=" + this.connectorConfig.get(Utils.SF_USER),
-        StreamingUtils.STREAMING_CONSTANT_AUTHORIZATION_TYPE + "=" + StreamingUtils.STREAMING_CONSTANT_JWT
-    );
+    List<String> expectedProps =
+        Arrays.asList(
+            Constants.ACCOUNT_URL + "=" + this.connectorConfig.get(Utils.SF_URL),
+            Constants.ROLE + "=" + this.connectorConfig.get(Utils.SF_ROLE),
+            Constants.USER + "=" + this.connectorConfig.get(Utils.SF_USER),
+            StreamingUtils.STREAMING_CONSTANT_AUTHORIZATION_TYPE
+                + "="
+                + StreamingUtils.STREAMING_CONSTANT_JWT);
 
     // get loggable props
     String loggableProps = StreamingClientHandler.getLoggableClientProperties(props);
 
     // verify only expected props exist
     for (String prop : expectedProps) {
-        assert loggableProps.contains(prop) : Utils.formatString("did not find property '{}' in '{}'", prop, loggableProps);
+      assert loggableProps.contains(prop)
+          : Utils.formatString("did not find property '{}' in '{}'", prop, loggableProps);
     }
   }
 }
