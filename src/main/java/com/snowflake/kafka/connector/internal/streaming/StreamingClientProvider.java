@@ -151,7 +151,7 @@ public class StreamingClientProvider {
               propertiesAndClient.getFirst(), propertiesAndClient.getSecond());
 
           String propertyStr =
-              StreamingClientHandler.getLoggablePropertyStr(propertiesAndClient.getFirst());
+              StreamingClientHandler.getLoggableClientProperties(propertiesAndClient.getFirst());
           LOGGER.debug(
               "Created and registered new client with name: {} and properties: {}",
               resultClient.getName(),

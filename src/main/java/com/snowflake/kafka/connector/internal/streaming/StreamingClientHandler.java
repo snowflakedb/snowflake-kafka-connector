@@ -69,8 +69,14 @@ public class StreamingClientHandler {
     return streamingClientProps;
   }
 
-  public static String getLoggablePropertyStr(Properties properties) {
+  public static String getLoggableClientProperties(Properties properties) {
+    String loggableStr = "";
 
+    for (Map.Entry prop : properties.entrySet()) {
+      if (!StreamingUtils.SENSITIVE_STREAMING_CONFIG_PROPERTIES.contains(prop.getKey().toString())) {
+        loggableStr += Utils.formatString("{}={},", prop.getKey().toString(), prop.getValue().toString());
+      }
+    }
     return properties.entrySet().stream()
         .filter(
             propKvp ->
@@ -78,8 +84,6 @@ public class StreamingClientHandler {
                     propKvp.getKey().toString()))
         .collect(Collectors.toList())
         .toString();
-
-    //    while (properties.)
   }
 
   /**
