@@ -1,12 +1,11 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.TestUtils.createBigAvroRecords;
 import static com.snowflake.kafka.connector.internal.TestUtils.createNativeJsonSinkRecords;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 
 import com.codahale.metrics.MetricRegistry;
@@ -245,6 +244,81 @@ public class TopicPartitionChannelTest {
             null);
 
     topicPartitionChannel.closeChannel();
+  }
+
+  @Test
+  public void testStreamingChannelMigrationEnabledAndDisabled() {
+
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+    Mockito.when(
+                    mockSnowflakeConnectionService.migrateStreamingChannelOffsetToken(
+                            anyString(), anyString(), Mockito.anyString()))
+            .thenReturn(true);
+
+    // checking default
+    TopicPartitionChannel topicPartitionChannel =
+            new TopicPartitionChannel(
+                    mockStreamingClient,
+                    topicPartition,
+                    TEST_CHANNEL_NAME,
+                    TEST_TABLE_NAME,
+                    true,
+                    streamingBufferThreshold,
+                    sfConnectorConfig,
+                    mockKafkaRecordErrorReporter,
+                    mockSinkTaskContext,
+                    mockSnowflakeConnectionService,
+                    new RecordService(mockTelemetryService),
+                    mockTelemetryService,
+                    false,
+                    null);
+    Mockito.verify(mockSnowflakeConnectionService, Mockito.times(1))
+            .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
+
+    Map<String, String> customSfConfig = new HashMap<>(sfConnectorConfig);
+    customSfConfig.put(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "true");
+
+    topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            true,
+            streamingBufferThreshold,
+            customSfConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext,
+            mockSnowflakeConnectionService,
+            new RecordService(mockTelemetryService),
+            mockTelemetryService,
+            false,
+            null);
+    Mockito.verify(mockSnowflakeConnectionService, Mockito.times(2))
+        .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
+
+
+    customSfConfig.put(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "false");
+    SnowflakeConnectionService anotherMockForParamDisabled = Mockito.mock(SnowflakeConnectionService.class);
+
+    topicPartitionChannel =
+            new TopicPartitionChannel(
+                    mockStreamingClient,
+                    topicPartition,
+                    TEST_CHANNEL_NAME,
+                    TEST_TABLE_NAME,
+                    true,
+                    streamingBufferThreshold,
+                    customSfConfig,
+                    mockKafkaRecordErrorReporter,
+                    mockSinkTaskContext,
+                    anotherMockForParamDisabled,
+                    new RecordService(mockTelemetryService),
+                    mockTelemetryService,
+                    false,
+                    null);
+    Mockito.verify(anotherMockForParamDisabled, Mockito.times(0))
+            .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
   }
 
   /* Only SFExceptions are retried and goes into fallback. */

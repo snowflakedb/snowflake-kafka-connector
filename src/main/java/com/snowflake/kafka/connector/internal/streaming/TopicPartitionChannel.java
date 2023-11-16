@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 import static java.time.temporal.ChronoUnit.SECONDS;
@@ -11,6 +10,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
@@ -278,6 +278,14 @@ public class TopicPartitionChannel {
 
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
 
+    this.channelNameFormatV2 =
+        generateChannelNameFormatV2(this.channelNameFormatV1, this.conn.getConnectorName());
+
+    if (isEnableChannelOffsetMigration(sfConnectorConfig)) {
+      conn.migrateStreamingChannelOffsetToken(
+          this.tableName, this.channelNameFormatV2, this.channelNameFormatV1);
+    }
+
     // Open channel and reset the offset in kafka
     this.channel = Preconditions.checkNotNull(openChannelForTable());
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
@@ -311,6 +319,37 @@ public class TopicPartitionChannel {
               + " correct offset instead",
           this.getChannelName());
     }
+  }
+
+  /**
+   * Checks if the configuration provided in Snowflake Kafka Connect has set {@link
+   * SnowflakeSinkConnectorConfig#ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG} to any value. If not
+   * set, it fetches the default value.
+   *
+   * <p>If the returned is false, system function for channel offset migration will not be called
+   * and Channel name will use V1 format.
+   *
+   * @param sfConnectorConfig customer provided json config
+   * @return true is enabled, false otherwise
+   */
+  private boolean isEnableChannelOffsetMigration(Map<String, String> sfConnectorConfig) {
+    boolean isEnableChannelOffsetMigration =
+        Boolean.parseBoolean(
+            sfConnectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
+                Boolean.toString(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT)));
+    if (!isEnableChannelOffsetMigration) {
+      LOGGER.info(
+          "Config:{} is disabled for connector:{}",
+          ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
+          conn.getConnectorName());
+    }
+    return isEnableChannelOffsetMigration;
+  }
+
+  @VisibleForTesting
+  protected String generateChannelNameFormatV2(String channelNameFormatV1, String connectorName) {
+    return connectorName + "_" + channelNameFormatV1;
   }
 
   /**
