@@ -1,6 +1,9 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 import static java.time.temporal.ChronoUnit.SECONDS;
@@ -345,6 +348,17 @@ public class TopicPartitionChannel {
     return isEnableChannelOffsetMigration;
   }
 
+  /**
+   * This is the new channel Name format that was created. New channel name prefixes connector name
+   * in old format. Please note, we will not open channel with new format. We will run a migration
+   * function from this new channel format to old channel format and drop new channel format.
+   *
+   * @param channelNameFormatV1 Original format used.
+   * @param connectorName connector name used in SF config JSON.
+   * @return new channel name introduced as part of @see <a
+   *     href="https://github.com/snowflakedb/snowflake-kafka-connector/commit/3bf9106b22510c62068f7d2f7137b9e57989274c">
+   *     this change (released in version 2.1.0) </a>
+   */
   @VisibleForTesting
   protected String generateChannelNameFormatV2(String channelNameFormatV1, String connectorName) {
     return connectorName + "_" + channelNameFormatV1;
