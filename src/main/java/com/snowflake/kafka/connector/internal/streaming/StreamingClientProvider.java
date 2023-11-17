@@ -143,14 +143,15 @@ public class StreamingClientProvider {
    */
   public void closeClient(
       Map<String, String> connectorConfig, SnowflakeStreamingIngestClient client) {
-    this.streamingClientHandler.closeClient(client);
-
     // invalidate cache
     SnowflakeStreamingIngestClient registeredClient =
         this.registeredClients.getIfPresent(connectorConfig);
     if (registeredClient != null) {
       this.registeredClients.invalidate(connectorConfig);
     }
+
+    this.streamingClientHandler.closeClient(client);
+    this.streamingClientHandler.closeClient(registeredClient); // in case the registered client is somehow different from the given client
   }
 
   public Map<Map<String, String>, SnowflakeStreamingIngestClient> getRegisteredClients() {

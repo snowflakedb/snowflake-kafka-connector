@@ -63,6 +63,12 @@ public class StreamingClientHandler {
     return client != null && !client.isClosed() && client.getName() != null;
   }
 
+  /**
+   * Gets the loggable properties (see {@link StreamingClientHandler#LOGGABLE_STREAMING_CONFIG_PROPERTIES} passed into the client.
+   * 
+   * @param properties The client properties
+   * @return A string with the loggable properties
+   */
   public static String getLoggableClientProperties(Properties properties) {
     return properties.entrySet().stream()
         .filter(
