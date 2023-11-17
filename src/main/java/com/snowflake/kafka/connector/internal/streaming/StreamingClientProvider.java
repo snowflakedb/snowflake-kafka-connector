@@ -151,7 +151,9 @@ public class StreamingClientProvider {
     }
 
     this.streamingClientHandler.closeClient(client);
-    this.streamingClientHandler.closeClient(registeredClient); // in case the registered client is somehow different from the given client
+    this.streamingClientHandler.closeClient(
+        registeredClient); // in case the registered client is somehow different from the given
+                           // client
   }
 
   public Map<Map<String, String>, SnowflakeStreamingIngestClient> getRegisteredClients() {

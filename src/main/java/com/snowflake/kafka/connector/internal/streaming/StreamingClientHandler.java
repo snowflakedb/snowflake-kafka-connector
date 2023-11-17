@@ -64,8 +64,9 @@ public class StreamingClientHandler {
   }
 
   /**
-   * Gets the loggable properties (see {@link StreamingClientHandler#LOGGABLE_STREAMING_CONFIG_PROPERTIES} passed into the client.
-   * 
+   * Gets the loggable properties (see {@link
+   * StreamingClientHandler#LOGGABLE_STREAMING_CONFIG_PROPERTIES} passed into the client.
+   *
    * @param properties The client properties
    * @return A string with the loggable properties
    */
