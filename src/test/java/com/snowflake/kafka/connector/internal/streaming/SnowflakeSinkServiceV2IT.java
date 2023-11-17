@@ -1586,8 +1586,8 @@ public class SnowflakeSinkServiceV2IT {
 
     // verify both clients were closed
     assert StreamingClientProvider.getStreamingClientProviderInstance()
-        .getRegisteredClients()
-        .size()
+            .getRegisteredClients()
+            .size()
         == 0;
   }
 }

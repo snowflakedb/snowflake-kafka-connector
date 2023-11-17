@@ -67,7 +67,8 @@ public class StreamingClientHandler {
     return properties.entrySet().stream()
         .filter(
             propKvp ->
-                LOGGABLE_STREAMING_CONFIG_PROPERTIES.stream().anyMatch(propKvp.getKey().toString()::equalsIgnoreCase))
+                LOGGABLE_STREAMING_CONFIG_PROPERTIES.stream()
+                    .anyMatch(propKvp.getKey().toString()::equalsIgnoreCase))
         .collect(Collectors.toList())
         .toString();
   }
@@ -103,7 +104,10 @@ public class StreamingClientHandler {
               .setParameterOverrides(parameterOverrides)
               .build();
 
-      LOGGER.info("Successfully initialized Streaming Client:{} with properties {}", clientName, getLoggableClientProperties(streamingClientProps));
+      LOGGER.info(
+          "Successfully initialized Streaming Client:{} with properties {}",
+          clientName,
+          getLoggableClientProperties(streamingClientProps));
 
       return createdClient;
     } catch (SFException ex) {

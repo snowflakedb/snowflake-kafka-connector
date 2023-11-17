@@ -20,13 +20,10 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.utils.Constants;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
@@ -170,31 +167,13 @@ public class StreamingClientHandlerTest {
     for (Object key : props.keySet()) {
       Object value = props.get(key);
 
-      if (StreamingClientHandler.LOGGABLE_STREAMING_CONFIG_PROPERTIES.stream().anyMatch(key.toString()::equalsIgnoreCase)) {
-        assert loggableProps.contains(Utils.formatString("{}={}", key.toString(), value.toString()));
+      if (StreamingClientHandler.LOGGABLE_STREAMING_CONFIG_PROPERTIES.stream()
+          .anyMatch(key.toString()::equalsIgnoreCase)) {
+        assert loggableProps.contains(
+            Utils.formatString("{}={}", key.toString(), value.toString()));
       } else {
         assert !loggableProps.contains(key.toString()) && !loggableProps.contains(value.toString());
       }
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
