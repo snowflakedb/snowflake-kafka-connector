@@ -22,23 +22,12 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
-
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
-
-import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.CacheLoader;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalCause;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.utils.Pair;
-import net.snowflake.ingest.utils.ParameterProvider;
 
 /**
  * Static factory that provides streaming client(s). There should only be one provider per KC worker
@@ -95,13 +84,20 @@ public class StreamingClientProvider {
   // private constructor for singleton
   private StreamingClientProvider() {
     this.streamingClientHandler = new StreamingClientHandler();
-    this.registeredClients = Caffeine.newBuilder()
-        .maximumSize(Runtime.getRuntime().maxMemory())
-        .removalListener((Map<String, String> key, SnowflakeStreamingIngestClient client, RemovalCause removalCause) -> {
-              this.streamingClientHandler.closeClient(client);
-              LOGGER.info("Removed registered client {} due to {}", client.getName(), removalCause.toString());
-            })
-        .build(this.streamingClientHandler::createClient);
+    this.registeredClients =
+        Caffeine.newBuilder()
+            .maximumSize(Runtime.getRuntime().maxMemory())
+            .removalListener(
+                (Map<String, String> key,
+                    SnowflakeStreamingIngestClient client,
+                    RemovalCause removalCause) -> {
+                  this.streamingClientHandler.closeClient(client);
+                  LOGGER.info(
+                      "Removed registered client {} due to {}",
+                      client.getName(),
+                      removalCause.toString());
+                })
+            .build(this.streamingClientHandler::createClient);
   }
 
   /**
@@ -126,9 +122,9 @@ public class StreamingClientProvider {
     } else {
       resultClient = this.streamingClientHandler.createClient(connectorConfig);
       LOGGER.info(
-        "Streaming client optimization is disabled, creating a new streaming client with name:"
-            + " {}",
-        resultClient.getName());
+          "Streaming client optimization is disabled, creating a new streaming client with name:"
+              + " {}",
+          resultClient.getName());
     }
 
     return resultClient;
@@ -148,18 +144,3 @@ public class StreamingClientProvider {
     return this.registeredClients.asMap();
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

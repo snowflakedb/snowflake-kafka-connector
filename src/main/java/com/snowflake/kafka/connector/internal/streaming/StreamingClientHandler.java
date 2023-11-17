@@ -33,7 +33,6 @@ import java.util.stream.Stream;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.Constants;
-import net.snowflake.ingest.utils.Pair;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 
@@ -81,8 +80,7 @@ public class StreamingClientHandler {
    * @param connectorConfig The config to create the client
    * @return The client properties and the newly created client
    */
-  public SnowflakeStreamingIngestClient createClient(
-      Map<String, String> connectorConfig) {
+  public SnowflakeStreamingIngestClient createClient(Map<String, String> connectorConfig) {
     LOGGER.info("Initializing Streaming Client...");
 
     Properties streamingClientProps =
