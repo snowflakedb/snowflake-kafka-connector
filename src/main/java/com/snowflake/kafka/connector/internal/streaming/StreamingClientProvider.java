@@ -119,6 +119,12 @@ public class StreamingClientProvider {
           "Streaming client optimization is enabled per worker node. Reusing valid clients when"
               + " possible");
       resultClient = this.registeredClients.get(connectorConfig);
+
+      // refresh if registered client is invalid
+      if (!StreamingClientHandler.isClientValid(resultClient)) {
+        this.registeredClients.refresh(connectorConfig);
+      }
+
     } else {
       resultClient = this.streamingClientHandler.createClient(connectorConfig);
       LOGGER.info(
@@ -135,9 +141,14 @@ public class StreamingClientProvider {
    *
    * @param client The client to be closed
    */
-  public void closeClient(SnowflakeStreamingIngestClient client) {
-
+  public void closeClient(Map<String, String> connectorConfig, SnowflakeStreamingIngestClient client) {
     this.streamingClientHandler.closeClient(client);
+
+    // invalidate cache
+    SnowflakeStreamingIngestClient registeredClient = this.registeredClients.getIfPresent(connectorConfig);
+    if (registeredClient != null) {
+      this.registeredClients.invalidate(connectorConfig);
+    }
   }
 
   public Map<Map<String, String>, SnowflakeStreamingIngestClient> getRegisteredClients() {

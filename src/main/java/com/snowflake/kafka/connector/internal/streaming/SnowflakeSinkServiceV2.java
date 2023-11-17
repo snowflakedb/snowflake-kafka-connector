@@ -351,7 +351,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     partitionsToChannel.clear();
 
     StreamingClientProvider.getStreamingClientProviderInstance()
-        .closeClient(this.streamingIngestClient);
+        .closeClient(this.connectorConfig, this.streamingIngestClient);
   }
 
   /**

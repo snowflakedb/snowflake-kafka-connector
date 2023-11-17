@@ -20,8 +20,13 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
+
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
+
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.utils.Constants;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
@@ -148,4 +153,48 @@ public class StreamingClientHandlerTest {
     Mockito.verify(unnamedClient, Mockito.times(1)).isClosed();
     Mockito.verify(unnamedClient, Mockito.times(1)).getName();
   }
+
+  @Test
+  public void testGetLoggableClientProperties() {
+    Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put(Utils.SF_URL, "testurl");
+    connectorConfig.put(Utils.SF_ROLE, "testrole");
+    connectorConfig.put(Utils.SF_USER, "testuser");
+    connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
+    Properties props = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
+
+    // test get log str
+    String loggableProps = StreamingClientHandler.getLoggableClientProperties(props);
+
+    // verify only the expected props came out
+    for (Object key : props.keySet()) {
+      Object value = props.get(key);
+
+      if (StreamingClientHandler.LOGGABLE_STREAMING_CONFIG_PROPERTIES.stream().anyMatch(key.toString()::equalsIgnoreCase)) {
+        assert loggableProps.contains(Utils.formatString("{}={}", key.toString(), value.toString()));
+      } else {
+        assert !loggableProps.contains(key.toString()) && !loggableProps.contains(value.toString());
+      }
+    }
+  }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

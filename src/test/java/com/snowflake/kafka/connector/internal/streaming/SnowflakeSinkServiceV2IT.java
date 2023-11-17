@@ -1583,5 +1583,11 @@ public class SnowflakeSinkServiceV2IT {
     // close services
     catService.closeAll();
     dogService.closeAll();
+
+    // verify both clients were closed
+    assert StreamingClientProvider.getStreamingClientProviderInstance()
+        .getRegisteredClients()
+        .size()
+        == 0;
   }
 }

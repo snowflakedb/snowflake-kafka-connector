@@ -185,7 +185,7 @@ public class StreamingClientProviderTest {
         getStreamingClientProviderForTests(this.streamingClientHandler);
     injectedProvider.getClient(this.clientConfig1);
 
-    injectedProvider.closeClient(this.client1);
+    injectedProvider.closeClient(this.clientConfig1, this.client1);
 
     // verify: if optimized, there should only be one closeClient() call
     Mockito.verify(this.streamingClientHandler, Mockito.times(1)).closeClient(this.client1);

@@ -44,14 +44,13 @@ public class StreamingClientHandler {
 
   private AtomicInteger createdClientId = new AtomicInteger(0);
 
-  // contains upper case config properties that are loggable (not PII data)
+  // contains config properties that are loggable (not PII data)
   public static final List<String> LOGGABLE_STREAMING_CONFIG_PROPERTIES =
       Stream.of(
               Constants.ACCOUNT_URL,
               Constants.ROLE,
               Constants.USER,
               StreamingUtils.STREAMING_CONSTANT_AUTHORIZATION_TYPE)
-          .map(String::toUpperCase)
           .collect(Collectors.toList());
 
   /**
@@ -68,8 +67,7 @@ public class StreamingClientHandler {
     return properties.entrySet().stream()
         .filter(
             propKvp ->
-                LOGGABLE_STREAMING_CONFIG_PROPERTIES.contains(
-                    propKvp.getKey().toString().toUpperCase()))
+                LOGGABLE_STREAMING_CONFIG_PROPERTIES.stream().anyMatch(propKvp.getKey().toString()::equalsIgnoreCase))
         .collect(Collectors.toList())
         .toString();
   }
@@ -105,7 +103,7 @@ public class StreamingClientHandler {
               .setParameterOverrides(parameterOverrides)
               .build();
 
-      LOGGER.info("Successfully initialized Streaming Client:{}", clientName);
+      LOGGER.info("Successfully initialized Streaming Client:{} with properties {}", clientName, getLoggableClientProperties(streamingClientProps));
 
       return createdClient;
     } catch (SFException ex) {
