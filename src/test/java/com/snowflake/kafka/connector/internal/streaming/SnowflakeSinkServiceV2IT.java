@@ -1576,7 +1576,7 @@ public class SnowflakeSinkServiceV2IT {
 
     // verify two clients were created
     assert StreamingClientProvider.getStreamingClientProviderInstance()
-            .getRegisteredClientMap()
+            .getRegisteredClients()
             .size()
         == 2;
 

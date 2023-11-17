@@ -69,8 +69,7 @@ public class StreamingClientConcurrencyTest {
 
     this.streamingClientHandler = Mockito.spy(StreamingClientHandler.class);
     this.streamingClientProvider =
-        StreamingClientProvider.getStreamingClientProviderForTests(
-            new HashMap<>(), this.streamingClientHandler);
+        StreamingClientProvider.getStreamingClientProviderForTests(this.streamingClientHandler);
 
     this.getClientFuturesTeardown = new ArrayList<>();
     this.closeClientFuturesTeardown = new ArrayList<>();

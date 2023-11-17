@@ -81,7 +81,7 @@ public class StreamingClientHandler {
    * @param connectorConfig The config to create the client
    * @return The client properties and the newly created client
    */
-  public Pair<Properties, SnowflakeStreamingIngestClient> createClient(
+  public SnowflakeStreamingIngestClient createClient(
       Map<String, String> connectorConfig) {
     LOGGER.info("Initializing Streaming Client...");
 
@@ -109,7 +109,7 @@ public class StreamingClientHandler {
 
       LOGGER.info("Successfully initialized Streaming Client:{}", clientName);
 
-      return new Pair<>(streamingClientProps, createdClient);
+      return createdClient;
     } catch (SFException ex) {
       LOGGER.error("Exception creating streamingIngestClient");
       throw new ConnectException(ex);

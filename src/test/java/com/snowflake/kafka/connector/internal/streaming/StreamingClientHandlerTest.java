@@ -20,13 +20,8 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.utils.Constants;
-import net.snowflake.ingest.utils.Pair;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
@@ -48,17 +43,12 @@ public class StreamingClientHandlerTest {
 
   @Test
   public void testCreateClient() {
-    Pair<Properties, SnowflakeStreamingIngestClient> propsAndClient =
+    SnowflakeStreamingIngestClient client =
         this.streamingClientHandler.createClient(this.connectorConfig);
-    Properties props = propsAndClient.getFirst();
-    SnowflakeStreamingIngestClient client = propsAndClient.getSecond();
 
     // verify valid client against config
     assert !client.isClosed();
     assert client.getName().contains(this.connectorConfig.get(Utils.NAME));
-
-    // verify props against config
-    assert props.equals(StreamingUtils.convertConfigForStreamingClient(this.connectorConfig));
   }
 
   @Test
@@ -157,30 +147,5 @@ public class StreamingClientHandlerTest {
     assert !StreamingClientHandler.isClientValid(unnamedClient);
     Mockito.verify(unnamedClient, Mockito.times(1)).isClosed();
     Mockito.verify(unnamedClient, Mockito.times(1)).getName();
-  }
-
-  @Test
-  public void testGetLoggableClientProperties() {
-    this.connectorConfig.put("testy test key", "this should not show up");
-    this.connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
-
-    Properties props = StreamingUtils.convertConfigForStreamingClient(this.connectorConfig);
-    List<String> expectedProps =
-        Arrays.asList(
-            Constants.ACCOUNT_URL + "=" + this.connectorConfig.get(Utils.SF_URL),
-            Constants.ROLE + "=" + this.connectorConfig.get(Utils.SF_ROLE),
-            Constants.USER + "=" + this.connectorConfig.get(Utils.SF_USER),
-            StreamingUtils.STREAMING_CONSTANT_AUTHORIZATION_TYPE
-                + "="
-                + StreamingUtils.STREAMING_CONSTANT_JWT);
-
-    // get loggable props
-    String loggableProps = StreamingClientHandler.getLoggableClientProperties(props);
-
-    // verify only expected props exist
-    for (String prop : expectedProps) {
-      assert loggableProps.contains(prop)
-          : Utils.formatString("did not find property '{}' in '{}'", prop, loggableProps);
-    }
   }
 }
