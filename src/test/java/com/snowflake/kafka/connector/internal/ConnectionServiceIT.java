@@ -2,10 +2,26 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1.USER_AGENT_SUFFIX_FORMAT;
+<<<<<<< HEAD
+=======
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST;
+import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.isChannelMigrationResponseSuccessful;
+import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.generateChannelNameFormatV2;
+>>>>>>> 612027bb (Modified the return type of interface and added IT test in connectionserviceIT)
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
+import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+<<<<<<< HEAD
+=======
+import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
+import com.snowflake.kafka.connector.internal.streaming.StreamingBufferThreshold;
+import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel;
+>>>>>>> 612027bb (Modified the return type of interface and added IT test in connectionserviceIT)
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceV1;
 import java.sql.ResultSet;
@@ -19,6 +35,8 @@ import java.util.UUID;
 import net.snowflake.client.jdbc.internal.apache.http.Header;
 import net.snowflake.client.jdbc.internal.apache.http.HttpHeaders;
 import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpPost;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -410,5 +428,112 @@ public class ConnectionServiceIT {
     assert !service.isClosed();
     service.close();
     assert service.isClosed();
+  }
+
+  @Test
+  public void testStreamingChannelOffsetMigration() {
+    Map<String, String> testConfig = TestUtils.getConfForStreaming();
+    SnowflakeConnectionService conn =
+        SnowflakeConnectionServiceFactory.builder().setProperties(testConfig).build();
+    conn.createTable(tableName);
+    final String channelNameFormatV1 = SnowflakeSinkServiceV2.partitionChannelKey(tableName, 0);
+
+    final String sourceChannelName =
+        generateChannelNameFormatV2(channelNameFormatV1, TEST_CONNECTOR_NAME);
+    final String destinationChannelName = channelNameFormatV1;
+
+    try {
+      // ### TEST 1 - Both channels doesnt exist
+      ChannelMigrateOffsetTokenResponseDTO channelMigrateOffsetTokenResponseDTO =
+          conn.migrateStreamingChannelOffsetToken(
+              tableName, sourceChannelName, destinationChannelName);
+      Assert.assertTrue(isChannelMigrationResponseSuccessful(channelMigrateOffsetTokenResponseDTO));
+      Assert.assertEquals(
+          OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST.getStatusCode(),
+          channelMigrateOffsetTokenResponseDTO.getResponseCode());
+
+      // ### TEST 2 - Table doesnt exist
+      channelMigrateOffsetTokenResponseDTO =
+          conn.migrateStreamingChannelOffsetToken(
+              tableName + "_Table_DOESNT_EXIST", sourceChannelName, destinationChannelName);
+      Assert.assertFalse(
+          isChannelMigrationResponseSuccessful(channelMigrateOffsetTokenResponseDTO));
+      Assert.assertEquals(4L, channelMigrateOffsetTokenResponseDTO.getResponseCode());
+
+      // ### TEST 3 - Source Channel (v2 channel doesnt exist)
+      Map<String, String> config = TestUtils.getConfForStreaming();
+      SnowflakeSinkConnectorConfig.setDefaultValues(config);
+      TopicPartition topicPartition = new TopicPartition(tableName, 0);
+
+      InMemorySinkTaskContext inMemorySinkTaskContext =
+          new InMemorySinkTaskContext(Collections.singleton(topicPartition));
+
+      // This will automatically create a channel for topicPartition.
+      SnowflakeSinkService service =
+          SnowflakeSinkServiceFactory.builder(
+                  conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+              .setRecordNumber(1)
+              .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+              .setSinkTaskContext(inMemorySinkTaskContext)
+              .addTask(tableName, topicPartition)
+              .build();
+
+      final long noOfRecords = 10;
+
+      // send regular data
+      List<SinkRecord> records =
+          TestUtils.createJsonStringSinkRecords(0, noOfRecords, tableName, 0);
+
+      service.insert(records);
+
+      TestUtils.assertWithRetry(
+          () -> service.getOffset(new TopicPartition(tableName, 0)) == noOfRecords, 5, 5);
+      channelMigrateOffsetTokenResponseDTO =
+          conn.migrateStreamingChannelOffsetToken(
+              tableName, sourceChannelName, destinationChannelName);
+      Assert.assertTrue(isChannelMigrationResponseSuccessful(channelMigrateOffsetTokenResponseDTO));
+      Assert.assertEquals(
+          OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST.getStatusCode(),
+          channelMigrateOffsetTokenResponseDTO.getResponseCode());
+
+      // even after migration, it sends same offset from server side since source didnt exist
+      TestUtils.assertWithRetry(
+          () -> service.getOffset(new TopicPartition(tableName, 0)) == noOfRecords, 5, 5);
+
+      // TEST 4: Do an actual migration from new channel format to old channel Format
+      // Step 1: create a new source channel
+      // Step 2: load some data
+      // step 3: do a migration and check if destination channel has expected offset
+
+      // Ctor of TopicPartitionChannel tries to open the channel.
+      SnowflakeSinkServiceV2 snowflakeSinkServiceV2 = (SnowflakeSinkServiceV2) service;
+      TopicPartitionChannel newChannelFormatV2 =
+          new TopicPartitionChannel(
+              snowflakeSinkServiceV2.getStreamingIngestClient(),
+              topicPartition,
+              sourceChannelName,
+              tableName,
+              new StreamingBufferThreshold(10, 10_000, 1),
+              config,
+              new InMemoryKafkaRecordErrorReporter(),
+              new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
+              conn,
+              conn.getTelemetryClient());
+
+      List<SinkRecord> recordsInChannelFormatV2 =
+          TestUtils.createJsonStringSinkRecords(0, noOfRecords * 2, tableName, 0);
+      recordsInChannelFormatV2.forEach(newChannelFormatV2::insertRecordToBuffer);
+
+      TestUtils.assertWithRetry(
+          () -> newChannelFormatV2.getOffsetSafeToCommitToKafka() == (noOfRecords * 2), 5, 5);
+
+      conn.migrateStreamingChannelOffsetToken(tableName, sourceChannelName, destinationChannelName);
+      TestUtils.assertWithRetry(
+          () -> service.getOffset(new TopicPartition(tableName, 0)) == (noOfRecords * 2), 5, 5);
+    } catch (Exception e) {
+      Assert.fail("Should not throw an exception:" + e.getMessage());
+    } finally {
+      TestUtils.dropTable(tableName);
+    }
   }
 }
