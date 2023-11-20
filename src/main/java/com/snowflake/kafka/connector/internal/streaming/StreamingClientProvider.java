@@ -54,19 +54,13 @@ public class StreamingClientProvider {
   @VisibleForTesting
   public static StreamingClientProvider getStreamingClientProviderForTests(
       StreamingClientHandler streamingClientHandler) {
-    return new StreamingClientProvider(
-        Caffeine.newBuilder()
-            .maximumSize(Runtime.getRuntime().maxMemory())
-            .build(streamingClientHandler::createClient),
-        streamingClientHandler);
+    return new StreamingClientProvider(streamingClientHandler);
   }
 
   /** ONLY FOR TESTING - private constructor to inject properties for testing */
   private StreamingClientProvider(
-      LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> registeredClients,
       StreamingClientHandler streamingClientHandler) {
     this();
-    this.registeredClients = registeredClients;
     this.streamingClientHandler = streamingClientHandler;
   }
 
@@ -74,7 +68,7 @@ public class StreamingClientProvider {
   private StreamingClientHandler streamingClientHandler;
 
   // if the one client optimization is enabled, we cache the created clients based on corresponding
-  // Streaming properties
+  // connector config
   private LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> registeredClients;
 
   // private constructor for singleton
@@ -152,6 +146,8 @@ public class StreamingClientProvider {
         registeredClient); // in case the given client is different for some reason
   }
 
+  // TEST ONLY - return the current state of the registered clients
+  @VisibleForTesting
   public Map<Map<String, String>, SnowflakeStreamingIngestClient> getRegisteredClients() {
     return this.registeredClients.asMap();
   }
