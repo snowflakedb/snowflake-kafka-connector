@@ -536,7 +536,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   /* Used for testing */
   @VisibleForTesting
-  SnowflakeStreamingIngestClient getStreamingIngestClient() {
+  public SnowflakeStreamingIngestClient getStreamingIngestClient() {
     return StreamingClientProvider.getStreamingClientProviderInstance()
         .getClient(this.connectorConfig);
   }

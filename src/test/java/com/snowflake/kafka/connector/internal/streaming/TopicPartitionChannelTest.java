@@ -252,7 +252,7 @@ public class TopicPartitionChannelTest {
     Mockito.when(
             mockSnowflakeConnectionService.migrateStreamingChannelOffsetToken(
                 anyString(), anyString(), Mockito.anyString()))
-        .thenReturn(true);
+        .thenReturn(new ChannelMigrateOffsetTokenResponseDTO(50, "SUCCESS"));
 
     // checking default
     TopicPartitionChannel topicPartitionChannel =

@@ -85,4 +85,17 @@ public enum ChannelMigrationResponseCode {
     }
     return false;
   }
+
+  /**
+   * Given a Response DTO, which was received from server side and serialized, check if it as
+   * successful migration or a failure.
+   *
+   * @param channelMigrateOffsetTokenResponseDTO response from JDBC system function call serialized
+   *     into a DTO object.
+   * @return true or false
+   */
+  public static boolean isChannelMigrationResponseSuccessful(
+      final ChannelMigrateOffsetTokenResponseDTO channelMigrateOffsetTokenResponseDTO) {
+    return isStatusCodeSuccessful(channelMigrateOffsetTokenResponseDTO.getResponseCode());
+  }
 }

@@ -1012,7 +1012,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
-  public boolean migrateStreamingChannelOffsetToken(
+  public ChannelMigrateOffsetTokenResponseDTO migrateStreamingChannelOffsetToken(
       String tableName, String sourceChannelName, String destinationChannelName) {
     InternalUtils.assertNotEmpty("tableName", tableName);
     InternalUtils.assertNotEmpty("sourceChannelName", sourceChannelName);
@@ -1055,7 +1055,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
           sourceChannelName,
           destinationChannelName,
           channelMigrateOffsetTokenResponseDTO);
-      return true;
+      return channelMigrateOffsetTokenResponseDTO;
     } catch (SQLException | JsonProcessingException e) {
       final String errorMsg =
           String.format(
