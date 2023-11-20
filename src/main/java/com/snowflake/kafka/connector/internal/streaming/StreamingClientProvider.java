@@ -29,9 +29,11 @@ import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalC
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 
 /**
- * Static factory that provides streaming client(s).
- * If {@link SnowflakeSinkConnectorConfig#ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG} is disabled then the provider will always create a new client.
- * If the optimization is enabled, then the provider will reuse clients when possible. Clients will be reused on a per Kafka worker node and then per connector level.
+ * Static factory that provides streaming client(s). If {@link
+ * SnowflakeSinkConnectorConfig#ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG} is disabled then the
+ * provider will always create a new client. If the optimization is enabled, then the provider will
+ * reuse clients when possible. Clients will be reused on a per Kafka worker node and then per
+ * connector level.
  */
 public class StreamingClientProvider {
   private static class StreamingClientProviderSingleton {
