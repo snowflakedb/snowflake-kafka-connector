@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
@@ -302,8 +303,8 @@ public interface SnowflakeConnectionService {
    *     Channel with this name will also be deleted.
    * @param destinationChannelName destinationChannel name to where the offsetToken will be copied
    *     over.
-   * @return Whether the migration was successful or a failure.
+   * @return The DTO serialized from the migration response.
    */
-  boolean migrateStreamingChannelOffsetToken(
+  ChannelMigrateOffsetTokenResponseDTO migrateStreamingChannelOffsetToken(
       String tableName, String sourceChannelName, String destinationChannelName);
 }
