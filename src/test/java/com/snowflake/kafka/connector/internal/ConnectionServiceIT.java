@@ -2,10 +2,13 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1.USER_AGENT_SUFFIX_FORMAT;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.generateChannelNameFormatV2;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceV1;
 import java.sql.ResultSet;
@@ -104,7 +107,7 @@ public class ConnectionServiceIT {
     SnowflakeConnectionService service =
         SnowflakeConnectionServiceFactory.builder().setProperties(TestUtils.getConf()).build();
 
-    assert service.getConnectorName().equals(TestUtils.TEST_CONNECTOR_NAME);
+    assert service.getConnectorName().equals(TEST_CONNECTOR_NAME);
 
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_0017,
@@ -116,7 +119,7 @@ public class ConnectionServiceIT {
 
     SnowflakeURL url = TestUtils.getUrl();
     Properties prop = InternalUtils.createProperties(TestUtils.getConf(), url);
-    String appName = TestUtils.TEST_CONNECTOR_NAME;
+    String appName = TEST_CONNECTOR_NAME;
 
     service =
         SnowflakeConnectionServiceFactory.builder()
@@ -166,7 +169,7 @@ public class ConnectionServiceIT {
     SnowflakeConnectionService service =
         SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
 
-    assert service.getConnectorName().equals(TestUtils.TEST_CONNECTOR_NAME);
+    assert service.getConnectorName().equals(TEST_CONNECTOR_NAME);
 
     assert service.getTelemetryClient() instanceof SnowflakeTelemetryServiceV2;
 
@@ -230,10 +233,10 @@ public class ConnectionServiceIT {
     // stage exists
     assert conn.stageExist(stageName);
     // put a file to stage
-    String fileName = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 123, 456);
+    String fileName = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, 1, 123, 456);
     conn.put(stageName, fileName, "test");
     // list stage with prefix
-    List<String> files = conn.listStage(stageName, TestUtils.TEST_CONNECTOR_NAME);
+    List<String> files = conn.listStage(stageName, TEST_CONNECTOR_NAME);
     assert files.size() == 1;
     assert files.get(0).equals(fileName);
     // stage is compatible
@@ -274,7 +277,7 @@ public class ConnectionServiceIT {
     // still not incompatible
     assert !conn.isStageCompatible(stageName);
     // list with prefix
-    files = conn.listStage(stageName, TestUtils.TEST_CONNECTOR_NAME);
+    files = conn.listStage(stageName, TEST_CONNECTOR_NAME);
     // only one file
     assert files.size() == 1;
     assert files.get(0).equals(fileName);
@@ -319,20 +322,20 @@ public class ConnectionServiceIT {
     // stage exists
     assert conn.stageExist(stageName);
     // put two files to stage
-    String fileName1 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 1, 3);
+    String fileName1 = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, 1, 1, 3);
     conn.put(stageName, fileName1, "test");
-    String fileName2 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 4, 6);
+    String fileName2 = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, 1, 4, 6);
     conn.put(stageName, fileName2, "test");
-    String fileName3 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 14, 16);
+    String fileName3 = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, 1, 14, 16);
     conn.put(stageName, fileName3, "test");
-    String fileName4 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 24, 26);
+    String fileName4 = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, 1, 24, 26);
     conn.put(stageName, fileName4, "test");
-    String fileName5 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 34, 36);
+    String fileName5 = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, 1, 34, 36);
     conn.put(stageName, fileName5, "test");
-    String fileName6 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, tableName, 1, 44, 46);
+    String fileName6 = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, 1, 44, 46);
     conn.put(stageName, fileName6, "test");
     // list stage with prefix
-    List<String> files = conn.listStage(stageName, TestUtils.TEST_CONNECTOR_NAME);
+    List<String> files = conn.listStage(stageName, TEST_CONNECTOR_NAME);
     assert files.size() == 6;
 
     List<String> filesList = new ArrayList<>();
@@ -344,7 +347,7 @@ public class ConnectionServiceIT {
     filesList.add(fileName6);
     conn.purgeStage(stageName, filesList);
 
-    files = conn.listStage(stageName, TestUtils.TEST_CONNECTOR_NAME);
+    files = conn.listStage(stageName, TEST_CONNECTOR_NAME);
     assert files.size() == 0;
   }
 
@@ -410,5 +413,26 @@ public class ConnectionServiceIT {
     assert !service.isClosed();
     service.close();
     assert service.isClosed();
+  }
+
+  @Test
+  public void testStreamingChannelOffsetMigration() {
+    Map<String, String> testConfig = TestUtils.getConfForStreaming();
+    SnowflakeConnectionService conn =
+        SnowflakeConnectionServiceFactory.builder().setProperties(testConfig).build();
+    conn.createTable(tableName);
+    final String channelNameFormatV1 = SnowflakeSinkServiceV2.partitionChannelKey(tableName, 0);
+
+    final String sourceChannelName =
+        generateChannelNameFormatV2(channelNameFormatV1, TEST_CONNECTOR_NAME);
+    final String destinationChannelName = channelNameFormatV1;
+
+    try {
+      Assert.assertTrue(
+          conn.migrateStreamingChannelOffsetToken(
+              tableName, sourceChannelName, destinationChannelName));
+    } catch (Exception e) {
+      Assert.fail("Should not throw an exception:" + e.getMessage());
+    }
   }
 }
