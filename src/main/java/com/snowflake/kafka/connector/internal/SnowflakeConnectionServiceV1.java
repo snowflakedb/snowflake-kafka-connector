@@ -1038,13 +1038,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
         migrateOffsetTokenResultFromSysFunc = resultSet.getString(1 /*Only one column*/);
       }
       if (migrateOffsetTokenResultFromSysFunc == null) {
-        LOGGER.warn(
-            "No result found in Migrating OffsetToken through System Function for tableName:{},"
-                + " sourceChannel:{}, destinationChannel:{}",
-            fullyQualifiedTableName,
-            sourceChannelName,
-            destinationChannelName);
-        return false;
+        final String errorMsg =
+            String.format(
+                "No result found in Migrating OffsetToken through System Function for tableName:%s,"
+                    + " sourceChannel:%s, destinationChannel:%s",
+                fullyQualifiedTableName, sourceChannelName, destinationChannelName);
+        throw SnowflakeErrors.ERROR_5023.getException(errorMsg, this.telemetry);
       }
 
       ChannelMigrateOffsetTokenResponseDTO channelMigrateOffsetTokenResponseDTO =
@@ -1059,12 +1058,15 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
           channelMigrateOffsetTokenResponseDTO);
       return true;
     } catch (SQLException | JsonProcessingException e) {
-      LOGGER.error(
-          "Migrating OffsetToken for a SourceChannel:{} in table:{} failed due to:{}",
-          sourceChannelName,
-          fullyQualifiedTableName,
-          e.getMessage());
-      return false;
+      final String errorMsg =
+          String.format(
+              "Migrating OffsetToken for a SourceChannel:%s in table:%s failed due to"
+                  + " exceptionMessage:%s and stackTrace:%s",
+              sourceChannelName,
+              fullyQualifiedTableName,
+              e.getMessage(),
+              Arrays.toString(e.getStackTrace()));
+      throw SnowflakeErrors.ERROR_5023.getException(errorMsg, this.telemetry);
     }
   }
 }

@@ -324,6 +324,40 @@ public class TopicPartitionChannelTest {
         .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
   }
 
+  @Test
+  public void testStreamingChannelMigration_InvalidResponse() {
+
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+    Mockito.when(
+            mockSnowflakeConnectionService.migrateStreamingChannelOffsetToken(
+                anyString(), anyString(), Mockito.anyString()))
+        .thenThrow(new RuntimeException("Exception migrating channel offset token"));
+    try {
+      // checking default
+      TopicPartitionChannel topicPartitionChannel =
+          new TopicPartitionChannel(
+              mockStreamingClient,
+              topicPartition,
+              TEST_CHANNEL_NAME,
+              TEST_TABLE_NAME,
+              true,
+              streamingBufferThreshold,
+              sfConnectorConfig,
+              mockKafkaRecordErrorReporter,
+              mockSinkTaskContext,
+              mockSnowflakeConnectionService,
+              new RecordService(mockTelemetryService),
+              mockTelemetryService,
+              false,
+              null);
+      Assert.fail("Should throw an exception:");
+    } catch (Exception e) {
+      Mockito.verify(mockSnowflakeConnectionService, Mockito.times(1))
+          .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
+      assert e.getMessage().contains("Exception migrating channel offset token");
+    }
+  }
+
   /* Only SFExceptions are retried and goes into fallback. */
   @Test(expected = SFException.class)
   public void testFetchOffsetTokenWithRetry_SFException() {

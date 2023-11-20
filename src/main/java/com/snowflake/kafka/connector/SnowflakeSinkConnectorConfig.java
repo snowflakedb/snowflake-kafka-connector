@@ -175,7 +175,9 @@ public class SnowflakeSinkConnectorConfig {
   public static final boolean ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT = true;
   public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DOC =
       "This config is used to enable/disable streaming channel offset migration logic. If true, we"
-          + " will migrate offset token from channel name format V2 to name format v1.";
+          + " will migrate offset token from channel name format V2 to name format v1. V2 channel"
+          + " format is deprecated and V1 will be used always, disabling this config could have"
+          + " ramifications. Please consult Snowflake support before setting this to false.";
 
   // MDC logging header
   public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
