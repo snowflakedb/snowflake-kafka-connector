@@ -137,9 +137,6 @@ public class TopicPartitionChannel {
   /* Channel Name is computed from topic and partition */
   private final String channelNameFormatV1;
 
-  /* Channel Name format V2 is computed from connector name, topic and partition */
-  private final String channelNameFormatV2;
-
   /* table is required for opening the channel */
   private final String tableName;
 
@@ -283,12 +280,12 @@ public class TopicPartitionChannel {
 
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
 
-    this.channelNameFormatV2 =
-        generateChannelNameFormatV2(this.channelNameFormatV1, this.conn.getConnectorName());
-
     if (isEnableChannelOffsetMigration(sfConnectorConfig)) {
+      /* Channel Name format V2 is computed from connector name, topic and partition */
+      final String channelNameFormatV2 =
+          generateChannelNameFormatV2(this.channelNameFormatV1, this.conn.getConnectorName());
       conn.migrateStreamingChannelOffsetToken(
-          this.tableName, this.channelNameFormatV2, this.channelNameFormatV1);
+          this.tableName, channelNameFormatV2, this.channelNameFormatV1);
     }
 
     // Open channel and reset the offset in kafka
