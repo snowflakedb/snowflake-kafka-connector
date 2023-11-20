@@ -23,8 +23,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.Map;
-import java.util.Properties;
-
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalCause;
@@ -65,7 +63,7 @@ public class StreamingClientProvider {
 
   /** ONLY FOR TESTING - private constructor to inject properties for testing */
   private StreamingClientProvider(
-      LoadingCache<Properties, SnowflakeStreamingIngestClient> registeredClients,
+      LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> registeredClients,
       StreamingClientHandler streamingClientHandler) {
     this();
     this.registeredClients = registeredClients;
@@ -77,7 +75,7 @@ public class StreamingClientProvider {
 
   // if the one client optimization is enabled, we cache the created clients based on corresponding
   // Streaming properties
-  private LoadingCache<Properties, SnowflakeStreamingIngestClient> registeredClients;
+  private LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> registeredClients;
 
   // private constructor for singleton
   private StreamingClientProvider() {
@@ -94,7 +92,7 @@ public class StreamingClientProvider {
                       client.getName(),
                       removalCause.toString());
                 })
-            .build();
+            .build(this.streamingClientHandler::createClient);
   }
 
   /**
