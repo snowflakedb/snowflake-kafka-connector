@@ -176,4 +176,10 @@ public class StreamingClientHandlerTest {
       }
     }
   }
+
+  @Test
+  public void testGetLoggableClientInvalidProperties() {
+    assert StreamingClientHandler.getLoggableClientProperties(null).equals("");
+    assert StreamingClientHandler.getLoggableClientProperties(new Properties()).equals("[]");
+  }
 }

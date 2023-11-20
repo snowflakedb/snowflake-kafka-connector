@@ -23,7 +23,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.Map;
-import java.util.concurrent.locks.Lock;
+import java.util.Properties;
+
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalCause;
@@ -64,7 +65,7 @@ public class StreamingClientProvider {
 
   /** ONLY FOR TESTING - private constructor to inject properties for testing */
   private StreamingClientProvider(
-      LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> registeredClients,
+      LoadingCache<Properties, SnowflakeStreamingIngestClient> registeredClients,
       StreamingClientHandler streamingClientHandler) {
     this();
     this.registeredClients = registeredClients;
@@ -73,13 +74,10 @@ public class StreamingClientProvider {
 
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProvider.class.getName());
   private StreamingClientHandler streamingClientHandler;
-  private Lock providerLock;
 
-  /**
-   * Maps the client's properties to the created SnowflakeStreamingIngestClient with the connectors
-   * configs. See {@link StreamingUtils#convertConfigForStreamingClient(Map)}
-   */
-  private LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> registeredClients;
+  // if the one client optimization is enabled, we cache the created clients based on corresponding
+  // Streaming properties
+  private LoadingCache<Properties, SnowflakeStreamingIngestClient> registeredClients;
 
   // private constructor for singleton
   private StreamingClientProvider() {
@@ -91,13 +89,12 @@ public class StreamingClientProvider {
                 (Map<String, String> key,
                     SnowflakeStreamingIngestClient client,
                     RemovalCause removalCause) -> {
-                  this.streamingClientHandler.closeClient(client);
                   LOGGER.info(
                       "Removed registered client {} due to {}",
                       client.getName(),
                       removalCause.toString());
                 })
-            .build(this.streamingClientHandler::createClient);
+            .build();
   }
 
   /**
@@ -147,13 +144,12 @@ public class StreamingClientProvider {
     SnowflakeStreamingIngestClient registeredClient =
         this.registeredClients.getIfPresent(connectorConfig);
     if (registeredClient != null) {
+      // invalidations are processed on the next get or in the background, so we still need to close the client here
       this.registeredClients.invalidate(connectorConfig);
     }
 
     this.streamingClientHandler.closeClient(client);
-    this.streamingClientHandler.closeClient(
-        registeredClient); // in case the registered client is somehow different from the given
-                           // client
+    this.streamingClientHandler.closeClient(registeredClient); // in case the given client is different for some reason
   }
 
   public Map<Map<String, String>, SnowflakeStreamingIngestClient> getRegisteredClients() {

@@ -71,13 +71,15 @@ public class StreamingClientHandler {
    * @return A string with the loggable properties
    */
   public static String getLoggableClientProperties(Properties properties) {
-    return properties.entrySet().stream()
-        .filter(
-            propKvp ->
-                LOGGABLE_STREAMING_CONFIG_PROPERTIES.stream()
-                    .anyMatch(propKvp.getKey().toString()::equalsIgnoreCase))
-        .collect(Collectors.toList())
-        .toString();
+    return properties == null
+        ? ""
+        : properties.entrySet().stream()
+            .filter(
+                propKvp ->
+                    LOGGABLE_STREAMING_CONFIG_PROPERTIES.stream()
+                        .anyMatch(propKvp.getKey().toString()::equalsIgnoreCase))
+            .collect(Collectors.toList())
+            .toString();
   }
 
   /**
