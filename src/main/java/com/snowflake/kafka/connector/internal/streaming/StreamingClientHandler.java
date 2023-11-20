@@ -86,7 +86,7 @@ public class StreamingClientHandler {
    * Creates a streaming client from the given config
    *
    * @param connectorConfig The config to create the client
-   * @return The client properties and the newly created client
+   * @return A newly created client
    */
   public SnowflakeStreamingIngestClient createClient(Map<String, String> connectorConfig) {
     LOGGER.info("Initializing Streaming Client...");
