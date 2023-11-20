@@ -58,8 +58,7 @@ public class StreamingClientProvider {
   }
 
   /** ONLY FOR TESTING - private constructor to inject properties for testing */
-  private StreamingClientProvider(
-      StreamingClientHandler streamingClientHandler) {
+  private StreamingClientProvider(StreamingClientHandler streamingClientHandler) {
     this();
     this.streamingClientHandler = streamingClientHandler;
   }
