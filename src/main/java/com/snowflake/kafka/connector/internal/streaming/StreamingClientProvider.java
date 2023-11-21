@@ -52,16 +52,18 @@ public class StreamingClientProvider {
 
   /**
    * Builds the loading cache to register streaming clients
+   *
    * @param streamingClientHandler The handler to create clients with
    * @return A loading cache to register clients
    */
-  public static LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> buildLoadingCache(StreamingClientHandler streamingClientHandler) {
+  public static LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> buildLoadingCache(
+      StreamingClientHandler streamingClientHandler) {
     return Caffeine.newBuilder()
         .maximumSize(Runtime.getRuntime().maxMemory())
         .evictionListener(
             (Map<String, String> key,
-             SnowflakeStreamingIngestClient client,
-             RemovalCause removalCause) -> {
+                SnowflakeStreamingIngestClient client,
+                RemovalCause removalCause) -> {
               streamingClientHandler.closeClient(client);
               LOGGER.info(
                   "Removed registered client {} due to {}",
@@ -74,12 +76,15 @@ public class StreamingClientProvider {
   /** ONLY FOR TESTING - to get a provider with injected properties */
   @VisibleForTesting
   public static StreamingClientProvider getStreamingClientProviderForTests(
-      StreamingClientHandler streamingClientHandler, LoadingCache<Map<String, String >, SnowflakeStreamingIngestClient> registeredClients) {
+      StreamingClientHandler streamingClientHandler,
+      LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> registeredClients) {
     return new StreamingClientProvider(streamingClientHandler, registeredClients);
   }
 
   /** ONLY FOR TESTING - private constructor to inject properties for testing */
-  private StreamingClientProvider(StreamingClientHandler streamingClientHandler, LoadingCache<Map<String, String >, SnowflakeStreamingIngestClient> registeredClients) {
+  private StreamingClientProvider(
+      StreamingClientHandler streamingClientHandler,
+      LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> registeredClients) {
     this.streamingClientHandler = streamingClientHandler;
     this.registeredClients = registeredClients;
   }
@@ -95,14 +100,16 @@ public class StreamingClientProvider {
     // if the one client optimization is enabled, we use this to cache the created clients based on
     // corresponding connector config. The cache calls streamingClientHandler to create the client
     // if the requested connector config has not already been loaded into the cache. When a client
-    // is evicted, it will try closing the client, however it is best to still call close client manually as eviction is executed lazily
+    // is evicted, it will try closing the client, however it is best to still call close client
+    // manually as eviction is executed lazily
     this.registeredClients = buildLoadingCache(this.streamingClientHandler);
   }
 
   /**
    * Gets the current client or creates a new one from the given connector config. If client
    * optimization is not enabled, it will create a new streaming client and the caller is
-   * responsible for closing it. If the optimization is enabled and the registered client is invalid, we will try recreating and reregistering the client
+   * responsible for closing it. If the optimization is enabled and the registered client is
+   * invalid, we will try recreating and reregistering the client
    *
    * @param connectorConfig The connector config
    * @return A streaming client
@@ -152,7 +159,8 @@ public class StreamingClientProvider {
       this.streamingClientHandler.closeClient(registeredClient);
     }
 
-    // also close given client in case it is different from registered client. this should no-op if it is already closed
+    // also close given client in case it is different from registered client. this should no-op if
+    // it is already closed
     this.streamingClientHandler.closeClient(client);
   }
 

@@ -27,7 +27,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalCause;
@@ -37,8 +36,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.mockito.ArgumentMatchers;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
@@ -81,7 +78,9 @@ public class StreamingClientProviderTest {
 
     this.streamingClientHandler = Mockito.spy(StreamingClientHandler.class);
     this.streamingClientProvider =
-        StreamingClientProvider.getStreamingClientProviderForTests(this.streamingClientHandler, StreamingClientProvider.buildLoadingCache(this.streamingClientHandler));
+        StreamingClientProvider.getStreamingClientProviderForTests(
+            this.streamingClientHandler,
+            StreamingClientProvider.buildLoadingCache(this.streamingClientHandler));
   }
 
   @After
@@ -118,30 +117,36 @@ public class StreamingClientProviderTest {
     Mockito.when(this.invalidClient.isClosed()).thenReturn(true);
 
     // inject new handler and cache
-    StreamingClientHandler injectedStreamingClientHandler = Mockito.spy(StreamingClientHandler.class);
-    LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> injectedRegistrationClients = Caffeine.newBuilder()
-        .maximumSize(Runtime.getRuntime().maxMemory())
-        .removalListener(
-            (Map<String, String> key,
-             SnowflakeStreamingIngestClient client,
-             RemovalCause removalCause) -> {
-              injectedStreamingClientHandler.closeClient(client);
-            })
-        .build(injectedStreamingClientHandler::createClient);
+    StreamingClientHandler injectedStreamingClientHandler =
+        Mockito.spy(StreamingClientHandler.class);
+    LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> injectedRegistrationClients =
+        Caffeine.newBuilder()
+            .maximumSize(Runtime.getRuntime().maxMemory())
+            .removalListener(
+                (Map<String, String> key,
+                    SnowflakeStreamingIngestClient client,
+                    RemovalCause removalCause) -> {
+                  injectedStreamingClientHandler.closeClient(client);
+                })
+            .build(injectedStreamingClientHandler::createClient);
     injectedRegistrationClients.put(validClientConfig, validClient);
     injectedRegistrationClients.put(invalidClientConfig, invalidClient);
 
     StreamingClientProvider injectedProvider =
-        getStreamingClientProviderForTests(injectedStreamingClientHandler, injectedRegistrationClients);
+        getStreamingClientProviderForTests(
+            injectedStreamingClientHandler, injectedRegistrationClients);
 
     // test: getting valid client
     this.validClient = injectedProvider.getClient(validClientConfig);
 
-    // verify: valid client was got, but if optimization enabled we didnt need to create a new client
+    // verify: valid client was got, but if optimization enabled we didnt need to create a new
+    // client
     assert StreamingClientHandler.isClientValid(this.validClient);
     assert this.validClient.getName().contains(validClientConfig.get(Utils.NAME));
     assert !this.validClient.getName().contains(invalidClientConfig.get(Utils.NAME));
-    Mockito.verify(injectedStreamingClientHandler, Mockito.times(this.enableClientOptimization ? 0 : 1)).createClient(validClientConfig);
+    Mockito.verify(
+            injectedStreamingClientHandler, Mockito.times(this.enableClientOptimization ? 0 : 1))
+        .createClient(validClientConfig);
 
     // test: getting invalid client
     this.invalidClient = injectedProvider.getClient(invalidClientConfig);
@@ -150,7 +155,8 @@ public class StreamingClientProviderTest {
     assert StreamingClientHandler.isClientValid(this.invalidClient);
     assert !this.invalidClient.getName().contains(validClientConfig.get(Utils.NAME));
     assert this.invalidClient.getName().contains(invalidClientConfig.get(Utils.NAME));
-    Mockito.verify(injectedStreamingClientHandler, Mockito.times(1)).createClient(invalidClientConfig);
+    Mockito.verify(injectedStreamingClientHandler, Mockito.times(1))
+        .createClient(invalidClientConfig);
   }
 
   @Test
@@ -212,7 +218,8 @@ public class StreamingClientProviderTest {
       assert this.streamingClientProvider.getRegisteredClients().size() == 1; // just client 2 left
       Mockito.verify(this.streamingClientHandler, Mockito.times(2)).closeClient(this.client1);
     } else {
-      assert this.streamingClientProvider.getRegisteredClients().size() == 0; // no registered clients without optimization
+      assert this.streamingClientProvider.getRegisteredClients().size()
+          == 0; // no registered clients without optimization
       Mockito.verify(this.streamingClientHandler, Mockito.times(1)).closeClient(this.client1);
     }
   }
@@ -227,7 +234,9 @@ public class StreamingClientProviderTest {
     this.streamingClientProvider.closeClient(this.clientConfig1, this.invalidClient);
 
     // close called twice with optimization, second should noop
-    Mockito.verify(this.streamingClientHandler, Mockito.times(this.enableClientOptimization ? 2 : 1)).closeClient(this.invalidClient);
+    Mockito.verify(
+            this.streamingClientHandler, Mockito.times(this.enableClientOptimization ? 2 : 1))
+        .closeClient(this.invalidClient);
   }
 
   @Test
@@ -240,7 +249,9 @@ public class StreamingClientProviderTest {
     this.streamingClientProvider.closeClient(this.clientConfig1, this.client2);
 
     // verify both clients are closed with optimization, or just client2 without
-    Mockito.verify(this.streamingClientHandler, Mockito.times(this.enableClientOptimization ? 1 : 0)).closeClient(this.client1);
+    Mockito.verify(
+            this.streamingClientHandler, Mockito.times(this.enableClientOptimization ? 1 : 0))
+        .closeClient(this.client1);
     Mockito.verify(this.streamingClientHandler, Mockito.times(1)).closeClient(this.client2);
   }
 
