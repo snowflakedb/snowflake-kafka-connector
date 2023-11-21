@@ -2,13 +2,9 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1.USER_AGENT_SUFFIX_FORMAT;
-<<<<<<< HEAD
-=======
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST;
 import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.isChannelMigrationResponseSuccessful;
-import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.generateChannelNameFormatV2;
->>>>>>> 612027bb (Modified the return type of interface and added IT test in connectionserviceIT)
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -16,12 +12,9 @@ import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-<<<<<<< HEAD
-=======
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.StreamingBufferThreshold;
 import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel;
->>>>>>> 612027bb (Modified the return type of interface and added IT test in connectionserviceIT)
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceV1;
 import java.sql.ResultSet;
@@ -439,7 +432,7 @@ public class ConnectionServiceIT {
     final String channelNameFormatV1 = SnowflakeSinkServiceV2.partitionChannelKey(tableName, 0);
 
     final String sourceChannelName =
-        generateChannelNameFormatV2(channelNameFormatV1, TEST_CONNECTOR_NAME);
+        TopicPartitionChannel.generateChannelNameFormatV2(channelNameFormatV1, TEST_CONNECTOR_NAME);
     final String destinationChannelName = channelNameFormatV1;
 
     try {

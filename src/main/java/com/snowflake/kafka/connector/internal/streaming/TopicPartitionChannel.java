@@ -361,7 +361,8 @@ public class TopicPartitionChannel {
    *     this change (released in version 2.1.0) </a>
    */
   @VisibleForTesting
-  protected String generateChannelNameFormatV2(String channelNameFormatV1, String connectorName) {
+  public static String generateChannelNameFormatV2(
+      String channelNameFormatV1, String connectorName) {
     return connectorName + "_" + channelNameFormatV1;
   }
 
