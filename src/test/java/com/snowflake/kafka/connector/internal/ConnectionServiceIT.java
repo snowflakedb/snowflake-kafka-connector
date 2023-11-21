@@ -11,6 +11,7 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
+import com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
@@ -436,24 +437,27 @@ public class ConnectionServiceIT {
         generateChannelNameFormatV2(channelNameFormatV1, TEST_CONNECTOR_NAME);
     final String destinationChannelName = channelNameFormatV1;
 
-    try {
-      // ### TEST 1 - Both channels doesnt exist
-      ChannelMigrateOffsetTokenResponseDTO channelMigrateOffsetTokenResponseDTO =
-          conn.migrateStreamingChannelOffsetToken(
-              tableName, sourceChannelName, destinationChannelName);
-      Assert.assertTrue(isChannelMigrationResponseSuccessful(channelMigrateOffsetTokenResponseDTO));
-      Assert.assertEquals(
-          OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST.getStatusCode(),
-          channelMigrateOffsetTokenResponseDTO.getResponseCode());
+    // ### TEST 1 - Both channels doesnt exist
+    ChannelMigrateOffsetTokenResponseDTO channelMigrateOffsetTokenResponseDTO =
+        conn.migrateStreamingChannelOffsetToken(
+            tableName, sourceChannelName, destinationChannelName);
+    Assert.assertTrue(isChannelMigrationResponseSuccessful(channelMigrateOffsetTokenResponseDTO));
+    Assert.assertEquals(
+        OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST.getStatusCode(),
+        channelMigrateOffsetTokenResponseDTO.getResponseCode());
 
+    try {
       // ### TEST 2 - Table doesnt exist
       channelMigrateOffsetTokenResponseDTO =
           conn.migrateStreamingChannelOffsetToken(
               tableName + "_Table_DOESNT_EXIST", sourceChannelName, destinationChannelName);
-      Assert.assertFalse(
-          isChannelMigrationResponseSuccessful(channelMigrateOffsetTokenResponseDTO));
-      Assert.assertEquals(4L, channelMigrateOffsetTokenResponseDTO.getResponseCode());
+    } catch (SnowflakeKafkaConnectorException ex) {
+      assert ex.getMessage()
+          .contains(
+              ChannelMigrationResponseCode.ERR_TABLE_DOES_NOT_EXIST_NOT_AUTHORIZED.getMessage());
+    }
 
+    try {
       // ### TEST 3 - Source Channel (v2 channel doesnt exist)
       Map<String, String> config = TestUtils.getConfForStreaming();
       SnowflakeSinkConnectorConfig.setDefaultValues(config);

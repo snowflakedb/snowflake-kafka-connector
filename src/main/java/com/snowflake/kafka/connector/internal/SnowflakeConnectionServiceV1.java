@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
+import com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SchematizationUtils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -1056,6 +1057,13 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
           sourceChannelName,
           destinationChannelName,
           channelMigrateOffsetTokenResponseDTO);
+      if (!ChannelMigrationResponseCode.isChannelMigrationResponseSuccessful(
+          channelMigrateOffsetTokenResponseDTO)) {
+        throw SnowflakeErrors.ERROR_5023.getException(
+            ChannelMigrationResponseCode.getMessageByCode(
+                channelMigrateOffsetTokenResponseDTO.getResponseCode()),
+            this.telemetry);
+      }
       return channelMigrateOffsetTokenResponseDTO;
     } catch (SQLException | JsonProcessingException e) {
       final String errorMsg =

@@ -78,12 +78,9 @@ public enum ChannelMigrationResponseCode {
    * @param statusCodeToCheck response from JDBC system function call.
    * @return true or false
    */
-  public static boolean isStatusCodeSuccessful(final long statusCodeToCheck) {
-    if (statusCodeToCheck == SUCCESS.getStatusCode()
-        || statusCodeToCheck == OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST.getStatusCode()) {
-      return true;
-    }
-    return false;
+  private static boolean isStatusCodeSuccessful(final long statusCodeToCheck) {
+    return statusCodeToCheck == SUCCESS.getStatusCode()
+        || statusCodeToCheck == OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST.getStatusCode();
   }
 
   /**
