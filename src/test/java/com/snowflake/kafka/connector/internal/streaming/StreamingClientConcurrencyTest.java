@@ -73,15 +73,7 @@ public class StreamingClientConcurrencyTest {
     this.streamingClientProvider =
         StreamingClientProvider.getStreamingClientProviderForTests(
             this.streamingClientHandler,
-            Caffeine.newBuilder()
-                .maximumSize(Runtime.getRuntime().maxMemory())
-                .removalListener(
-                    (Map<String, String> key,
-                        SnowflakeStreamingIngestClient client,
-                        RemovalCause removalCause) -> {
-                      this.streamingClientHandler.closeClient(client);
-                    })
-                .build(this.streamingClientHandler::createClient));
+            StreamingClientProvider.buildLoadingCache(this.streamingClientHandler));
 
     this.getClientFuturesTeardown = new ArrayList<>();
     this.closeClientFuturesTeardown = new ArrayList<>();
@@ -282,7 +274,7 @@ public class StreamingClientConcurrencyTest {
     }
 
     // Verify that closeClient() was called every time
-    Mockito.verify(this.streamingClientHandler, Mockito.times(numCloseClientCalls))
+    Mockito.verify(this.streamingClientHandler, Mockito.times(numCloseClientCalls * (this.enableClientOptimization ? 2 : 1)))
         .closeClient(client);
   }
 
