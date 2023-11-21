@@ -272,12 +272,12 @@ public class StreamingClientConcurrencyTest {
     }
 
     // Verify that closeClient() at least once per thread
-    Mockito.verify(
-            this.streamingClientHandler,
-            Mockito.atLeast(numCloseClientCalls))
+    Mockito.verify(this.streamingClientHandler, Mockito.atLeast(numCloseClientCalls))
         .closeClient(client);
 
-    // Verify that closeClient() was called at max twice per close thread. Because LoadingCache's invalidation happens async, we can't really expect an exact number of calls. The extra close client calls will no-op
+    // Verify that closeClient() was called at max twice per close thread. Because LoadingCache's
+    // invalidation happens async, we can't really expect an exact number of calls. The extra close
+    // client calls will no-op
     Mockito.verify(
             this.streamingClientHandler,
             Mockito.atMost(numCloseClientCalls * (this.enableClientOptimization ? 2 : 1)))
