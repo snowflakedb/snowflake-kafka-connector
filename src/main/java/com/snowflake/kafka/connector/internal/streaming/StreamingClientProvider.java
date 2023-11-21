@@ -143,8 +143,9 @@ public class StreamingClientProvider {
   }
 
   /**
-   * Closes the given client and deregisters it from the cache if necessary
+   * Closes the given client and deregisters it from the cache if necessary. It will also call close on the registered client, which should be the same as the given client so the call will no-op.
    *
+   * @param connectorConfig The configuration to deregister from the cache
    * @param client The client to be closed
    */
   public void closeClient(
