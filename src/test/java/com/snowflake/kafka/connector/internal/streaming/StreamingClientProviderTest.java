@@ -27,12 +27,18 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+
+import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
+import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
+import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalCause;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
@@ -75,7 +81,7 @@ public class StreamingClientProviderTest {
 
     this.streamingClientHandler = Mockito.spy(StreamingClientHandler.class);
     this.streamingClientProvider =
-        StreamingClientProvider.getStreamingClientProviderForTests(this.streamingClientHandler);
+        StreamingClientProvider.getStreamingClientProviderForTests(this.streamingClientHandler, StreamingClientProvider.buildLoadingCache(this.streamingClientHandler));
   }
 
   @After
@@ -99,8 +105,61 @@ public class StreamingClientProviderTest {
   }
 
   @Test
+  public void testGetInvalidClient() {
+    Map<String, String> invalidClientConfig = new HashMap<>(this.clientConfig1);
+    invalidClientConfig.put(Utils.NAME, "badclient");
+
+    Map<String, String> validClientConfig = new HashMap<>(this.clientConfig1);
+    validClientConfig.put(Utils.NAME, "goodclient");
+
+    // get valid and invalid client
+    this.validClient = this.streamingClientProvider.getClient(validClientConfig);
+    this.invalidClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    Mockito.when(this.invalidClient.isClosed()).thenReturn(true);
+
+    // inject new handler and cache
+    StreamingClientHandler injectedStreamingClientHandler = Mockito.spy(StreamingClientHandler.class);
+    LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> injectedRegistrationClients = Caffeine.newBuilder()
+        .maximumSize(Runtime.getRuntime().maxMemory())
+        .removalListener(
+            (Map<String, String> key,
+             SnowflakeStreamingIngestClient client,
+             RemovalCause removalCause) -> {
+              injectedStreamingClientHandler.closeClient(client);
+            })
+        .build(injectedStreamingClientHandler::createClient);
+    injectedRegistrationClients.put(validClientConfig, validClient);
+    injectedRegistrationClients.put(invalidClientConfig, invalidClient);
+
+    StreamingClientProvider injectedProvider =
+        getStreamingClientProviderForTests(injectedStreamingClientHandler, injectedRegistrationClients);
+
+    // test: getting valid client
+    this.validClient = injectedProvider.getClient(validClientConfig);
+
+    // verify: valid client was got, but if optimization enabled we didnt need to create a new client
+    assert StreamingClientHandler.isClientValid(this.validClient);
+    assert this.validClient.getName().contains(validClientConfig.get(Utils.NAME));
+    assert !this.validClient.getName().contains(invalidClientConfig.get(Utils.NAME));
+    Mockito.verify(injectedStreamingClientHandler, Mockito.times(this.enableClientOptimization ? 0 : 1)).createClient(validClientConfig);
+
+    // test: getting invalid client
+    this.invalidClient = injectedProvider.getClient(invalidClientConfig);
+
+    // verify: invalid client was refreshed / recreated
+    assert StreamingClientHandler.isClientValid(this.invalidClient);
+    assert !this.invalidClient.getName().contains(validClientConfig.get(Utils.NAME));
+    assert this.invalidClient.getName().contains(invalidClientConfig.get(Utils.NAME));
+    Mockito.verify(injectedStreamingClientHandler, Mockito.times(1)).createClient(invalidClientConfig);
+  }
+
+  @Test
   public void testGetExistingClient() {
-    // test
+    // setup configs with different roles
+    this.clientConfig1.put(SF_ROLE, "testrole_kafka");
+    this.clientConfig2.put(SF_ROLE, "public");
+
+    // test creating client1 and client3 with the same config, client2 with different config
     this.client1 = this.streamingClientProvider.getClient(this.clientConfig1);
     this.client2 = this.streamingClientProvider.getClient(this.clientConfig2);
     this.client3 = this.streamingClientProvider.getClient(this.clientConfig1);
@@ -110,7 +169,7 @@ public class StreamingClientProviderTest {
     assert StreamingClientHandler.isClientValid(client2);
     assert StreamingClientHandler.isClientValid(client3);
 
-    // verify: clients should be the same if optimization is enabled
+    // verify: client1 == client3 if optimization is enabled, but client2 should be different
     if (this.enableClientOptimization) {
       assert !client1.getName().equals(client2.getName());
       assert client1.getName().equals(client3.getName());
@@ -118,6 +177,8 @@ public class StreamingClientProviderTest {
 
       Mockito.verify(this.streamingClientHandler, Mockito.times(1))
           .createClient(this.clientConfig1);
+      Mockito.verify(this.streamingClientHandler, Mockito.times(1))
+          .createClient(this.clientConfig2);
     } else {
       // client 1 and 3 are created from the same config, but will have different names
       assert !client1.getName().equals(client2.getName());
@@ -136,59 +197,51 @@ public class StreamingClientProviderTest {
   }
 
   @Test
-  public void testTwoDifferentClients() {
-    // make configs with different roles, should not use the same client even with optimization
-    // enabled
-    this.clientConfig1.put(SF_ROLE, "public");
-
-    // test
+  public void testCloseClients() throws Exception {
+    // setup two valid clients
     this.client1 = this.streamingClientProvider.getClient(this.clientConfig1);
     this.client2 = this.streamingClientProvider.getClient(this.clientConfig2);
-    this.client3 = this.streamingClientProvider.getClient(this.clientConfig2);
+    assert StreamingClientHandler.isClientValid(this.client1);
+    assert StreamingClientHandler.isClientValid(this.client2);
 
-    // verify: clients are valid and have expected names
-    assert StreamingClientHandler.isClientValid(client1);
-    assert StreamingClientHandler.isClientValid(client2);
-    assert StreamingClientHandler.isClientValid(client3);
-    assert client1.getName().contains(this.clientConfig1.get(Utils.NAME));
-    assert client2.getName().contains(this.clientConfig2.get(Utils.NAME));
-    assert client3.getName().contains(this.clientConfig2.get(Utils.NAME));
+    // test closing valid client
+    this.streamingClientProvider.closeClient(this.clientConfig1, this.client1);
 
-    // verify: client2 and client3 should be the same, but distinct from client1
+    // verify: if optimized, there should only be one closeClient() call
     if (this.enableClientOptimization) {
-      assert client2.getName().equals(client3.getName());
-      assert !client1.getName().equals(client2.getName());
-
-      Mockito.verify(this.streamingClientHandler, Mockito.times(1))
-          .createClient(this.clientConfig1);
-      Mockito.verify(this.streamingClientHandler, Mockito.times(1))
-          .createClient(this.clientConfig2);
+      assert this.streamingClientProvider.getRegisteredClients().size() == 1; // just client 2 left
+      Mockito.verify(this.streamingClientHandler, Mockito.times(2)).closeClient(this.client1);
     } else {
-      // client 1 and 3 are created from the same config, but will have different names
-      assert !client1.getName().equals(client2.getName());
-      assert !client2.getName().equals(client3.getName());
-      assert !client1.getName().equals(client3.getName());
-
-      Mockito.verify(this.streamingClientHandler, Mockito.times(1))
-          .createClient(this.clientConfig1);
-      Mockito.verify(this.streamingClientHandler, Mockito.times(2))
-          .createClient(this.clientConfig2);
+      assert this.streamingClientProvider.getRegisteredClients().size() == 0; // no registered clients without optimization
+      Mockito.verify(this.streamingClientHandler, Mockito.times(1)).closeClient(this.client1);
     }
   }
 
   @Test
-  public void testCloseClients() throws Exception {
-    this.client1 = Mockito.mock(SnowflakeStreamingIngestClient.class);
+  public void testCloseInvalidClient() throws Exception {
+    // inject invalid client
+    this.invalidClient = this.streamingClientProvider.getClient(this.clientConfig1);
+    this.invalidClient.close();
 
-    // test closing all clients
-    StreamingClientProvider injectedProvider =
-        getStreamingClientProviderForTests(this.streamingClientHandler);
-    injectedProvider.getClient(this.clientConfig1);
+    // test closing invalid client
+    this.streamingClientProvider.closeClient(this.clientConfig1, this.invalidClient);
 
-    injectedProvider.closeClient(this.clientConfig1, this.client1);
+    // close called twice with optimization, second should noop
+    Mockito.verify(this.streamingClientHandler, Mockito.times(this.enableClientOptimization ? 2 : 1)).closeClient(this.invalidClient);
+  }
 
-    // verify: if optimized, there should only be one closeClient() call
-    Mockito.verify(this.streamingClientHandler, Mockito.times(1)).closeClient(this.client1);
+  @Test
+  public void testCloseUnregisteredClient() {
+    // inject two clients
+    this.client1 = this.streamingClientProvider.getClient(this.clientConfig1);
+    this.client2 = this.streamingClientProvider.getClient(this.clientConfig2);
+
+    // test somehow mixed up client1 and client2 config
+    this.streamingClientProvider.closeClient(this.clientConfig1, this.client2);
+
+    // verify both clients are closed with optimization, or just client2 without
+    Mockito.verify(this.streamingClientHandler, Mockito.times(this.enableClientOptimization ? 1 : 0)).closeClient(this.client1);
+    Mockito.verify(this.streamingClientHandler, Mockito.times(1)).closeClient(this.client2);
   }
 
   @Test

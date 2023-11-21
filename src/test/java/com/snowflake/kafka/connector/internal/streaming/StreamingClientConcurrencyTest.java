@@ -30,6 +30,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
+import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
+import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalCause;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.junit.After;
 import org.junit.Assert;
@@ -69,7 +72,16 @@ public class StreamingClientConcurrencyTest {
 
     this.streamingClientHandler = Mockito.spy(StreamingClientHandler.class);
     this.streamingClientProvider =
-        StreamingClientProvider.getStreamingClientProviderForTests(this.streamingClientHandler);
+        StreamingClientProvider.getStreamingClientProviderForTests(this.streamingClientHandler,
+            Caffeine.newBuilder()
+                .maximumSize(Runtime.getRuntime().maxMemory())
+                .removalListener(
+                    (Map<String, String> key,
+                     SnowflakeStreamingIngestClient client,
+                     RemovalCause removalCause) -> {
+                      this.streamingClientHandler.closeClient(client);
+                    })
+                .build(this.streamingClientHandler::createClient));
 
     this.getClientFuturesTeardown = new ArrayList<>();
     this.closeClientFuturesTeardown = new ArrayList<>();
