@@ -5,6 +5,7 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode;
@@ -60,7 +61,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   // User agent suffix we want to pass in to ingest service
   public static final String USER_AGENT_SUFFIX_FORMAT = "SFKafkaConnector/%s provider/%s";
 
-  private final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   SnowflakeConnectionServiceV1(
       Properties prop,
@@ -1048,8 +1049,8 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       }
 
       ChannelMigrateOffsetTokenResponseDTO channelMigrateOffsetTokenResponseDTO =
-          OBJECT_MAPPER.readValue(
-              migrateOffsetTokenResultFromSysFunc, ChannelMigrateOffsetTokenResponseDTO.class);
+          getChannelMigrateOffsetTokenResponseDTO(migrateOffsetTokenResultFromSysFunc);
+
       LOGGER.info(
           "Migrate OffsetToken response for table:{}, sourceChannel:{}, destinationChannel:{}"
               + " is:{}",
@@ -1076,5 +1077,14 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
               Arrays.toString(e.getStackTrace()));
       throw SnowflakeErrors.ERROR_5023.getException(errorMsg, this.telemetry);
     }
+  }
+
+  @VisibleForTesting
+  protected ChannelMigrateOffsetTokenResponseDTO getChannelMigrateOffsetTokenResponseDTO(
+      String migrateOffsetTokenResultFromSysFunc) throws JsonProcessingException {
+    ChannelMigrateOffsetTokenResponseDTO channelMigrateOffsetTokenResponseDTO =
+        OBJECT_MAPPER.readValue(
+            migrateOffsetTokenResultFromSysFunc, ChannelMigrateOffsetTokenResponseDTO.class);
+    return channelMigrateOffsetTokenResponseDTO;
   }
 }

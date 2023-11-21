@@ -631,6 +631,15 @@ public class TopicPartitionChannelIT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords, 5, 5);
 
+    // add few more records
+    records =
+        TestUtils.createJsonStringSinkRecords(noOfRecords, noOfRecords, testTableName, PARTITION);
+    records.forEach(service::insert);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords + noOfRecords,
+        5,
+        5);
+
     service.closeAll();
   }
 
