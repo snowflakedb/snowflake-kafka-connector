@@ -30,8 +30,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
-import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalCause;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.junit.After;
 import org.junit.Assert;
@@ -274,7 +272,9 @@ public class StreamingClientConcurrencyTest {
     }
 
     // Verify that closeClient() was called every time
-    Mockito.verify(this.streamingClientHandler, Mockito.times(numCloseClientCalls * (this.enableClientOptimization ? 2 : 1)))
+    Mockito.verify(
+            this.streamingClientHandler,
+            Mockito.times(numCloseClientCalls * (this.enableClientOptimization ? 2 : 1)))
         .closeClient(client);
   }
 
