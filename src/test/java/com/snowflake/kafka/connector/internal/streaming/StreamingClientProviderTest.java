@@ -17,27 +17,19 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.Utils.SF_ROLE;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.StreamingClientProperties;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.getStreamingClientProviderForTests;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
-
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
@@ -64,10 +56,13 @@ public class StreamingClientProviderTest {
     Mockito.when(clientMock.getName()).thenReturn(this.clientConfig.get(Utils.NAME));
 
     StreamingClientHandler mockClientHandler = Mockito.mock(StreamingClientHandler.class);
-    Mockito.when(mockClientHandler.createClient(new StreamingClientProperties(this.clientConfig))).thenReturn(clientMock);
+    Mockito.when(mockClientHandler.createClient(new StreamingClientProperties(this.clientConfig)))
+        .thenReturn(clientMock);
 
     // test provider gets new client
-    StreamingClientProvider streamingClientProvider = StreamingClientProvider.getStreamingClientProviderForTests(mockClientHandler, StreamingClientProvider.buildLoadingCache(mockClientHandler));
+    StreamingClientProvider streamingClientProvider =
+        StreamingClientProvider.getStreamingClientProviderForTests(
+            mockClientHandler, StreamingClientProvider.buildLoadingCache(mockClientHandler));
     SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(this.clientConfig);
 
     // verify - should create a client regardless of optimization
@@ -80,23 +75,30 @@ public class StreamingClientProviderTest {
   @Test
   public void testGetInvalidClient() {
     // setup handler, invalid mock client and valid returned client
-    SnowflakeStreamingIngestClient mockInvalidClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    SnowflakeStreamingIngestClient mockInvalidClient =
+        Mockito.mock(SnowflakeStreamingIngestClient.class);
     Mockito.when(mockInvalidClient.getName()).thenReturn(this.clientConfig.get(Utils.NAME));
     Mockito.when(mockInvalidClient.isClosed()).thenReturn(true);
 
-    SnowflakeStreamingIngestClient mockValidClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    SnowflakeStreamingIngestClient mockValidClient =
+        Mockito.mock(SnowflakeStreamingIngestClient.class);
     Mockito.when(mockValidClient.getName()).thenReturn(this.clientConfig.get(Utils.NAME));
     Mockito.when(mockValidClient.isClosed()).thenReturn(false);
 
     StreamingClientHandler mockClientHandler = Mockito.mock(StreamingClientHandler.class);
-    Mockito.when(mockClientHandler.createClient(new StreamingClientProperties(this.clientConfig))).thenReturn(mockValidClient);
+    Mockito.when(mockClientHandler.createClient(new StreamingClientProperties(this.clientConfig)))
+        .thenReturn(mockValidClient);
 
     // inject invalid client into provider
-    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> mockRegisteredClients = Mockito.mock(LoadingCache.class);
-    Mockito.when(mockRegisteredClients.get(new StreamingClientProperties(this.clientConfig))).thenReturn(mockInvalidClient);
+    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> mockRegisteredClients =
+        Mockito.mock(LoadingCache.class);
+    Mockito.when(mockRegisteredClients.get(new StreamingClientProperties(this.clientConfig)))
+        .thenReturn(mockInvalidClient);
 
     // test provider gets new client
-    StreamingClientProvider streamingClientProvider = StreamingClientProvider.getStreamingClientProviderForTests(mockClientHandler, mockRegisteredClients);
+    StreamingClientProvider streamingClientProvider =
+        StreamingClientProvider.getStreamingClientProviderForTests(
+            mockClientHandler, mockRegisteredClients);
     SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(this.clientConfig);
 
     // verify - returned client is valid even though we injected an invalid client
@@ -111,28 +113,35 @@ public class StreamingClientProviderTest {
   @Test
   public void testGetExistingClient() {
     // setup existing client, handler and inject to registeredClients
-    SnowflakeStreamingIngestClient mockExistingClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    SnowflakeStreamingIngestClient mockExistingClient =
+        Mockito.mock(SnowflakeStreamingIngestClient.class);
     Mockito.when(mockExistingClient.getName()).thenReturn(this.clientConfig.get(Utils.NAME));
     Mockito.when(mockExistingClient.isClosed()).thenReturn(false);
 
     StreamingClientHandler mockClientHandler = Mockito.mock(StreamingClientHandler.class);
 
-    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> mockRegisteredClients = Mockito.mock(LoadingCache.class);
-    Mockito.when(mockRegisteredClients.get(new StreamingClientProperties(this.clientConfig))).thenReturn(mockExistingClient);
+    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> mockRegisteredClients =
+        Mockito.mock(LoadingCache.class);
+    Mockito.when(mockRegisteredClients.get(new StreamingClientProperties(this.clientConfig)))
+        .thenReturn(mockExistingClient);
 
     // if optimization is disabled, we will create new client regardless of registeredClientws
     if (!this.enableClientOptimization) {
-      Mockito.when(mockClientHandler.createClient(new StreamingClientProperties(this.clientConfig))).thenReturn(mockExistingClient);
+      Mockito.when(mockClientHandler.createClient(new StreamingClientProperties(this.clientConfig)))
+          .thenReturn(mockExistingClient);
     }
 
     // test getting client
-    StreamingClientProvider streamingClientProvider = StreamingClientProvider.getStreamingClientProviderForTests(mockClientHandler, mockRegisteredClients);
+    StreamingClientProvider streamingClientProvider =
+        StreamingClientProvider.getStreamingClientProviderForTests(
+            mockClientHandler, mockRegisteredClients);
     SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(this.clientConfig);
 
     // verify client and expected client creation
     assert client.equals(mockExistingClient);
     assert client.getName().equals(this.clientConfig.get(Utils.NAME));
-    Mockito.verify(mockClientHandler, Mockito.times(this.enableClientOptimization ? 0 : 1)).createClient(new StreamingClientProperties(this.clientConfig));
+    Mockito.verify(mockClientHandler, Mockito.times(this.enableClientOptimization ? 0 : 1))
+        .createClient(new StreamingClientProperties(this.clientConfig));
   }
 
   @Test
@@ -142,91 +151,124 @@ public class StreamingClientProviderTest {
         SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG);
 
     // setup existing client, handler and inject to registeredClients
-    SnowflakeStreamingIngestClient mockExistingClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    SnowflakeStreamingIngestClient mockExistingClient =
+        Mockito.mock(SnowflakeStreamingIngestClient.class);
     Mockito.when(mockExistingClient.getName()).thenReturn(this.clientConfig.get(Utils.NAME));
     Mockito.when(mockExistingClient.isClosed()).thenReturn(false);
 
     StreamingClientHandler mockClientHandler = Mockito.mock(StreamingClientHandler.class);
 
-    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> mockRegisteredClients = Mockito.mock(LoadingCache.class);
-    Mockito.when(mockRegisteredClients.get(new StreamingClientProperties(this.clientConfig))).thenReturn(mockExistingClient);
+    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> mockRegisteredClients =
+        Mockito.mock(LoadingCache.class);
+    Mockito.when(mockRegisteredClients.get(new StreamingClientProperties(this.clientConfig)))
+        .thenReturn(mockExistingClient);
 
     // test getting client
-    StreamingClientProvider streamingClientProvider = StreamingClientProvider.getStreamingClientProviderForTests(mockClientHandler, mockRegisteredClients);
+    StreamingClientProvider streamingClientProvider =
+        StreamingClientProvider.getStreamingClientProviderForTests(
+            mockClientHandler, mockRegisteredClients);
     SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(this.clientConfig);
 
     // verify returned existing client since removing the optimization should default to true
     assert client.equals(mockExistingClient);
     assert client.getName().equals(this.clientConfig.get(Utils.NAME));
-    Mockito.verify(mockClientHandler, Mockito.times(0)).createClient(new StreamingClientProperties(this.clientConfig));
+    Mockito.verify(mockClientHandler, Mockito.times(0))
+        .createClient(new StreamingClientProperties(this.clientConfig));
   }
 
   @Test
   public void testCloseClients() throws Exception {
     // setup valid existing client and handler
-    SnowflakeStreamingIngestClient mockExistingClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    SnowflakeStreamingIngestClient mockExistingClient =
+        Mockito.mock(SnowflakeStreamingIngestClient.class);
     Mockito.when(mockExistingClient.getName()).thenReturn(this.clientConfig.get(Utils.NAME));
     Mockito.when(mockExistingClient.isClosed()).thenReturn(false);
 
     StreamingClientHandler mockClientHandler = Mockito.mock(StreamingClientHandler.class);
-    Mockito.doCallRealMethod().when(mockClientHandler).closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
+    Mockito.doCallRealMethod()
+        .when(mockClientHandler)
+        .closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
 
     // inject existing client in for optimization
-    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> mockRegisteredClients = Mockito.mock(LoadingCache.class);
+    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> mockRegisteredClients =
+        Mockito.mock(LoadingCache.class);
     if (this.enableClientOptimization) {
-      Mockito.when(mockRegisteredClients.getIfPresent(new StreamingClientProperties(this.clientConfig))).thenReturn(mockExistingClient);
+      Mockito.when(
+              mockRegisteredClients.getIfPresent(new StreamingClientProperties(this.clientConfig)))
+          .thenReturn(mockExistingClient);
     }
 
     // test closing valid client
-    StreamingClientProvider streamingClientProvider = StreamingClientProvider.getStreamingClientProviderForTests(mockClientHandler, mockRegisteredClients);
+    StreamingClientProvider streamingClientProvider =
+        StreamingClientProvider.getStreamingClientProviderForTests(
+            mockClientHandler, mockRegisteredClients);
     streamingClientProvider.closeClient(this.clientConfig, mockExistingClient);
 
     // verify existing client was closed, optimization will call given client and registered client
-    Mockito.verify(mockClientHandler, Mockito.times(this.enableClientOptimization ? 2 : 1)).closeClient(mockExistingClient);
-    Mockito.verify(mockExistingClient, Mockito.times(this.enableClientOptimization ? 2 : 1)).close();
+    Mockito.verify(mockClientHandler, Mockito.times(this.enableClientOptimization ? 2 : 1))
+        .closeClient(mockExistingClient);
+    Mockito.verify(mockExistingClient, Mockito.times(this.enableClientOptimization ? 2 : 1))
+        .close();
   }
 
   @Test
   public void testCloseInvalidClient() throws Exception {
     // setup invalid existing client and handler
-    SnowflakeStreamingIngestClient mockInvalidClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    SnowflakeStreamingIngestClient mockInvalidClient =
+        Mockito.mock(SnowflakeStreamingIngestClient.class);
     Mockito.when(mockInvalidClient.getName()).thenReturn(this.clientConfig.get(Utils.NAME));
     Mockito.when(mockInvalidClient.isClosed()).thenReturn(true);
 
     StreamingClientHandler mockClientHandler = Mockito.mock(StreamingClientHandler.class);
-    Mockito.doCallRealMethod().when(mockClientHandler).closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
+    Mockito.doCallRealMethod()
+        .when(mockClientHandler)
+        .closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
 
     // inject invalid existing client in for optimization
-    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> mockRegisteredClients = Mockito.mock(LoadingCache.class);
+    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> mockRegisteredClients =
+        Mockito.mock(LoadingCache.class);
     if (this.enableClientOptimization) {
-      Mockito.when(mockRegisteredClients.getIfPresent(new StreamingClientProperties(this.clientConfig))).thenReturn(mockInvalidClient);
+      Mockito.when(
+              mockRegisteredClients.getIfPresent(new StreamingClientProperties(this.clientConfig)))
+          .thenReturn(mockInvalidClient);
     }
 
     // test closing valid client
-    StreamingClientProvider streamingClientProvider = StreamingClientProvider.getStreamingClientProviderForTests(mockClientHandler, mockRegisteredClients);
+    StreamingClientProvider streamingClientProvider =
+        StreamingClientProvider.getStreamingClientProviderForTests(
+            mockClientHandler, mockRegisteredClients);
     streamingClientProvider.closeClient(this.clientConfig, mockInvalidClient);
 
     // verify handler close client no-op and client did not need to call close
-    Mockito.verify(mockClientHandler, Mockito.times(this.enableClientOptimization ? 2 : 1)).closeClient(mockInvalidClient);
+    Mockito.verify(mockClientHandler, Mockito.times(this.enableClientOptimization ? 2 : 1))
+        .closeClient(mockInvalidClient);
     Mockito.verify(mockInvalidClient, Mockito.times(0)).close();
   }
 
   @Test
   public void testCloseUnregisteredClient() throws Exception {
     // setup valid existing client and handler
-    SnowflakeStreamingIngestClient mockUnregisteredClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    SnowflakeStreamingIngestClient mockUnregisteredClient =
+        Mockito.mock(SnowflakeStreamingIngestClient.class);
     Mockito.when(mockUnregisteredClient.getName()).thenReturn(this.clientConfig.get(Utils.NAME));
     Mockito.when(mockUnregisteredClient.isClosed()).thenReturn(false);
 
     StreamingClientHandler mockClientHandler = Mockito.mock(StreamingClientHandler.class);
-    Mockito.doCallRealMethod().when(mockClientHandler).closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
+    Mockito.doCallRealMethod()
+        .when(mockClientHandler)
+        .closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
 
     // ensure no clients are registered
-    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> mockRegisteredClients = Mockito.mock(LoadingCache.class);
-    Mockito.when(mockRegisteredClients.getIfPresent(new StreamingClientProperties(this.clientConfig))).thenReturn(null);
+    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> mockRegisteredClients =
+        Mockito.mock(LoadingCache.class);
+    Mockito.when(
+            mockRegisteredClients.getIfPresent(new StreamingClientProperties(this.clientConfig)))
+        .thenReturn(null);
 
     // test closing valid client
-    StreamingClientProvider streamingClientProvider = StreamingClientProvider.getStreamingClientProviderForTests(mockClientHandler, mockRegisteredClients);
+    StreamingClientProvider streamingClientProvider =
+        StreamingClientProvider.getStreamingClientProviderForTests(
+            mockClientHandler, mockRegisteredClients);
     streamingClientProvider.closeClient(this.clientConfig, mockUnregisteredClient);
 
     // verify unregistered client was closed

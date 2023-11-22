@@ -29,7 +29,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalCause;
@@ -194,8 +193,7 @@ public class StreamingClientProvider {
       this.clientProperties = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
 
       this.clientName =
-          STREAMING_CLIENT_PREFIX_NAME
-              + connectorConfig.getOrDefault(Utils.NAME, TEST_CLIENT_NAME);
+          STREAMING_CLIENT_PREFIX_NAME + connectorConfig.getOrDefault(Utils.NAME, TEST_CLIENT_NAME);
 
       // Override only if bdec version is explicitly set in config, default to the version set
       // inside Ingest SDK
