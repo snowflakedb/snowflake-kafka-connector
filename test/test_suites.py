@@ -47,6 +47,7 @@ from test_suit.test_string_avro import TestStringAvro
 from test_suit.test_string_avrosr import TestStringAvrosr
 from test_suit.test_string_json import TestStringJson
 from test_suit.test_string_json_ignore_tombstone import TestStringJsonIgnoreTombstone
+from test_suit.test_snowpipe_streaming_channel_migration_disabled import TestSnowpipeStreamingStringJsonChannelMigrationDisabled
 
 
 class EndToEndTestSuite:
@@ -133,6 +134,9 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         ("TestSnowpipeStreamingStringJson", EndToEndTestSuite(
             test_instance=TestSnowpipeStreamingStringJson(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
+        )),
+        ("TestSnowpipeStreamingStringJsonChannelMigrationDisabled", EndToEndTestSuite(
+            test_instance=TestSnowpipeStreamingStringJsonChannelMigrationDisabled(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
         ("TestSnowpipeStreamingStringJsonIgnoreTombstone", EndToEndTestSuite(
             test_instance=TestSnowpipeStreamingStringJsonIgnoreTombstone(driver, nameSalt), clean=True,
