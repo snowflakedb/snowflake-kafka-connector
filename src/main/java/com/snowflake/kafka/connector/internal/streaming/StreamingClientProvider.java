@@ -32,7 +32,10 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
  * Static factory that provides streaming client(s). If {@link
  * SnowflakeSinkConnectorConfig#ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG} is disabled then the
  * provider will always create a new client. If the optimization is enabled, then the provider will
- * reuse clients when possible by registering clients internally. Since this is a static factory, clients will be reused on a per Kafka worker node and based on it's {@link StreamingClientProperties}. This means that multiple connectors/tasks on the same Kafka worker node with equal {@link StreamingClientProperties} will use the same client
+ * reuse clients when possible by registering clients internally. Since this is a static factory,
+ * clients will be reused on a per Kafka worker node and based on it's {@link
+ * StreamingClientProperties}. This means that multiple connectors/tasks on the same Kafka worker
+ * node with equal {@link StreamingClientProperties} will use the same client
  */
 public class StreamingClientProvider {
   private static class StreamingClientProviderSingleton {
@@ -50,7 +53,8 @@ public class StreamingClientProvider {
   }
 
   /**
-   * Builds the loading cache to register at max 10,000 streaming clients. It maps each {@link StreamingClientProperties} to it's corresponding {@link SnowflakeStreamingIngestClient}
+   * Builds the loading cache to register at max 10,000 streaming clients. It maps each {@link
+   * StreamingClientProperties} to it's corresponding {@link SnowflakeStreamingIngestClient}
    *
    * @param streamingClientHandler The handler to create clients with
    * @return A loading cache to register clients
@@ -133,7 +137,8 @@ public class StreamingClientProvider {
 
   /**
    * Closes the given client and deregisters it from the cache if necessary. It will also call close
-   * on the registered client if exists, which should be the same as the given client so the call will no-op.
+   * on the registered client if exists, which should be the same as the given client so the call
+   * will no-op.
    *
    * @param connectorConfig The configuration to deregister from the cache
    * @param client The client to be closed
