@@ -53,8 +53,8 @@ public class StreamingClientProvider {
   }
 
   /**
-   * Builds a threadsafe loading cache to register at max 10,000 streaming clients. It maps each {@link
-   * StreamingClientProperties} to it's corresponding {@link SnowflakeStreamingIngestClient}
+   * Builds a threadsafe loading cache to register at max 10,000 streaming clients. It maps each
+   * {@link StreamingClientProperties} to it's corresponding {@link SnowflakeStreamingIngestClient}
    *
    * @param streamingClientHandler The handler to create clients with
    * @return A loading cache to register clients
@@ -85,12 +85,12 @@ public class StreamingClientProvider {
   /**
    * Private constructor to retain singleton
    *
-   * <p>If the one client optimization is enabled, this creates a threadsafe {@link LoadingCache} to register
-   * created clients based on the corresponding {@link StreamingClientProperties} built from the
-   * given connector configuration. The cache calls streamingClientHandler to create the client if
-   * the requested streaming client properties has not already been loaded into the cache. When a
-   * client is evicted, the cache will try closing the client, however it is best to still call
-   * close client manually as eviction is executed lazily
+   * <p>If the one client optimization is enabled, this creates a threadsafe {@link LoadingCache} to
+   * register created clients based on the corresponding {@link StreamingClientProperties} built
+   * from the given connector configuration. The cache calls streamingClientHandler to create the
+   * client if the requested streaming client properties has not already been loaded into the cache.
+   * When a client is evicted, the cache will try closing the client, however it is best to still
+   * call close client manually as eviction is executed lazily
    */
   private StreamingClientProvider() {
     this.streamingClientHandler = new StreamingClientHandler();
