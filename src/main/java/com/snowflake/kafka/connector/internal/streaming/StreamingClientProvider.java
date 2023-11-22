@@ -59,7 +59,7 @@ public class StreamingClientProvider {
   public static LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> buildLoadingCache(
       StreamingClientHandler streamingClientHandler) {
     return Caffeine.newBuilder()
-        .maximumSize(Runtime.getRuntime().maxMemory())
+        .maximumSize(10000) // limit 10,000 clients
         .evictionListener(
             (Map<String, String> key,
                 SnowflakeStreamingIngestClient client,
