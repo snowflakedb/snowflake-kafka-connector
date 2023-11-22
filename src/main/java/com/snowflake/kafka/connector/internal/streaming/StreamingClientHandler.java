@@ -17,21 +17,16 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION;
-import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
-
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
-import java.util.HashMap;
+
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
+import com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.StreamingClientProperties;
 import net.snowflake.ingest.utils.Constants;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -39,10 +34,6 @@ import org.apache.kafka.connect.errors.ConnectException;
 /** This class handles all calls to manage the streaming ingestion client */
 public class StreamingClientHandler {
   private static final KCLogger LOGGER = new KCLogger(StreamingClientHandler.class.getName());
-  private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
-  private static final String TEST_CLIENT_NAME = "TEST_CLIENT";
-
-  private AtomicInteger createdClientId = new AtomicInteger(0);
 
   // contains config properties that are loggable (not PII data)
   public static final List<String> LOGGABLE_STREAMING_CONFIG_PROPERTIES =
@@ -83,40 +74,27 @@ public class StreamingClientHandler {
   }
 
   /**
-   * Creates a streaming client from the given config
+   * Creates a streaming client from the given properties
    *
-   * @param connectorConfig The config to create the client
+   * @param streamingClientProperties The properties to create the client
    * @return A newly created client
    */
-  public SnowflakeStreamingIngestClient createClient(Map<String, String> connectorConfig) {
+  public SnowflakeStreamingIngestClient createClient(StreamingClientProperties streamingClientProperties) {
     LOGGER.info("Initializing Streaming Client...");
 
-    Properties streamingClientProps =
-        StreamingUtils.convertConfigForStreamingClient(connectorConfig);
-
-    // Override only if bdec version is explicitly set in config, default to the version set
-    // inside Ingest SDK
-    Map<String, Object> parameterOverrides = new HashMap<>();
-    Optional<String> snowpipeStreamingBdecVersion =
-        Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_FILE_VERSION));
-    snowpipeStreamingBdecVersion.ifPresent(
-        overriddenValue -> {
-          LOGGER.info("Config is overridden for {} ", SNOWPIPE_STREAMING_FILE_VERSION);
-          parameterOverrides.put(BLOB_FORMAT_VERSION, overriddenValue);
-        });
-
     try {
-      String clientName = this.getNewClientName(connectorConfig);
+      StreamingClientProvider.createdClientId.getAndIncrement();
+
       SnowflakeStreamingIngestClient createdClient =
-          SnowflakeStreamingIngestClientFactory.builder(clientName)
-              .setProperties(streamingClientProps)
-              .setParameterOverrides(parameterOverrides)
+          SnowflakeStreamingIngestClientFactory.builder(streamingClientProperties.getClientName())
+              .setProperties(streamingClientProperties.clientProperties)
+              .setParameterOverrides(streamingClientProperties.parameterOverrides)
               .build();
 
       LOGGER.info(
           "Successfully initialized Streaming Client:{} with properties {}",
-          clientName,
-          getLoggableClientProperties(streamingClientProps));
+          streamingClientProperties.clientName,
+          getLoggableClientProperties(streamingClientProperties.clientProperties));
 
       return createdClient;
     } catch (SFException ex) {
@@ -148,10 +126,4 @@ public class StreamingClientHandler {
     }
   }
 
-  private String getNewClientName(Map<String, String> connectorConfig) {
-    return STREAMING_CLIENT_PREFIX_NAME
-        + connectorConfig.getOrDefault(Utils.NAME, TEST_CLIENT_NAME)
-        + "_"
-        + createdClientId.getAndIncrement();
-  }
 }

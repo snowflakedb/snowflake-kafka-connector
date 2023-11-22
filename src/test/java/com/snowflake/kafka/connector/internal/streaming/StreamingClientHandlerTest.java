@@ -18,6 +18,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.StreamingClientProperties;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
@@ -46,7 +47,7 @@ public class StreamingClientHandlerTest {
   @Test
   public void testCreateClient() {
     SnowflakeStreamingIngestClient client =
-        this.streamingClientHandler.createClient(this.connectorConfig);
+        this.streamingClientHandler.createClient(new StreamingClientProperties(this.connectorConfig));
 
     // verify valid client against config
     assert !client.isClosed();
@@ -57,7 +58,7 @@ public class StreamingClientHandlerTest {
   @Ignore // TODO: Remove ignore after SNOW-859929 is released
   public void testCreateOAuthClient() {
     if (this.connectorConfigWithOAuth != null) {
-      this.streamingClientHandler.createClient(this.connectorConfigWithOAuth);
+      this.streamingClientHandler.createClient(new StreamingClientProperties(this.connectorConfigWithOAuth));
     }
   }
 
@@ -67,7 +68,7 @@ public class StreamingClientHandlerTest {
     this.connectorConfig.remove(Utils.SF_ROLE);
 
     try {
-      this.streamingClientHandler.createClient(this.connectorConfig);
+      this.streamingClientHandler.createClient(new StreamingClientProperties(this.connectorConfig));
     } catch (ConnectException ex) {
       assert ex.getCause().getClass().equals(SFException.class);
     }
@@ -79,7 +80,7 @@ public class StreamingClientHandlerTest {
     this.connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
 
     // test create
-    this.streamingClientHandler.createClient(this.connectorConfig);
+    this.streamingClientHandler.createClient(new StreamingClientProperties(this.connectorConfig));
   }
 
   @Test

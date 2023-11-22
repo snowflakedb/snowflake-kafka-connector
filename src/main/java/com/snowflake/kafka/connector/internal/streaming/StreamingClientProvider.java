@@ -18,11 +18,20 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION;
+import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
+
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalCause;
@@ -56,12 +65,12 @@ public class StreamingClientProvider {
    * @param streamingClientHandler The handler to create clients with
    * @return A loading cache to register clients
    */
-  public static LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> buildLoadingCache(
+  public static LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> buildLoadingCache(
       StreamingClientHandler streamingClientHandler) {
     return Caffeine.newBuilder()
         .maximumSize(10000) // limit 10,000 clients
         .evictionListener(
-            (Map<String, String> key,
+            (StreamingClientProperties key,
                 SnowflakeStreamingIngestClient client,
                 RemovalCause removalCause) -> {
               streamingClientHandler.closeClient(client);
@@ -77,24 +86,30 @@ public class StreamingClientProvider {
   @VisibleForTesting
   public static StreamingClientProvider getStreamingClientProviderForTests(
       StreamingClientHandler streamingClientHandler,
-      LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> registeredClients) {
+      LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> registeredClients) {
     return new StreamingClientProvider(streamingClientHandler, registeredClients);
   }
 
   /** ONLY FOR TESTING - private constructor to inject properties for testing */
   private StreamingClientProvider(
       StreamingClientHandler streamingClientHandler,
-      LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> registeredClients) {
+      LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> registeredClients) {
+    this();
     this.streamingClientHandler = streamingClientHandler;
     this.registeredClients = registeredClients;
   }
 
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProvider.class.getName());
   private StreamingClientHandler streamingClientHandler;
-  private LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> registeredClients;
+  private LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> registeredClients;
+  public static AtomicInteger createdClientId = new AtomicInteger(0);
+  private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
+  private static final String TEST_CLIENT_NAME = "TEST_CLIENT";
 
   // private constructor for singleton
   private StreamingClientProvider() {
+    createdClientId.set(0);
+
     this.streamingClientHandler = new StreamingClientHandler();
 
     // if the one client optimization is enabled, we use this to cache the created clients based on
@@ -116,6 +131,7 @@ public class StreamingClientProvider {
    */
   public SnowflakeStreamingIngestClient getClient(Map<String, String> connectorConfig) {
     SnowflakeStreamingIngestClient resultClient;
+    StreamingClientProperties clientProperties = new StreamingClientProperties(connectorConfig);
 
     if (Boolean.parseBoolean(
         connectorConfig.getOrDefault(
@@ -124,15 +140,15 @@ public class StreamingClientProvider {
       LOGGER.info(
           "Streaming client optimization is enabled per worker node. Reusing valid clients when"
               + " possible");
-      resultClient = this.registeredClients.get(connectorConfig);
+      resultClient = this.registeredClients.get(clientProperties);
 
       // refresh if registered client is invalid
       if (!StreamingClientHandler.isClientValid(resultClient)) {
-        resultClient = this.streamingClientHandler.createClient(connectorConfig);
-        this.registeredClients.put(connectorConfig, resultClient);
+        resultClient = this.streamingClientHandler.createClient(clientProperties);
+        this.registeredClients.put(clientProperties, resultClient);
       }
     } else {
-      resultClient = this.streamingClientHandler.createClient(connectorConfig);
+      resultClient = this.streamingClientHandler.createClient(clientProperties);
       LOGGER.info(
           "Streaming client optimization is disabled, creating a new streaming client with name:"
               + " {}",
@@ -150,13 +166,15 @@ public class StreamingClientProvider {
    */
   public void closeClient(
       Map<String, String> connectorConfig, SnowflakeStreamingIngestClient client) {
+    StreamingClientProperties clientProperties = new StreamingClientProperties(connectorConfig);
+
     // invalidate cache
     SnowflakeStreamingIngestClient registeredClient =
-        this.registeredClients.getIfPresent(connectorConfig);
+        this.registeredClients.getIfPresent(clientProperties);
     if (registeredClient != null) {
       // invalidations are processed on the next get or in the background, so we still need to close
       // the client here
-      this.registeredClients.invalidate(connectorConfig);
+      this.registeredClients.invalidate(clientProperties);
       this.streamingClientHandler.closeClient(registeredClient);
     }
 
@@ -167,7 +185,49 @@ public class StreamingClientProvider {
 
   // TEST ONLY - return the current state of the registered clients
   @VisibleForTesting
-  public Map<Map<String, String>, SnowflakeStreamingIngestClient> getRegisteredClients() {
+  public Map<StreamingClientProperties, SnowflakeStreamingIngestClient> getRegisteredClients() {
     return this.registeredClients.asMap();
+  }
+
+  public static class StreamingClientProperties {
+    public final Properties clientProperties;
+    public final String clientName;
+    public final Map<String, Object> parameterOverrides;
+
+    public StreamingClientProperties(Map<String, String> connectorConfig) {
+      this.clientProperties =
+          StreamingUtils.convertConfigForStreamingClient(connectorConfig);
+
+      this.clientName = STREAMING_CLIENT_PREFIX_NAME
+          + connectorConfig.getOrDefault(Utils.NAME, TEST_CLIENT_NAME)
+          + "_"
+          + createdClientId.get();
+
+      // Override only if bdec version is explicitly set in config, default to the version set
+      // inside Ingest SDK
+      this.parameterOverrides = new HashMap<>();
+      Optional<String> snowpipeStreamingBdecVersion =
+          Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_FILE_VERSION));
+      snowpipeStreamingBdecVersion.ifPresent(
+          overriddenValue -> {
+            LOGGER.info("Config is overridden for {} ", SNOWPIPE_STREAMING_FILE_VERSION);
+            parameterOverrides.put(BLOB_FORMAT_VERSION, overriddenValue);
+          });
+    }
+
+    public String getClientName() {
+      return this.clientName;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      return other.getClass().equals(StreamingClientProperties.class) &
+          ((StreamingClientProperties) other).clientProperties.equals(this.clientProperties);
+    }
+
+    @Override
+    public int hashCode() {
+      return this.clientProperties.hashCode();
+    }
   }
 }

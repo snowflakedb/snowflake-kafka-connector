@@ -21,6 +21,7 @@ import static com.snowflake.kafka.connector.Utils.SF_ROLE;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.getStreamingClientProviderForTests;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.StreamingClientProperties;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.Arrays;
@@ -74,7 +75,9 @@ public class StreamingClientProviderTest {
     this.clientConfig2 = new HashMap<>(this.clientConfig1);
 
     this.clientConfig1.put(Utils.NAME, "client1");
+    this.clientConfig1.put(SF_ROLE, "testrole_kafka");
     this.clientConfig2.put(Utils.NAME, "client2");
+    this.clientConfig2.put(SF_ROLE, "public");
 
     this.streamingClientHandler = Mockito.spy(StreamingClientHandler.class);
     this.streamingClientProvider =
@@ -100,16 +103,13 @@ public class StreamingClientProviderTest {
     // verify - should create a client regardless of optimization
     assert StreamingClientHandler.isClientValid(this.client1);
     assert this.client1.getName().contains(this.clientConfig1.get(Utils.NAME));
-    Mockito.verify(this.streamingClientHandler, Mockito.times(1)).createClient(this.clientConfig1);
+    Mockito.verify(this.streamingClientHandler, Mockito.times(1)).createClient(new StreamingClientProperties(this.clientConfig1));
   }
 
   @Test
   public void testGetInvalidClient() {
     Map<String, String> invalidClientConfig = new HashMap<>(this.clientConfig1);
-    invalidClientConfig.put(Utils.NAME, "badclient");
-
-    Map<String, String> validClientConfig = new HashMap<>(this.clientConfig1);
-    validClientConfig.put(Utils.NAME, "goodclient");
+    Map<String, String> validClientConfig = new HashMap<>(this.clientConfig2);
 
     // get valid and invalid client
     this.validClient = this.streamingClientProvider.getClient(validClientConfig);
@@ -119,18 +119,9 @@ public class StreamingClientProviderTest {
     // inject new handler and cache
     StreamingClientHandler injectedStreamingClientHandler =
         Mockito.spy(StreamingClientHandler.class);
-    LoadingCache<Map<String, String>, SnowflakeStreamingIngestClient> injectedRegistrationClients =
-        Caffeine.newBuilder()
-            .maximumSize(Runtime.getRuntime().maxMemory())
-            .removalListener(
-                (Map<String, String> key,
-                    SnowflakeStreamingIngestClient client,
-                    RemovalCause removalCause) -> {
-                  injectedStreamingClientHandler.closeClient(client);
-                })
-            .build(injectedStreamingClientHandler::createClient);
-    injectedRegistrationClients.put(validClientConfig, validClient);
-    injectedRegistrationClients.put(invalidClientConfig, invalidClient);
+    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> injectedRegistrationClients = StreamingClientProvider.buildLoadingCache(injectedStreamingClientHandler);
+    injectedRegistrationClients.put(new StreamingClientProperties(validClientConfig), validClient);
+    injectedRegistrationClients.put(new StreamingClientProperties(invalidClientConfig), invalidClient);
 
     StreamingClientProvider injectedProvider =
         getStreamingClientProviderForTests(
@@ -146,7 +137,7 @@ public class StreamingClientProviderTest {
     assert !this.validClient.getName().contains(invalidClientConfig.get(Utils.NAME));
     Mockito.verify(
             injectedStreamingClientHandler, Mockito.times(this.enableClientOptimization ? 0 : 1))
-        .createClient(validClientConfig);
+        .createClient(new StreamingClientProperties(validClientConfig));
 
     // test: getting invalid client
     this.invalidClient = injectedProvider.getClient(invalidClientConfig);
@@ -156,15 +147,11 @@ public class StreamingClientProviderTest {
     assert !this.invalidClient.getName().contains(validClientConfig.get(Utils.NAME));
     assert this.invalidClient.getName().contains(invalidClientConfig.get(Utils.NAME));
     Mockito.verify(injectedStreamingClientHandler, Mockito.times(1))
-        .createClient(invalidClientConfig);
+        .createClient(new StreamingClientProperties(invalidClientConfig));
   }
 
   @Test
   public void testGetExistingClient() {
-    // setup configs with different roles
-    this.clientConfig1.put(SF_ROLE, "testrole_kafka");
-    this.clientConfig2.put(SF_ROLE, "public");
-
     // test creating client1 and client3 with the same config, client2 with different config
     this.client1 = this.streamingClientProvider.getClient(this.clientConfig1);
     this.client2 = this.streamingClientProvider.getClient(this.clientConfig2);
@@ -182,9 +169,9 @@ public class StreamingClientProviderTest {
       assert client1.getName().contains(this.clientConfig1.get(Utils.NAME));
 
       Mockito.verify(this.streamingClientHandler, Mockito.times(1))
-          .createClient(this.clientConfig1);
+          .createClient(new StreamingClientProperties(this.clientConfig1));
       Mockito.verify(this.streamingClientHandler, Mockito.times(1))
-          .createClient(this.clientConfig2);
+          .createClient(new StreamingClientProperties(this.clientConfig2));
     } else {
       // client 1 and 3 are created from the same config, but will have different names
       assert !client1.getName().equals(client2.getName());
@@ -196,9 +183,9 @@ public class StreamingClientProviderTest {
       assert client3.getName().contains(this.clientConfig1.get(Utils.NAME));
 
       Mockito.verify(this.streamingClientHandler, Mockito.times(2))
-          .createClient(this.clientConfig1);
+          .createClient(new StreamingClientProperties(this.clientConfig1));
       Mockito.verify(this.streamingClientHandler, Mockito.times(1))
-          .createClient(this.clientConfig2);
+          .createClient(new StreamingClientProperties(this.clientConfig2));
     }
   }
 
@@ -269,6 +256,6 @@ public class StreamingClientProviderTest {
 
     assert StreamingClientHandler.isClientValid(this.client1);
     assert this.client1.getName().contains(this.clientConfig1.get(Utils.NAME));
-    Mockito.verify(this.streamingClientHandler, Mockito.times(1)).createClient(this.clientConfig1);
+    Mockito.verify(this.streamingClientHandler, Mockito.times(1)).createClient(new StreamingClientProperties(this.clientConfig1));
   }
 }

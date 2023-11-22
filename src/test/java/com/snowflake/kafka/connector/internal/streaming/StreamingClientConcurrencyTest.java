@@ -214,7 +214,7 @@ public class StreamingClientConcurrencyTest {
     Mockito.verify(
             this.streamingClientHandler,
             Mockito.times(this.enableClientOptimization ? createClientCount : totalGetCount))
-        .createClient(Mockito.anyMap());
+        .createClient(Mockito.any());
     Mockito.verify(this.streamingClientHandler, Mockito.times(totalCloseCount))
         .closeClient(Mockito.any(SnowflakeStreamingIngestClient.class));
   }
@@ -244,7 +244,7 @@ public class StreamingClientConcurrencyTest {
     Mockito.verify(
             this.streamingClientHandler,
             Mockito.times(this.enableClientOptimization ? 1 : numGetClientCalls))
-        .createClient(Mockito.anyMap());
+        .createClient(Mockito.any());
   }
 
   @Test
