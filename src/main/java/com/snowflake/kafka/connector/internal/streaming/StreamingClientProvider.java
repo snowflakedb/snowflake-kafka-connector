@@ -25,13 +25,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalCause;
@@ -65,8 +63,8 @@ public class StreamingClientProvider {
    * @param streamingClientHandler The handler to create clients with
    * @return A loading cache to register clients
    */
-  public static LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> buildLoadingCache(
-      StreamingClientHandler streamingClientHandler) {
+  public static LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient>
+      buildLoadingCache(StreamingClientHandler streamingClientHandler) {
     return Caffeine.newBuilder()
         .maximumSize(10000) // limit 10,000 clients
         .evictionListener(
@@ -159,7 +157,8 @@ public class StreamingClientProvider {
   }
 
   /**
-   * Closes the given client and deregisters it from the cache if necessary. It will also call close on the registered client, which should be the same as the given client so the call will no-op.
+   * Closes the given client and deregisters it from the cache if necessary. It will also call close
+   * on the registered client, which should be the same as the given client so the call will no-op.
    *
    * @param connectorConfig The configuration to deregister from the cache
    * @param client The client to be closed
@@ -195,13 +194,13 @@ public class StreamingClientProvider {
     public final Map<String, Object> parameterOverrides;
 
     public StreamingClientProperties(Map<String, String> connectorConfig) {
-      this.clientProperties =
-          StreamingUtils.convertConfigForStreamingClient(connectorConfig);
+      this.clientProperties = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
 
-      this.clientName = STREAMING_CLIENT_PREFIX_NAME
-          + connectorConfig.getOrDefault(Utils.NAME, TEST_CLIENT_NAME)
-          + "_"
-          + createdClientId.get();
+      this.clientName =
+          STREAMING_CLIENT_PREFIX_NAME
+              + connectorConfig.getOrDefault(Utils.NAME, TEST_CLIENT_NAME)
+              + "_"
+              + createdClientId.get();
 
       // Override only if bdec version is explicitly set in config, default to the version set
       // inside Ingest SDK
@@ -221,8 +220,8 @@ public class StreamingClientProvider {
 
     @Override
     public boolean equals(Object other) {
-      return other.getClass().equals(StreamingClientProperties.class) &
-          ((StreamingClientProperties) other).clientProperties.equals(this.clientProperties);
+      return other.getClass().equals(StreamingClientProperties.class)
+          & ((StreamingClientProperties) other).clientProperties.equals(this.clientProperties);
     }
 
     @Override

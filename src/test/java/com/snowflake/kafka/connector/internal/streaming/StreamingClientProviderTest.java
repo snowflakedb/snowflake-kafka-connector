@@ -18,19 +18,17 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.Utils.SF_ROLE;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.StreamingClientProperties;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.getStreamingClientProviderForTests;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.StreamingClientProperties;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
-import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalCause;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.junit.After;
 import org.junit.Before;
@@ -103,7 +101,8 @@ public class StreamingClientProviderTest {
     // verify - should create a client regardless of optimization
     assert StreamingClientHandler.isClientValid(this.client1);
     assert this.client1.getName().contains(this.clientConfig1.get(Utils.NAME));
-    Mockito.verify(this.streamingClientHandler, Mockito.times(1)).createClient(new StreamingClientProperties(this.clientConfig1));
+    Mockito.verify(this.streamingClientHandler, Mockito.times(1))
+        .createClient(new StreamingClientProperties(this.clientConfig1));
   }
 
   @Test
@@ -119,9 +118,12 @@ public class StreamingClientProviderTest {
     // inject new handler and cache
     StreamingClientHandler injectedStreamingClientHandler =
         Mockito.spy(StreamingClientHandler.class);
-    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> injectedRegistrationClients = StreamingClientProvider.buildLoadingCache(injectedStreamingClientHandler);
+    LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient>
+        injectedRegistrationClients =
+            StreamingClientProvider.buildLoadingCache(injectedStreamingClientHandler);
     injectedRegistrationClients.put(new StreamingClientProperties(validClientConfig), validClient);
-    injectedRegistrationClients.put(new StreamingClientProperties(invalidClientConfig), invalidClient);
+    injectedRegistrationClients.put(
+        new StreamingClientProperties(invalidClientConfig), invalidClient);
 
     StreamingClientProvider injectedProvider =
         getStreamingClientProviderForTests(
@@ -256,6 +258,7 @@ public class StreamingClientProviderTest {
 
     assert StreamingClientHandler.isClientValid(this.client1);
     assert this.client1.getName().contains(this.clientConfig1.get(Utils.NAME));
-    Mockito.verify(this.streamingClientHandler, Mockito.times(1)).createClient(new StreamingClientProperties(this.clientConfig1));
+    Mockito.verify(this.streamingClientHandler, Mockito.times(1))
+        .createClient(new StreamingClientProperties(this.clientConfig1));
   }
 }

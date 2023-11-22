@@ -18,9 +18,9 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.StreamingClientProperties;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.StreamingClientProperties;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -47,7 +47,8 @@ public class StreamingClientHandlerTest {
   @Test
   public void testCreateClient() {
     SnowflakeStreamingIngestClient client =
-        this.streamingClientHandler.createClient(new StreamingClientProperties(this.connectorConfig));
+        this.streamingClientHandler.createClient(
+            new StreamingClientProperties(this.connectorConfig));
 
     // verify valid client against config
     assert !client.isClosed();
@@ -58,7 +59,8 @@ public class StreamingClientHandlerTest {
   @Ignore // TODO: Remove ignore after SNOW-859929 is released
   public void testCreateOAuthClient() {
     if (this.connectorConfigWithOAuth != null) {
-      this.streamingClientHandler.createClient(new StreamingClientProperties(this.connectorConfigWithOAuth));
+      this.streamingClientHandler.createClient(
+          new StreamingClientProperties(this.connectorConfigWithOAuth));
     }
   }
 

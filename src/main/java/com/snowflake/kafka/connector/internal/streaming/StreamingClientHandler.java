@@ -19,14 +19,13 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
-
+import com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.StreamingClientProperties;
 import java.util.List;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
-import com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.StreamingClientProperties;
 import net.snowflake.ingest.utils.Constants;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -79,7 +78,8 @@ public class StreamingClientHandler {
    * @param streamingClientProperties The properties to create the client
    * @return A newly created client
    */
-  public SnowflakeStreamingIngestClient createClient(StreamingClientProperties streamingClientProperties) {
+  public SnowflakeStreamingIngestClient createClient(
+      StreamingClientProperties streamingClientProperties) {
     LOGGER.info("Initializing Streaming Client...");
 
     try {
@@ -125,5 +125,4 @@ public class StreamingClientHandler {
       LOGGER.error(Utils.getExceptionMessage("Failure closing Streaming client", e));
     }
   }
-
 }
