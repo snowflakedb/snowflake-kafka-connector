@@ -100,14 +100,11 @@ public class StreamingClientProvider {
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProvider.class.getName());
   private StreamingClientHandler streamingClientHandler;
   private LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> registeredClients;
-  public static AtomicInteger createdClientId = new AtomicInteger(0);
   private static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
   private static final String TEST_CLIENT_NAME = "TEST_CLIENT";
 
   // private constructor for singleton
   private StreamingClientProvider() {
-    createdClientId.set(0);
-
     this.streamingClientHandler = new StreamingClientHandler();
 
     // if the one client optimization is enabled, we use this to cache the created clients based on
@@ -198,9 +195,7 @@ public class StreamingClientProvider {
 
       this.clientName =
           STREAMING_CLIENT_PREFIX_NAME
-              + connectorConfig.getOrDefault(Utils.NAME, TEST_CLIENT_NAME)
-              + "_"
-              + createdClientId.get();
+              + connectorConfig.getOrDefault(Utils.NAME, TEST_CLIENT_NAME);
 
       // Override only if bdec version is explicitly set in config, default to the version set
       // inside Ingest SDK
@@ -212,10 +207,6 @@ public class StreamingClientProvider {
             LOGGER.info("Config is overridden for {} ", SNOWPIPE_STREAMING_FILE_VERSION);
             parameterOverrides.put(BLOB_FORMAT_VERSION, overriddenValue);
           });
-    }
-
-    public String getClientName() {
-      return this.clientName;
     }
 
     @Override

@@ -83,10 +83,8 @@ public class StreamingClientHandler {
     LOGGER.info("Initializing Streaming Client...");
 
     try {
-      StreamingClientProvider.createdClientId.getAndIncrement();
-
       SnowflakeStreamingIngestClient createdClient =
-          SnowflakeStreamingIngestClientFactory.builder(streamingClientProperties.getClientName())
+          SnowflakeStreamingIngestClientFactory.builder(streamingClientProperties.clientName)
               .setProperties(streamingClientProperties.clientProperties)
               .setParameterOverrides(streamingClientProperties.parameterOverrides)
               .build();
