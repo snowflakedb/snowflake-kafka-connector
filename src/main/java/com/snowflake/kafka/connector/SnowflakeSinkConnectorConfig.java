@@ -168,6 +168,17 @@ public class SnowflakeSinkConnectorConfig {
       "Whether to optimize the streaming client to reduce cost. Note that this may affect"
           + " throughput or latency and can only be set if Streaming Snowpipe is enabled";
 
+  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG =
+      "enable.streaming.channel.offset.migration";
+  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY =
+      "Enable Streaming Channel Offset Migration";
+  public static final boolean ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT = true;
+  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DOC =
+      "This config is used to enable/disable streaming channel offset migration logic. If true, we"
+          + " will migrate offset token from channel name format V2 to name format v1. V2 channel"
+          + " format is deprecated and V1 will be used always, disabling this config could have"
+          + " ramifications. Please consult Snowflake support before setting this to false.";
+
   // MDC logging header
   public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
   public static final String ENABLE_MDC_LOGGING_DISPLAY = "Enable MDC logging";
@@ -591,7 +602,17 @@ public class SnowflakeSinkConnectorConfig {
             CONNECTOR_CONFIG,
             8,
             ConfigDef.Width.NONE,
-            ENABLE_MDC_LOGGING_DISPLAY);
+            ENABLE_MDC_LOGGING_DISPLAY)
+        .define(
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
+            Type.BOOLEAN,
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT,
+            Importance.LOW,
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DOC,
+            CONNECTOR_CONFIG,
+            9,
+            ConfigDef.Width.NONE,
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY);
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {
