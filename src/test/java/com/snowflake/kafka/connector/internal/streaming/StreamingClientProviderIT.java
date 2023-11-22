@@ -20,7 +20,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.StreamingClientProperties;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;

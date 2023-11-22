@@ -19,29 +19,14 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
-import com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider.StreamingClientProperties;
-import java.util.List;
-import java.util.Properties;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
-import net.snowflake.ingest.utils.Constants;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 
 /** This class handles all calls to manage the streaming ingestion client */
 public class StreamingClientHandler {
   private static final KCLogger LOGGER = new KCLogger(StreamingClientHandler.class.getName());
-
-  // contains config properties that are loggable (not PII data)
-  public static final List<String> LOGGABLE_STREAMING_CONFIG_PROPERTIES =
-      Stream.of(
-              Constants.ACCOUNT_URL,
-              Constants.ROLE,
-              Constants.USER,
-              StreamingUtils.STREAMING_CONSTANT_AUTHORIZATION_TYPE)
-          .collect(Collectors.toList());
 
   /**
    * Checks if a given client is valid (not null, open and has a name)
@@ -51,25 +36,6 @@ public class StreamingClientHandler {
    */
   public static boolean isClientValid(SnowflakeStreamingIngestClient client) {
     return client != null && !client.isClosed() && client.getName() != null;
-  }
-
-  /**
-   * Gets the loggable properties (see {@link
-   * StreamingClientHandler#LOGGABLE_STREAMING_CONFIG_PROPERTIES} passed into the client.
-   *
-   * @param properties The client properties
-   * @return A string with the loggable properties
-   */
-  public static String getLoggableClientProperties(Properties properties) {
-    return properties == null
-        ? ""
-        : properties.entrySet().stream()
-            .filter(
-                propKvp ->
-                    LOGGABLE_STREAMING_CONFIG_PROPERTIES.stream()
-                        .anyMatch(propKvp.getKey().toString()::equalsIgnoreCase))
-            .collect(Collectors.toList())
-            .toString();
   }
 
   /**
@@ -92,7 +58,7 @@ public class StreamingClientHandler {
       LOGGER.info(
           "Successfully initialized Streaming Client:{} with properties {}",
           streamingClientProperties.clientName,
-          getLoggableClientProperties(streamingClientProperties.clientProperties));
+          streamingClientProperties.getLoggableClientProperties());
 
       return createdClient;
     } catch (SFException ex) {
