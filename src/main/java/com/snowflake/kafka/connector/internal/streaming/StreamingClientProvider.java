@@ -53,7 +53,7 @@ public class StreamingClientProvider {
   }
 
   /**
-   * Builds the loading cache to register at max 10,000 streaming clients. It maps each {@link
+   * Builds a threadsafe loading cache to register at max 10,000 streaming clients. It maps each {@link
    * StreamingClientProperties} to it's corresponding {@link SnowflakeStreamingIngestClient}
    *
    * @param streamingClientHandler The handler to create clients with
@@ -85,7 +85,7 @@ public class StreamingClientProvider {
   /**
    * Private constructor to retain singleton
    *
-   * <p>If the one client optimization is enabled, this creates a {@link LoadingCache} to register
+   * <p>If the one client optimization is enabled, this creates a threadsafe {@link LoadingCache} to register
    * created clients based on the corresponding {@link StreamingClientProperties} built from the
    * given connector configuration. The cache calls streamingClientHandler to create the client if
    * the requested streaming client properties has not already been loaded into the cache. When a
