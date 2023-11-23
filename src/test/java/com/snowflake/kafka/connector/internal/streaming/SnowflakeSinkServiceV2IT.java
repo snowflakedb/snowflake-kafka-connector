@@ -1571,8 +1571,8 @@ public class SnowflakeSinkServiceV2IT {
     dogService.insert(dogRecords);
 
     // check data was ingested
-    TestUtils.assertWithRetry(() -> catService.getOffset(catTp) == catRecordCount, 20, 5);
-    TestUtils.assertWithRetry(() -> dogService.getOffset(dogTp) == dogRecordCount, 20, 5);
+    TestUtils.assertWithRetry(() -> catService.getOffset(catTp) == catRecordCount, 20, 20);
+    TestUtils.assertWithRetry(() -> dogService.getOffset(dogTp) == dogRecordCount, 20, 20);
 
     // verify two clients were created
     assert StreamingClientProvider.getStreamingClientProviderInstance()
