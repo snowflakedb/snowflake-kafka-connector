@@ -33,12 +33,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.logging.Logger;
+
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.JsonNodeFactory;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.kafka.common.record.Record;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Date;
@@ -513,6 +516,7 @@ public class RecordService {
         Schema.Type primitiveType = ConnectSchema.schemaType(value.getClass());
         if (primitiveType != null) {
           schemaType = primitiveType;
+          new KCLogger(RecordService.class.getName()).info("CAFLOG - primitive" + primitiveType);
         } else {
           if (value instanceof java.util.Date) {
             schema = Timestamp.SCHEMA;
@@ -523,8 +527,10 @@ public class RecordService {
           }
         }
       } else {
+        new KCLogger(RecordService.class.getName()).info("CAFLOG - else");
         schemaType = schema.type();
       }
+      new KCLogger(RecordService.class.getName()).info("CAFLOG - schema: " + value.getClass() + "," +  schemaType );
       switch (schemaType) {
         case INT8:
           return JsonNodeFactory.instance.numberNode((Byte) value);
@@ -635,10 +641,13 @@ public class RecordService {
         case STRUCT:
           {
             Struct struct = (Struct) value;
+            new KCLogger(RecordService.class.getName()).info("CAFLOG - classcast success");
             if (struct.schema() != schema)
               throw SnowflakeErrors.ERROR_5015.getException("Mismatching schema.");
             ObjectNode obj = JsonNodeFactory.instance.objectNode();
+            new KCLogger(RecordService.class.getName()).info("CAFLOG - objnode success");
             for (Field field : schema.fields()) {
+              new KCLogger(RecordService.class.getName()).info("CAFLOG - field start" + field.toString());
               obj.set(field.name(), convertToJson(field.schema(), struct.get(field)));
             }
             return obj;
@@ -648,7 +657,7 @@ public class RecordService {
       throw SnowflakeErrors.ERROR_5015.getException("Couldn't convert " + value + " to JSON.");
     } catch (ClassCastException e) {
       throw SnowflakeErrors.ERROR_5015.getException(
-          "Invalid type for " + schema.type() + ": " + value.getClass());
+          "Invalid type for " + schema.type() + ": " + value.getClass() + " value " + logicalValue);
     }
   }
 
