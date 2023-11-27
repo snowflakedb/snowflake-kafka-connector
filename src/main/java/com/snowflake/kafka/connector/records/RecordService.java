@@ -516,7 +516,6 @@ public class RecordService {
         Schema.Type primitiveType = ConnectSchema.schemaType(value.getClass());
         if (primitiveType != null) {
           schemaType = primitiveType;
-          new KCLogger(RecordService.class.getName()).info("CAFLOG - primitive" + primitiveType);
         } else {
           if (value instanceof java.util.Date) {
             schema = Timestamp.SCHEMA;
@@ -527,8 +526,13 @@ public class RecordService {
           }
         }
       } else {
+//          TODO: look into this incredibly hacky override properly
         new KCLogger(RecordService.class.getName()).info("CAFLOG - else");
-        schemaType = schema.type();
+        if (value.getClass() == HashMap.class && schema.type() == Schema.Type.STRUCT) {
+          schemaType = Schema.Type.MAP;
+        } else {
+          schemaType = schema.type();
+        }
       }
       new KCLogger(RecordService.class.getName()).info("CAFLOG - schema: " + value.getClass() + "," +  schemaType );
       switch (schemaType) {
@@ -641,13 +645,10 @@ public class RecordService {
         case STRUCT:
           {
             Struct struct = (Struct) value;
-            new KCLogger(RecordService.class.getName()).info("CAFLOG - classcast success");
             if (struct.schema() != schema)
               throw SnowflakeErrors.ERROR_5015.getException("Mismatching schema.");
             ObjectNode obj = JsonNodeFactory.instance.objectNode();
-            new KCLogger(RecordService.class.getName()).info("CAFLOG - objnode success");
             for (Field field : schema.fields()) {
-              new KCLogger(RecordService.class.getName()).info("CAFLOG - field start" + field.toString());
               obj.set(field.name(), convertToJson(field.schema(), struct.get(field)));
             }
             return obj;
