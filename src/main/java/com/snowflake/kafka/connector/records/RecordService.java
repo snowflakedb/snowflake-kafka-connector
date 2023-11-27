@@ -648,7 +648,7 @@ public class RecordService {
       throw SnowflakeErrors.ERROR_5015.getException("Couldn't convert " + value + " to JSON.");
     } catch (ClassCastException e) {
       throw SnowflakeErrors.ERROR_5015.getException(
-          "Invalid type for " + schema.type() + ": " + value.getClass());
+          "Invalid type for " + schema.type() + ": " + value.getClass() + " value " + logicalValue);
     }
   }
 
