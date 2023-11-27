@@ -529,7 +529,8 @@ public class RecordService {
 //          TODO: look into this incredibly hacky override properly
         new KCLogger(RecordService.class.getName()).info("CAFLOG - else");
         if (value.getClass() == HashMap.class && schema.type() == Schema.Type.STRUCT) {
-          schemaType = Schema.Type.MAP;
+          value = new Struct(schema);
+          schemaType = schema.type();
         } else {
           schemaType = schema.type();
         }
