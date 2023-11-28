@@ -120,7 +120,8 @@ public class StreamingClientProvider {
 
       // refresh if registered client is invalid
       if (!StreamingClientHandler.isClientValid(resultClient)) {
-        LOGGER.warn("Registered streaming client is not valid, recreating and registering new client");
+        LOGGER.warn(
+            "Registered streaming client is not valid, recreating and registering new client");
         resultClient = this.streamingClientHandler.createClient(clientProperties);
         this.registeredClients.put(clientProperties, resultClient);
       }
