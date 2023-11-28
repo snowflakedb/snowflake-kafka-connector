@@ -116,22 +116,16 @@ public class StreamingClientProvider {
                 Boolean.toString(ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT)));
 
     if (isOptimizationEnabled) {
-      LOGGER.info(
-          "Streaming client optimization is enabled per worker node. Reusing valid clients when"
-              + " possible");
       resultClient = this.registeredClients.get(clientProperties);
 
       // refresh if registered client is invalid
       if (!StreamingClientHandler.isClientValid(resultClient)) {
+        LOGGER.warn("Registered streaming client is not valid, recreating and registering new client");
         resultClient = this.streamingClientHandler.createClient(clientProperties);
         this.registeredClients.put(clientProperties, resultClient);
       }
     } else {
       resultClient = this.streamingClientHandler.createClient(clientProperties);
-      LOGGER.info(
-          "Streaming client optimization is disabled, creating a new streaming client with name:"
-              + " {}",
-          resultClient.getName());
     }
 
     LOGGER.info(

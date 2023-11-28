@@ -1526,13 +1526,13 @@ public class SnowflakeSinkServiceV2IT {
     dogConfig.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE, "TESTROLE_KAFKA_1");
 
     // setup connection and create tables
-    String catTopic = "catTopic";
+    String catTopic = "catTopic_" + TestUtils.randomTableName();
     TopicPartition catTp = new TopicPartition(catTopic, 0);
     SnowflakeConnectionService catConn =
         SnowflakeConnectionServiceFactory.builder().setProperties(catConfig).build();
     catConn.createTable(catTopic);
 
-    String dogTopic = "dogTopic";
+    String dogTopic = "dogTopic_" + TestUtils.randomTableName();
     TopicPartition dogTp = new TopicPartition(dogTopic, 1);
     SnowflakeConnectionService dogconn =
         SnowflakeConnectionServiceFactory.builder().setProperties(dogConfig).build();
