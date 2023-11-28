@@ -109,10 +109,11 @@ public class StreamingClientProvider {
   public SnowflakeStreamingIngestClient getClient(Map<String, String> connectorConfig) {
     SnowflakeStreamingIngestClient resultClient;
     StreamingClientProperties clientProperties = new StreamingClientProperties(connectorConfig);
-    final boolean isOptimizationEnabled = Boolean.parseBoolean(
-        connectorConfig.getOrDefault(
-            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
-            Boolean.toString(ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT)));
+    final boolean isOptimizationEnabled =
+        Boolean.parseBoolean(
+            connectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+                Boolean.toString(ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT)));
 
     if (isOptimizationEnabled) {
       LOGGER.info(
@@ -133,8 +134,11 @@ public class StreamingClientProvider {
           resultClient.getName());
     }
 
-    LOGGER.info("Streaming client optimization is {}. Returning client with name: {}",
-        isOptimizationEnabled ? "enabled per worker node, KC will reuse valid clients when possible" : "disabled, KC will create new clients",
+    LOGGER.info(
+        "Streaming client optimization is {}. Returning client with name: {}",
+        isOptimizationEnabled
+            ? "enabled per worker node, KC will reuse valid clients when possible"
+            : "disabled, KC will create new clients",
         resultClient.getName());
 
     return resultClient;

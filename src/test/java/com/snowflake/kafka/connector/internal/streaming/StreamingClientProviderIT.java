@@ -118,7 +118,9 @@ public class StreamingClientProviderIT {
         streamingClientProvider.getClient(invalidRegisteredClientConfig);
 
     assert StreamingClientHandler.isClientValid(resultInvalidRegisteredClient);
-    assert resultInvalidRegisteredClient.getName().contains("_" + (this.enableClientOptimization ? 0 : 1));
+    assert resultInvalidRegisteredClient
+        .getName()
+        .contains("_" + (this.enableClientOptimization ? 0 : 1));
     assert !resultInvalidRegisteredClient.equals(invalidRegisteredClient);
     Mockito.verify(streamingClientHandlerSpy, Mockito.times(1))
         .createClient(invalidRegisteredClientProps);
@@ -129,7 +131,9 @@ public class StreamingClientProviderIT {
         streamingClientProvider.getClient(validUnregisteredClientConfig);
 
     assert StreamingClientHandler.isClientValid(resultValidUnregisteredClient);
-    assert resultValidUnregisteredClient.getName().contains("_" + (this.enableClientOptimization ? 1 : 2));
+    assert resultValidUnregisteredClient
+        .getName()
+        .contains("_" + (this.enableClientOptimization ? 1 : 2));
     assert !resultValidUnregisteredClient.equals(validUnregisteredClient);
     Mockito.verify(streamingClientHandlerSpy, Mockito.times(1))
         .createClient(validUnregisteredClientProps);
