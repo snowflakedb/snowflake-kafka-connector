@@ -526,21 +526,8 @@ public class RecordService {
           }
         }
       } else {
-//          TODO: look into this incredibly hacky override properly
-          if (value.getClass() == HashMap.class && schema.type() == Schema.Type.STRUCT) {
-              HashMap<String, Object> v = (HashMap) value;
-              Struct s = new Struct(schema);
-              new KCLogger(RecordService.class.getName()).info("CAFLOG - fields: " + schema.fields());
-              for (Map.Entry<String, Object> entry : v.entrySet()) {
-                  new KCLogger(RecordService.class.getName()).info("CAFLOG - " + entry.getKey() + " / " + entry.getValue());
-              }
+        schemaType = schema.type();
 
-              v.forEach(s::put);
-              value = s;
-              schemaType = schema.type();
-          } else {
-              schemaType = schema.type();
-          }
       }
       switch (schemaType) {
         case INT8:

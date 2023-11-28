@@ -92,7 +92,11 @@ public class SchematizationUtils {
 
     // Add columns if needed, ignore any exceptions since other task might be succeeded
     if (extraColNames != null) {
-      Map<String, String> extraColumnsToType = getColumnTypes(record, extraColNames);
+//        TODO
+//        Really we only want to ignoreSchema when we're dealing with nested Protobuf schemas, but as thats our only use case
+//        right now, and working out if we're dealing with a nested protobuf schema is quite difficult, i'm gonna do this for now
+
+      Map<String, String> extraColumnsToType = getColumnTypes(record, extraColNames, true);
       LOGGER.info("CAFLOG3 ||| {} ||| {} ||| {}", extraColumnsToType, record, extraColNames);
       try {
         if (extraColumnsToType.size() > 0) {
@@ -124,11 +128,27 @@ public class SchematizationUtils {
     if (columnNames == null) {
       return new HashMap<>();
     }
-    Map<String, String> columnToType = new HashMap<>();
     Map<String, String> schemaMap = getSchemaMapFromRecord(record);
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
     Set<String> columnNamesSet = new HashSet<>(columnNames);
 
+    return parseColumnTypes(recordNode, columnNamesSet, schemaMap);
+  }
+
+  static Map<String, String> getColumnTypes(SinkRecord record, List<String> columnNames, boolean ignoreSchema) {
+    if (columnNames == null) {
+      return new HashMap<>();
+    }
+
+    Map<String, String> schemaMap = getSchemaMapFromRecord(record);
+    JsonNode recordNode = RecordService.convertToJson((ignoreSchema ? null : record.valueSchema()), record.value());
+    Set<String> columnNamesSet = new HashSet<>(columnNames);
+
+    return parseColumnTypes(recordNode, columnNamesSet, schemaMap);
+  }
+
+  private static Map<String, String> parseColumnTypes(JsonNode recordNode, Set<String> columnNamesSet, Map<String, String> schemaMap) {
+    Map<String, String> columnToType = new HashMap<>();
     Iterator<Map.Entry<String, JsonNode>> fields = recordNode.fields();
     while (fields.hasNext()) {
       Map.Entry<String, JsonNode> field = fields.next();
@@ -150,7 +170,6 @@ public class SchematizationUtils {
         columnToType.put(colName, type);
       }
     }
-
     return columnToType;
   }
 
