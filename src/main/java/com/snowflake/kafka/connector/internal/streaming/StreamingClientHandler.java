@@ -24,9 +24,12 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 /** This class handles all calls to manage the streaming ingestion client */
 public class StreamingClientHandler {
   private static final KCLogger LOGGER = new KCLogger(StreamingClientHandler.class.getName());
+  private AtomicInteger createdClientId = new AtomicInteger(0);
 
   /**
    * Checks if a given client is valid (not null, open and has a name)
@@ -50,7 +53,7 @@ public class StreamingClientHandler {
 
     try {
       SnowflakeStreamingIngestClient createdClient =
-          SnowflakeStreamingIngestClientFactory.builder(streamingClientProperties.clientName)
+          SnowflakeStreamingIngestClientFactory.builder(streamingClientProperties.clientName + "_" + createdClientId.getAndIncrement())
               .setProperties(streamingClientProperties.clientProperties)
               .setParameterOverrides(streamingClientProperties.parameterOverrides)
               .build();
