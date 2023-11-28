@@ -140,7 +140,7 @@ public class SchematizationUtils {
       return new HashMap<>();
     }
 
-    Map<String, String> schemaMap = getSchemaMapFromRecord(record);
+    Map<String, String> schemaMap = new HashMap<>();
     JsonNode recordNode = RecordService.convertToJson((ignoreSchema ? null : record.valueSchema()), record.value());
     Set<String> columnNamesSet = new HashSet<>(columnNames);
 
