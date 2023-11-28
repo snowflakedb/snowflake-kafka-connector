@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
@@ -11,6 +13,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
@@ -134,7 +137,7 @@ public class TopicPartitionChannel {
   private final TopicPartition topicPartition;
 
   /* Channel Name is computed from topic and partition */
-  private final String channelName;
+  private final String channelNameFormatV1;
 
   /* table is required for opening the channel */
   private final String tableName;
@@ -190,24 +193,25 @@ public class TopicPartitionChannel {
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
       TopicPartition topicPartition,
-      final String channelName,
+      final String channelNameFormatV1,
       final String tableName,
       final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
+      SnowflakeConnectionService conn,
       SnowflakeTelemetryService telemetryService) {
     this(
         streamingIngestClient,
         topicPartition,
-        channelName,
+        channelNameFormatV1,
         tableName,
         false, /* No schema evolution permission */
         streamingBufferThreshold,
         sfConnectorConfig,
         kafkaRecordErrorReporter,
         sinkTaskContext,
-        null, /* Null Connection */
+        conn,
         new RecordService(telemetryService),
         telemetryService,
         false,
@@ -218,7 +222,7 @@ public class TopicPartitionChannel {
    * @param streamingIngestClient client created specifically for this task
    * @param topicPartition topic partition corresponding to this Streaming Channel
    *     (TopicPartitionChannel)
-   * @param channelName channel Name which is deterministic for topic and partition
+   * @param channelNameFormatV1 channel Name which is deterministic for topic and partition
    * @param tableName table to ingest in snowflake
    * @param hasSchemaEvolutionPermission if the role has permission to perform schema evolution on
    *     the table
@@ -234,7 +238,7 @@ public class TopicPartitionChannel {
   public TopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
       TopicPartition topicPartition,
-      final String channelName,
+      final String channelNameFormatV1,
       final String tableName,
       boolean hasSchemaEvolutionPermission,
       final BufferThreshold streamingBufferThreshold,
@@ -251,7 +255,7 @@ public class TopicPartitionChannel {
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
     Preconditions.checkState(!streamingIngestClient.isClosed());
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
-    this.channelName = Preconditions.checkNotNull(channelName);
+    this.channelNameFormatV1 = Preconditions.checkNotNull(channelNameFormatV1);
     this.tableName = Preconditions.checkNotNull(tableName);
     this.streamingBufferThreshold = Preconditions.checkNotNull(streamingBufferThreshold);
     this.sfConnectorConfig = Preconditions.checkNotNull(sfConnectorConfig);
@@ -278,6 +282,14 @@ public class TopicPartitionChannel {
 
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
 
+    if (isEnableChannelOffsetMigration(sfConnectorConfig)) {
+      /* Channel Name format V2 is computed from connector name, topic and partition */
+      final String channelNameFormatV2 =
+          generateChannelNameFormatV2(this.channelNameFormatV1, this.conn.getConnectorName());
+      conn.migrateStreamingChannelOffsetToken(
+          this.tableName, channelNameFormatV2, this.channelNameFormatV1);
+    }
+
     // Open channel and reset the offset in kafka
     this.channel = Preconditions.checkNotNull(openChannelForTable());
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
@@ -293,7 +305,7 @@ public class TopicPartitionChannel {
         new SnowflakeTelemetryChannelStatus(
             tableName,
             connectorName,
-            channelName,
+            channelNameFormatV1,
             startTime,
             enableCustomJMXMonitoring,
             metricsJmxReporter,
@@ -301,7 +313,7 @@ public class TopicPartitionChannel {
             this.processedOffset,
             this.latestConsumerOffset);
     this.telemetryServiceV2.reportKafkaPartitionStart(
-        new SnowflakeTelemetryChannelCreation(this.tableName, this.channelName, startTime));
+        new SnowflakeTelemetryChannelCreation(this.tableName, this.channelNameFormatV1, startTime));
 
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
@@ -309,8 +321,51 @@ public class TopicPartitionChannel {
       LOGGER.info(
           "TopicPartitionChannel:{}, offset token is NULL, will rely on Kafka to send us the"
               + " correct offset instead",
-          this.getChannelName());
+          this.getChannelNameFormatV1());
     }
+  }
+
+  /**
+   * Checks if the configuration provided in Snowflake Kafka Connect has set {@link
+   * SnowflakeSinkConnectorConfig#ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG} to any value. If not
+   * set, it fetches the default value.
+   *
+   * <p>If the returned is false, system function for channel offset migration will not be called
+   * and Channel name will use V1 format.
+   *
+   * @param sfConnectorConfig customer provided json config
+   * @return true is enabled, false otherwise
+   */
+  private boolean isEnableChannelOffsetMigration(Map<String, String> sfConnectorConfig) {
+    boolean isEnableChannelOffsetMigration =
+        Boolean.parseBoolean(
+            sfConnectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
+                Boolean.toString(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT)));
+    if (!isEnableChannelOffsetMigration) {
+      LOGGER.info(
+          "Config:{} is disabled for connector:{}",
+          ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
+          conn.getConnectorName());
+    }
+    return isEnableChannelOffsetMigration;
+  }
+
+  /**
+   * This is the new channel Name format that was created. New channel name prefixes connector name
+   * in old format. Please note, we will not open channel with new format. We will run a migration
+   * function from this new channel format to old channel format and drop new channel format.
+   *
+   * @param channelNameFormatV1 Original format used.
+   * @param connectorName connector name used in SF config JSON.
+   * @return new channel name introduced as part of @see <a
+   *     href="https://github.com/snowflakedb/snowflake-kafka-connector/commit/3bf9106b22510c62068f7d2f7137b9e57989274c">
+   *     this change (released in version 2.1.0) </a>
+   */
+  @VisibleForTesting
+  public static String generateChannelNameFormatV2(
+      String channelNameFormatV1, String connectorName) {
+    return connectorName + "_" + channelNameFormatV1;
   }
 
   /**
@@ -358,7 +413,7 @@ public class TopicPartitionChannel {
               "Flush based on buffered bytes or buffered number of records for"
                   + " channel:{},currentBufferSizeInBytes:{}, currentBufferedRecordCount:{},"
                   + " connectorBufferThresholds:{}",
-              this.getChannelName(),
+              this.getChannelNameFormatV1(),
               copiedStreamingBuffer.getBufferSizeBytes(),
               copiedStreamingBuffer.getSinkRecords().size(),
               this.streamingBufferThreshold);
@@ -377,7 +432,7 @@ public class TopicPartitionChannel {
           "Skip adding offset:{} to buffer for channel:{} because"
               + " offsetPersistedInSnowflake:{}, processedOffset:{}",
           kafkaSinkRecord.kafkaOffset(),
-          this.getChannelName(),
+          this.getChannelNameFormatV1(),
           currentOffsetPersistedInSnowflake,
           currentProcessedOffset);
     }
@@ -408,7 +463,7 @@ public class TopicPartitionChannel {
       LOGGER.debug(
           "Got the desired offset:{} from Kafka, we can add this offset to buffer for channel:{}",
           kafkaSinkRecord.kafkaOffset(),
-          this.getChannelName());
+          this.getChannelNameFormatV1());
       isOffsetResetInKafka = false;
       return false;
     } else {
@@ -416,7 +471,7 @@ public class TopicPartitionChannel {
           "Ignore adding offset:{} to buffer for channel:{} because we recently encountered"
               + " error and reset offset in Kafka. currentProcessedOffset:{}",
           kafkaSinkRecord.kafkaOffset(),
-          this.getChannelName(),
+          this.getChannelNameFormatV1(),
           currentProcessedOffset);
       return true;
     }
@@ -499,7 +554,7 @@ public class TopicPartitionChannel {
       LOGGER.debug(
           "Time based flush for channel:{}, CurrentTimeMs:{}, previousFlushTimeMs:{},"
               + " bufferThresholdSeconds:{}",
-          this.getChannelName(),
+          this.getChannelNameFormatV1(),
           System.currentTimeMillis(),
           this.previousFlushTimeStampMs,
           this.streamingBufferThreshold.getFlushTimeThresholdSeconds());
@@ -525,7 +580,7 @@ public class TopicPartitionChannel {
   InsertRowsResponse insertBufferedRecords(StreamingBuffer streamingBufferToInsert) {
     // intermediate buffer can be empty here if time interval reached but kafka produced no records.
     if (streamingBufferToInsert.isEmpty()) {
-      LOGGER.debug("No Rows Buffered for channel:{}, returning", this.getChannelName());
+      LOGGER.debug("No Rows Buffered for channel:{}, returning", this.getChannelNameFormatV1());
       this.previousFlushTimeStampMs = System.currentTimeMillis();
       return null;
     }
@@ -538,7 +593,7 @@ public class TopicPartitionChannel {
       LOGGER.info(
           "Successfully called insertRows for channel:{}, buffer:{}, insertResponseHasErrors:{},"
               + " needToResetOffset:{}",
-          this.getChannelName(),
+          this.getChannelNameFormatV1(),
           streamingBufferToInsert,
           response.hasErrors(),
           response.needToResetOffset());
@@ -559,7 +614,7 @@ public class TopicPartitionChannel {
       LOGGER.warn(
           String.format(
               "[INSERT_BUFFERED_RECORDS] Failure inserting buffer:%s for channel:%s",
-              streamingBufferToInsert, this.getChannelName()),
+              streamingBufferToInsert, this.getChannelNameFormatV1()),
           ex);
     }
     return response;
@@ -600,7 +655,7 @@ public class TopicPartitionChannel {
                         String.format(
                             "%s Failed to open Channel or fetching offsetToken for channel:%s",
                             StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
-                            this.getChannelName()),
+                            this.getChannelNameFormatV1()),
                         event.getException()))
             .build();
 
@@ -732,7 +787,7 @@ public class TopicPartitionChannel {
         String.format(
             "%s Failed to insert rows for channel:%s. Recovered offset from Snowflake is:%s",
             StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
-            this.getChannelName(),
+            this.getChannelNameFormatV1(),
             offsetRecoveredFromSnowflake),
         ex);
   }
@@ -867,7 +922,7 @@ public class TopicPartitionChannel {
                     LOGGER.error(
                         "[OFFSET_TOKEN_FALLBACK] Failed to open Channel/fetch offsetToken for"
                             + " channel:{}, exception:{}",
-                        this.getChannelName(),
+                        this.getChannelNameFormatV1(),
                         event.getException().toString()))
             .build();
 
@@ -878,7 +933,7 @@ public class TopicPartitionChannel {
                 LOGGER.error(
                     "[OFFSET_TOKEN_RETRY_FAILSAFE] Failure to fetch offsetToken even after retry"
                         + " and fallback from snowflake for channel:{}, elapsedTimeSeconds:{}",
-                    this.getChannelName(),
+                    this.getChannelNameFormatV1(),
                     event.getElapsedTime().get(SECONDS),
                     event.getException()))
         .compose(offsetTokenRetryPolicy)
@@ -928,7 +983,7 @@ public class TopicPartitionChannel {
           "{} Channel:{}, offset token is NULL, will use the consumer offset managed by the"
               + " connector instead, consumer offset:{}",
           streamingApiFallbackInvoker,
-          this.getChannelName(),
+          this.getChannelNameFormatV1(),
           latestConsumerOffset);
     }
 
@@ -949,7 +1004,7 @@ public class TopicPartitionChannel {
           "[RESET_PARTITION] Emptying current buffer:{} for Channel:{} due to reset of offsets in"
               + " kafka",
           this.streamingBuffer,
-          this.getChannelName());
+          this.getChannelNameFormatV1());
       this.streamingBuffer = new StreamingBuffer();
 
       // Reset Offset in kafka for this topic partition.
@@ -969,7 +1024,7 @@ public class TopicPartitionChannel {
     LOGGER.warn(
         "{} Channel:{}, OffsetRecoveredFromSnowflake:{}, reset kafka offset to:{}",
         streamingApiFallbackInvoker,
-        this.getChannelName(),
+        this.getChannelNameFormatV1(),
         offsetRecoveredFromSnowflake,
         offsetToResetInKafka);
   }
@@ -985,12 +1040,13 @@ public class TopicPartitionChannel {
    */
   private long getRecoveredOffsetFromSnowflake(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
-    LOGGER.warn("{} Re-opening channel:{}", streamingApiFallbackInvoker, this.getChannelName());
+    LOGGER.warn(
+        "{} Re-opening channel:{}", streamingApiFallbackInvoker, this.getChannelNameFormatV1());
     this.channel = Preconditions.checkNotNull(openChannelForTable());
     LOGGER.warn(
         "{} Fetching offsetToken after re-opening the channel:{}",
         streamingApiFallbackInvoker,
-        this.getChannelName());
+        this.getChannelNameFormatV1());
     return fetchLatestCommittedOffsetFromSnowflake();
   }
 
@@ -1005,12 +1061,15 @@ public class TopicPartitionChannel {
    *     snowflake.
    */
   private long fetchLatestCommittedOffsetFromSnowflake() {
-    LOGGER.debug("Fetching last committed offset for partition channel:{}", this.getChannelName());
+    LOGGER.debug(
+        "Fetching last committed offset for partition channel:{}", this.getChannelNameFormatV1());
     String offsetToken = null;
     try {
       offsetToken = this.channel.getLatestCommittedOffsetToken();
       LOGGER.info(
-          "Fetched offsetToken for channelName:{}, offset:{}", this.getChannelName(), offsetToken);
+          "Fetched offsetToken for channelName:{}, offset:{}",
+          this.getChannelNameFormatV1(),
+          offsetToken);
       return offsetToken == null
           ? NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
           : Long.parseLong(offsetToken);
@@ -1018,7 +1077,7 @@ public class TopicPartitionChannel {
       LOGGER.error(
           "The offsetToken string does not contain a parsable long:{} for channel:{}",
           offsetToken,
-          this.getChannelName());
+          this.getChannelNameFormatV1());
       throw new ConnectException(ex);
     }
   }
@@ -1038,14 +1097,16 @@ public class TopicPartitionChannel {
    */
   private SnowflakeStreamingIngestChannel openChannelForTable() {
     OpenChannelRequest channelRequest =
-        OpenChannelRequest.builder(this.channelName)
+        OpenChannelRequest.builder(this.channelNameFormatV1)
             .setDBName(this.sfConnectorConfig.get(Utils.SF_DATABASE))
             .setSchemaName(this.sfConnectorConfig.get(Utils.SF_SCHEMA))
             .setTableName(this.tableName)
             .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
             .build();
     LOGGER.info(
-        "Opening a channel with name:{} for table name:{}", this.channelName, this.tableName);
+        "Opening a channel with name:{} for table name:{}",
+        this.channelNameFormatV1,
+        this.tableName);
     return streamingIngestClient.openChannel(channelRequest);
   }
 
@@ -1064,7 +1125,7 @@ public class TopicPartitionChannel {
       final String errMsg =
           String.format(
               "Failure closing Streaming Channel name:%s msg:%s",
-              this.getChannelName(), e.getMessage());
+              this.getChannelNameFormatV1(), e.getMessage());
       this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
       LOGGER.error(errMsg, e);
     }
@@ -1085,7 +1146,7 @@ public class TopicPartitionChannel {
     return previousFlushTimeStampMs;
   }
 
-  public String getChannelName() {
+  public String getChannelNameFormatV1() {
     return this.channel.getFullyQualifiedName();
   }
 
@@ -1094,7 +1155,7 @@ public class TopicPartitionChannel {
     return MoreObjects.toStringHelper(this)
         .add("previousFlushTimeStampMs", this.previousFlushTimeStampMs)
         .add("offsetPersistedInSnowflake", this.offsetPersistedInSnowflake)
-        .add("channelName", this.getChannelName())
+        .add("channelName", this.getChannelNameFormatV1())
         .add("isStreamingIngestClientClosed", this.streamingIngestClient.isClosed())
         .toString();
   }

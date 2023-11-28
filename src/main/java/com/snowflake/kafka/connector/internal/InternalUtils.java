@@ -299,6 +299,9 @@ public class InternalUtils {
         proxyProperties.put(SFSessionProperty.PROXY_USER.getPropertyKey(), username);
         proxyProperties.put(SFSessionProperty.PROXY_PASSWORD.getPropertyKey(), password);
       }
+      // There is a change in JDBC version 3.13.31 which causes NPE if this is not added.
+      // https://github.com/snowflakedb/snowflake-jdbc/blob/master/src/main/java/net/snowflake/client/jdbc/SnowflakeUtil.java#L614
+      proxyProperties.put(SFSessionProperty.GZIP_DISABLED.getPropertyKey(), "false");
     }
     return proxyProperties;
   }
