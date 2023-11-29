@@ -1373,7 +1373,6 @@ public class SnowflakeSinkServiceV2IT {
     }
   }
 
-
   @Test
   public void testFSIngestion() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
@@ -1397,20 +1396,23 @@ public class SnowflakeSinkServiceV2IT {
 
     List<SinkRecord> records = new ArrayList<>();
     for (int offset = 0; offset < 9; offset++) {
-      String inputJson = (offset >= 3 && offset <= 5) ?
-          "{\"name:\"cat_" + offset + "\"}" : // invalid
-          "{\"name\":\"cat_" + offset + "\"}"; // valid
+      String inputJson =
+          (offset >= 3 && offset <= 5)
+              ? "{\"name:\"cat_" + offset + "\"}"
+              : // invalid
+              "{\"name\":\"cat_" + offset + "\"}"; // valid
       try {
-        SchemaAndValue converted = converter.toConnectData(topic, (inputJson).getBytes(StandardCharsets.UTF_8));
-        records.add(new SinkRecord(
-            topic,
-            partition,
-            Schema.STRING_SCHEMA,
-            "test_key" + offset,
-            converted.schema(),
-            converted.value(),
-            offset
-        ));
+        SchemaAndValue converted =
+            converter.toConnectData(topic, (inputJson).getBytes(StandardCharsets.UTF_8));
+        records.add(
+            new SinkRecord(
+                topic,
+                partition,
+                Schema.STRING_SCHEMA,
+                "test_key" + offset,
+                converted.schema(),
+                converted.value(),
+                offset));
       } catch (DataException e) {
         System.out.println("invalid json for offset: " + offset);
       }
