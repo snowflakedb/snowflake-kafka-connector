@@ -140,9 +140,10 @@ public class SchematizationUtils {
       return new HashMap<>();
     }
 
-    Map<String, String> schemaMap = new HashMap<>();
+    Map<String, String> schemaMap = (ignoreSchema ? new HashMap<>() : getSchemaMapFromRecord(record));
     JsonNode recordNode = RecordService.convertToJson((ignoreSchema ? null : record.valueSchema()), record.value());
     Set<String> columnNamesSet = new HashSet<>(columnNames);
+    LOGGER.info("changes deployed - " + schemaMap + "::::" + ignoreSchema + "::::" + recordNode);
 
     return parseColumnTypes(recordNode, columnNamesSet, schemaMap);
   }
