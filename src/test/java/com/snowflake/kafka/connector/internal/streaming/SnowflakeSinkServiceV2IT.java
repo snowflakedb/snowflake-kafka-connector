@@ -31,8 +31,10 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.storage.Converter;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -1369,5 +1371,57 @@ public class SnowflakeSinkServiceV2IT {
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2007.getException(e);
     }
+  }
+
+
+  @Test
+  public void testFSIngestion() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    conn.createTable(table);
+
+    // opens a channel for partition 0, table and topic
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
+            .build();
+
+    // create 3 valid, 3 invalid, 3 valid records
+    Converter converter = new JsonConverter();
+    HashMap<String, String> converterConfig = new HashMap<String, String>();
+    converterConfig.put("schemas.enable", "false");
+    converter.configure(converterConfig, true);
+
+    List<SinkRecord> records = new ArrayList<>();
+    for (int offset = 0; offset < 9; offset++) {
+      String inputJson = (offset >= 3 && offset <= 5) ?
+          "{\"name:\"cat_" + offset + "\"}" : // invalid
+          "{\"name\":\"cat_" + offset + "\"}"; // valid
+      try {
+        SchemaAndValue converted = converter.toConnectData(topic, (inputJson).getBytes(StandardCharsets.UTF_8));
+        records.add(new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test_key" + offset,
+            converted.schema(),
+            converted.value(),
+            offset
+        ));
+      } catch (DataException e) {
+        System.out.println("invalid json for offset: " + offset);
+      }
+    }
+
+    service.insert(records);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 9, 20, 5);
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(topic) == 6, 20, 5);
+
+    service.closeAll();
   }
 }
