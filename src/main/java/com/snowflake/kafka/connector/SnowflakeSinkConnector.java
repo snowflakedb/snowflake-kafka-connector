@@ -194,6 +194,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
   @Override
   public Config validate(Map<String, String> connectorConfigs) {
+    LOGGER.debug("Validating connector Config: Start");
     Pattern configProviderPrefix = Pattern.compile("[$][{][a-zA-Z]+:");
     // cross-fields validation here
     Config result = super.validate(connectorConfigs);
