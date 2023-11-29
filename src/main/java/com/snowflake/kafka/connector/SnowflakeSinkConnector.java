@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
@@ -195,7 +194,6 @@ public class SnowflakeSinkConnector extends SinkConnector {
   @Override
   public Config validate(Map<String, String> connectorConfigs) {
     LOGGER.debug("Validating connector Config: Start");
-    Pattern configProviderPrefix = Pattern.compile("[$][{][a-zA-Z]+:");
     // cross-fields validation here
     Config result = super.validate(connectorConfigs);
 
@@ -214,12 +212,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     // If using snowflake_jwt and authentication, and private key or private key passphrase is
     // provided through a config provider, skip validation
-    if (connectorConfigs
-            .getOrDefault(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT)
-            .equals(Utils.SNOWFLAKE_JWT)
-        && (configProviderPrefix.matcher(connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, "")).find()
-            || configProviderPrefix.matcher(connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, "")).find()))
+    if (isUsingJWT(connectorConfigs) && isUsingConfigProvider(connectorConfigs)) {
       return result;
+    }
 
     // We don't validate name, since it is not included in the return value
     // so just put a test connector here
@@ -309,6 +304,23 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     LOGGER.info("Validated config with no error");
     return result;
+  }
+
+  private static boolean isUsingConfigProvider(Map<String, String> connectorConfigs) {
+    Pattern configProviderPrefix = Pattern.compile("[$][{][a-zA-Z]+:");
+
+    return configProviderPrefix
+            .matcher(connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, ""))
+            .find()
+        || configProviderPrefix
+            .matcher(connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, ""))
+            .find();
+  }
+
+  private static boolean isUsingJWT(Map<String, String> connectorConfigs) {
+    return connectorConfigs
+        .getOrDefault(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT)
+        .equals(Utils.SNOWFLAKE_JWT);
   }
 
   /** @return connector version */

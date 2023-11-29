@@ -269,7 +269,8 @@ public class ConnectorIT {
   @Test
   public void testValidateConfigProviderPassphraseConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, " ${configProvider:/");
+    config.put(
+        SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, " ${configProvider:/");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(validateMap, new String[] {});
   }
