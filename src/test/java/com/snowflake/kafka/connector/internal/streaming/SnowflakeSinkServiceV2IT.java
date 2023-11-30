@@ -1562,7 +1562,7 @@ public class SnowflakeSinkServiceV2IT {
 
     // create records
     final int catRecordCount = 9;
-    final int dogRecordCount = 1;
+    final int dogRecordCount = 3;
 
     List<SinkRecord> catRecords =
         TestUtils.createJsonStringSinkRecords(0, catRecordCount, catTp.topic(), catTp.partition());
@@ -1579,18 +1579,18 @@ public class SnowflakeSinkServiceV2IT {
 
     // verify two clients were created
     assert StreamingClientProvider.getStreamingClientProviderInstance()
-            .getRegisteredClients()
-            .size()
-        == 2;
+            .getRegisteredClients().containsKey(new StreamingClientProperties(catConfig));
+    assert StreamingClientProvider.getStreamingClientProviderInstance()
+        .getRegisteredClients().containsKey(new StreamingClientProperties(dogConfig));
 
     // close services
     catService.closeAll();
     dogService.closeAll();
 
     // verify both clients were closed
-    assert StreamingClientProvider.getStreamingClientProviderInstance()
-            .getRegisteredClients()
-            .size()
-        == 0;
+    assert !StreamingClientProvider.getStreamingClientProviderInstance()
+        .getRegisteredClients().containsKey(new StreamingClientProperties(catConfig));
+    assert !StreamingClientProvider.getStreamingClientProviderInstance()
+        .getRegisteredClients().containsKey(new StreamingClientProperties(dogConfig));
   }
 }
