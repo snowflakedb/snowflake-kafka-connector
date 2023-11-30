@@ -1579,9 +1579,11 @@ public class SnowflakeSinkServiceV2IT {
 
     // verify two clients were created
     assert StreamingClientProvider.getStreamingClientProviderInstance()
-            .getRegisteredClients().containsKey(new StreamingClientProperties(catConfig));
+        .getRegisteredClients()
+        .containsKey(new StreamingClientProperties(catConfig));
     assert StreamingClientProvider.getStreamingClientProviderInstance()
-        .getRegisteredClients().containsKey(new StreamingClientProperties(dogConfig));
+        .getRegisteredClients()
+        .containsKey(new StreamingClientProperties(dogConfig));
 
     // close services
     catService.closeAll();
@@ -1589,8 +1591,10 @@ public class SnowflakeSinkServiceV2IT {
 
     // verify both clients were closed
     assert !StreamingClientProvider.getStreamingClientProviderInstance()
-        .getRegisteredClients().containsKey(new StreamingClientProperties(catConfig));
+        .getRegisteredClients()
+        .containsKey(new StreamingClientProperties(catConfig));
     assert !StreamingClientProvider.getStreamingClientProviderInstance()
-        .getRegisteredClients().containsKey(new StreamingClientProperties(dogConfig));
+        .getRegisteredClients()
+        .containsKey(new StreamingClientProperties(dogConfig));
   }
 }
