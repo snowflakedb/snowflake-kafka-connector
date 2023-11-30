@@ -6,6 +6,7 @@ import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionCha
 
 import com.codahale.metrics.Gauge;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -1515,24 +1516,26 @@ public class SnowflakeSinkServiceV2IT {
   public void testStreamingIngest_multipleChannel_distinctClients() throws Exception {
     // create cat and dog configs and partitions
     // one client is enabled but two clients should be created because different roles in config
+    String catTopic = "catTopic_" + TestUtils.randomTableName();
     Map<String, String> catConfig = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(catConfig);
     catConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
     catConfig.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE, "TESTROLE_KAFKA");
+    catConfig.put(Utils.NAME, catTopic);
 
+    String dogTopic = "dogTopic_" + TestUtils.randomTableName();
     Map<String, String> dogConfig = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(dogConfig);
     dogConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
     dogConfig.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE, "TESTROLE_KAFKA_1");
+    dogConfig.put(Utils.NAME, dogTopic);
 
     // setup connection and create tables
-    String catTopic = "catTopic_" + TestUtils.randomTableName();
     TopicPartition catTp = new TopicPartition(catTopic, 0);
     SnowflakeConnectionService catConn =
         SnowflakeConnectionServiceFactory.builder().setProperties(catConfig).build();
     catConn.createTable(catTopic);
 
-    String dogTopic = "dogTopic_" + TestUtils.randomTableName();
     TopicPartition dogTp = new TopicPartition(dogTopic, 1);
     SnowflakeConnectionService dogconn =
         SnowflakeConnectionServiceFactory.builder().setProperties(dogConfig).build();
