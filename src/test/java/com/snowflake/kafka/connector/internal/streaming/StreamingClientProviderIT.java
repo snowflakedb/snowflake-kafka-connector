@@ -61,7 +61,7 @@ public class StreamingClientProviderIT {
     // setup registered valid client
     Map<String, String> validRegisteredClientConfig = new HashMap<>(this.clientConfig);
     validRegisteredClientConfig.put(Utils.NAME, validRegisteredClientName);
-    validRegisteredClientConfig.put(Utils.SF_ROLE, "public");
+    validRegisteredClientConfig.put(Utils.SF_OAUTH_CLIENT_ID, "0");
     StreamingClientProperties validRegisteredClientProps =
         new StreamingClientProperties(validRegisteredClientConfig);
     SnowflakeStreamingIngestClient validRegisteredClient =
@@ -70,7 +70,7 @@ public class StreamingClientProviderIT {
     // setup registered invalid client
     Map<String, String> invalidRegisteredClientConfig = new HashMap<>(this.clientConfig);
     invalidRegisteredClientConfig.put(Utils.NAME, invalidRegisteredClientName);
-    invalidRegisteredClientConfig.put(Utils.SF_ROLE, "testrole_kafka");
+    invalidRegisteredClientConfig.put(Utils.SF_OAUTH_CLIENT_ID, "1");
     StreamingClientProperties invalidRegisteredClientProps =
         new StreamingClientProperties(invalidRegisteredClientConfig);
     SnowflakeStreamingIngestClient invalidRegisteredClient =
@@ -80,7 +80,7 @@ public class StreamingClientProviderIT {
     // setup unregistered valid client
     Map<String, String> validUnregisteredClientConfig = new HashMap<>(this.clientConfig);
     validUnregisteredClientConfig.put(Utils.NAME, validUnregisteredClientName);
-    validUnregisteredClientConfig.put(Utils.SF_ROLE, "testrole_kafka_1");
+    validUnregisteredClientConfig.put(Utils.SF_OAUTH_CLIENT_ID, "2");
     StreamingClientProperties validUnregisteredClientProps =
         new StreamingClientProperties(validUnregisteredClientConfig);
     SnowflakeStreamingIngestClient validUnregisteredClient =
