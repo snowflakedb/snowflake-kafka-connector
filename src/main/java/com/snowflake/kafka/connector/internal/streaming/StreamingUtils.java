@@ -19,6 +19,7 @@ import com.snowflake.kafka.connector.internal.BufferThreshold;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.common.config.ConfigException;
@@ -66,34 +67,34 @@ public class StreamingUtils {
   public static final int MAX_RECORD_OVERHEAD_BYTES = DefaultRecord.MAX_RECORD_OVERHEAD;
 
   /* Maps streaming client's property keys to what we got from snowflake KC config file. */
-  public static Map<String, String> convertConfigForStreamingClient(
+  public static Properties convertConfigForStreamingClient(
       Map<String, String> connectorConfig) {
-    Map<String, String> streamingPropertiesMap = new HashMap<>();
+    Properties streamingProperties = new Properties();
     connectorConfig.computeIfPresent(
         Utils.SF_URL,
         (key, value) -> {
-          streamingPropertiesMap.put(Constants.ACCOUNT_URL, value);
+          streamingProperties.put(Constants.ACCOUNT_URL, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
         Utils.SF_ROLE,
         (key, value) -> {
-          streamingPropertiesMap.put(Constants.ROLE, value);
+          streamingProperties.put(Constants.ROLE, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
         Utils.SF_USER,
         (key, value) -> {
-          streamingPropertiesMap.put(Constants.USER, value);
+          streamingProperties.put(Constants.USER, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
         Utils.SF_PRIVATE_KEY,
         (key, value) -> {
-          streamingPropertiesMap.put(Constants.PRIVATE_KEY, value);
+          streamingProperties.put(Constants.PRIVATE_KEY, value);
           return value;
         });
 
@@ -101,11 +102,12 @@ public class StreamingUtils {
         Utils.PRIVATE_KEY_PASSPHRASE,
         (key, value) -> {
           if (!value.isEmpty()) {
-            streamingPropertiesMap.put(Constants.PRIVATE_KEY_PASSPHRASE, value);
+            streamingProperties.put(Constants.PRIVATE_KEY_PASSPHRASE, value);
           }
           return value;
         });
-    return streamingPropertiesMap;
+
+    return streamingProperties;
   }
 
   /* Returns true if sf connector config has error.tolerance = ALL */

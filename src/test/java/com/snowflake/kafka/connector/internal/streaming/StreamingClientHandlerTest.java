@@ -39,24 +39,39 @@ public class StreamingClientHandlerTest {
   }
 
   @Test
-  public void testCreateClient() {
-    SnowflakeStreamingIngestClient client =
-        this.streamingClientHandler.createClient(this.connectorConfig);
+  public void testCreateClient() throws Exception {
+    SnowflakeStreamingIngestClient client1 =
+        this.streamingClientHandler.createClient(
+            new StreamingClientProperties(this.connectorConfig));
 
     // verify valid client against config
-    assert !client.isClosed();
-    assert client.getName().contains(this.connectorConfig.get(Utils.NAME));
+    assert !client1.isClosed();
+    assert client1.getName().contains(this.connectorConfig.get(Utils.NAME) + "_0");
+
+    // create another client, confirm that the name was incremented
+    SnowflakeStreamingIngestClient client2 =
+        this.streamingClientHandler.createClient(
+            new StreamingClientProperties(this.connectorConfig));
+
+    // verify valid client against config
+    assert !client2.isClosed();
+    assert client2.getName().contains(this.connectorConfig.get(Utils.NAME) + "_1");
+
+    // cleanup
+    client1.close();
+    client2.close();
   }
 
   @Test
   public void testCreateClientException() {
     // invalidate the config
-    this.connectorConfig.remove(Utils.SF_ROLE);
+    this.connectorConfig.remove(Utils.SF_PRIVATE_KEY); // private key is required
 
     try {
-      this.streamingClientHandler.createClient(this.connectorConfig);
+      this.streamingClientHandler.createClient(new StreamingClientProperties(this.connectorConfig));
     } catch (ConnectException ex) {
       assert ex.getCause().getClass().equals(SFException.class);
+      throw ex;
     }
   }
 
@@ -66,7 +81,7 @@ public class StreamingClientHandlerTest {
     this.connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
 
     // test create
-    this.streamingClientHandler.createClient(this.connectorConfig);
+    this.streamingClientHandler.createClient(new StreamingClientProperties(this.connectorConfig));
   }
 
   @Test
