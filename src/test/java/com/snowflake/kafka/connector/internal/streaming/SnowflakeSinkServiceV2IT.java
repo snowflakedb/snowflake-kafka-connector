@@ -5,9 +5,11 @@ import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionCha
 
 import com.codahale.metrics.Gauge;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
@@ -1502,5 +1504,93 @@ public class SnowflakeSinkServiceV2IT {
     } else {
       return TestUtils.getConfForStreamingWithOAuth();
     }
+  }
+
+  // note this test relies on testrole_kafka and testrole_kafka_1 roles being granted to test_kafka
+  // user
+  @Test
+  public void testStreamingIngest_multipleChannel_distinctClients() throws Exception {
+    // create cat and dog configs and partitions
+    // one client is enabled but two clients should be created because different roles in config
+    String catTopic = "catTopic_" + TestUtils.randomTableName();
+    Map<String, String> catConfig = getConfig();
+    SnowflakeSinkConnectorConfig.setDefaultValues(catConfig);
+    catConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
+    catConfig.put(Utils.SF_OAUTH_CLIENT_ID, "1");
+    catConfig.put(Utils.NAME, catTopic);
+
+    String dogTopic = "dogTopic_" + TestUtils.randomTableName();
+    Map<String, String> dogConfig = getConfig();
+    SnowflakeSinkConnectorConfig.setDefaultValues(dogConfig);
+    dogConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
+    dogConfig.put(Utils.SF_OAUTH_CLIENT_ID, "2");
+    dogConfig.put(Utils.NAME, dogTopic);
+
+    // setup connection and create tables
+    TopicPartition catTp = new TopicPartition(catTopic, 0);
+    SnowflakeConnectionService catConn =
+        SnowflakeConnectionServiceFactory.builder().setProperties(catConfig).build();
+    catConn.createTable(catTopic);
+
+    TopicPartition dogTp = new TopicPartition(dogTopic, 1);
+    SnowflakeConnectionService dogconn =
+        SnowflakeConnectionServiceFactory.builder().setProperties(dogConfig).build();
+    dogconn.createTable(dogTopic);
+
+    // create the sink services
+    SnowflakeSinkService catService =
+        SnowflakeSinkServiceFactory.builder(
+                catConn, IngestionMethodConfig.SNOWPIPE_STREAMING, catConfig)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(catTp)))
+            .addTask(catTopic, catTp) // Internally calls startTask
+            .build();
+
+    SnowflakeSinkService dogService =
+        SnowflakeSinkServiceFactory.builder(
+                dogconn, IngestionMethodConfig.SNOWPIPE_STREAMING, dogConfig)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(dogTp)))
+            .addTask(dogTopic, dogTp) // Internally calls startTask
+            .build();
+
+    // create records
+    final int catRecordCount = 9;
+    final int dogRecordCount = 3;
+
+    List<SinkRecord> catRecords =
+        TestUtils.createJsonStringSinkRecords(0, catRecordCount, catTp.topic(), catTp.partition());
+    List<SinkRecord> dogRecords =
+        TestUtils.createJsonStringSinkRecords(0, dogRecordCount, dogTp.topic(), dogTp.partition());
+
+    // insert records
+    catService.insert(catRecords);
+    dogService.insert(dogRecords);
+
+    // check data was ingested
+    TestUtils.assertWithRetry(() -> catService.getOffset(catTp) == catRecordCount, 20, 20);
+    TestUtils.assertWithRetry(() -> dogService.getOffset(dogTp) == dogRecordCount, 20, 20);
+
+    // verify two clients were created
+    assert StreamingClientProvider.getStreamingClientProviderInstance()
+        .getRegisteredClients()
+        .containsKey(new StreamingClientProperties(catConfig));
+    assert StreamingClientProvider.getStreamingClientProviderInstance()
+        .getRegisteredClients()
+        .containsKey(new StreamingClientProperties(dogConfig));
+
+    // close services
+    catService.closeAll();
+    dogService.closeAll();
+
+    // verify both clients were closed
+    assert !StreamingClientProvider.getStreamingClientProviderInstance()
+        .getRegisteredClients()
+        .containsKey(new StreamingClientProperties(catConfig));
+    assert !StreamingClientProvider.getStreamingClientProviderInstance()
+        .getRegisteredClients()
+        .containsKey(new StreamingClientProperties(dogConfig));
   }
 }
