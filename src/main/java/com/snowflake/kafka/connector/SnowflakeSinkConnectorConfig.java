@@ -45,20 +45,23 @@ public class SnowflakeSinkConnectorConfig {
 
   // Connector config
   private static final String CONNECTOR_CONFIG = "Connector Config";
-  public static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
-  public static final long BUFFER_COUNT_RECORDS_DEFAULT = 10000;
-  public static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
-  public static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
-  public static final long BUFFER_SIZE_BYTES_MIN = 1;
   static final String TOPICS_TABLES_MAP = "snowflake.topic2table.map";
 
   // For tombstone records
   public static final String BEHAVIOR_ON_NULL_VALUES_CONFIG = "behavior.on.null.values";
 
-  // Time in seconds
-  public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
-  public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 120;
+  // Buffer thresholds
   public static final String BUFFER_FLUSH_TIME_SEC = "buffer.flush.time";
+  public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 120;
+  public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
+
+  public static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
+  public static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
+  public static final long BUFFER_SIZE_BYTES_MIN = 1;
+
+  public static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
+  public static final long BUFFER_COUNT_RECORDS_DEFAULT = 10000;
+  public static final long BUFFER_COUNT_RECORDS_MIN = 1;
 
   // Snowflake connection and database config
   private static final String SNOWFLAKE_LOGIN_INFO = "Snowflake Login Info";
@@ -68,6 +71,10 @@ public class SnowflakeSinkConnectorConfig {
   static final String SNOWFLAKE_DATABASE = Utils.SF_DATABASE;
   static final String SNOWFLAKE_SCHEMA = Utils.SF_SCHEMA;
   static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
+  static final String AUTHENTICATOR_TYPE = Utils.SF_AUTHENTICATOR;
+  static final String OAUTH_CLIENT_ID = Utils.SF_OAUTH_CLIENT_ID;
+  static final String OAUTH_CLIENT_SECRET = Utils.SF_OAUTH_CLIENT_SECRET;
+  static final String OAUTH_REFRESH_TOKEN = Utils.SF_OAUTH_REFRESH_TOKEN;
 
   // For Snowpipe Streaming client
   public static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
@@ -156,10 +163,21 @@ public class SnowflakeSinkConnectorConfig {
       "enable.streaming.client.optimization";
   public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DISPLAY =
       "Enable streaming client optimization";
-  public static final boolean ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT = false;
+  public static final boolean ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT = true;
   public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DOC =
       "Whether to optimize the streaming client to reduce cost. Note that this may affect"
           + " throughput or latency and can only be set if Streaming Snowpipe is enabled";
+
+  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG =
+      "enable.streaming.channel.offset.migration";
+  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY =
+      "Enable Streaming Channel Offset Migration";
+  public static final boolean ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT = true;
+  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DOC =
+      "This config is used to enable/disable streaming channel offset migration logic. If true, we"
+          + " will migrate offset token from channel name format V2 to name format v1. V2 channel"
+          + " format is deprecated and V1 will be used always, disabling this config could have"
+          + " ramifications. Please consult Snowflake support before setting this to false.";
 
   // MDC logging header
   public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
@@ -298,6 +316,46 @@ public class SnowflakeSinkConnectorConfig {
             6,
             ConfigDef.Width.NONE,
             SNOWFLAKE_ROLE)
+        .define(
+            AUTHENTICATOR_TYPE,
+            Type.STRING, // TODO: SNOW-889748 change to enum and add validator
+            Utils.SNOWFLAKE_JWT,
+            Importance.LOW,
+            "Authenticator for JDBC and streaming ingest sdk",
+            SNOWFLAKE_LOGIN_INFO,
+            7,
+            ConfigDef.Width.NONE,
+            AUTHENTICATOR_TYPE)
+        .define(
+            OAUTH_CLIENT_ID,
+            Type.STRING,
+            "",
+            Importance.HIGH,
+            "Client id of target OAuth integration",
+            SNOWFLAKE_LOGIN_INFO,
+            8,
+            ConfigDef.Width.NONE,
+            OAUTH_CLIENT_ID)
+        .define(
+            OAUTH_CLIENT_SECRET,
+            Type.STRING,
+            "",
+            Importance.HIGH,
+            "Client secret of target OAuth integration",
+            SNOWFLAKE_LOGIN_INFO,
+            9,
+            ConfigDef.Width.NONE,
+            OAUTH_CLIENT_SECRET)
+        .define(
+            OAUTH_REFRESH_TOKEN,
+            Type.STRING,
+            "",
+            Importance.HIGH,
+            "Refresh token for OAuth",
+            SNOWFLAKE_LOGIN_INFO,
+            10,
+            ConfigDef.Width.NONE,
+            OAUTH_REFRESH_TOKEN)
         // proxy
         .define(
             JVM_PROXY_HOST,
@@ -544,7 +602,17 @@ public class SnowflakeSinkConnectorConfig {
             CONNECTOR_CONFIG,
             8,
             ConfigDef.Width.NONE,
-            ENABLE_MDC_LOGGING_DISPLAY);
+            ENABLE_MDC_LOGGING_DISPLAY)
+        .define(
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
+            Type.BOOLEAN,
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT,
+            Importance.LOW,
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DOC,
+            CONNECTOR_CONFIG,
+            9,
+            ConfigDef.Width.NONE,
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY);
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {

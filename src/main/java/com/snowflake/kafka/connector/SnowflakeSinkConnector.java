@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
@@ -209,10 +210,11 @@ public class SnowflakeSinkConnector extends SinkConnector {
       Utils.updateConfigErrorMessage(result, invalidKey, invalidProxyParams.get(invalidKey));
     }
 
-    // If private key or private key passphrase is provided through file, skip validation
-    if (connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, "").contains("${file:")
-        || connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, "").contains("${file:"))
+    // If using snowflake_jwt and authentication, and private key or private key passphrase is
+    // provided through a config provider, skip validation
+    if (isUsingJWT(connectorConfigs) && isUsingConfigProvider(connectorConfigs)) {
       return result;
+    }
 
     // We don't validate name, since it is not included in the return value
     // so just put a test connector here
@@ -243,6 +245,28 @@ public class SnowflakeSinkConnector extends SinkConnector {
           break;
         case "0013":
           Utils.updateConfigErrorMessage(result, Utils.SF_PRIVATE_KEY, " must be non-empty");
+          break;
+        case "0026":
+          Utils.updateConfigErrorMessage(
+              result,
+              Utils.SF_OAUTH_CLIENT_ID,
+              " must be non-empty when using oauth authenticator");
+          break;
+        case "0027":
+          Utils.updateConfigErrorMessage(
+              result,
+              Utils.SF_OAUTH_CLIENT_SECRET,
+              " must be non-empty when using oauth authenticator");
+          break;
+        case "0028":
+          Utils.updateConfigErrorMessage(
+              result,
+              Utils.SF_OAUTH_REFRESH_TOKEN,
+              " must be non-empty when using oauth authenticator");
+          break;
+        case "0029":
+          Utils.updateConfigErrorMessage(
+              result, Utils.SF_AUTHENTICATOR, " is not a valid authenticator");
           break;
         case "0002":
           Utils.updateConfigErrorMessage(
@@ -280,6 +304,23 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     LOGGER.info("Validated config with no error");
     return result;
+  }
+
+  private static boolean isUsingConfigProvider(Map<String, String> connectorConfigs) {
+    Pattern configProviderPrefix = Pattern.compile("[$][{][a-zA-Z]+:");
+
+    return configProviderPrefix
+            .matcher(connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, ""))
+            .find()
+        || configProviderPrefix
+            .matcher(connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, ""))
+            .find();
+  }
+
+  private static boolean isUsingJWT(Map<String, String> connectorConfigs) {
+    return connectorConfigs
+        .getOrDefault(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT)
+        .equals(Utils.SNOWFLAKE_JWT);
   }
 
   /** @return connector version */

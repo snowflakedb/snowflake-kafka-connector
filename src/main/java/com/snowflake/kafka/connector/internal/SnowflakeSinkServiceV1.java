@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.*;
+import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_RECORD_COUNT;
+import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SIZE_BYTES;
+import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SUB_DOMAIN;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
 import com.codahale.metrics.Histogram;
@@ -104,11 +106,11 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
    * @param topicPartition TopicPartition passed from Kafka
    */
   @Override
-  public void startTask(final String tableName, final TopicPartition topicPartition) {
+  public void startPartition(final String tableName, final TopicPartition topicPartition) {
     String stageName = Utils.stageName(conn.getConnectorName(), tableName);
     String nameIndex = getNameIndex(topicPartition.topic(), topicPartition.partition());
     if (pipes.containsKey(nameIndex)) {
-      LOGGER.error("task is already registered, name: {}", nameIndex);
+      LOGGER.warn("task is already registered with {} partition", nameIndex);
     } else {
       String pipeName =
           Utils.pipeName(conn.getConnectorName(), tableName, topicPartition.partition());
@@ -117,6 +119,12 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
           nameIndex,
           new ServiceContext(tableName, stageName, pipeName, conn, topicPartition.partition()));
     }
+  }
+
+  @Override
+  public void startPartitions(
+      Collection<TopicPartition> partitions, Map<String, String> topic2Table) {
+    partitions.forEach(tp -> this.startPartition(Utils.tableName(tp.topic(), topic2Table), tp));
   }
 
   @Override
@@ -148,7 +156,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
           "Topic: {} Partition: {} hasn't been initialized by OPEN " + "function",
           record.topic(),
           record.kafkaPartition());
-      startTask(
+      startPartition(
           Utils.tableName(record.topic(), this.topic2TableMap),
           new TopicPartition(record.topic(), record.kafkaPartition()));
     }
@@ -654,7 +662,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       Schema schema = isKey ? record.keySchema() : record.valueSchema();
       Object content = isKey ? record.key() : record.value();
       try {
-        newSFContent = new SnowflakeRecordContent(schema, content);
+        newSFContent = new SnowflakeRecordContent(schema, content, false);
       } catch (Exception e) {
         LOGGER.error("Native content parser error:\n{}", e.getMessage());
         try {
