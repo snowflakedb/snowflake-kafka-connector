@@ -460,36 +460,6 @@ public class TopicPartitionChannelIT {
     service.closeAll();
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void testSimpleInsertRowsFailureWithArrowBDECFormat() throws Exception {
-    // add config which overrides the bdec file format
-    Map<String, String> overriddenConfig = new HashMap<>(TestUtils.getConfForStreaming());
-    overriddenConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
-
-    InMemorySinkTaskContext inMemorySinkTaskContext =
-        new InMemorySinkTaskContext(Collections.singleton(topicPartition));
-
-    // This will automatically create a channel for topicPartition.
-    SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, overriddenConfig)
-            .setRecordNumber(1)
-            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(inMemorySinkTaskContext)
-            .addTask(testTableName, topicPartition)
-            .build();
-
-    final long noOfRecords = 1;
-
-    // send regular data
-    List<SinkRecord> records =
-        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, PARTITION);
-
-    // should throw because we don't take arrow version 1 anymore
-    service.insert(records);
-    service.closeAll();
-  }
-
   @Test
   public void testPartialBatchChannelInvalidationIngestion_schematization() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();

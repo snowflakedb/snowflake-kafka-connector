@@ -17,8 +17,8 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION;
-import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_LAG;
+import static net.snowflake.ingest.utils.ParameterProvider.MAX_CLIENT_LAG;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -77,15 +77,14 @@ public class StreamingClientProperties {
         STREAMING_CLIENT_PREFIX_NAME
             + connectorConfig.getOrDefault(Utils.NAME, DEFAULT_CLIENT_NAME);
 
-    // Override only if bdec version is explicitly set in config, default to the version set
-    // inside Ingest SDK
+    // Override only if the max client lag is explicitly set in config
     this.parameterOverrides = new HashMap<>();
     Optional<String> snowpipeStreamingBdecVersion =
-        Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_FILE_VERSION));
+        Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_LAG));
     snowpipeStreamingBdecVersion.ifPresent(
         overriddenValue -> {
-          LOGGER.info("Config is overridden for {} ", SNOWPIPE_STREAMING_FILE_VERSION);
-          parameterOverrides.put(BLOB_FORMAT_VERSION, overriddenValue);
+          LOGGER.info("Config is overridden for {} ", SNOWPIPE_STREAMING_MAX_LAG);
+          parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue));
         });
   }
 
