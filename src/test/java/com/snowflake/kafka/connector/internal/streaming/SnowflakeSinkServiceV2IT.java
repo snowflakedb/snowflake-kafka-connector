@@ -1132,12 +1132,11 @@ public class SnowflakeSinkServiceV2IT {
   }
 
   @Test
-  public void testStreamingIngestion_invalid_file_version() throws Exception {
+  public void testStreamingIngestion_invalid_client_lag() {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     Map<String, String> overriddenConfig = new HashMap<>(config);
-    overriddenConfig.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "TWOO_HUNDRED");
+    overriddenConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_LAG, "TWOO_HUNDRED");
 
     conn.createTable(table);
 

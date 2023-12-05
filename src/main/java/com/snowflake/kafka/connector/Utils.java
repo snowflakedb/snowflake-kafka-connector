@@ -393,12 +393,12 @@ public class Utils {
                 "Schematization is only available with {}.",
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
-      if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION)) {
+      if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_LAG)) {
         invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_LAG,
             Utils.formatString(
                 "{} is only available with ingestion type: {}.",
-                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION,
+                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_LAG,
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
       if (config.containsKey(
