@@ -17,21 +17,19 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.TestUtils;
-import org.junit.Test;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_LAG;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.DEFAULT_CLIENT_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.LOGGABLE_STREAMING_CONFIG_PROPERTIES;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.STREAMING_CLIENT_PREFIX_NAME;
 import static net.snowflake.ingest.utils.ParameterProvider.MAX_CLIENT_LAG;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.TestUtils;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import org.junit.Test;
 
 public class StreamingClientPropertiesTest {
 
