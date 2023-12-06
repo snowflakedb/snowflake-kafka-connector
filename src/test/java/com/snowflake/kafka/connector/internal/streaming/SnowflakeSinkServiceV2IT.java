@@ -1179,14 +1179,14 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> catConfig = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(catConfig);
     catConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
-    catConfig.put(Utils.SF_OAUTH_CLIENT_ID, "1");
+    catConfig.put(Utils.SF_ROLE, "testrole_kafka");
     catConfig.put(Utils.NAME, catTopic);
 
     String dogTopic = "dogTopic_" + TestUtils.randomTableName();
     Map<String, String> dogConfig = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(dogConfig);
     dogConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
-    dogConfig.put(Utils.SF_OAUTH_CLIENT_ID, "2");
+    dogConfig.put(Utils.SF_ROLE, "testrole_kafka_1");
     dogConfig.put(Utils.NAME, dogTopic);
 
     // setup connection and create tables
