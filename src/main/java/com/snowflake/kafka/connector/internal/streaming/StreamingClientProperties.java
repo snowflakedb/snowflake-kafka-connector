@@ -25,6 +25,7 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -82,7 +83,8 @@ public class StreamingClientProperties {
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_LAG));
     snowpipeStreamingBdecVersion.ifPresent(
         overriddenValue -> {
-          LOGGER.info("Config is overridden for {} ", SNOWPIPE_STREAMING_MAX_LAG);
+          LOGGER.info(
+              "Config is overridden for {}={}", SNOWPIPE_STREAMING_MAX_LAG, overriddenValue);
           parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue));
         });
   }
@@ -116,7 +118,8 @@ public class StreamingClientProperties {
   @Override
   public boolean equals(Object other) {
     return other.getClass().equals(StreamingClientProperties.class)
-        & ((StreamingClientProperties) other).clientProperties.equals(this.clientProperties);
+        && ((StreamingClientProperties) other).clientProperties.equals(this.clientProperties)
+        && ((StreamingClientProperties) other).parameterOverrides.equals(this.parameterOverrides);
   }
 
   /**
@@ -127,6 +130,6 @@ public class StreamingClientProperties {
    */
   @Override
   public int hashCode() {
-    return this.clientProperties.hashCode();
+    return Objects.hash(this.clientProperties, this.parameterOverrides);
   }
 }
