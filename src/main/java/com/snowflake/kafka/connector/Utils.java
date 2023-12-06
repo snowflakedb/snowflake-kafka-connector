@@ -71,7 +71,7 @@ import org.apache.kafka.common.config.ConfigValue;
 public class Utils {
 
   // Connector version, change every release
-  public static final String VERSION = "2.1.0";
+  public static final String VERSION = "2.1.2";
 
   // connector parameter list
   public static final String NAME = "name";
@@ -452,6 +452,14 @@ public class Utils {
             SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
             Utils.formatString(
                 "Streaming client optimization is only available with {}.",
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      }
+      if (config.containsKey(
+          SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG)) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
+            Utils.formatString(
+                "Streaming client Channel migration is only available with {}.",
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
     }
