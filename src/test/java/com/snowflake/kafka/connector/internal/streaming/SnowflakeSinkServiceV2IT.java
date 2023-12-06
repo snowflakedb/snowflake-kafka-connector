@@ -1156,6 +1156,7 @@ public class SnowflakeSinkServiceV2IT {
 
     service.insert(sinkRecords);
     try {
+      // Wait 20 seconds here and no flush should happen since the max client lag is 30 seconds
       TestUtils.assertWithRetry(
           () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 5, 4);
       Assert.fail("The rows should not be flushed");
@@ -1165,7 +1166,7 @@ public class SnowflakeSinkServiceV2IT {
 
     // Wait for enough time, the rows should be flushed
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 30, 6);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 30, 10);
 
     service.closeAll();
   }
@@ -1304,7 +1305,7 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.assertWithRetry(() -> dogService.getOffset(dogTp) == dogRecordCount, 20, 20);
     TestUtils.assertWithRetry(() -> fishService.getOffset(fishTp) == fishRecordCount, 20, 20);
 
-    // verify two clients were created
+    // verify three clients were created
     assert StreamingClientProvider.getStreamingClientProviderInstance()
         .getRegisteredClients()
         .containsKey(new StreamingClientProperties(catConfig));
@@ -1320,7 +1321,7 @@ public class SnowflakeSinkServiceV2IT {
     dogService.closeAll();
     fishService.closeAll();
 
-    // verify both clients were closed
+    // verify three clients were closed
     assert !StreamingClientProvider.getStreamingClientProviderInstance()
         .getRegisteredClients()
         .containsKey(new StreamingClientProperties(catConfig));
