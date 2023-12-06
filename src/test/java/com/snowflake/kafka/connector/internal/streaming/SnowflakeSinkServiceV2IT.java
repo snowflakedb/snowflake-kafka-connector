@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_LAG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
@@ -1136,7 +1136,7 @@ public class SnowflakeSinkServiceV2IT {
   @Test
   public void testStreamingIngestionValidClientLag() throws Exception {
     Map<String, String> config = getConfig();
-    config.put(SNOWPIPE_STREAMING_MAX_LAG, "30");
+    config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "30");
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -1175,7 +1175,8 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     Map<String, String> overriddenConfig = new HashMap<>(config);
-    overriddenConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_LAG, "TWOO_HUNDRED");
+    overriddenConfig.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "TWOO_HUNDRED");
 
     conn.createTable(table);
 
@@ -1234,7 +1235,7 @@ public class SnowflakeSinkServiceV2IT {
         SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
     fishConfig.put(Utils.SF_OAUTH_CLIENT_ID, "2");
     fishConfig.put(Utils.NAME, fishTopic);
-    fishConfig.put(SNOWPIPE_STREAMING_MAX_LAG, "1");
+    fishConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
 
     // setup connection and create tables
     TopicPartition catTp = new TopicPartition(catTopic, 0);
