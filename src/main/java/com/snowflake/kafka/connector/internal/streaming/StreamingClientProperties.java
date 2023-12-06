@@ -17,7 +17,7 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_LAG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static net.snowflake.ingest.utils.ParameterProvider.MAX_CLIENT_LAG;
 
 import com.snowflake.kafka.connector.Utils;
@@ -81,11 +81,11 @@ public class StreamingClientProperties {
     // Override only if the max client lag is explicitly set in config
     this.parameterOverrides = new HashMap<>();
     Optional<String> snowpipeStreamingBdecVersion =
-        Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_LAG));
+        Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG));
     snowpipeStreamingBdecVersion.ifPresent(
         overriddenValue -> {
           LOGGER.info(
-              "Config is overridden for {}={}", SNOWPIPE_STREAMING_MAX_LAG, overriddenValue);
+              "Config is overridden for {}={}", SNOWPIPE_STREAMING_MAX_CLIENT_LAG, overriddenValue);
           parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue));
         });
   }

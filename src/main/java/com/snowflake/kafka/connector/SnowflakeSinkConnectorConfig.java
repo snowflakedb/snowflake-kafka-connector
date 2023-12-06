@@ -118,7 +118,8 @@ public class SnowflakeSinkConnectorConfig {
       IngestionMethodConfig.SNOWPIPE.toString();
 
   // This is the streaming max client lag which can be defined in config
-  public static final String SNOWPIPE_STREAMING_MAX_LAG = "snowflake.streaming.max.lag";
+  public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
+      "snowflake.streaming.max.client.lag";
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
@@ -540,7 +541,7 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Width.NONE,
             INGESTION_METHOD_OPT)
         .define(
-            SNOWPIPE_STREAMING_MAX_LAG,
+            SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
             Type.LONG,
             StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC,
             ConfigDef.Range.atLeast(StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC),
@@ -549,7 +550,7 @@ public class SnowflakeSinkConnectorConfig {
             CONNECTOR_CONFIG,
             6,
             ConfigDef.Width.NONE,
-            SNOWPIPE_STREAMING_MAX_LAG)
+            SNOWPIPE_STREAMING_MAX_CLIENT_LAG)
         .define(
             ERRORS_TOLERANCE_CONFIG,
             Type.STRING,
