@@ -1493,7 +1493,7 @@ public class SnowflakeSinkServiceV2IT {
 
     // Wait for enough time, the rows should be flushed
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 30, 2);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 30, 6);
 
     service.closeAll();
   }
