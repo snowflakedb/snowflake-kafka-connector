@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_LAG;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
@@ -1461,7 +1462,44 @@ public class SnowflakeSinkServiceV2IT {
   }
 
   @Test
-  public void testStreamingIngestion_invalid_client_lag() {
+  public void testStreamingIngestionValidClientLag() throws Exception {
+    Map<String, String> config = getConfig();
+    config.put(SNOWPIPE_STREAMING_MAX_LAG, "30");
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    conn.createTable(table);
+
+    // opens a channel for partition 0, table and topic
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(100)
+            .setFlushTime(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
+            .build();
+
+    final long noOfRecords = 50;
+    List<SinkRecord> sinkRecords =
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, partition);
+
+    service.insert(sinkRecords);
+    try {
+      TestUtils.assertWithRetry(
+          () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 5, 4);
+      Assert.fail("The rows should not be flushed");
+    } catch (Exception e) {
+      // do nothing
+    }
+
+    // Wait for enough time, the rows should be flushed
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 30, 2);
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testStreamingIngestionInvalidClientLag() {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     Map<String, String> overriddenConfig = new HashMap<>(config);
@@ -1525,6 +1563,15 @@ public class SnowflakeSinkServiceV2IT {
     dogConfig.put(Utils.SF_OAUTH_CLIENT_ID, "2");
     dogConfig.put(Utils.NAME, dogTopic);
 
+    String fishTopic = "fishTopic_" + TestUtils.randomTableName();
+    Map<String, String> fishConfig = getConfig();
+    SnowflakeSinkConnectorConfig.setDefaultValues(fishConfig);
+    fishConfig.put(
+        SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
+    fishConfig.put(Utils.SF_OAUTH_CLIENT_ID, "2");
+    fishConfig.put(Utils.NAME, fishTopic);
+    fishConfig.put(SNOWPIPE_STREAMING_MAX_LAG, "1");
+
     // setup connection and create tables
     TopicPartition catTp = new TopicPartition(catTopic, 0);
     SnowflakeConnectionService catConn =
@@ -1532,9 +1579,14 @@ public class SnowflakeSinkServiceV2IT {
     catConn.createTable(catTopic);
 
     TopicPartition dogTp = new TopicPartition(dogTopic, 1);
-    SnowflakeConnectionService dogconn =
+    SnowflakeConnectionService dogConn =
         SnowflakeConnectionServiceFactory.builder().setProperties(dogConfig).build();
-    dogconn.createTable(dogTopic);
+    dogConn.createTable(dogTopic);
+
+    TopicPartition fishTp = new TopicPartition(fishTopic, 1);
+    SnowflakeConnectionService fishConn =
+        SnowflakeConnectionServiceFactory.builder().setProperties(fishConfig).build();
+    fishConn.createTable(fishTopic);
 
     // create the sink services
     SnowflakeSinkService catService =
@@ -1548,29 +1600,44 @@ public class SnowflakeSinkServiceV2IT {
 
     SnowflakeSinkService dogService =
         SnowflakeSinkServiceFactory.builder(
-                dogconn, IngestionMethodConfig.SNOWPIPE_STREAMING, dogConfig)
+                dogConn, IngestionMethodConfig.SNOWPIPE_STREAMING, dogConfig)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(dogTp)))
             .addTask(dogTopic, dogTp) // Internally calls startTask
             .build();
 
+    SnowflakeSinkService fishService =
+        SnowflakeSinkServiceFactory.builder(
+                dogConn, IngestionMethodConfig.SNOWPIPE_STREAMING, fishConfig)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(fishTp)))
+            .addTask(fishTopic, fishTp) // Internally calls startTask
+            .build();
+
     // create records
     final int catRecordCount = 9;
     final int dogRecordCount = 3;
+    final int fishRecordCount = 1;
 
     List<SinkRecord> catRecords =
         TestUtils.createJsonStringSinkRecords(0, catRecordCount, catTp.topic(), catTp.partition());
     List<SinkRecord> dogRecords =
         TestUtils.createJsonStringSinkRecords(0, dogRecordCount, dogTp.topic(), dogTp.partition());
+    List<SinkRecord> fishRecords =
+        TestUtils.createJsonStringSinkRecords(
+            0, fishRecordCount, fishTp.topic(), fishTp.partition());
 
     // insert records
     catService.insert(catRecords);
     dogService.insert(dogRecords);
+    fishService.insert(fishRecords);
 
     // check data was ingested
     TestUtils.assertWithRetry(() -> catService.getOffset(catTp) == catRecordCount, 20, 20);
     TestUtils.assertWithRetry(() -> dogService.getOffset(dogTp) == dogRecordCount, 20, 20);
+    TestUtils.assertWithRetry(() -> fishService.getOffset(fishTp) == fishRecordCount, 20, 20);
 
     // verify two clients were created
     assert StreamingClientProvider.getStreamingClientProviderInstance()
@@ -1579,10 +1646,14 @@ public class SnowflakeSinkServiceV2IT {
     assert StreamingClientProvider.getStreamingClientProviderInstance()
         .getRegisteredClients()
         .containsKey(new StreamingClientProperties(dogConfig));
+    assert StreamingClientProvider.getStreamingClientProviderInstance()
+        .getRegisteredClients()
+        .containsKey(new StreamingClientProperties(fishConfig));
 
     // close services
     catService.closeAll();
     dogService.closeAll();
+    fishService.closeAll();
 
     // verify both clients were closed
     assert !StreamingClientProvider.getStreamingClientProviderInstance()
@@ -1591,5 +1662,8 @@ public class SnowflakeSinkServiceV2IT {
     assert !StreamingClientProvider.getStreamingClientProviderInstance()
         .getRegisteredClients()
         .containsKey(new StreamingClientProperties(dogConfig));
+    assert !StreamingClientProvider.getStreamingClientProviderInstance()
+        .getRegisteredClients()
+        .containsKey(new StreamingClientProperties(fishConfig));
   }
 }

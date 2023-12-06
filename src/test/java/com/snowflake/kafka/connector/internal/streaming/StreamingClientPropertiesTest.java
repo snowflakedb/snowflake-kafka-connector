@@ -99,5 +99,14 @@ public class StreamingClientPropertiesTest {
 
     assert prop1.equals(prop2);
     assert prop1.hashCode() == prop2.hashCode();
+
+    config1.put(SNOWPIPE_STREAMING_MAX_LAG, "1");
+    config2.put(SNOWPIPE_STREAMING_MAX_LAG, "10");
+
+    prop1 = new StreamingClientProperties(config1);
+    prop2 = new StreamingClientProperties(config2);
+
+    assert !prop1.equals(prop2);
+    assert prop1.hashCode() != prop2.hashCode();
   }
 }
