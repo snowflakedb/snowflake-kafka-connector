@@ -184,7 +184,12 @@ public class StreamingUtils {
             try {
               Long.parseLong(inputConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG));
             } catch (NumberFormatException exception) {
-              invalidParams.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, Utils.formatString("Max client lag configuration must be a parsable long. Given configuration was: {}", inputConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)));
+              invalidParams.put(
+                  SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
+                  Utils.formatString(
+                      "Max client lag configuration must be a parsable long. Given configuration"
+                          + " was: {}",
+                      inputConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)));
             }
           }
 
