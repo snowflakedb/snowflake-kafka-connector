@@ -45,11 +45,7 @@ public class StreamingClientProperties {
 
   // contains converted config properties that are loggable (not PII data)
   public static final List<String> LOGGABLE_STREAMING_CONFIG_PROPERTIES =
-      Stream.of(
-              Constants.ACCOUNT_URL,
-              Constants.ROLE,
-              Constants.USER)
-          .collect(Collectors.toList());
+      Stream.of(Constants.ACCOUNT_URL, Constants.ROLE, Constants.USER).collect(Collectors.toList());
 
   public final Properties clientProperties;
   public final String clientName;

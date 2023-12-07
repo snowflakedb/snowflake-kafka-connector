@@ -67,8 +67,7 @@ public class StreamingUtils {
   public static final int MAX_RECORD_OVERHEAD_BYTES = DefaultRecord.MAX_RECORD_OVERHEAD;
 
   /* Maps streaming client's property keys to what we got from snowflake KC config file. */
-  public static Properties convertConfigForStreamingClient(
-      Map<String, String> connectorConfig) {
+  public static Properties convertConfigForStreamingClient(Map<String, String> connectorConfig) {
     Properties streamingProperties = new Properties();
     connectorConfig.computeIfPresent(
         Utils.SF_URL,

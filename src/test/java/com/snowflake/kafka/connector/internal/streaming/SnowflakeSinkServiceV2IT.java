@@ -1177,8 +1177,7 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     Map<String, String> overriddenConfig = new HashMap<>(config);
-    overriddenConfig.put(
-        SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "TWOO_HUNDRED");
+    overriddenConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "TWOO_HUNDRED");
 
     conn.createTable(table);
 
