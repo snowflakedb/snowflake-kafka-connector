@@ -17,14 +17,15 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION;
-import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
+import static net.snowflake.ingest.utils.ParameterProvider.MAX_CLIENT_LAG;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -77,15 +78,15 @@ public class StreamingClientProperties {
         STREAMING_CLIENT_PREFIX_NAME
             + connectorConfig.getOrDefault(Utils.NAME, DEFAULT_CLIENT_NAME);
 
-    // Override only if bdec version is explicitly set in config, default to the version set
-    // inside Ingest SDK
+    // Override only if the max client lag is explicitly set in config
     this.parameterOverrides = new HashMap<>();
-    Optional<String> snowpipeStreamingBdecVersion =
-        Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_FILE_VERSION));
-    snowpipeStreamingBdecVersion.ifPresent(
+    Optional<String> snowpipeStreamingMaxClientLag =
+        Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG));
+    snowpipeStreamingMaxClientLag.ifPresent(
         overriddenValue -> {
-          LOGGER.info("Config is overridden for {} ", SNOWPIPE_STREAMING_FILE_VERSION);
-          parameterOverrides.put(BLOB_FORMAT_VERSION, overriddenValue);
+          LOGGER.info(
+              "Config is overridden for {}={}", SNOWPIPE_STREAMING_MAX_CLIENT_LAG, overriddenValue);
+          parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue));
         });
   }
 
@@ -118,7 +119,8 @@ public class StreamingClientProperties {
   @Override
   public boolean equals(Object other) {
     return other.getClass().equals(StreamingClientProperties.class)
-        & ((StreamingClientProperties) other).clientProperties.equals(this.clientProperties);
+        && ((StreamingClientProperties) other).clientProperties.equals(this.clientProperties)
+        && ((StreamingClientProperties) other).parameterOverrides.equals(this.parameterOverrides);
   }
 
   /**
@@ -129,6 +131,6 @@ public class StreamingClientProperties {
    */
   @Override
   public int hashCode() {
-    return this.clientProperties.hashCode();
+    return Objects.hash(this.clientProperties, this.parameterOverrides);
   }
 }
