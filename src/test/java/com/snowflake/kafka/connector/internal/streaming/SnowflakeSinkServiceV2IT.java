@@ -1135,7 +1135,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testStreamingIngestionValidClientLag() throws Exception {
-    Map<String, String> config = getConfig();
+    Map<String, String> config = TestUtils.getConfForStreaming();
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "30");
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
@@ -1230,11 +1230,11 @@ public class SnowflakeSinkServiceV2IT {
     dogConfig.put(Utils.NAME, dogTopic);
 
     String fishTopic = "fishTopic_" + TestUtils.randomTableName();
-    Map<String, String> fishConfig = getConfig();
+    Map<String, String> fishConfig = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(fishConfig);
     fishConfig.put(
         SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
-    fishConfig.put(Utils.SF_OAUTH_CLIENT_ID, "2");
+    dogConfig.put(Utils.SF_ROLE, "public");
     fishConfig.put(Utils.NAME, fishTopic);
     fishConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
 
