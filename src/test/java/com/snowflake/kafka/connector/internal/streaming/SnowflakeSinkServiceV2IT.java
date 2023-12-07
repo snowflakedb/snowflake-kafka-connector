@@ -44,7 +44,6 @@ import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -1463,7 +1462,6 @@ public class SnowflakeSinkServiceV2IT {
   }
 
   @Test
-  @Ignore // SNOW-986359: disable for now due to failure in merge gate
   public void testStreamingIngestionValidClientLag() throws Exception {
     Map<String, String> config = getConfig();
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "30");
@@ -1484,7 +1482,9 @@ public class SnowflakeSinkServiceV2IT {
     List<SinkRecord> sinkRecords =
         TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, partition);
 
+    Thread.sleep(1000); // to ensure we flush buffer on time threshold
     service.insert(sinkRecords);
+
     try {
       // Wait 20 seconds here and no flush should happen since the max client lag is 30 seconds
       TestUtils.assertWithRetry(

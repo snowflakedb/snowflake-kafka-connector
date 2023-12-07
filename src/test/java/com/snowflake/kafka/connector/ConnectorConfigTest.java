@@ -742,8 +742,8 @@ public class ConnectorConfigTest {
         });
   }
 
-  @Test
-  public void testInValidConfigFileTypeForSnowpipe() {
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testInalidMaxClientLagForSnowpipe() {
     try {
       Map<String, String> config = getConfig();
       config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "3");
@@ -752,11 +752,12 @@ public class ConnectorConfigTest {
       assert exception
           .getMessage()
           .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG);
+      throw exception;
     }
   }
 
-  @Test
-  public void testValidFileTypesForSnowpipeStreaming() {
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testMaxClientLagForSnowpipeStreaming() {
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -769,9 +770,16 @@ public class ConnectorConfigTest {
     config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     Utils.validateConfig(config);
 
-    // lower case
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "abcd");
-    Utils.validateConfig(config);
+    // pass in string
+    try {
+      config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "abcd");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception
+          .getMessage()
+          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG);
+      throw exception;
+    }
   }
 
   @Test
