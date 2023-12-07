@@ -17,11 +17,11 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.DEFAULT_CLIENT_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.LOGGABLE_STREAMING_CONFIG_PROPERTIES;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.STREAMING_CLIENT_PREFIX_NAME;
-import static net.snowflake.ingest.utils.ParameterProvider.BLOB_FORMAT_VERSION;
+import static net.snowflake.ingest.utils.ParameterProvider.MAX_CLIENT_LAG;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -35,7 +35,7 @@ public class StreamingClientPropertiesTest {
 
   @Test
   public void testGetValidProperties() {
-    String overrideValue = "overrideValue";
+    String overrideValue = "10";
 
     // setup config with all loggable properties and parameter override
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
@@ -44,12 +44,12 @@ public class StreamingClientPropertiesTest {
     connectorConfig.put(Utils.SF_ROLE, "testRole");
     connectorConfig.put(Utils.SF_USER, "testUser");
     connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
-    connectorConfig.put(SNOWPIPE_STREAMING_FILE_VERSION, overrideValue);
+    connectorConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, overrideValue);
 
     Properties expectedProps = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
     String expectedClientName = STREAMING_CLIENT_PREFIX_NAME + connectorConfig.get(Utils.NAME);
     Map<String, String> expectedParameterOverrides = new HashMap<>();
-    expectedParameterOverrides.put(BLOB_FORMAT_VERSION, overrideValue);
+    expectedParameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overrideValue));
 
     // test get properties
     StreamingClientProperties resultProperties = new StreamingClientProperties(connectorConfig);
@@ -99,5 +99,14 @@ public class StreamingClientPropertiesTest {
 
     assert prop1.equals(prop2);
     assert prop1.hashCode() == prop2.hashCode();
+
+    config1.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
+    config2.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "10");
+
+    prop1 = new StreamingClientProperties(config1);
+    prop2 = new StreamingClientProperties(config2);
+
+    assert !prop1.equals(prop2);
+    assert prop1.hashCode() != prop2.hashCode();
   }
 }

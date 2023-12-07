@@ -17,7 +17,6 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.Map;
@@ -85,15 +84,6 @@ public class StreamingClientHandlerTest {
       assert ex.getCause().getClass().equals(SFException.class);
       throw ex;
     }
-  }
-
-  @Test(expected = IllegalArgumentException.class)
-  public void testCreateClientInvalidBdecVersion() {
-    // add invalid bdec version
-    this.connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
-
-    // test create
-    this.streamingClientHandler.createClient(new StreamingClientProperties(this.connectorConfig));
   }
 
   @Test
