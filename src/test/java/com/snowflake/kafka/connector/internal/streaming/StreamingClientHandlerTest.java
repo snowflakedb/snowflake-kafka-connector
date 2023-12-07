@@ -61,7 +61,7 @@ public class StreamingClientHandlerTest {
     client2.close();
   }
 
-  @Test
+  @Test(expected = ConnectException.class)
   public void testCreateClientException() {
     // invalidate the config
     this.connectorConfig.remove(Utils.SF_PRIVATE_KEY); // private key is required
