@@ -742,7 +742,7 @@ public class ConnectorConfigTest {
         });
   }
 
-  @Test (expected = SnowflakeKafkaConnectorException.class)
+  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testInalidMaxClientLagForSnowpipe() {
     try {
       Map<String, String> config = getConfig();
@@ -756,7 +756,7 @@ public class ConnectorConfigTest {
     }
   }
 
-  @Test (expected = SnowflakeKafkaConnectorException.class)
+  @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testMaxClientLagForSnowpipeStreaming() {
     Map<String, String> config = getConfig();
     config.put(
