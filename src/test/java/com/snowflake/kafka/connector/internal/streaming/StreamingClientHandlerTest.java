@@ -61,14 +61,14 @@ public class StreamingClientHandlerTest {
     client2.close();
   }
 
-  @Test
+  @Test(expected = ConnectException.class)
   public void testCreateClientException() {
     // invalidate the config
     this.connectorConfig.remove(Utils.SF_PRIVATE_KEY); // private key is required
 
     try {
       this.streamingClientHandler.createClient(new StreamingClientProperties(this.connectorConfig));
-    } catch (ConnectException ex) {
+    } catch (Exception ex) {
       assert ex.getCause().getClass().equals(SFException.class);
       throw ex;
     }

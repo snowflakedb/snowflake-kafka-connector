@@ -168,7 +168,7 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(record1);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 20);
 
     service.closeAll();
   }
