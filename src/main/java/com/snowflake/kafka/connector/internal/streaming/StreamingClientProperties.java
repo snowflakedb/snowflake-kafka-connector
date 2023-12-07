@@ -80,9 +80,9 @@ public class StreamingClientProperties {
 
     // Override only if the max client lag is explicitly set in config
     this.parameterOverrides = new HashMap<>();
-    Optional<String> snowpipeStreamingBdecVersion =
+    Optional<String> snowpipeStreamingMaxClientLag =
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG));
-    snowpipeStreamingBdecVersion.ifPresent(
+    snowpipeStreamingMaxClientLag.ifPresent(
         overriddenValue -> {
           LOGGER.info(
               "Config is overridden for {}={}", SNOWPIPE_STREAMING_MAX_CLIENT_LAG, overriddenValue);
