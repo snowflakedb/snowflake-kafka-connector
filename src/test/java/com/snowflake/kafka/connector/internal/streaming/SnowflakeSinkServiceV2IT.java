@@ -123,7 +123,7 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(record1);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 20);
 
     service.closeAll();
   }
@@ -168,7 +168,7 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(record1);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 20);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
 
     service.closeAll();
   }
@@ -1165,7 +1165,7 @@ public class SnowflakeSinkServiceV2IT {
 
     // Wait for enough time, the rows should be flushed
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 30, 10);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 30, 20);
 
     service.closeAll();
   }
@@ -1218,14 +1218,14 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> catConfig = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(catConfig);
     catConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
-    catConfig.put(Utils.SF_ROLE, "testrole_kafka");
+    catConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     catConfig.put(Utils.NAME, catTopic);
 
     String dogTopic = "dogTopic_" + TestUtils.randomTableName();
     Map<String, String> dogConfig = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(dogConfig);
     dogConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
-    dogConfig.put(Utils.SF_ROLE, "testrole_kafka_1");
+    catConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "2");
     dogConfig.put(Utils.NAME, dogTopic);
 
     String fishTopic = "fishTopic_" + TestUtils.randomTableName();
@@ -1233,9 +1233,8 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkConnectorConfig.setDefaultValues(fishConfig);
     fishConfig.put(
         SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
-    dogConfig.put(Utils.SF_ROLE, "public");
+    catConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "3");
     fishConfig.put(Utils.NAME, fishTopic);
-    fishConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
 
     // setup connection and create tables
     TopicPartition catTp = new TopicPartition(catTopic, 0);
