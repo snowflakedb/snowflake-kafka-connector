@@ -48,8 +48,7 @@ public class StreamingClientProperties {
       Stream.of(
               Constants.ACCOUNT_URL,
               Constants.ROLE,
-              Constants.USER,
-              StreamingUtils.STREAMING_CONSTANT_AUTHORIZATION_TYPE)
+              Constants.USER)
           .collect(Collectors.toList());
 
   public final Properties clientProperties;

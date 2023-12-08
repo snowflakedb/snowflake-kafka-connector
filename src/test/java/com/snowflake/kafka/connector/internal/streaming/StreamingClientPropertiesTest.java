@@ -43,7 +43,6 @@ public class StreamingClientPropertiesTest {
     connectorConfig.put(Utils.SF_URL, "testUrl");
     connectorConfig.put(Utils.SF_ROLE, "testRole");
     connectorConfig.put(Utils.SF_USER, "testUser");
-    connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
     connectorConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, overrideValue);
 
     Properties expectedProps = StreamingUtils.convertConfigForStreamingClient(connectorConfig);

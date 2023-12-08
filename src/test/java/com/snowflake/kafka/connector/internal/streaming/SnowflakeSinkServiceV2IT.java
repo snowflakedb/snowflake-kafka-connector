@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -1133,7 +1134,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testStreamingIngestionValidClientLag() throws Exception {
-    Map<String, String> config = getConfig();
+    Map<String, String> config = TestUtils.getConfForStreaming();
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "30");
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
@@ -1177,7 +1178,7 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     Map<String, String> overriddenConfig = new HashMap<>(config);
     overriddenConfig.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "TWOO_HUNDRED");
+        SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "TWOO_HUNDRED");
 
     conn.createTable(table);
 
@@ -1219,24 +1220,23 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> catConfig = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(catConfig);
     catConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
-    catConfig.put(Utils.SF_OAUTH_CLIENT_ID, "1");
+    catConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     catConfig.put(Utils.NAME, catTopic);
 
     String dogTopic = "dogTopic_" + TestUtils.randomTableName();
     Map<String, String> dogConfig = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(dogConfig);
     dogConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
-    dogConfig.put(Utils.SF_OAUTH_CLIENT_ID, "2");
+    dogConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "2");
     dogConfig.put(Utils.NAME, dogTopic);
 
     String fishTopic = "fishTopic_" + TestUtils.randomTableName();
-    Map<String, String> fishConfig = getConfig();
+    Map<String, String> fishConfig = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(fishConfig);
     fishConfig.put(
         SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
-    fishConfig.put(Utils.SF_OAUTH_CLIENT_ID, "2");
+    fishConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "3");
     fishConfig.put(Utils.NAME, fishTopic);
-    fishConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
 
     // setup connection and create tables
     TopicPartition catTp = new TopicPartition(catTopic, 0);
