@@ -9,7 +9,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.snowflake.ingest.streaming.OpenChannelRequest;

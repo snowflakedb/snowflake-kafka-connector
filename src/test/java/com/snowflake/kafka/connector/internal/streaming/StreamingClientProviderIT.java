@@ -61,7 +61,8 @@ public class StreamingClientProviderIT {
     // setup registered valid client
     Map<String, String> validRegisteredClientConfig = new HashMap<>(this.clientConfig);
     validRegisteredClientConfig.put(Utils.NAME, validRegisteredClientName);
-    validRegisteredClientConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
+    validRegisteredClientConfig.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     StreamingClientProperties validRegisteredClientProps =
         new StreamingClientProperties(validRegisteredClientConfig);
     SnowflakeStreamingIngestClient validRegisteredClient =
@@ -70,7 +71,8 @@ public class StreamingClientProviderIT {
     // setup registered invalid client
     Map<String, String> invalidRegisteredClientConfig = new HashMap<>(this.clientConfig);
     invalidRegisteredClientConfig.put(Utils.NAME, invalidRegisteredClientName);
-    invalidRegisteredClientConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "2");
+    invalidRegisteredClientConfig.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "2");
     StreamingClientProperties invalidRegisteredClientProps =
         new StreamingClientProperties(invalidRegisteredClientConfig);
     SnowflakeStreamingIngestClient invalidRegisteredClient =
@@ -80,7 +82,8 @@ public class StreamingClientProviderIT {
     // setup unregistered valid client
     Map<String, String> validUnregisteredClientConfig = new HashMap<>(this.clientConfig);
     validUnregisteredClientConfig.put(Utils.NAME, validUnregisteredClientName);
-    validUnregisteredClientConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "3");
+    validUnregisteredClientConfig.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "3");
     StreamingClientProperties validUnregisteredClientProps =
         new StreamingClientProperties(validUnregisteredClientConfig);
     SnowflakeStreamingIngestClient validUnregisteredClient =
