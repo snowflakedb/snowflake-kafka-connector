@@ -66,6 +66,7 @@ public class RecordService {
   static final String CONTENT = "content";
   static final String META = "meta";
   static final String SCHEMA_ID = "schema_id";
+  static final String VERSION = "version";
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
 
@@ -190,6 +191,9 @@ public class RecordService {
     ObjectNode meta = MAPPER.createObjectNode();
     if (metadataConfig.topicFlag) {
       meta.put(TOPIC, record.topic());
+    }
+    if (metadataConfig.versionFlag) {
+      meta.put(VERSION, Utils.VERSION);
     }
     if (metadataConfig.offsetAndPartitionFlag) {
       meta.put(OFFSET, record.kafkaOffset());

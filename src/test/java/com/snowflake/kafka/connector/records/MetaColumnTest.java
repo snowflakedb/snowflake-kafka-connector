@@ -38,6 +38,12 @@ public class MetaColumnTest {
           put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC, "false");
         }
       };
+  private HashMap<String, String> versionConfig =
+      new HashMap<String, String>() {
+        {
+          put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_VERSION, "false");
+        }
+      };
   private HashMap<String, String> offsetAndPartitionConfig =
       new HashMap<String, String>() {
         {
@@ -113,6 +119,18 @@ public class MetaColumnTest {
     assert result.get(META).has(RecordService.OFFSET);
     assert result.get(META).has(RecordService.PARTITION);
     assert result.get(META).has(record.timestampType().name);
+    assert result.get(META).has(RecordService.VERSION);
+
+    // test metadata configuration -- remove version
+    metadataConfig = new SnowflakeMetadataConfig(versionConfig);
+    service.setMetadataConfig(metadataConfig);
+    result = mapper.readTree(service.getProcessedRecordForSnowpipe(record));
+    assert result.has(META);
+    assert !result.get(META).has(RecordService.VERSION);
+    assert result.get(META).has(RecordService.OFFSET);
+    assert result.get(META).has(RecordService.PARTITION);
+    assert result.get(META).has(record.timestampType().name);
+    assert result.get(META).has(RecordService.TOPIC);
 
     // test metadata configuration -- remove offset and partition
     metadataConfig = new SnowflakeMetadataConfig(offsetAndPartitionConfig);
@@ -123,6 +141,7 @@ public class MetaColumnTest {
     assert !result.get(META).has(RecordService.PARTITION);
     assert result.get(META).has(record.timestampType().name);
     assert result.get(META).has(RecordService.TOPIC);
+    assert result.get(META).has(RecordService.VERSION);
 
     // test metadata configuration -- remove time stamp
     metadataConfig = new SnowflakeMetadataConfig(createTimeConfig);
@@ -131,6 +150,7 @@ public class MetaColumnTest {
     assert result.has(META);
     assert !result.get(META).has(record.timestampType().name);
     assert result.get(META).has(RecordService.TOPIC);
+    assert result.get(META).has(RecordService.VERSION);
     assert result.get(META).has(RecordService.OFFSET);
     assert result.get(META).has(RecordService.PARTITION);
 
