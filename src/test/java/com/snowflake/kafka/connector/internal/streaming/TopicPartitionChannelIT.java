@@ -725,7 +725,6 @@ public class TopicPartitionChannelIT {
 
     // insert two records: 0, 1. second insert required for retry, in the future second insert should not be required
     service.insert(TestUtils.createNativeJsonSinkRecords(0, 2, topic, PARTITION));
-    service.insert(TestUtils.createNativeJsonSinkRecords(0, 2, topic, PARTITION));
     TestUtils.assertWithRetry(
             () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
 
