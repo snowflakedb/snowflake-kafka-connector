@@ -706,4 +706,42 @@ public class TopicPartitionChannelIT {
 
     service.closeAll();
   }
+
+  @Test
+  public void testInsertRowsWithGaps_schematization() throws Exception {
+    // setup
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+
+    // create tpchannel
+    SnowflakeSinkService service =
+            SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+                    .setRecordNumber(1)
+                    .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+                    .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+                    .addTask(testTableName, topicPartition)
+                    .build();
+
+    // insert two records: 0, 1. second insert required for retry, in the future second insert should not be required
+    service.insert(TestUtils.createNativeJsonSinkRecords(0, 2, topic, PARTITION));
+    service.insert(TestUtils.createNativeJsonSinkRecords(0, 2, topic, PARTITION));
+    TestUtils.assertWithRetry(
+            () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+
+    // insert another two records with offset gap that requires evolution: 2, 4
+    List<SinkRecord> gapRecords = TestUtils.createNativeJsonSinkRecordsEvolved(2, 3, topic, PARTITION);
+    gapRecords.remove(1);
+    service.insert(gapRecords);
+    TestUtils.assertWithRetry(
+            () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 5, 20, 5);
+
+
+    assert TestUtils.tableSize(testTableName) == 4
+            : "expected: "
+            + 4
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
+    service.closeAll();
+  }
 }

@@ -173,6 +173,38 @@ public class TestUtils {
           + "    \"gender\": \"FEMALE\"\n"
           + "  }\n"
           + "}";
+
+  public static final String JSON_WITH_SCHEMA_EVOLVED =
+          ""
+                  + "{\n"
+                  + "  \"schema\": {\n"
+                  + "    \"type\": \"struct\",\n"
+                  + "    \"fields\": [\n"
+                  + "      {\n"
+                  + "        \"type\": \"string\",\n"
+                  + "        \"optional\": false,\n"
+                  + "        \"field\": \"regionid\"\n"
+                  + "      },\n"
+                  + "      {\n"
+                  + "        \"type\": \"string\",\n"
+                  + "        \"optional\": false,\n"
+                  + "        \"field\": \"gender\"\n"
+                  + "      },\n"
+                  + "      {\n"
+                  + "        \"type\": \"string\",\n"
+                  + "        \"optional\": false,\n"
+                  + "        \"field\": \"cat\"\n"
+                  + "      }\n"
+                  + "    ],\n"
+                  + "    \"optional\": false,\n"
+                  + "    \"name\": \"sf.kc.test\"\n"
+                  + "  },\n"
+                  + "  \"payload\": {\n"
+                  + "    \"regionid\": \"Region_5\",\n"
+                  + "    \"gender\": \"FEMALE\",\n"
+                  + "    \"cat\": \"Amaretto\"\n"
+                  + "  }\n"
+                  + "}";
   public static final String JSON_WITHOUT_SCHEMA = "{\"userid\": \"User_1\"}";
 
   private static JsonNode getProfile(final String profileFilePath) {
@@ -647,6 +679,24 @@ public class TestUtils {
       final long noOfRecords,
       final String topicName,
       final int partitionNo) {
+    return createNativeJsonSinkRecordsHelper(startOffset, noOfRecords, topicName,partitionNo, TestUtils.JSON_WITH_SCHEMA);
+  }
+
+  /* Generate (noOfRecords - startOffset) for a given topic and partition. */
+  public static List<SinkRecord> createNativeJsonSinkRecordsEvolved(
+          final long startOffset,
+          final long noOfRecords,
+          final String topicName,
+          final int partitionNo) {
+    return createNativeJsonSinkRecordsHelper(startOffset, noOfRecords, topicName,partitionNo, TestUtils.JSON_WITH_SCHEMA_EVOLVED);
+  }
+
+  private static List<SinkRecord> createNativeJsonSinkRecordsHelper(
+          final long startOffset,
+          final long noOfRecords,
+          final String topicName,
+          final int partitionNo,
+          String dataSchema) {
     ArrayList<SinkRecord> records = new ArrayList<>();
 
     JsonConverter converter = new JsonConverter();
@@ -655,7 +705,7 @@ public class TestUtils {
     converter.configure(converterConfig, false);
     SchemaAndValue schemaInputValue =
         converter.toConnectData(
-            "test", TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
+            "test", dataSchema.getBytes(StandardCharsets.UTF_8));
 
     for (long i = startOffset; i < startOffset + noOfRecords; ++i) {
       records.add(
