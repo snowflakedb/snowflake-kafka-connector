@@ -336,9 +336,9 @@ public class TopicPartitionChannelIT {
     // server side to 1
     service.insert(records);
 
-    // Will need to retry which should succeed (Retry is mimicking the reset of kafka offsets, which
-    // will send offsets from 10 since last committed offset in Snowflake is 9)
-    service.insert(records);
+//    // Will need to retry which should succeed (Retry is mimicking the reset of kafka offsets, which
+//    // will send offsets from 10 since last committed offset in Snowflake is 9)
+//    service.insert(records);
 
     records =
         TestUtils.createJsonStringSinkRecords(
@@ -353,13 +353,13 @@ public class TopicPartitionChannelIT {
             service.getOffset(new TopicPartition(topic, PARTITION))
                 == recordsInPartition1 + anotherSetOfRecords,
         20,
-        5);
+        10);
     TestUtils.assertWithRetry(
         () ->
             service.getOffset(new TopicPartition(topic, PARTITION_2))
                 == recordsInPartition2 + anotherSetOfRecords,
         20,
-        5);
+        10);
 
     assert TestUtils.getClientSequencerForChannelAndTable(testTableName, testChannelName) == 2;
     assert TestUtils.getOffsetTokenForChannelAndTable(testTableName, testChannelName)
@@ -484,6 +484,7 @@ public class TopicPartitionChannelIT {
 
     final long firstBatchCount = 18;
     final long secondBatchCount = 500;
+    final long totalRowCount = firstBatchCount + secondBatchCount;
 
     // create 18 blank records that do not kick off schematization
     JsonConverter converter = new JsonConverter();
@@ -507,29 +508,20 @@ public class TopicPartitionChannelIT {
 
     service.insert(firstBatch);
 
-    // send batch with 500, should kick off a record based flush and schematization on record 19,
-    // which will fail the batches
+    // send batch with 500, should kick off a record based flush and schematization on record 19
     List<SinkRecord> secondBatch =
         TestUtils.createNativeJsonSinkRecords(firstBatchCount, secondBatchCount, topic, PARTITION);
-    service.insert(secondBatch);
-
-    // resend batch 1 and 2 because 2 failed for schematization
-    service.insert(firstBatch);
     service.insert(secondBatch);
 
     // ensure all data was ingested
     TestUtils.assertWithRetry(
         () ->
             service.getOffset(new TopicPartition(topic, PARTITION))
-                == firstBatchCount + secondBatchCount,
+                == totalRowCount,
         20,
         5);
-    assert TestUtils.tableSize(testTableName) == firstBatchCount + secondBatchCount
-        : "expected: "
-            + firstBatchCount
-            + secondBatchCount
-            + " actual: "
-            + TestUtils.tableSize(testTableName);
+    TestUtils.assertWithRetry(
+            () -> TestUtils.tableSize(testTableName) == totalRowCount, 20, 5);
 
     service.closeAll();
   }
@@ -723,7 +715,7 @@ public class TopicPartitionChannelIT {
                     .addTask(testTableName, topicPartition)
                     .build();
 
-    // insert two records: 0, 1. second insert required for retry, in the future second insert should not be required
+    // insert two records: 0, 1
     service.insert(TestUtils.createNativeJsonSinkRecords(0, 2, topic, PARTITION));
     TestUtils.assertWithRetry(
             () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
@@ -734,7 +726,6 @@ public class TopicPartitionChannelIT {
     service.insert(gapRecords);
     TestUtils.assertWithRetry(
             () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 5, 20, 5);
-
 
     assert TestUtils.tableSize(testTableName) == 4
             : "expected: "
