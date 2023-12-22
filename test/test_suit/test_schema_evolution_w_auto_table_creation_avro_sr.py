@@ -94,6 +94,18 @@ class TestSchemaEvolutionWithAutoTableCreationAvroSR:
                 value.append(self.records[i])
             self.driver.sendAvroSRData(topic, value, self.valueSchema[i], key=[], key_schema="", partition=0)
 
+        # wait and send one record to each topic to kick off time flush
+        sleep(60)
+        for i, topic in enumerate(self.topics):
+            key = []
+            value = []
+            key.append(json.dumps({'number': str(self.flushRecordCount)}).encode('utf-8'))
+            value.append(json.dumps(self.records[i]).encode('utf-8'))
+            self.driver.sendBytesData(topic, value, key)
+
+        # wait for ingestion to complete
+        sleep(60)
+
     def verify(self, round):
         rows = self.driver.snowflake_conn.cursor().execute(
             "desc table {}".format(self.table)).fetchall()

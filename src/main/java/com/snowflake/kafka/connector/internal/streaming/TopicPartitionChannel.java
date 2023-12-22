@@ -1316,7 +1316,8 @@ public class TopicPartitionChannel {
         }
       }
       LOGGER.debug(
-          "Get rows for streaming ingest. {} records, {} bytes, offset {} - {}",
+          "Get rows for streaming ingest on topicpartition: {}. {} records, {} bytes, offset {} - {}",
+          topicPartition,
           getNumOfRecords(),
           getBufferSizeBytes(),
           getFirstOffset(),

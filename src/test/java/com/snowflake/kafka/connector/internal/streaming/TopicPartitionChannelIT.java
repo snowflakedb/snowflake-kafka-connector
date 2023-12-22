@@ -720,13 +720,31 @@ public class TopicPartitionChannelIT {
                     .addTask(testTableName, topicPartition)
                     .build();
 
-    // insert two records: 0, 1
-    service.insert(TestUtils.createNativeJsonSinkRecords(0, 2, topic, PARTITION));
+    // insert blank records that do not evolve schema: 0, 1
+    JsonConverter converter = new JsonConverter();
+    HashMap<String, String> converterConfig = new HashMap<>();
+    converterConfig.put("schemas.enable", "false");
+    converter.configure(converterConfig, false);
+    SchemaAndValue schemaInputValue = converter.toConnectData("test", null);
+    List<SinkRecord> blankRecords = new ArrayList<>();
+    for (int i = 0; i < 2; i++) {
+      blankRecords.add(
+              new SinkRecord(
+                      topic,
+                      PARTITION,
+                      Schema.STRING_SCHEMA,
+                      "test",
+                      schemaInputValue.schema(),
+                      schemaInputValue.value(),
+                      i));
+    }
+
+    service.insert(blankRecords);
     TestUtils.assertWithRetry(
             () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
 
     // insert another two records with offset gap that requires evolution: 2, 4
-    List<SinkRecord> gapRecords = TestUtils.createNativeJsonSinkRecordsEvolved(2, 3, topic, PARTITION);
+    List<SinkRecord> gapRecords = TestUtils.createNativeJsonSinkRecords(2, 3, topic, PARTITION);
     gapRecords.remove(1);
     service.insert(gapRecords);
     TestUtils.assertWithRetry(
