@@ -1249,12 +1249,12 @@ public class TopicPartitionChannel {
    * before calling insertRows API.
    */
   @VisibleForTesting
-  public class StreamingBuffer
+  protected class StreamingBuffer
       extends PartitionBuffer<Pair<List<Map<String, Object>>, List<Long>>> {
     // Records coming from Kafka
-    private List<SinkRecord> sinkRecords;
+    private final List<SinkRecord> sinkRecords;
 
-    public StreamingBuffer() {
+    protected StreamingBuffer() {
       super();
       sinkRecords = new ArrayList<>();
     }
@@ -1323,7 +1323,7 @@ public class TopicPartitionChannel {
         }
       }
       LOGGER.debug(
-          "Get rows for streaming ingest on topicpartition: {}. {} records, {} bytes, offset {} - {}",
+          "Get rows for streaming ingest on topicPartition: {}. {} records, {} bytes, offset {} - {}",
           topicPartition,
           getNumOfRecords(),
           getBufferSizeBytes(),

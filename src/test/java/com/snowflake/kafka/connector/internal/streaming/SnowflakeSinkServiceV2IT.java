@@ -1449,20 +1449,13 @@ public class SnowflakeSinkServiceV2IT {
                 == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
         20,
         5);
-
-//    // The second insert should fail again and schema evolution will kick in to update the
-//    // nullability
-//    service.insert(jsonRecordValue);
-//    TestUtils.assertWithRetry(
-//        () ->
-//            service.getOffset(new TopicPartition(topic, partition))
-//                == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
-//        20,
-//        5);
-
-    // Empty insert to kick off time based flush since the record is still in the buffer
+    
+    // Empty second insert should fail again and schema evolution will kick in to update the
+    // nullability
     Thread.sleep(7000);
     service.insert(new ArrayList<>());
+
+    // Empty third insert to kick off time based flush since the record is still in the buffer
     Thread.sleep(7000);
     service.insert(new ArrayList<>());
 
