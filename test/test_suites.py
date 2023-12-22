@@ -174,23 +174,23 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             test_instance=TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress, testSet),
             clean=True, run_in_confluent=True, run_in_apache=False
         )),
-#         ("TestSchemaEvolutionJson", EndToEndTestSuite(
-#             test_instance=TestSchemaEvolutionJson(driver, nameSalt), clean=True, run_in_confluent=True,
-#             run_in_apache=True
-#         )),
-#         ("TestSchemaEvolutionJsonIgnoreTombstone", EndToEndTestSuite(
-#             test_instance=TestSchemaEvolutionJsonIgnoreTombstone(driver, nameSalt), clean=True, run_in_confluent=True,
-#             run_in_apache=True
-#         )),
-#         ("TestSchemaEvolutionAvroSR", EndToEndTestSuite(
-#             test_instance=TestSchemaEvolutionAvroSR(driver, nameSalt), clean=True, run_in_confluent=True,
-#             run_in_apache=False
-#         )),
-#         # SNOW-947731: Re-enable after avro-python3 package is updated in merge gate
-#         ("TestSchemaEvolutionAvroSRLogicalTypes", EndToEndTestSuite(
-#             test_instance=TestSchemaEvolutionAvroSRLogicalTypes(driver, nameSalt), clean=True, run_in_confluent=False,
-#             run_in_apache=False
-#         )),
+        ("TestSchemaEvolutionJson", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionJson(driver, nameSalt), clean=True, run_in_confluent=True,
+            run_in_apache=True
+        )),
+        ("TestSchemaEvolutionJsonIgnoreTombstone", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionJsonIgnoreTombstone(driver, nameSalt), clean=True, run_in_confluent=True,
+            run_in_apache=True
+        )),
+        ("TestSchemaEvolutionAvroSR", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionAvroSR(driver, nameSalt), clean=True, run_in_confluent=True,
+            run_in_apache=False
+        )),
+        # SNOW-947731: Re-enable after avro-python3 package is updated in merge gate
+        ("TestSchemaEvolutionAvroSRLogicalTypes", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionAvroSRLogicalTypes(driver, nameSalt), clean=True, run_in_confluent=False,
+            run_in_apache=False
+        )),
 #         ("TestSchemaEvolutionWithAutoTableCreationJson", EndToEndTestSuite(
 #             test_instance=TestSchemaEvolutionWithAutoTableCreationJson(driver, nameSalt), clean=True,
 #             run_in_confluent=True, run_in_apache=True
@@ -199,14 +199,14 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
 #             test_instance=TestSchemaEvolutionWithAutoTableCreationAvroSR(driver, nameSalt), clean=True,
 #             run_in_confluent=True, run_in_apache=False
 #         )),
-#         ("TestSchemaEvolutionWithRandomRowCount", EndToEndTestSuite(
-#             test_instance=TestSchemaEvolutionWithRandomRowCount(driver, nameSalt), clean=True,
-#             run_in_confluent=True, run_in_apache=True
-#         )),
-#         ("TestSchemaEvolutionNonNullableJson", EndToEndTestSuite(
-#             test_instance=TestSchemaEvolutionNonNullableJson(driver, nameSalt), clean=True, run_in_confluent=True,
-#             run_in_apache=True
-#         )),
+        ("TestSchemaEvolutionWithRandomRowCount", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionWithRandomRowCount(driver, nameSalt), clean=True,
+            run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestSchemaEvolutionNonNullableJson", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionNonNullableJson(driver, nameSalt), clean=True, run_in_confluent=True,
+            run_in_apache=True
+        )),
         ("TestSchemaNotSupportedConverter", EndToEndTestSuite(
             test_instance=TestSchemaNotSupportedConverter(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
