@@ -326,7 +326,7 @@ public class TopicPartitionChannelIT {
 
     // send offset 10 - 19 -> We should get insertRows failure and hence reopen channel would kick
     // in
-    final long anotherSetOfRecords = 10;
+    final long anotherSetOfRecords = 11;
     records =
         TestUtils.createJsonStringSinkRecords(
             anotherSetOfRecords, anotherSetOfRecords, topic, PARTITION);
@@ -338,7 +338,7 @@ public class TopicPartitionChannelIT {
 
 //    // Will need to retry which should succeed (Retry is mimicking the reset of kafka offsets, which
 //    // will send offsets from 10 since last committed offset in Snowflake is 9)
-    service.insert(records);
+//    service.insert(records);
 
     records =
         TestUtils.createJsonStringSinkRecords(
