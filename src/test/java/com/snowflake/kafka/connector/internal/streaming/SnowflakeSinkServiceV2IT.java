@@ -1297,6 +1297,9 @@ public class SnowflakeSinkServiceV2IT {
     Thread.sleep(5000);
     service.insert(new ArrayList<>());
 
+    TestUtils.assertWithRetry(
+    () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
+
     TestUtils.checkTableContentOneRow(
         table, SchematizationTestUtils.CONTENT_FOR_AVRO_TABLE_CREATION);
 

@@ -938,7 +938,7 @@ public class TopicPartitionChannel {
     this.bufferLock.lock();
     try {
       // reset buffer by removing already committed records
-      StreamingBuffer resetBuffer = new StreamingBuffer();
+      StreamingBuffer resetBuffer = streamingBufferToReset;
       if (offsetRecoveredFromSnowflake != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
         resetBuffer = this.getStreamingBufferAfterOffset(streamingBufferToReset, offsetRecoveredFromSnowflake);
         long removedCount = streamingBufferToReset.getNumOfRecords() - resetBuffer.getNumOfRecords();
@@ -1334,7 +1334,10 @@ public class TopicPartitionChannel {
       return sinkRecords.get((int) idx);
     }
 
-
+    /**
+     * Append records in given buffer to the current buffer
+     * @param bufferToInsert The other buffer to append to this buffer
+     */
     public void appendBuffer(StreamingBuffer bufferToInsert) {
       bufferToInsert.getSinkRecords().stream().filter(record -> record.kafkaOffset() > this.getLastOffset()).forEach(record -> this.insert(record));
     }

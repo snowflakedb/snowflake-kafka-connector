@@ -464,10 +464,6 @@ public class TopicPartitionChannelIT {
   public void testPartialBatchChannelInvalidationIngestion_schematization() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     config.put(
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "500"); // we want to flush on record
-    config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "500000");
-    config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, "500000");
-    config.put(
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
         "true"); // using schematization to invalidate
 
@@ -476,8 +472,8 @@ public class TopicPartitionChannelIT {
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
-                .setFlushTime(5)
+            .setRecordNumber(500)
+            .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
             .addTask(testTableName, topicPartition)
