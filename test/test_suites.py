@@ -191,14 +191,14 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             test_instance=TestSchemaEvolutionAvroSRLogicalTypes(driver, nameSalt), clean=True, run_in_confluent=False,
             run_in_apache=False
         )),
-#         ("TestSchemaEvolutionWithAutoTableCreationJson", EndToEndTestSuite(
-#             test_instance=TestSchemaEvolutionWithAutoTableCreationJson(driver, nameSalt), clean=True,
-#             run_in_confluent=True, run_in_apache=True
-#         )),
-#         ("TestSchemaEvolutionWithAutoTableCreationAvroSR", EndToEndTestSuite(
-#             test_instance=TestSchemaEvolutionWithAutoTableCreationAvroSR(driver, nameSalt), clean=True,
-#             run_in_confluent=True, run_in_apache=False
-#         )),
+        ("TestSchemaEvolutionWithAutoTableCreationJson", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionWithAutoTableCreationJson(driver, nameSalt), clean=True,
+            run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestSchemaEvolutionWithAutoTableCreationAvroSR", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionWithAutoTableCreationAvroSR(driver, nameSalt), clean=True,
+            run_in_confluent=True, run_in_apache=False
+        )),
         ("TestSchemaEvolutionWithRandomRowCount", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionWithRandomRowCount(driver, nameSalt), clean=True,
             run_in_confluent=True, run_in_apache=True
@@ -257,5 +257,14 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         #     test_instance=TestSchemaEvolutionMultiTopicDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
         #     run_in_apache=True
         # )),
+        ("TestSnowpipeMissingOffsets", EndToEndTestSuite(
+            test_instance=TestSnowpipeMissingOffsets(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestSnowpipeStreamingMissingOffsets", EndToEndTestSuite(
+            test_instance=TestSnowpipeStreamingMissingOffsets(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
+        ("TestSchemaEvolutionMissingOffsets", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionMissingOffsets(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+        )),
     ])
     return test_suites

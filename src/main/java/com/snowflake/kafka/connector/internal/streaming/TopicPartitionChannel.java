@@ -1222,6 +1222,13 @@ public class TopicPartitionChannel {
     return sinkRecordBufferSizeInBytes;
   }
 
+  /**
+   * Creates a new streaming buffer that contains only records with offsets after the given offset
+   *
+   * @param originalBuffer The original buffer that needs to be split
+   * @param offset The offset
+   * @return
+   */
   public StreamingBuffer getStreamingBufferAfterOffset(StreamingBuffer originalBuffer, long offset) {
     StreamingBuffer newBuffer = new StreamingBuffer();
     originalBuffer.sinkRecords.stream().filter(record -> record.kafkaOffset() > offset).forEach(newBuffer::insert);
