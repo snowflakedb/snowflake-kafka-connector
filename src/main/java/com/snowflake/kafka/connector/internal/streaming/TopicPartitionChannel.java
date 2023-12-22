@@ -509,7 +509,7 @@ public class TopicPartitionChannel {
   /**
    * Invokes insertRows API using the provided offsets which were initially buffered for this
    * partition. This buffer is decided based on the flush time threshold, buffered bytes or number
-   * of records.
+   * of records
    */
   InsertRowsResponse insertBufferedRecords(StreamingBuffer streamingBufferToInsert) {
     // intermediate buffer can be empty here if time interval reached but kafka produced no records.
@@ -536,8 +536,7 @@ public class TopicPartitionChannel {
             response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
       }
 
-      // Due to schema evolution, we may need to reopen the channel, reset the offset in kafka
-      // and reset the buffer since it's possible that not all rows are ingested
+      // Due to schema evolution, we may need to reopen the channel and reset the channel metadata
       if (response.needToResetOffset()) {
         streamingApiFallbackSupplier(
             StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK, streamingBufferToInsert);
@@ -897,12 +896,14 @@ public class TopicPartitionChannel {
   }
 
   /**
-   * Resets the offset in kafka, resets metadata related to offsets and clears the buffer. If we
+   * Resets the offset in kafka, resets metadata related to offsets and clears the committed records from the buffer. If we
    * don't get a valid offset token (because of a table recreation or channel inactivity), we will
    * rely on kafka to send us the correct offset
    *
    * <p>Idea behind resetting offset (1 more than what we found in snowflake) is that Kafka should
-   * send offsets from this offset number so as to not miss any data.
+   * send offsets from this offset number so as to not miss any data. It is ok that the reset offset may be behind the processedOffset because those records will be skipped. We cannot set the kafka offset to the processedOffset in case KC crashes and that data is lost
+   *
+   * <p>Removing just the committed records from the buffer means we can take any kafka record offset > processedOffset without losing any data.
    *
    * @param streamingApiFallbackInvoker Streaming API which is using this fallback function. Used
    *     for logging mainly.
@@ -934,17 +935,17 @@ public class TopicPartitionChannel {
     // reset the buffer
     this.bufferLock.lock();
     try {
-      LOGGER.warn(
-          "[RESET_PARTITION] Removing committed records from current buffer:{} for Channel:{} due to reset of offsets in"
-              + " kafka",
-              streamingBufferToReset,
-          this.getChannelNameFormatV1());
-
       // reset buffer by removing already committed records
       if (offsetRecoveredFromSnowflake != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-        streamingBufferToReset.removeRecordsUntilOffset(offsetRecoveredFromSnowflake);
+        long removedCount = streamingBufferToReset.removeRecordsUntilOffset(offsetRecoveredFromSnowflake);
+        LOGGER.warn(
+                "[RESET_PARTITION] Removed {} records that have already been committed from the current buffer:{} for Channel:{} because offset committed into snowflake is {}",
+                removedCount,
+                streamingBufferToReset,
+                this.getChannelNameFormatV1(),
+                offsetRecoveredFromSnowflake);
       }
-      this.streamingBuffer.insert(streamingBufferToReset);
+      this.streamingBuffer.appendBuffer(streamingBufferToReset);
 
       // Reset Offset in kafka for this topic partition.
       this.sinkTaskContext.offset(this.topicPartition, offsetToResetInKafka);
@@ -1256,15 +1257,8 @@ public class TopicPartitionChannel {
       setBufferSizeBytes(getBufferSizeBytes() + currentKafkaRecordSizeInBytes);
     }
 
-    public void insert(StreamingBuffer bufferToInsert) {
-      this.sinkRecords.addAll(bufferToInsert.getSinkRecords());
-
-      // set properties
-      if (bufferToInsert.getLastOffset() > this.getLastOffset()) {
-        this.setLastOffset(bufferToInsert.getLastOffset());
-      }
-      setNumOfRecords(this.getNumOfRecords() + bufferToInsert.getNumOfRecords());
-      setBufferSizeBytes(this.getBufferSizeBytes() + bufferToInsert.getBufferSizeBytes());
+    public void appendBuffer(StreamingBuffer bufferToInsert) {
+      bufferToInsert.getSinkRecords().stream().filter(record -> record.kafkaOffset() > this.getLastOffset()).forEach(record -> this.insert(record));
     }
 
     /**
@@ -1333,9 +1327,12 @@ public class TopicPartitionChannel {
       return sinkRecords.get((int) idx);
     }
 
-    public void removeRecordsUntilOffset(long offset) {
+    public long removeRecordsUntilOffset(long offset) {
       List<SinkRecord> remainingRecords = this.sinkRecords.stream().filter(record -> record.kafkaOffset() > offset).collect(Collectors.toList());
+      long removedCount = this.sinkRecords.size() - remainingRecords.size();
       this.sinkRecords = remainingRecords;
+
+      return removedCount;
     }
   }
 
