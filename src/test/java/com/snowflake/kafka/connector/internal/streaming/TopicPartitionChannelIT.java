@@ -516,13 +516,8 @@ public class TopicPartitionChannelIT {
 
     // ensure all data was ingested
     TestUtils.assertWithRetry(
-        () ->
-            service.getOffset(new TopicPartition(topic, PARTITION))
-                == totalRowCount,
-        20,
-        5);
-    TestUtils.assertWithRetry(
-            () -> TestUtils.tableSize(testTableName) == totalRowCount, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == totalRowCount, 20, 5);
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(testTableName) == totalRowCount, 20, 5);
 
     service.closeAll();
   }
@@ -709,12 +704,12 @@ public class TopicPartitionChannelIT {
 
     // create tpchannel
     SnowflakeSinkService service =
-            SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-                    .setRecordNumber(1)
-                    .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-                    .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-                    .addTask(testTableName, topicPartition)
-                    .build();
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(testTableName, topicPartition)
+            .build();
 
     // insert blank records that do not evolve schema: 0, 1
     JsonConverter converter = new JsonConverter();
@@ -725,32 +720,29 @@ public class TopicPartitionChannelIT {
     List<SinkRecord> blankRecords = new ArrayList<>();
     for (int i = 0; i < 2; i++) {
       blankRecords.add(
-              new SinkRecord(
-                      topic,
-                      PARTITION,
-                      Schema.STRING_SCHEMA,
-                      "test",
-                      schemaInputValue.schema(),
-                      schemaInputValue.value(),
-                      i));
+          new SinkRecord(
+              topic,
+              PARTITION,
+              Schema.STRING_SCHEMA,
+              "test",
+              schemaInputValue.schema(),
+              schemaInputValue.value(),
+              i));
     }
 
     service.insert(blankRecords);
     TestUtils.assertWithRetry(
-            () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
 
     // insert another two records with offset gap that requires evolution: 2, 4
     List<SinkRecord> gapRecords = TestUtils.createNativeJsonSinkRecords(2, 3, topic, PARTITION);
     gapRecords.remove(1);
     service.insert(gapRecords);
     TestUtils.assertWithRetry(
-            () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 5, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 5, 20, 5);
 
     assert TestUtils.tableSize(testTableName) == 4
-            : "expected: "
-            + 4
-            + " actual: "
-            + TestUtils.tableSize(testTableName);
+        : "expected: " + 4 + " actual: " + TestUtils.tableSize(testTableName);
     service.closeAll();
   }
 }

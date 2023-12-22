@@ -13,7 +13,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -41,8 +40,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
-
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
@@ -56,7 +53,6 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
-import org.checkerframework.checker.units.qual.A;
 
 /**
  * This is a wrapper on top of Streaming Ingest Channel which is responsible for ingesting rows to
@@ -541,7 +537,8 @@ public class TopicPartitionChannel {
       // Due to schema evolution, we may need to reopen the channel and reset the channel metadata
       if (response.needToResetOffset()) {
         streamingApiFallbackSupplier(
-            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK, streamingBufferToInsert);
+            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK,
+            streamingBufferToInsert);
       }
       return response;
     } catch (TopicPartitionChannelInsertionException ex) {
@@ -717,7 +714,8 @@ public class TopicPartitionChannel {
   private void insertRowsFallbackSupplier(Throwable ex, StreamingBuffer bufferToReset)
       throws TopicPartitionChannelInsertionException {
     final long offsetRecoveredFromSnowflake =
-        streamingApiFallbackSupplier(StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK, bufferToReset);
+        streamingApiFallbackSupplier(
+            StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK, bufferToReset);
     throw new TopicPartitionChannelInsertionException(
         String.format(
             "%s Failed to insert rows for channel:%s. Recovered offset from Snowflake is:%s",
@@ -850,7 +848,8 @@ public class TopicPartitionChannel {
         Fallback.builder(
                 () ->
                     streamingApiFallbackSupplier(
-                        StreamingApiFallbackInvoker.GET_OFFSET_TOKEN_FALLBACK, this.streamingBuffer))
+                        StreamingApiFallbackInvoker.GET_OFFSET_TOKEN_FALLBACK,
+                        this.streamingBuffer))
             .handle(SFException.class)
             .onFailure(
                 event ->
@@ -890,22 +889,27 @@ public class TopicPartitionChannel {
    * @return offset which was last present in Snowflake
    */
   private long streamingApiFallbackSupplier(
-      final StreamingApiFallbackInvoker streamingApiFallbackInvoker, StreamingBuffer streamingBufferToReset) {
+      final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
+      StreamingBuffer streamingBufferToReset) {
     final long offsetRecoveredFromSnowflake =
         getRecoveredOffsetFromSnowflake(streamingApiFallbackInvoker);
-    resetChannelMetadataAfterRecovery(streamingApiFallbackInvoker, offsetRecoveredFromSnowflake, streamingBufferToReset);
+    resetChannelMetadataAfterRecovery(
+        streamingApiFallbackInvoker, offsetRecoveredFromSnowflake, streamingBufferToReset);
     return offsetRecoveredFromSnowflake;
   }
 
   /**
-   * Resets the offset in kafka, resets metadata related to offsets and clears the committed records from the buffer. If we
-   * don't get a valid offset token (because of a table recreation or channel inactivity), we will
-   * rely on kafka to send us the correct offset
+   * Resets the offset in kafka, resets metadata related to offsets and clears the committed records
+   * from the buffer. If we don't get a valid offset token (because of a table recreation or channel
+   * inactivity), we will rely on kafka to send us the correct offset
    *
    * <p>Idea behind resetting offset (1 more than what we found in snowflake) is that Kafka should
-   * send offsets from this offset number so as to not miss any data. It is ok that the reset offset may be behind the processedOffset because those records will be skipped. We cannot set the kafka offset to the processedOffset in case KC crashes and that data is lost
+   * send offsets from this offset number so as to not miss any data. It is ok that the reset offset
+   * may be behind the processedOffset because those records will be skipped. We cannot set the
+   * kafka offset to the processedOffset in case KC crashes and that data is lost
    *
-   * <p>Removing just the committed records from the buffer means we can take any kafka record offset > processedOffset without losing any data.
+   * <p>Removing just the committed records from the buffer means we can take any kafka record
+   * offset > processedOffset without losing any data.
    *
    * @param streamingApiFallbackInvoker Streaming API which is using this fallback function. Used
    *     for logging mainly.
@@ -914,7 +918,8 @@ public class TopicPartitionChannel {
    */
   private void resetChannelMetadataAfterRecovery(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
-      final long offsetRecoveredFromSnowflake, StreamingBuffer streamingBufferToReset) {
+      final long offsetRecoveredFromSnowflake,
+      StreamingBuffer streamingBufferToReset) {
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       LOGGER.info(
           "{} Channel:{}, offset token is NULL, will use the consumer offset managed by the"
@@ -940,14 +945,18 @@ public class TopicPartitionChannel {
       // reset buffer by removing already committed records
       StreamingBuffer resetBuffer = streamingBufferToReset;
       if (offsetRecoveredFromSnowflake != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-        resetBuffer = this.getStreamingBufferAfterOffset(streamingBufferToReset, offsetRecoveredFromSnowflake);
-        long removedCount = streamingBufferToReset.getNumOfRecords() - resetBuffer.getNumOfRecords();
+        resetBuffer =
+            this.getStreamingBufferAfterOffset(
+                streamingBufferToReset, offsetRecoveredFromSnowflake);
+        long removedCount =
+            streamingBufferToReset.getNumOfRecords() - resetBuffer.getNumOfRecords();
         LOGGER.warn(
-                "[RESET_PARTITION] Removed {} records that have already been committed from the current buffer:{} for Channel:{} because offset committed into snowflake is {}",
-                removedCount,
-                streamingBufferToReset,
-                this.getChannelNameFormatV1(),
-                offsetRecoveredFromSnowflake);
+            "[RESET_PARTITION] Removed {} records that have already been committed from the current"
+                + " buffer:{} for Channel:{} because offset committed into snowflake is {}",
+            removedCount,
+            streamingBufferToReset,
+            this.getChannelNameFormatV1(),
+            offsetRecoveredFromSnowflake);
       }
       this.streamingBuffer.appendBuffer(resetBuffer);
 
@@ -1229,9 +1238,12 @@ public class TopicPartitionChannel {
    * @param offset The offset
    * @return
    */
-  public StreamingBuffer getStreamingBufferAfterOffset(StreamingBuffer originalBuffer, long offset) {
+  public StreamingBuffer getStreamingBufferAfterOffset(
+      StreamingBuffer originalBuffer, long offset) {
     StreamingBuffer newBuffer = new StreamingBuffer();
-    originalBuffer.sinkRecords.stream().filter(record -> record.kafkaOffset() > offset).forEach(newBuffer::insert);
+    originalBuffer.sinkRecords.stream()
+        .filter(record -> record.kafkaOffset() > offset)
+        .forEach(newBuffer::insert);
     return newBuffer;
   }
 
@@ -1323,7 +1335,8 @@ public class TopicPartitionChannel {
         }
       }
       LOGGER.debug(
-          "Get rows for streaming ingest on topicPartition: {}. {} records, {} bytes, offset {} - {}",
+          "Get rows for streaming ingest on topicPartition: {}. {} records, {} bytes, offset {} -"
+              + " {}",
           topicPartition,
           getNumOfRecords(),
           getBufferSizeBytes(),
@@ -1343,10 +1356,13 @@ public class TopicPartitionChannel {
 
     /**
      * Append records in given buffer to the current buffer
+     *
      * @param bufferToInsert The other buffer to append to this buffer
      */
     public void appendBuffer(StreamingBuffer bufferToInsert) {
-      bufferToInsert.getSinkRecords().stream().filter(record -> record.kafkaOffset() > this.getLastOffset()).forEach(record -> this.insert(record));
+      bufferToInsert.getSinkRecords().stream()
+          .filter(record -> record.kafkaOffset() > this.getLastOffset())
+          .forEach(record -> this.insert(record));
     }
   }
 

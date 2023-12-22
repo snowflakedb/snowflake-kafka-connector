@@ -1298,7 +1298,7 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(new ArrayList<>());
 
     TestUtils.assertWithRetry(
-    () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
 
     TestUtils.checkTableContentOneRow(
         table, SchematizationTestUtils.CONTENT_FOR_AVRO_TABLE_CREATION);
@@ -1449,7 +1449,7 @@ public class SnowflakeSinkServiceV2IT {
                 == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
         20,
         5);
-    
+
     // Empty second insert should fail again and schema evolution will kick in to update the
     // nullability
     Thread.sleep(7000);
