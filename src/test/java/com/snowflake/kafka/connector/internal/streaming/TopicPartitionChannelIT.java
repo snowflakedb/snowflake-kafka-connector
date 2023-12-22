@@ -338,7 +338,7 @@ public class TopicPartitionChannelIT {
 
 //    // Will need to retry which should succeed (Retry is mimicking the reset of kafka offsets, which
 //    // will send offsets from 10 since last committed offset in Snowflake is 9)
-//    service.insert(records);
+    service.insert(records);
 
     records =
         TestUtils.createJsonStringSinkRecords(

@@ -273,6 +273,7 @@ public class TopicPartitionChannel {
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
     this.processedOffset.set(lastCommittedOffsetToken);
+    LOGGER.error("REVI - processedoffset = {}, constructor, {}", this.processedOffset, this.topicPartition.topic());
 
     // setup telemetry and metrics
     String connectorName =
@@ -370,44 +371,52 @@ public class TopicPartitionChannel {
     // incoming record offset is 1 + the processed offset
     if (currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
         || kafkaSinkRecord.kafkaOffset() >= currentProcessedOffset + 1) {
-      StreamingBuffer copiedStreamingBuffer = null;
       bufferLock.lock();
       try {
         this.streamingBuffer.insert(kafkaSinkRecord);
         this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
-        // # of records or size based flushing
-        if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
-                streamingBuffer.getBufferSizeBytes())
-            || this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
-                streamingBuffer.getNumOfRecords())) {
-          copiedStreamingBuffer = streamingBuffer;
-          this.streamingBuffer = new StreamingBuffer();
-          LOGGER.debug(
-              "Flush based on buffered bytes or buffered number of records for"
-                  + " channel:{},currentBufferSizeInBytes:{}, currentBufferedRecordCount:{},"
-                  + " connectorBufferThresholds:{}",
-              this.getChannelNameFormatV1(),
-              copiedStreamingBuffer.getBufferSizeBytes(),
-              copiedStreamingBuffer.getSinkRecords().size(),
-              this.streamingBufferThreshold);
-        }
+        LOGGER.error("REVI - processedoffset = {}, insertRecordToBuffer, {}", this.processedOffset, this.topicPartition.topic());
       } finally {
         bufferLock.unlock();
       }
-
-      // If we found reaching buffer size threshold or count based threshold, we will immediately
-      // flush (Insert them)
-      if (copiedStreamingBuffer != null) {
-        insertBufferedRecords(copiedStreamingBuffer);
-      }
     } else {
       LOGGER.debug(
-          "Skip adding offset:{} to buffer for channel:{} because"
-              + " offsetPersistedInSnowflake:{}, processedOffset:{}",
-          kafkaSinkRecord.kafkaOffset(),
-          this.getChannelNameFormatV1(),
-          currentOffsetPersistedInSnowflake,
-          currentProcessedOffset);
+              "Skip adding offset:{} to buffer for channel:{} because"
+                      + " offsetPersistedInSnowflake:{}, processedOffset:{}",
+              kafkaSinkRecord.kafkaOffset(),
+              this.getChannelNameFormatV1(),
+              currentOffsetPersistedInSnowflake,
+              currentProcessedOffset);
+    }
+
+    // try flushing
+    StreamingBuffer copiedStreamingBuffer = null;
+    bufferLock.lock();
+    try {
+      // # of records or size based flushing
+      if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
+              streamingBuffer.getBufferSizeBytes())
+              || this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
+              streamingBuffer.getNumOfRecords())) {
+        copiedStreamingBuffer = streamingBuffer;
+        this.streamingBuffer = new StreamingBuffer();
+        LOGGER.debug(
+                "Flush based on buffered bytes or buffered number of records for"
+                        + " channel:{},currentBufferSizeInBytes:{}, currentBufferedRecordCount:{},"
+                        + " connectorBufferThresholds:{}",
+                this.getChannelNameFormatV1(),
+                copiedStreamingBuffer.getBufferSizeBytes(),
+                copiedStreamingBuffer.getSinkRecords().size(),
+                this.streamingBufferThreshold);
+      }
+    } finally {
+      bufferLock.unlock();
+    }
+
+    // If we found reaching buffer size threshold or count based threshold, we will immediately
+    // flush (Insert them)
+    if (copiedStreamingBuffer != null) {
+      insertBufferedRecords(copiedStreamingBuffer);
     }
   }
 
@@ -535,12 +544,11 @@ public class TopicPartitionChannel {
         handleInsertRowsFailures(
             response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
       }
-
       // Due to schema evolution, we may need to reopen the channel, reset the offset in kafka
       // and reset the buffer since it's possible that not all rows are ingested
-      if (response.needToResetOffset()) {
+      if (response != null && response.needToResetOffset()) {
         streamingApiFallbackSupplier(
-            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK, streamingBufferToInsert);
+                StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK, streamingBufferToInsert);
       }
       return response;
     } catch (TopicPartitionChannelInsertionException ex) {
@@ -717,13 +725,13 @@ public class TopicPartitionChannel {
       throws TopicPartitionChannelInsertionException {
     final long offsetRecoveredFromSnowflake =
         streamingApiFallbackSupplier(StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK, bufferToReset);
-    throw new TopicPartitionChannelInsertionException(
-        String.format(
-            "%s Failed to insert rows for channel:%s. Recovered offset from Snowflake is:%s",
-            StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
-            this.getChannelNameFormatV1(),
-            offsetRecoveredFromSnowflake),
-        ex);
+//    throw new TopicPartitionChannelInsertionException(
+//        String.format(
+//            "%s Failed to insert rows for channel:%s. Recovered offset from Snowflake is:%s",
+//            StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK,
+//            this.getChannelNameFormatV1(),
+//            offsetRecoveredFromSnowflake),
+//        ex);
   }
 
   /**
@@ -944,7 +952,7 @@ public class TopicPartitionChannel {
       if (offsetRecoveredFromSnowflake != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
         streamingBufferToReset.removeRecordsUntilOffset(offsetRecoveredFromSnowflake);
       }
-      this.streamingBuffer.insert(streamingBufferToReset);
+      this.streamingBuffer.appendBuffer(streamingBufferToReset);
 
       // Reset Offset in kafka for this topic partition.
       this.sinkTaskContext.offset(this.topicPartition, offsetToResetInKafka);
@@ -953,6 +961,7 @@ public class TopicPartitionChannel {
       // might get rejected.
       this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
       this.processedOffset.set(this.streamingBuffer.getLastOffset());
+      LOGGER.error("REVI - processedoffset = {}, resetMetadataAfterRecovery, {}", this.processedOffset, this.topicPartition.topic());
 
     } finally {
       this.bufferLock.unlock();
@@ -1256,15 +1265,9 @@ public class TopicPartitionChannel {
       setBufferSizeBytes(getBufferSizeBytes() + currentKafkaRecordSizeInBytes);
     }
 
-    public void insert(StreamingBuffer bufferToInsert) {
-      this.sinkRecords.addAll(bufferToInsert.getSinkRecords());
+    public void appendBuffer(StreamingBuffer bufferToInsert) {
 
-      // set properties
-      if (bufferToInsert.getLastOffset() > this.getLastOffset()) {
-        this.setLastOffset(bufferToInsert.getLastOffset());
-      }
-      setNumOfRecords(this.getNumOfRecords() + bufferToInsert.getNumOfRecords());
-      setBufferSizeBytes(this.getBufferSizeBytes() + bufferToInsert.getBufferSizeBytes());
+      bufferToInsert.getSinkRecords().stream().filter(record -> record.kafkaOffset() > this.getLastOffset()).forEach(record -> this.insert(record));
     }
 
     /**
@@ -1334,7 +1337,7 @@ public class TopicPartitionChannel {
     }
 
     public void removeRecordsUntilOffset(long offset) {
-      List<SinkRecord> remainingRecords = this.sinkRecords.stream().filter(record -> record.kafkaOffset() >= offset).collect(Collectors.toList());
+      List<SinkRecord> remainingRecords = this.sinkRecords.stream().filter(record -> record.kafkaOffset() > offset).collect(Collectors.toList());
       this.sinkRecords = remainingRecords;
     }
   }
