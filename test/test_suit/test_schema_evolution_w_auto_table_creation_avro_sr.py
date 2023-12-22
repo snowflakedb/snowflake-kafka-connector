@@ -1,5 +1,6 @@
 from confluent_kafka import avro
 from test_suit.test_utils import NonRetryableError
+from time import sleep
 
 
 # test if the table is updated with the correct column
