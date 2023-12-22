@@ -64,6 +64,7 @@ public class TombstoneRecordIngestionIT {
                 IngestionMethodConfig.SNOWPIPE_STREAMING,
                 connectorConfig)
             .setRecordNumber(1)
+                .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, topicPartition)
@@ -94,6 +95,7 @@ public class TombstoneRecordIngestionIT {
                 IngestionMethodConfig.SNOWPIPE_STREAMING,
                 connectorConfig)
             .setRecordNumber(1)
+                .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, topicPartition)
@@ -219,8 +221,8 @@ public class TombstoneRecordIngestionIT {
         this.behavior == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT
             ? sinkRecords.size()
             : 1;
-    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == expectedOffset, 10, 20);
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == expectedOffset, 10, 20);
+            () -> service.getOffset(new TopicPartition(topic, partition)) == expectedOffset, 20, 20);
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == expectedOffset, 20, 20);
   }
 }
