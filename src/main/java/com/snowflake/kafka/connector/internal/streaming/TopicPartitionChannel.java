@@ -1232,12 +1232,12 @@ public class TopicPartitionChannel {
    * before calling insertRows API.
    */
   @VisibleForTesting
-  protected class StreamingBuffer
+  public class StreamingBuffer
       extends PartitionBuffer<Pair<List<Map<String, Object>>, List<Long>>> {
     // Records coming from Kafka
     private List<SinkRecord> sinkRecords;
 
-    StreamingBuffer() {
+    public StreamingBuffer() {
       super();
       sinkRecords = new ArrayList<>();
     }

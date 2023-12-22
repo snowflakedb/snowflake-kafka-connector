@@ -1090,4 +1090,102 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.closeChannel();
     assert resultStatus.getMetricsJmxReporter() == null;
   }
+
+  /** ======================= inner class StreamingBuffer tests ======================= **/
+
+  @Test
+  public void testStreamingBuffer_appendBuffer() {
+    // need to create outer class to instantiate inner class
+    TopicPartitionChannel topicPartitionChannel =
+            new TopicPartitionChannel(
+                    this.mockStreamingClient,
+                    this.topicPartition,
+                    TEST_CHANNEL_NAME,
+                    TEST_TABLE_NAME,
+                    this.enableSchematization,
+                    this.streamingBufferThreshold,
+                    this.sfConnectorConfig,
+                    this.mockKafkaRecordErrorReporter,
+                    this.mockSinkTaskContext,
+                    this.mockSnowflakeConnectionService,
+                    new RecordService(),
+                    this.mockTelemetryService,
+                    true,
+                    null);
+
+    // original buffer has offsets 10-19
+    List<SinkRecord> originalRecords = TestUtils.createNativeJsonSinkRecords(10, 10, this.topicPartition.topic(), this.topicPartition.partition());
+
+    // test case: appending a buffer that overlaps at the end does append overlap
+    TopicPartitionChannel.StreamingBuffer endOverlapBuffer = appendBufferRunner(topicPartitionChannel, originalRecords, 13, 10);
+    assert endOverlapBuffer.getSinkRecords().size() == 13;
+    assert endOverlapBuffer.getFirstOffset() == 10;
+    assert endOverlapBuffer.getLastOffset() == 22;
+
+    // test case: appending a buffer that overlaps at the beginning does not append overlap
+    TopicPartitionChannel.StreamingBuffer beginOverlapBuffer = appendBufferRunner(topicPartitionChannel, originalRecords, 7, 10);
+    assert beginOverlapBuffer.getSinkRecords().size() == 10;
+    assert beginOverlapBuffer.getFirstOffset() == 10;
+    assert beginOverlapBuffer.getLastOffset() == 19;
+
+    // test case: appending a buffer that is a superset of the entire original buffer appends just the end overlap
+    TopicPartitionChannel.StreamingBuffer supersetBuffer = appendBufferRunner(topicPartitionChannel, originalRecords, 3, 30);
+    assert supersetBuffer.getSinkRecords().size() == 23;
+    assert supersetBuffer.getFirstOffset() == 10;
+    assert supersetBuffer.getLastOffset() == 32;
+
+    // test case: appending a buffer that is a subset of the entire original buffer does not append anything
+    TopicPartitionChannel.StreamingBuffer subsetBuffer = appendBufferRunner(topicPartitionChannel, originalRecords, 12, 4);
+    assert subsetBuffer.getSinkRecords().size() == 10;
+    assert subsetBuffer.getFirstOffset() == 10;
+    assert subsetBuffer.getLastOffset() == 19;
+
+    // test case: appending a buffer that does not overlap but all offsets are larger than the original buffer appends buffer
+    TopicPartitionChannel.StreamingBuffer largerOffsetBuffer = appendBufferRunner(topicPartitionChannel, originalRecords, 50, 10);
+    assert largerOffsetBuffer.getSinkRecords().size() == 20;
+    assert largerOffsetBuffer.getFirstOffset() == 10;
+    assert largerOffsetBuffer.getLastOffset() == 59;
+
+    // test case: appending a buffer that does not overlap but all offsets are smaller than the original buffer does not append buffer
+    TopicPartitionChannel.StreamingBuffer smallerOffsetBuffer = appendBufferRunner(topicPartitionChannel, originalRecords, 2, 5);
+    assert smallerOffsetBuffer.getSinkRecords().size() == 10;
+    assert smallerOffsetBuffer.getFirstOffset() == 10;
+    assert smallerOffsetBuffer.getLastOffset() == 19;
+  }
+
+  private TopicPartitionChannel.StreamingBuffer appendBufferRunner(TopicPartitionChannel topicPartitionChannel, List<SinkRecord> originalRecords, long appendStartOffset, long recordCount) {
+    // create inital buffer with offsets 10-19
+    TopicPartitionChannel.StreamingBuffer originalBuffer = topicPartitionChannel.new StreamingBuffer();
+    originalRecords.forEach(originalBuffer::insert);
+
+    // create append buffer
+    List<SinkRecord> appendRecords = TestUtils.createNativeJsonSinkRecords(appendStartOffset, recordCount, this.topicPartition.topic(), this.topicPartition.partition());
+    TopicPartitionChannel.StreamingBuffer appendBuffer = topicPartitionChannel.new StreamingBuffer();
+    appendRecords.forEach(appendBuffer::insert);
+
+    // append and return resulting buffer
+    originalBuffer.appendBuffer(appendBuffer);
+    return originalBuffer;
+  }
+
+  @Test
+  public void testStreamingBuffer_removeRecordsUntilOffset() {
+    
+  }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
