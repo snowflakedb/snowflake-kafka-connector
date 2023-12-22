@@ -90,7 +90,7 @@ class TestSchemaEvolutionMissingOffsets:
         for i, topic in enumerate(self.topics):
             key = []
             value = []
-            key.append(json.dumps({'number': str(self.flushRecordCount)}).encode('utf-8'))
+            key.append(json.dumps({'number': str(self.lastRecordOffset)}).encode('utf-8'))
             value.append(json.dumps(self.records[i]).encode('utf-8'))
             self.driver.sendBytesData(topic, value, key)
 
