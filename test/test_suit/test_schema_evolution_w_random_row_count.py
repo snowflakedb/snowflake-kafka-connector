@@ -2,6 +2,7 @@ import json
 import random
 
 from test_suit.test_utils import NonRetryableError
+from time import sleep
 
 
 # test if the ingestion works when the schematization alter table invalidation happens
@@ -64,10 +65,22 @@ class TestSchemaEvolutionWithRandomRowCount:
             # send second batch that should flush
             key = []
             value = []
-            for e in range(self.flushRecordCount):
+            for e in range(self.flushRecordCount - 1):
                 key.append(json.dumps({'number': str(e)}).encode('utf-8'))
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
             self.driver.sendBytesData(topic, value, key)
+
+        # wait and send one record to each topic to kick off time flush
+        sleep(60)
+        for i, topic in enumerate(self.topics):
+            key = []
+            value = []
+            key.append(json.dumps({'number': str(self.flushRecordCount)}).encode('utf-8'))
+            value.append(json.dumps(self.records[i]).encode('utf-8'))
+            self.driver.sendBytesData(topic, value, key)
+
+        # wait for ingestion to complete
+        sleep(60)
 
     def verify(self, round):
         rows = self.driver.snowflake_conn.cursor().execute(

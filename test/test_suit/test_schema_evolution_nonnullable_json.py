@@ -1,6 +1,7 @@
 import json
 
 from test_suit.test_utils import NonRetryableError
+from time import sleep
 
 
 # test if the table is updated with the correct column
@@ -45,10 +46,22 @@ class TestSchemaEvolutionNonNullableJson:
         for i, topic in enumerate(self.topics):
             key = []
             value = []
-            for e in range(self.recordNum):
+            for e in range(self.recordNum - 1):
                 key.append(json.dumps({'number': str(e)}).encode('utf-8'))
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
             self.driver.sendBytesData(topic, value, key)
+
+        # wait and send one record to each topic to kick off time flush
+        sleep(10)
+        for i, topic in enumerate(self.topics):
+            key = []
+            value = []
+            key.append(json.dumps({'number': str(self.recordNum)}).encode('utf-8'))
+            value.append(json.dumps(self.records[i]).encode('utf-8'))
+            self.driver.sendBytesData(topic, value, key)
+
+        # wait for ingestion to complete
+        sleep(10)
 
     def verify(self, round):
         rows = self.driver.snowflake_conn.cursor().execute(
