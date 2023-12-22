@@ -1276,12 +1276,13 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
+            .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // The first insert should fail and schema evolution will kick in to update the schema
+    // The first insert will not flush but schema evolution will kick in to update the schema
     service.insert(avroRecordValue);
     TestUtils.assertWithRetry(
         () ->
@@ -1292,10 +1293,9 @@ public class SnowflakeSinkServiceV2IT {
 
     TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_AVRO_SCHEMA_FOR_TABLE_CREATION);
 
-    // Retry the insert should succeed now with the updated schema
-    service.insert(avroRecordValue);
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
+    // Empty insert to kick off time based flush since the record is still in the buffer
+    Thread.sleep(5000);
+    service.insert(new ArrayList<>());
 
     TestUtils.checkTableContentOneRow(
         table, SchematizationTestUtils.CONTENT_FOR_AVRO_TABLE_CREATION);
@@ -1365,12 +1365,13 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
+            .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // The first insert should fail and schema evolution will kick in to update the schema
+    // The first insert will not flush but schema evolution will kick in to update the schema
     service.insert(jsonRecordValue);
     TestUtils.assertWithRetry(
         () ->
@@ -1380,8 +1381,10 @@ public class SnowflakeSinkServiceV2IT {
         5);
     TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_JSON_SCHEMA_FOR_TABLE_CREATION);
 
-    // Retry the insert should succeed now with the updated schema
-    service.insert(jsonRecordValue);
+    // Empty insert to kick off time based flush since the record is still in the buffer
+    Thread.sleep(5000);
+    service.insert(new ArrayList<>());
+
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
 
@@ -1429,12 +1432,13 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
+            .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
 
-    // The first insert should fail and schema evolution will kick in to add the column
+    // The first insert will not flush but schema evolution will kick in to update the schema
     service.insert(jsonRecordValue);
     TestUtils.assertWithRetry(
         () ->
@@ -1443,18 +1447,22 @@ public class SnowflakeSinkServiceV2IT {
         20,
         5);
 
-    // The second insert should fail again and schema evolution will kick in to update the
-    // nullability
-    service.insert(jsonRecordValue);
-    TestUtils.assertWithRetry(
-        () ->
-            service.getOffset(new TopicPartition(topic, partition))
-                == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
-        20,
-        5);
+//    // The second insert should fail again and schema evolution will kick in to update the
+//    // nullability
+//    service.insert(jsonRecordValue);
+//    TestUtils.assertWithRetry(
+//        () ->
+//            service.getOffset(new TopicPartition(topic, partition))
+//                == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+//        20,
+//        5);
 
-    // Retry the insert should succeed now with the updated schema
-    service.insert(jsonRecordValue);
+    // Empty insert to kick off time based flush since the record is still in the buffer
+    Thread.sleep(7000);
+    service.insert(new ArrayList<>());
+    Thread.sleep(7000);
+    service.insert(new ArrayList<>());
+
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
 

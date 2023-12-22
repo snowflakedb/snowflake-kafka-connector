@@ -124,6 +124,7 @@ public class TombstoneRecordIngestionIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
             .setRecordNumber(1)
+            .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, topicPartition)
@@ -207,7 +208,11 @@ public class TombstoneRecordIngestionIT {
 
     // insert all records
     service.insert(sinkRecords);
+
+    // force flush using empty insert or callAllGetOffset for snowpipe
     service.callAllGetOffset();
+    Thread.sleep(5000);
+    service.insert(new ArrayList<>());
 
     // verify inserted
     int expectedOffset =

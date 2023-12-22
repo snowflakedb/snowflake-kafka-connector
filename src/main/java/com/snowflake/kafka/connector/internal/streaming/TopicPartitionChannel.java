@@ -13,6 +13,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -55,6 +56,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
+import org.checkerframework.checker.units.qual.A;
 
 /**
  * This is a wrapper on top of Streaming Ingest Channel which is responsible for ingesting rows to
@@ -936,8 +938,10 @@ public class TopicPartitionChannel {
     this.bufferLock.lock();
     try {
       // reset buffer by removing already committed records
+      StreamingBuffer resetBuffer = new StreamingBuffer();
       if (offsetRecoveredFromSnowflake != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-        long removedCount = streamingBufferToReset.removeRecordsUntilOffset(offsetRecoveredFromSnowflake);
+        resetBuffer = this.getStreamingBufferAfterOffset(streamingBufferToReset, offsetRecoveredFromSnowflake);
+        long removedCount = streamingBufferToReset.getNumOfRecords() - resetBuffer.getNumOfRecords();
         LOGGER.warn(
                 "[RESET_PARTITION] Removed {} records that have already been committed from the current buffer:{} for Channel:{} because offset committed into snowflake is {}",
                 removedCount,
@@ -945,7 +949,7 @@ public class TopicPartitionChannel {
                 this.getChannelNameFormatV1(),
                 offsetRecoveredFromSnowflake);
       }
-      this.streamingBuffer.appendBuffer(streamingBufferToReset);
+      this.streamingBuffer.appendBuffer(resetBuffer);
 
       // Reset Offset in kafka for this topic partition.
       this.sinkTaskContext.offset(this.topicPartition, offsetToResetInKafka);
@@ -1218,6 +1222,12 @@ public class TopicPartitionChannel {
     return sinkRecordBufferSizeInBytes;
   }
 
+  public StreamingBuffer getStreamingBufferAfterOffset(StreamingBuffer originalBuffer, long offset) {
+    StreamingBuffer newBuffer = new StreamingBuffer();
+    originalBuffer.sinkRecords.stream().filter(record -> record.kafkaOffset() > offset).forEach(newBuffer::insert);
+    return newBuffer;
+  }
+
   // ------ INNER CLASS ------ //
 
   /**
@@ -1255,10 +1265,6 @@ public class TopicPartitionChannel {
       final long currentKafkaRecordSizeInBytes = getApproxSizeOfRecordInBytes(kafkaSinkRecord);
       // update size of buffer
       setBufferSizeBytes(getBufferSizeBytes() + currentKafkaRecordSizeInBytes);
-    }
-
-    public void appendBuffer(StreamingBuffer bufferToInsert) {
-      bufferToInsert.getSinkRecords().stream().filter(record -> record.kafkaOffset() > this.getLastOffset()).forEach(record -> this.insert(record));
     }
 
     /**
@@ -1327,12 +1333,9 @@ public class TopicPartitionChannel {
       return sinkRecords.get((int) idx);
     }
 
-    public long removeRecordsUntilOffset(long offset) {
-      List<SinkRecord> remainingRecords = this.sinkRecords.stream().filter(record -> record.kafkaOffset() > offset).collect(Collectors.toList());
-      long removedCount = this.sinkRecords.size() - remainingRecords.size();
-      this.sinkRecords = remainingRecords;
 
-      return removedCount;
+    public void appendBuffer(StreamingBuffer bufferToInsert) {
+      bufferToInsert.getSinkRecords().stream().filter(record -> record.kafkaOffset() > this.getLastOffset()).forEach(record -> this.insert(record));
     }
   }
 

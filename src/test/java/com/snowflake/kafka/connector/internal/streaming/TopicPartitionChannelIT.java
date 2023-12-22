@@ -326,7 +326,7 @@ public class TopicPartitionChannelIT {
 
     // send offset 10 - 19 -> We should get insertRows failure and hence reopen channel would kick
     // in
-    final long anotherSetOfRecords = 11;
+    final long anotherSetOfRecords = 10;
     records =
         TestUtils.createJsonStringSinkRecords(
             anotherSetOfRecords, anotherSetOfRecords, topic, PARTITION);
@@ -336,10 +336,6 @@ public class TopicPartitionChannelIT {
     // server side to 1
     service.insert(records);
 
-//    // Will need to retry which should succeed (Retry is mimicking the reset of kafka offsets, which
-//    // will send offsets from 10 since last committed offset in Snowflake is 9)
-//    service.insert(records);
-
     records =
         TestUtils.createJsonStringSinkRecords(
             anotherSetOfRecords, anotherSetOfRecords, topic, PARTITION_2);
@@ -347,6 +343,10 @@ public class TopicPartitionChannelIT {
     // Send records to partition 2 which should not be affected. (Since there were no overlapping
     // offsets in blob)
     service.insert(records);
+
+    // empty insert to kick off time based flush
+    Thread.sleep(5000);
+    service.insert(new ArrayList<>());
 
     TestUtils.assertWithRetry(
         () ->
@@ -477,6 +477,7 @@ public class TopicPartitionChannelIT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
+                .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
             .addTask(testTableName, topicPartition)
@@ -512,6 +513,10 @@ public class TopicPartitionChannelIT {
     List<SinkRecord> secondBatch =
         TestUtils.createNativeJsonSinkRecords(firstBatchCount, secondBatchCount, topic, PARTITION);
     service.insert(secondBatch);
+
+    // empty insert to kick off time based flush
+    Thread.sleep(5000);
+    service.insert(new ArrayList<>());
 
     // ensure all data was ingested
     TestUtils.assertWithRetry(

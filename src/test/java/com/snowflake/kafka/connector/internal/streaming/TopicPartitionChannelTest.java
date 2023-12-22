@@ -1169,8 +1169,39 @@ public class TopicPartitionChannelTest {
   }
 
   @Test
-  public void testStreamingBuffer_removeRecordsUntilOffset() {
-    
+  public void testGetStreamingBufferAfterOffset() {
+    // need to create outer class to instantiate inner class
+    TopicPartitionChannel topicPartitionChannel =
+            new TopicPartitionChannel(
+                    this.mockStreamingClient,
+                    this.topicPartition,
+                    TEST_CHANNEL_NAME,
+                    TEST_TABLE_NAME,
+                    this.enableSchematization,
+                    this.streamingBufferThreshold,
+                    this.sfConnectorConfig,
+                    this.mockKafkaRecordErrorReporter,
+                    this.mockSinkTaskContext,
+                    this.mockSnowflakeConnectionService,
+                    new RecordService(),
+                    this.mockTelemetryService,
+                    true,
+                    null);
+
+    TopicPartitionChannel.StreamingBuffer buffer = topicPartitionChannel.new StreamingBuffer();
+    List<SinkRecord> records = TestUtils.createNativeJsonSinkRecords(0, 10, this.topicPartition.topic(), this.topicPartition.partition());
+    records.forEach(buffer::insert);
+    final long lastOffset = buffer.getLastOffset();
+    final int recordNum = buffer.getNumOfRecords();
+    final long byteSize = buffer.getBufferSizeBytes();
+
+    // remove records before offset 3
+    TopicPartitionChannel.StreamingBuffer resultBuffer = topicPartitionChannel.getStreamingBufferAfterOffset(buffer, 3);
+    assert buffer.getNumOfRecords() - resultBuffer.getNumOfRecords() == 4;
+    assert resultBuffer.getFirstOffset() == 4;
+    assert resultBuffer.getLastOffset() == lastOffset;
+    assert resultBuffer.getNumOfRecords() < recordNum;
+    assert resultBuffer.getBufferSizeBytes() < byteSize;
   }
 }
 
