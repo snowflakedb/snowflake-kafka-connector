@@ -1091,7 +1091,7 @@ public class TopicPartitionChannelTest {
 
   /** ======================= inner class StreamingBuffer tests ======================= * */
   @Test
-  public void testStreamingBuffer_appendBuffer() {
+  public void testMergeStreamingBuffers() {
     // need to create outer class to instantiate inner class
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
@@ -1115,81 +1115,76 @@ public class TopicPartitionChannelTest {
         TestUtils.createNativeJsonSinkRecords(
             10, 10, this.topicPartition.topic(), this.topicPartition.partition());
 
-    // test case: appending a buffer that overlaps at the end does append overlap
+    // test case: merging a buffer that overlaps at the end
     TopicPartitionChannel.StreamingBuffer endOverlapBuffer =
-        appendBufferRunner(topicPartitionChannel, originalRecords, 13, 10);
+        mergeBufferRunner(topicPartitionChannel, originalRecords, 13, 10);
     assert endOverlapBuffer.getSinkRecords().size() == 13;
     assert endOverlapBuffer.getFirstOffset() == 10;
     assert endOverlapBuffer.getLastOffset() == 22;
 
-    // test case: appending a buffer that overlaps at the beginning does not append overlap
+    // test case: merging a buffer that overlaps at the beginning
     TopicPartitionChannel.StreamingBuffer beginOverlapBuffer =
-        appendBufferRunner(topicPartitionChannel, originalRecords, 7, 10);
-    assert beginOverlapBuffer.getSinkRecords().size() == 10;
-    assert beginOverlapBuffer.getFirstOffset() == 10;
+        mergeBufferRunner(topicPartitionChannel, originalRecords, 7, 10);
+    assert beginOverlapBuffer.getSinkRecords().size() == 13;
+    assert beginOverlapBuffer.getFirstOffset() == 7;
     assert beginOverlapBuffer.getLastOffset() == 19;
 
-    // test case: appending a buffer that is a superset of the entire original buffer appends just
-    // the end overlap
+    // test case: merging a buffer that is a superset of the entire original buffer
     TopicPartitionChannel.StreamingBuffer supersetBuffer =
-        appendBufferRunner(topicPartitionChannel, originalRecords, 3, 30);
-    assert supersetBuffer.getSinkRecords().size() == 23;
-    assert supersetBuffer.getFirstOffset() == 10;
+        mergeBufferRunner(topicPartitionChannel, originalRecords, 3, 30);
+    assert supersetBuffer.getSinkRecords().size() == 30;
+    assert supersetBuffer.getFirstOffset() == 3;
     assert supersetBuffer.getLastOffset() == 32;
 
-    // test case: appending a buffer that is a subset of the entire original buffer does not append
-    // anything
+    // test case: merging a buffer that is a subset of the entire original buffer
     TopicPartitionChannel.StreamingBuffer subsetBuffer =
-        appendBufferRunner(topicPartitionChannel, originalRecords, 12, 4);
+        mergeBufferRunner(topicPartitionChannel, originalRecords, 12, 4);
     assert subsetBuffer.getSinkRecords().size() == 10;
     assert subsetBuffer.getFirstOffset() == 10;
     assert subsetBuffer.getLastOffset() == 19;
 
-    // test case: appending a buffer that does not overlap but all offsets are larger than the
-    // original buffer appends buffer
+    // test case: merging a buffer that does not overlap but all offsets are larger
     TopicPartitionChannel.StreamingBuffer largerOffsetBuffer =
-        appendBufferRunner(topicPartitionChannel, originalRecords, 50, 10);
+        mergeBufferRunner(topicPartitionChannel, originalRecords, 50, 10);
     assert largerOffsetBuffer.getSinkRecords().size() == 20;
     assert largerOffsetBuffer.getFirstOffset() == 10;
     assert largerOffsetBuffer.getLastOffset() == 59;
 
-    // test case: appending a buffer that does not overlap but all offsets are smaller than the
-    // original buffer does not append buffer
+    // test case: merging a buffer that does not overlap but all offsets are smaller
     TopicPartitionChannel.StreamingBuffer smallerOffsetBuffer =
-        appendBufferRunner(topicPartitionChannel, originalRecords, 2, 5);
-    assert smallerOffsetBuffer.getSinkRecords().size() == 10;
-    assert smallerOffsetBuffer.getFirstOffset() == 10;
+        mergeBufferRunner(topicPartitionChannel, originalRecords, 2, 5);
+    assert smallerOffsetBuffer.getSinkRecords().size() == 15;
+    assert smallerOffsetBuffer.getFirstOffset() == 2;
     assert smallerOffsetBuffer.getLastOffset() == 19;
   }
 
-  private TopicPartitionChannel.StreamingBuffer appendBufferRunner(
+  private TopicPartitionChannel.StreamingBuffer mergeBufferRunner(
       TopicPartitionChannel topicPartitionChannel,
       List<SinkRecord> originalRecords,
-      long appendStartOffset,
+      long mergeStartOffset,
       long recordCount) {
     // create inital buffer with offsets 10-19
     TopicPartitionChannel.StreamingBuffer originalBuffer =
         topicPartitionChannel.new StreamingBuffer();
     originalRecords.forEach(originalBuffer::insert);
 
-    // create append buffer
-    List<SinkRecord> appendRecords =
+    // create merge buffer
+    List<SinkRecord> mergeRecords =
         TestUtils.createNativeJsonSinkRecords(
-            appendStartOffset,
+            mergeStartOffset,
             recordCount,
             this.topicPartition.topic(),
             this.topicPartition.partition());
-    TopicPartitionChannel.StreamingBuffer appendBuffer =
+    TopicPartitionChannel.StreamingBuffer mergeBuffer =
         topicPartitionChannel.new StreamingBuffer();
-    appendRecords.forEach(appendBuffer::insert);
+    mergeRecords.forEach(mergeBuffer::insert);
 
-    // append and return resulting buffer
-    originalBuffer.appendBuffer(appendBuffer);
-    return originalBuffer;
+    // merge and return resulting buffer
+    return topicPartitionChannel.mergeStreamingBuffers(originalBuffer, mergeBuffer);
   }
 
   @Test
-  public void testGetStreamingBufferAfterOffset() {
+  public void testSplitStreamingBufferAfterOffset() {
     // need to create outer class to instantiate inner class
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
@@ -1219,7 +1214,7 @@ public class TopicPartitionChannelTest {
 
     // remove records before offset 3
     TopicPartitionChannel.StreamingBuffer resultBuffer =
-        topicPartitionChannel.getStreamingBufferAfterOffset(buffer, 3);
+        topicPartitionChannel.splitStreamingBufferAfterOffset(buffer, 3);
     assert buffer.getNumOfRecords() - resultBuffer.getNumOfRecords() == 4;
     assert resultBuffer.getFirstOffset() == 4;
     assert resultBuffer.getLastOffset() == lastOffset;

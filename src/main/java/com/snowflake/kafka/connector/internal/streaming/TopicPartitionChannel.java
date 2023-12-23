@@ -946,7 +946,7 @@ public class TopicPartitionChannel {
       StreamingBuffer resetBuffer = streamingBufferToReset;
       if (offsetRecoveredFromSnowflake != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
         resetBuffer =
-            this.getStreamingBufferAfterOffset(
+            this.splitStreamingBufferAfterOffsetg(
                 streamingBufferToReset, offsetRecoveredFromSnowflake);
         long removedCount =
             streamingBufferToReset.getNumOfRecords() - resetBuffer.getNumOfRecords();
@@ -958,7 +958,7 @@ public class TopicPartitionChannel {
             this.getChannelNameFormatV1(),
             offsetRecoveredFromSnowflake);
       }
-      this.streamingBuffer.appendBuffer(resetBuffer);
+      this.streamingBuffer = this.mergeStreamingBuffers(this.streamingBuffer, resetBuffer);
 
       // Reset Offset in kafka for this topic partition.
       this.sinkTaskContext.offset(this.topicPartition, offsetToResetInKafka);
@@ -1238,13 +1238,33 @@ public class TopicPartitionChannel {
    * @param offset The offset
    * @return
    */
-  public StreamingBuffer getStreamingBufferAfterOffset(
+  public StreamingBuffer splitStreamingBufferAfterOffset(
       StreamingBuffer originalBuffer, long offset) {
     StreamingBuffer newBuffer = new StreamingBuffer();
     originalBuffer.sinkRecords.stream()
         .filter(record -> record.kafkaOffset() > offset)
         .forEach(newBuffer::insert);
     return newBuffer;
+  }
+
+  /**
+   * Merges two streaming buffers into one new buffer. Adds buffer with the smaller first offset and then appends any overlap from the other buffer. Makes the assumption that any overlap between buffers is the same
+   *
+   * @param buffer1 Buffer to merge
+   * @param buffer2 Buffer to merge
+   * @return A new buffer containing records from both buffers
+   */
+  public StreamingBuffer mergeStreamingBuffers(StreamingBuffer buffer1, StreamingBuffer buffer2) {
+    StreamingBuffer mergedBuffer = new StreamingBuffer();
+    if (buffer1.getFirstOffset() < buffer2.getFirstOffset()) {
+      buffer1.getSinkRecords().forEach(mergedBuffer::insert);
+      buffer2.getSinkRecords().stream().filter(record -> record.kafkaOffset() > mergedBuffer.getLastOffset()).forEach(mergedBuffer::insert);
+    } else {
+      buffer2.getSinkRecords().forEach(mergedBuffer::insert);
+      buffer1.getSinkRecords().stream().filter(record -> record.kafkaOffset() > mergedBuffer.getLastOffset()).forEach(mergedBuffer::insert);
+    }
+
+    return mergedBuffer;
   }
 
   // ------ INNER CLASS ------ //
@@ -1352,17 +1372,6 @@ public class TopicPartitionChannel {
 
     public SinkRecord getSinkRecord(long idx) {
       return sinkRecords.get((int) idx);
-    }
-
-    /**
-     * Append records in given buffer to the current buffer
-     *
-     * @param bufferToInsert The other buffer to append to this buffer
-     */
-    public void appendBuffer(StreamingBuffer bufferToInsert) {
-      bufferToInsert.getSinkRecords().stream()
-          .filter(record -> record.kafkaOffset() > this.getLastOffset())
-          .forEach(record -> this.insert(record));
     }
   }
 
