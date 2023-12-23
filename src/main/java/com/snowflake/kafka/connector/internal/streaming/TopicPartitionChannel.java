@@ -946,7 +946,7 @@ public class TopicPartitionChannel {
       StreamingBuffer resetBuffer = streamingBufferToReset;
       if (offsetRecoveredFromSnowflake != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
         resetBuffer =
-            this.splitStreamingBufferAfterOffsetg(
+            this.splitStreamingBufferAfterOffset(
                 streamingBufferToReset, offsetRecoveredFromSnowflake);
         long removedCount =
             streamingBufferToReset.getNumOfRecords() - resetBuffer.getNumOfRecords();
