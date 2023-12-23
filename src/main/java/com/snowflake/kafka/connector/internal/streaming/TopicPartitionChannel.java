@@ -1248,7 +1248,9 @@ public class TopicPartitionChannel {
   }
 
   /**
-   * Merges two streaming buffers into one new buffer. Adds buffer with the smaller first offset and then appends any overlap from the other buffer. Makes the assumption that any overlap between buffers is the same
+   * Merges two streaming buffers into one new buffer. Adds buffer with the smaller first offset and
+   * then appends any overlap from the other buffer. Makes the assumption that any overlap between
+   * buffers is the same
    *
    * @param buffer1 Buffer to merge
    * @param buffer2 Buffer to merge
@@ -1258,10 +1260,14 @@ public class TopicPartitionChannel {
     StreamingBuffer mergedBuffer = new StreamingBuffer();
     if (buffer1.getFirstOffset() < buffer2.getFirstOffset()) {
       buffer1.getSinkRecords().forEach(mergedBuffer::insert);
-      buffer2.getSinkRecords().stream().filter(record -> record.kafkaOffset() > mergedBuffer.getLastOffset()).forEach(mergedBuffer::insert);
+      buffer2.getSinkRecords().stream()
+          .filter(record -> record.kafkaOffset() > mergedBuffer.getLastOffset())
+          .forEach(mergedBuffer::insert);
     } else {
       buffer2.getSinkRecords().forEach(mergedBuffer::insert);
-      buffer1.getSinkRecords().stream().filter(record -> record.kafkaOffset() > mergedBuffer.getLastOffset()).forEach(mergedBuffer::insert);
+      buffer1.getSinkRecords().stream()
+          .filter(record -> record.kafkaOffset() > mergedBuffer.getLastOffset())
+          .forEach(mergedBuffer::insert);
     }
 
     return mergedBuffer;

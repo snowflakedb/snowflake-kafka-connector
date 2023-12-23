@@ -1175,8 +1175,7 @@ public class TopicPartitionChannelTest {
             recordCount,
             this.topicPartition.topic(),
             this.topicPartition.partition());
-    TopicPartitionChannel.StreamingBuffer mergeBuffer =
-        topicPartitionChannel.new StreamingBuffer();
+    TopicPartitionChannel.StreamingBuffer mergeBuffer = topicPartitionChannel.new StreamingBuffer();
     mergeRecords.forEach(mergeBuffer::insert);
 
     // merge and return resulting buffer
