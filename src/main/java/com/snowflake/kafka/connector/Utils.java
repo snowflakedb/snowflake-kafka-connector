@@ -131,6 +131,10 @@ public class Utils {
   public static final String TABLE_COLUMN_CONTENT = "RECORD_CONTENT";
   public static final String TABLE_COLUMN_METADATA = "RECORD_METADATA";
 
+  public static final String TABLE_COLUMN_TENANT_ID = "TENANT_ID";
+
+  public static final String TABLE_COLUMN_ENTITY_TYPE = "ENTITY_TYPE";
+
   public static final String GET_EXCEPTION_FORMAT = "{}, Exception message: {}, cause: {}";
   public static final String GET_EXCEPTION_MISSING_MESSAGE = "missing exception message";
   public static final String GET_EXCEPTION_MISSING_CAUSE = "missing exception cause";

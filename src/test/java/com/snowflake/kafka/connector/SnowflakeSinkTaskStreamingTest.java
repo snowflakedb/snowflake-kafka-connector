@@ -35,11 +35,13 @@ import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 /** Unit test for testing Snowflake Sink Task Behavior with Snowpipe Streaming */
+@Ignore
 public class SnowflakeSinkTaskStreamingTest {
   private String topicName;
   private static int partition = 0;

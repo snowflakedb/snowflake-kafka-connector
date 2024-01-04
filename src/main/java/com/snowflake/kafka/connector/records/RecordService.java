@@ -16,10 +16,8 @@
  */
 package com.snowflake.kafka.connector.records;
 
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
-
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -53,6 +51,8 @@ import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
 
+import static com.snowflake.kafka.connector.Utils.*;
+
 public class RecordService {
   private final KCLogger LOGGER = new KCLogger(RecordService.class.getName());
 
@@ -68,6 +68,10 @@ public class RecordService {
   static final String SCHEMA_ID = "schema_id";
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
+
+  static final String TENANT_ID = "tenantId";
+
+  static final String ENTITY_TYPE = "entityType";
 
   private boolean enableSchematization = false;
   private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues =
@@ -169,6 +173,8 @@ public class RecordService {
    */
   private SnowflakeTableRow processRecord(SinkRecord record) {
     SnowflakeRecordContent valueContent;
+    String tenantId;
+    String entityType;
 
     if (record.value() == null || record.valueSchema() == null) {
       if (this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
@@ -213,7 +219,18 @@ public class RecordService {
       meta.set(HEADERS, parseHeaders(record.headers()));
     }
 
-    return new SnowflakeTableRow(valueContent, meta);
+    // extract tenantId from the Kafka record
+    tenantId = extractTenantId(record);
+    if (Strings.isNullOrEmpty(tenantId)) {
+      throw new RuntimeException("Tenant Id is either null or empty in Kafka record.");
+    }
+    // extract entityType from the Kafka record
+    entityType = extractEntityType(record);
+    if (Strings.isNullOrEmpty(entityType)) {
+      throw new RuntimeException("Entity Type is either null or empty in Kafka record.");
+    }
+
+    return new SnowflakeTableRow(valueContent, meta, tenantId, entityType);
   }
 
   /**
@@ -234,6 +251,13 @@ public class RecordService {
       if (metadataConfig.allFlag) {
         data.set(META, row.metadata);
       }
+      try {
+        data.set(TENANT_ID, MAPPER.valueToTree(row.tenantId));
+        data.set(ENTITY_TYPE, MAPPER.valueToTree(row.entityType));
+      } catch(Exception e) {
+        throw new RuntimeException("JsonProcessingException occurred while setting Tenant Id or Entity Type");
+      }
+
       buffer.append(data.toString());
     }
     return buffer.toString();
@@ -267,6 +291,8 @@ public class RecordService {
       if (metadataConfig.allFlag) {
         streamingIngestRow.put(TABLE_COLUMN_METADATA, MAPPER.writeValueAsString(row.metadata));
       }
+      streamingIngestRow.put(TABLE_COLUMN_TENANT_ID, row.tenantId);
+      streamingIngestRow.put(TABLE_COLUMN_ENTITY_TYPE, row.entityType);
     }
 
     return streamingIngestRow;
@@ -312,9 +338,15 @@ public class RecordService {
     private final SnowflakeRecordContent content;
     private final JsonNode metadata;
 
-    public SnowflakeTableRow(SnowflakeRecordContent content, JsonNode metadata) {
+    private final String tenantId;
+
+    private final String entityType;
+
+    public SnowflakeTableRow(SnowflakeRecordContent content, JsonNode metadata, String tenantId, String entityType) {
       this.content = content;
       this.metadata = metadata;
+      this.tenantId = tenantId;
+      this.entityType = entityType;
     }
   }
 
@@ -600,5 +632,51 @@ public class RecordService {
       }
     }
     return false;
+  }
+
+  /**
+   * Extract tenant id from incoming Kafka record
+   *
+   * @param record record from Kafka
+   * @return tenantId extracted from Kafka record
+   */
+  private String extractTenantId(SinkRecord record) {
+    try {
+      if (record.value() != null && record.value() != "{}") {
+        SnowflakeRecordContent sfRecordContent = (SnowflakeRecordContent) record.value();
+        JsonNode[] jsonNodes = sfRecordContent.getData();
+        if (jsonNodes[0].size() > 0) {
+          if (!Strings.isNullOrEmpty(jsonNodes[0].get("TenantId").toString())) {
+            return jsonNodes[0].get("TenantId").asText();
+          }
+        }
+      }
+    } catch(Exception e) {
+      throw new RuntimeException("Exception occurred while extracting Tenant Id from the Kafka record.");
+    }
+    return null;
+  }
+
+  /**
+   * Extract entity type from incoming Kafka record
+   *
+   * @param record record from Kafka
+   * @return entity type extracted from Kafka record
+   */
+  private String extractEntityType(SinkRecord record) {
+    try {
+      if (record.value() != null && record.value() != "{}") {
+        SnowflakeRecordContent sfRecordContent = (SnowflakeRecordContent) record.value();
+        JsonNode[] jsonNodes = sfRecordContent.getData();
+        if (jsonNodes[0].size() > 0) {
+          if (!Strings.isNullOrEmpty(jsonNodes[0].get("EntityType").toString())) {
+            return jsonNodes[0].get("EntityType").asText();
+          }
+        }
+      }
+    } catch(Exception e) {
+      throw new RuntimeException("Exception occurred while extracting Entity Type from the Kafka record.");
+    }
+    return null;
   }
 }

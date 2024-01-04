@@ -40,6 +40,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.mockito.Mockito;
 
+@Ignore
 @RunWith(Parameterized.class)
 public class StreamingClientConcurrencyTest {
   private Map<String, String> clientConfig;

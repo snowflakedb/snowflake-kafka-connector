@@ -211,7 +211,7 @@ public class HeaderTest {
         Schema.STRING_SCHEMA,
         "key",
         new SnowflakeJsonSchema(),
-        new SnowflakeRecordContent(MAPPER.readTree("{\"num\":123}")),
+        new SnowflakeRecordContent(MAPPER.readTree("{\"num\":123,\"TenantId\":101,\"EntityType\":\"testEntity\"}")),
         0,
         System.currentTimeMillis(),
         TimestampType.CREATE_TIME,

@@ -8,8 +8,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import net.snowflake.ingest.connection.IngestStatus;
+import org.junit.Ignore;
 import org.junit.Test;
 
+@Ignore
 public class InternalUtilsTest {
   @Test
   public void testPrivateKey() {

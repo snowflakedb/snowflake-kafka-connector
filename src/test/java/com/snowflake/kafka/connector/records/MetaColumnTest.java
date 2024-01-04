@@ -57,7 +57,7 @@ public class MetaColumnTest {
     RecordService service = new RecordService();
     SchemaAndValue input =
         converter.toConnectData(
-            topic, ("{\"name\":\"test" + "\"}").getBytes(StandardCharsets.UTF_8));
+            topic, ("{\"name\":\"test\",\"TenantId\":101,\"EntityType\":\"testEntity\"}").getBytes(StandardCharsets.UTF_8));
     long timestamp = System.currentTimeMillis();
 
     // no timestamp
@@ -89,7 +89,7 @@ public class MetaColumnTest {
     RecordService service = new RecordService();
     SchemaAndValue input =
         converter.toConnectData(
-            topic, ("{\"name\":\"test" + "\"}").getBytes(StandardCharsets.UTF_8));
+            topic, ("{\"name\":\"test\",\"TenantId\":101,\"EntityType\":\"testEntity\"}").getBytes(StandardCharsets.UTF_8));
     long timestamp = System.currentTimeMillis();
 
     SinkRecord record =
@@ -149,7 +149,7 @@ public class MetaColumnTest {
     RecordService service = new RecordService();
     SchemaAndValue input =
         converter.toConnectData(
-            topic, ("{\"name\":\"test" + "\"}").getBytes(StandardCharsets.UTF_8));
+            topic, ("{\"name\":\"test\",\"TenantId\":101,\"EntityType\":\"testEntity\"}").getBytes(StandardCharsets.UTF_8));
     long timestamp = System.currentTimeMillis();
 
     // no timestamp

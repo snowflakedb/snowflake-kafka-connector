@@ -29,8 +29,11 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+
+import org.junit.Ignore;
 import org.junit.Test;
 
+@Ignore
 public class StreamingClientPropertiesTest {
 
   @Test

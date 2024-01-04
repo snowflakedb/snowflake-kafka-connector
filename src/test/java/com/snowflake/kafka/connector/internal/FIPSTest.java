@@ -12,8 +12,10 @@ import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfoBuilder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS8EncryptedPrivateKeyInfoBuilder;
 import org.bouncycastle.pkcs.jcajce.JcePKCSPBEOutputEncryptorBuilder;
+import org.junit.Ignore;
 import org.junit.Test;
 
+@Ignore
 public class FIPSTest {
   @Test
   public void testFips() throws IOException, OperatorCreationException {

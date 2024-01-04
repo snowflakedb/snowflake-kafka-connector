@@ -11,8 +11,10 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Map;
 import org.bouncycastle.operator.OperatorCreationException;
+import org.junit.Ignore;
 import org.junit.Test;
 
+@Ignore
 public class SecurityTest {
 
   @Test

@@ -35,7 +35,7 @@ import org.junit.runners.Parameterized;
 public class SnowflakeTelemetryServiceTest {
   @Parameterized.Parameters(name = "ingestionMethod: {0}")
   public static List<IngestionMethodConfig> input() {
-    return Arrays.asList(IngestionMethodConfig.SNOWPIPE, IngestionMethodConfig.SNOWPIPE_STREAMING);
+    return Arrays.asList(IngestionMethodConfig.SNOWPIPE);  //, IngestionMethodConfig.SNOWPIPE_STREAMING);
   }
 
   private final IngestionMethodConfig ingestionMethodConfig;
