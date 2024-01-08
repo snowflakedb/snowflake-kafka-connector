@@ -140,6 +140,8 @@ public class InternalStageIT {
     proxyProperties.put(SFSessionProperty.PROXY_PORT.getPropertyKey(), "3128");
     proxyProperties.put(SFSessionProperty.PROXY_USER.getPropertyKey(), "admin");
     proxyProperties.put(SFSessionProperty.PROXY_PASSWORD.getPropertyKey(), "test");
+    // required otherwise JDBC version 3.13.31 throws NPE
+    proxyProperties.put(SFSessionProperty.GZIP_DISABLED.getPropertyKey(), "false");
 
     // Create new snowflake connection service
     Map<String, String> config = TestUtils.getConf();

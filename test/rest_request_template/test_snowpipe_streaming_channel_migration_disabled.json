@@ -2,8 +2,7 @@
   "name": "SNOWFLAKE_CONNECTOR_NAME",
   "config": {
     "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
-    "topics": "SNOWFLAKE_TEST_TOPIC0,SNOWFLAKE_TEST_TOPIC1",
-    "snowflake.topic2table.map": "SNOWFLAKE_TEST_TOPIC0:SNOWFLAKE_CONNECTOR_NAME,SNOWFLAKE_TEST_TOPIC1:SNOWFLAKE_CONNECTOR_NAME",
+    "topics": "SNOWFLAKE_TEST_TOPIC",
     "tasks.max": "1",
     "buffer.flush.time": "60",
     "buffer.count.records": "300",
@@ -18,6 +17,7 @@
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "false",
+    "enable.streaming.channel.offset.migration": "false",
     "jmx": "true",
     "errors.tolerance": "all",
     "errors.log.enable": true,

@@ -124,9 +124,9 @@ public class SnowflakeSinkConnectorConfig {
   public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
       IngestionMethodConfig.SNOWPIPE.toString();
 
-  // This is the streaming bdec file version which can be defined in config
-  // NOTE: Please do not override this value unless recommended from snowflake
-  public static final String SNOWPIPE_STREAMING_FILE_VERSION = "snowflake.streaming.file.version";
+  // This is the streaming max client lag which can be defined in config
+  public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
+      "snowflake.streaming.max.client.lag";
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
@@ -179,6 +179,17 @@ public class SnowflakeSinkConnectorConfig {
   public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DOC =
       "Whether to optimize the streaming client to reduce cost. Note that this may affect"
           + " throughput or latency and can only be set if Streaming Snowpipe is enabled";
+
+  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG =
+      "enable.streaming.channel.offset.migration";
+  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY =
+      "Enable Streaming Channel Offset Migration";
+  public static final boolean ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT = true;
+  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DOC =
+      "This config is used to enable/disable streaming channel offset migration logic. If true, we"
+          + " will migrate offset token from channel name format V2 to name format v1. V2 channel"
+          + " format is deprecated and V1 will be used always, disabling this config could have"
+          + " ramifications. Please consult Snowflake support before setting this to false.";
 
   // MDC logging header
   public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
@@ -542,17 +553,16 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Width.NONE,
             INGESTION_METHOD_OPT)
         .define(
-            SNOWPIPE_STREAMING_FILE_VERSION,
-            Type.STRING,
-            "", // default is handled in Ingest SDK
-            null, // no validator
+            SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
+            Type.LONG,
+            StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC,
+            ConfigDef.Range.atLeast(StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC),
             Importance.LOW,
-            "Acceptable values for Snowpipe Streaming BDEC Versions: 1 and 3. Check Ingest"
-                + " SDK for default behavior. Please do not set this unless Absolutely needed. ",
+            "Decide how often the buffer in the Ingest SDK will be flushed",
             CONNECTOR_CONFIG,
             6,
             ConfigDef.Width.NONE,
-            SNOWPIPE_STREAMING_FILE_VERSION)
+            SNOWPIPE_STREAMING_MAX_CLIENT_LAG)
         .define(
             ERRORS_TOLERANCE_CONFIG,
             Type.STRING,
@@ -613,7 +623,17 @@ public class SnowflakeSinkConnectorConfig {
             CONNECTOR_CONFIG,
             8,
             ConfigDef.Width.NONE,
-            ENABLE_MDC_LOGGING_DISPLAY);
+            ENABLE_MDC_LOGGING_DISPLAY)
+        .define(
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
+            Type.BOOLEAN,
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT,
+            Importance.LOW,
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DOC,
+            CONNECTOR_CONFIG,
+            9,
+            ConfigDef.Width.NONE,
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY);
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {

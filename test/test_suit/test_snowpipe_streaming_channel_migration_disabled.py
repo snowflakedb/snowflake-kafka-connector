@@ -4,10 +4,14 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 from time import sleep
 
-class TestSnowpipeStreamingStringJson:
+"""
+Only config added here is about migrating channel offsets from channel created in version 2.1.0 to any future versions.
+This test verifies if the functionality can be disabled
+"""
+class TestSnowpipeStreamingStringJsonChannelMigrationDisabled:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_snowpipe_streaming_string_json"
+        self.fileName = "test_snowpipe_streaming_channel_migration_disabled"
         self.topic = self.fileName + nameSalt
 
         self.topicNum = 1

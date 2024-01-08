@@ -5,28 +5,28 @@ from test_suit.test_utils import NonRetryableError
 
 # test if the table is updated with the correct column
 # add test if all the records from different topics safely land in the table
-# the table is suppose to be created with only RECORD_METADATA in the beginning
-# while the rest of columns should be handled by schema evolution
-class TestSchemaEvolutionWithAutoTableCreationJson:
+class TestSchemaEvolutionJsonIgnoreTombstone:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_evolution_w_auto_table_creation_json"
+        self.fileName = "test_schema_evolution_json_ignore_tombstone"
         self.topics = []
         self.table = self.fileName + nameSalt
-
-        # records
-        self.initialRecordCount = 12
-        self.flushRecordCount = 300
-        self.recordNum = self.initialRecordCount + self.flushRecordCount
+        self.recordNum = 100
 
         for i in range(2):
             self.topics.append(self.table + str(i))
+
+        self.driver.snowflake_conn.cursor().execute(
+            "Create or replace table {} (PERFORMANCE_STRING STRING)".format(self.table))
+
+        self.driver.snowflake_conn.cursor().execute(
+            "alter table {} set ENABLE_SCHEMA_EVOLUTION = true".format(self.table))
 
         self.records = []
 
         self.records.append({
             'PERFORMANCE_STRING': 'Excellent',
-            'PERFORMANCE_CHAR': 'A',
+            '"case_sensitive_PERFORMANCE_CHAR"': 'A',
             'RATING_INT': 100
         })
 
@@ -38,7 +38,7 @@ class TestSchemaEvolutionWithAutoTableCreationJson:
 
         self.gold_type = {
             'PERFORMANCE_STRING': 'VARCHAR',
-            'PERFORMANCE_CHAR': 'VARCHAR',
+            'case_sensitive_PERFORMANCE_CHAR': 'VARCHAR',
             'RATING_INT': 'NUMBER',
             'RATING_DOUBLE': 'FLOAT',
             'APPROVAL': 'BOOLEAN',
@@ -52,20 +52,21 @@ class TestSchemaEvolutionWithAutoTableCreationJson:
 
     def send(self):
         for i, topic in enumerate(self.topics):
-            # send initial batch
             key = []
             value = []
-            for e in range(self.initialRecordCount):
-                key.append(json.dumps({'number': str(e)}).encode('utf-8'))
-                value.append(json.dumps(self.records[i]).encode('utf-8'))
-            self.driver.sendBytesData(topic, value, key)
 
-            # send second batch that should flush
-            key = []
-            value = []
-            for e in range(self.flushRecordCount):
+            # send two less record because we are sending tombstone records. tombstone ingestion is enabled by default
+            for e in range(self.recordNum - 2):
                 key.append(json.dumps({'number': str(e)}).encode('utf-8'))
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
+
+            # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
+            if self.driver.testVersion != '2.5.1':
+                key.append(json.dumps({'number': str(self.recordNum - 1)}).encode('utf-8'))
+                value.append(None)
+                key.append(json.dumps({'number': str(self.recordNum)}).encode('utf-8'))
+                value.append("") # community converters treat this as a tombstone
+
             self.driver.sendBytesData(topic, value, key)
 
     def verify(self, round):
@@ -88,8 +89,8 @@ class TestSchemaEvolutionWithAutoTableCreationJson:
 
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.table)).fetchone()[0]
-        if res != len(self.topics) * self.recordNum:
-            print("Number of record expected: {}, got: {}".format(len(self.topics) * self.recordNum, res))
+        if res != len(self.topics) * (self.recordNum - 2):
+            print("Number of record expected: {}, got: {}".format(len(self.topics) * (self.recordNum - 1), res))
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
     def clean(self):

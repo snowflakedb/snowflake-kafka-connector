@@ -5,8 +5,8 @@
     "topics": "SNOWFLAKE_TEST_TOPIC0,SNOWFLAKE_TEST_TOPIC1",
     "snowflake.topic2table.map": "SNOWFLAKE_TEST_TOPIC0:SNOWFLAKE_CONNECTOR_NAME,SNOWFLAKE_TEST_TOPIC1:SNOWFLAKE_CONNECTOR_NAME",
     "tasks.max": "1",
-    "buffer.flush.time": "60",
-    "buffer.count.records": "300",
+    "buffer.flush.time": "10",
+    "buffer.count.records": "100",
     "buffer.size.bytes": "5000000",
     "snowflake.url.name": "SNOWFLAKE_HOST",
     "snowflake.user.name": "SNOWFLAKE_USER",
@@ -23,6 +23,7 @@
     "errors.log.enable": true,
     "errors.deadletterqueue.topic.name": "DLQ_TOPIC",
     "errors.deadletterqueue.topic.replication.factor": 1,
-    "snowflake.enable.schematization": true
+    "snowflake.enable.schematization": true,
+    "behavior.on.null.values": "IGNORE"
   }
 }

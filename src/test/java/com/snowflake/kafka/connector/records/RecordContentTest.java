@@ -106,27 +106,26 @@ public class RecordContentTest {
                         .put("map", Collections.singletonMap("field", 1))
                         .put("mapNonStringKeys", Collections.singletonMap(1, 1));
 
-        content = new SnowflakeRecordContent(schema, original);
-        assert content
-                .getData()[0]
-                .toString()
-                .equals(
-                        "{\"int8\":12,\"int16\":12,\"int32\":12,\"int64\":12,\"float32\":12.2,\"float64\":12.2,\"boolean\":true,\"string\":\"foo\",\"bytes\":\"Zm9v\",\"array\":[\"a\",\"b\",\"c\"],\"map\":{\"field\":1},\"mapNonStringKeys\":[[1,1]]}");
+    content = new SnowflakeRecordContent(schema, original, false);
+    assert content
+        .getData()[0]
+        .toString()
+        .equals(
+            "{\"int8\":12,\"int16\":12,\"int32\":12,\"int64\":12,\"float32\":12.2,\"float64\":12.2,\"boolean\":true,\"string\":\"foo\",\"bytes\":\"Zm9v\",\"array\":[\"a\",\"b\",\"c\"],\"map\":{\"field\":1},\"mapNonStringKeys\":[[1,1]]}");
 
-        // JSON map object
-        JsonNode jsonObject =
-                mapper.readTree(
-                        "{\"int8\":12,\"int16\":12,\"int32\":12,\"int64\":12,\"float32\":12.2,\"float64\":12.2,\"boolean\":true,\"string\":\"foo\",\"bytes\":\"Zm9v\",\"array\":[\"a\",\"b\",\"c\"],\"map\":{\"field\":1},\"mapNonStringKeys\":[[1,1]]}");
-        Map<String, Object> jsonMap =
-                mapper.convertValue(jsonObject, new TypeReference<Map<String, Object>>() {
-                });
-        content = new SnowflakeRecordContent(null, jsonMap);
-        assert content
-                .getData()[0]
-                .toString()
-                .equals(
-                        "{\"int8\":12,\"int16\":12,\"int32\":12,\"int64\":12,\"float32\":12.2,\"float64\":12.2,\"boolean\":true,\"string\":\"foo\",\"bytes\":\"Zm9v\",\"array\":[\"a\",\"b\",\"c\"],\"map\":{\"field\":1},\"mapNonStringKeys\":[[1,1]]}");
-    }
+    // JSON map object
+    JsonNode jsonObject =
+        mapper.readTree(
+            "{\"int8\":12,\"int16\":12,\"int32\":12,\"int64\":12,\"float32\":12.2,\"float64\":12.2,\"boolean\":true,\"string\":\"foo\",\"bytes\":\"Zm9v\",\"array\":[\"a\",\"b\",\"c\"],\"map\":{\"field\":1},\"mapNonStringKeys\":[[1,1]]}");
+    Map<String, Object> jsonMap =
+        mapper.convertValue(jsonObject, new TypeReference<Map<String, Object>>() {});
+    content = new SnowflakeRecordContent(null, jsonMap, false);
+    assert content
+        .getData()[0]
+        .toString()
+        .equals(
+            "{\"int8\":12,\"int16\":12,\"int32\":12,\"int64\":12,\"float32\":12.2,\"float64\":12.2,\"boolean\":true,\"string\":\"foo\",\"bytes\":\"Zm9v\",\"array\":[\"a\",\"b\",\"c\"],\"map\":{\"field\":1},\"mapNonStringKeys\":[[1,1]]}");
+  }
 
   @Test(expected = SnowflakeKafkaConnectorException.class)
   public void testEmptyValueDisabledTombstone() {
@@ -239,6 +238,37 @@ public class RecordContentTest {
         assert RecordService.convertToJson(schema, buffer).toString().equals(expected);
     }
 
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testConvertToJsonEmptyValue() {
+    Schema schema = SchemaBuilder.int32().optional().defaultValue(123).build();
+    assert RecordService.convertToJson(schema, null, false).toString().equals("123");
+
+    schema = SchemaBuilder.int32().build();
+    RecordService.convertToJson(schema, null, false);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testConvertToJsonNonOptional() {
+    Schema schema = SchemaBuilder.int32().build();
+    RecordService.convertToJson(schema, null, false);
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testConvertToJsonNoSchemaType() {
+    RecordService.convertToJson(null, new SnowflakeJsonSchema(), false);
+  }
+
+  @Test
+  public void testConvertToJsonReadOnlyByteBuffer() {
+    String original = "bytes";
+    // Expecting a json string, which has additional quotes.
+    String expected = "\"" + Base64.getEncoder().encodeToString(original.getBytes()) + "\"";
+    ByteBuffer buffer = ByteBuffer.wrap(original.getBytes()).asReadOnlyBuffer();
+    Schema schema = SchemaBuilder.bytes().build();
+    assert RecordService.convertToJson(schema, buffer, false).toString().equals(expected);
+  }
+
+
     @Test
     public void testSchematizationStringField() throws JsonProcessingException {
         RecordService service = new RecordService();
@@ -265,6 +295,31 @@ public class RecordContentTest {
     public void testColumnNameFormatting() throws JsonProcessingException {
         RecordService service = new RecordService();
         SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
+
+  @Test
+  public void testSchematizationArrayOfObject() throws JsonProcessingException {
+    RecordService service = new RecordService();
+    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
+
+    service.setEnableSchematization(true);
+    String value =
+        "{\"players\":[{\"name\":\"John Doe\",\"age\":30},{\"name\":\"Jane Doe\",\"age\":30}]}";
+    byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
+    SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
+
+    SinkRecord record =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "string", sv.schema(), sv.value(), partition);
+
+    Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
+    assert got.get("\"PLAYERS\"")
+        .equals("[{\"name\":\"John Doe\",\"age\":30},{\"name\":\"Jane Doe\",\"age\":30}]");
+  }
+
+  @Test
+  public void testColumnNameFormatting() throws JsonProcessingException {
+    RecordService service = new RecordService();
+    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
         service.setEnableSchematization(true);
         String value = "{\"\\\"NaMe\\\"\":\"sf\",\"AnSwEr\":42}";
