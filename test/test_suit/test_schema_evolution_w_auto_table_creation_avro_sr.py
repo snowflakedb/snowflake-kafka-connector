@@ -12,7 +12,11 @@ class TestSchemaEvolutionWithAutoTableCreationAvroSR:
         self.fileName = "travis_correct_schema_evolution_w_auto_table_creation_avro_sr"
         self.topics = []
         self.table = self.fileName + nameSalt
-        self.recordNum = 100
+
+        # records
+        self.initialRecordCount = 12
+        self.flushRecordCount = 300
+        self.recordNum = self.initialRecordCount + self.flushRecordCount
 
         for i in range(2):
             self.topics.append(self.table + str(i))
@@ -78,8 +82,15 @@ class TestSchemaEvolutionWithAutoTableCreationAvroSR:
 
     def send(self):
         for i, topic in enumerate(self.topics):
+            # send initial batch
             value = []
-            for _ in range(self.recordNum):
+            for _ in range(self.initialRecordCount):
+                value.append(self.records[i])
+            self.driver.sendAvroSRData(topic, value, self.valueSchema[i], key=[], key_schema="", partition=0)
+
+            # send second batch that should flush
+            value = []
+            for _ in range(self.flushRecordCount):
                 value.append(self.records[i])
             self.driver.sendAvroSRData(topic, value, self.valueSchema[i], key=[], key_schema="", partition=0)
 

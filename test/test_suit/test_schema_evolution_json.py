@@ -54,9 +54,22 @@ class TestSchemaEvolutionJson:
         for i, topic in enumerate(self.topics):
             key = []
             value = []
-            for e in range(self.recordNum):
+
+            # send two less record because we are sending tombstone records. tombstone ingestion is enabled by default
+            for e in range(self.recordNum - 2):
                 key.append(json.dumps({'number': str(e)}).encode('utf-8'))
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
+
+            # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
+            if self.driver.testVersion == '2.5.1':
+                value.append(json.dumps(self.records[i]).encode('utf-8'))
+                value.append(json.dumps(self.records[i]).encode('utf-8'))
+            else:
+                value.append(None)
+                value.append("") # community converters treat this as a tombstone
+            key.append(json.dumps({'number': str(self.recordNum - 1)}).encode('utf-8'))
+            key.append(json.dumps({'number': str(self.recordNum)}).encode('utf-8'))
+
             self.driver.sendBytesData(topic, value, key)
 
     def verify(self, round):

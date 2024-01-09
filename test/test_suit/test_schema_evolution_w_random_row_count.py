@@ -1,21 +1,20 @@
 import json
+import random
 
 from test_suit.test_utils import NonRetryableError
 
 
-# test if the table is updated with the correct column
-# add test if all the records from different topics safely land in the table
-# the table is suppose to be created with only RECORD_METADATA in the beginning
-# while the rest of columns should be handled by schema evolution
-class TestSchemaEvolutionWithAutoTableCreationJson:
+# test if the ingestion works when the schematization alter table invalidation happens
+# halfway through a batch
+class TestSchemaEvolutionWithRandomRowCount:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_schema_evolution_w_auto_table_creation_json"
+        self.fileName = "test_schema_evolution_w_random_row_count"
         self.topics = []
         self.table = self.fileName + nameSalt
 
         # records
-        self.initialRecordCount = 12
+        self.initialRecordCount = random.randrange(1,300)
         self.flushRecordCount = 300
         self.recordNum = self.initialRecordCount + self.flushRecordCount
 
@@ -51,6 +50,8 @@ class TestSchemaEvolutionWithAutoTableCreationJson:
         return self.fileName + ".json"
 
     def send(self):
+        print("Got random record count of {}".format(str(self.initialRecordCount)))
+
         for i, topic in enumerate(self.topics):
             # send initial batch
             key = []
