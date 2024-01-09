@@ -37,6 +37,7 @@ import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.lang.String;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -615,6 +616,7 @@ public class TopicPartitionChannel {
           streamingBufferToInsert,
           response.hasErrors(),
           response.needToResetOffset());
+
       if (response.hasErrors()) {
         handleInsertRowsFailures(
             response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
@@ -632,12 +634,12 @@ public class TopicPartitionChannel {
       if (response != null) {
         LOGGER.warn(
                 "[INSERT_BUFFERED_RECORDS] Failure inserting buffer {} for channel: {}\n {}\n {}",
-                streamingBufferToInsert, this.getChannelName(), ex, response.getInsertErrors().toString()
+                streamingBufferToInsert, this.getChannelNameFormatV1(), ex, response.getInsertErrors().toString()
         );
       } else {
         LOGGER.warn(
                 "[INSERT_BUFFERED_RECORDS] Failure inserting buffer {} for channel: {} {}",
-                streamingBufferToInsert, this.getChannelName(), ex);
+                streamingBufferToInsert, this.getChannelNameFormatV1(), ex);
       }
       LOGGER.warn(
           String.format(
@@ -884,6 +886,7 @@ public class TopicPartitionChannel {
                   // TODO: take out this hack
                   if (rowContent.getOrDefault("RECORD_METADATA", null) != null) {
                     HashMap<String, Object> metadata = new ObjectMapper().readValue((String) rowContent.get("RECORD_METADATA"), HashMap.class);
+
                     List<SinkRecord> res = insertedRecordsToBuffer.stream().filter((rec) -> ((Long) rec.kafkaOffset()).longValue() == ((Number) metadata.get("offset")).longValue()).collect(Collectors.toList());
                     this.kafkaRecordErrorReporter.reportError(res.get(0), insertError.getException());
                   }

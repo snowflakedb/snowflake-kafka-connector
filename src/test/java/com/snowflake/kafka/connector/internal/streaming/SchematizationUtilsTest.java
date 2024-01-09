@@ -146,7 +146,6 @@ public class SchematizationUtilsTest {
     byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
     SchemaAndValue schemaAndValue =
             jsonConverter.toConnectData("topic", valueContents);
-
     SinkRecord recordWithoutSchema =
             new SinkRecord(
                     "topic", 0, Schema.STRING_SCHEMA, "string", schemaAndValue.schema(), schemaAndValue.value(), 0);
@@ -160,7 +159,7 @@ public class SchematizationUtilsTest {
       recordWithoutSchema =
               new SinkRecord(
                       "topic", 0, Schema.STRING_SCHEMA, "string", null, processedRecordForStreamingIngest, 0);
-      Map<String, String> columnToTypes = SchematizationUtils.getColumnTypes(recordWithoutSchema, Collections.singletonList("PAYLOAD_DETAIL"));
+      Map<String, String> columnToTypes = SchematizationUtils.getColumnTypes(recordWithoutSchema, Collections.singletonList(Utils.quoteNameIfNeeded("PAYLOAD_DETAIL")));
       assert Objects.equals(columnToTypes.get("\"PAYLOAD_DETAIL\""), "VARIANT");
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
