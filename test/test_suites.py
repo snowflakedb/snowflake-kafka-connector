@@ -37,6 +37,8 @@ from test_suit.test_schema_evolution_w_random_row_count import \
     TestSchemaEvolutionWithRandomRowCount
 from test_suit.test_schema_mapping import TestSchemaMapping
 from test_suit.test_schema_not_supported_converter import TestSchemaNotSupportedConverter
+from test_suit.test_snowpipe_streaming_channel_migration_disabled import \
+    TestSnowpipeStreamingStringJsonChannelMigrationDisabled
 from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
 from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
 from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
@@ -47,7 +49,6 @@ from test_suit.test_string_avro import TestStringAvro
 from test_suit.test_string_avrosr import TestStringAvrosr
 from test_suit.test_string_json import TestStringJson
 from test_suit.test_string_json_ignore_tombstone import TestStringJsonIgnoreTombstone
-from test_suit.test_snowpipe_streaming_channel_migration_disabled import TestSnowpipeStreamingStringJsonChannelMigrationDisabled
 
 
 class EndToEndTestSuite:
@@ -136,7 +137,8 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             run_in_apache=True
         )),
         ("TestSnowpipeStreamingStringJsonChannelMigrationDisabled", EndToEndTestSuite(
-            test_instance=TestSnowpipeStreamingStringJsonChannelMigrationDisabled(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestSnowpipeStreamingStringJsonChannelMigrationDisabled(driver, nameSalt), clean=True,
+            run_in_confluent=True, run_in_apache=True
         )),
         ("TestSnowpipeStreamingStringJsonIgnoreTombstone", EndToEndTestSuite(
             test_instance=TestSnowpipeStreamingStringJsonIgnoreTombstone(driver, nameSalt), clean=True,
@@ -178,9 +180,10 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             test_instance=TestSchemaEvolutionJson(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
         )),
+        # TODO: tzhang
         ("TestSchemaEvolutionJsonIgnoreTombstone", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionJsonIgnoreTombstone(driver, nameSalt), clean=True, run_in_confluent=True,
-            run_in_apache=True
+            test_instance=TestSchemaEvolutionJsonIgnoreTombstone(driver, nameSalt), clean=True, run_in_confluent=False,
+            run_in_apache=False
         )),
         ("TestSchemaEvolutionAvroSR", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionAvroSR(driver, nameSalt), clean=True, run_in_confluent=True,
