@@ -32,6 +32,7 @@ public class InternalUtils {
   static final String JDBC_WAREHOUSE = "warehouse"; // for test only
   static final String JDBC_AUTHENTICATOR = SFSessionProperty.AUTHENTICATOR.getPropertyKey();
   static final String JDBC_TOKEN = SFSessionProperty.TOKEN.getPropertyKey();
+  static final String JDBC_QUERY_RESULT_FORMAT = "JDBC_QUERY_RESULT_FORMAT";
   // internal parameters
   static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; // 10 days
 
@@ -222,6 +223,8 @@ public class InternalUtils {
     }
     // put values for optional parameters
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
+    // SNOW-989387 - Set query resultset format to JSON as a workaround
+    properties.put(JDBC_QUERY_RESULT_FORMAT, "json");
 
     /**
      * Behavior change in JDBC release 3.13.25
