@@ -65,7 +65,7 @@ class TestSchemaEvolutionJsonIgnoreTombstone:
                 key.append(json.dumps({'number': str(self.recordNum - 1)}).encode('utf-8'))
                 value.append(None)
                 key.append(json.dumps({'number': str(self.recordNum)}).encode('utf-8'))
-                value.append("") # community converters treat this as a tombstone
+                value.append("")  # community converters treat this as a tombstone
 
             self.driver.sendBytesData(topic, value, key)
 
@@ -94,4 +94,5 @@ class TestSchemaEvolutionJsonIgnoreTombstone:
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
     def clean(self):
-        self.driver.cleanTableStagePipe(self.table)
+        print("aaaaaaaaaaa: ", self.table)
+        # self.driver.cleanTableStagePipe(self.table)
