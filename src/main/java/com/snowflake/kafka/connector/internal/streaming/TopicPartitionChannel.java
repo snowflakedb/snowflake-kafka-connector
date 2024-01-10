@@ -539,7 +539,8 @@ public class TopicPartitionChannel {
       // since it's possible that not all rows are ingested
       if (response.needToResetOffset()) {
         streamingApiFallbackSupplier(
-            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
+            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK,
+            streamingBufferToInsert);
       }
       return response;
     } catch (TopicPartitionChannelInsertionException ex) {
@@ -573,7 +574,7 @@ public class TopicPartitionChannel {
     Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
         Fallback.builder(
                 executionAttemptedEvent -> {
-                  insertRowsFallbackSupplier(executionAttemptedEvent.getLastException());
+                  insertRowsFallbackSupplier(buffer, executionAttemptedEvent.getLastException());
                 })
             .handle(SFException.class)
             .onFailedAttempt(
@@ -712,10 +713,10 @@ public class TopicPartitionChannel {
    * @throws TopicPartitionChannelInsertionException exception is thrown after channel reopen has
    *     been successful and offsetToken was fetched from Snowflake
    */
-  private void insertRowsFallbackSupplier(Throwable ex)
+  private void insertRowsFallbackSupplier(StreamingBuffer buffer, Throwable ex)
       throws TopicPartitionChannelInsertionException {
     final long offsetRecoveredFromSnowflake =
-        streamingApiFallbackSupplier(StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK);
+        streamingApiFallbackSupplier(StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK, buffer);
     throw new TopicPartitionChannelInsertionException(
         String.format(
             "%s Failed to insert rows for channel:%s. Recovered offset from Snowflake is:%s",
@@ -848,7 +849,8 @@ public class TopicPartitionChannel {
         Fallback.builder(
                 () ->
                     streamingApiFallbackSupplier(
-                        StreamingApiFallbackInvoker.GET_OFFSET_TOKEN_FALLBACK))
+                        StreamingApiFallbackInvoker.GET_OFFSET_TOKEN_FALLBACK,
+                        new StreamingBuffer()))
             .handle(SFException.class)
             .onFailure(
                 event ->
@@ -888,10 +890,12 @@ public class TopicPartitionChannel {
    * @return offset which was last present in Snowflake
    */
   private long streamingApiFallbackSupplier(
-      final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
+      final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
+      final StreamingBuffer bufferToAppend) {
     final long offsetRecoveredFromSnowflake =
         getRecoveredOffsetFromSnowflake(streamingApiFallbackInvoker);
-    resetChannelMetadataAfterRecovery(streamingApiFallbackInvoker, offsetRecoveredFromSnowflake);
+    resetChannelMetadataAfterRecovery(
+        streamingApiFallbackInvoker, offsetRecoveredFromSnowflake, bufferToAppend);
     return offsetRecoveredFromSnowflake;
   }
 
@@ -910,7 +914,8 @@ public class TopicPartitionChannel {
    */
   private void resetChannelMetadataAfterRecovery(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
-      final long offsetRecoveredFromSnowflake) {
+      final long offsetRecoveredFromSnowflake,
+      final StreamingBuffer bufferToAppend) {
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       LOGGER.info(
           "{} Channel:{}, offset token is NULL, will use the consumer offset managed by the"
@@ -938,7 +943,9 @@ public class TopicPartitionChannel {
               + " kafka",
           this.streamingBuffer,
           this.getChannelNameFormatV1());
-      this.streamingBuffer = new StreamingBuffer();
+
+      this.streamingBuffer =
+          this.combineBuffers(bufferToAppend, offsetToResetInKafka, this.streamingBuffer);
 
       // Reset Offset in kafka for this topic partition.
       this.sinkTaskContext.offset(this.topicPartition, offsetToResetInKafka);
@@ -956,6 +963,47 @@ public class TopicPartitionChannel {
         this.getChannelNameFormatV1(),
         offsetRecoveredFromSnowflake,
         offsetToResetInKafka);
+  }
+
+  private StreamingBuffer combineBuffers(
+      final StreamingBuffer bufferToAppend,
+      final long offsetToAppend,
+      final StreamingBuffer original) {
+    if (bufferToAppend.isEmpty()) {
+      return original;
+    }
+
+    LOGGER.info(
+        String.format(
+            "Combine buffers for %s, %s, %s, %s, %s",
+            this.getChannelNameFormatV1(),
+            bufferToAppend.getFirstOffset(),
+            bufferToAppend.getLastOffset(),
+            original.getFirstOffset(),
+            original.getLastOffset()));
+
+    StreamingBuffer buffer = new StreamingBuffer();
+    for (SinkRecord record : bufferToAppend.getSinkRecords()) {
+      if (record.kafkaOffset() > offsetToAppend) {
+        buffer.insert(record);
+      }
+    }
+
+    if (!original.isEmpty()) {
+      if (buffer.getLastOffset() >= original.getFirstOffset()) {
+        throw new RuntimeException(
+            String.format(
+                "Failed to combine buffers for %s, %s, %s, %s, %s",
+                this.getChannelNameFormatV1(),
+                buffer.getFirstOffset(),
+                buffer.getLastOffset(),
+                original.getFirstOffset(),
+                original.getLastOffset()));
+      }
+      original.sinkRecords.forEach(buffer::insert);
+    }
+
+    return buffer;
   }
 
   /**
