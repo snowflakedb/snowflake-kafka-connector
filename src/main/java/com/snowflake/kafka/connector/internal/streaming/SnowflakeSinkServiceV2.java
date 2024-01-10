@@ -297,7 +297,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void insert(SinkRecord record) {
-    throw new UnsupportedOperationException();
+    insert(record, true);
   }
 
   /**
