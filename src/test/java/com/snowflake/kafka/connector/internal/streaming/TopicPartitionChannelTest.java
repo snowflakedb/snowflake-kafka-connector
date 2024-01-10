@@ -214,7 +214,7 @@ public class TopicPartitionChannelTest {
             input.value(),
             offset);
 
-    topicPartitionChannel.insertRecordToBuffer(record1);
+    topicPartitionChannel.insertRecordToBuffer(record1, true);
 
     Assert.assertEquals(-1l, topicPartitionChannel.getOffsetPersistedInSnowflake());
 
@@ -561,7 +561,9 @@ public class TopicPartitionChannelTest {
     // Test inserting record 0, which should fail to ingest so the other records are ignored
     List<SinkRecord> records =
         TestUtils.createJsonStringSinkRecords(0, noOfRecords, TOPIC, PARTITION);
-    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
     expectedInsertRowsCount++;
     expectedOpenChannelCount++;
     expectedGetOffsetCount++;
@@ -576,7 +578,9 @@ public class TopicPartitionChannelTest {
 
     // Retry the insert again, now everything should be ingested and the offset token should be
     // noOfRecords-1
-    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
     Assert.assertEquals(noOfRecords - 1, topicPartitionChannel.fetchOffsetTokenWithRetry());
     expectedInsertRowsCount += noOfRecords;
     expectedGetOffsetCount++;
@@ -657,7 +661,9 @@ public class TopicPartitionChannelTest {
       List<SinkRecord> records =
           TestUtils.createNativeJsonSinkRecords(0, noOfRecords, TOPIC, PARTITION);
 
-      records.forEach(topicPartitionChannel::insertRecordToBuffer);
+      for (int idx = 0; idx < records.size(); idx++) {
+        topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+      }
 
       // In an ideal world, put API is going to invoke this to check if flush time threshold has
       // reached.
@@ -739,7 +745,7 @@ public class TopicPartitionChannelTest {
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
-    topicPartitionChannel.insertRecordToBuffer(records.get(0));
+    topicPartitionChannel.insertRecordToBuffer(records.get(0), true);
 
     try {
       topicPartitionChannel.insertBufferedRecords(topicPartitionChannel.getStreamingBuffer());
@@ -786,7 +792,7 @@ public class TopicPartitionChannelTest {
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
-    topicPartitionChannel.insertRecordToBuffer(records.get(0));
+    topicPartitionChannel.insertRecordToBuffer(records.get(0), true);
 
     try {
       topicPartitionChannel.insertBufferedRecords(topicPartitionChannel.getStreamingBuffer());
@@ -918,7 +924,9 @@ public class TopicPartitionChannelTest {
     // added. Size of each record after serialization to Json is 260 Bytes
     List<SinkRecord> records = createNativeJsonSinkRecords(0, 5, "test", 0);
 
-    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
 
     Assert.assertEquals(0L, topicPartitionChannel.fetchOffsetTokenWithRetry());
 
@@ -968,7 +976,9 @@ public class TopicPartitionChannelTest {
     // added. Size of each record after serialization to Json is ~6 KBytes
     List<SinkRecord> records = createBigAvroRecords(0, 3, "test", 0);
 
-    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
 
     Assert.assertEquals(1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
 
@@ -1026,7 +1036,9 @@ public class TopicPartitionChannelTest {
     // insert records
     List<SinkRecord> records =
         TestUtils.createJsonStringSinkRecords(0, noOfRecords, TOPIC, PARTITION);
-    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
 
     Thread.sleep(this.streamingBufferThreshold.getFlushTimeThresholdSeconds() + 1);
     topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
@@ -1098,7 +1110,9 @@ public class TopicPartitionChannelTest {
     // insert records
     List<SinkRecord> records =
         TestUtils.createJsonStringSinkRecords(0, noOfRecords, TOPIC, PARTITION);
-    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
 
     Thread.sleep(this.streamingBufferThreshold.getFlushTimeThresholdSeconds() + 1);
     topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();

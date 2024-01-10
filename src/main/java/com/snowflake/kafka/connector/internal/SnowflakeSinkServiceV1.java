@@ -163,6 +163,17 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     pipes.get(nameIndex).insert(record);
   }
 
+  /**
+   * call pipe to insert a JSON record will not trigger time based flush
+   *
+   * @param record record content
+   * @param isFirstRowInBatch
+   */
+  @Override
+  public void insert(SinkRecord record, boolean isFirstRowInBatch) {
+    throw new UnsupportedOperationException();
+  }
+
   @Override
   public long getOffset(final TopicPartition topicPartition) {
     String name = getNameIndex(topicPartition.topic(), topicPartition.partition());

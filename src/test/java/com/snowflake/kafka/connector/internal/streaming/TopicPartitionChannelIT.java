@@ -585,7 +585,9 @@ public class TopicPartitionChannelIT {
     List<SinkRecord> records =
         TestUtils.createJsonStringSinkRecords(0, noOfRecords, testTableName, PARTITION);
 
-    records.forEach(topicPartitionChannelForFormatV2::insertRecordToBuffer);
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannelForFormatV2.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
     TestUtils.assertWithRetry(
         () -> topicPartitionChannelForFormatV2.getOffsetSafeToCommitToKafka() == noOfRecords, 5, 5);
 
@@ -604,7 +606,9 @@ public class TopicPartitionChannelIT {
     // add few more records
     records =
         TestUtils.createJsonStringSinkRecords(noOfRecords, noOfRecords, testTableName, PARTITION);
-    records.forEach(service::insert);
+    for (int idx = 0; idx < records.size(); idx++) {
+      service.insert(records.get(idx), idx == 0);
+    }
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords + noOfRecords,
         5,

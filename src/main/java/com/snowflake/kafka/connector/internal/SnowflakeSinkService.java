@@ -46,6 +46,13 @@ public interface SnowflakeSinkService {
   void insert(final SinkRecord record);
 
   /**
+   * call pipe to insert a JSON record will not trigger time based flush
+   *
+   * @param record record content
+   */
+  void insert(final SinkRecord record, boolean isFirstRowInBatch);
+
+  /**
    * retrieve offset of last loaded record for given pipe name
    *
    * @param topicPartition topic and partition
