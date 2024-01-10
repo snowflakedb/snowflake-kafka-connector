@@ -305,6 +305,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * then each partition(Streaming channel) calls its respective insertRows API
    *
    * @param record record content
+   * @param isFirstRowInBatch indicates whether the given record is the first record in a batch
    */
   @Override
   public void insert(SinkRecord record, boolean isFirstRowInBatch) {

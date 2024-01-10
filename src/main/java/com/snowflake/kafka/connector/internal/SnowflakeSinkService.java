@@ -46,9 +46,10 @@ public interface SnowflakeSinkService {
   void insert(final SinkRecord record);
 
   /**
-   * call pipe to insert a JSON record will not trigger time based flush
+   * Insert a JSON record into the buffer
    *
    * @param record record content
+   * @param isFirstRowInBatch indicates whether the given record is the first record in a batch
    */
   void insert(final SinkRecord record, boolean isFirstRowInBatch);
 

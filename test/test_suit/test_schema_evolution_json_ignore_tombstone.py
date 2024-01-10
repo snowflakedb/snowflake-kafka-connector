@@ -94,5 +94,4 @@ class TestSchemaEvolutionJsonIgnoreTombstone:
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
     def clean(self):
-        print("aaaaaaaaaaa: ", self.table)
-        # self.driver.cleanTableStagePipe(self.table)
+        self.driver.cleanTableStagePipe(self.table)

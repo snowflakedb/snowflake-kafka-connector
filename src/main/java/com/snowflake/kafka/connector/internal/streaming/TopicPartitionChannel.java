@@ -95,8 +95,8 @@ public class TopicPartitionChannel {
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
   // This offset represents the data buffered in KC. More specifically it is the KC offset to ensure
-  // exactly once functionality. On creation it is set to the latest committed token in Snowflake
-  // (see offsetPersistedInSnowflake) and updated on each new row from KC.
+  // exactly once functionality. On the creation it is set to the latest committed token in
+  // Snowflake (see offsetPersistedInSnowflake) and updated on each new row from KC.
   private final AtomicLong processedOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
@@ -107,8 +107,10 @@ public class TopicPartitionChannel {
   private final AtomicLong latestConsumerOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
-  // blabla
-  private boolean needToSkipInsert = false;
+  // Indicates whether we need to skip and discard any leftover rows in the current batch, this
+  // could happen when the channel gets invalidated and reset, then anything left in the buffer
+  // should be skipped
+  private boolean needToSkipCurrentBatch = false;
 
   private final SnowflakeStreamingIngestClient streamingIngestClient;
 
@@ -357,7 +359,7 @@ public class TopicPartitionChannel {
    * qualifies for being added into buffer.
    *
    * @param kafkaSinkRecord input record from Kafka
-   * @param isFirstRowInBatch
+   * @param isFirstRowInBatch indicates whether the given record is the first record in a batch
    */
   public void insertRecordToBuffer(SinkRecord kafkaSinkRecord, boolean isFirstRowInBatch) {
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
@@ -368,11 +370,13 @@ public class TopicPartitionChannel {
       this.latestConsumerOffset.set(kafkaSinkRecord.kafkaOffset());
     }
 
+    // Reset the value if it's a new batch
     if (isFirstRowInBatch) {
-      needToSkipInsert = false;
+      needToSkipCurrentBatch = false;
     }
 
-    if (needToSkipInsert) {
+    // Simply skip inserting into the buffer if the row should be ignored after channel reset
+    if (needToSkipCurrentBatch) {
       return;
     }
 
@@ -959,9 +963,9 @@ public class TopicPartitionChannel {
       this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
       this.processedOffset.set(offsetRecoveredFromSnowflake);
 
-      // State that there was some exception and only clear that state when we have received offset
-      // starting from offsetRecoveredFromSnowflake
-      needToSkipInsert = true;
+      // Set the flag so that any leftover rows in the buffer should be skipped, it will be
+      // re-ingested since the offset in kafka was reset
+      needToSkipCurrentBatch = true;
     } finally {
       this.bufferLock.unlock();
     }

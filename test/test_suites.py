@@ -180,7 +180,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             test_instance=TestSchemaEvolutionJson(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
         )),
-        # TODO: tzhang
+        # TODO: tzhang need to root cause
         ("TestSchemaEvolutionJsonIgnoreTombstone", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionJsonIgnoreTombstone(driver, nameSalt), clean=True, run_in_confluent=False,
             run_in_apache=False

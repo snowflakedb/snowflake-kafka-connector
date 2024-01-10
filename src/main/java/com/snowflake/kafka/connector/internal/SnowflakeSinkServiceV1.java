@@ -131,7 +131,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   public void insert(final Collection<SinkRecord> records) {
     // note that records can be empty
     for (SinkRecord record : records) {
-      // check if need to handle null value records
+      // check if it needs to handle null value records
       if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
         continue;
       }
@@ -163,12 +163,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     pipes.get(nameIndex).insert(record);
   }
 
-  /**
-   * call pipe to insert a JSON record will not trigger time based flush
-   *
-   * @param record record content
-   * @param isFirstRowInBatch
-   */
+  /** Not supported for Snowpipe */
   @Override
   public void insert(SinkRecord record, boolean isFirstRowInBatch) {
     throw new UnsupportedOperationException();
