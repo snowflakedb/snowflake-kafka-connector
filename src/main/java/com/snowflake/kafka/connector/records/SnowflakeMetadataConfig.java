@@ -42,7 +42,7 @@ public class SnowflakeMetadataConfig {
       topic = false;
     }
     if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION)
-            && !config
+        && !config
             .get(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL)
             .equals(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_DEFAULT)) {
       version = false;

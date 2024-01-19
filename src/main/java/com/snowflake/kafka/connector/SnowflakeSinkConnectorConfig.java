@@ -99,7 +99,8 @@ public class SnowflakeSinkConnectorConfig {
   private static final String SNOWFLAKE_METADATA_FLAGS = "Snowflake Metadata Flags";
   public static final String SNOWFLAKE_METADATA_CREATETIME = "snowflake.metadata.createtime";
   public static final String SNOWFLAKE_METADATA_TOPIC = "snowflake.metadata.topic";
-  public static final String SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION = "snowflake.metadata.sf.connector.version";
+  public static final String SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION =
+      "snowflake.metadata.sf.connector.version";
   public static final String SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION_DEFAULT = "false";
   public static final String SNOWFLAKE_METADATA_OFFSET_AND_PARTITION =
       "snowflake.metadata.offset.and.partition";
@@ -489,15 +490,16 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Width.NONE,
             SNOWFLAKE_METADATA_TOPIC)
         .define(
-                SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION,
+            SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION,
             Type.BOOLEAN,
             SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION_DEFAULT,
             Importance.LOW,
-            "Flag to control whether Snowflake Connector version is collected in snowflake metadata",
+            "Flag to control whether Snowflake Connector version is collected in snowflake"
+                + " metadata",
             SNOWFLAKE_METADATA_FLAGS,
             3,
             ConfigDef.Width.NONE,
-                SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION)
+            SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION)
         .define(
             SNOWFLAKE_METADATA_OFFSET_AND_PARTITION,
             Type.BOOLEAN,
