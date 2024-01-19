@@ -8,7 +8,7 @@ public class SnowflakeMetadataConfig {
   final boolean createtimeFlag;
   final boolean topicFlag;
   final boolean offsetAndPartitionFlag;
-  final boolean versionFlag;
+  final boolean sfConnectorVersionFlag;
   final boolean allFlag;
 
   /** initialize with default config */
@@ -26,7 +26,7 @@ public class SnowflakeMetadataConfig {
     // these values are the default values of the configuration
     boolean createtime = true;
     boolean topic = true;
-    boolean version = true;
+    boolean version = false;
     boolean offsetAndPartition = true;
     boolean all = true;
     if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME)
@@ -41,7 +41,7 @@ public class SnowflakeMetadataConfig {
             .equals(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_DEFAULT)) {
       topic = false;
     }
-    if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_VERSION)
+    if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION)
             && !config
             .get(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL)
             .equals(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_DEFAULT)) {
@@ -62,7 +62,7 @@ public class SnowflakeMetadataConfig {
 
     createtimeFlag = createtime;
     topicFlag = topic;
-    versionFlag = version;
+    sfConnectorVersionFlag = version;
     offsetAndPartitionFlag = offsetAndPartition;
     allFlag = all;
   }
@@ -74,7 +74,7 @@ public class SnowflakeMetadataConfig {
         + "topicFlag: "
         + topicFlag
         + "versionFlag: "
-        + versionFlag
+        + sfConnectorVersionFlag
         + ", "
         + "offsetAndPartitionFlag: "
         + offsetAndPartitionFlag

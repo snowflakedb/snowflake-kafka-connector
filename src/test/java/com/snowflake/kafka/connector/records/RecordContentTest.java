@@ -264,7 +264,8 @@ public class RecordContentTest {
     service.setEnableSchematization(true);
     String value =
         "{\"players\":[{\"name\":\"John Doe\",\"age\":30},{\"name\":\"Jane Doe\",\"age\":30}]}";
-    byte[] valueContents = (value).getBytes(StandardCharsets.UTF_8);
+    String value2 = "{\"cricket\":{\"team\":{\"MI\":{\"players\":[{\"name\":\"John Doe\",\"age\":30},{\"name\":\"Jane Doe\",\"age\":30}]}}}}";
+    byte[] valueContents = (value2).getBytes(StandardCharsets.UTF_8);
     SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
 
     SinkRecord record =

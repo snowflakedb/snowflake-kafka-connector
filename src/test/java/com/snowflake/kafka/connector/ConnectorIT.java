@@ -24,7 +24,7 @@ public class ConnectorIT {
     SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
     SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL,
     SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC,
-    SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_VERSION,
+    SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION,
     SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION,
     SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME,
     SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
@@ -79,7 +79,7 @@ public class ConnectorIT {
     config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "-1");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL, "falseee");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC, "falseee");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_VERSION, "falseee");
+    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION, "falseee");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "falseee");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME, "falseee");
     config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "jfsja,,");
