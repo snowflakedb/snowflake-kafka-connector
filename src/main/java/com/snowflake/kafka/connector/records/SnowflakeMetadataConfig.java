@@ -44,8 +44,8 @@ public class SnowflakeMetadataConfig {
     if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION)
         && !config
             .get(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION)
-            .equals(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_DEFAULT)) {
-      version = false;
+            .equals(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION_DEFAULT)) {
+      version = true;
     }
     if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION)
         && !config

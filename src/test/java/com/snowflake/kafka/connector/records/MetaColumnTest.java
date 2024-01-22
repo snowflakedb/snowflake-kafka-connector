@@ -119,13 +119,14 @@ public class MetaColumnTest {
     assert result.get(META).has(RecordService.OFFSET);
     assert result.get(META).has(RecordService.PARTITION);
     assert result.get(META).has(record.timestampType().name);
+    assert !result.get(META).has(RecordService.SF_CONNECTOR_VERSION);
 
     // test metadata configuration -- remove version
     metadataConfig = new SnowflakeMetadataConfig(versionConfig);
     service.setMetadataConfig(metadataConfig);
     result = mapper.readTree(service.getProcessedRecordForSnowpipe(record));
     assert result.has(META);
-    assert !result.get(META).has(RecordService.SF_CONNECTOR_VERSION);
+    assert result.get(META).has(RecordService.SF_CONNECTOR_VERSION);
     assert result.get(META).has(RecordService.OFFSET);
     assert result.get(META).has(RecordService.PARTITION);
     assert result.get(META).has(record.timestampType().name);
@@ -138,6 +139,7 @@ public class MetaColumnTest {
     assert result.has(META);
     assert !result.get(META).has(RecordService.OFFSET);
     assert !result.get(META).has(RecordService.PARTITION);
+    assert !result.get(META).has(RecordService.SF_CONNECTOR_VERSION);
     assert result.get(META).has(record.timestampType().name);
     assert result.get(META).has(RecordService.TOPIC);
 
@@ -147,6 +149,7 @@ public class MetaColumnTest {
     result = mapper.readTree(service.getProcessedRecordForSnowpipe(record));
     assert result.has(META);
     assert !result.get(META).has(record.timestampType().name);
+    assert !result.get(META).has(RecordService.SF_CONNECTOR_VERSION);
     assert result.get(META).has(RecordService.TOPIC);
     assert result.get(META).has(RecordService.OFFSET);
     assert result.get(META).has(RecordService.PARTITION);
