@@ -41,7 +41,7 @@ public class MetaColumnTest {
   private HashMap<String, String> versionConfig =
       new HashMap<String, String>() {
         {
-          put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION, "false");
+          put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION, "true");
         }
       };
   private HashMap<String, String> offsetAndPartitionConfig =
@@ -119,7 +119,6 @@ public class MetaColumnTest {
     assert result.get(META).has(RecordService.OFFSET);
     assert result.get(META).has(RecordService.PARTITION);
     assert result.get(META).has(record.timestampType().name);
-    assert result.get(META).has(RecordService.SF_CONNECTOR_VERSION);
 
     // test metadata configuration -- remove version
     metadataConfig = new SnowflakeMetadataConfig(versionConfig);
@@ -141,7 +140,6 @@ public class MetaColumnTest {
     assert !result.get(META).has(RecordService.PARTITION);
     assert result.get(META).has(record.timestampType().name);
     assert result.get(META).has(RecordService.TOPIC);
-    assert result.get(META).has(RecordService.SF_CONNECTOR_VERSION);
 
     // test metadata configuration -- remove time stamp
     metadataConfig = new SnowflakeMetadataConfig(createTimeConfig);
@@ -150,7 +148,6 @@ public class MetaColumnTest {
     assert result.has(META);
     assert !result.get(META).has(record.timestampType().name);
     assert result.get(META).has(RecordService.TOPIC);
-    assert result.get(META).has(RecordService.SF_CONNECTOR_VERSION);
     assert result.get(META).has(RecordService.OFFSET);
     assert result.get(META).has(RecordService.PARTITION);
 
