@@ -46,14 +46,6 @@ public interface SnowflakeSinkService {
   void insert(final SinkRecord record);
 
   /**
-   * Insert a JSON record into the buffer
-   *
-   * @param record record content
-   * @param isFirstRowInBatch indicates whether the given record is the first record in a batch
-   */
-  void insert(final SinkRecord record, boolean isFirstRowInBatch);
-
-  /**
    * retrieve offset of last loaded record for given pipe name
    *
    * @param topicPartition topic and partition

@@ -365,6 +365,16 @@ public class TopicPartitionChannel {
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
 
+    LOGGER.info(
+        "InsertRecordToBuffer topic:{}, partition:{}, offset:{} to buffer for channel:{},"
+            + " currentProcessedOffset:{}, isFirstRowInBatch:{}",
+        kafkaSinkRecord.topic(),
+        kafkaSinkRecord.kafkaPartition(),
+        kafkaSinkRecord.kafkaOffset(),
+        this.getChannelNameFormatV1(),
+        currentProcessedOffset,
+        isFirstRowInBatch);
+
     // Set the consumer offset to be the first record that Kafka sends us
     if (latestConsumerOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.latestConsumerOffset.set(kafkaSinkRecord.kafkaOffset());
@@ -377,6 +387,12 @@ public class TopicPartitionChannel {
 
     // Simply skip inserting into the buffer if the row should be ignored after channel reset
     if (needToSkipCurrentBatch) {
+      LOGGER.info(
+          "Ignore adding offset:{} to buffer for channel:{} because we recently reset offset in"
+              + " Kafka. currentProcessedOffset:{}",
+          kafkaSinkRecord.kafkaOffset(),
+          this.getChannelNameFormatV1(),
+          currentProcessedOffset);
       return;
     }
 

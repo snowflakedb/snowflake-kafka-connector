@@ -163,12 +163,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     pipes.get(nameIndex).insert(record);
   }
 
-  /** Not supported for Snowpipe */
-  @Override
-  public void insert(SinkRecord record, boolean isFirstRowInBatch) {
-    throw new UnsupportedOperationException();
-  }
-
   @Override
   public long getOffset(final TopicPartition topicPartition) {
     String name = getNameIndex(topicPartition.topic(), topicPartition.partition());

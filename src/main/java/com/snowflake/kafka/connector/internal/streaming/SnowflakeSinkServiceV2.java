@@ -22,8 +22,10 @@ import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -100,6 +102,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   // Cache for schema evolution
   private final Map<String, Boolean> tableName2SchemaEvolutionPermission;
+
+  private final Set<String> channelsVisitedSet = new HashSet<>();
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
@@ -269,7 +273,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void insert(final Collection<SinkRecord> records) {
     // note that records can be empty but, we will still need to check for time based flush
-    long count = 0L;
+    channelsVisitedSet.clear();
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
       if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
@@ -278,8 +282,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
       // While inserting into buffer, we will check for count threshold and buffered bytes
       // threshold.
-      insert(record, count == 0);
-      count++;
+      insert(record);
     }
 
     // check all partitions to see if they need to be flushed based on time
@@ -297,18 +300,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void insert(SinkRecord record) {
-    insert(record, true);
-  }
-
-  /**
-   * Inserts individual records into buffer. It fetches the TopicPartitionChannel from the map and
-   * then each partition(Streaming channel) calls its respective insertRows API
-   *
-   * @param record record content
-   * @param isFirstRowInBatch indicates whether the given record is the first record in a batch
-   */
-  @Override
-  public void insert(SinkRecord record, boolean isFirstRowInBatch) {
     String partitionChannelKey = partitionChannelKey(record.topic(), record.kafkaPartition());
     // init a new topic partition if it's not presented in cache or if channel is closed
     if (!partitionsToChannel.containsKey(partitionChannelKey)
@@ -323,7 +314,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
-    channelPartition.insertRecordToBuffer(record, isFirstRowInBatch);
+    boolean isFirstPartitionRowInBatch = channelsVisitedSet.add(partitionChannelKey);
+    channelPartition.insertRecordToBuffer(record, isFirstPartitionRowInBatch);
   }
 
   @Override

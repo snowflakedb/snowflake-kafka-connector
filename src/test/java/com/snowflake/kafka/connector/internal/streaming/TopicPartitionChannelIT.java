@@ -606,9 +606,7 @@ public class TopicPartitionChannelIT {
     // add few more records
     records =
         TestUtils.createJsonStringSinkRecords(noOfRecords, noOfRecords, testTableName, PARTITION);
-    for (int idx = 0; idx < records.size(); idx++) {
-      service.insert(records.get(idx), idx == 0);
-    }
+    records.forEach(service::insert);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords + noOfRecords,
         5,
