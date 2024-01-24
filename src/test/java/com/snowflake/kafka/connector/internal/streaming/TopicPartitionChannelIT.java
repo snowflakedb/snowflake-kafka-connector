@@ -711,10 +711,21 @@ public class TopicPartitionChannelIT {
 
   @Test
   public void testInsertRowsWithGaps_schematization() throws Exception {
+    testInsertRowsWithGaps(true);
+  }
+
+  @Test
+  public void testInsertRowsWithGaps_nonSchematization() throws Exception {
+    testInsertRowsWithGaps(false);
+  }
+
+  private void testInsertRowsWithGaps(boolean withSchematization) throws Exception {
     // setup
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(
+        SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
+        Boolean.toString(withSchematization));
 
     // create tpChannel
     SnowflakeSinkService service =
@@ -748,20 +759,21 @@ public class TopicPartitionChannelIT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
 
-    // Insert another two records with offset gap that requires evolution: 2, 4
+    // Insert another two records with offset gap that requires evolution: 3, 4
     List<SinkRecord> gapRecords = TestUtils.createNativeJsonSinkRecords(2, 3, topic, PARTITION);
-    gapRecords.remove(1);
-    service.insert(gapRecords);
-
-    // Resend a new batch should succeed even if there is an offset gap from the previous committed
-    // offset
     gapRecords.remove(0);
     service.insert(gapRecords);
+
+    // With schematization, we need to resend a new batch should succeed even if there is an offset
+    // gap from the previous committed offset
+    if (withSchematization) {
+      service.insert(gapRecords);
+    }
 
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 5, 20, 5);
 
-    assert TestUtils.tableSize(testTableName) == 3
+    assert TestUtils.tableSize(testTableName) == 4
         : "expected: " + 4 + " actual: " + TestUtils.tableSize(testTableName);
     service.closeAll();
   }

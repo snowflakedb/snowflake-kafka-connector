@@ -1294,7 +1294,6 @@ public class SnowflakeSinkServiceV2IT {
 
     // Retry the insert should succeed now with the updated schema
     service.insert(Collections.singletonList(avroRecordValue));
-    Thread.sleep(20000);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
 
