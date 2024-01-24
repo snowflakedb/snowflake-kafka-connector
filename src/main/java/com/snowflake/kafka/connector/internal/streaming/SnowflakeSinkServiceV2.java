@@ -103,7 +103,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // Cache for schema evolution
   private final Map<String, Boolean> tableName2SchemaEvolutionPermission;
 
-  private final Set<String> channelsVisitedSet = new HashSet<>();
+  // Set that keeps track of the channels that have been seen per input batch
+  private final Set<String> channelsVisitedPerBatch = new HashSet<>();
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
@@ -273,7 +274,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void insert(final Collection<SinkRecord> records) {
     // note that records can be empty but, we will still need to check for time based flush
-    channelsVisitedSet.clear();
+    channelsVisitedPerBatch.clear();
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
       if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
@@ -314,7 +315,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
-    boolean isFirstPartitionRowInBatch = channelsVisitedSet.add(partitionChannelKey);
+    boolean isFirstPartitionRowInBatch = channelsVisitedPerBatch.add(partitionChannelKey);
     channelPartition.insertRecordToBuffer(record, isFirstPartitionRowInBatch);
   }
 

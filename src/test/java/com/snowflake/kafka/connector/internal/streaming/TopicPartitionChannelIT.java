@@ -606,7 +606,7 @@ public class TopicPartitionChannelIT {
     // add few more records
     records =
         TestUtils.createJsonStringSinkRecords(noOfRecords, noOfRecords, testTableName, PARTITION);
-    records.forEach(service::insert);
+    service.insert(records);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords + noOfRecords,
         5,
@@ -706,6 +706,63 @@ public class TopicPartitionChannelIT {
         5,
         5);
 
+    service.closeAll();
+  }
+
+  @Test
+  public void testInsertRowsWithGaps_schematization() throws Exception {
+    // setup
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+
+    // create tpChannel
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(testTableName, topicPartition)
+            .build();
+
+    // insert blank records that do not evolve schema: 0, 1
+    JsonConverter converter = new JsonConverter();
+    HashMap<String, String> converterConfig = new HashMap<>();
+    converterConfig.put("schemas.enable", "false");
+    converter.configure(converterConfig, false);
+    SchemaAndValue schemaInputValue = converter.toConnectData("test", null);
+    List<SinkRecord> blankRecords = new ArrayList<>();
+    for (int i = 0; i < 2; i++) {
+      blankRecords.add(
+          new SinkRecord(
+              topic,
+              PARTITION,
+              Schema.STRING_SCHEMA,
+              "test",
+              schemaInputValue.schema(),
+              schemaInputValue.value(),
+              i));
+    }
+
+    service.insert(blankRecords);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+
+    // Insert another two records with offset gap that requires evolution: 2, 4
+    List<SinkRecord> gapRecords = TestUtils.createNativeJsonSinkRecords(2, 3, topic, PARTITION);
+    gapRecords.remove(1);
+    service.insert(gapRecords);
+
+    // Resend a new batch should succeed even if there is an offset gap from the previous committed
+    // offset
+    gapRecords.remove(0);
+    service.insert(gapRecords);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 5, 20, 5);
+
+    assert TestUtils.tableSize(testTableName) == 3
+        : "expected: " + 4 + " actual: " + TestUtils.tableSize(testTableName);
     service.closeAll();
   }
 }
