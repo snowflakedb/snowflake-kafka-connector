@@ -359,9 +359,11 @@ public class TopicPartitionChannel {
    * qualifies for being added into buffer.
    *
    * @param kafkaSinkRecord input record from Kafka
-   * @param isFirstRowInBatch indicates whether the given record is the first record in a batch
+   * @param isFirstRowPerPartitionInBatch indicates whether the given record is the first record per
+   *     partition in a batch
    */
-  public void insertRecordToBuffer(SinkRecord kafkaSinkRecord, boolean isFirstRowInBatch) {
+  public void insertRecordToBuffer(
+      SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
 
@@ -371,7 +373,7 @@ public class TopicPartitionChannel {
     }
 
     // Reset the value if it's a new batch
-    if (isFirstRowInBatch) {
+    if (isFirstRowPerPartitionInBatch) {
       needToSkipCurrentBatch = false;
     }
 

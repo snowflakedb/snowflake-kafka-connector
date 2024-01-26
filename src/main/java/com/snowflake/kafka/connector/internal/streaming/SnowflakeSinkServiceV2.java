@@ -315,8 +315,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
-    boolean isFirstPartitionRowInBatch = channelsVisitedPerBatch.add(partitionChannelKey);
-    channelPartition.insertRecordToBuffer(record, isFirstPartitionRowInBatch);
+    boolean isFirstRowPerPartitionInBatch = channelsVisitedPerBatch.add(partitionChannelKey);
+    channelPartition.insertRecordToBuffer(record, isFirstRowPerPartitionInBatch);
   }
 
   @Override
