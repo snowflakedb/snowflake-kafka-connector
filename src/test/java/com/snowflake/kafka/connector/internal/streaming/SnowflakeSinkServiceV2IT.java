@@ -1282,7 +1282,7 @@ public class SnowflakeSinkServiceV2IT {
             .build();
 
     // The first insert should fail and schema evolution will kick in to update the schema
-    service.insert(avroRecordValue);
+    service.insert(Collections.singletonList(avroRecordValue));
     TestUtils.assertWithRetry(
         () ->
             service.getOffset(new TopicPartition(topic, partition))
@@ -1293,7 +1293,7 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_AVRO_SCHEMA_FOR_TABLE_CREATION);
 
     // Retry the insert should succeed now with the updated schema
-    service.insert(avroRecordValue);
+    service.insert(Collections.singletonList(avroRecordValue));
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
 
@@ -1371,7 +1371,7 @@ public class SnowflakeSinkServiceV2IT {
             .build();
 
     // The first insert should fail and schema evolution will kick in to update the schema
-    service.insert(jsonRecordValue);
+    service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
         () ->
             service.getOffset(new TopicPartition(topic, partition))
@@ -1381,7 +1381,7 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_JSON_SCHEMA_FOR_TABLE_CREATION);
 
     // Retry the insert should succeed now with the updated schema
-    service.insert(jsonRecordValue);
+    service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
 
@@ -1435,7 +1435,7 @@ public class SnowflakeSinkServiceV2IT {
             .build();
 
     // The first insert should fail and schema evolution will kick in to add the column
-    service.insert(jsonRecordValue);
+    service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
         () ->
             service.getOffset(new TopicPartition(topic, partition))
@@ -1445,7 +1445,7 @@ public class SnowflakeSinkServiceV2IT {
 
     // The second insert should fail again and schema evolution will kick in to update the
     // nullability
-    service.insert(jsonRecordValue);
+    service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
         () ->
             service.getOffset(new TopicPartition(topic, partition))
@@ -1454,7 +1454,7 @@ public class SnowflakeSinkServiceV2IT {
         5);
 
     // Retry the insert should succeed now with the updated schema
-    service.insert(jsonRecordValue);
+    service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
 
