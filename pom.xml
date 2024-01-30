@@ -501,15 +501,27 @@
         <dependency>
             <groupId>com.streamkap</groupId>
             <artifactId>streamkap-kafka-connect-common</artifactId>
-            <version>0.0.4</version>
+            <version>0.0.9</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.streamkap.kafka.connect.transforms</groupId>
             <artifactId>multi-converter</artifactId>
-            <version>0.0.5</version>
+            <version>0.0.7</version>
             <scope>test</scope>
         </dependency>
+		<dependency>
+			<groupId>com.streamkap.kafka.connect.transforms</groupId>
+			<artifactId>auto-time-converters</artifactId>
+			<version>0.0.4</version>
+            <scope>test</scope>
+		</dependency>          
+		<dependency>
+			<groupId>org.apache.kafka</groupId>
+			<artifactId>connect-json</artifactId>
+			<version>3.3.1</version>
+            <scope>test</scope>
+		</dependency>      
     </dependencies>
 </project>
