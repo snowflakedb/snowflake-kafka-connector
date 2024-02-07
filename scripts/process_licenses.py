@@ -30,7 +30,7 @@ BSD_3_CLAUSE_LICENSE = "3-Clause BSD License"
 EDL_10_LICENSE = "EDL 1.0"
 MIT_LICENSE = "The MIT License"
 GO_LICENSE = "The Go license"
-BOUNCY_CASTLE_LICENSE = "Bouncy Castle Licence"
+BOUNCY_CASTLE_LICENSE = "Bouncy Castle License"
 
 # The SDK does not need to include licenses of dependencies, which aren't shaded
 IGNORED_DEPENDENCIES = {"net.snowflake:snowflake-jdbc", "org.slf4j:slf4j-api"}
