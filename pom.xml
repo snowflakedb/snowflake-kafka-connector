@@ -511,5 +511,11 @@
             <version>0.0.8</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>connect-json</artifactId>
+            <version>3.3.1</version>
+            <scope>test</scope>
+        </dependency>        
     </dependencies>
 </project>
