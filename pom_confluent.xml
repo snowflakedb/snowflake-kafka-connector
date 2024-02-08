@@ -559,7 +559,7 @@
         <dependency>
             <groupId>com.streamkap.kafka.connect.transforms</groupId>
             <artifactId>multi-converter</artifactId>
-            <version>0.0.5</version>
+            <version>0.0.8</version>
             <scope>test</scope>
         </dependency>        
     </dependencies>
