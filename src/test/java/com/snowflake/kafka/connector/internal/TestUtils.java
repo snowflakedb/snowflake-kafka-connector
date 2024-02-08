@@ -294,7 +294,7 @@ public class TestUtils {
     SnowflakeURL url = new SnowflakeURL(conf.get(Utils.SF_URL));
 
     Properties properties =
-        InternalUtils.createProperties(conf, url.sslEnabled());
+        InternalUtils.createProperties(conf, url);
 
     Connection connToSnowflake = new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
 

@@ -117,7 +117,7 @@ public class InternalUtils {
    * @param url target server url
    * @return Properties object which will be passed down to JDBC connection
    */
-  static Properties createProperties(Map<String, String> conf, SnowflakeURL url) {
+  public static Properties createProperties(Map<String, String> conf, SnowflakeURL url) {
     return createProperties(conf, url, IngestionMethodConfig.SNOWPIPE);
   }
 
