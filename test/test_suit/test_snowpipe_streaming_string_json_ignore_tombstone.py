@@ -4,10 +4,10 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 from time import sleep
 
-class TestSnowpipeStreamingStringJson:
+class TestSnowpipeStreamingStringJsonIgnoreTombstone:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "travis_correct_snowpipe_streaming_string_json"
+        self.fileName = "test_snowpipe_streaming_string_json_ignore_tombstone"
         self.topic = self.fileName + nameSalt
 
         self.topicNum = 1
@@ -39,11 +39,7 @@ class TestSnowpipeStreamingStringJson:
                 ).encode('utf-8'))
 
             # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
-            if self.driver.testVersion == '2.5.1':
-                value.append(json.dumps(
-                    {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(self.recordNum)}
-                ).encode('utf-8'))
-            else:
+            if self.driver.testVersion != '2.5.1':
                 value.append('')
 
             self.driver.sendBytesData(self.topic, value, key, partition=p)
@@ -53,14 +49,15 @@ class TestSnowpipeStreamingStringJson:
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
         print("Count records in table {}={}".format(self.topic, str(res)))
-        if res < (self.recordNum * self.partitionNum):
+        goalCount = (self.recordNum - 1) * self.partitionNum
+        if res < goalCount:
             print("Topic:" + self.topic + " count is less, will retry")
             raise RetryableError()
-        elif res > (self.recordNum * self.partitionNum):
+        elif res > goalCount:
             print("Topic:" + self.topic + " count is more, duplicates detected")
             raise NonRetryableError("Duplication occurred, number of record in table is larger than number of record sent")
         else:
-            print("Table:" + self.topic + " count is exactly " + str(self.recordNum * self.partitionNum))
+            print("Table:" + self.topic + " count is exactly " + str(goalCount))
 
         # for duplicates
         res = self.driver.snowflake_conn.cursor().execute("Select record_metadata:\"offset\"::string as OFFSET_NO,record_metadata:\"partition\"::string as PARTITION_NO from {} group by OFFSET_NO, PARTITION_NO having count(*)>1".format(self.topic)).fetchone()
@@ -78,7 +75,7 @@ class TestSnowpipeStreamingStringJson:
 
             for p in range(self.partitionNum):
                 # unique offset count and partition no are two columns (returns tuple)
-                if rows[p][0] != self.recordNum or rows[p][1] != p:
+                if rows[p][0] != (self.recordNum - 1) or rows[p][1] != p:
                     raise NonRetryableError("Unique offsets for partitions count doesnt match")
 
     def clean(self):

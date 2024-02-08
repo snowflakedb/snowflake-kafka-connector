@@ -30,6 +30,8 @@ import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
 import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
 import static com.snowflake.kafka.connector.Utils.SF_URL;
 import static com.snowflake.kafka.connector.Utils.SF_USER;
+import static com.snowflake.kafka.connector.Utils.buildOAuthHttpPostRequest;
+import static com.snowflake.kafka.connector.Utils.getSnowflakeOAuthToken;
 
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -43,6 +45,7 @@ import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.sql.Connection;
@@ -58,8 +61,18 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import net.snowflake.client.jdbc.internal.apache.http.HttpHeaders;
+import net.snowflake.client.jdbc.internal.apache.http.client.methods.CloseableHttpResponse;
+import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpPost;
+import net.snowflake.client.jdbc.internal.apache.http.entity.ContentType;
+import net.snowflake.client.jdbc.internal.apache.http.entity.StringEntity;
+import net.snowflake.client.jdbc.internal.apache.http.impl.client.CloseableHttpClient;
+import net.snowflake.client.jdbc.internal.apache.http.impl.client.HttpClientBuilder;
+import net.snowflake.client.jdbc.internal.apache.http.util.EntityUtils;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.client.jdbc.internal.google.gson.JsonObject;
+import net.snowflake.client.jdbc.internal.google.gson.JsonParser;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import org.apache.kafka.common.record.TimestampType;
@@ -81,6 +94,33 @@ public class TestUtils {
   private static final String PRIVATE_KEY = "private_key";
   private static final String ENCRYPTED_PRIVATE_KEY = "encrypted_private_key";
   private static final String PRIVATE_KEY_PASSPHRASE = "private_key_passphrase";
+  private static final String AUTHENTICATOR = "authenticator";
+  private static final String OAUTH_CLIENT_ID = "oauth_client_id";
+  private static final String OAUTH_CLIENT_SECRET = "oauth_client_secret";
+  private static final String OAUTH_REFRESH_TOKEN = "oauth_refresh_token";
+  private static final String PASSWORD = "password";
+
+  // AZ request data key
+  private static final String AZ_ACCOUNT_NAME = "ACCOUNT_NAME";
+  private static final String AZ_LOGIN_NAME = "LOGIN_NAME";
+  private static final String AZ_PASSWORD = "PASSWORD";
+  private static final String AZ_CLIENT_ID = "clientId";
+  private static final String AZ_REDIRECT_URL = "redirectUrl";
+  private static final String AZ_RESPONSE_TYPE = "responseType";
+  private static final String AZ_SCOPE = "scope";
+  private static final String AZ_MASTER_TOKEN = "masterToken";
+
+  // AZ endpoints
+  private static final String AZ_LOGIN_ENDPOINT = "/session/authenticate-request";
+  private static final String AZ_REQUEST_ENDPOINT = "/oauth/authorization-request";
+
+  // AZ request value
+  private static final String AZ_SCOPE_REFRESH_TOKEN_PREFIX = "refresh_token";
+  private static final String AZ_SCOPE_ROLE_PREFIX = "session:role:";
+  private static final String AZ_RESPONSE_TYPE_CODE = "code";
+  private static final String AZ_GRANT_TYPE = "authorization_code";
+  private static final String AZ_CREDENTIAL_TYPE_CODE = "code";
+
   private static final Random random = new Random();
   private static final String DES_RSA_KEY = "des_rsa_key";
   public static final String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
@@ -97,6 +137,8 @@ public class TestUtils {
   private static Connection connForStreamingIngestTests = null;
 
   private static Map<String, String> conf = null;
+
+  private static Map<String, String> confWithOAuth = null;
 
   private static Map<String, String> confForStreaming = null;
 
@@ -159,12 +201,35 @@ public class TestUtils {
   private static Map<String, String> getPropertiesMapFromProfile(final String profileFileName) {
     Map<String, String> configuration = new HashMap<>();
 
-    configuration.put(Utils.SF_USER, getProfile(profileFileName).get(USER).asText());
-    configuration.put(Utils.SF_DATABASE, getProfile(profileFileName).get(DATABASE).asText());
-    configuration.put(Utils.SF_SCHEMA, getProfile(profileFileName).get(SCHEMA).asText());
-    configuration.put(Utils.SF_URL, getProfile(profileFileName).get(HOST).asText());
-    configuration.put(Utils.SF_WAREHOUSE, getProfile(profileFileName).get(WAREHOUSE).asText());
-    configuration.put(Utils.SF_PRIVATE_KEY, getProfile(profileFileName).get(PRIVATE_KEY).asText());
+    JsonNode profileJson = getProfile(profileFileName);
+    configuration.put(Utils.SF_USER, profileJson.get(USER).asText());
+    configuration.put(Utils.SF_DATABASE, profileJson.get(DATABASE).asText());
+    configuration.put(Utils.SF_SCHEMA, profileJson.get(SCHEMA).asText());
+    configuration.put(Utils.SF_URL, profileJson.get(HOST).asText());
+    configuration.put(Utils.SF_WAREHOUSE, profileJson.get(WAREHOUSE).asText());
+
+    if (profileJson.has(AUTHENTICATOR)) {
+      configuration.put(Utils.SF_AUTHENTICATOR, profileJson.get(AUTHENTICATOR).asText());
+    }
+    if (profileJson.has(PRIVATE_KEY)) {
+      configuration.put(Utils.SF_PRIVATE_KEY, profileJson.get(PRIVATE_KEY).asText());
+    }
+    if (profileJson.has(OAUTH_CLIENT_ID)) {
+      configuration.put(Utils.SF_OAUTH_CLIENT_ID, profileJson.get(OAUTH_CLIENT_ID).asText());
+    }
+    if (profileJson.has(OAUTH_CLIENT_SECRET)) {
+      configuration.put(
+          Utils.SF_OAUTH_CLIENT_SECRET, profileJson.get(OAUTH_CLIENT_SECRET).asText());
+    }
+    if (profileJson.has(OAUTH_REFRESH_TOKEN)) {
+      configuration.put(
+          Utils.SF_OAUTH_REFRESH_TOKEN, profileJson.get(OAUTH_REFRESH_TOKEN).asText());
+    }
+
+    // password only appears in test profile
+    if (profileJson.has(PASSWORD)) {
+      configuration.put(PASSWORD, profileJson.get(PASSWORD).asText());
+    }
 
     configuration.put(Utils.NAME, TEST_CONNECTOR_NAME);
 
@@ -215,7 +280,7 @@ public class TestUtils {
     SnowflakeURL url = new SnowflakeURL(getConfFromFileName(profileFileName).get(Utils.SF_URL));
 
     Properties properties =
-        InternalUtils.createProperties(getConfFromFileName(profileFileName), url.sslEnabled());
+        InternalUtils.createProperties(getConfFromFileName(profileFileName), url);
 
     Connection connToSnowflake = new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
 
@@ -274,6 +339,21 @@ public class TestUtils {
     return configuration;
   }
 
+  /* Get configuration map from profile path. Used against prod deployment of Snowflake */
+  public static Map<String, String> getConfForStreamingWithOAuth() {
+    Map<String, String> configuration = getConfWithOAuth();
+    if (configuration != null) {
+      // On top of existing configurations, add
+      configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
+      configuration.put(Utils.TASK_ID, "0");
+      configuration.put(
+          SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+          IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    }
+
+    return configuration;
+  }
+
   /** @return JDBC config with encrypted private key */
   public static Map<String, String> getConfWithEncryptedKey() {
     Map<String, String> c = getPropertiesMapFromProfile(PROFILE_PATH);
@@ -284,6 +364,31 @@ public class TestUtils {
     config.put(Utils.PRIVATE_KEY_PASSPHRASE, getPrivateKeyPassphrase());
 
     return config;
+  }
+
+  public static Map<String, String> getConfWithOAuth() {
+    // Return null if we don't have the corresponding OAuth required configuration in the config
+    // file
+    Map<String, String> conf = getConf();
+    if (!conf.containsKey(Utils.SF_OAUTH_CLIENT_ID)
+        || !conf.containsKey(Utils.SF_OAUTH_CLIENT_SECRET)) {
+      return null;
+    }
+
+    if (confWithOAuth == null) {
+      confWithOAuth = new HashMap<>(conf);
+      assert (confWithOAuth.containsKey(PASSWORD)
+              || confWithOAuth.containsKey(Utils.SF_OAUTH_REFRESH_TOKEN))
+          && confWithOAuth.containsKey(Utils.SF_OAUTH_CLIENT_ID)
+          && confWithOAuth.containsKey(Utils.SF_OAUTH_CLIENT_SECRET);
+      if (!confWithOAuth.containsKey(Utils.SF_OAUTH_REFRESH_TOKEN)) {
+        confWithOAuth.put(Utils.SF_OAUTH_REFRESH_TOKEN, getRefreshToken(confWithOAuth));
+      }
+      confWithOAuth.put(Utils.SF_AUTHENTICATOR, Utils.OAUTH);
+      confWithOAuth.remove(Utils.SF_PRIVATE_KEY);
+      confWithOAuth.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
+    }
+    return new HashMap<>(confWithOAuth);
   }
 
   /**
@@ -366,7 +471,7 @@ public class TestUtils {
 
   static SnowflakeURL getUrl() {
     if (url == null) {
-      url = new SnowflakeURL(getPropertyValueFromKey(Utils.SF_URL));
+      url = new SnowflakeURL(getProfile(PROFILE_PATH).get(HOST).asText());
     }
     return url;
   }
@@ -392,8 +497,21 @@ public class TestUtils {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
   }
 
+  /** @return snowflake connection using OAuth authentication for test */
+  public static SnowflakeConnectionService getOAuthConnectionService() {
+    return SnowflakeConnectionServiceFactory.builder().setProperties(getConfWithOAuth()).build();
+  }
+
+  /** @return snowflake streaming ingest connection for test */
   public static SnowflakeConnectionService getConnectionServiceForStreaming() {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConfForStreaming()).build();
+  }
+
+  /** @return snowflake streaming ingest connection using OAuth authentication for test */
+  public static SnowflakeConnectionService getOAuthConnectionServiceForStreaming() {
+    return SnowflakeConnectionServiceFactory.builder()
+        .setProperties(getConfForStreamingWithOAuth())
+        .build();
   }
 
   /**
@@ -757,5 +875,99 @@ public class TestUtils {
     return SnowflakeStreamingIngestClientFactory.builder(clientName)
         .setProperties(clientProperties)
         .build();
+  }
+
+  /**
+   * Get refresh token using username, password, clientId and clientSecret
+   *
+   * @param config config parsed from profile
+   * @return refresh token
+   */
+  public static String getRefreshToken(Map<String, String> config) {
+    assert config.containsKey(Utils.SF_USER)
+        && config.containsKey(Utils.SF_OAUTH_CLIENT_ID)
+        && config.containsKey(Utils.SF_OAUTH_CLIENT_SECRET);
+    return getSnowflakeOAuthToken(
+        getUrl(),
+        config.get(Utils.SF_OAUTH_CLIENT_ID),
+        config.get(Utils.SF_OAUTH_CLIENT_SECRET),
+        getAZCode(config),
+        AZ_GRANT_TYPE,
+        AZ_CREDENTIAL_TYPE_CODE,
+        OAuthConstants.REFRESH_TOKEN);
+  }
+
+  private static String getAZCode(Map<String, String> config) {
+    assert config.containsKey(PASSWORD)
+        && config.containsKey(Utils.SF_USER)
+        && config.containsKey(Utils.SF_OAUTH_CLIENT_ID)
+        && config.containsKey(Utils.SF_OAUTH_CLIENT_SECRET);
+
+    CloseableHttpClient client = HttpClientBuilder.create().build();
+    SnowflakeURL url = getUrl();
+    Map<String, String> headers = new HashMap<>();
+    headers.put(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_JSON.toString());
+
+    // Build login request
+    JsonObject loginData = new JsonObject();
+    loginData.addProperty(AZ_ACCOUNT_NAME, url.getAccount().toUpperCase());
+    loginData.addProperty(AZ_LOGIN_NAME, config.get(Utils.SF_USER));
+    loginData.addProperty(AZ_PASSWORD, config.get(PASSWORD));
+    loginData.addProperty(AZ_CLIENT_ID, config.get(Utils.SF_OAUTH_CLIENT_ID));
+    loginData.addProperty(AZ_RESPONSE_TYPE, AZ_RESPONSE_TYPE_CODE);
+    String scopeString = AZ_SCOPE_REFRESH_TOKEN_PREFIX;
+    if (config.containsKey(Utils.SF_ROLE)) {
+      scopeString += " " + AZ_SCOPE_ROLE_PREFIX + config.get(ROLE).toUpperCase();
+    }
+    loginData.addProperty(AZ_SCOPE, scopeString);
+    JsonObject loginPayload = new JsonObject();
+    loginPayload.add("data", loginData);
+    HttpPost loginRequest =
+        buildOAuthHttpPostRequest(
+            url, AZ_LOGIN_ENDPOINT, headers, buildStringEntity(loginPayload.toString()));
+
+    // Login
+    String masterToken;
+    try (CloseableHttpResponse httpResponse = client.execute(loginRequest)) {
+      String respBodyString = EntityUtils.toString(httpResponse.getEntity());
+      JsonObject respBody = JsonParser.parseString(respBodyString).getAsJsonObject();
+      masterToken =
+          respBody
+              .get("data")
+              .getAsJsonObject()
+              .get(AZ_MASTER_TOKEN)
+              .toString()
+              .replaceAll("^\"|\"$", "");
+    } catch (Exception e) {
+      throw SnowflakeErrors.ERROR_1004.getException(e);
+    }
+
+    // Build AZ code request
+    loginData.addProperty(AZ_MASTER_TOKEN, masterToken);
+    HttpPost aZCodeRequest =
+        buildOAuthHttpPostRequest(
+            url, AZ_REQUEST_ENDPOINT, headers, buildStringEntity(loginData.toString()));
+
+    // Request AZ code
+    try (CloseableHttpResponse httpResponse = client.execute(aZCodeRequest)) {
+      String respBodyString = EntityUtils.toString(httpResponse.getEntity());
+      JsonObject respBody = JsonParser.parseString(respBodyString).getAsJsonObject();
+      return respBody
+          .get("data")
+          .getAsJsonObject()
+          .get(AZ_REDIRECT_URL)
+          .toString()
+          .replaceAll(".*\\bcode=([A-Fa-f0-9]+).*", "$1");
+    } catch (Exception e) {
+      throw SnowflakeErrors.ERROR_1004.getException(e);
+    }
+  }
+
+  private static StringEntity buildStringEntity(String payload) {
+    try {
+      return new StringEntity(payload);
+    } catch (UnsupportedEncodingException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

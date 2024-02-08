@@ -186,14 +186,11 @@ public class StreamingClientProviderTest {
     this.client1 = this.streamingClientProvider.getClient(this.clientConfig1);
     this.client2 = this.streamingClientProvider.getClient(this.clientConfig1);
 
-    // verify - should be two different clients, since missing config defaults to disable
-    // optimization
-    assert !this.client1.getName().equals(this.client2.getName());
+    // Since it is enabled by default, we should only create one client.
+    assert this.client1.getName().equals(this.client2.getName());
 
     assert StreamingClientHandler.isClientValid(this.client1);
-    assert StreamingClientHandler.isClientValid(this.client2);
     assert this.client1.getName().contains(this.clientConfig1.get(Utils.NAME));
-    assert this.client2.getName().contains(this.clientConfig1.get(Utils.NAME));
-    Mockito.verify(this.streamingClientHandler, Mockito.times(2)).createClient(this.clientConfig1);
+    Mockito.verify(this.streamingClientHandler, Mockito.times(1)).createClient(this.clientConfig1);
   }
 }

@@ -1,8 +1,10 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
+import com.codahale.metrics.Gauge;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
@@ -11,6 +13,10 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
@@ -22,6 +28,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -36,10 +43,14 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.mockito.Mockito;
 
+@RunWith(Parameterized.class)
 public class SnowflakeSinkServiceV2IT {
 
-  private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
+  private SnowflakeConnectionService conn;
   private String table = TestUtils.randomTableName();
   private int partition = 0;
   private int partition2 = 1;
@@ -48,6 +59,24 @@ public class SnowflakeSinkServiceV2IT {
   private String topic = table;
   private TopicPartition topicPartition = new TopicPartition(topic, partition);
 
+  // use OAuth as authenticator or not
+  private boolean useOAuth;
+
+  @Parameterized.Parameters(name = "useOAuth: {0}")
+  public static Collection<Object[]> input() {
+    // TODO: Added {true} after SNOW-352846 is released
+    return Arrays.asList(new Object[][] {{false}});
+  }
+
+  public SnowflakeSinkServiceV2IT(boolean useOAuth) {
+    this.useOAuth = useOAuth;
+    if (!useOAuth) {
+      conn = TestUtils.getConnectionServiceForStreaming();
+    } else {
+      conn = TestUtils.getOAuthConnectionServiceForStreaming();
+    }
+  }
+
   @After
   public void afterEach() {
     TestUtils.dropTable(table);
@@ -55,7 +84,8 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testSinkServiceV2Builder() {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
+
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     SnowflakeSinkService service =
@@ -65,26 +95,30 @@ public class SnowflakeSinkServiceV2IT {
     assert service instanceof SnowflakeSinkServiceV2;
 
     // connection test
+    Map<String, String> finalConfig = config;
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_5010,
         () ->
             SnowflakeSinkServiceFactory.builder(
-                    null, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+                    null, IngestionMethodConfig.SNOWPIPE_STREAMING, finalConfig)
                 .build());
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_5010,
         () -> {
           SnowflakeConnectionService conn = TestUtils.getConnectionService();
+          if (useOAuth) {
+            conn = TestUtils.getOAuthConnectionService();
+          }
           conn.close();
           SnowflakeSinkServiceFactory.builder(
-                  conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+                  conn, IngestionMethodConfig.SNOWPIPE_STREAMING, finalConfig)
               .build();
         });
   }
 
   @Test
   public void testChannelCloseIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -187,7 +221,8 @@ public class SnowflakeSinkServiceV2IT {
 
     Assert.assertTrue(
         snowflakeSinkServiceV2
-            .getTopicPartitionChannelFromCacheKey(partitionChannelKey(tp2.topic(), tp2.partition()))
+            .getTopicPartitionChannelFromCacheKey(
+                partitionChannelKey(TEST_CONNECTOR_NAME, tp2.topic(), tp2.partition()))
             .isPresent());
 
     List<SinkRecord> newRecordsPartition1 =
@@ -211,7 +246,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testRebalanceOpenCloseIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -256,7 +291,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testStreamingIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -319,24 +354,32 @@ public class SnowflakeSinkServiceV2IT {
   }
 
   @Test
-  public void testStreamingIngest_multipleChannelPartitions() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+  public void testStreamingIngest_multipleChannelPartitions_withMetrics() throws Exception {
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    conn.createTable(table);
+
+    // set up telemetry service spy
+    SnowflakeConnectionService connectionService = Mockito.spy(this.conn);
+    connectionService.createTable(table);
+    SnowflakeTelemetryServiceV2 telemetryService =
+        Mockito.spy((SnowflakeTelemetryServiceV2) this.conn.getTelemetryClient());
+    Mockito.when(connectionService.getTelemetryClient()).thenReturn(telemetryService);
 
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+        SnowflakeSinkServiceFactory.builder(
+                connectionService, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(5)
             .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
             .addTask(table, new TopicPartition(topic, partition2)) // Internally calls startTask
+            .setCustomJMXMetrics(true)
             .build();
 
     final int recordsInPartition1 = 2;
-    final int recordsInPartition2 = 2;
+    final int recordsInPartition2 = 5;
     List<SinkRecord> recordsPartition1 =
         TestUtils.createJsonStringSinkRecords(0, recordsInPartition1, topic, partition);
 
@@ -366,7 +409,87 @@ public class SnowflakeSinkServiceV2IT {
         20,
         5);
 
+    // verify all metrics
+    Map<String, Gauge> metricRegistry =
+        service
+            .getMetricRegistry(
+                SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, partition))
+            .get()
+            .getGauges();
+    assert metricRegistry.size()
+        == SnowflakeTelemetryChannelStatus.NUM_METRICS * 2; // two partitions
+
+    // partition 1
+    this.verifyPartitionMetrics(
+        metricRegistry,
+        partitionChannelKey(TEST_CONNECTOR_NAME, topic, partition),
+        NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        recordsInPartition1 - 1,
+        recordsInPartition1,
+        1,
+        this.conn.getConnectorName());
+    this.verifyPartitionMetrics(
+        metricRegistry,
+        partitionChannelKey(TEST_CONNECTOR_NAME, topic, partition2),
+        NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        recordsInPartition2 - 1,
+        recordsInPartition2,
+        1,
+        this.conn.getConnectorName());
+
+    // verify telemetry
+    Mockito.verify(telemetryService, Mockito.times(2))
+        .reportKafkaPartitionStart(Mockito.any(SnowflakeTelemetryChannelCreation.class));
+
     service.closeAll();
+
+    // verify metrics closed
+    assert !service
+        .getMetricRegistry(
+            SnowflakeSinkServiceV2.partitionChannelKey(TEST_CONNECTOR_NAME, topic, partition))
+        .isPresent();
+
+    Mockito.verify(telemetryService, Mockito.times(2))
+        .reportKafkaPartitionUsage(
+            Mockito.any(SnowflakeTelemetryChannelStatus.class), Mockito.eq(true));
+  }
+
+  private void verifyPartitionMetrics(
+      Map<String, Gauge> metricRegistry,
+      String partitionChannelKey,
+      long offsetPersistedInSnowflake,
+      long processedOffset,
+      long latestConsumerOffset,
+      long currentTpChannelOpenCount,
+      String connectorName) {
+    // offsets
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        partitionChannelKey,
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
+                .getValue()
+        == offsetPersistedInSnowflake;
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        partitionChannelKey,
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.PROCESSED_OFFSET))
+                .getValue()
+        == processedOffset;
+    assert (long)
+            metricRegistry
+                .get(
+                    MetricsUtil.constructMetricName(
+                        partitionChannelKey,
+                        MetricsUtil.OFFSET_SUB_DOMAIN,
+                        MetricsUtil.LATEST_CONSUMER_OFFSET))
+                .getValue()
+        == latestConsumerOffset;
   }
 
   @Test
@@ -491,7 +614,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testStreamingIngestion_timeBased() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -528,7 +651,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testNativeJsonInputIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -627,7 +750,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testNativeAvroInputIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     // avro
     SchemaBuilder schemaBuilder =
@@ -788,7 +911,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testBrokenIngestion() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -857,7 +980,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testBrokenRecordIngestionFollowedUpByValidRecord() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -913,7 +1036,7 @@ public class SnowflakeSinkServiceV2IT {
    */
   @Test
   public void testBrokenRecordIngestionAfterValidRecord() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -1368,6 +1491,14 @@ public class SnowflakeSinkServiceV2IT {
       stmt.close();
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
+  }
+
+  private Map<String, String> getConfig() {
+    if (!useOAuth) {
+      return TestUtils.getConfForStreaming();
+    } else {
+      return TestUtils.getConfForStreamingWithOAuth();
     }
   }
 }

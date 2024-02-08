@@ -209,9 +209,13 @@ public class SnowflakeSinkConnector extends SinkConnector {
       Utils.updateConfigErrorMessage(result, invalidKey, invalidProxyParams.get(invalidKey));
     }
 
-    // If private key or private key passphrase is provided through file, skip validation
-    if (connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, "").contains("${file:")
-        || connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, "").contains("${file:"))
+    // If using snowflake_jwt and authentication, and private key or private key passphrase is
+    // provided through file, skip validation
+    if (connectorConfigs
+            .getOrDefault(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT)
+            .equals(Utils.SNOWFLAKE_JWT)
+        && (connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, "").contains("${file:")
+            || connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, "").contains("${file:")))
       return result;
 
     // We don't validate name, since it is not included in the return value
@@ -243,6 +247,28 @@ public class SnowflakeSinkConnector extends SinkConnector {
           break;
         case "0013":
           Utils.updateConfigErrorMessage(result, Utils.SF_PRIVATE_KEY, " must be non-empty");
+          break;
+        case "0026":
+          Utils.updateConfigErrorMessage(
+              result,
+              Utils.SF_OAUTH_CLIENT_ID,
+              " must be non-empty when using oauth authenticator");
+          break;
+        case "0027":
+          Utils.updateConfigErrorMessage(
+              result,
+              Utils.SF_OAUTH_CLIENT_SECRET,
+              " must be non-empty when using oauth authenticator");
+          break;
+        case "0028":
+          Utils.updateConfigErrorMessage(
+              result,
+              Utils.SF_OAUTH_REFRESH_TOKEN,
+              " must be non-empty when using oauth authenticator");
+          break;
+        case "0029":
+          Utils.updateConfigErrorMessage(
+              result, Utils.SF_AUTHENTICATOR, " is not a valid authenticator");
           break;
         case "0002":
           Utils.updateConfigErrorMessage(

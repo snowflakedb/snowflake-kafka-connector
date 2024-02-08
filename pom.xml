@@ -12,7 +12,7 @@
 
     <groupId>com.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>2.0.1</version>
+    <version>2.1.0</version>
     <packaging>jar</packaging>
     <name>Snowflake Kafka Connector</name>
     <description>Snowflake Kafka Connect Sink Connector</description>
@@ -44,8 +44,8 @@
 
     <!-- Set our Language Level to Java 8 -->
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
         <skipTests>false</skipTests>
         <skipUnitTests>${skipTests}</skipUnitTests>
         <junit.version>5.10.0</junit.version>
@@ -95,7 +95,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.8</version>
+                <version>0.8.2</version>
                 <executions>
                     <execution>
                         <id>pre-unit-test</id>
@@ -336,7 +336,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-ingest-sdk</artifactId>
-            <version>2.0.2</version>
+            <version>2.0.3</version>
             <exclusions>
                 <exclusion>
                     <groupId>net.snowflake</groupId>
