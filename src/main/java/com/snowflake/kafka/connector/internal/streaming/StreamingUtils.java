@@ -8,6 +8,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ErrorTolerance;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
 import com.google.common.base.Strings;
@@ -19,6 +20,7 @@ import com.snowflake.kafka.connector.internal.BufferThreshold;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.common.config.ConfigException;
@@ -73,28 +75,28 @@ public class StreamingUtils {
   public static final String STREAMING_CONSTANT_OAUTH_CLIENT_SECRET = "oauth_client_secret";
   public static final String STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN = "oauth_refresh_token";
 
-  /* Maps streaming client's property keys to what we got from snowflake KC config file. */
-  public static Map<String, String> convertConfigForStreamingClient(
-      Map<String, String> connectorConfig) {
-    Map<String, String> streamingPropertiesMap = new HashMap<>();
+  /* Creates streaming client properties from snowflake KC config file. */
+  public static Properties convertConfigForStreamingClient(Map<String, String> connectorConfig) {
+    Properties streamingProperties = new Properties();
+
     connectorConfig.computeIfPresent(
         Utils.SF_URL,
         (key, value) -> {
-          streamingPropertiesMap.put(Constants.ACCOUNT_URL, value);
+          streamingProperties.put(Constants.ACCOUNT_URL, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
         Utils.SF_ROLE,
         (key, value) -> {
-          streamingPropertiesMap.put(Constants.ROLE, value);
+          streamingProperties.put(Constants.ROLE, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
         Utils.SF_USER,
         (key, value) -> {
-          streamingPropertiesMap.put(Constants.USER, value);
+          streamingProperties.put(Constants.USER, value);
           return value;
         });
 
@@ -102,11 +104,10 @@ public class StreamingUtils {
         Utils.SF_AUTHENTICATOR,
         (key, value) -> {
           if (value.equals(Utils.SNOWFLAKE_JWT)) {
-            streamingPropertiesMap.put(
-                STREAMING_CONSTANT_AUTHORIZATION_TYPE, STREAMING_CONSTANT_JWT);
+            streamingProperties.put(STREAMING_CONSTANT_AUTHORIZATION_TYPE, STREAMING_CONSTANT_JWT);
           }
           if (value.equals(Utils.OAUTH)) {
-            streamingPropertiesMap.put(
+            streamingProperties.put(
                 STREAMING_CONSTANT_AUTHORIZATION_TYPE, STREAMING_CONSTANT_OAUTH);
           }
           return value;
@@ -115,7 +116,7 @@ public class StreamingUtils {
     connectorConfig.computeIfPresent(
         Utils.SF_PRIVATE_KEY,
         (key, value) -> {
-          streamingPropertiesMap.put(Constants.PRIVATE_KEY, value);
+          streamingProperties.put(Constants.PRIVATE_KEY, value);
           return value;
         });
 
@@ -123,7 +124,7 @@ public class StreamingUtils {
         Utils.PRIVATE_KEY_PASSPHRASE,
         (key, value) -> {
           if (!value.isEmpty()) {
-            streamingPropertiesMap.put(Constants.PRIVATE_KEY_PASSPHRASE, value);
+            streamingProperties.put(Constants.PRIVATE_KEY_PASSPHRASE, value);
           }
           return value;
         });
@@ -131,25 +132,25 @@ public class StreamingUtils {
     connectorConfig.computeIfPresent(
         Utils.SF_OAUTH_CLIENT_ID,
         (key, value) -> {
-          streamingPropertiesMap.put(STREAMING_CONSTANT_OAUTH_CLIENT_ID, value);
+          streamingProperties.put(STREAMING_CONSTANT_OAUTH_CLIENT_ID, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
         Utils.SF_OAUTH_CLIENT_SECRET,
         (key, value) -> {
-          streamingPropertiesMap.put(STREAMING_CONSTANT_OAUTH_CLIENT_SECRET, value);
+          streamingProperties.put(STREAMING_CONSTANT_OAUTH_CLIENT_SECRET, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
         Utils.SF_OAUTH_REFRESH_TOKEN,
         (key, value) -> {
-          streamingPropertiesMap.put(STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN, value);
+          streamingProperties.put(STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN, value);
           return value;
         });
 
-    return streamingPropertiesMap;
+    return streamingProperties;
   }
 
   /* Returns true if sf connector config has error.tolerance = ALL */
@@ -220,6 +221,19 @@ public class StreamingUtils {
           if (inputConfig.containsKey(ERRORS_LOG_ENABLE_CONFIG)) {
             BOOLEAN_VALIDATOR.ensureValid(
                 ERRORS_LOG_ENABLE_CONFIG, inputConfig.get(ERRORS_LOG_ENABLE_CONFIG));
+          }
+
+          if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
+            try {
+              Long.parseLong(inputConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG));
+            } catch (NumberFormatException exception) {
+              invalidParams.put(
+                  SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
+                  Utils.formatString(
+                      "Max client lag configuration must be a parsable long. Given configuration"
+                          + " was: {}",
+                      inputConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)));
+            }
           }
 
           // Valid schematization for Snowpipe Streaming

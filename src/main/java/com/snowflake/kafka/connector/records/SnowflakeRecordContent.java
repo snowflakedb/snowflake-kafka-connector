@@ -40,11 +40,12 @@ public class SnowflakeRecordContent {
    *
    * @param schema schema of the object
    * @param data object produced by native avro/json converters
+   * @param isStreaming indicates whether this is part of snowpipe streaming
    */
-  public SnowflakeRecordContent(Schema schema, Object data) {
+  public SnowflakeRecordContent(Schema schema, Object data, boolean isStreaming) {
     this.content = new JsonNode[1];
     this.schemaID = NON_AVRO_SCHEMA;
-    this.content[0] = RecordService.convertToJson(schema, data);
+    this.content[0] = RecordService.convertToJson(schema, data, isStreaming);
     this.isBroken = false;
     this.brokenData = null;
   }

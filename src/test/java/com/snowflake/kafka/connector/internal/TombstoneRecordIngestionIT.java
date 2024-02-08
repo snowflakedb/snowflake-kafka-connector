@@ -11,7 +11,13 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -214,8 +220,8 @@ public class TombstoneRecordIngestionIT {
         this.behavior == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT
             ? sinkRecords.size()
             : 1;
-    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == expectedOffset, 10, 5);
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == expectedOffset, 10, 20);
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == expectedOffset, 10, 5);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == expectedOffset, 10, 20);
   }
 }
