@@ -51,6 +51,11 @@
         <skipIntegrationTests>${skipTests}</skipIntegrationTests>
         <license.processing.dependencyJarsDir>${project.build.directory}/dependency-jars</license.processing.dependencyJarsDir>
         <license.processing.dependencyListFile>${project.build.directory}/dependency-list.txt</license.processing.dependencyListFile>
+        <!--
+            /licenses folder is copied into zip file distribution by kafka-connect-maven-plugin
+            It is an undocumented behaviour that originates from the zip file structure https://docs.confluent.io/platform/current/connect/confluent-hub/component-archive.html
+            There is no way to change the path for something inside /target, so it needs to be cleaned up independently
+        -->
         <license.processing.targetDir>${project.build.directory}/../licenses</license.processing.targetDir>
     </properties>
 
@@ -213,6 +218,22 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <!-- Clean additional files created outside of target -->
+            <plugin>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.3.2</version>
+                <configuration>
+                    <failOnError>false</failOnError>
+                    <filesets>
+                        <fileset>
+                            <directory>${project.basedir}/licenses</directory>
+                            <includes>
+                                <include>**</include>
+                            </includes>
+                        </fileset>
+                    </filesets>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
