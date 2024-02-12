@@ -90,8 +90,8 @@
     <build>
         <plugins>
             <!--
-            Copy all project dependencies to target/dependency-jars. License processing Python script will look here for
-            license files of SDK dependencies.
+            Copy all project dependencies to target/dependency-jars directory. License processing Python script will check
+            only this directory for the license files of SDK dependencies.
             -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
