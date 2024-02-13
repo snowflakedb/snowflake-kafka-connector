@@ -20,3 +20,4 @@ docker-setup/snowflake-kafka-docker
 cc-docker-connect-snowflake/confluent-cloud-plugins/
 cc-docker-connect-snowflake/kafka-connect-snowflake/
 .cache/
+licenses/
