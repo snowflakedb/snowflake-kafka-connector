@@ -49,6 +49,14 @@
         <skipTests>false</skipTests>
         <skipUnitTests>${skipTests}</skipUnitTests>
         <skipIntegrationTests>${skipTests}</skipIntegrationTests>
+        <license.processing.dependencyJarsDir>${project.build.directory}/dependency-jars</license.processing.dependencyJarsDir>
+        <license.processing.dependencyListFile>${project.build.directory}/dependency-list.txt</license.processing.dependencyListFile>
+        <!--
+            /licenses folder is copied into zip file distribution by kafka-connect-maven-plugin
+            It is an undocumented behaviour that originates from the zip file structure https://docs.confluent.io/platform/current/connect/confluent-hub/component-archive.html
+            There is no way to change the path for something inside /target, so it needs to be cleaned up independently
+        -->
+        <license.processing.targetDir>${project.build.directory}/../licenses</license.processing.targetDir>
     </properties>
 
 
@@ -81,6 +89,76 @@
     </distributionManagement>
     <build>
         <plugins>
+            <!--
+            Copy all project dependencies to target/dependency-jars directory. License processing Python script will check
+            only this directory for the license files of SDK dependencies.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-dependencies</id>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <outputDirectory>${license.processing.dependencyJarsDir}</outputDirectory>
+                            <overWriteReleases>false</overWriteReleases>
+                            <overWriteSnapshots>false</overWriteSnapshots>
+                            <overWriteIfNewer>true</overWriteIfNewer>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!--
+            Compile the list of SDK dependencies in 'compile' and 'runtime' scopes.
+            This list is an entry point for the license processing python script.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.6.0</version>
+                <configuration>
+                    <includeScope>runtime</includeScope>
+                    <outputFile>${license.processing.dependencyListFile}</outputFile>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>list</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            <!--
+            Plugin executes license processing Python script, which copies third party license files into the "license"
+            directory which is later copied into zip file distribution.
+            -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>process-third-party-licenses</id>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <executable>python3</executable>
+                            <arguments>
+                                <argument>${project.basedir}/scripts/process_licenses.py</argument>
+                                <argument>${license.processing.dependencyListFile}</argument>
+                                <argument>${license.processing.dependencyJarsDir}</argument>
+                                <argument>${license.processing.targetDir}</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>io.confluent</groupId>
                 <version>0.11.1</version>
@@ -140,6 +218,22 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <!-- Clean additional files created outside of target -->
+            <plugin>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.3.2</version>
+                <configuration>
+                    <failOnError>false</failOnError>
+                    <filesets>
+                        <fileset>
+                            <directory>${project.basedir}/licenses</directory>
+                            <includes>
+                                <include>**</include>
+                            </includes>
+                        </fileset>
+                    </filesets>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

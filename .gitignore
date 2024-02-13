@@ -17,3 +17,4 @@ test/perf_test/confluent.tar.gz
 docker-setup/connector-examples/*.json
 docker-setup/snowflake-kafka-docker
 .cache/
+licenses/
