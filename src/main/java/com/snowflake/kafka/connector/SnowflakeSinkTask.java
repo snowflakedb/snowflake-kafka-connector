@@ -237,7 +237,8 @@ public class SnowflakeSinkTask extends SinkTask {
    * stop method is invoked only once outstanding calls to other methods have completed. e.g. after
    * current put, and a final preCommit has completed.
    *
-   * <p>Note that calling this method does not perform synchronous cleanup in Snowpipe based implementation
+   * <p>Note that calling this method does not perform synchronous cleanup in Snowpipe based
+   * implementation
    */
   @Override
   public void stop() {

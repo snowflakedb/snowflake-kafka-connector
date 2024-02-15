@@ -221,9 +221,9 @@ public enum SnowflakeErrors {
   // by Ingest SDK"),
 
   ERROR_3009(
-          "3009",
-          "Streaming Ingest Channel close exception",
-          "Streaming Ingest channel could not be closed. Possible thread leak."),
+      "3009",
+      "Streaming Ingest Channel close exception",
+      "Streaming Ingest channel could not be closed. Possible thread leak."),
 
   // Wrong result issues 4---
   ERROR_4001("4001", "Unexpected Result", "Get wrong results from Snowflake service"),
