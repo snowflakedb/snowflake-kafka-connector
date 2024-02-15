@@ -58,10 +58,10 @@ If there are specific items or subsets of the change that you want a particular 
 -->
 
 <!--
-Reviewers:  Every review must have at least two reviewers for bug fixes, GA'ed component. 1 reviewer is enough for test only, doc changes.
+Reviewers:  Every review must have at least two reviewers for bug fixes, GA'ed component. One reviewer is enough for test only, doc changes.
 Example:
-- Minimum # of Required Reviewers - 2 for Improvements and Bugfixes - <@github alias> 
+- Minimum # of Required Reviewers - **Two** for Improvements and Bugfixes - <@github alias> 
 - Educational purposes - <@github alias>
-- Manager/TL approval (If patch critical and requires a release)
+- Manager/TL approval (If patch critical and requires a release) - <@github alias>
 -->
 
