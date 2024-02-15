@@ -58,10 +58,10 @@ If there are specific items or subsets of the change that you want a particular 
 -->
 
 <!--
-Reviewers:  Every review must have at least one secondary owner, and likely at most two – if you ask three people or more to read the entire review, you are asking for a great effort on your reviewers' part with little added benefit beyond the first 2 reviewers.
+Reviewers:  Every review must have at least two reviewers for bug fixes, GA'ed component. 1 reviewer is enough for test only, doc changes.
 Example:
 - Minimum # of Required Reviewers - 2 for Improvements and Bugfixes - <@github alias> 
-- Educational - <@github alias>
+- Educational purposes - <@github alias>
 - Manager/TL approval (If patch critical and requires a release)
 -->
 
