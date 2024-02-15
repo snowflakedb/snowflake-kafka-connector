@@ -242,7 +242,7 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void stop() {
     if (this.sink != null) {
-      this.sink.stop(); // close cleaner thread
+      this.sink.stop();
     }
 
     this.DYNAMIC_LOGGER.info(
