@@ -399,7 +399,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   @Override
-  public void setIsStoppedToTrue() {}
+  public void stop() {
+    try {
+      streamingIngestClient.close();
+    } catch (Exception e) {
+      LOGGER.warn("Could not close streaming ingest client");
+      throw SnowflakeErrors.ERROR_3009.getException(e);
+    }
+  }
 
   /* Undefined */
   @Override
