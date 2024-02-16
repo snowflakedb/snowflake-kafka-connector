@@ -16,8 +16,8 @@ function random-string() {
 source ./utils.sh
 
 # check argument number
-if [ "$#" -lt 2 ] || [ "$#" -gt 4 ] ; then
-    error_exit "Usage: ./run_test.sh <version> <path to apache config folder> <pressure> <ssl>.  Aborting."
+if [ "$#" -lt 2 ] || [ "$#" -gt 6 ] ; then
+    error_exit "Usage: ./run_test.sh <version> <path to apache config folder> <pressure> <ssl> [--local=true] [--tests=TestStringJson,TestStringAvro,...].  Aborting."
 fi
 
 APACHE_VERSION=$1
@@ -32,6 +32,21 @@ if [ "$#" -gt 3 ] ; then
 else
   SSL="false"
 fi
+
+if [ "$#" -gt 4 ] && [[ $5 == "--local=true" ]] ; then
+  LOCAL=true
+else
+  LOCAL=false
+fi
+
+tests_pattern="[^(--tests=).*]"
+if [ "$#" -gt 5 ] && [[ $6 =~ $tests_pattern ]] ; then
+  # skip initial '--tests='
+  TESTS=`echo $6 | cut -c9-`
+else
+  TESTS=""
+fi
+
 SNOWFLAKE_ZOOKEEPER_CONFIG="zookeeper.properties"
 SNOWFLAKE_KAFKA_CONFIG="server.properties"
 SNOWFLAKE_KAFKA_CONNECT_CONFIG="connect-distributed.properties"
@@ -142,20 +157,17 @@ LOCAL_IP="localhost"
 SC_PORT=8081
 KC_PORT=8083
 
-# Add list of test names for local development
-ALLOWED_TESTS={}
-
 set +e -x
 echo -e "\n=== Clean table stage and pipe ==="
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $APACHE_VERSION $NAME_SALT $PRESSURE $SSL $ALLOWED_TESTS
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $APACHE_VERSION $NAME_SALT $PRESSURE $SSL $LOCAL $TESTS
 
 #create_connectors_with_salt $SNOWFLAKE_CREDENTIAL_FILE $NAME_SALT $LOCAL_IP $KC_PORT
 
 # Send test data and verify DB result from Python
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT $TEST_SET $APACHE_VERSION $NAME_SALT $PRESSURE $SSL $ALLOWED_TESTS
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT $TEST_SET $APACHE_VERSION $NAME_SALT $PRESSURE $SSL $LOCAL $TESTS
 testError=$?
 # delete_connectors_with_salt $NAME_SALT $LOCAL_IP $KC_PORT
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $APACHE_VERSION $NAME_SALT $PRESSURE $SSL $ALLOWED_TESTS
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $APACHE_VERSION $NAME_SALT $PRESSURE $SSL $LOCAL $TESTS
 
 if [ $testError -ne 0 ]; then
     RED='\033[0;31m'

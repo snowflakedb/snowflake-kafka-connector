@@ -83,14 +83,14 @@ class EndToEndTestSuite:
         return self._run_in_apache
 
 
-def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet, allowedTests):
+def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet, allowedTestsCsv):
     '''
     Creates all End to End tests which needs to run against Confluent Kafka or Apache Kafka.
     :param driver: Driver holds all helper function for tests - Create topic, create connector, send data are few functions amongst many present in Class KafkaTest.
     :param nameSalt: random string appended for uniqueness of Connector Name
     :param schemaRegistryAddress: Schema registry For confluent runs
     :param testSet: confluent Kafka or apache Kafka (OSS)
-    :param allowedTests: set of tests to run. If empty run all tests.
+    :param allowedTestsCsv: comma separated list of tests to be run. Run all tests when no value given.
     :return:
     '''
     test_suites = OrderedDict([
@@ -264,7 +264,9 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
     ])
 
     # Return all suites or only selected subset
-    if allowedTests is None:
+    if allowedTestsCsv is None or allowedTestsCsv == "":
         return test_suites
     else:
-        return dict((k, v) for k, v in test_suites.items() if k in allowedTests)
+        testsToRun = dict((k, v) for k, v in test_suites.items() if k in allowedTestsCsv.split(','))
+        print("Running", len(testsToRun), "tests")
+        return testsToRun
