@@ -142,17 +142,20 @@ LOCAL_IP="localhost"
 SC_PORT=8081
 KC_PORT=8083
 
+# Add list of test names for local development
+ALLOWED_TESTS={}
+
 set +e -x
 echo -e "\n=== Clean table stage and pipe ==="
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $APACHE_VERSION $NAME_SALT $PRESSURE $SSL
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $APACHE_VERSION $NAME_SALT $PRESSURE $SSL $ALLOWED_TESTS
 
 #create_connectors_with_salt $SNOWFLAKE_CREDENTIAL_FILE $NAME_SALT $LOCAL_IP $KC_PORT
 
 # Send test data and verify DB result from Python
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT $TEST_SET $APACHE_VERSION $NAME_SALT $PRESSURE $SSL
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT $TEST_SET $APACHE_VERSION $NAME_SALT $PRESSURE $SSL $ALLOWED_TESTS
 testError=$?
 # delete_connectors_with_salt $NAME_SALT $LOCAL_IP $KC_PORT
-python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $APACHE_VERSION $NAME_SALT $PRESSURE $SSL
+python3 test_verify.py $LOCAL_IP:$SNOWFLAKE_KAFKA_PORT http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $APACHE_VERSION $NAME_SALT $PRESSURE $SSL $ALLOWED_TESTS
 
 if [ $testError -ne 0 ]; then
     RED='\033[0;31m'
