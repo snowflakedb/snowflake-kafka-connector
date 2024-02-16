@@ -403,8 +403,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     try {
       streamingIngestClient.close();
     } catch (Exception e) {
-      LOGGER.warn("Could not close streaming ingest client");
-      throw SnowflakeErrors.ERROR_3009.getException(e);
+      LOGGER.warn("Could not close streaming ingest client. {}", e.getMessage());
     }
   }
 
