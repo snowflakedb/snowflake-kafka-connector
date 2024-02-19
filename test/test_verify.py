@@ -572,7 +572,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 10:
         errorExit(
             """\n=== Usage: ./ingest.py <kafka address> <schema registry address> <kafka connect address>
-             <test set> <test version> <name salt> <pressure> <enableSSL> [skipProxy] [allowedTestsCsv]===""")
+             <test set> <test version> <name salt> <pressure> <enableSSL> <skipProxy> [allowedTestsCsv]===""")
 
     kafkaAddress = sys.argv[1]
     global schemaRegistryAddress
