@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
@@ -282,4 +283,28 @@ public interface SnowflakeConnectionService {
    * @param tableName table name
    */
   void createTableWithOnlyMetadataColumn(String tableName, boolean autoSchematization);
+
+  /**
+   * Migrate Streaming Channel offsetToken from a source Channel to a destination channel.
+   *
+   * <p>Here, source channel is the new channel format we created here * @see <a
+   * href="https://github.com/snowflakedb/snowflake-kafka-connector/commit/3bf9106b22510c62068f7d2f7137b9e57989274c">Commit
+   * </a>
+   *
+   * <p>Destination channel is the original Format containing only topicName and partition number.
+   *
+   * <p>We catch SQLException and JsonProcessingException that might happen in this method. The
+   * caller should always open the Old Channel format. This old channel format will also be the key
+   * to many HashMaps we will create. (For instance {@link
+   * com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2#partitionsToChannel})
+   *
+   * @param tableName Name of the table
+   * @param sourceChannelName sourceChannel name from where the offset Token will be fetched.
+   *     Channel with this name will also be deleted.
+   * @param destinationChannelName destinationChannel name to where the offsetToken will be copied
+   *     over.
+   * @return The DTO serialized from the migration response.
+   */
+  ChannelMigrateOffsetTokenResponseDTO migrateStreamingChannelOffsetToken(
+      String tableName, String sourceChannelName, String destinationChannelName);
 }

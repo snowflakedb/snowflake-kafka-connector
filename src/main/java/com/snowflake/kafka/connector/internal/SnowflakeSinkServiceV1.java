@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.*;
+import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_RECORD_COUNT;
+import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SIZE_BYTES;
+import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SUB_DOMAIN;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
 import com.codahale.metrics.Histogram;
@@ -129,7 +131,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   public void insert(final Collection<SinkRecord> records) {
     // note that records can be empty
     for (SinkRecord record : records) {
-      // check if need to handle null value records
+      // check if it needs to handle null value records
       if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
         continue;
       }
@@ -660,7 +662,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       Schema schema = isKey ? record.keySchema() : record.valueSchema();
       Object content = isKey ? record.key() : record.value();
       try {
-        newSFContent = new SnowflakeRecordContent(schema, content);
+        newSFContent = new SnowflakeRecordContent(schema, content, false);
       } catch (Exception e) {
         LOGGER.error("Native content parser error:\n{}", e.getMessage());
         try {

@@ -13,7 +13,11 @@ class TestSchemaEvolutionWithAutoTableCreationJson:
         self.fileName = "travis_correct_schema_evolution_w_auto_table_creation_json"
         self.topics = []
         self.table = self.fileName + nameSalt
-        self.recordNum = 100
+
+        # records
+        self.initialRecordCount = 12
+        self.flushRecordCount = 300
+        self.recordNum = self.initialRecordCount + self.flushRecordCount
 
         for i in range(2):
             self.topics.append(self.table + str(i))
@@ -48,9 +52,18 @@ class TestSchemaEvolutionWithAutoTableCreationJson:
 
     def send(self):
         for i, topic in enumerate(self.topics):
+            # send initial batch
             key = []
             value = []
-            for e in range(self.recordNum):
+            for e in range(self.initialRecordCount):
+                key.append(json.dumps({'number': str(e)}).encode('utf-8'))
+                value.append(json.dumps(self.records[i]).encode('utf-8'))
+            self.driver.sendBytesData(topic, value, key)
+
+            # send second batch that should flush
+            key = []
+            value = []
+            for e in range(self.flushRecordCount):
                 key.append(json.dumps({'number': str(e)}).encode('utf-8'))
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
             self.driver.sendBytesData(topic, value, key)

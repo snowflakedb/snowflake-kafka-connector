@@ -21,20 +21,19 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
@@ -74,6 +73,8 @@ public class RecordService {
 
   private boolean enableSchematization = false;
   private boolean autoSchematization = true;
+  private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues =
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
@@ -88,6 +89,8 @@ public class RecordService {
 
   public static final ThreadLocal<SimpleDateFormat> TIME_FORMAT =
       ThreadLocal.withInitial(() -> new SimpleDateFormat("HH:mm:ss.SSSZ"));
+  public static final ThreadLocal<SimpleDateFormat> TIME_FORMAT_STREAMING =
+      ThreadLocal.withInitial(() -> new SimpleDateFormat("HH:mm:ss.SSSXXX"));
   static final int MAX_SNOWFLAKE_NUMBER_PRECISION = 38;
 
   // This class is designed to work with empty metadata config map
@@ -111,7 +114,7 @@ public class RecordService {
   /** Record service with null telemetry Service, only use it for testing. */
   @VisibleForTesting
   public RecordService() {
-    this.telemetryService = null;
+    this(null);
   }
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
@@ -167,24 +170,43 @@ public boolean setAndGetAutoSchematizationFromConfig(
   }
 
   /**
+   * Directly set the behaviorOnNullValues through param
+   *
+   * <p>This method is only for testing
+   *
+   * @param behaviorOnNullValues how to handle null values
+   */
+  @VisibleForTesting
+  public void setBehaviorOnNullValues(
+      final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues) {
+    this.behaviorOnNullValues = behaviorOnNullValues;
+  }
+
+  /**
    * process given SinkRecord, only support snowflake converters
    *
    * @param record SinkRecord
    * @return a Row wrapper which contains both actual content(payload) and metadata
    */
   private SnowflakeTableRow processRecord(SinkRecord record) {
-    if (record.value() == null || record.valueSchema() == null) {
-      throw SnowflakeErrors.ERROR_5016.getException();
-    }
-    if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME)) {
-      throw SnowflakeErrors.ERROR_0009.getException();
-    }
-    if (!(record.value() instanceof SnowflakeRecordContent)) {
-      throw SnowflakeErrors.ERROR_0010.getException(
-          "Input record should be SnowflakeRecordContent object");
-    }
+    SnowflakeRecordContent valueContent;
 
-    SnowflakeRecordContent valueContent = (SnowflakeRecordContent) record.value();
+    if (record.value() == null || record.valueSchema() == null) {
+      if (this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+        valueContent = new SnowflakeRecordContent();
+      } else {
+        throw SnowflakeErrors.ERROR_5016.getException();
+      }
+    } else {
+      if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME)) {
+        throw SnowflakeErrors.ERROR_0009.getException();
+      }
+      if (!(record.value() instanceof SnowflakeRecordContent)) {
+        throw SnowflakeErrors.ERROR_0010.getException(
+            "Input record should be SnowflakeRecordContent object");
+      }
+      valueContent = (SnowflakeRecordContent) record.value();
+    }
 
     ObjectNode meta = MAPPER.createObjectNode();
     if (metadataConfig.topicFlag) {
@@ -274,23 +296,23 @@ public boolean setAndGetAutoSchematizationFromConfig(
   private Map<String, Object> getMapFromJsonNodeForStreamingIngest(JsonNode node)
       throws JsonProcessingException {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
+
+    // return empty if tombstone record
+    if (node.size() == 0
+        && this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+      return streamingIngestRow;
+    }
+
     Iterator<String> columnNames = node.fieldNames();
     while (columnNames.hasNext()) {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
       Object columnValue;
-      if (columnNode.isArray()) {
-        List<String> itemList = new ArrayList<>();
-        ArrayNode arrayNode = (ArrayNode) columnNode;
-        for (JsonNode e : arrayNode) {
-          itemList.add(e.isTextual() ? e.textValue() : MAPPER.writeValueAsString(e));
-        }
-        columnValue = itemList;
+      if (columnNode.isTextual()) {
+        columnValue = columnNode.textValue();
       } else if (columnNode.isBinary()) {
         byte[] binaryValue = Base64.getDecoder().decode(columnNode.asText());
         columnValue = HexFormat.of().formatHex(binaryValue);        
-      } else if (columnNode.isTextual()) {
-        columnValue = columnNode.textValue();
       } else if (columnNode.isNull()) {
         columnValue = null;
       } else {
@@ -298,7 +320,7 @@ public boolean setAndGetAutoSchematizationFromConfig(
       }
       // while the value is always dumped into a string, the Streaming Ingest SDK
       // will transform the value according to its type in the table
-      streamingIngestRow.put(columnName, columnValue);
+      streamingIngestRow.put(Utils.quoteNameIfNeeded(columnName), columnValue);
     }
     // Thrown an exception if the input JsonNode is not in the expected format
     if (streamingIngestRow.isEmpty()) {
@@ -323,6 +345,12 @@ public boolean setAndGetAutoSchematizationFromConfig(
   void putKey(SinkRecord record, ObjectNode meta) {
     if (record.key() == null) {
       return;
+    }
+
+    if (record.keySchema() == null) {
+      throw SnowflakeErrors.ERROR_0010.getException(
+          "Unsupported Key format, please implement either String Key Converter or Snowflake"
+              + " Converters");
     }
 
     if (record.keySchema().toString().equals(Schema.STRING_SCHEMA.toString())) {
@@ -358,7 +386,7 @@ public boolean setAndGetAutoSchematizationFromConfig(
   static JsonNode parseHeaders(Headers headers) {
     ObjectNode result = MAPPER.createObjectNode();
     for (Header header : headers) {
-      result.set(header.key(), convertToJson(header.schema(), header.value()));
+      result.set(header.key(), convertToJson(header.schema(), header.value(), false));
     }
     return result;
   }
@@ -369,15 +397,17 @@ public boolean setAndGetAutoSchematizationFromConfig(
    *
    * @param schema schema of the object
    * @param logicalValue object to be converted
+   * @param isStreaming indicates whether this is part of snowpipe streaming
    * @return a JsonNode of the object
    */
-  public static JsonNode convertToJson(Schema schema, Object logicalValue) {
+  public static JsonNode convertToJson(Schema schema, Object logicalValue, boolean isStreaming) {
     if (logicalValue == null) {
       if (schema
           == null) // Any schema is valid and we don't have a default, so treat this as an optional
         // schema
         return null;
-      if (schema.defaultValue() != null) return convertToJson(schema, schema.defaultValue());
+      if (schema.defaultValue() != null)
+        return convertToJson(schema, schema.defaultValue(), isStreaming);
       if (schema.isOptional()) return JsonNodeFactory.instance.nullNode();
       throw SnowflakeErrors.ERROR_5015.getException(
           "Conversion error: null value for field that is required and has no default value");
@@ -413,8 +443,9 @@ public boolean setAndGetAutoSchematizationFromConfig(
                 ISO_DATE_TIME_FORMAT.get().format((java.util.Date) value));
           }
           if (schema != null && Time.LOGICAL_NAME.equals(schema.name())) {
-            return JsonNodeFactory.instance.textNode(
-                TIME_FORMAT.get().format((java.util.Date) value));
+            ThreadLocal<SimpleDateFormat> format =
+                isStreaming ? TIME_FORMAT_STREAMING : TIME_FORMAT;
+            return JsonNodeFactory.instance.textNode(format.get().format((java.util.Date) value));
           }
           return JsonNodeFactory.instance.numberNode((Integer) value);
         case INT64:
@@ -471,7 +502,7 @@ public boolean setAndGetAutoSchematizationFromConfig(
             ArrayNode list = JsonNodeFactory.instance.arrayNode();
             for (Object elem : collection) {
               Schema valueSchema = schema == null ? null : schema.valueSchema();
-              JsonNode fieldValue = convertToJson(valueSchema, elem);
+              JsonNode fieldValue = convertToJson(valueSchema, elem, isStreaming);
               list.add(fieldValue);
             }
             return list;
@@ -501,8 +532,8 @@ public boolean setAndGetAutoSchematizationFromConfig(
             for (Map.Entry<?, ?> entry : map.entrySet()) {
               Schema keySchema = schema == null ? null : schema.keySchema();
               Schema valueSchema = schema == null ? null : schema.valueSchema();
-              JsonNode mapKey = convertToJson(keySchema, entry.getKey());
-              JsonNode mapValue = convertToJson(valueSchema, entry.getValue());
+              JsonNode mapKey = convertToJson(keySchema, entry.getKey(), isStreaming);
+              JsonNode mapValue = convertToJson(valueSchema, entry.getValue(), isStreaming);
 
               if (objectMode) obj.set(mapKey.asText(), mapValue);
               else list.add(JsonNodeFactory.instance.arrayNode().add(mapKey).add(mapValue));
@@ -516,7 +547,7 @@ public boolean setAndGetAutoSchematizationFromConfig(
               throw SnowflakeErrors.ERROR_5015.getException("Mismatching schema.");
             ObjectNode obj = JsonNodeFactory.instance.objectNode();
             for (Field field : schema.fields()) {
-              obj.set(field.name(), convertToJson(field.schema(), struct.get(field)));
+              obj.set(field.name(), convertToJson(field.schema(), struct.get(field), isStreaming));
             }
             return obj;
           }

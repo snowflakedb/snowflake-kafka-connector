@@ -20,20 +20,6 @@ public class SnowflakeTelemetryServiceV1 extends SnowflakeTelemetryService {
   }
 
   @Override
-  public void reportKafkaPartitionUsage(
-      final SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {
-    if (partitionStatus.isEmpty()) {
-      return;
-    }
-    ObjectNode msg = getObjectNode();
-
-    partitionStatus.dumpTo(msg);
-    msg.put(IS_PIPE_CLOSING, isClosing);
-
-    send(TelemetryType.KAFKA_PIPE_USAGE, msg);
-  }
-
-  @Override
   public ObjectNode getObjectNode() {
     ObjectNode objectNode = getDefaultObjectNode(IngestionMethodConfig.SNOWPIPE);
     return objectNode;

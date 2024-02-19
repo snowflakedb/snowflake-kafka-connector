@@ -1,19 +1,20 @@
 package com.snowflake.kafka.connector;
 
+import com.snowflake.client.jdbc.SnowflakeDriver;
+import com.snowflake.kafka.connector.internal.InternalUtils;
+import com.snowflake.kafka.connector.internal.SnowflakeURL;
+import com.streamkap.common.test.TestUtils;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
+import java.util.Properties;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.transforms.ReplaceField;
 import org.junit.jupiter.api.Test;
 
-import com.snowflake.client.jdbc.SnowflakeDriver;
-import com.snowflake.kafka.connector.internal.InternalUtils;
-import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.streamkap.common.test.sink.StreamkapSinkITBase;
 
 public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkTask> {
@@ -28,10 +29,6 @@ public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkT
                 "account:_account,all:_all,alter:_alter,and:_and,any:_any,as:_as,between:_between,by:_by,case:_case,cast:_cast,check:_check,column:_column,connect:_connect,connection:_connection,constraint:_constraint,create:_create,cross:_cross,current:_current,current_date:_current_date,current_time:_current_time,current_timestamp:_current_timestamp,current_user:_current_user,database:_database,delete:_delete,distinct:_distinct,drop:_drop,else:_else,exists:_exists,false:_false,following:_following,for:_for,from:_from,full:_full,grant:_grant,group:_group,gscluster:_gscluster,having:_having,ilike:_ilike,in:_in,increment:_increment,inner:_inner,insert:_insert,intersect:_intersect,into:_into,is:_is,issue:_issue,join:_join,lateral:_lateral,left:_left,like:_like,localtime:_localtime,localtimestamp:_localtimestamp,minus:_minus,natural:_natural,not:_not,null:_null,of:_of,on:_on,or:_or,order:_order,organization:_organization,qualify:_qualify,regexp:_regexp,revoke:_revoke,right:_right,rlike:_rlike,row:_row,rows:_rows,sample:_sample,schema:_schema,select:_select,set:_set,some:_some,start:_start,table:_table,tablesample:_tablesample,then:_then,to:_to,trigger:_trigger,true:_true,try_cast:_try_cast,union:_union,unique:_unique,update:_update,using:_using,values:_values,view:_view,when:_when,whenever:_whenever,where:_where,with:_with");
         renameAmbigiousFields.configure(config);
 
-        super.init(generateCon());
-    }
-
-    public static Connection generateCon() throws Exception {
         Map<String, String> conf = new HashMap<>();
         conf.put(Utils.SF_USER, "STREAMKAP_USER_JUNIT");
         conf.put(Utils.SF_DATABASE, "JUNIT");
@@ -45,11 +42,18 @@ public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkT
 
         SnowflakeURL url = new SnowflakeURL(conf.get(Utils.SF_URL));
 
-        Properties properties = InternalUtils.createProperties(conf, url.sslEnabled());
+        Properties properties = InternalUtils.createProperties(conf, url);
 
-        Connection connToSnowflake = new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
-
-        return connToSnowflake;
+        super.init(new TestUtils() {
+            @Override
+            protected Connection createCon() {
+                try {
+                    return new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
+                } catch (Exception e) {
+                    return null;
+                }
+            }
+        });
     }
 
     public Map<String, String> getConf() {
@@ -96,7 +100,7 @@ public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkT
 
     @Test
     public void testNominal() throws SQLException, InterruptedException {
-        super.testNominal();
+        super.testNominalInsert(false, 1);
     }
 
     // @Test
@@ -130,11 +134,6 @@ public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkT
     @Override
     protected String getSchemaName() {
         return SCHEMA_NAME;
-    }
-
-    @Override
-    protected void configureIngestionMode(Map<String, String> config, boolean isUpsert) {
-        // config.put("databricks.ingestion.mode", isUpsert ? "upsert" : "append");
     }
 
     @Override

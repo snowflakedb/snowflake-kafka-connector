@@ -8,6 +8,7 @@ import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionCha
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -15,13 +16,16 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
+import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -69,6 +73,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // default is true unless the configuration provided is false;
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
+  private MetricsJmxReporter metricsJmxReporter;
 
   /**
    * Fetching this from {@link org.apache.kafka.connect.sink.SinkTaskContext}'s {@link
@@ -98,6 +103,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   // Cache for schema evolution
   private final Map<String, Boolean> tableName2SchemaEvolutionPermission;
+
+  // Set that keeps track of the channels that have been seen per input batch
+  private final Set<String> channelsVisitedPerBatch = new HashSet<>();
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
@@ -131,6 +139,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.partitionsToChannel = new HashMap<>();
 
     this.tableName2SchemaEvolutionPermission = new HashMap<>();
+
+    // jmx
+    String connectorName =
+        conn == null || Strings.isNullOrEmpty(this.conn.getConnectorName())
+            ? "default_connector"
+            : this.conn.getConnectorName();
+    this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), connectorName);
   }
 
   @VisibleForTesting
@@ -244,7 +259,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.sinkTaskContext,
             this.conn,
             this.recordService,
-            this.conn.getTelemetryClient()));
+            this.conn.getTelemetryClient(),
+            this.enableCustomJMXMonitoring,
+            this.metricsJmxReporter));
   }
 
   /**
@@ -258,13 +275,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    *     Topic and multiple Partitions
    */
   @Override
-  public void insert(Collection<SinkRecord> records) {
+  public void insert(final Collection<SinkRecord> records) {
     // note that records can be empty but, we will still need to check for time based flush
+    channelsVisitedPerBatch.clear();
     for (SinkRecord record : records) {
-      // check if need to handle null value records
+      // check if it needs to handle null value records
       if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
         continue;
       }
+
       // While inserting into buffer, we will check for count threshold and buffered bytes
       // threshold.
       insert(record);
@@ -299,7 +318,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
-    channelPartition.insertRecordToBuffer(record);
+    boolean isFirstRowPerPartitionInBatch = channelsVisitedPerBatch.add(partitionChannelKey);
+    channelPartition.insertRecordToBuffer(record, isFirstRowPerPartitionInBatch);
   }
 
   @Override
@@ -339,7 +359,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     partitionsToChannel.clear();
 
     StreamingClientProvider.getStreamingClientProviderInstance()
-        .closeClient(this.streamingIngestClient);
+        .closeClient(this.connectorConfig, this.streamingIngestClient);
   }
 
   /**
@@ -369,7 +389,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           }
           LOGGER.info(
               "Closing partitionChannel:{}, partition:{}, topic:{}",
-              topicPartitionChannel == null ? null : topicPartitionChannel.getChannelName(),
+              topicPartitionChannel == null ? null : topicPartitionChannel.getChannelNameFormatV1(),
               topicPartition.topic(),
               topicPartition.partition());
           partitionsToChannel.remove(partitionChannelKey);
@@ -494,12 +514,19 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   @Override
-  public Optional<MetricRegistry> getMetricRegistry(String pipeName) {
-    return Optional.empty();
+  public Optional<MetricRegistry> getMetricRegistry(String partitionChannelKey) {
+    return this.partitionsToChannel.containsKey(partitionChannelKey)
+        ? Optional.of(
+            this.partitionsToChannel
+                .get(partitionChannelKey)
+                .getSnowflakeTelemetryChannelStatus()
+                .getMetricsJmxReporter()
+                .getMetricRegistry())
+        : Optional.empty();
   }
 
   /**
-   * Gets a unique identifier consisting of topic name and partition number.
+   * Gets a unique identifier consisting of connector name, topic name and partition number.
    *
    * @param topic topic name
    * @param partition partition number
@@ -512,7 +539,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   /* Used for testing */
   @VisibleForTesting
-  SnowflakeStreamingIngestClient getStreamingIngestClient() {
+  public SnowflakeStreamingIngestClient getStreamingIngestClient() {
     return StreamingClientProvider.getStreamingClientProviderInstance()
         .getClient(this.connectorConfig);
   }
