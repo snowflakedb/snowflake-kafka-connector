@@ -58,9 +58,9 @@ Run end to end test on Apache 2.2.0 without stress test, with ssl
 	./run_test_apache.sh 2.2.0 ./apache_properties_ssl false true
 ```
 
-There is also option to run selected tests locally for Apache using additional named parameters:
+There is also option to run selected tests locally using additional named parameters:
 ```
-./run_test_apache.sh <version> <path to apache config folder> <stress> <ssl> --local=true --tests=TestStringJson,TestAvroAvro
+./run_test_<confluent/apache>.sh <version> <path to apache config folder> <stress> <ssl> --local=true --tests=TestStringJson,TestAvroAvro
 ```
 
 Note: if ssl is set to true, path to apache config folder must be `apache_properties_ssl` instead of `apache_properties`
