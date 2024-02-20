@@ -400,12 +400,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void stop() {
-    try {
-      StreamingClientProvider.getStreamingClientProviderInstance()
-          .closeClient(this.connectorConfig, this.streamingIngestClient);
-    } catch (Exception e) {
-      LOGGER.warn("Could not close streaming ingest client. {}", e.getMessage());
-    }
+//    try {
+//      StreamingClientProvider.getStreamingClientProviderInstance()
+//          .closeClient(this.connectorConfig, this.streamingIngestClient);
+//    } catch (Exception e) {
+//      LOGGER.warn("Could not close streaming ingest client. {}", e.getMessage());
+//    }
   }
 
   /* Undefined */
