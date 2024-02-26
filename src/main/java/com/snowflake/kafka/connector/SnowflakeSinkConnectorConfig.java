@@ -121,6 +121,10 @@ public class SnowflakeSinkConnectorConfig {
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
       "snowflake.streaming.max.client.lag";
 
+  // This is the streaming max client lag which can be defined in config
+  public static final String SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE =
+          "snowflake.streaming.max.channel.size";
+
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
   public static final boolean REBALANCING_DEFAULT = false;
@@ -551,6 +555,17 @@ public class SnowflakeSinkConnectorConfig {
             6,
             ConfigDef.Width.NONE,
             SNOWPIPE_STREAMING_MAX_CLIENT_LAG)
+        .define(
+            SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE,
+            Type.LONG,
+            StreamingUtils.STREAMING_BUFFER_MAX_CHANNEL_SIZE_DEFAULT_BYTES,
+            ConfigDef.Range.atLeast(StreamingUtils.STREAMING_BUFFER_MAX_CHANNEL_SIZE_MINIMUM_BYTES),
+            Importance.LOW,
+            "Specify the maximum size (in bytes) of a single channel flush performed by the Ingest SDK",
+            CONNECTOR_CONFIG,
+            7, //TODO verify what this should be
+            ConfigDef.Width.NONE,
+            SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE)
         .define(
             ERRORS_TOLERANCE_CONFIG,
             Type.STRING,

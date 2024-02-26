@@ -9,6 +9,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ErrorTo
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
 import com.google.common.base.Strings;
@@ -44,6 +45,14 @@ public class StreamingUtils {
 
   public static final long STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC =
       Duration.ofSeconds(10).getSeconds();
+
+
+  //TODO decide if this makes sense
+  public static final long STREAMING_BUFFER_MAX_CHANNEL_SIZE_MINIMUM_BYTES = 32000000L;
+
+  //TODO decide if this makes sense
+  public static final long STREAMING_BUFFER_MAX_CHANNEL_SIZE_DEFAULT_BYTES = 32000000L;
+
 
   protected static final long STREAMING_BUFFER_COUNT_RECORDS_DEFAULT = 10_000L;
 
@@ -235,6 +244,18 @@ public class StreamingUtils {
                       inputConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)));
             }
           }
+            if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE)) {
+                try {
+                    Long.parseLong(inputConfig.get(SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE));
+                } catch (NumberFormatException exception) {
+                    invalidParams.put(
+                            SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE,
+                            Utils.formatString(
+                                    "Max channel size configuration must be a parsable long. Given configuration"
+                                            + " was: {}",
+                                    inputConfig.get(SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE)));
+                }
+            }
 
           // Valid schematization for Snowpipe Streaming
           invalidParams.putAll(validateSchematizationConfig(inputConfig));
