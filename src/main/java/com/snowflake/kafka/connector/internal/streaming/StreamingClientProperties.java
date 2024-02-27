@@ -93,15 +93,30 @@ public class StreamingClientProperties {
   /**
    * Fetches the properties from {@link SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP} and
    * combines it with parameter provider. This parameter provider needs a lowercase String in its
-   * key since Ingest SDK fetches the key from
+   * key since Ingest SDK fetches the key from <a
+   * href="https://github.com/snowflakedb/snowflake-ingest-java/blob/master/src/main/java/net/snowflake/ingest/utils/ParameterProvider.java">Ingest
+   * SDK</a>
    *
-   * @see <a
-   *     href="https://github.com/snowflakedb/snowflake-ingest-java/blob/master/src/main/java/net/snowflake/ingest/utils/ParameterProvider.java">Ingest
-   *     SDK</a>
+   * <p>MAX_CLIENT_LAG can be provided in SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP or in
+   * SNOWPIPE_STREAMING_MAX_CLIENT_LAG.
    *
-   *     <p>MAX_CLIENT_LAG can be provided in SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP or in
-   *     SNOWPIPE_STREAMING_MAX_CLIENT_LAG.
-   *     <p>We will honor the value provided in SNOWPIPE_STREAMING_MAX_CLIENT_LAG
+   * <p>We will honor the value provided in SNOWPIPE_STREAMING_MAX_CLIENT_LAG
+   *
+   * <p>Example, if two configs are provided and map has MAX_CLIENT_LAG, Value from
+   * snowflake.streaming.max.client.lag will be honored.
+   *
+   * <ol>
+   *   <li>snowflake.streaming.client.provider.override.map =
+   *       MAX_CLIENT_LAG:30,MAX_CHANNEL_SIZE_IN_BYTES:10000000
+   *   <li>snowflake.streaming.max.client.lag = 60
+   *   <li>MAX_CLIENT_LAG will honor 60 seconds.
+   * </ol>
+   *
+   * If <b>snowflake.streaming.max.client.lag</b> is not provided, we pass in the map as is to
+   * Streaming Client (all lowercase keys).
+   *
+   * <p>Please note, Streaming Client
+   *
    * @param connectorConfig Input connector config
    */
   private void combineStreamingClientOverriddenProperties(Map<String, String> connectorConfig) {
