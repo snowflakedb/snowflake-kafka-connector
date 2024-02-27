@@ -1529,23 +1529,25 @@ public class SnowflakeSinkServiceV2IT {
   @Test
   public void testStreamingIngestionValidClientPropertiesOverride() throws Exception {
     Map<String, String> config = new HashMap<>(getConfig());
-    config.put(SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP, "MAX_CHANNEL_SIZE_IN_BYTES:10000000,ENABLE_SNOWPIPE_STREAMING_JMX_METRICS:false");
+    config.put(
+        SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
+        "MAX_CHANNEL_SIZE_IN_BYTES:10000000,ENABLE_SNOWPIPE_STREAMING_JMX_METRICS:false");
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-            SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-                    .setRecordNumber(100)
-                    .setFlushTime(1)
-                    .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-                    .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-                    .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
-                    .build();
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(100)
+            .setFlushTime(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
+            .build();
 
     final long noOfRecords = 10;
     List<SinkRecord> sinkRecords =
-            TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, partition);
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, partition);
 
     Thread.sleep(1000); // to ensure we flush buffer on time threshold
     service.insert(sinkRecords);
@@ -1553,7 +1555,7 @@ public class SnowflakeSinkServiceV2IT {
     try {
       // Wait 20 seconds here and no flush should happen since the max client lag is 30 seconds
       TestUtils.assertWithRetry(
-              () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 5, 4);
+          () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 5, 4);
     } catch (Exception e) {
       // do nothing
     }
@@ -1561,7 +1563,8 @@ public class SnowflakeSinkServiceV2IT {
   }
 
   /**
-   * Even if override key is invalid, we will still create a client since we dont verify key and values, only format.
+   * Even if override key is invalid, we will still create a client since we dont verify key and
+   * values, only format.
    */
   @Test
   public void testStreamingIngestion_invalidClientPropertiesOverride() throws Exception {
@@ -1572,17 +1575,17 @@ public class SnowflakeSinkServiceV2IT {
 
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-            SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-                    .setRecordNumber(100)
-                    .setFlushTime(1)
-                    .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-                    .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-                    .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
-                    .build();
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(100)
+            .setFlushTime(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
+            .build();
 
     final long noOfRecords = 10;
     List<SinkRecord> sinkRecords =
-            TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, partition);
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, partition);
 
     Thread.sleep(1000); // to ensure we flush buffer on time threshold
     service.insert(sinkRecords);
@@ -1590,13 +1593,12 @@ public class SnowflakeSinkServiceV2IT {
     try {
       // Wait 20 seconds here and no flush should happen since the max client lag is 30 seconds
       TestUtils.assertWithRetry(
-              () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 5, 4);
+          () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 5, 4);
     } catch (Exception e) {
       // do nothing
     }
     service.closeAll();
   }
-
 
   private void createNonNullableColumn(String tableName, String colName) {
     String createTableQuery = "alter table identifier(?) add " + colName + " int not null";

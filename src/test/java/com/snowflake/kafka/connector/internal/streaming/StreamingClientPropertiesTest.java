@@ -31,7 +31,6 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -186,8 +185,8 @@ public class StreamingClientPropertiesTest {
     connectorConfig.put(Utils.SF_USER, "testUser");
     connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
     connectorConfig.put(
-            SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
-            "MAX_CHANNEL_SIZE_IN_BYTES->10000000,MAX_CLIENT_LAG100");
+        SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
+        "MAX_CHANNEL_SIZE_IN_BYTES->10000000,MAX_CLIENT_LAG100");
 
     // test get properties
     try {
@@ -195,13 +194,12 @@ public class StreamingClientPropertiesTest {
       Assert.fail("Should throw an exception");
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception
-              .getMessage()
-              .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP);
+          .getMessage()
+          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP);
     }
 
     connectorConfig.put(
-            SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
-            "MAX_CHANNEL_SIZE_IN_BYTES->10000000");
+        SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP, "MAX_CHANNEL_SIZE_IN_BYTES->10000000");
 
     // test get properties
     try {
@@ -209,8 +207,8 @@ public class StreamingClientPropertiesTest {
       Assert.fail("Should throw an exception");
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception
-              .getMessage()
-              .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP);
+          .getMessage()
+          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP);
     }
   }
 
