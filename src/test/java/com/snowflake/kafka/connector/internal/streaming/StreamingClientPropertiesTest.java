@@ -26,10 +26,13 @@ import static net.snowflake.ingest.utils.ParameterProvider.*;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+
+import org.junit.Assert;
 import org.junit.Test;
 
 public class StreamingClientPropertiesTest {
@@ -172,6 +175,43 @@ public class StreamingClientPropertiesTest {
     assert nullProperties.equals(emptyProperties);
     assert nullProperties.clientName.equals(STREAMING_CLIENT_PREFIX_NAME + DEFAULT_CLIENT_NAME);
     assert nullProperties.getLoggableClientProperties().equals("");
+  }
+
+  @Test
+  public void testInvalidStreamingClientPropertiesMap() {
+    Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
+    connectorConfig.put(Utils.NAME, "testName");
+    connectorConfig.put(Utils.SF_URL, "testUrl");
+    connectorConfig.put(Utils.SF_ROLE, "testRole");
+    connectorConfig.put(Utils.SF_USER, "testUser");
+    connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
+    connectorConfig.put(
+            SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
+            "MAX_CHANNEL_SIZE_IN_BYTES->10000000,MAX_CLIENT_LAG100");
+
+    // test get properties
+    try {
+      StreamingClientProperties resultProperties = new StreamingClientProperties(connectorConfig);
+      Assert.fail("Should throw an exception");
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception
+              .getMessage()
+              .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP);
+    }
+
+    connectorConfig.put(
+            SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
+            "MAX_CHANNEL_SIZE_IN_BYTES->10000000");
+
+    // test get properties
+    try {
+      StreamingClientProperties resultProperties = new StreamingClientProperties(connectorConfig);
+      Assert.fail("Should throw an exception");
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception
+              .getMessage()
+              .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP);
+    }
   }
 
   @Test

@@ -754,6 +754,7 @@ public class Utils {
             SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
             input);
         isInvalid = true;
+        break;
       }
       pairs.put(tt[0].trim(), tt[1].trim());
     }
