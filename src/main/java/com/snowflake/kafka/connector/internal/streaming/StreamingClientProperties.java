@@ -90,18 +90,31 @@ public class StreamingClientProperties {
     combineStreamingClientOverriddenProperties(connectorConfig);
   }
 
+  /**
+   * Fetches the properties from {@link SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP} and
+   * combines it with parameter provider. This parameter provider needs a lowercase String in its
+   * key since Ingest SDK fetches the key from
+   *
+   * @see <a
+   *     href="https://github.com/snowflakedb/snowflake-ingest-java/blob/master/src/main/java/net/snowflake/ingest/utils/ParameterProvider.java">Ingest
+   *     SDK</a>
+   *
+   *     <p>MAX_CLIENT_LAG can be provided in SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP or in
+   *     SNOWPIPE_STREAMING_MAX_CLIENT_LAG.
+   *     <p>We will honor the value provided in SNOWPIPE_STREAMING_MAX_CLIENT_LAG
+   * @param connectorConfig Input connector config
+   */
   private void combineStreamingClientOverriddenProperties(Map<String, String> connectorConfig) {
     // MAX_CLIENT_LAG property can also be present in override map, in that case, we will honor the
-    // value
-    // provided in SNOWPIPE_STREAMING_MAX_CLIENT_LAG since it preceded and was released in earlier
-    // versions.
+    // value provided in SNOWPIPE_STREAMING_MAX_CLIENT_LAG since it preceded and was released in
+    // earlier versions.
     Optional<String> clientOverrideProperties =
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP));
     Map<String, String> clientOverridePropertiesMap = new HashMap<>();
     clientOverrideProperties.ifPresent(
         overriddenKeyValuePairs -> {
           LOGGER.info(
-              "Overridden map provided for streaming client Properties: {}",
+              "Overridden map provided for streaming client properties: {}",
               overriddenKeyValuePairs);
           Map<String, String> overriddenPairs =
               Utils.parseCommaSeparatedKeyValuePairs(overriddenKeyValuePairs);

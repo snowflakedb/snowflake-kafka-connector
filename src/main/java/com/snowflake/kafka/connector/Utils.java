@@ -744,7 +744,6 @@ public class Utils {
    */
   public static Map<String, String> parseCommaSeparatedKeyValuePairs(String input) {
     Map<String, String> pairs = new HashMap<>();
-    boolean isInvalid = false;
     for (String str : input.split(",")) {
       String[] tt = str.split(":");
 
@@ -753,13 +752,9 @@ public class Utils {
             "Invalid {} config format: {}",
             SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
             input);
-        isInvalid = true;
-        break;
+        throw SnowflakeErrors.ERROR_0030.getException();
       }
       pairs.put(tt[0].trim(), tt[1].trim());
-    }
-    if (isInvalid) {
-      throw SnowflakeErrors.ERROR_0030.getException();
     }
     return pairs;
   }

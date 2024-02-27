@@ -564,9 +564,9 @@ public class SnowflakeSinkConnectorConfig {
             "",
             STREAMING_CLIENT_PROVIDER_PROPERTIES_VALIDATOR,
             Importance.LOW,
-            "Map of Key value pairs representing Streaming Client Properties to Override (optional"
-                + " and recommended to use only after consulting Snowflake Support). Format :"
-                + " comma-separated tuples, e.g.:"
+            "Map of Key value pairs representing Streaming Client Properties to Override. These are"
+                + " optional and recommended to use ONLY after consulting Snowflake Support. Format"
+                + " : comma-separated tuples, e.g.:"
                 + " MAX_CHANNEL_SIZE_IN_BYTES:10000000,MAX_CLIENT_LAG:5000,ENABLE_SNOWPIPE_STREAMING_JMX_METRICS:false...",
             CONNECTOR_CONFIG,
             0,
@@ -847,11 +847,9 @@ public class SnowflakeSinkConnectorConfig {
 
     public void ensureValid(String name, Object value) {
       String s = (String) value;
-      if (s != null && !s.isEmpty()) {
-        // Validate the comma-separated key-value pairs string
-        if (!isValidCommaSeparatedKeyValueString(s)) {
-          throw new ConfigException(name, value, "Format: <key-1>:<value-1>,<key-2>:<value-2>,...");
-        }
+      // Validate the comma-separated key-value pairs string
+      if (s != null && !s.isEmpty() && !isValidCommaSeparatedKeyValueString(s)) {
+        throw new ConfigException(name, value, "Format: <key-1>:<value-1>,<key-2>:<value-2>,...");
       }
     }
 
