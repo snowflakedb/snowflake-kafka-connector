@@ -5,7 +5,7 @@ from time import sleep
 class TestStreamingClientParameterOverride:
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = "test_streaming_client_parameter_override.json"
+        self.fileName = "test_streaming_client_parameter_override"
         self.topic = self.fileName + nameSalt
 
         self.topicNum = 1
