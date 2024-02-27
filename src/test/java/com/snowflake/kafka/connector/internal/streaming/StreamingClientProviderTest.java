@@ -23,7 +23,7 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
-import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.junit.Test;
 import org.junit.runner.RunWith;

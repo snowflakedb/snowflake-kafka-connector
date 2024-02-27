@@ -23,9 +23,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.Map;
-import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
-import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
-import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalCause;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 
 /**

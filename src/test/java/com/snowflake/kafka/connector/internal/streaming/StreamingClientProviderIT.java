@@ -27,7 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.junit.Test;
 import org.junit.runner.RunWith;
