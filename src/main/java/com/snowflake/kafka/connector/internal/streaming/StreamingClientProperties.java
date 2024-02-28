@@ -17,7 +17,7 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static net.snowflake.ingest.utils.ParameterProvider.MAX_CLIENT_LAG;
 
@@ -124,7 +124,7 @@ public class StreamingClientProperties {
     // value provided in SNOWPIPE_STREAMING_MAX_CLIENT_LAG since it preceded and was released in
     // earlier versions.
     Optional<String> clientOverrideProperties =
-        Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP));
+        Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP));
     Map<String, String> clientOverridePropertiesMap = new HashMap<>();
     clientOverrideProperties.ifPresent(
         overriddenKeyValuePairs -> {

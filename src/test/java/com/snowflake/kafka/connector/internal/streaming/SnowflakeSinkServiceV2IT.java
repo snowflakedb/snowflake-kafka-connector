@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
@@ -1530,7 +1530,7 @@ public class SnowflakeSinkServiceV2IT {
   public void testStreamingIngestionValidClientPropertiesOverride() throws Exception {
     Map<String, String> config = new HashMap<>(getConfig());
     config.put(
-        SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
+        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "MAX_CHANNEL_SIZE_IN_BYTES:10000000,ENABLE_SNOWPIPE_STREAMING_JMX_METRICS:false");
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
@@ -1569,7 +1569,7 @@ public class SnowflakeSinkServiceV2IT {
   @Test
   public void testStreamingIngestion_invalidClientPropertiesOverride() throws Exception {
     Map<String, String> config = new HashMap<>(getConfig());
-    config.put(SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP, "MAX_SOMETHING_SOMETHING:1");
+    config.put(SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "MAX_SOMETHING_SOMETHING:1");
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 

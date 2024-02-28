@@ -930,14 +930,14 @@ public class ConnectorConfigTest {
           SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
           IngestionMethodConfig.SNOWPIPE.toString());
       config.put(
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP, "a:b,c:d");
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "a:b,c:d");
 
       Utils.validateConfig(config);
       Assert.fail("exception expected");
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception
           .getMessage()
-          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP);
+          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
     }
   }
 
@@ -950,7 +950,7 @@ public class ConnectorConfigTest {
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     config.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "a:b,c:d,e:100,f:true");
     Utils.validateConfig(config);
   }

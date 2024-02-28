@@ -18,7 +18,6 @@ package com.snowflake.kafka.connector;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CommaSeparatedKeyValueValidator;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
@@ -122,7 +121,7 @@ public class SnowflakeSinkConnectorConfig {
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
       "snowflake.streaming.max.client.lag";
 
-  public static final String SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP =
+  public static final String SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP =
       "snowflake.streaming.client.provider.override.map";
 
   // TESTING
@@ -135,7 +134,7 @@ public class SnowflakeSinkConnectorConfig {
   private static final ConfigDef.Validator topicToTableValidator = new TopicToTableValidator();
   private static final ConfigDef.Validator KAFKA_PROVIDER_VALIDATOR = new KafkaProviderValidator();
 
-  private static final ConfigDef.Validator STREAMING_CLIENT_PROVIDER_PROPERTIES_VALIDATOR =
+  private static final ConfigDef.Validator STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP_VALIDATOR =
       new CommaSeparatedKeyValueValidator();
 
   // For error handling
@@ -559,19 +558,19 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Width.NONE,
             SNOWPIPE_STREAMING_MAX_CLIENT_LAG)
         .define(
-            SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
+            SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
             Type.STRING,
             "",
-            STREAMING_CLIENT_PROVIDER_PROPERTIES_VALIDATOR,
+            STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP_VALIDATOR,
             Importance.LOW,
             "Map of Key value pairs representing Streaming Client Properties to Override. These are"
                 + " optional and recommended to use ONLY after consulting Snowflake Support. Format"
                 + " : comma-separated tuples, e.g.:"
-                + " MAX_CHANNEL_SIZE_IN_BYTES:10000000,MAX_CLIENT_LAG:5000,ENABLE_SNOWPIPE_STREAMING_JMX_METRICS:false...",
+                + " MAX_CLIENT_LAG:5000,other_key:value...",
             CONNECTOR_CONFIG,
             0,
             ConfigDef.Width.NONE,
-            SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP)
+            SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)
         .define(
             ERRORS_TOLERANCE_CONFIG,
             Type.STRING,

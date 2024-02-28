@@ -17,7 +17,7 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.DEFAULT_CLIENT_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.LOGGABLE_STREAMING_CONFIG_PROPERTIES;
@@ -88,7 +88,7 @@ public class StreamingClientPropertiesTest {
     connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
     connectorConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, overrideValue);
     connectorConfig.put(
-        SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
+        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "MAX_CHANNEL_SIZE_IN_BYTES:10000000,ENABLE_SNOWPIPE_STREAMING_JMX_METRICS:false");
 
     Properties expectedProps = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
@@ -119,7 +119,7 @@ public class StreamingClientPropertiesTest {
     connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
     connectorConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, overrideValue);
     connectorConfig.put(
-        SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
+        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "MAX_CHANNEL_SIZE_IN_BYTES:10000000,MAX_CLIENT_LAG:100");
 
     Properties expectedProps = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
@@ -148,7 +148,7 @@ public class StreamingClientPropertiesTest {
     connectorConfig.put(Utils.SF_USER, "testUser");
     connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
     connectorConfig.put(
-        SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
+        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "MAX_CHANNEL_SIZE_IN_BYTES:10000000,MAX_CLIENT_LAG:100");
 
     Properties expectedProps = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
@@ -185,7 +185,7 @@ public class StreamingClientPropertiesTest {
     connectorConfig.put(Utils.SF_USER, "testUser");
     connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
     connectorConfig.put(
-        SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP,
+        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "MAX_CHANNEL_SIZE_IN_BYTES->10000000,MAX_CLIENT_LAG100");
 
     // test get properties
@@ -195,11 +195,11 @@ public class StreamingClientPropertiesTest {
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception
           .getMessage()
-          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP);
+          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
     }
 
     connectorConfig.put(
-        SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP, "MAX_CHANNEL_SIZE_IN_BYTES->10000000");
+        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "MAX_CHANNEL_SIZE_IN_BYTES->10000000");
 
     // test get properties
     try {
@@ -208,7 +208,7 @@ public class StreamingClientPropertiesTest {
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception
           .getMessage()
-          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP);
+          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
     }
   }
 
