@@ -1,24 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.BufferThreshold;
-import net.snowflake.ingest.streaming.OffsetTokenVerificationFunction;
-import net.snowflake.ingest.utils.Constants;
-import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.common.record.DefaultRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
@@ -29,6 +10,24 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
+
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.BufferThreshold;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import net.snowflake.ingest.streaming.OffsetTokenVerificationFunction;
+import net.snowflake.ingest.utils.Constants;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.record.DefaultRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /* Utility class/Helper methods for streaming related ingestion. */
 public class StreamingUtils {
@@ -77,6 +76,8 @@ public class StreamingUtils {
   public static final String STREAMING_CONSTANT_OAUTH_CLIENT_SECRET = "oauth_client_secret";
   public static final String STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN = "oauth_refresh_token";
 
+  // Offset verification function to verify that the current start offset has to be the previous end
+  // offset + 1, note that there are some false positives when SMT is used.
   public static final OffsetTokenVerificationFunction offsetTokenVerificationFunction =
       (prevBatchEndOffset, curBatchStartOffset, curBatchEndOffset, rowCount) -> {
         boolean isMatch = true;
