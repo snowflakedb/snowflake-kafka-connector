@@ -1164,4 +1164,13 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.closeChannel();
     assert resultStatus.getMetricsJmxReporter() == null;
   }
+
+  @Test
+  public void testOffsetTokenVerificationFunction() {
+    Assert.assertTrue(StreamingUtils.offsetTokenVerificationFunction.verify("1", "2", "4", 2));
+    Assert.assertTrue(StreamingUtils.offsetTokenVerificationFunction.verify("1", "2", null, 1));
+    Assert.assertTrue(StreamingUtils.offsetTokenVerificationFunction.verify(null, null, null, 0));
+    Assert.assertFalse(StreamingUtils.offsetTokenVerificationFunction.verify("1", "3", "4", 3));
+    Assert.assertFalse(StreamingUtils.offsetTokenVerificationFunction.verify("2", "1", "4", 3));
+  }
 }

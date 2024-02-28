@@ -80,21 +80,14 @@ public class StreamingUtils {
   // offset + 1, note that there are some false positives when SMT is used.
   public static final OffsetTokenVerificationFunction offsetTokenVerificationFunction =
       (prevBatchEndOffset, curBatchStartOffset, curBatchEndOffset, rowCount) -> {
-        boolean isMatch = true;
-        if (prevBatchEndOffset != null) {
-          try {
-            long curStart = Long.parseLong(curBatchStartOffset);
-            long prevEnd = Long.parseLong(prevBatchEndOffset);
-
-            if (curStart != prevEnd + 1) {
-              isMatch = false;
-            }
-          } catch (NumberFormatException ignored) {
-            isMatch = false;
+        if (prevBatchEndOffset != null && curBatchStartOffset != null) {
+          long curStart = Long.parseLong(curBatchStartOffset);
+          long prevEnd = Long.parseLong(prevBatchEndOffset);
+          if (curStart != prevEnd + 1) {
+            return false;
           }
         }
-
-        return isMatch;
+        return true;
       };
 
   /* Creates streaming client properties from snowflake KC config file. */
