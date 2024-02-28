@@ -1,14 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
-import static java.time.temporal.ChronoUnit.SECONDS;
-import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -31,15 +22,6 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.Fallback;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectOutputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
@@ -53,6 +35,25 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
+
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
+import static java.time.temporal.ChronoUnit.SECONDS;
+import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
 /**
  * This is a wrapper on top of Streaming Ingest Channel which is responsible for ingesting rows to
@@ -658,48 +659,51 @@ public class TopicPartitionChannel {
           this.insertRowsStreamingBuffer.getData();
       List<Map<String, Object>> records = recordsAndOffsets.getKey();
       List<Long> offsets = recordsAndOffsets.getValue();
-      InsertValidationResponse finalResponse = new InsertValidationResponse();
       boolean needToResetOffset = false;
-      if (!enableSchemaEvolution) {
-        finalResponse =
+      InsertValidationResponse response =
             this.channel.insertRows(
                 records, Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
-      } else {
-        for (int idx = 0; idx < records.size(); idx++) {
-          // For schema evolution, we need to call the insertRows API row by row in order to
-          // preserve the original order, for anything after the first schema mismatch error we will
-          // retry after the evolution
-          InsertValidationResponse response =
-              this.channel.insertRow(records.get(idx), Long.toString(offsets.get(idx)));
-          if (response.hasErrors()) {
-            InsertValidationResponse.InsertError insertError = response.getInsertErrors().get(0);
-            List<String> extraColNames = insertError.getExtraColNames();
-            List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
-            long originalSinkRecordIdx =
-                offsets.get(idx) - this.insertRowsStreamingBuffer.getFirstOffset();
-            if (extraColNames == null && nonNullableColumns == null) {
-              InsertValidationResponse.InsertError newInsertError =
-                  new InsertValidationResponse.InsertError(
-                      insertError.getRowContent(), originalSinkRecordIdx);
-              newInsertError.setException(insertError.getException());
-              newInsertError.setExtraColNames(insertError.getExtraColNames());
-              newInsertError.setMissingNotNullColNames(insertError.getMissingNotNullColNames());
-              // Simply added to the final response if it's not schema related errors
-              finalResponse.addError(insertError);
-            } else {
-              SchematizationUtils.evolveSchemaIfNeeded(
-                  this.conn,
-                  this.channel.getTableName(),
-                  nonNullableColumns,
-                  extraColNames,
-                  this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
-              // Offset reset needed since it's possible that we successfully ingested partial batch
-              needToResetOffset = true;
-              break;
-            }
-          }
-        }
+      if (enableSchemaEvolution)
+      {
+
       }
+//      if (!enableSchemaEvolution) {
+//        finalResponse =
+//            this.channel.insertRows(
+//                records, Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
+//      } else {
+//        for (int idx = 0; idx < records.size(); idx++) {
+//          InsertValidationResponse response =
+//              this.channel.insertRow(records.get(idx), Long.toString(offsets.get(idx)));
+//          if (response.hasErrors()) {
+//            InsertValidationResponse.InsertError insertError = response.getInsertErrors().get(0);
+//            List<String> extraColNames = insertError.getExtraColNames();
+//            List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
+//            long originalSinkRecordIdx =
+//                offsets.get(idx) - this.insertRowsStreamingBuffer.getFirstOffset();
+//            if (extraColNames == null && nonNullableColumns == null) {
+//              InsertValidationResponse.InsertError newInsertError =
+//                  new InsertValidationResponse.InsertError(
+//                      insertError.getRowContent(), originalSinkRecordIdx);
+//              newInsertError.setException(insertError.getException());
+//              newInsertError.setExtraColNames(insertError.getExtraColNames());
+//              newInsertError.setMissingNotNullColNames(insertError.getMissingNotNullColNames());
+//              // Simply added to the final response if it's not schema related errors
+//              finalResponse.addError(insertError);
+//            } else {
+//              SchematizationUtils.evolveSchemaIfNeeded(
+//                  this.conn,
+//                  this.channel.getTableName(),
+//                  nonNullableColumns,
+//                  extraColNames,
+//                  this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
+//              // Offset reset needed since it's possible that we successfully ingested partial batch
+//              needToResetOffset = true;
+//              break;
+//            }
+//          }
+//        }
+//      }
       return new InsertRowsResponse(finalResponse, needToResetOffset);
     }
   }
@@ -1057,7 +1061,7 @@ public class TopicPartitionChannel {
             .setDBName(this.sfConnectorConfig.get(Utils.SF_DATABASE))
             .setSchemaName(this.sfConnectorConfig.get(Utils.SF_SCHEMA))
             .setTableName(this.tableName)
-            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
+            .setOnErrorOption(OpenChannelRequest.OnErrorOption.SKIP_BATCH)
             .setOffsetTokenVerificationFunction(StreamingUtils.offsetTokenVerificationFunction)
             .build();
     LOGGER.info(
