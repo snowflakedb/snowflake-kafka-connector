@@ -123,7 +123,7 @@ public class SnowflakeSinkConnectorConfig {
 
   // This is the streaming max client lag which can be defined in config
   public static final String SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE =
-          "snowflake.streaming.max.channel.size";
+          "snowflake.streaming.max.channel.size.in.bytes";
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
