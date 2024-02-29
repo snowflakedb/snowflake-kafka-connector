@@ -563,7 +563,7 @@ public class SnowflakeSinkConnectorConfig {
             Importance.LOW,
             "Specify the maximum size (in bytes) of a single channel flush performed by the Ingest SDK",
             CONNECTOR_CONFIG,
-            7, //TODO verify what this should be
+            10, //unused number
             ConfigDef.Width.NONE,
             SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE)
         .define(

@@ -47,10 +47,10 @@ public class StreamingUtils {
       Duration.ofSeconds(10).getSeconds();
 
 
-  //TODO decide if this makes sense
+  //Minimum based on SDK default
   public static final long STREAMING_BUFFER_MAX_CHANNEL_SIZE_MINIMUM_BYTES = 32000000L;
 
-  //TODO decide if this makes sense
+  //Default based on SDK default
   public static final long STREAMING_BUFFER_MAX_CHANNEL_SIZE_DEFAULT_BYTES = 32000000L;
 
 

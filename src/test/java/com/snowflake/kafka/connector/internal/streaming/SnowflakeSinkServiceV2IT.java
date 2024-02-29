@@ -47,6 +47,7 @@ import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -1528,9 +1529,11 @@ public class SnowflakeSinkServiceV2IT {
     }
   }
 
+  @Ignore
   @Test
   public void testStreamingIngestionValidChannelSize() throws Exception {
-    //TODO figure out how to test this test, if that is necessary
+    //TODO figure out how to implement this test, if that is necessary
+    //Likely won't be necessary because this functionality will not be merged in favor of SNOW-1117446
     throw new NotImplementedException("This test is not implemented yet");
   }
 
