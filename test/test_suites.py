@@ -51,6 +51,7 @@ from test_suit.test_string_avro import TestStringAvro
 from test_suit.test_string_avrosr import TestStringAvrosr
 from test_suit.test_string_json import TestStringJson
 from test_suit.test_string_json_ignore_tombstone import TestStringJsonIgnoreTombstone
+from test_suit.test_streaming_client_parameter_override import TestStreamingClientParameterOverride
 
 
 class EndToEndTestSuite:
@@ -259,6 +260,10 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         )),
         ("TestSchemaEvolutionMultiTopicDropTable", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionMultiTopicDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
+            run_in_apache=True
+        )),
+        ("TestStreamingClientParameterOverride", EndToEndTestSuite(
+            test_instance=TestStreamingClientParameterOverride(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
         )),
     ])
