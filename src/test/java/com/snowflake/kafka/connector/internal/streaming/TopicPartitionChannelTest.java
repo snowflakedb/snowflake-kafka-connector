@@ -1,5 +1,16 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+import static com.snowflake.kafka.connector.internal.TestUtils.createBigAvroRecords;
+import static com.snowflake.kafka.connector.internal.TestUtils.createNativeJsonSinkRecords;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+
 import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -12,6 +23,14 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -34,26 +53,6 @@ import org.junit.runners.Parameterized;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
-import static com.snowflake.kafka.connector.internal.TestUtils.createBigAvroRecords;
-import static com.snowflake.kafka.connector.internal.TestUtils.createNativeJsonSinkRecords;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 
 @RunWith(Parameterized.class)
 public class TopicPartitionChannelTest {
@@ -629,9 +628,9 @@ public class TopicPartitionChannelTest {
       Mockito.when(
               mockStreamingChannel.insertRows(
                   ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any()))
-          .thenReturn(new InsertValidationResponse())
+          .thenReturn(validationResponse2)
           .thenReturn(validationResponse1)
-          .thenReturn(validationResponse2);
+          .thenReturn(new InsertValidationResponse());
 
       Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenReturn("0");
 
@@ -675,6 +674,23 @@ public class TopicPartitionChannelTest {
       List<SinkRecord> records =
           TestUtils.createNativeJsonSinkRecords(0, noOfRecords, TOPIC, PARTITION);
 
+      for (int idx = 0; idx < records.size(); idx++) {
+        topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+      }
+
+      // In an ideal world, put API is going to invoke this to check if flush time threshold has
+      // reached.
+      // We are mimicking that call.
+      // Will wait for 10 seconds.
+      Thread.sleep(bufferFlushTimeSeconds * 1000 + 10);
+
+      topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
+
+      // Verify that the buffer is cleaned up and nothing is in DLQ because of schematization error
+      Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
+      Assert.assertEquals(0, kafkaRecordErrorReporter.getReportedRecords().size());
+
+      // Do it again without any schematization error, and we should have row in DLQ
       for (int idx = 0; idx < records.size(); idx++) {
         topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
       }

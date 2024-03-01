@@ -590,7 +590,7 @@ public class TopicPartitionChannel {
     StreamingBuffer buffer = new StreamingBuffer();
     int errorIdx = 0;
     for (long rowIdx = 0; rowIdx < streamingBufferToInsert.getNumOfRecords(); rowIdx++) {
-      if (rowIdx == insertErrors.get(errorIdx).getRowIndex()) {
+      if (errorIdx < insertErrors.size() && rowIdx == insertErrors.get(errorIdx).getRowIndex()) {
         errorIdx++;
         continue;
       }
@@ -683,51 +683,6 @@ public class TopicPartitionChannel {
       boolean needToResetOffset = false;
       InsertValidationResponse response =
           this.channel.insertRows(
-<<<<<<< Updated upstream
-              records, Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
-      if (enableSchemaEvolution) {}
-      //      if (!enableSchemaEvolution) {
-      //        finalResponse =
-      //            this.channel.insertRows(
-      //                records, Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
-      //      } else {
-      //        for (int idx = 0; idx < records.size(); idx++) {
-      //          InsertValidationResponse response =
-      //              this.channel.insertRow(records.get(idx), Long.toString(offsets.get(idx)));
-      //          if (response.hasErrors()) {
-      //            InsertValidationResponse.InsertError insertError =
-      // response.getInsertErrors().get(0);
-      //            List<String> extraColNames = insertError.getExtraColNames();
-      //            List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
-      //            long originalSinkRecordIdx =
-      //                offsets.get(idx) - this.insertRowsStreamingBuffer.getFirstOffset();
-      //            if (extraColNames == null && nonNullableColumns == null) {
-      //              InsertValidationResponse.InsertError newInsertError =
-      //                  new InsertValidationResponse.InsertError(
-      //                      insertError.getRowContent(), originalSinkRecordIdx);
-      //              newInsertError.setException(insertError.getException());
-      //              newInsertError.setExtraColNames(insertError.getExtraColNames());
-      //
-      // newInsertError.setMissingNotNullColNames(insertError.getMissingNotNullColNames());
-      //              // Simply added to the final response if it's not schema related errors
-      //              finalResponse.addError(insertError);
-      //            } else {
-      //              SchematizationUtils.evolveSchemaIfNeeded(
-      //                  this.conn,
-      //                  this.channel.getTableName(),
-      //                  nonNullableColumns,
-      //                  extraColNames,
-      //                  this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
-      //              // Offset reset needed since it's possible that we successfully ingested
-      // partial batch
-      //              needToResetOffset = true;
-      //              break;
-      //            }
-      //          }
-      //        }
-      //      }
-      return new InsertRowsResponse(finalResponse, needToResetOffset);
-=======
               records,
               Long.toString(this.insertRowsStreamingBuffer.getFirstOffset()),
               Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
@@ -748,7 +703,6 @@ public class TopicPartitionChannel {
         }
       }
       return new InsertRowsResponse(response, needToResetOffset);
->>>>>>> Stashed changes
     }
   }
 
