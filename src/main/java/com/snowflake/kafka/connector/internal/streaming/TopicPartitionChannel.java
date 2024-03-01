@@ -565,7 +565,8 @@ public class TopicPartitionChannel {
       if (response.hasErrors()) {
         handleInsertRowsFailures(
             response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
-        insertBufferedRecords(removeErrorRows(streamingBufferToInsert, response.getInsertErrors()));
+        insertBufferedRecords(
+            rebuildBufferWithoutErrorRows(streamingBufferToInsert, response.getInsertErrors()));
       }
 
       // Updates the flush time (last time we successfully insert some rows)
@@ -583,8 +584,8 @@ public class TopicPartitionChannel {
     return response;
   }
 
-  // Building a new buffer which contains only the good rows from the original buffer
-  private StreamingBuffer removeErrorRows(
+  /** Building a new buffer which contains only the good rows from the original buffer */
+  private StreamingBuffer rebuildBufferWithoutErrorRows(
       StreamingBuffer streamingBufferToInsert,
       List<InsertValidationResponse.InsertError> insertErrors) {
     StreamingBuffer buffer = new StreamingBuffer();
@@ -592,9 +593,9 @@ public class TopicPartitionChannel {
     for (long rowIdx = 0; rowIdx < streamingBufferToInsert.getNumOfRecords(); rowIdx++) {
       if (errorIdx < insertErrors.size() && rowIdx == insertErrors.get(errorIdx).getRowIndex()) {
         errorIdx++;
-        continue;
+      } else {
+        buffer.insert(streamingBufferToInsert.getSinkRecord(rowIdx));
       }
-      buffer.insert(streamingBufferToInsert.getSinkRecord(rowIdx));
     }
     return buffer;
   }
@@ -697,7 +698,6 @@ public class TopicPartitionChannel {
                 nonNullableColumns,
                 extraColNames,
                 this.insertRowsStreamingBuffer.getSinkRecord(insertError.getRowIndex()));
-            // Offset reset needed since it's possible that we successfully ingested partial batch
             needToResetOffset = true;
           }
         }
