@@ -18,7 +18,9 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE;
 import static net.snowflake.ingest.utils.ParameterProvider.MAX_CLIENT_LAG;
+import static net.snowflake.ingest.utils.ParameterProvider.MAX_CHANNEL_SIZE_IN_BYTES;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -78,8 +80,10 @@ public class StreamingClientProperties {
         STREAMING_CLIENT_PREFIX_NAME
             + connectorConfig.getOrDefault(Utils.NAME, DEFAULT_CLIENT_NAME);
 
-    // Override only if the max client lag is explicitly set in config
+
     this.parameterOverrides = new HashMap<>();
+
+    // Override only if the max client lag is explicitly set in config
     Optional<String> snowpipeStreamingMaxClientLag =
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG));
     snowpipeStreamingMaxClientLag.ifPresent(
@@ -88,6 +92,16 @@ public class StreamingClientProperties {
               "Config is overridden for {}={}", SNOWPIPE_STREAMING_MAX_CLIENT_LAG, overriddenValue);
           parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue));
         });
+
+    // Override only if the max channel size is explicitly set in config
+    Optional<String> snowpipeStreamingMaxChannelSize =
+            Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE));
+    snowpipeStreamingMaxChannelSize.ifPresent(
+            overriddenValue -> {
+              LOGGER.info(
+                      "Config is overridden for {}={}", SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE, overriddenValue);
+              parameterOverrides.put(MAX_CHANNEL_SIZE_IN_BYTES, overriddenValue);
+            });
   }
 
   /**

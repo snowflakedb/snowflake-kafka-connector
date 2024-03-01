@@ -782,6 +782,49 @@ public class ConnectorConfigTest {
     }
   }
 
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testInvalidMaxChannelSizeForSnowpipeStreaming() {
+    try {
+      Map<String, String> config = getConfig();
+      //TODO decide on best invalid condition
+      config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE, "0");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception
+              .getMessage()
+              .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE);
+      throw exception;
+    }
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testMaxChannelSizeForSnowpipeStreaming() {
+    Map<String, String> config = getConfig();
+    config.put(
+            SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+            IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE, "100000000");
+    Utils.validateConfig(config);
+
+    //TODO test more cases?
+//    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE, "1");
+//    Utils.validateConfig(config);
+
+    // pass in string
+    try {
+      config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE, "abcd");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception
+              .getMessage()
+              .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE);
+      throw exception;
+    }
+  }
+
+
   @Test
   public void testInvalidSchematizationForSnowpipe() {
     try {

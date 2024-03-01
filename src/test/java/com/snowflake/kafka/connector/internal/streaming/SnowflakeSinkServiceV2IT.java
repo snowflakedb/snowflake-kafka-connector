@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
@@ -35,6 +36,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -44,6 +47,7 @@ import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -1520,6 +1524,38 @@ public class SnowflakeSinkServiceV2IT {
           .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
           .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
           .build();
+    } catch (IllegalArgumentException ex) {
+      Assert.assertEquals(NumberFormatException.class, ex.getCause().getClass());
+    }
+  }
+
+  @Ignore
+  @Test
+  public void testStreamingIngestionValidChannelSize() throws Exception {
+    //TODO figure out how to implement this test, if that is necessary
+    //Likely won't be necessary because this functionality will not be merged in favor of SNOW-1117446
+    throw new NotImplementedException("This test is not implemented yet");
+  }
+
+  @Test
+  public void testStreamingIngestionInvalidChannelSize() {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    Map<String, String> overriddenConfig = new HashMap<>(config);
+    overriddenConfig.put(
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE, "TWOO_HUNDRED");
+
+    conn.createTable(table);
+
+    try {
+      // This will fail in creation of client
+      SnowflakeSinkServiceFactory.builder(
+                      conn, IngestionMethodConfig.SNOWPIPE_STREAMING, overriddenConfig)
+              .setRecordNumber(1)
+              .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+              .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+              .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
+              .build();
     } catch (IllegalArgumentException ex) {
       Assert.assertEquals(NumberFormatException.class, ex.getCause().getClass());
     }
