@@ -49,8 +49,10 @@
         <skipTests>false</skipTests>
         <skipUnitTests>${skipTests}</skipUnitTests>
         <skipIntegrationTests>${skipTests}</skipIntegrationTests>
-        <license.processing.dependencyJarsDir>${project.build.directory}/dependency-jars</license.processing.dependencyJarsDir>
-        <license.processing.dependencyListFile>${project.build.directory}/dependency-list.txt</license.processing.dependencyListFile>
+        <license.processing.dependencyJarsDir>${project.build.directory}/dependency-jars
+        </license.processing.dependencyJarsDir>
+        <license.processing.dependencyListFile>${project.build.directory}/dependency-list.txt
+        </license.processing.dependencyListFile>
         <!--
             /licenses folder is copied into zip file distribution by kafka-connect-maven-plugin
             It is an undocumented behaviour that originates from the zip file structure https://docs.confluent.io/platform/current/connect/confluent-hub/component-archive.html
@@ -480,7 +482,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-ingest-sdk</artifactId>
-            <version>2.0.5</version>
+            <version>2.1.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>net.snowflake</groupId>

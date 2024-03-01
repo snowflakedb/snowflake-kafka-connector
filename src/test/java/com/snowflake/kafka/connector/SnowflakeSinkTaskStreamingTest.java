@@ -80,7 +80,9 @@ public class SnowflakeSinkTaskStreamingTest {
 
     Mockito.when(
             mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+                ArgumentMatchers.any(Iterable.class),
+                ArgumentMatchers.any(String.class),
+                ArgumentMatchers.any(String.class)))
         .thenReturn(validationResponse1);
     Mockito.when(mockConnectionService.getConnectorName()).thenReturn(TEST_CONNECTOR_NAME);
 
