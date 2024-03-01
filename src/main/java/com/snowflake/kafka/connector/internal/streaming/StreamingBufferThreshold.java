@@ -7,8 +7,8 @@ import com.snowflake.kafka.connector.internal.BufferThreshold;
  * if there is a need to flush the buffered records.
  *
  * <p>Please note: Flush entails invoking {@link
- * net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel#insertRows(Iterable, String)} API
- * with suitable buffered rows.
+ * net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel#insertRows(Iterable, String,
+ * String)} API with suitable buffered rows.
  */
 public class StreamingBufferThreshold extends BufferThreshold {
   public StreamingBufferThreshold(
