@@ -81,6 +81,13 @@ public class SnowflakeSinkConnectorConfig {
   public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
   public static final String ENABLE_SCHEMATIZATION_DEFAULT = "false";
 
+  public static final String SCHEMATIZATION_AUTO_CONFIG = "snowflake.schematization.auto";
+  public static final String SCHEMATIZATION_AUTO_DEFAULT = "true";
+  public static final String SCHEMATIZATION_AUTO_DISPLAY = "Use automatic schema evolution";
+  public static final String SCHEMATIZATION_AUTO_DOC =
+      "If true, use snowflake automatic schema evolution feature."
+          + "NOTE: you need to grant evolve schema to " + SNOWFLAKE_USER;
+  
   // Proxy Info
   private static final String PROXY_INFO = "Proxy Info";
   public static final String JVM_PROXY_HOST = "jvm.proxy.host";
@@ -117,9 +124,9 @@ public class SnowflakeSinkConnectorConfig {
   public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
       IngestionMethodConfig.SNOWPIPE.toString();
 
-  // This is the streaming bdec file version which can be defined in config
-  // NOTE: Please do not override this value unless recommended from snowflake
-  public static final String SNOWPIPE_STREAMING_FILE_VERSION = "snowflake.streaming.file.version";
+  // This is the streaming max client lag which can be defined in config
+  public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
+      "snowflake.streaming.max.client.lag";
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
@@ -415,7 +422,10 @@ public class SnowflakeSinkConnectorConfig {
             topicToTableValidator,
             Importance.LOW,
             "Map of topics to tables (optional). Format : comma-separated tuples, e.g."
-                + " <topic-1>:<table-1>,<topic-2>:<table-2>,... ",
+                + " <topic-1>:<table-1>,<topic-2>:<table-2>,... \n"
+                + "Generic regex matching is possible using the following syntax:"
+                + Utils.TOPIC_MATCHER_PREFIX + "^[^.]\\w+.\\w+.(.*):$1\n"
+                + "NOTE: topics names cannot contain \":\" or \",\" so the regex should not contain these characters either\n",
             CONNECTOR_CONFIG,
             0,
             ConfigDef.Width.NONE,
@@ -541,17 +551,16 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Width.NONE,
             INGESTION_METHOD_OPT)
         .define(
-            SNOWPIPE_STREAMING_FILE_VERSION,
-            Type.STRING,
-            "", // default is handled in Ingest SDK
-            null, // no validator
+            SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
+            Type.LONG,
+            StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC,
+            ConfigDef.Range.atLeast(StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC),
             Importance.LOW,
-            "Acceptable values for Snowpipe Streaming BDEC Versions: 1 and 3. Check Ingest"
-                + " SDK for default behavior. Please do not set this unless Absolutely needed. ",
+            "Decide how often the buffer in the Ingest SDK will be flushed",
             CONNECTOR_CONFIG,
             6,
             ConfigDef.Width.NONE,
-            SNOWPIPE_STREAMING_FILE_VERSION)
+            SNOWPIPE_STREAMING_MAX_CLIENT_LAG)
         .define(
             ERRORS_TOLERANCE_CONFIG,
             Type.STRING,

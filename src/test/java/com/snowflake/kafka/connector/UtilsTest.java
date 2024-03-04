@@ -112,6 +112,14 @@ public class UtilsTest {
   }
 
   @Test
+  public void test_generateValidName() {
+    Map<String, String> topic2table = Utils.parseTopicToTableMap("ab@cd:abcd, REGEX_MATCHER>^[^.]\\w+.\\w+.(.*):$1, 1234:_1234");
+
+    assert Utils.tableName("postgres.public.testtbl", topic2table).equals("testtbl");
+  }
+  
+
+  @Test
   public void testTableNameRegex() {
     String catTable = "cat_table";
     String dogTable = "dog_table";

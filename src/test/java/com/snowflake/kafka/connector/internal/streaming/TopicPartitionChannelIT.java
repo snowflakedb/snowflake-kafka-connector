@@ -20,6 +20,9 @@ import java.util.Map;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.After;
 import org.junit.Assert;
@@ -457,33 +460,321 @@ public class TopicPartitionChannelIT {
     service.closeAll();
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void testSimpleInsertRowsFailureWithArrowBDECFormat() throws Exception {
-    // add config which overrides the bdec file format
-    Map<String, String> overriddenConfig = new HashMap<>(TestUtils.getConfForStreaming());
-    overriddenConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
+  @Test
+  public void testPartialBatchChannelInvalidationIngestion_schematization() throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    config.put(
+        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "500"); // we want to flush on record
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "500000");
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, "500000");
+    config.put(
+        SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
+        "true"); // using schematization to invalidate
 
+    // setup
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
-
-    // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(
-                conn, IngestionMethodConfig.SNOWPIPE_STREAMING, overriddenConfig)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
             .addTask(testTableName, topicPartition)
             .build();
 
-    final long noOfRecords = 1;
+    final long firstBatchCount = 18;
+    final long secondBatchCount = 500;
 
-    // send regular data
+    // create 18 blank records that do not kick off schematization
+    JsonConverter converter = new JsonConverter();
+    HashMap<String, String> converterConfig = new HashMap<>();
+    converterConfig.put("schemas.enable", "false");
+    converter.configure(converterConfig, false);
+    SchemaAndValue schemaInputValue = converter.toConnectData("test", null);
+
+    List<SinkRecord> firstBatch = new ArrayList<>();
+    for (int i = 0; i < firstBatchCount; i++) {
+      firstBatch.add(
+          new SinkRecord(
+              topic,
+              PARTITION,
+              Schema.STRING_SCHEMA,
+              "test",
+              schemaInputValue.schema(),
+              schemaInputValue.value(),
+              i));
+    }
+
+    service.insert(firstBatch);
+
+    // send batch with 500, should kick off a record based flush and schematization on record 19,
+    // which will fail the batches
+    List<SinkRecord> secondBatch =
+        TestUtils.createNativeJsonSinkRecords(firstBatchCount, secondBatchCount, topic, PARTITION);
+    service.insert(secondBatch);
+
+    // resend batch 1 and 2 because 2 failed for schematization
+    service.insert(firstBatch);
+    service.insert(secondBatch);
+
+    // ensure all data was ingested
+    TestUtils.assertWithRetry(
+        () ->
+            service.getOffset(new TopicPartition(topic, PARTITION))
+                == firstBatchCount + secondBatchCount,
+        20,
+        5);
+    assert TestUtils.tableSize(testTableName) == firstBatchCount + secondBatchCount
+        : "expected: "
+            + firstBatchCount
+            + secondBatchCount
+            + " actual: "
+            + TestUtils.tableSize(testTableName);
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testChannelMigrateOffsetTokenSystemFunction_NonNullOffsetTokenForSourceChannel()
+      throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    InMemorySinkTaskContext inMemorySinkTaskContext =
+        new InMemorySinkTaskContext(Collections.singleton(topicPartition));
+
+    // This will automatically create a channel for topicPartition.
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(inMemorySinkTaskContext)
+            .addTask(testTableName, topicPartition)
+            .build();
+
+    TopicPartitionChannel topicPartitionChannel =
+        ((SnowflakeSinkServiceV2) service)
+            .getTopicPartitionChannelFromCacheKey(testChannelName)
+            .get();
+    // Channel does exist
+    Assert.assertNotNull(topicPartitionChannel);
+
+    // get the corresponding V2 format for above topic partition channel
+    final String channelNameFormatV2 =
+        topicPartitionChannel.generateChannelNameFormatV2(testChannelName, conn.getConnectorName());
+
+    // create a channel with new format and ingest few rows
+    // Ctor of TopicPartitionChannel tries to open the channel (new format) for same partition
+    TopicPartitionChannel topicPartitionChannelForFormatV2 =
+        new TopicPartitionChannel(
+            ((SnowflakeSinkServiceV2) service).getStreamingIngestClient(),
+            topicPartition,
+            channelNameFormatV2,
+            testTableName,
+            new StreamingBufferThreshold(10, 10_000, 1),
+            config,
+            new InMemoryKafkaRecordErrorReporter(),
+            new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
+            conn,
+            conn.getTelemetryClient());
+
+    // insert few records via new channel
+    final int noOfRecords = 5;
+    // Since record 0 was not able to ingest, all records in this batch will not be added into the
+    // buffer.
     List<SinkRecord> records =
-        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, PARTITION);
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, testTableName, PARTITION);
 
-    // should throw because we don't take arrow version 1 anymore
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannelForFormatV2.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
+    TestUtils.assertWithRetry(
+        () -> topicPartitionChannelForFormatV2.getOffsetSafeToCommitToKafka() == noOfRecords, 5, 5);
+
+    // we migrate the offset from new channel format to old channel format
+    ChannelMigrateOffsetTokenResponseDTO channelMigrateOffsetTokenResponseDTO =
+        conn.migrateStreamingChannelOffsetToken(
+            testTableName, channelNameFormatV2, testChannelName);
+    Assert.assertTrue(isChannelMigrationResponseSuccessful(channelMigrateOffsetTokenResponseDTO));
+    Assert.assertEquals(
+        SUCCESS.getStatusCode(), channelMigrateOffsetTokenResponseDTO.getResponseCode());
+
+    // Fetch offsetToken from API should now give you same as other channel
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords, 5, 5);
+
+    // add few more records
+    records =
+        TestUtils.createJsonStringSinkRecords(noOfRecords, noOfRecords, testTableName, PARTITION);
     service.insert(records);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords + noOfRecords,
+        5,
+        5);
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testChannelMigrateOffsetTokenSystemFunction_NullOffsetTokenInFormatV2()
+      throws Exception {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    InMemorySinkTaskContext inMemorySinkTaskContext =
+        new InMemorySinkTaskContext(Collections.singleton(topicPartition));
+
+    // This will automatically create a channel for topicPartition.
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(inMemorySinkTaskContext)
+            .addTask(testTableName, topicPartition)
+            .build();
+
+    TopicPartitionChannel topicPartitionChannel =
+        ((SnowflakeSinkServiceV2) service)
+            .getTopicPartitionChannelFromCacheKey(testChannelName)
+            .get();
+    // Channel does exist
+    Assert.assertNotNull(topicPartitionChannel);
+
+    final int recordsInPartition1 = 10;
+    List<SinkRecord> recordsPartition1 =
+        TestUtils.createJsonStringSinkRecords(0, recordsInPartition1, topic, PARTITION);
+
+    List<SinkRecord> records = new ArrayList<>(recordsPartition1);
+
+    service.insert(records);
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == recordsInPartition1, 5, 5);
+
+    // get the corresponding V2 format for above topic partition channel
+    final String channelNameFormatV2 =
+        topicPartitionChannel.generateChannelNameFormatV2(testChannelName, conn.getConnectorName());
+
+    // create a channel with new format and dont ingest anything
+    // Ctor of TopicPartitionChannel tries to open the channel (new format) for same partition
+    TopicPartitionChannel topicPartitionChannelForFormatV2 =
+        new TopicPartitionChannel(
+            ((SnowflakeSinkServiceV2) service).getStreamingIngestClient(),
+            topicPartition,
+            channelNameFormatV2,
+            testTableName,
+            new StreamingBufferThreshold(10, 10_000, 1),
+            config,
+            new InMemoryKafkaRecordErrorReporter(),
+            new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
+            conn,
+            conn.getTelemetryClient());
+
+    // close the partition and open the partition to mimic migration
+    service.close(Collections.singletonList(topicPartition));
+
+    Map<String, String> topic2Table = new HashMap<>();
+    topic2Table.put(topic, testTableName);
+    service.startPartitions(Collections.singletonList(topicPartition), topic2Table);
+
+    // this instance has changed since we removed it from cache and loaded it again.
+    TopicPartitionChannel topicPartitionChannelAfterCloseAndStartPartition =
+        ((SnowflakeSinkServiceV2) service)
+            .getTopicPartitionChannelFromCacheKey(testChannelName)
+            .get();
+
+    // Fetch offsetToken from API should now give you same as other channel
+    TestUtils.assertWithRetry(
+        () ->
+            topicPartitionChannelAfterCloseAndStartPartition.fetchOffsetTokenWithRetry()
+                == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        5,
+        5);
+
+    recordsPartition1 =
+        TestUtils.createJsonStringSinkRecords(
+            recordsInPartition1, recordsInPartition1, topic, PARTITION);
+
+    records = new ArrayList<>(recordsPartition1);
+
+    service.insert(records);
+
+    TestUtils.assertWithRetry(
+        () ->
+            service.getOffset(new TopicPartition(topic, PARTITION))
+                == recordsInPartition1 + recordsInPartition1,
+        5,
+        5);
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testInsertRowsWithGaps_schematization() throws Exception {
+    testInsertRowsWithGaps(true);
+  }
+
+  @Test
+  public void testInsertRowsWithGaps_nonSchematization() throws Exception {
+    testInsertRowsWithGaps(false);
+  }
+
+  private void testInsertRowsWithGaps(boolean withSchematization) throws Exception {
+    // setup
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    config.put(
+        SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
+        Boolean.toString(withSchematization));
+
+    // create tpChannel
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(testTableName, topicPartition)
+            .build();
+
+    // insert blank records that do not evolve schema: 0, 1
+    JsonConverter converter = new JsonConverter();
+    HashMap<String, String> converterConfig = new HashMap<>();
+    converterConfig.put("schemas.enable", "false");
+    converter.configure(converterConfig, false);
+    SchemaAndValue schemaInputValue = converter.toConnectData("test", null);
+    List<SinkRecord> blankRecords = new ArrayList<>();
+    for (int i = 0; i < 2; i++) {
+      blankRecords.add(
+          new SinkRecord(
+              topic,
+              PARTITION,
+              Schema.STRING_SCHEMA,
+              "test",
+              schemaInputValue.schema(),
+              schemaInputValue.value(),
+              i));
+    }
+
+    service.insert(blankRecords);
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+
+    // Insert another two records with offset gap that requires evolution: 3, 4
+    List<SinkRecord> gapRecords = TestUtils.createNativeJsonSinkRecords(2, 3, topic, PARTITION);
+    gapRecords.remove(0);
+    service.insert(gapRecords);
+
+    // With schematization, we need to resend a new batch should succeed even if there is an offset
+    // gap from the previous committed offset
+    if (withSchematization) {
+      service.insert(gapRecords);
+    }
+
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 5, 20, 5);
+
+    assert TestUtils.tableSize(testTableName) == 4
+        : "expected: " + 4 + " actual: " + TestUtils.tableSize(testTableName);
     service.closeAll();
   }
 

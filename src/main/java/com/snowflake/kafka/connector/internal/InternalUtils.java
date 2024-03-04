@@ -32,6 +32,7 @@ public class InternalUtils {
   static final String JDBC_WAREHOUSE = "warehouse"; // for test only
   static final String JDBC_AUTHENTICATOR = SFSessionProperty.AUTHENTICATOR.getPropertyKey();
   static final String JDBC_TOKEN = SFSessionProperty.TOKEN.getPropertyKey();
+  static final String JDBC_QUERY_RESULT_FORMAT = "JDBC_QUERY_RESULT_FORMAT";
   // internal parameters
   static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; // 10 days
 
@@ -116,7 +117,7 @@ public class InternalUtils {
    * @param url target server url
    * @return Properties object which will be passed down to JDBC connection
    */
-  static Properties createProperties(Map<String, String> conf, SnowflakeURL url) {
+  public static Properties createProperties(Map<String, String> conf, SnowflakeURL url) {
     return createProperties(conf, url, IngestionMethodConfig.SNOWPIPE);
   }
 
@@ -222,6 +223,8 @@ public class InternalUtils {
     }
     // put values for optional parameters
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
+    // SNOW-989387 - Set query resultset format to JSON as a workaround
+    properties.put(JDBC_QUERY_RESULT_FORMAT, "json");
 
     /**
      * Behavior change in JDBC release 3.13.25
@@ -299,6 +302,10 @@ public class InternalUtils {
         proxyProperties.put(SFSessionProperty.PROXY_USER.getPropertyKey(), username);
         proxyProperties.put(SFSessionProperty.PROXY_PASSWORD.getPropertyKey(), password);
       }
+      // TODO: uncomment this when JDBC version is upgraded past 3.13.31
+      // There is a change in JDBC version 3.13.31 which causes NPE if this is not added.
+      // https://github.com/snowflakedb/snowflake-jdbc/blob/master/src/main/java/net/snowflake/client/jdbc/SnowflakeUtil.java#L614
+      // proxyProperties.put(SFSessionProperty.GZIP_DISABLED.getPropertyKey(), "false");
     }
     return proxyProperties;
   }
