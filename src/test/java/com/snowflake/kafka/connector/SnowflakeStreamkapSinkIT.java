@@ -1,16 +1,12 @@
 package com.snowflake.kafka.connector;
 
-import com.snowflake.client.jdbc.SnowflakeDriver;
-import com.snowflake.kafka.connector.internal.InternalUtils;
-import com.snowflake.kafka.connector.internal.SnowflakeURL;
-import com.streamkap.common.test.TestUtils;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import java.util.Properties;
+
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.transforms.ReplaceField;
 import org.junit.jupiter.api.Test;
@@ -57,7 +53,7 @@ public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkT
         });
     }
 
-    public static Connection generateCon() throws Exception {
+    public Connection generateCon() throws Exception {
         Map<String, String> conf = new HashMap<>();
         conf.put(Utils.SF_USER, "STREAMKAP_USER_JUNIT");
         conf.put(Utils.SF_DATABASE, "JUNIT");
@@ -73,16 +69,7 @@ public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkT
 
         Properties properties = InternalUtils.createProperties(conf, url);
 
-        super.init(new TestUtils() {
-            @Override
-            protected Connection createCon() {
-                try {
-                    return new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
-                } catch (Exception e) {
-                    return null;
-                }
-            }
-        });
+        return new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
     }
 
     public Map<String, String> getConf() {
@@ -170,7 +157,6 @@ public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkT
         return renameAmbigiousFields.apply(record);
     }
 
-    @Override
     protected SinkRecord applyTransformsNominal(SinkRecord record) {
         return dateConv.apply(record);
     }

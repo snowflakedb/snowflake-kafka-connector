@@ -511,6 +511,12 @@
             <version>0.0.9</version>
             <scope>test</scope>
         </dependency>
+		<dependency>
+			<groupId>com.streamkap.kafka.connect.transforms</groupId>
+			<artifactId>auto-time-converters</artifactId>
+			<version>0.0.4</version>
+            <scope>test</scope>
+		</dependency>
         <dependency>
             <groupId>com.streamkap.kafka.connect.transforms</groupId>
             <artifactId>auto-time-converters</artifactId>
