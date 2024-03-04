@@ -346,6 +346,13 @@
             <version>1.0.3</version>
         </dependency>
 
+		<dependency>
+			<groupId>com.streamkap.kafka.connect.transforms</groupId>
+			<artifactId>auto-time-converters</artifactId>
+			<version>0.0.4</version>
+            <scope>test</scope>
+		</dependency>
+        
         <!-- https://mvnrepository.com/artifact/org.apache.kafka/connect-api -->
         <dependency>
             <groupId>org.apache.kafka</groupId>
@@ -559,7 +566,7 @@
         <dependency>
             <groupId>com.streamkap.kafka.connect.transforms</groupId>
             <artifactId>multi-converter</artifactId>
-            <version>0.0.8</version>
+            <version>0.0.9</version>
             <scope>test</scope>
         </dependency>        
     </dependencies>

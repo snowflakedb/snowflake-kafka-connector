@@ -1,26 +1,28 @@
 package com.snowflake.kafka.connector;
 
-import com.snowflake.client.jdbc.SnowflakeDriver;
-import com.snowflake.kafka.connector.internal.InternalUtils;
-import com.snowflake.kafka.connector.internal.SnowflakeURL;
-import com.streamkap.common.test.TestUtils;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import java.util.Properties;
+
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.transforms.ReplaceField;
 import org.junit.jupiter.api.Test;
 
+import com.snowflake.client.jdbc.SnowflakeDriver;
+import com.snowflake.kafka.connector.internal.InternalUtils;
+import com.snowflake.kafka.connector.internal.SnowflakeURL;
+import com.streamkap.common.test.TestUtils;
 import com.streamkap.common.test.sink.StreamkapSinkITBase;
+import com.streamkap.kafka.connect.transforms.AutoTimeConverters;
 
 public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkTask> {
     private static final String SCHEMA_NAME = "junit";
 
     ReplaceField<SinkRecord> renameAmbigiousFields = new ReplaceField.Value<>();
+    AutoTimeConverters<SinkRecord> dateConv = new AutoTimeConverters<>();
 
     public SnowflakeStreamkapSinkIT() throws Exception {
         Map<String, String> config = new HashMap<>();
@@ -29,6 +31,29 @@ public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkT
                 "account:_account,all:_all,alter:_alter,and:_and,any:_any,as:_as,between:_between,by:_by,case:_case,cast:_cast,check:_check,column:_column,connect:_connect,connection:_connection,constraint:_constraint,create:_create,cross:_cross,current:_current,current_date:_current_date,current_time:_current_time,current_timestamp:_current_timestamp,current_user:_current_user,database:_database,delete:_delete,distinct:_distinct,drop:_drop,else:_else,exists:_exists,false:_false,following:_following,for:_for,from:_from,full:_full,grant:_grant,group:_group,gscluster:_gscluster,having:_having,ilike:_ilike,in:_in,increment:_increment,inner:_inner,insert:_insert,intersect:_intersect,into:_into,is:_is,issue:_issue,join:_join,lateral:_lateral,left:_left,like:_like,localtime:_localtime,localtimestamp:_localtimestamp,minus:_minus,natural:_natural,not:_not,null:_null,of:_of,on:_on,or:_or,order:_order,organization:_organization,qualify:_qualify,regexp:_regexp,revoke:_revoke,right:_right,rlike:_rlike,row:_row,rows:_rows,sample:_sample,schema:_schema,select:_select,set:_set,some:_some,start:_start,table:_table,tablesample:_tablesample,then:_then,to:_to,trigger:_trigger,true:_true,try_cast:_try_cast,union:_union,unique:_unique,update:_update,using:_using,values:_values,view:_view,when:_when,whenever:_whenever,where:_where,with:_with");
         renameAmbigiousFields.configure(config);
 
+        config = new HashMap<>();
+        config.put("dateconv.target.type", "string");
+        config.put("dateconv.format", "yyyy-MM-dd");
+        config.put("dateconv.unix.precision", "days");
+        config.put("schema.name", "io.debezium.time.Date");
+        config.put("prefix", "dateconv");
+        dateConv.configure(config);
+
+        super.init(new TestUtils() {
+
+            @Override
+            protected Connection createCon() throws SQLException {
+                try {
+                    return generateCon();
+                } catch (Exception e) {
+                    throw new SQLException(e);
+                }
+            }
+
+        });
+    }
+
+    public Connection generateCon() throws Exception {
         Map<String, String> conf = new HashMap<>();
         conf.put(Utils.SF_USER, "STREAMKAP_USER_JUNIT");
         conf.put(Utils.SF_DATABASE, "JUNIT");
@@ -44,16 +69,7 @@ public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkT
 
         Properties properties = InternalUtils.createProperties(conf, url);
 
-        super.init(new TestUtils() {
-            @Override
-            protected Connection createCon() {
-                try {
-                    return new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
-                } catch (Exception e) {
-                    return null;
-                }
-            }
-        });
+        return new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
     }
 
     public Map<String, String> getConf() {
@@ -139,5 +155,9 @@ public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkT
     @Override
     protected SinkRecord applyTransforms(SinkRecord record) {
         return renameAmbigiousFields.apply(record);
+    }
+
+    protected SinkRecord applyTransformsNominal(SinkRecord record) {
+        return dateConv.apply(record);
     }
 }
