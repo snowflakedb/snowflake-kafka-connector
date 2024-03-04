@@ -17,7 +17,6 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.Map;
@@ -25,48 +24,66 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 public class StreamingClientHandlerTest {
   private StreamingClientHandler streamingClientHandler;
   private Map<String, String> connectorConfig;
+  private Map<String, String> connectorConfigWithOAuth;
 
   @Before
   public void setup() {
     this.streamingClientHandler = new StreamingClientHandler();
     this.connectorConfig = TestUtils.getConfForStreaming();
+    this.connectorConfigWithOAuth = TestUtils.getConfForStreamingWithOAuth();
   }
 
   @Test
-  public void testCreateClient() {
-    SnowflakeStreamingIngestClient client =
-        this.streamingClientHandler.createClient(this.connectorConfig);
+  public void testCreateClient() throws Exception {
+    SnowflakeStreamingIngestClient client1 =
+        this.streamingClientHandler.createClient(
+            new StreamingClientProperties(this.connectorConfig));
 
     // verify valid client against config
-    assert !client.isClosed();
-    assert client.getName().contains(this.connectorConfig.get(Utils.NAME));
+    assert !client1.isClosed();
+    assert client1.getName().contains(this.connectorConfig.get(Utils.NAME) + "_0");
+
+    // create another client, confirm that the name was incremented
+    SnowflakeStreamingIngestClient client2 =
+        this.streamingClientHandler.createClient(
+            new StreamingClientProperties(this.connectorConfig));
+
+    // verify valid client against config
+    assert !client2.isClosed();
+    assert client2.getName().contains(this.connectorConfig.get(Utils.NAME) + "_1");
+
+    // cleanup
+    client1.close();
+    client2.close();
   }
 
   @Test
-  public void testCreateClientException() {
-    // invalidate the config
-    this.connectorConfig.remove(Utils.SF_ROLE);
-
-    try {
-      this.streamingClientHandler.createClient(this.connectorConfig);
-    } catch (ConnectException ex) {
-      assert ex.getCause().getClass().equals(SFException.class);
+  @Ignore // TODO: Remove ignore after SNOW-859929 is released
+  public void testCreateOAuthClient() {
+    if (this.connectorConfigWithOAuth != null) {
+      this.streamingClientHandler.createClient(
+          new StreamingClientProperties(this.connectorConfigWithOAuth));
     }
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void testCreateClientInvalidBdecVersion() {
-    // add invalid bdec version
-    this.connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
+  @Test(expected = ConnectException.class)
+  public void testCreateClientException() {
+    // invalidate the config
+    this.connectorConfig.remove(Utils.SF_PRIVATE_KEY); // private key is required
 
-    // test create
-    this.streamingClientHandler.createClient(this.connectorConfig);
+    try {
+      this.streamingClientHandler.createClient(new StreamingClientProperties(this.connectorConfig));
+    } catch (ConnectException ex) {
+      assert ex.getCause().getClass().equals(SFException.class);
+      throw ex;
+    }
   }
 
   @Test

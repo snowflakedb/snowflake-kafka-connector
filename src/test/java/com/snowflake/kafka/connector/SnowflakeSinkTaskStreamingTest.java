@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -81,6 +82,7 @@ public class SnowflakeSinkTaskStreamingTest {
             mockStreamingChannel.insertRows(
                 ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
         .thenReturn(validationResponse1);
+    Mockito.when(mockConnectionService.getConnectorName()).thenReturn(TEST_CONNECTOR_NAME);
 
     TopicPartitionChannel topicPartitionChannel =
         new TopicPartitionChannel(
@@ -91,7 +93,9 @@ public class SnowflakeSinkTaskStreamingTest {
             new StreamingBufferThreshold(10, 10_000, 1),
             config,
             errorReporter,
-            inMemorySinkTaskContext);
+            inMemorySinkTaskContext,
+            mockConnectionService,
+            mockTelemetryService);
 
     Map topicPartitionChannelMap =
         Collections.singletonMap(partitionChannelKey(topicName, partition), topicPartitionChannel);

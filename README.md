@@ -1,7 +1,9 @@
 # Snowflake-kafka-connector
 [![License](http://img.shields.io/:license-Apache%202-brightgreen.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
 
-Snowflake-kafka-connector is a plugin of Apache Kafka Connect - ingests data from a Kafka Topic to a Snowflake Table.
+Snowflake-kafka-connector is a plugin of Apache Kafka Connect - ingests data from a Kafka Topic to a Snowflake Table. 
+
+[Official documentation](https://docs.snowflake.com/en/user-guide/kafka-connector) for the Snowflake sink Kafka Connector
 
 ### Contributing to the Snowflake Kafka Connector
 The following requirements must be met before you can merge your PR:

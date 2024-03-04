@@ -1,12 +1,16 @@
 package com.snowflake.kafka.connector;
 
+import com.snowflake.client.jdbc.SnowflakeDriver;
+import com.snowflake.kafka.connector.internal.InternalUtils;
+import com.snowflake.kafka.connector.internal.SnowflakeURL;
+import com.streamkap.common.test.TestUtils;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
+import java.util.Properties;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.transforms.ReplaceField;
 import org.junit.jupiter.api.Test;
@@ -67,11 +71,18 @@ public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkT
 
         SnowflakeURL url = new SnowflakeURL(conf.get(Utils.SF_URL));
 
-        Properties properties = InternalUtils.createProperties(conf, url.sslEnabled());
+        Properties properties = InternalUtils.createProperties(conf, url);
 
-        Connection connToSnowflake = new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
-
-        return connToSnowflake;
+        super.init(new TestUtils() {
+            @Override
+            protected Connection createCon() {
+                try {
+                    return new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
+                } catch (Exception e) {
+                    return null;
+                }
+            }
+        });
     }
 
     public Map<String, String> getConf() {
@@ -118,7 +129,7 @@ public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkT
 
     @Test
     public void testNominal() throws SQLException, InterruptedException {
-        super.testNominalInsert(false);
+        super.testNominalInsert(false, 1);
     }
 
     // @Test

@@ -13,6 +13,7 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,6 +31,8 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -40,6 +43,7 @@ import org.slf4j.Logger;
  * Sink Task IT test which uses {@link
  * com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2}
  */
+@RunWith(Parameterized.class)
 public class SnowflakeSinkTaskForStreamingIT {
 
   private String topicName;
@@ -52,6 +56,19 @@ public class SnowflakeSinkTaskForStreamingIT {
   private KCLogger kcLogger = Mockito.spy(new KCLogger(this.getClass().getName()));
 
   @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
+
+  // use OAuth as authenticator or not
+  private boolean useOAuth;
+
+  @Parameterized.Parameters(name = "useOAuth: {0}")
+  public static Collection<Object[]> input() {
+    // TODO: Added {true} after SNOW-352846 is released
+    return Arrays.asList(new Object[][] {{false}});
+  }
+
+  public SnowflakeSinkTaskForStreamingIT(boolean useOAuth) {
+    this.useOAuth = useOAuth;
+  }
 
   @Before
   public void setup() {
@@ -66,7 +83,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
   @Test
   public void testSinkTask() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(BUFFER_COUNT_RECORDS, "1"); // override
 
@@ -105,7 +122,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
   @Test
   public void testSinkTaskWithMultipleOpenClose() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(BUFFER_COUNT_RECORDS, "1"); // override
 
@@ -199,7 +216,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
   @Test
   public void testTopicToTableRegex() {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig();
 
     testTopicToTableRegexMain(config);
   }
@@ -324,6 +341,14 @@ public class SnowflakeSinkTaskForStreamingIT {
         }
       }
       Assert.assertNotNull("Expected topic partition was not opened by the tast", topic);
+    }
+  }
+
+  private Map<String, String> getConfig() {
+    if (!useOAuth) {
+      return TestUtils.getConfForStreaming();
+    } else {
+      return TestUtils.getConfForStreamingWithOAuth();
     }
   }
 }

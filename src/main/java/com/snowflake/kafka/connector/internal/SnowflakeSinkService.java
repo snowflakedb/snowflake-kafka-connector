@@ -149,7 +149,7 @@ public interface SnowflakeSinkService {
   /* Set the SinkTaskContext object available from SinkTask. It contains utility methods to from Kafka Connect Runtime. */
   default void setSinkTaskContext(SinkTaskContext sinkTaskContext) {}
 
-  /* Get metric registry of an associated pipe */
+  /* Get metric registry of an associated partition */
   @VisibleForTesting
-  Optional<MetricRegistry> getMetricRegistry(final String pipeName);
+  Optional<MetricRegistry> getMetricRegistry(final String partitionIdentifier);
 }

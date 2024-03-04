@@ -109,7 +109,7 @@ public class SnowflakeURL {
     return ssl;
   }
 
-  String getScheme() {
+  public String getScheme() {
     if (ssl) {
       return "https";
     } else {

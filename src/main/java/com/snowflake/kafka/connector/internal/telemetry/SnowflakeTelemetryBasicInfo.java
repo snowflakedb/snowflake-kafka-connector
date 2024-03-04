@@ -7,19 +7,22 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
 
 /** Minimum information needed to sent to Snowflake through Telemetry API */
 public abstract class SnowflakeTelemetryBasicInfo {
-  final String tableName;
+  public final String tableName;
+  public final SnowflakeTelemetryService.TelemetryType telemetryType;
 
-  static final KCLogger LOGGER = new KCLogger(SnowflakeTelemetryBasicInfo.class.getName());
+  public static final KCLogger LOGGER = new KCLogger(SnowflakeTelemetryBasicInfo.class.getName());
 
   /**
    * Base Constructor. Accepts a tableName and StageName.
    *
    * @param tableName Checks for Nullability
    */
-  public SnowflakeTelemetryBasicInfo(final String tableName) {
+  public SnowflakeTelemetryBasicInfo(
+      final String tableName, SnowflakeTelemetryService.TelemetryType telemetryType) {
     Preconditions.checkArgument(
         !Strings.isNullOrEmpty(tableName), "tableName cannot be null or empty");
     this.tableName = tableName;
+    this.telemetryType = telemetryType;
   }
 
   /**

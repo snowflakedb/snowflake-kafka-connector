@@ -16,10 +16,24 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.kafka.connect.storage.Converter;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class ConnectorConfigTest {
+  // subset of valid community converters
+  public static final List<Converter> COMMUNITY_CONVERTER_SUBSET =
+      Arrays.asList(
+          new org.apache.kafka.connect.storage.StringConverter(),
+          new org.apache.kafka.connect.json.JsonConverter(),
+          new io.confluent.connect.avro.AvroConverter());
+
+  // custom snowflake converters, not currently allowed for streaming
+  public static final List<Converter> CUSTOM_SNOWFLAKE_CONVERTERS =
+      Arrays.asList(
+          new com.snowflake.kafka.connector.records.SnowflakeJsonConverter(),
+          new com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry(),
+          new com.snowflake.kafka.connector.records.SnowflakeAvroConverter());
 
   @Test
   public void testConfig() {
@@ -656,113 +670,116 @@ public class ConnectorConfigTest {
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    config.put(
-        SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
-        "org.apache.kafka.connect.storage.StringConverter");
-    Utils.validateConfig(config);
 
-    config.put(
-        SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
-        "org.apache.kafka.connect.json.JsonConverter");
-    Utils.validateConfig(config);
+    COMMUNITY_CONVERTER_SUBSET.forEach(
+        converter -> {
+          config.put(
+              SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
+              converter.getClass().toString());
+          Utils.validateConfig(config);
+        });
 
-    config.put(
-        SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
-        "io.confluent.connect.avro.AvroConverter");
-    Utils.validateConfig(config);
-
-    config.put(
-        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
-        "org.apache.kafka.connect.storage.StringConverter");
-    Utils.validateConfig(config);
-
-    config.put(
-        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
-        "org.apache.kafka.connect.json.JsonConverter");
-    Utils.validateConfig(config);
-
-    config.put(
-        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
-        "io.confluent.connect.avro.AvroConverter");
-    Utils.validateConfig(config);
+    COMMUNITY_CONVERTER_SUBSET.forEach(
+        converter -> {
+          config.put(
+              SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+              converter.getClass().toString());
+          Utils.validateConfig(config);
+        });
   }
 
   @Test
   public void testInvalidKeyConvertersForStreamingSnowpipe() {
-    try {
-      Map<String, String> config = getConfig();
-      config.put(
-          SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-          IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-      config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-      config.put(
-          SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
-          "com.snowflake.kafka.connector.records.SnowflakeJsonConverter");
-
-      config.put(
-          SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
-          "org.apache.kafka.connect.storage.StringConverter");
-      Utils.validateConfig(config);
-    } catch (SnowflakeKafkaConnectorException exception) {
-      assert exception
-          .getMessage()
-          .contains(SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD);
-    }
-  }
-
-  @Test
-  public void testInvalidValueConvertersForStreamingSnowpipe() {
-    try {
-      Map<String, String> config = getConfig();
-      config.put(
-          SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-          IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-      config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-      config.put(
-          SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
-          "com.snowflake.kafka.connector.records.SnowflakeJsonConverter");
-
-      config.put(
-          SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
-          "org.apache.kafka.connect.storage.StringConverter");
-      Utils.validateConfig(config);
-    } catch (SnowflakeKafkaConnectorException exception) {
-      assert exception
-          .getMessage()
-          .contains(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
-    }
-  }
-
-  @Test
-  public void testInValidConfigFileTypeForSnowpipe() {
-    try {
-      Map<String, String> config = getConfig();
-      config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "3");
-      Utils.validateConfig(config);
-    } catch (SnowflakeKafkaConnectorException exception) {
-      assert exception
-          .getMessage()
-          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION);
-    }
-  }
-
-  @Test
-  public void testValidFileTypesForSnowpipeStreaming() {
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
 
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "3");
+    CUSTOM_SNOWFLAKE_CONVERTERS.forEach(
+        converter -> {
+          try {
+            config.put(
+                SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
+                converter.getClass().toString());
+            config.put(
+                SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+                "org.apache.kafka.connect.storage.StringConverter");
+
+            Utils.validateConfig(config);
+          } catch (SnowflakeKafkaConnectorException exception) {
+            assert exception
+                .getMessage()
+                .contains(SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD);
+          }
+        });
+  }
+
+  @Test
+  public void testInvalidValueConvertersForStreamingSnowpipe() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+
+    CUSTOM_SNOWFLAKE_CONVERTERS.forEach(
+        converter -> {
+          try {
+            config.put(
+                SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
+                "org.apache.kafka.connect.storage.StringConverter");
+            config.put(
+                SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+                converter.getClass().toString());
+
+            Utils.validateConfig(config);
+          } catch (SnowflakeKafkaConnectorException exception) {
+            assert exception
+                .getMessage()
+                .contains(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
+          }
+        });
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testInalidMaxClientLagForSnowpipe() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "3");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception
+          .getMessage()
+          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG);
+      throw exception;
+    }
+  }
+
+  @Test(expected = SnowflakeKafkaConnectorException.class)
+  public void testMaxClientLagForSnowpipeStreaming() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "3");
     Utils.validateConfig(config);
 
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "1");
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     Utils.validateConfig(config);
 
-    // lower case
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_FILE_VERSION, "abcd");
-    Utils.validateConfig(config);
+    // pass in string
+    try {
+      config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "abcd");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception
+          .getMessage()
+          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG);
+      throw exception;
+    }
   }
 
   @Test
@@ -859,6 +876,53 @@ public class ConnectorConfigTest {
   }
 
   @Test
+  public void testEnableStreamingChannelMigrationConfig() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "true");
+
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testEnableStreamingChannelMigrationConfig_invalidWithSnowpipe() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(
+          SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+          IngestionMethodConfig.SNOWPIPE.toString());
+      config.put(SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "true");
+
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception
+          .getMessage()
+          .contains(SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG);
+    }
+  }
+
+  @Test
+  public void testEnableStreamingChannelMigrationConfig_invalidWithSnowpipeStreaming() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(
+          SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+          IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+      config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+      config.put(
+          SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "INVALID");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception
+          .getMessage()
+          .contains(SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG);
+    }
+  }
+
+  @Test
   public void testInvalidEmptyConfig() {
     try {
       Map<String, String> config = new HashMap<>();
@@ -895,6 +959,66 @@ public class ConnectorConfigTest {
     for (String param : emptyParams) {
       paramsToRemove.add(param);
       this.invalidConfigRunner(paramsToRemove);
+    }
+  }
+
+  @Test
+  public void testOAuthAuthenticator() {
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.OAUTH);
+    config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID, "client_id");
+    config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET, "client_secret");
+    config.put(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN, "refresh_token");
+    Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testInvalidAuthenticator() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, "invalid_authenticator");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE);
+    }
+  }
+
+  @Test
+  public void testEmptyClientId() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.OAUTH);
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET, "client_secret");
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN, "refresh_token");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID);
+    }
+  }
+
+  @Test
+  public void testEmptyClientSecret() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.OAUTH);
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID, "client_id");
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN, "refresh_token");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET);
+    }
+  }
+
+  @Test
+  public void testEmptyRefreshToken() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.OAUTH);
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID, "client_id");
+      config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET, "client_secret");
+      Utils.validateConfig(config);
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN);
     }
   }
 

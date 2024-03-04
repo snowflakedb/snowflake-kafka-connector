@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.SnowflakeTelemetryServiceV2;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import java.sql.Connection;
 
 /**

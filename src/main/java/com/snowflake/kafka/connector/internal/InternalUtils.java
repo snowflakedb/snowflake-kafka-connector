@@ -30,7 +30,9 @@ public class InternalUtils {
   static final String JDBC_SSL = "ssl";
   static final String JDBC_SESSION_KEEP_ALIVE = "client_session_keep_alive";
   static final String JDBC_WAREHOUSE = "warehouse"; // for test only
-
+  static final String JDBC_AUTHENTICATOR = SFSessionProperty.AUTHENTICATOR.getPropertyKey();
+  static final String JDBC_TOKEN = SFSessionProperty.TOKEN.getPropertyKey();
+  static final String JDBC_QUERY_RESULT_FORMAT = "JDBC_QUERY_RESULT_FORMAT";
   // internal parameters
   static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; // 10 days
 
@@ -112,28 +114,36 @@ public class InternalUtils {
    * config. It assumes the caller wants to use this Property for Snowpipe based Kafka Connector.
    *
    * @param conf User provided kafka connector config
-   * @param sslEnabled is sslEnabled?
+   * @param url target server url
    * @return Properties object which will be passed down to JDBC connection
    */
-  public static Properties createProperties(Map<String, String> conf, boolean sslEnabled) {
-    return createProperties(conf, sslEnabled, IngestionMethodConfig.SNOWPIPE);
+  public static Properties createProperties(Map<String, String> conf, SnowflakeURL url) {
+    return createProperties(conf, url, IngestionMethodConfig.SNOWPIPE);
   }
 
   /**
    * create a properties for snowflake connection
    *
    * @param conf a map contains all parameters
-   * @param sslEnabled if ssl is enabled
+   * @param url target server url
    * @param ingestionMethodConfig which ingestion method is provided.
    * @return a Properties instance
    */
   static Properties createProperties(
-      Map<String, String> conf, boolean sslEnabled, IngestionMethodConfig ingestionMethodConfig) {
+      Map<String, String> conf, SnowflakeURL url, IngestionMethodConfig ingestionMethodConfig) {
     Properties properties = new Properties();
 
     // decrypt rsa key
     String privateKey = "";
     String privateKeyPassphrase = "";
+
+    // OAuth params
+    String oAuthClientId = "";
+    String oAuthClientSecret = "";
+    String oAuthRefreshToken = "";
+
+    // OAuth access token
+    String token = "";
 
     for (Map.Entry<String, String> entry : conf.entrySet()) {
       // case insensitive
@@ -156,27 +166,65 @@ public class InternalUtils {
         case Utils.PRIVATE_KEY_PASSPHRASE:
           privateKeyPassphrase = entry.getValue();
           break;
+        case Utils.SF_AUTHENTICATOR:
+          properties.put(JDBC_AUTHENTICATOR, entry.getValue());
+          break;
+        case Utils.SF_OAUTH_CLIENT_ID:
+          oAuthClientId = entry.getValue();
+          break;
+        case Utils.SF_OAUTH_CLIENT_SECRET:
+          oAuthClientSecret = entry.getValue();
+          break;
+        case Utils.SF_OAUTH_REFRESH_TOKEN:
+          oAuthRefreshToken = entry.getValue();
+          break;
         default:
           // ignore unrecognized keys
       }
     }
 
-    if (!privateKeyPassphrase.isEmpty()) {
-      properties.put(
-          JDBC_PRIVATE_KEY,
-          EncryptionUtils.parseEncryptedPrivateKey(privateKey, privateKeyPassphrase));
-    } else if (!privateKey.isEmpty()) {
-      properties.put(JDBC_PRIVATE_KEY, parsePrivateKey(privateKey));
+    // Set credential
+    if (!properties.containsKey(JDBC_AUTHENTICATOR)) {
+      properties.put(JDBC_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
+    }
+    if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.SNOWFLAKE_JWT)) {
+      // JWT key pair auth
+      if (!privateKeyPassphrase.isEmpty()) {
+        properties.put(
+            JDBC_PRIVATE_KEY,
+            EncryptionUtils.parseEncryptedPrivateKey(privateKey, privateKeyPassphrase));
+      } else if (!privateKey.isEmpty()) {
+        properties.put(JDBC_PRIVATE_KEY, parsePrivateKey(privateKey));
+      }
+    } else if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.OAUTH)) {
+      // OAuth auth
+      if (oAuthClientId.isEmpty()) {
+        throw SnowflakeErrors.ERROR_0026.getException();
+      }
+      if (oAuthClientSecret.isEmpty()) {
+        throw SnowflakeErrors.ERROR_0027.getException();
+      }
+      if (oAuthRefreshToken.isEmpty()) {
+        throw SnowflakeErrors.ERROR_0028.getException();
+      }
+      String accessToken =
+          Utils.getSnowflakeOAuthAccessToken(
+              url, oAuthClientId, oAuthClientSecret, oAuthRefreshToken);
+      properties.put(JDBC_TOKEN, accessToken);
+    } else {
+      throw SnowflakeErrors.ERROR_0029.getException();
     }
 
     // set ssl
-    if (sslEnabled) {
+    if (url.sslEnabled()) {
       properties.put(JDBC_SSL, "on");
     } else {
       properties.put(JDBC_SSL, "off");
     }
     // put values for optional parameters
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
+    // SNOW-989387 - Set query resultset format to JSON as a workaround
+    properties.put(JDBC_QUERY_RESULT_FORMAT, "json");
 
     /**
      * Behavior change in JDBC release 3.13.25
@@ -197,8 +245,9 @@ public class InternalUtils {
       }
     }
 
-    // required parameter check
-    if (!properties.containsKey(JDBC_PRIVATE_KEY)) {
+    // required parameter check, the OAuth parameter is already checked when fetching access token
+    if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.SNOWFLAKE_JWT)
+        && !properties.containsKey(JDBC_PRIVATE_KEY)) {
       throw SnowflakeErrors.ERROR_0013.getException();
     }
 
@@ -253,6 +302,10 @@ public class InternalUtils {
         proxyProperties.put(SFSessionProperty.PROXY_USER.getPropertyKey(), username);
         proxyProperties.put(SFSessionProperty.PROXY_PASSWORD.getPropertyKey(), password);
       }
+      // TODO: uncomment this when JDBC version is upgraded past 3.13.31
+      // There is a change in JDBC version 3.13.31 which causes NPE if this is not added.
+      // https://github.com/snowflakedb/snowflake-jdbc/blob/master/src/main/java/net/snowflake/client/jdbc/SnowflakeUtil.java#L614
+      // proxyProperties.put(SFSessionProperty.GZIP_DISABLED.getPropertyKey(), "false");
     }
     return proxyProperties;
   }
@@ -296,7 +349,7 @@ public class InternalUtils {
   }
 
   /** Interfaces to define the lambda function to be used by backoffAndRetry */
-  interface backoffFunction {
+  public interface backoffFunction {
     Object apply() throws Exception;
   }
 
