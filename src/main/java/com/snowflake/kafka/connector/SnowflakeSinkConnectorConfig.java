@@ -245,7 +245,7 @@ public class SnowflakeSinkConnectorConfig {
     }
   }
 
-  static ConfigDef newConfigDef() {
+  public static ConfigDef newConfigDef() {
     return new ConfigDef()
         // snowflake login info
         .define(
