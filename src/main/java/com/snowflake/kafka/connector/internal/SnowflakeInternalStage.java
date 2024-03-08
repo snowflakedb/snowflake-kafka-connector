@@ -131,9 +131,6 @@ public class SnowflakeInternalStage {
    *
    * <p>If we pass in expired credentials, we will get expired credentials error from cloud.
    *
-   * <p>JDBC itself should renew the token but looks like that part of the code is not working.
-   * https://github.com/snowflakedb/snowflake-jdbc/blob/master/src/main/java/net/snowflake/client/jdbc/cloud/storage/SnowflakeS3Client.java#L738
-   *
    * <p>We are already doing a retry for this failure and renew the credentials from our end by
    * calling tradition put API with connection.
    *
