@@ -463,6 +463,7 @@
             <groupId>org.junit.vintage</groupId>
             <artifactId>junit-vintage-engine</artifactId>
             <version>${junit-jupiter.version}</version>
+            <scope>test</scope>
         </dependency>
         <!-- Optional : override the JUnit 4 API version provided by junit-vintage-engine -->
         <dependency>
