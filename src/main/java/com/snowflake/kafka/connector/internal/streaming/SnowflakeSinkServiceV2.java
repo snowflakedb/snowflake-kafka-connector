@@ -406,6 +406,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             connectorConfig.getOrDefault(
                 SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
                 Boolean.toString(ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT)));
+    // when optimization is enabled single streamingIngestClient instance may be used by many SinkService instances
+    // stopping the client may cause unexpected behaviour
     if (!isOptimizationEnabled) {
       try {
         StreamingClientProvider.getStreamingClientProviderInstance()
