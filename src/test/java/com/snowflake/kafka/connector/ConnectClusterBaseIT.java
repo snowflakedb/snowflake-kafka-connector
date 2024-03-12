@@ -1,23 +1,5 @@
 package com.snowflake.kafka.connector;
 
-
-import com.snowflake.kafka.connector.fake.SnowflakeFakeSinkConnector;
-import com.snowflake.kafka.connector.fake.SnowflakeFakeSinkTask;
-import org.apache.kafka.connect.runtime.AbstractStatus;
-import org.apache.kafka.connect.runtime.rest.entities.ConnectorStateInfo;
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.apache.kafka.connect.storage.StringConverter;
-import org.apache.kafka.connect.util.clusters.EmbeddedConnectCluster;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.Test;
-
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
@@ -34,80 +16,107 @@ import static org.apache.kafka.connect.sink.SinkConnector.TOPICS_CONFIG;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.snowflake.kafka.connector.fake.SnowflakeFakeSinkConnector;
+import com.snowflake.kafka.connector.fake.SnowflakeFakeSinkTask;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.kafka.connect.runtime.AbstractStatus;
+import org.apache.kafka.connect.runtime.rest.entities.ConnectorStateInfo;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.storage.StringConverter;
+import org.apache.kafka.connect.util.clusters.EmbeddedConnectCluster;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
 public class ConnectClusterBaseIT {
 
-    protected static EmbeddedConnectCluster connectCluster;
+  protected static EmbeddedConnectCluster connectCluster;
 
-    protected static final String TEST_TOPIC = "kafka-int-test";
-    protected static final String TEST_CONNECTOR_NAME = "test-connector";
-    protected static final Integer TASK_NUMBER = 1;
-    private static final Duration CONNECTOR_MAX_STARTUP_TIME = Duration.ofSeconds(20);
+  protected static final String TEST_TOPIC = "kafka-int-test";
+  protected static final String TEST_CONNECTOR_NAME = "test-connector";
+  protected static final Integer TASK_NUMBER = 1;
+  private static final Duration CONNECTOR_MAX_STARTUP_TIME = Duration.ofSeconds(20);
 
-    @Before
-    public void setup() {
-        if (connectCluster == null) {
-            connectCluster = new EmbeddedConnectCluster.Builder().name("kafka-push-connector-connect-cluster").numWorkers(3).build();
-            connectCluster.start();
-            connectCluster.kafka().createTopic(TEST_TOPIC);
-            connectCluster.configureConnector(TEST_CONNECTOR_NAME, createProperties());
-            await().timeout(CONNECTOR_MAX_STARTUP_TIME).until(this::isConnectorRunning);
-        }
-        SnowflakeFakeSinkTask.resetRecords();
+  @BeforeClass
+  public static void beforeClass() {
+    connectCluster =
+        new EmbeddedConnectCluster.Builder()
+            .name("kafka-push-connector-connect-cluster")
+            .numWorkers(3)
+            .build();
+    connectCluster.start();
+    connectCluster.kafka().createTopic(TEST_TOPIC);
+    connectCluster.configureConnector(TEST_CONNECTOR_NAME, createProperties());
+    await().timeout(CONNECTOR_MAX_STARTUP_TIME).until(ConnectClusterBaseIT::isConnectorRunning);
+  }
+
+  @Before
+  public void before() {
+    SnowflakeFakeSinkTask.resetRecords();
+  }
+
+  @AfterClass
+  public static void afterClass() {
+    if (connectCluster != null) {
+      connectCluster.stop();
+      connectCluster = null;
     }
+  }
 
-    @AfterClass
-    public static void afterClass() {
-        if (connectCluster != null) {
-            connectCluster.stop();
-            connectCluster = null;
-        }
-    }
+  @After
+  public void after() {
+    SnowflakeFakeSinkTask.resetRecords();
+  }
 
-    @After
-    public void after() {
-        SnowflakeFakeSinkTask.resetRecords();
-    }
+  @Test
+  public void connectorShouldConsumeMessagesFromTopic() {
+    connectCluster.kafka().produce(TEST_TOPIC, "test1");
+    connectCluster.kafka().produce(TEST_TOPIC, "test2");
 
-    @Test
-    public void connectorShouldConsumeMessagesFromTopic() {
-        connectCluster.kafka().produce(TEST_TOPIC, "test1");
-        connectCluster.kafka().produce(TEST_TOPIC, "test2");
+    await()
+        .untilAsserted(
+            () -> {
+              List<SinkRecord> records = SnowflakeFakeSinkTask.getRecords();
+              assertThat(records).hasSize(2);
+              assertThat(records.stream().map(SinkRecord::value)).containsExactly("test1", "test2");
+            });
+  }
 
-        await().untilAsserted(() -> {
-            List<SinkRecord> records = SnowflakeFakeSinkTask.getRecords();
-            assertThat(records).hasSize(2);
-            assertThat(records.stream().map(SinkRecord::value)).containsExactly("test1", "test2");
-        });
-    }
+  private static Map<String, String> createProperties() {
+    Map<String, String> config = new HashMap<>();
 
-    protected Map<String, String> createProperties() {
-        Map<String, String> config = new HashMap<>();
+    // kafka connect specific
+    // real connector will be specified with SNOW-1055561
+    config.put(CONNECTOR_CLASS_CONFIG, SnowflakeFakeSinkConnector.class.getName());
+    config.put(TOPICS_CONFIG, TEST_TOPIC);
+    config.put(TASKS_MAX_CONFIG, TASK_NUMBER.toString());
+    config.put(KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
+    config.put(VALUE_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
 
-        // kafka connect specific
-        config.put(CONNECTOR_CLASS_CONFIG, SnowflakeFakeSinkConnector.class.getName());
-        config.put(TOPICS_CONFIG, TEST_TOPIC);
-        config.put(TASKS_MAX_CONFIG, TASK_NUMBER.toString());
-        config.put(KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
-        config.put(VALUE_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
+    // kafka push specific
+    config.put(NAME, TEST_CONNECTOR_NAME);
+    config.put(SNOWFLAKE_URL, "https://test.testregion.snowflakecomputing.com:443");
+    config.put(SNOWFLAKE_USER, "testName");
+    config.put(SNOWFLAKE_PRIVATE_KEY, "testPrivateKey");
+    config.put(SNOWFLAKE_DATABASE, "testDbName");
+    config.put(SNOWFLAKE_SCHEMA, "testSchema");
+    config.put(BUFFER_COUNT_RECORDS, "1000000");
+    config.put(BUFFER_FLUSH_TIME_SEC, "1");
 
-        // kafka push specific
-        config.put(NAME, TEST_CONNECTOR_NAME);
-        config.put(SNOWFLAKE_URL, "https://test.testregion.snowflakecomputing.com:443");
-        config.put(SNOWFLAKE_USER, "testName");
-        config.put(SNOWFLAKE_PRIVATE_KEY, "testPrivateKey");
-        config.put(SNOWFLAKE_DATABASE, "testDbName");
-        config.put(SNOWFLAKE_SCHEMA, "testSchema");
-        config.put(BUFFER_COUNT_RECORDS, "1000000");
-        config.put(BUFFER_FLUSH_TIME_SEC, "1");
+    return config;
+  }
 
-        return config;
-    }
-
-    private boolean isConnectorRunning() {
-        ConnectorStateInfo status = connectCluster.connectorStatus(TEST_CONNECTOR_NAME);
-        return status != null
-                && status.connector().state().equals(AbstractStatus.State.RUNNING.toString())
-                && status.tasks().size() >= TASK_NUMBER
-                && status.tasks().stream().allMatch(state -> state.state().equals(AbstractStatus.State.RUNNING.toString()));
-    }
+  private static boolean isConnectorRunning() {
+    ConnectorStateInfo status = connectCluster.connectorStatus(TEST_CONNECTOR_NAME);
+    return status != null
+        && status.connector().state().equals(AbstractStatus.State.RUNNING.toString())
+        && status.tasks().size() >= TASK_NUMBER
+        && status.tasks().stream()
+            .allMatch(state -> state.state().equals(AbstractStatus.State.RUNNING.toString()));
+  }
 }
