@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
@@ -399,7 +400,27 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   @Override
-  public void setIsStoppedToTrue() {}
+  public void stop() {
+    final boolean isOptimizationEnabled =
+        Boolean.parseBoolean(
+            connectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+                Boolean.toString(ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT)));
+    // when optimization is enabled single streamingIngestClient instance may be used by many
+    // SinkService instances
+    // stopping the client may cause unexpected behaviour
+    if (!isOptimizationEnabled) {
+      try {
+        StreamingClientProvider.getStreamingClientProviderInstance()
+            .closeClient(connectorConfig, this.streamingIngestClient);
+      } catch (Exception e) {
+        LOGGER.warn(
+            "Could not close streaming ingest client {}. Reason: {}",
+            streamingIngestClient.getName(),
+            e.getMessage());
+      }
+    }
+  }
 
   /* Undefined */
   @Override
@@ -537,8 +558,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   /* Used for testing */
   @VisibleForTesting
   public SnowflakeStreamingIngestClient getStreamingIngestClient() {
-    return StreamingClientProvider.getStreamingClientProviderInstance()
-        .getClient(this.connectorConfig);
+    return this.streamingIngestClient;
   }
 
   /**
