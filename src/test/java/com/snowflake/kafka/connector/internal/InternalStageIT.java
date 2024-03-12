@@ -11,7 +11,11 @@ import java.util.Properties;
 import net.snowflake.client.core.OCSPMode;
 import net.snowflake.client.core.SFSessionProperty;
 import net.snowflake.client.core.SFStatement;
-import net.snowflake.client.jdbc.*;
+import net.snowflake.client.jdbc.SnowflakeConnectionV1;
+import net.snowflake.client.jdbc.SnowflakeFileTransferAgent;
+import net.snowflake.client.jdbc.SnowflakeFileTransferConfig;
+import net.snowflake.client.jdbc.SnowflakeFileTransferMetadataV1;
+import net.snowflake.client.jdbc.SnowflakeSQLException;
 import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -140,8 +144,6 @@ public class InternalStageIT {
     proxyProperties.put(SFSessionProperty.PROXY_PORT.getPropertyKey(), "3128");
     proxyProperties.put(SFSessionProperty.PROXY_USER.getPropertyKey(), "admin");
     proxyProperties.put(SFSessionProperty.PROXY_PASSWORD.getPropertyKey(), "test");
-    // required otherwise JDBC version 3.13.31 throws NPE
-    proxyProperties.put(SFSessionProperty.GZIP_DISABLED.getPropertyKey(), "false");
 
     // Create new snowflake connection service
     Map<String, String> config = TestUtils.getConf();

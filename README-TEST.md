@@ -51,11 +51,15 @@ Checkout from GitHub master and run integration test:
 The above command build a jar file and put it at `/usr/local/share/kafka/plugins`. Then the following command will spin up Kafka and Kafka Connect cluster and execute the test suits. 
 
 ```
-./run_test_<confluent/apache>.sh <version> <path to apache config folder> <stress> <ssl>
+./run_test_<confluent/apache>.sh <version> <path to apache config folder> <stress> <ssl> [--skipProxy] [--tests=TestStringJson,TestAvroAvro,...]
 Run end to end test on Confluent 5.5.0 with stress test, without ssl
 	./run_test_confluent.sh 5.5.0 ./apache_properties true
 Run end to end test on Apache 2.2.0 without stress test, with ssl
 	./run_test_apache.sh 2.2.0 ./apache_properties_ssl false true
+	
+Optional arguments (useful for local development):
+    --skipProxy - skip running proxy tests
+    --tests - comma separated list of test suites to run
 ```
 
 Note: if ssl is set to true, path to apache config folder must be `apache_properties_ssl` instead of `apache_properties`

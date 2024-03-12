@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
@@ -1282,7 +1283,7 @@ public class SnowflakeSinkServiceV2IT {
             .build();
 
     // The first insert should fail and schema evolution will kick in to update the schema
-    service.insert(avroRecordValue);
+    service.insert(Collections.singletonList(avroRecordValue));
     TestUtils.assertWithRetry(
         () ->
             service.getOffset(new TopicPartition(topic, partition))
@@ -1293,7 +1294,7 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_AVRO_SCHEMA_FOR_TABLE_CREATION);
 
     // Retry the insert should succeed now with the updated schema
-    service.insert(avroRecordValue);
+    service.insert(Collections.singletonList(avroRecordValue));
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
 
@@ -1371,7 +1372,7 @@ public class SnowflakeSinkServiceV2IT {
             .build();
 
     // The first insert should fail and schema evolution will kick in to update the schema
-    service.insert(jsonRecordValue);
+    service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
         () ->
             service.getOffset(new TopicPartition(topic, partition))
@@ -1381,7 +1382,7 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_JSON_SCHEMA_FOR_TABLE_CREATION);
 
     // Retry the insert should succeed now with the updated schema
-    service.insert(jsonRecordValue);
+    service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
 
@@ -1435,7 +1436,7 @@ public class SnowflakeSinkServiceV2IT {
             .build();
 
     // The first insert should fail and schema evolution will kick in to add the column
-    service.insert(jsonRecordValue);
+    service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
         () ->
             service.getOffset(new TopicPartition(topic, partition))
@@ -1445,7 +1446,7 @@ public class SnowflakeSinkServiceV2IT {
 
     // The second insert should fail again and schema evolution will kick in to update the
     // nullability
-    service.insert(jsonRecordValue);
+    service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
         () ->
             service.getOffset(new TopicPartition(topic, partition))
@@ -1454,7 +1455,7 @@ public class SnowflakeSinkServiceV2IT {
         5);
 
     // Retry the insert should succeed now with the updated schema
-    service.insert(jsonRecordValue);
+    service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
 
@@ -1523,6 +1524,80 @@ public class SnowflakeSinkServiceV2IT {
     } catch (IllegalArgumentException ex) {
       Assert.assertEquals(NumberFormatException.class, ex.getCause().getClass());
     }
+  }
+
+  @Test
+  public void testStreamingIngestionValidClientPropertiesOverride() throws Exception {
+    Map<String, String> config = new HashMap<>(getConfig());
+    config.put(
+        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+        "MAX_CHANNEL_SIZE_IN_BYTES:10000000,ENABLE_SNOWPIPE_STREAMING_JMX_METRICS:false");
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    conn.createTable(table);
+
+    // opens a channel for partition 0, table and topic
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(100)
+            .setFlushTime(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
+            .build();
+
+    final long noOfRecords = 10;
+    List<SinkRecord> sinkRecords =
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, partition);
+
+    Thread.sleep(1000); // to ensure we flush buffer on time threshold
+    service.insert(sinkRecords);
+
+    try {
+      // Wait 20 seconds here and no flush should happen since the max client lag is 30 seconds
+      TestUtils.assertWithRetry(
+          () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 5, 4);
+    } catch (Exception e) {
+      // do nothing
+    }
+    service.closeAll();
+  }
+
+  /**
+   * Even if override key is invalid, we will still create a client since we dont verify key and
+   * values, only format.
+   */
+  @Test
+  public void testStreamingIngestion_invalidClientPropertiesOverride() throws Exception {
+    Map<String, String> config = new HashMap<>(getConfig());
+    config.put(SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "MAX_SOMETHING_SOMETHING:1");
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    conn.createTable(table);
+
+    // opens a channel for partition 0, table and topic
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(100)
+            .setFlushTime(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
+            .build();
+
+    final long noOfRecords = 10;
+    List<SinkRecord> sinkRecords =
+        TestUtils.createJsonStringSinkRecords(0, noOfRecords, topic, partition);
+
+    Thread.sleep(1000); // to ensure we flush buffer on time threshold
+    service.insert(sinkRecords);
+
+    try {
+      // Wait 20 seconds here and no flush should happen since the max client lag is 30 seconds
+      TestUtils.assertWithRetry(
+          () -> service.getOffset(new TopicPartition(topic, partition)) == noOfRecords, 5, 4);
+    } catch (Exception e) {
+      // do nothing
+    }
+    service.closeAll();
   }
 
   private void createNonNullableColumn(String tableName, String colName) {

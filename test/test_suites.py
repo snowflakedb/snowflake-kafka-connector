@@ -26,8 +26,10 @@ from test_suit.test_native_string_json_without_schema import TestNativeStringJso
 from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
 from test_suit.test_schema_evolution_avro_sr import TestSchemaEvolutionAvroSR
 from test_suit.test_schema_evolution_avro_sr_logical_types import TestSchemaEvolutionAvroSRLogicalTypes
+from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTable
 from test_suit.test_schema_evolution_json import TestSchemaEvolutionJson
 from test_suit.test_schema_evolution_json_ignore_tombstone import TestSchemaEvolutionJsonIgnoreTombstone
+from test_suit.test_schema_evolution_multi_topic_drop_table import TestSchemaEvolutionMultiTopicDropTable
 from test_suit.test_schema_evolution_nonnullable_json import TestSchemaEvolutionNonNullableJson
 from test_suit.test_schema_evolution_w_auto_table_creation_avro_sr import \
     TestSchemaEvolutionWithAutoTableCreationAvroSR
@@ -37,6 +39,8 @@ from test_suit.test_schema_evolution_w_random_row_count import \
     TestSchemaEvolutionWithRandomRowCount
 from test_suit.test_schema_mapping import TestSchemaMapping
 from test_suit.test_schema_not_supported_converter import TestSchemaNotSupportedConverter
+from test_suit.test_snowpipe_streaming_channel_migration_disabled import \
+    TestSnowpipeStreamingStringJsonChannelMigrationDisabled
 from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
 from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
 from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
@@ -47,7 +51,7 @@ from test_suit.test_string_avro import TestStringAvro
 from test_suit.test_string_avrosr import TestStringAvrosr
 from test_suit.test_string_json import TestStringJson
 from test_suit.test_string_json_ignore_tombstone import TestStringJsonIgnoreTombstone
-from test_suit.test_snowpipe_streaming_channel_migration_disabled import TestSnowpipeStreamingStringJsonChannelMigrationDisabled
+from test_suit.test_streaming_client_parameter_override import TestStreamingClientParameterOverride
 
 
 class EndToEndTestSuite:
@@ -80,13 +84,14 @@ class EndToEndTestSuite:
         return self._run_in_apache
 
 
-def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet):
+def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet, allowedTestsCsv):
     '''
     Creates all End to End tests which needs to run against Confluent Kafka or Apache Kafka.
     :param driver: Driver holds all helper function for tests - Create topic, create connector, send data are few functions amongst many present in Class KafkaTest.
     :param nameSalt: random string appended for uniqueness of Connector Name
     :param schemaRegistryAddress: Schema registry For confluent runs
     :param testSet: confluent Kafka or apache Kafka (OSS)
+    :param allowedTestsCsv: comma separated list of tests to be run. Run all tests when no value given.
     :return:
     '''
     test_suites = OrderedDict([
@@ -136,7 +141,8 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             run_in_apache=True
         )),
         ("TestSnowpipeStreamingStringJsonChannelMigrationDisabled", EndToEndTestSuite(
-            test_instance=TestSnowpipeStreamingStringJsonChannelMigrationDisabled(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestSnowpipeStreamingStringJsonChannelMigrationDisabled(driver, nameSalt), clean=True,
+            run_in_confluent=True, run_in_apache=True
         )),
         ("TestSnowpipeStreamingStringJsonIgnoreTombstone", EndToEndTestSuite(
             test_instance=TestSnowpipeStreamingStringJsonIgnoreTombstone(driver, nameSalt), clean=True,
@@ -248,14 +254,24 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         ("TestKcRestart", EndToEndTestSuite(
             test_instance=TestKcRestart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        # do not support out of band table drops due to SNOW-943288, keeping these tests for long term solution
-        # ("TestSchemaEvolutionDropTable", EndToEndTestSuite(
-        #     test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
-        #     run_in_apache=True
-        # )),
-        # ("TestSchemaEvolutionMultiTopicDropTable", EndToEndTestSuite(
-        #     test_instance=TestSchemaEvolutionMultiTopicDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
-        #     run_in_apache=True
-        # )),
+        ("TestSchemaEvolutionDropTable", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
+            run_in_apache=True
+        )),
+        ("TestSchemaEvolutionMultiTopicDropTable", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionMultiTopicDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
+            run_in_apache=True
+        )),
+        ("TestStreamingClientParameterOverride", EndToEndTestSuite(
+            test_instance=TestStreamingClientParameterOverride(driver, nameSalt), clean=True, run_in_confluent=True,
+            run_in_apache=True
+        )),
     ])
-    return test_suites
+
+    # Return all suites or only selected subset
+    if allowedTestsCsv is None or allowedTestsCsv == "":
+        return test_suites
+    else:
+        testsToRun = dict((k, v) for k, v in test_suites.items() if k in allowedTestsCsv.split(','))
+        print("Running", len(testsToRun), "tests")
+        return testsToRun

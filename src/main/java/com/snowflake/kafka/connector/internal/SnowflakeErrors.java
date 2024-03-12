@@ -128,6 +128,15 @@ public enum SnowflakeErrors {
           + " parameter when using oauth as authenticator"),
   ERROR_0029(
       "0029", "Invalid authenticator", "Authenticator should be either oauth or snowflake_jwt"),
+  ERROR_0030(
+      "0030",
+      String.format(
+          "Invalid %s map",
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP),
+      String.format(
+          "Failed to parse %s map",
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)),
+
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",

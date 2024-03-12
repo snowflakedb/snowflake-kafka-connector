@@ -180,7 +180,9 @@ public class TopicPartitionChannelTest {
 
     Mockito.when(
             mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+                ArgumentMatchers.any(Iterable.class),
+                ArgumentMatchers.any(String.class),
+                ArgumentMatchers.any(String.class)))
         .thenReturn(new InsertValidationResponse());
 
     TopicPartitionChannel topicPartitionChannel =
@@ -214,7 +216,7 @@ public class TopicPartitionChannelTest {
             input.value(),
             offset);
 
-    topicPartitionChannel.insertRecordToBuffer(record1);
+    topicPartitionChannel.insertRecordToBuffer(record1, true);
 
     Assert.assertEquals(-1l, topicPartitionChannel.getOffsetPersistedInSnowflake());
 
@@ -526,7 +528,9 @@ public class TopicPartitionChannelTest {
     // failed insert) before succeeding
     Mockito.when(
             mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+                ArgumentMatchers.any(Iterable.class),
+                ArgumentMatchers.any(String.class),
+                ArgumentMatchers.any(String.class)))
         .thenThrow(SF_EXCEPTION)
         .thenReturn(new InsertValidationResponse());
     Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken())
@@ -552,7 +556,10 @@ public class TopicPartitionChannelTest {
 
     // verify initial mock counts after tpchannel creation
     Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedInsertRowsCount))
-        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+        .insertRows(
+            ArgumentMatchers.any(Iterable.class),
+            ArgumentMatchers.any(String.class),
+            ArgumentMatchers.any(String.class));
     Mockito.verify(mockStreamingClient, Mockito.times(expectedOpenChannelCount))
         .openChannel(ArgumentMatchers.any());
     Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedGetOffsetCount))
@@ -561,14 +568,19 @@ public class TopicPartitionChannelTest {
     // Test inserting record 0, which should fail to ingest so the other records are ignored
     List<SinkRecord> records =
         TestUtils.createJsonStringSinkRecords(0, noOfRecords, TOPIC, PARTITION);
-    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
     expectedInsertRowsCount++;
     expectedOpenChannelCount++;
     expectedGetOffsetCount++;
 
     // verify mocks only tried ingesting once
     Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedInsertRowsCount))
-        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+        .insertRows(
+            ArgumentMatchers.any(Iterable.class),
+            ArgumentMatchers.any(String.class),
+            ArgumentMatchers.any(String.class));
     Mockito.verify(mockStreamingClient, Mockito.times(expectedOpenChannelCount))
         .openChannel(ArgumentMatchers.any());
     Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedGetOffsetCount))
@@ -576,14 +588,19 @@ public class TopicPartitionChannelTest {
 
     // Retry the insert again, now everything should be ingested and the offset token should be
     // noOfRecords-1
-    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
     Assert.assertEquals(noOfRecords - 1, topicPartitionChannel.fetchOffsetTokenWithRetry());
     expectedInsertRowsCount += noOfRecords;
     expectedGetOffsetCount++;
 
     // verify mocks ingested each record
     Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedInsertRowsCount))
-        .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+        .insertRows(
+            ArgumentMatchers.any(Iterable.class),
+            ArgumentMatchers.any(String.class),
+            ArgumentMatchers.any(String.class));
     Mockito.verify(mockStreamingClient, Mockito.times(expectedOpenChannelCount))
         .openChannel(ArgumentMatchers.any());
     Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedGetOffsetCount))
@@ -657,7 +674,9 @@ public class TopicPartitionChannelTest {
       List<SinkRecord> records =
           TestUtils.createNativeJsonSinkRecords(0, noOfRecords, TOPIC, PARTITION);
 
-      records.forEach(topicPartitionChannel::insertRecordToBuffer);
+      for (int idx = 0; idx < records.size(); idx++) {
+        topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+      }
 
       // In an ideal world, put API is going to invoke this to check if flush time threshold has
       // reached.
@@ -678,7 +697,9 @@ public class TopicPartitionChannelTest {
   public void testInsertRows_GetOffsetTokenFailureAfterReopenChannel() throws Exception {
     Mockito.when(
             mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+                ArgumentMatchers.any(Iterable.class),
+                ArgumentMatchers.any(String.class),
+                ArgumentMatchers.any(String.class)))
         .thenThrow(SF_EXCEPTION);
 
     // Send exception in fallback (i.e after reopen channel)
@@ -707,7 +728,10 @@ public class TopicPartitionChannelTest {
     } catch (SFException ex) {
       Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
       Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
-          .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+          .insertRows(
+              ArgumentMatchers.any(Iterable.class),
+              ArgumentMatchers.any(String.class),
+              ArgumentMatchers.any(String.class));
       // get offset token is called once after channel re-open
       Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
           .getLatestCommittedOffsetToken();
@@ -721,7 +745,9 @@ public class TopicPartitionChannelTest {
     RuntimeException exception = new RuntimeException("runtime exception");
     Mockito.when(
             mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+                ArgumentMatchers.any(Iterable.class),
+                ArgumentMatchers.any(String.class),
+                ArgumentMatchers.any(String.class)))
         .thenThrow(exception);
 
     TopicPartitionChannel topicPartitionChannel =
@@ -739,14 +765,17 @@ public class TopicPartitionChannelTest {
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
-    topicPartitionChannel.insertRecordToBuffer(records.get(0));
+    topicPartitionChannel.insertRecordToBuffer(records.get(0), true);
 
     try {
       topicPartitionChannel.insertBufferedRecords(topicPartitionChannel.getStreamingBuffer());
     } catch (RuntimeException ex) {
       Mockito.verify(mockStreamingClient, Mockito.times(1)).openChannel(ArgumentMatchers.any());
       Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(1))
-          .insertRows(ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class));
+          .insertRows(
+              ArgumentMatchers.any(Iterable.class),
+              ArgumentMatchers.any(String.class),
+              ArgumentMatchers.any(String.class));
       throw ex;
     }
   }
@@ -761,7 +790,9 @@ public class TopicPartitionChannelTest {
     validationResponse.addError(insertErrorWithException);
     Mockito.when(
             mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+                ArgumentMatchers.any(Iterable.class),
+                ArgumentMatchers.any(String.class),
+                ArgumentMatchers.any(String.class)))
         .thenReturn(validationResponse);
     Mockito.doNothing()
         .when(mockTelemetryService)
@@ -786,7 +817,7 @@ public class TopicPartitionChannelTest {
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
-    topicPartitionChannel.insertRecordToBuffer(records.get(0));
+    topicPartitionChannel.insertRecordToBuffer(records.get(0), true);
 
     try {
       topicPartitionChannel.insertBufferedRecords(topicPartitionChannel.getStreamingBuffer());
@@ -805,7 +836,9 @@ public class TopicPartitionChannelTest {
     validationResponse.addError(insertErrorWithException);
     Mockito.when(
             mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+                ArgumentMatchers.any(Iterable.class),
+                ArgumentMatchers.any(String.class),
+                ArgumentMatchers.any(String.class)))
         .thenReturn(validationResponse);
 
     Map<String, String> sfConnectorConfigWithErrors = new HashMap<>(sfConnectorConfig);
@@ -849,7 +882,9 @@ public class TopicPartitionChannelTest {
     validationResponse.addError(insertErrorWithException);
     Mockito.when(
             mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+                ArgumentMatchers.any(Iterable.class),
+                ArgumentMatchers.any(String.class),
+                ArgumentMatchers.any(String.class)))
         .thenReturn(validationResponse);
 
     Map<String, String> sfConnectorConfigWithErrors = new HashMap<>(sfConnectorConfig);
@@ -894,7 +929,9 @@ public class TopicPartitionChannelTest {
 
     Mockito.when(
             mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+                ArgumentMatchers.any(Iterable.class),
+                ArgumentMatchers.any(String.class),
+                ArgumentMatchers.any(String.class)))
         .thenReturn(new InsertValidationResponse());
 
     final long bufferFlushTimeSeconds = 5L;
@@ -918,7 +955,9 @@ public class TopicPartitionChannelTest {
     // added. Size of each record after serialization to Json is 260 Bytes
     List<SinkRecord> records = createNativeJsonSinkRecords(0, 5, "test", 0);
 
-    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
 
     Assert.assertEquals(0L, topicPartitionChannel.fetchOffsetTokenWithRetry());
 
@@ -932,7 +971,8 @@ public class TopicPartitionChannelTest {
 
     Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
     Mockito.verify(mockStreamingChannel, Mockito.times(2))
-        .insertRows(ArgumentMatchers.any(), ArgumentMatchers.any());
+        .insertRows(
+            ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(String.class));
   }
 
   @Test
@@ -944,7 +984,9 @@ public class TopicPartitionChannelTest {
 
     Mockito.when(
             mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+                ArgumentMatchers.any(Iterable.class),
+                ArgumentMatchers.any(String.class),
+                ArgumentMatchers.any(String.class)))
         .thenReturn(new InsertValidationResponse());
 
     final long bufferFlushTimeSeconds = 5L;
@@ -968,7 +1010,9 @@ public class TopicPartitionChannelTest {
     // added. Size of each record after serialization to Json is ~6 KBytes
     List<SinkRecord> records = createBigAvroRecords(0, 3, "test", 0);
 
-    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
 
     Assert.assertEquals(1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
 
@@ -980,7 +1024,8 @@ public class TopicPartitionChannelTest {
 
     Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
     Mockito.verify(mockStreamingChannel, Mockito.times(2))
-        .insertRows(ArgumentMatchers.any(), ArgumentMatchers.any());
+        .insertRows(
+            ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(String.class));
 
     Assert.assertEquals(2L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
@@ -998,7 +1043,9 @@ public class TopicPartitionChannelTest {
     // setup insert
     Mockito.when(
             mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+                ArgumentMatchers.any(Iterable.class),
+                ArgumentMatchers.any(String.class),
+                ArgumentMatchers.any(String.class)))
         .thenReturn(new InsertValidationResponse());
     Mockito.when(
             mockStreamingChannel.insertRow(
@@ -1026,7 +1073,9 @@ public class TopicPartitionChannelTest {
     // insert records
     List<SinkRecord> records =
         TestUtils.createJsonStringSinkRecords(0, noOfRecords, TOPIC, PARTITION);
-    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
 
     Thread.sleep(this.streamingBufferThreshold.getFlushTimeThresholdSeconds() + 1);
     topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
@@ -1070,7 +1119,9 @@ public class TopicPartitionChannelTest {
     // setup insert
     Mockito.when(
             mockStreamingChannel.insertRows(
-                ArgumentMatchers.any(Iterable.class), ArgumentMatchers.any(String.class)))
+                ArgumentMatchers.any(Iterable.class),
+                ArgumentMatchers.any(String.class),
+                ArgumentMatchers.any(String.class)))
         .thenReturn(new InsertValidationResponse());
     Mockito.when(
             mockStreamingChannel.insertRow(
@@ -1098,7 +1149,9 @@ public class TopicPartitionChannelTest {
     // insert records
     List<SinkRecord> records =
         TestUtils.createJsonStringSinkRecords(0, noOfRecords, TOPIC, PARTITION);
-    records.forEach(topicPartitionChannel::insertRecordToBuffer);
+    for (int idx = 0; idx < records.size(); idx++) {
+      topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+    }
 
     Thread.sleep(this.streamingBufferThreshold.getFlushTimeThresholdSeconds() + 1);
     topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
@@ -1110,5 +1163,14 @@ public class TopicPartitionChannelTest {
 
     topicPartitionChannel.closeChannel();
     assert resultStatus.getMetricsJmxReporter() == null;
+  }
+
+  @Test
+  public void testOffsetTokenVerificationFunction() {
+    Assert.assertTrue(StreamingUtils.offsetTokenVerificationFunction.verify("1", "2", "4", 2));
+    Assert.assertTrue(StreamingUtils.offsetTokenVerificationFunction.verify("1", "2", null, 1));
+    Assert.assertTrue(StreamingUtils.offsetTokenVerificationFunction.verify(null, null, null, 0));
+    Assert.assertFalse(StreamingUtils.offsetTokenVerificationFunction.verify("1", "3", "4", 3));
+    Assert.assertFalse(StreamingUtils.offsetTokenVerificationFunction.verify("2", "1", "4", 3));
   }
 }
