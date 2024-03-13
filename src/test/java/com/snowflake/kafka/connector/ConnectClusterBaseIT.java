@@ -27,23 +27,25 @@ import org.apache.kafka.connect.runtime.rest.entities.ConnectorStateInfo;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.storage.StringConverter;
 import org.apache.kafka.connect.util.clusters.EmbeddedConnectCluster;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class ConnectClusterBaseIT {
 
-  protected static EmbeddedConnectCluster connectCluster;
+  protected EmbeddedConnectCluster connectCluster;
 
   protected static final String TEST_TOPIC = "kafka-int-test";
   protected static final String TEST_CONNECTOR_NAME = "test-connector";
   protected static final Integer TASK_NUMBER = 1;
   private static final Duration CONNECTOR_MAX_STARTUP_TIME = Duration.ofSeconds(20);
 
-  @BeforeClass
-  public static void beforeClass() {
+  @BeforeAll
+  public void beforeAll() {
     connectCluster =
         new EmbeddedConnectCluster.Builder()
             .name("kafka-push-connector-connect-cluster")
@@ -52,23 +54,23 @@ public class ConnectClusterBaseIT {
     connectCluster.start();
     connectCluster.kafka().createTopic(TEST_TOPIC);
     connectCluster.configureConnector(TEST_CONNECTOR_NAME, createProperties());
-    await().timeout(CONNECTOR_MAX_STARTUP_TIME).until(ConnectClusterBaseIT::isConnectorRunning);
+    await().timeout(CONNECTOR_MAX_STARTUP_TIME).until(this::isConnectorRunning);
   }
 
-  @Before
+  @BeforeEach
   public void before() {
     SnowflakeFakeSinkTask.resetRecords();
   }
 
-  @AfterClass
-  public static void afterClass() {
+  @AfterAll
+  public void afterAll() {
     if (connectCluster != null) {
       connectCluster.stop();
       connectCluster = null;
     }
   }
 
-  @After
+  @AfterEach
   public void after() {
     SnowflakeFakeSinkTask.resetRecords();
   }
@@ -87,7 +89,7 @@ public class ConnectClusterBaseIT {
             });
   }
 
-  private static Map<String, String> createProperties() {
+  protected Map<String, String> createProperties() {
     Map<String, String> config = new HashMap<>();
 
     // kafka connect specific
@@ -111,7 +113,7 @@ public class ConnectClusterBaseIT {
     return config;
   }
 
-  private static boolean isConnectorRunning() {
+  private boolean isConnectorRunning() {
     ConnectorStateInfo status = connectCluster.connectorStatus(TEST_CONNECTOR_NAME);
     return status != null
         && status.connector().state().equals(AbstractStatus.State.RUNNING.toString())
