@@ -40,9 +40,7 @@ public class StreamingClientProviderIT {
     SnowflakeStreamingIngestClient client2 = streamingClientProvider.getClient(clientConfig);
 
     // then
-    Assertions.assertNotNull(client);
-    Assertions.assertNotNull(client2);
-    Assertions.assertEquals(client, client2);
+    Assertions.assertSame(client, client2);
 
     int clientsRegistered = streamingClientProvider.getRegisteredClients().size();
     Assertions.assertEquals(1, clientsRegistered);
@@ -66,7 +64,7 @@ public class StreamingClientProviderIT {
   }
 
   @Test
-  public void getClient_forInvalidClient_returnValidClient() throws Exception {
+  public void getClient_forInvalidClient_returnNewInstance() throws Exception {
     // given
     Map<String, String> clientConfig = getClientConfig(true);
     StreamingClientProvider streamingClientProvider =
