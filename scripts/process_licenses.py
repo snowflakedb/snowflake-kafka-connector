@@ -68,6 +68,7 @@ ADDITIONAL_LICENSES_MAP = {
     "org.apache.parquet:parquet-format-structures": APACHE_LICENSE,
     "org.bouncycastle:bc-fips": BOUNCY_CASTLE_LICENSE,
     "org.bouncycastle:bcpkix-fips": BOUNCY_CASTLE_LICENSE,
+    "org.xerial.snappy:snappy-java": APACHE_LICENSE,
 }
 
 
