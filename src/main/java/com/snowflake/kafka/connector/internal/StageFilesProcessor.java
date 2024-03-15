@@ -55,6 +55,7 @@ class StageFilesProcessor implements AutoCloseable {
         SnowflakeTelemetryPipeCreation getPipeCreation();
         SnowflakeTelemetryPipeStatus getPipeTelemetry();
         SnowflakeTelemetryService getTelemetry();
+        void close();
     }
 
     /**
@@ -118,6 +119,7 @@ class StageFilesProcessor implements AutoCloseable {
     public ProgressRegister trackFilesAsync() {
         SnowflakeTelemetryPipeCreation pipeCreation = new SnowflakeTelemetryPipeCreation(tableName, stageName, pipeName);
         ProgressRegisterImpl register = new ProgressRegisterImpl(pipeCreation, pipeTelemetry, telemetryService);
+        register.owner = this;
 
         cleanerExecutor.submit(() -> trackFiles(
                 register,
@@ -176,7 +178,7 @@ class StageFilesProcessor implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         Thread runner = runnerThread.getAndSet(null);
         if (runner != null) {
             runner.interrupt();
@@ -417,6 +419,7 @@ class StageFilesProcessor implements AutoCloseable {
         private final SnowflakeTelemetryPipeCreation pipeCreation;
         private final SnowflakeTelemetryPipeStatus pipeTelemetry;
         private final  SnowflakeTelemetryService telemetryService;
+        private StageFilesProcessor owner = null;
 
         ProgressRegisterImpl(SnowflakeTelemetryPipeCreation pipeCreation, SnowflakeTelemetryPipeStatus pipeTelemetry, SnowflakeTelemetryService telemetryService) {
             this.pipeCreation = pipeCreation;
@@ -447,6 +450,14 @@ class StageFilesProcessor implements AutoCloseable {
         @Override
         public  SnowflakeTelemetryService getTelemetry() {
             return telemetryService;
+        }
+
+        @Override
+        public void close() {
+            if (owner != null) {
+                owner.close();
+                owner = null;
+            }
         }
     }
 

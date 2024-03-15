@@ -384,6 +384,9 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     // make the initialization lazy
     private boolean hasInitialized = false;
     private boolean forceCleanerFileReset = false;
+    private final StageFilesProcessor.ProgressRegister stageFileProcessorClient;
+
+    private final boolean useStageFilesProcessor;
 
     private ServiceContext(
         String tableName,
@@ -429,25 +432,44 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             "Registered {} metrics for pipeName:{}", metricRegistry.getMetrics().size(), pipeName);
       }
 
+      // how to get the configuration here??
+      useStageFilesProcessor = false;
+      if (useStageFilesProcessor) {
+        StageFilesProcessor processor = new StageFilesProcessor(
+                pipeName,
+                tableName,
+                stageName,
+                prefix,
+                conn,
+                ingestionService,
+                pipeStatus,
+                telemetryService);
+        this.stageFileProcessorClient = processor.trackFilesAsync();
+      } else {
+        this.stageFileProcessorClient = null;
+      }
+
       LOGGER.info("pipe: {} - service started", pipeName);
     }
 
     private void init(long recordOffset) {
       LOGGER.info("init pipe: {}", pipeName);
       SnowflakeTelemetryPipeCreation pipeCreation =
-          new SnowflakeTelemetryPipeCreation(tableName, stageName, pipeName);
+              new SnowflakeTelemetryPipeCreation(tableName, stageName, pipeName);
 
       // wait for sinkConnector to start
       createTableAndStage(pipeCreation);
       // recover will only check pipe status and create pipe if it does not exist.
       recover(pipeCreation);
 
-      try {
-        startCleaner(recordOffset, pipeCreation);
-        telemetryService.reportKafkaPartitionStart(pipeCreation);
-      } catch (Exception e) {
-        LOGGER.warn("Cleaner and Flusher threads shut down before initialization");
+      if (!useStageFilesProcessor) {
+        try {
+          startCleaner(recordOffset, pipeCreation);
+        } catch (Exception e) {
+          LOGGER.warn("Cleaner and Flusher threads shut down before initialization");
+        }
       }
+      telemetryService.reportKafkaPartitionStart(pipeCreation);
     }
 
     private boolean resetCleanerFiles() {
@@ -599,6 +621,9 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         init(record.kafkaOffset());
         metricsJmxReporter.start();
         this.hasInitialized = true;
+      }
+      if (useStageFilesProcessor) {
+        stageFileProcessorClient.newOffset(record.kafkaOffset());
       }
       // only get offset token once when service context is initialized
       // ignore ingested filesg
@@ -799,7 +824,11 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       fileListLock.lock();
       try {
         fileNames.add(fileName);
-        cleanerFileNames.add(fileName);
+        if (useStageFilesProcessor) {
+          stageFileProcessorClient.registerNewStageFile(fileName);
+        } else {
+          cleanerFileNames.add(fileName);
+        }
       } finally {
         fileListLock.unlock();
       }
@@ -961,6 +990,9 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         stopCleaner();
       } catch (Exception e) {
         LOGGER.warn("Failed to terminate Cleaner or Flusher");
+      }
+      if (stageFileProcessorClient != null) {
+        stageFileProcessorClient.close();
       }
       ingestionService.close();
       telemetryService.reportKafkaPartitionUsage(pipeStatus, true);
