@@ -19,8 +19,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
-
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
@@ -40,7 +38,7 @@ public class DirectStreamingClientHandler implements StreamingClientHandler {
    */
   @Override
   public SnowflakeStreamingIngestClient createClient(
-          StreamingClientProperties streamingClientProperties) {
+      StreamingClientProperties streamingClientProperties) {
     LOGGER.info("Initializing Streaming Client...");
 
     try {

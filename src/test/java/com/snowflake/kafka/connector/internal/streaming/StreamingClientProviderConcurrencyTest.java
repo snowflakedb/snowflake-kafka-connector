@@ -17,22 +17,21 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import org.junit.*;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.mockito.Mockito;
-
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import org.junit.*;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
 public class StreamingClientProviderConcurrencyTest {
@@ -235,7 +234,8 @@ public class StreamingClientProviderConcurrencyTest {
     }
 
     // Verify that createClient() was called the expected number of times, once for enabled param
-    assertThat(this.streamingClientHandler.getCreateClientCalls()).isEqualTo(this.enableClientOptimization ? 1 : numGetClientCalls);
+    assertThat(this.streamingClientHandler.getCreateClientCalls())
+        .isEqualTo(this.enableClientOptimization ? 1 : numGetClientCalls);
   }
 
   @Test
@@ -263,13 +263,14 @@ public class StreamingClientProviderConcurrencyTest {
     }
 
     // Verify that closeClient() at least once per thread
-    assertThat(this.streamingClientHandler.getCloseClientCalls()).isGreaterThanOrEqualTo(numCloseClientCalls);
-
+    assertThat(this.streamingClientHandler.getCloseClientCalls())
+        .isGreaterThanOrEqualTo(numCloseClientCalls);
 
     // Verify that closeClient() was called at max twice per close thread. Because LoadingCache's
     // invalidation happens async, we can't really expect an exact number of calls. The extra close
     // client calls will no-op
-    assertThat(this.streamingClientHandler.getCloseClientCalls()).isLessThanOrEqualTo(numCloseClientCalls * (this.enableClientOptimization ? 2 : 1));
+    assertThat(this.streamingClientHandler.getCloseClientCalls())
+        .isLessThanOrEqualTo(numCloseClientCalls * (this.enableClientOptimization ? 2 : 1));
   }
 
   private Future<SnowflakeStreamingIngestClient> callGetClientThread(
