@@ -546,7 +546,7 @@ public class TopicPartitionChannel {
       // Updates the flush time (last time we called insertRows API)
       this.previousFlushTimeStampMs = System.currentTimeMillis();
 
-      LOGGER.info(
+      LOGGER.debug(
           "Successfully called insertRows for channel:{}, buffer:{}, insertResponseHasErrors:{},"
               + " needToResetOffset:{}",
           this.getChannelNameFormatV1(),
