@@ -3,9 +3,13 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.internal.InternalUtils.convertIngestStatus;
 import static com.snowflake.kafka.connector.internal.InternalUtils.timestampToDate;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.security.PrivateKey;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import net.snowflake.ingest.SimpleIngestManager;
 import net.snowflake.ingest.connection.HistoryRangeResponse;
 import net.snowflake.ingest.connection.HistoryResponse;
@@ -45,23 +49,52 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
       String pipeName,
       PrivateKey privateKey,
       String userAgentSuffix) {
+
+    this(
+        stageName,
+        pipeName,
+        createOrThrow(
+            accountName,
+            userName,
+            host,
+            port,
+            connectionScheme,
+            pipeName,
+            privateKey,
+            userAgentSuffix));
+    LOGGER.info("initialized the pipe connector for pipe {}", pipeName);
+  }
+
+  @VisibleForTesting
+  SnowflakeIngestionServiceV1(
+      String stageName, String pipeName, SimpleIngestManager ingestManager) {
     this.stageName = stageName;
     this.pipeName = pipeName;
+    this.ingestManager = ingestManager;
+  }
+
+  private static SimpleIngestManager createOrThrow(
+      String accountName,
+      String userName,
+      String host,
+      int port,
+      String connectionScheme,
+      String pipeName,
+      PrivateKey privateKey,
+      String userAgentSuffix) {
     try {
-      this.ingestManager =
-          new SimpleIngestManager(
-              accountName,
-              userName,
-              pipeName,
-              privateKey,
-              connectionScheme,
-              host,
-              port,
-              userAgentSuffix);
+      return new SimpleIngestManager(
+          accountName,
+          userName,
+          pipeName,
+          privateKey,
+          connectionScheme,
+          host,
+          port,
+          userAgentSuffix);
     } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_0002.getException(e, this.telemetry);
+      throw SnowflakeErrors.ERROR_0002.getException(e, null);
     }
-    LOGGER.info("initialized the pipe connector for pipe {}", pipeName);
   }
 
   @Override
@@ -178,6 +211,45 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
         });
 
     return result;
+  }
+
+  @Override
+  public int readIngestHistoryForward(
+      Map<String, InternalUtils.IngestedFileStatus> storage,
+      Predicate<HistoryResponse.FileEntry> fileFilter,
+      AtomicReference<String> historyMarker,
+      Integer lastNSeconds) {
+    HistoryResponse response;
+    try {
+      response =
+          (HistoryResponse)
+              InternalUtils.backoffAndRetry(
+                  telemetry,
+                  SnowflakeInternalOperations.INSERT_REPORT_SNOWPIPE_API,
+                  () -> ingestManager.getHistory(null, lastNSeconds, historyMarker.get()));
+    } catch (Exception e) {
+      throw SnowflakeErrors.ERROR_3002.getException(e, this.telemetry);
+    }
+
+    AtomicInteger loadedRecords = new AtomicInteger();
+    if (response != null) {
+      historyMarker.set(response.getNextBeginMark());
+      response.files.stream()
+          .filter(file -> fileFilter == null || fileFilter.test(file))
+          .forEach(
+              historyEntry -> {
+                storage.compute(
+                    historyEntry.getPath(),
+                    (key, status) -> convertIngestStatus(historyEntry.getStatus()));
+                loadedRecords.incrementAndGet();
+              });
+      LOGGER.info(
+          "loaded {} files out of {} in ingest report since marker {}",
+          loadedRecords.get(),
+          response.files.size(),
+          historyMarker.get());
+    }
+    return loadedRecords.get();
   }
 
   /**
