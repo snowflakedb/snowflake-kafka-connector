@@ -67,7 +67,7 @@ public class StreamingClientConcurrencyTest {
         SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
         this.enableClientOptimization + "");
 
-    this.streamingClientHandler = Mockito.spy(StreamingClientHandler.class);
+    this.streamingClientHandler = Mockito.spy(DirectStreamingClientHandler.class);
     this.streamingClientProvider =
         StreamingClientProvider.getStreamingClientProviderForTests(
             this.streamingClientHandler,

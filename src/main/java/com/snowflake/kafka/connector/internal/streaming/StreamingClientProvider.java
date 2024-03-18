@@ -93,7 +93,7 @@ public class StreamingClientProvider {
    * call close client manually as eviction is executed lazily
    */
   private StreamingClientProvider() {
-    this.streamingClientHandler = new StreamingClientHandler();
+    this.streamingClientHandler = new DirectStreamingClientHandler();
     this.registeredClients = buildLoadingCache(this.streamingClientHandler);
   }
 
