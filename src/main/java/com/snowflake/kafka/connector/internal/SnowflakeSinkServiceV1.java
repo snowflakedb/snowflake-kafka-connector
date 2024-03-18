@@ -78,6 +78,11 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
 
+  // default is false, unless the configuration provided true
+  // if this is true, the service will use new file cleaner module
+  private boolean useStageFilesProcessor =
+      SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT;
+
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
@@ -117,7 +122,13 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
       pipes.put(
           nameIndex,
-          new ServiceContext(tableName, stageName, pipeName, conn, topicPartition.partition()));
+          new ServiceContext(
+              tableName,
+              stageName,
+              pipeName,
+              conn,
+              topicPartition.partition(),
+              useStageFilesProcessor));
     }
   }
 
@@ -311,6 +322,11 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     this.behaviorOnNullValues = behavior;
   }
 
+  // enable use of new stage files processor
+  void setUseStageFilesProcessor(boolean useStageFilesProcessor) {
+    this.useStageFilesProcessor = useStageFilesProcessor;
+  }
+
   @Override
   public void setCustomJMXMetrics(boolean enableJMX) {
     this.enableCustomJMXMonitoring = enableJMX;
@@ -393,7 +409,8 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         String stageName,
         String pipeName,
         SnowflakeConnectionService conn,
-        int partition) {
+        int partition,
+        boolean useStageFilesProcessor) {
       this.pipeName = pipeName;
       this.tableName = tableName;
       this.stageName = stageName;
@@ -430,7 +447,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       }
 
       // how to get the configuration here??
-      useStageFilesProcessor = true;
+      this.useStageFilesProcessor = useStageFilesProcessor;
       if (useStageFilesProcessor) {
         StageFilesProcessor processor =
             new StageFilesProcessor(

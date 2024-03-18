@@ -1,13 +1,19 @@
 package com.snowflake.kafka.connector.internal;
 
+import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.*;
 
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeCreation;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -34,6 +40,8 @@ class StageFilesProcessorTest {
   private SnowflakeTelemetryPipeStatus pipeTelemetry;
   private SnowflakeTelemetryService telemetryService;
 
+  private ProgressRegistryTelemetry telemetry;
+
   @BeforeEach
   void setUp() {
     currentTime = new AtomicLong(new DateTime(2000, 1, 10, 12, 0, DateTimeZone.UTC).getMillis());
@@ -43,8 +51,8 @@ class StageFilesProcessorTest {
     pipeCreation = new SnowflakeTelemetryPipeCreation(TABLE_NAME, STAGE_NAME, PIPE_NAME);
     pipeTelemetry = Mockito.mock(SnowflakeTelemetryPipeStatus.class);
     telemetryService = Mockito.mock(SnowflakeTelemetryService.class);
-    register =
-        new StageFilesProcessor.ProgressRegisterImpl(pipeCreation, pipeTelemetry, telemetryService);
+    register = new StageFilesProcessor.ProgressRegisterImpl();
+    telemetry = new ProgressRegistryTelemetry(pipeCreation, pipeTelemetry, telemetryService);
 
     victim =
         new StageFilesProcessor(
@@ -62,30 +70,26 @@ class StageFilesProcessorTest {
   @Test
   void filesProcessWillTerminateOnStopSignal() throws InterruptedException {
     AtomicBoolean completed = new AtomicBoolean(false);
-    Thread worker =
-        new Thread(
+    commonPool()
+        .submit(
             () -> {
               victim.trackFiles(
                   register,
-                  Thread.currentThread(),
+                  telemetry,
                   () -> !Thread.currentThread().isInterrupted(),
                   d -> Thread.sleep(10L));
               completed.set(true);
             });
-    worker.start();
-    Thread stopper =
-        new Thread(
+    commonPool()
+        .submit(
             () -> {
               try {
-                Thread.sleep(Duration.ofSeconds(2L).toMillis());
+                Thread.sleep(Duration.ofSeconds(1L).toMillis());
                 victim.close();
               } catch (Exception e) {
               }
             });
-    stopper.start();
-    stopper.join(Duration.ofSeconds(5L).toMillis());
-
-    assertThat(completed.get()).isTrue();
+    await().atMost(Duration.ofSeconds(2)).until(completed::get);
   }
 
   @Test
@@ -95,8 +99,7 @@ class StageFilesProcessorTest {
 
     when(conn.listStage(STAGE_NAME, PREFIX)).thenReturn(new ArrayList<>());
 
-    victim.trackFiles(
-        register, Thread.currentThread(), () -> canRun.getAndDecrement() > 0, d -> {});
+    victim.trackFiles(register, telemetry, () -> canRun.getAndDecrement() > 0, d -> {});
 
     verify(conn, times(1)).listStage(STAGE_NAME, PREFIX);
   }
@@ -117,8 +120,7 @@ class StageFilesProcessorTest {
         .thenThrow(new SnowflakeKafkaConnectorException("expected", "error"))
         .thenReturn(0);
 
-    victim.trackFiles(
-        register, Thread.currentThread(), () -> canRun.getAndDecrement() > 0, d -> {});
+    victim.trackFiles(register, telemetry, () -> canRun.getAndDecrement() > 0, d -> {});
 
     verify(conn, times(2)).listStage(STAGE_NAME, PREFIX);
     verify(ingestionService, times(3)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
@@ -167,8 +169,7 @@ class StageFilesProcessorTest {
         .when(conn)
         .purgeStage(anyString(), anyList());
 
-    victim.trackFiles(
-        register, Thread.currentThread(), () -> canRun.getAndDecrement() > 0, d -> {});
+    victim.trackFiles(register, telemetry, () -> canRun.getAndDecrement() > 0, d -> {});
 
     verify(conn, times(1)).listStage(STAGE_NAME, PREFIX);
     verify(ingestionService, times(3)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
@@ -201,7 +202,7 @@ class StageFilesProcessorTest {
 
     victim.trackFiles(
         register,
-        Thread.currentThread(),
+        telemetry,
         () -> canRun.getAndDecrement() > 0,
         d -> {
           // advance time by 20 minutes - the last check will be 61 minutes after submitting files,
@@ -251,7 +252,7 @@ class StageFilesProcessorTest {
 
     victim.trackFiles(
         register,
-        Thread.currentThread(),
+        telemetry,
         () -> canRun.getAndDecrement() > 0,
         d -> {
           // advance time by 10 minutes - we will be within 1 hour window
@@ -288,8 +289,7 @@ class StageFilesProcessorTest {
     ArgumentCaptor<List<String>> purgedFiles = ArgumentCaptor.forClass(List.class);
     doNothing().when(conn).purgeStage(anyString(), purgedFiles.capture());
 
-    victim.trackFiles(
-        register, Thread.currentThread(), () -> canRun.getAndDecrement() > 0, d -> {});
+    victim.trackFiles(register, telemetry, () -> canRun.getAndDecrement() > 0, d -> {});
 
     verify(conn, times(1)).listStage(STAGE_NAME, PREFIX);
     verify(conn, times(1)).purgeStage(anyString(), purgedFiles.capture());

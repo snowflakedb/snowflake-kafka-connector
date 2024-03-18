@@ -5,7 +5,13 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeCr
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -28,7 +34,7 @@ import net.snowflake.ingest.connection.HistoryResponse;
  * table stage.
  */
 class StageFilesProcessor implements AutoCloseable {
-  private final KCLogger LOGGER = new KCLogger(StageFilesProcessor.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(StageFilesProcessor.class.getName());
   private final String pipeName;
   private final String tableName;
   private final String stageName;
@@ -50,12 +56,6 @@ class StageFilesProcessor implements AutoCloseable {
     void registerNewStageFile(String fileName);
 
     void newOffset(long offset);
-
-    SnowflakeTelemetryPipeCreation getPipeCreation();
-
-    SnowflakeTelemetryPipeStatus getPipeTelemetry();
-
-    SnowflakeTelemetryService getTelemetry();
 
     void close();
   }
@@ -127,17 +127,16 @@ class StageFilesProcessor implements AutoCloseable {
   public ProgressRegister trackFilesAsync() {
     SnowflakeTelemetryPipeCreation pipeCreation =
         new SnowflakeTelemetryPipeCreation(tableName, stageName, pipeName);
-    ProgressRegisterImpl register =
-        new ProgressRegisterImpl(pipeCreation, pipeTelemetry, telemetryService);
+    ProgressRegisterImpl register = new ProgressRegisterImpl();
+
+    ProgressRegistryTelemetry telemetry =
+        new ProgressRegistryTelemetry(pipeCreation, pipeTelemetry, telemetryService);
     register.owner = this;
 
     cleanerExecutor.submit(
         () ->
             trackFiles(
-                register,
-                Thread.currentThread(),
-                () -> !Thread.currentThread().isInterrupted(),
-                Thread::sleep));
+                register, telemetry, () -> !Thread.currentThread().isInterrupted(), Thread::sleep));
 
     return register;
   }
@@ -146,64 +145,66 @@ class StageFilesProcessor implements AutoCloseable {
    * trackFiles - actual processor logic with extracted thread management for testing purposes.
    *
    * @param register - client interface
-   * @param worker - normally - common pool worker thread doing the work; allows providing custom
-   *     thread for testing
+   * @param progressTelemetry - telemetry interface
    * @param canContinue - delegate to Thread.currentThread().isInterrupted(), required for testing
    * @param awaiter - delegate to Thread.sleep(), required for testing
    */
   @VisibleForTesting
   void trackFiles(
       ProgressRegisterImpl register,
-      Thread worker,
+      ProgressRegistryTelemetry progressTelemetry,
       Supplier<Boolean> canContinue,
       TaskAwaiter awaiter) {
-    LOGGER.info("Starting file cleaner for pipe {} on thread {}...", pipeName, worker.getName());
-    runnerThread.set(worker);
+    LOGGER.info(
+        "Starting file cleaner for pipe {} on thread {}...",
+        pipeName,
+        Thread.currentThread().getName());
+    runnerThread.set(Thread.currentThread());
     boolean shouldFetchInitialStageFiles = true;
     boolean firstRun = true;
 
-    ProcessorContext ctx = new ProcessorContext(currentTimeSupplier.currentTime());
+    ProcessorContext ctx =
+        new ProcessorContext(progressTelemetry, currentTimeSupplier.currentTime());
 
     while (canContinue.get()) {
       try {
-        register.getTelemetry().reportKafkaPartitionUsage(register.getPipeCreation(), false);
+        // update metrics
+        progressTelemetry.reportKafkaPartitionUsage(false);
 
         // add all files which might have been collected during the last cycle for processing
-        {
-          List<String> freshFiles = new ArrayList<>();
-          register.files.drainTo(freshFiles);
-          LOGGER.debug(
-              "collected {} files for processing for pipe {}", freshFiles.size(), pipeName);
-          ctx.files.addAll(freshFiles);
-        }
+        register.transferFilesToContext(ctx);
 
         // wait 1 minute
         awaiter.await(Duration.ofMinutes(1L).toMillis());
+
         // do we need to build some initial state based on the remote state?
         if (shouldFetchInitialStageFiles) {
           shouldFetchInitialStageFiles = false;
           initializeCleanStartState(ctx);
         }
+
         LOGGER.debug(
             "starting cleanup for pipe {} with {} files and history with {} entries",
             pipeName,
             ctx.files.size(),
             ctx.ingestHistory.size());
+
         // process the files, store the spillover ones for the next cycle. in case of an error - we
         // will retry processing with the current file set in next iteration (with potentially newly
         // added files)
         nextCheck(ctx, register, firstRun);
+
       } catch (InterruptedException e) {
         LOGGER.info("Cleaner terminated by an interrupt:\n{}", e.getMessage());
-        worker.interrupt();
-        return;
+        break;
       } catch (Exception e) {
-        register.getTelemetry().reportKafkaConnectFatalError(e.getMessage());
+        progressTelemetry.reportKafkaConnectFatalError(e.getMessage());
         LOGGER.warn(
             "Cleaner encountered an exception {}:\n{}\n{}",
             e.getClass(),
             e.getMessage(),
             e.getStackTrace());
+
         shouldFetchInitialStageFiles = true;
         // as the next cycle will load files from remote due to an error, we can reset tracking
         // history timestamp to now
@@ -212,10 +213,13 @@ class StageFilesProcessor implements AutoCloseable {
       }
       firstRun = false;
     }
+    runnerThread.set(null);
     LOGGER.info(
-        "Stopping file cleaner for pipe {} - thread {} will return to the pool {}",
+        "Stopping file cleaner for pipe {} - thread {} will return to the pool {}, wasInterrupted:"
+            + " {}",
         pipeName,
-        worker.getName());
+        Thread.currentThread().getName(),
+        Thread.interrupted());
   }
 
   @Override
@@ -245,10 +249,8 @@ class StageFilesProcessor implements AutoCloseable {
     FileCategorizer fileCategories = FileCategorizer.build(ctx.files, register.offset.get());
 
     if (firstRun) {
-      register.getPipeCreation().setFileCountReprocessPurge(fileCategories.dirtyFiles.size());
-      register.getPipeCreation().setFileCountRestart(fileCategories.stageFiles.size());
-      register.getPipeTelemetry().addAndGetFileCountOnStage(fileCategories.stageFiles.size());
-      register.getPipeTelemetry().addAndGetFileCountOnIngestion(fileCategories.stageFiles.size());
+      ctx.progressTelemetry.initializeStats(
+          fileCategories.dirtyFiles.size(), fileCategories.stageFiles.size());
     }
 
     if (fileCategories.hasDirtyFiles()) {
@@ -265,32 +267,14 @@ class StageFilesProcessor implements AutoCloseable {
       // to fetch their history and update their state
       checkAndRefreshStaleFiles(fileCategories);
       // for all LOADED files - purge them from stage
-      long now = currentTimeSupplier.currentTime();
       purgeLoadedFiles(
           fileCategories,
           ctx,
-          (maxOffset, purgedFilesCount) -> {
-            // update telemetry data after purge
-            register
-                .getPipeTelemetry()
-                .setPurgedOffsetAtomically(value -> Math.max(value, maxOffset));
-            register.getPipeTelemetry().addAndGetFileCountOnStage(-purgedFilesCount);
-            register.getPipeTelemetry().addAndGetFileCountOnIngestion(-purgedFilesCount);
-            register.getPipeTelemetry().addAndGetFileCountPurged(purgedFilesCount);
-          },
-          (purgedFile, ingestTime) -> {
-            register.getPipeTelemetry().updateIngestionLag(now - ingestTime);
-          });
+          ctx.progressTelemetry::notifyFilesPurged,
+          ctx.progressTelemetry::notifyFileIngestLag);
       // for files with status { FAILED, PARTIALLY_LOADED } or older than 1 hour - move them to
       // table stage
-      moveFailedFiles(
-          fileCategories,
-          ctx,
-          deletedFilesCount -> {
-            register.getPipeTelemetry().addAndGetFileCountOnStage(-deletedFilesCount);
-            register.getPipeTelemetry().addAndGetFileCountOnIngestion(-deletedFilesCount);
-            register.getPipeTelemetry().updateFailedIngestionMetrics(deletedFilesCount);
-          });
+      moveFailedFiles(fileCategories, ctx, ctx.progressTelemetry::notifyFilesDeleted);
     }
 
     // any files we didn't process will spill over to the next clean cycle (neither purged nor moved
@@ -390,7 +374,7 @@ class StageFilesProcessor implements AutoCloseable {
   private void stopTrackingFiles(
       List<String> files, FileCategorizer fileCategorizer, ProcessorContext ctx) {
     fileCategorizer.stopTrackingFiles(files);
-    files.forEach(file -> ctx.ingestHistory.remove(file));
+    files.forEach(ctx.ingestHistory::remove);
   }
 
   private Collection<String> fetchCurrentStage() {
@@ -509,19 +493,7 @@ class StageFilesProcessor implements AutoCloseable {
     private final KCLogger LOGGER = new KCLogger(ProgressRegister.class.getName());
     private final LinkedBlockingQueue<String> files = new LinkedBlockingQueue<>();
     private final AtomicLong offset = new AtomicLong(Long.MAX_VALUE);
-    private final SnowflakeTelemetryPipeCreation pipeCreation;
-    private final SnowflakeTelemetryPipeStatus pipeTelemetry;
-    private final SnowflakeTelemetryService telemetryService;
     private StageFilesProcessor owner = null;
-
-    ProgressRegisterImpl(
-        SnowflakeTelemetryPipeCreation pipeCreation,
-        SnowflakeTelemetryPipeStatus pipeTelemetry,
-        SnowflakeTelemetryService telemetryService) {
-      this.pipeCreation = pipeCreation;
-      this.pipeTelemetry = pipeTelemetry;
-      this.telemetryService = telemetryService;
-    }
 
     @Override
     public void registerNewStageFile(String fileName) {
@@ -536,27 +508,20 @@ class StageFilesProcessor implements AutoCloseable {
     }
 
     @Override
-    public SnowflakeTelemetryPipeCreation getPipeCreation() {
-      return pipeCreation;
-    }
-
-    @Override
-    public SnowflakeTelemetryPipeStatus getPipeTelemetry() {
-      return pipeTelemetry;
-    }
-
-    @Override
-    public SnowflakeTelemetryService getTelemetry() {
-      return telemetryService;
-    }
-
-    @Override
     public void close() {
       LOGGER.info("Client closed");
       if (owner != null) {
         owner.close();
         owner = null;
       }
+    }
+
+    void transferFilesToContext(ProcessorContext ctx) {
+      List<String> freshFiles = new ArrayList<>();
+      files.drainTo(freshFiles);
+      LOGGER.debug(
+          "collected {} files for processing for pipe {}", freshFiles.size(), owner.pipeName);
+      ctx.files.addAll(freshFiles);
     }
   }
 
@@ -617,9 +582,12 @@ class StageFilesProcessor implements AutoCloseable {
     final List<String> files = new ArrayList<>();
     final Map<String, InternalUtils.IngestedFileStatus> ingestHistory = new HashMap<>();
     final AtomicReference<String> historyMarker = new AtomicReference<>();
+    final ProgressRegistryTelemetry progressTelemetry;
     long startTrackingHistoryTimestamp;
 
-    private ProcessorContext(long startTrackingHistoryTimestamp) {
+    private ProcessorContext(
+        ProgressRegistryTelemetry progressTelemetry, long startTrackingHistoryTimestamp) {
+      this.progressTelemetry = progressTelemetry;
       this.startTrackingHistoryTimestamp = startTrackingHistoryTimestamp;
     }
   }
