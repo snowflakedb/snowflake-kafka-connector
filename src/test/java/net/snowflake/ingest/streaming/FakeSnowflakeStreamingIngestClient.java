@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
  * Fake implementation of {@link SnowflakeStreamingIngestClient}. Uses in memory state only.
  * Cooperates with {@link FakeSnowflakeStreamingIngestChannel} for simulating ingest-sdk. Should
  * provide a drop in replacement for most testing scenarios without a need to be connected to any
- * Snowflake deployment.
+ * Snowflake deployment. The implementation thread safety relies on {@link ConcurrentHashMap}
  */
 public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIngestClient {
 
@@ -33,7 +33,7 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
         fqdn,
         (key) ->
             new FakeSnowflakeStreamingIngestChannel(
-                name, request.getDBName(), request.getSchemaName(), request.getTableName()));
+                this, name, request.getDBName(), request.getSchemaName(), request.getTableName()));
   }
 
   @Override

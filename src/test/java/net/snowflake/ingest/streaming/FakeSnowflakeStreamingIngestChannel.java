@@ -1,10 +1,10 @@
 package net.snowflake.ingest.streaming;
 
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import com.google.common.collect.Lists;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.ingest.streaming.internal.ColumnProperties;
 
 /**
@@ -14,7 +14,7 @@ import net.snowflake.ingest.streaming.internal.ColumnProperties;
  * will update the {@link SnowflakeStreamingIngestChannel#getLatestCommittedOffsetToken()}.
  *
  * <p>The only method that does is not supported is {@link
- * SnowflakeStreamingIngestChannel#getTableSchema}
+ * SnowflakeStreamingIngestChannel#getTableSchema} Thread safety is based on {@link ReentrantLock}
  */
 public class FakeSnowflakeStreamingIngestChannel implements SnowflakeStreamingIngestChannel {
 
@@ -27,16 +27,31 @@ public class FakeSnowflakeStreamingIngestChannel implements SnowflakeStreamingIn
   private boolean closed;
   private String offsetToken;
 
+  /** Reference to the client that owns this channel */
+  private final SnowflakeStreamingIngestClient owningClient;
+  /** Lock used to protect the buffers from concurrent read/write */
+  private final Lock bufferLock;
+
   private List<Map<String, Object>> rows = new LinkedList<>();
 
   public FakeSnowflakeStreamingIngestChannel(
-      String name, String dbName, String schemaName, String tableName) {
+      SnowflakeStreamingIngestClient owningClient,
+      String name,
+      String dbName,
+      String schemaName,
+      String tableName) {
+    this.owningClient = owningClient;
+    Objects.requireNonNull(name);
+    Objects.requireNonNull(dbName);
+    Objects.requireNonNull(schemaName);
+    Objects.requireNonNull(tableName);
     this.name = name;
     this.dbName = dbName;
     this.schemaName = schemaName;
     this.tableName = tableName;
     this.fullyQualifiedName = String.format("%s.%s.%s.%s", dbName, schemaName, tableName, name);
     this.fullyQualifiedTableName = String.format("%s.%s.%s", dbName, schemaName, tableName);
+    this.bufferLock = new ReentrantLock();
   }
 
   @Override
@@ -76,7 +91,7 @@ public class FakeSnowflakeStreamingIngestChannel implements SnowflakeStreamingIn
 
   @Override
   public boolean isClosed() {
-    return false;
+    return closed;
   }
 
   @Override
@@ -88,39 +103,55 @@ public class FakeSnowflakeStreamingIngestChannel implements SnowflakeStreamingIn
   @Override
   public CompletableFuture<Void> close(boolean drop) {
     closed = true;
+    if (drop) {
+      owningClient.dropChannel(
+          DropChannelRequest.builder(name)
+              .setTableName(tableName)
+              .setDBName(dbName)
+              .setSchemaName(schemaName)
+              .build());
+    }
     return CompletableFuture.completedFuture(null);
   }
 
   @Override
   public InsertValidationResponse insertRow(Map<String, Object> row, String offsetToken) {
-    rows.add(row);
-    this.offsetToken = offsetToken;
-    return new InsertValidationResponse();
+    return this.insertRows(Lists.newArrayList(row), null, offsetToken);
   }
 
   @Override
   public InsertValidationResponse insertRows(
       Iterable<Map<String, Object>> rows, String startOffsetToken, String endOffsetToken) {
-    rows.forEach(r -> this.rows.add(new LinkedHashMap<>(r)));
-    this.offsetToken = endOffsetToken;
+    final List<Map<String, Object>> rowsCopy = new LinkedList<>();
+    rows.forEach(r -> rowsCopy.add(new LinkedHashMap<>(r)));
+    bufferLock.lock();
+    try {
+      this.rows.addAll(rowsCopy);
+      this.offsetToken = endOffsetToken;
+    } finally {
+      bufferLock.unlock();
+    }
     return new InsertValidationResponse();
   }
 
   @Override
   public InsertValidationResponse insertRows(
       Iterable<Map<String, Object>> rows, String offsetToken) {
-    rows.forEach(r -> this.rows.add(new LinkedHashMap<>(r)));
-    this.offsetToken = offsetToken;
-    return new InsertValidationResponse();
+    return this.insertRows(rows, null, offsetToken);
   }
 
   @Override
   public String getLatestCommittedOffsetToken() {
-    return offsetToken;
+    bufferLock.lock();
+    try {
+      return offsetToken;
+    } finally {
+      bufferLock.unlock();
+    }
   }
 
   @Override
   public Map<String, ColumnProperties> getTableSchema() {
-    throw new UnsupportedOperationException("Method not implemented in fake");
+    throw new UnsupportedOperationException("Method is unsupported in fake communication channel");
   }
 }

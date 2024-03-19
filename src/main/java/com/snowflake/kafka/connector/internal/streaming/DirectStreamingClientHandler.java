@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Snowflake Inc. All rights reserved.
+ * Copyright (c) 2024 Snowflake Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
@@ -28,7 +28,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 /** This class handles all calls to manage the streaming ingestion client */
 public class DirectStreamingClientHandler implements StreamingClientHandler {
   private static final KCLogger LOGGER = new KCLogger(DirectStreamingClientHandler.class.getName());
-  private AtomicInteger createdClientId = new AtomicInteger(0);
+  private final AtomicInteger createdClientId = new AtomicInteger(0);
 
   /**
    * Creates a streaming client from the given properties
