@@ -51,7 +51,7 @@ public class SnowflakeSinkServiceFactory {
         this.service = svc;
         boolean useStageFilesProcessor =
             SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT;
-        if (connectorConfig.containsKey(
+        if (connectorConfig != null && connectorConfig.containsKey(
             SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED)) {
           useStageFilesProcessor =
               Boolean.parseBoolean(

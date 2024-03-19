@@ -1,5 +1,25 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeCreation;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeStatus;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import net.snowflake.client.jdbc.internal.joda.time.DateTime;
+import net.snowflake.client.jdbc.internal.joda.time.DateTimeZone;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
 import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -14,26 +34,6 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeCreation;
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeStatus;
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import net.snowflake.client.jdbc.internal.joda.time.DateTime;
-import net.snowflake.client.jdbc.internal.joda.time.DateTimeZone;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 
 class StageFilesProcessorTest {
 
@@ -79,7 +79,6 @@ class StageFilesProcessorTest {
   }
 
   @Test
-  @Disabled("on build server the timeouts seem to be fragile")
   void filesProcessWillTerminateOnStopSignal() throws InterruptedException {
     AtomicBoolean isStopped = new AtomicBoolean(false);
 
