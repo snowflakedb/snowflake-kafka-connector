@@ -215,8 +215,7 @@ class StageFilesProcessor implements AutoCloseable {
     }
     runnerThread.set(null);
     LOGGER.info(
-        "Stopping file cleaner for pipe {} - thread {} will return to the pool {}, wasInterrupted:"
-            + " {}",
+        "Stopping file cleaner for pipe {} - thread {} will return to the pool, wasInterrupted: {}",
         pipeName,
         Thread.currentThread().getName(),
         Thread.interrupted());
@@ -300,7 +299,7 @@ class StageFilesProcessor implements AutoCloseable {
 
     ingestionService.readIngestHistoryForward(
         ctx.ingestHistory,
-        filters.isFileForCurrentPartition,
+        filters.currentPartitionFilePredicate,
         ctx.historyMarker,
         (int) secondsSinceStart);
     fileCategories.updateFileStatus(ctx.ingestHistory);
@@ -410,27 +409,16 @@ class StageFilesProcessor implements AutoCloseable {
     private final long currentOffset;
 
     static FileCategorizer build(Collection<String> files, long currentOffset) {
-      return files.stream()
-          .reduce(
-              new FileCategorizer(currentOffset),
-              FileCategorizer::categorizeFile,
-              FileCategorizer::combine);
+      FileCategorizer categorizer = new FileCategorizer(currentOffset);
+      files.forEach(categorizer::categorizeFile);
+      return categorizer;
     }
 
     private FileCategorizer(long startOffset) {
       this.currentOffset = startOffset;
     }
 
-    private static FileCategorizer combine(FileCategorizer lhs, FileCategorizer rhs) {
-      FileCategorizer result = new FileCategorizer(lhs.currentOffset);
-      result.stageFiles.putAll(lhs.stageFiles);
-      result.stageFiles.putAll(rhs.stageFiles);
-      result.dirtyFiles.addAll(lhs.dirtyFiles);
-      result.dirtyFiles.addAll(rhs.dirtyFiles);
-      return result;
-    }
-
-    private FileCategorizer categorizeFile(String file) {
+    private void categorizeFile(String file) {
       long fileOffset = FileNameUtils.fileNameToStartOffset(file);
       long timestamp = FileNameUtils.fileNameToTimeIngested(file);
       if (currentOffset <= fileOffset) {
@@ -439,7 +427,6 @@ class StageFilesProcessor implements AutoCloseable {
         IngestEntry entry = new IngestEntry(InternalUtils.IngestedFileStatus.NOT_FOUND, timestamp);
         stageFiles.put(file, entry);
       }
-      return this;
     }
 
     void updateFileStatus(Map<String, InternalUtils.IngestedFileStatus> report) {
@@ -520,7 +507,9 @@ class StageFilesProcessor implements AutoCloseable {
       List<String> freshFiles = new ArrayList<>();
       files.drainTo(freshFiles);
       LOGGER.debug(
-          "collected {} files for processing for pipe {}", freshFiles.size(), owner.pipeName);
+          "collected {} files for processing for pipe {}",
+          freshFiles.size(),
+          owner == null ? "n/a" : owner.pipeName);
       ctx.files.addAll(freshFiles);
     }
   }
@@ -530,8 +519,7 @@ class StageFilesProcessor implements AutoCloseable {
     @VisibleForTesting final Predicate<Map.Entry<String, IngestEntry>> failedFilesPredicate;
     @VisibleForTesting final Predicate<Map.Entry<String, IngestEntry>> staledFilesPredicate;
     @VisibleForTesting final Predicate<Map.Entry<String, IngestEntry>> trackableFilesPredicate;
-
-    @VisibleForTesting final Predicate<HistoryResponse.FileEntry> isFileForCurrentPartition;
+    @VisibleForTesting final Predicate<HistoryResponse.FileEntry> currentPartitionFilePredicate;
 
     public FilteringPredicates(TimeSupplier timeSupplier, String filePrefix) {
       // after each cycle we can end up with a set of files we should keep tracking - file,
@@ -571,8 +559,14 @@ class StageFilesProcessor implements AutoCloseable {
                   && entry.getValue().timestamp
                       <= timeSupplier.currentTime() - Duration.ofMinutes(10).toMillis();
 
+      // stage files filter - history report returns all entries for given stage across all
+      // partitions
+      // but individual processor instance is interested only in tracking files for "this"
+      // partition,
+      // thus the file filter - pick up history entries only for files in given partition
       String prefix = filePrefix.toUpperCase();
-      isFileForCurrentPartition = fileEntry -> fileEntry.getPath().toUpperCase().startsWith(prefix);
+      currentPartitionFilePredicate =
+          fileEntry -> fileEntry.getPath().toUpperCase().startsWith(prefix);
     }
   }
 

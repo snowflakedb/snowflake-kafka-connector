@@ -4,9 +4,7 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeCr
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 
-/**
- * Container class for pipe specific metrics. Wraps reporting behind simple method calls.
- */
+/** Container class for pipe specific metrics. Wraps reporting behind simple method calls. */
 class ProgressRegistryTelemetry {
   private final SnowflakeTelemetryPipeCreation pipeCreation;
   private final SnowflakeTelemetryPipeStatus pipeTelemetry;
