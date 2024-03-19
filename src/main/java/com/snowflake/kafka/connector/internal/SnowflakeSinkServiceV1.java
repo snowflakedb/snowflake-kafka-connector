@@ -446,7 +446,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             "Registered {} metrics for pipeName:{}", metricRegistry.getMetrics().size(), pipeName);
       }
 
-      // how to get the configuration here??
       this.useStageFilesProcessor = useStageFilesProcessor;
       if (useStageFilesProcessor) {
         StageFilesProcessor processor =
@@ -679,11 +678,12 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             bufferLock.unlock();
           }
 
-          if (tmpBuff != null) {
-            flush(tmpBuff);
-          }
           if (useStageFilesProcessor) {
             stageFileProcessorClient.newOffset(record.kafkaOffset());
+          }
+
+          if (tmpBuff != null) {
+            flush(tmpBuff);
           }
         }
       }

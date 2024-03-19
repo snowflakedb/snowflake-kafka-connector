@@ -312,7 +312,12 @@ public enum SnowflakeErrors {
       "5023",
       "Failure in Streaming Channel Offset Migration Response",
       "Streaming Channel Offset Migration from Source to Destination Channel has no/invalid"
-          + " response, please contact Snowflake Support");
+          + " response, please contact Snowflake Support"),
+  ERROR_5024(
+      "5024",
+      "Timeout while waiting for file cleaner to start",
+      "Could not allocate thread for file cleaner to start processing in given time. If problem"
+          + " persists, please try setting snowflake.snowpipe.use_new_cleaner to false");
 
   // properties
 

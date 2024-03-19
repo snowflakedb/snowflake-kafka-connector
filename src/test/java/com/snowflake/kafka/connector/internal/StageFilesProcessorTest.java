@@ -2,8 +2,17 @@ package com.snowflake.kafka.connector.internal;
 
 import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.anyList;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyMap;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeCreation;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeStatus;
@@ -51,7 +60,6 @@ class StageFilesProcessorTest {
     pipeCreation = new SnowflakeTelemetryPipeCreation(TABLE_NAME, STAGE_NAME, PIPE_NAME);
     pipeTelemetry = Mockito.mock(SnowflakeTelemetryPipeStatus.class);
     telemetryService = Mockito.mock(SnowflakeTelemetryService.class);
-    register = new StageFilesProcessor.ProgressRegisterImpl();
     telemetry = new ProgressRegistryTelemetry(pipeCreation, pipeTelemetry, telemetryService);
 
     victim =
@@ -65,6 +73,7 @@ class StageFilesProcessorTest {
             pipeTelemetry,
             telemetryService,
             currentTime::get);
+    register = new StageFilesProcessor.ProgressRegisterImpl(victim);
   }
 
   @Test
@@ -77,19 +86,12 @@ class StageFilesProcessorTest {
                   register,
                   telemetry,
                   () -> !Thread.currentThread().isInterrupted(),
-                  d -> Thread.sleep(10L));
+                  Thread::sleep);
               completed.set(true);
             });
-    commonPool()
-        .submit(
-            () -> {
-              try {
-                Thread.sleep(Duration.ofSeconds(1L).toMillis());
-                victim.close();
-              } catch (Exception e) {
-              }
-            });
-    await().atMost(Duration.ofSeconds(2)).until(completed::get);
+    register.waitForStart();
+    register.close();
+    assertThat(completed.get()).isTrue();
   }
 
   @Test
