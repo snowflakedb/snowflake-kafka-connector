@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyList;
@@ -78,20 +79,22 @@ class StageFilesProcessorTest {
 
   @Test
   void filesProcessWillTerminateOnStopSignal() throws InterruptedException {
-    AtomicBoolean completed = new AtomicBoolean(false);
+    AtomicBoolean isStopped = new AtomicBoolean(false);
+
     commonPool()
         .submit(
             () -> {
-              victim.trackFiles(
-                  register,
-                  telemetry,
-                  () -> !Thread.currentThread().isInterrupted(),
-                  Thread::sleep);
-              completed.set(true);
+              StageFilesProcessor.ProgressRegister client = victim.trackFilesAsync();
+              try {
+                Thread.sleep(1000L);
+              } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+              }
+              client.close();
+              isStopped.set(true);
             });
-    register.waitForStart();
-    register.close();
-    assertThat(completed.get()).isTrue();
+
+    await().atMost(Duration.ofSeconds(3L)).until(isStopped::get);
   }
 
   @Test
