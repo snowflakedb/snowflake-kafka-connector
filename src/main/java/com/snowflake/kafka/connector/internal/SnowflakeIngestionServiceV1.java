@@ -10,6 +10,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 import net.snowflake.ingest.SimpleIngestManager;
 import net.snowflake.ingest.connection.HistoryRangeResponse;
 import net.snowflake.ingest.connection.HistoryResponse;
@@ -48,7 +49,8 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
       String stageName,
       String pipeName,
       PrivateKey privateKey,
-      String userAgentSuffix) {
+      String userAgentSuffix,
+      @Nullable SnowflakeTelemetryService telemetry) {
 
     this(
         stageName,
@@ -61,16 +63,22 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
             connectionScheme,
             pipeName,
             privateKey,
-            userAgentSuffix));
+            userAgentSuffix,
+            telemetry),
+        telemetry);
     LOGGER.info("initialized the pipe connector for pipe {}", pipeName);
   }
 
   @VisibleForTesting
   SnowflakeIngestionServiceV1(
-      String stageName, String pipeName, SimpleIngestManager ingestManager) {
+      String stageName,
+      String pipeName,
+      SimpleIngestManager ingestManager,
+      @Nullable SnowflakeTelemetryService telemetry) {
     this.stageName = stageName;
     this.pipeName = pipeName;
     this.ingestManager = ingestManager;
+    setTelemetry(telemetry);
   }
 
   private static SimpleIngestManager createOrThrow(
@@ -81,7 +89,8 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
       String connectionScheme,
       String pipeName,
       PrivateKey privateKey,
-      String userAgentSuffix) {
+      String userAgentSuffix,
+      SnowflakeTelemetryService telemetry) {
     try {
       return new SimpleIngestManager(
           accountName,
@@ -93,7 +102,7 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
           port,
           userAgentSuffix);
     } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_0002.getException(e, null);
+      throw SnowflakeErrors.ERROR_0002.getException(e, telemetry);
     }
   }
 

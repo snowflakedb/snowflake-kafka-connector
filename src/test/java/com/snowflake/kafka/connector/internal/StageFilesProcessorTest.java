@@ -50,7 +50,7 @@ class StageFilesProcessorTest {
   private SnowflakeTelemetryPipeStatus pipeTelemetry;
   private SnowflakeTelemetryService telemetryService;
 
-  private ProgressRegistryTelemetry telemetry;
+  private PipeProgressRegistryTelemetry telemetry;
 
   @BeforeEach
   void setUp() {
@@ -61,7 +61,7 @@ class StageFilesProcessorTest {
     pipeCreation = new SnowflakeTelemetryPipeCreation(TABLE_NAME, STAGE_NAME, PIPE_NAME);
     pipeTelemetry = Mockito.mock(SnowflakeTelemetryPipeStatus.class);
     telemetryService = Mockito.mock(SnowflakeTelemetryService.class);
-    telemetry = new ProgressRegistryTelemetry(pipeCreation, pipeTelemetry, telemetryService);
+    telemetry = new PipeProgressRegistryTelemetry(pipeCreation, pipeTelemetry, telemetryService);
 
     victim =
         new StageFilesProcessor(

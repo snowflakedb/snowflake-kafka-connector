@@ -51,9 +51,20 @@ public interface SnowflakeIngestionService {
   Map<String, IngestedFileStatus> readOneHourHistory(List<String> files, long startTime);
 
   /**
-   * retrieve a collection of all ingested files with their status from load history following
-   * provided historyMarker optionally limited to last N seconds (if provided). the method will
-   * upsert fetched history statuses to the content of provided storage collection.
+   * Retrieve a collection of all ingested files with their status from load history. Fetching can
+   * be further customized by:
+   * <li>history marker - when content is null, entire available history is loaded and upon method
+   *     return, marker will be updated to the last available marker. Subsequent calls will fetch
+   *     only history entries created after the marker.
+   * <li>limit the history depth by querying only the last N seconds since now. NOTE: this is not
+   *     absolute timestamp, so adjust for potential latency by adding some buffer
+   * <li>filter the returned file history by supplying a fileFilter predicate. NOTE: this filtering
+   *     takes place at client side, so first - try limiting the result set size by providing
+   *     history marker / history depth in seconds Important thing - supplied storage container is
+   *     mutated by this call by:
+   * <li>adding new file entry if none exist
+   * <li>updating the state of the file, if file entry exists The method wil never delete any entry
+   *     from the map.
    *
    * @param storage - reference to the map where to store status updates for the tracked files
    * @param fileFilter - filter predicate - if provided will be used to filter only files matching

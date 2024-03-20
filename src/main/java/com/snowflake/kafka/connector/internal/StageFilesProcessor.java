@@ -30,11 +30,29 @@ import net.snowflake.ingest.connection.HistoryResponse;
 
 /**
  * StageFileProcessor - class responsible for tracking files submitted to snowpipe for processing.
- * This class is responsible for: - purging files with invalid offset - i.e. crash happened before
- * offset was committed, but file was uploaded: it will be deleted from stage; - purging files which
- * have been successfully ingested - i.e. their load status is LOADED - moving failed files (their
- * status is FAILED or PARTIALLY_LOADED) or old files (1h) where no status is available, to the
- * table stage.
+ * This class is operating as follows:
+ * <li>fetch initial state of the stage by listing the stage's content
+ * <li>via the ProgressRegister interface it keeps track of the ingested files and most recently
+ *     committed offset Processing is running in a loop - 1 execution per minute, for every topic's
+ *     partition. The algorithm is following:
+ * <li>select all data files submitted for ingestion and uploaded to stage
+ * <li>wait one minute for the files to be processed, new files can be added, but will be processed
+ *     in next cycle
+ * <li>for the first execution / or whenever there is an error - fetch state of the remote stage
+ * <li>merge content of the remote stage with the recently uploaded files and with files spilled
+ *     from previous cycle
+ * <li>categorize the files - if there are files with start offset greater than most recently
+ *     submitted offset it means a restart/rebalance/crash - content of such file would be generated
+ *     again, so it is safe to delete it; consider all other files as active stage files
+ * <li>delete dirty files (if any)
+ * <li>for stage files - load ingest history and mark the file as loaded, failed (failed or
+ *     partially loaded) or unchanged
+ * <li>for all files which do not have a status - if they are older than 1 hour - mark them as
+ *     FAILED. files aged 10-60 are considered to be stale - we keep an eye on them for any status
+ *     change, until one is found or they grow older than 1 hour
+ * <li>for all files marked as LOADED - delete them from stage
+ * <li>for all files marked as FAILED - move them to table stage
+ * <li>for all remaining files, let them spill over to the next clean cycle
  */
 class StageFilesProcessor {
   private static final KCLogger LOGGER = new KCLogger(StageFilesProcessor.class.getName());
@@ -132,8 +150,8 @@ class StageFilesProcessor {
         new SnowflakeTelemetryPipeCreation(tableName, stageName, pipeName);
     ProgressRegisterImpl register = new ProgressRegisterImpl(this);
 
-    ProgressRegistryTelemetry telemetry =
-        new ProgressRegistryTelemetry(pipeCreation, pipeTelemetry, telemetryService);
+    PipeProgressRegistryTelemetry telemetry =
+        new PipeProgressRegistryTelemetry(pipeCreation, pipeTelemetry, telemetryService);
 
     cleanerExecutor.submit(
         () ->
@@ -155,7 +173,7 @@ class StageFilesProcessor {
   @VisibleForTesting
   void trackFiles(
       ProgressRegisterImpl register,
-      ProgressRegistryTelemetry progressTelemetry,
+      PipeProgressRegistryTelemetry progressTelemetry,
       Supplier<Boolean> canContinue,
       TaskAwaiter awaiter) {
     LOGGER.info(
@@ -610,11 +628,11 @@ class StageFilesProcessor {
     final List<String> files = new ArrayList<>();
     final Map<String, InternalUtils.IngestedFileStatus> ingestHistory = new HashMap<>();
     final AtomicReference<String> historyMarker = new AtomicReference<>();
-    final ProgressRegistryTelemetry progressTelemetry;
+    final PipeProgressRegistryTelemetry progressTelemetry;
     long startTrackingHistoryTimestamp;
 
     private ProcessorContext(
-        ProgressRegistryTelemetry progressTelemetry, long startTrackingHistoryTimestamp) {
+        PipeProgressRegistryTelemetry progressTelemetry, long startTrackingHistoryTimestamp) {
       this.progressTelemetry = progressTelemetry;
       this.startTrackingHistoryTimestamp = startTrackingHistoryTimestamp;
     }

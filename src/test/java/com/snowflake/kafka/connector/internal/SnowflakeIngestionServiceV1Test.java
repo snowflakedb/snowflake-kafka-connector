@@ -22,7 +22,7 @@ class SnowflakeIngestionServiceV1Test {
   void setup() {
     manager = Mockito.mock(SimpleIngestManager.class);
 
-    svc = new SnowflakeIngestionServiceV1("stageName", "pipeName", manager);
+    svc = new SnowflakeIngestionServiceV1("stageName", "pipeName", manager, null);
   }
 
   @Test

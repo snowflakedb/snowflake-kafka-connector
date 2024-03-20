@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -380,10 +381,13 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     private long previousFlushTimeStamp;
 
     // threads
-    private final ExecutorService cleanerExecutor;
-    private final ExecutorService reprocessCleanerExecutor;
+    @Nullable private final ExecutorService cleanerExecutor;
+    @Nullable private final ExecutorService reprocessCleanerExecutor;
     private final Lock bufferLock;
     private final Lock fileListLock;
+    // v2 file cleaner logic - either cleaner executors or stageFileProcessorClient is used
+    private final boolean useStageFilesProcessor;
+    @Nullable private final StageFilesProcessor.ProgressRegister stageFileProcessorClient;
 
     // telemetry
     private final SnowflakeTelemetryPipeStatus pipeStatus;
@@ -400,9 +404,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     // make the initialization lazy
     private boolean hasInitialized = false;
     private boolean forceCleanerFileReset = false;
-    private final StageFilesProcessor.ProgressRegister stageFileProcessorClient;
-
-    private final boolean useStageFilesProcessor;
 
     private ServiceContext(
         String tableName,
