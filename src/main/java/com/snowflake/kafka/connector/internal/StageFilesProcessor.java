@@ -13,17 +13,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.snowflake.ingest.connection.HistoryResponse;
@@ -61,13 +61,13 @@ class StageFilesProcessor {
   private final String stageName;
   private final String prefix;
   private final SnowflakeConnectionService conn;
-  private final AtomicReference<Thread> runnerThread = new AtomicReference<>();
+  private final AtomicReference<ScheduledFuture<?>> cleanerTaskHolder = new AtomicReference<>();
   private final TimeSupplier currentTimeSupplier;
   private final SnowflakeIngestionService ingestionService;
   private final SnowflakeTelemetryPipeStatus pipeTelemetry;
   private final SnowflakeTelemetryService telemetryService;
-  private final ExecutorService cleanerExecutor;
   private final FilteringPredicates filters;
+  private final ScheduledExecutorService schedulingExecutor;
 
   /**
    * Client interface for the StageFileProcessor - allows thread safe registration of new files and
@@ -87,12 +87,6 @@ class StageFilesProcessor {
     long currentTime();
   }
 
-  /** This interface is a wrapper on Thread::sleep() - required for testing purposes */
-  @FunctionalInterface
-  interface TaskAwaiter {
-    void await(long duration) throws InterruptedException;
-  }
-
   public StageFilesProcessor(
       String pipeName,
       String tableName,
@@ -101,7 +95,8 @@ class StageFilesProcessor {
       SnowflakeConnectionService conn,
       SnowflakeIngestionService ingestionService,
       SnowflakeTelemetryPipeStatus pipeTelemetry,
-      SnowflakeTelemetryService telemetryService) {
+      SnowflakeTelemetryService telemetryService,
+      ScheduledExecutorService schedulingExecutor) {
     this(
         pipeName,
         tableName,
@@ -111,6 +106,7 @@ class StageFilesProcessor {
         ingestionService,
         pipeTelemetry,
         telemetryService,
+        schedulingExecutor,
         System::currentTimeMillis);
   }
 
@@ -124,6 +120,7 @@ class StageFilesProcessor {
       SnowflakeIngestionService ingestionService,
       SnowflakeTelemetryPipeStatus pipeTelemetry,
       SnowflakeTelemetryService telemetryService,
+      ScheduledExecutorService schedulingExecutor,
       TimeSupplier currentTimeSupplier) {
     this.pipeName = pipeName;
     this.tableName = tableName;
@@ -133,8 +130,8 @@ class StageFilesProcessor {
     this.currentTimeSupplier = currentTimeSupplier;
     this.ingestionService = ingestionService;
     this.telemetryService = telemetryService;
-    this.cleanerExecutor = ForkJoinPool.commonPool();
     this.pipeTelemetry = pipeTelemetry;
+    this.schedulingExecutor = schedulingExecutor;
     this.filters = new FilteringPredicates(currentTimeSupplier, prefix);
   }
 
@@ -146,6 +143,9 @@ class StageFilesProcessor {
    *     thread safe manner.
    */
   public ProgressRegister trackFilesAsync() {
+    // if something was running - close it!
+    close();
+
     SnowflakeTelemetryPipeCreation pipeCreation =
         new SnowflakeTelemetryPipeCreation(tableName, stageName, pipeName);
     ProgressRegisterImpl register = new ProgressRegisterImpl(this);
@@ -153,12 +153,7 @@ class StageFilesProcessor {
     PipeProgressRegistryTelemetry telemetry =
         new PipeProgressRegistryTelemetry(pipeCreation, pipeTelemetry, telemetryService);
 
-    cleanerExecutor.submit(
-        () ->
-            trackFiles(
-                register, telemetry, () -> !Thread.currentThread().isInterrupted(), Thread::sleep));
-
-    register.waitForStart();
+    trackFiles(register, telemetry);
     return register;
   }
 
@@ -167,89 +162,75 @@ class StageFilesProcessor {
    *
    * @param register - client interface
    * @param progressTelemetry - telemetry interface
-   * @param canContinue - delegate to Thread.currentThread().isInterrupted(), required for testing
-   * @param awaiter - delegate to Thread.sleep(), required for testing
    */
   @VisibleForTesting
-  void trackFiles(
-      ProgressRegisterImpl register,
-      PipeProgressRegistryTelemetry progressTelemetry,
-      Supplier<Boolean> canContinue,
-      TaskAwaiter awaiter) {
+  void trackFiles(ProgressRegisterImpl register, PipeProgressRegistryTelemetry progressTelemetry) {
     LOGGER.info(
         "Starting file cleaner for pipe {} on thread {}...",
         pipeName,
         Thread.currentThread().getName());
-    runnerThread.set(Thread.currentThread());
-    // all is configured, let the caller resume operation
-    register.markStarted();
-    boolean shouldFetchInitialStageFiles = true;
-    boolean firstRun = true;
+
+    AtomicBoolean shouldFetchInitialStageFiles = new AtomicBoolean(true);
+    AtomicBoolean firstRun = new AtomicBoolean(true);
 
     ProcessorContext ctx =
         new ProcessorContext(progressTelemetry, currentTimeSupplier.currentTime());
 
-    while (canContinue.get()) {
-      try {
-        // update metrics
-        progressTelemetry.reportKafkaPartitionUsage(false);
+    cleanerTaskHolder.set(
+        schedulingExecutor.schedule(
+            () -> {
+              try {
+                // update metrics
+                progressTelemetry.reportKafkaPartitionUsage(false);
 
-        // add all files which might have been collected during the last cycle for processing
-        register.transferFilesToContext(ctx);
+                // add all files which might have been collected during the last cycle for
+                // processing
+                register.transferFilesToContext(ctx);
 
-        // wait 1 minute
-        awaiter.await(Duration.ofMinutes(1L).toMillis());
+                // initialize state based on the remote stage state (do it on first call or after
+                // error)
+                if (shouldFetchInitialStageFiles.getAndSet(false)) {
+                  initializeCleanStartState(ctx);
+                }
 
-        // do we need to build some initial state based on the remote state?
-        if (shouldFetchInitialStageFiles) {
-          shouldFetchInitialStageFiles = false;
-          initializeCleanStartState(ctx);
-        }
+                LOGGER.debug(
+                    "cleanup cycle {} for pipe {} with {} files and history with {} entries",
+                    ctx.cleanupCycle.incrementAndGet(),
+                    pipeName,
+                    ctx.files.size(),
+                    ctx.ingestHistory.size());
 
-        LOGGER.debug(
-            "starting cleanup for pipe {} with {} files and history with {} entries",
-            pipeName,
-            ctx.files.size(),
-            ctx.ingestHistory.size());
+                // process the files, store the spillover ones for the next cycle. in case of an
+                // error - we
+                // will retry processing with the current file set in next iteration (with
+                // potentially newly
+                // added files)
+                nextCheck(ctx, register, firstRun.getAndSet(false));
+              } catch (Exception e) {
+                progressTelemetry.reportKafkaConnectFatalError(e.getMessage());
+                LOGGER.warn(
+                    "Cleaner encountered an exception {} in cycle {}:\n{}\n{}",
+                    e.getClass(),
+                    ctx.cleanupCycle.get(),
+                    e.getMessage(),
+                    e.getStackTrace());
 
-        // process the files, store the spillover ones for the next cycle. in case of an error - we
-        // will retry processing with the current file set in next iteration (with potentially newly
-        // added files)
-        nextCheck(ctx, register, firstRun);
-
-      } catch (InterruptedException e) {
-        LOGGER.info("Cleaner terminated by an interrupt:\n{}", e.getMessage());
-        break;
-      } catch (Exception e) {
-        progressTelemetry.reportKafkaConnectFatalError(e.getMessage());
-        LOGGER.warn(
-            "Cleaner encountered an exception {}:\n{}\n{}",
-            e.getClass(),
-            e.getMessage(),
-            e.getStackTrace());
-
-        shouldFetchInitialStageFiles = true;
-        // as the next cycle will load files from remote due to an error, we can reset tracking
-        // history timestamp to now
-        // (all older entries would be tracked by stale or old files anyway)
-        ctx.startTrackingHistoryTimestamp = currentTimeSupplier.currentTime();
-      }
-      firstRun = false;
-    }
-    runnerThread.set(null);
-    LOGGER.info(
-        "Stopping file cleaner for pipe {} - thread {} will return to the pool, wasInterrupted: {}",
-        pipeName,
-        Thread.currentThread().getName(),
-        Thread.interrupted());
-    // all is completed, let the caller resume processing
-    register.markCompleted();
+                shouldFetchInitialStageFiles.set(true);
+                // as the next cycle will load files from remote due to an error, we can reset
+                // tracking
+                // history timestamp to now
+                // (all older entries would be tracked by stale or old files anyway)
+                ctx.startTrackingHistoryTimestamp = currentTimeSupplier.currentTime();
+              }
+            },
+            1L,
+            TimeUnit.MINUTES));
   }
 
   private void close() {
-    Thread runner = runnerThread.getAndSet(null);
-    if (runner != null) {
-      runner.interrupt();
+    ScheduledFuture<?> task = cleanerTaskHolder.getAndSet(null);
+    if (task != null) {
+      task.cancel(true);
     }
   }
 
@@ -325,10 +306,14 @@ class StageFilesProcessor {
   }
 
   private void checkAndRefreshStaleFiles(FileCategorizer fileCategorizer) {
-    long historyWindow = currentTimeSupplier.currentTime() - Duration.ofHours(1L).toMillis();
+    long historyWindow = (currentTimeSupplier.currentTime() - Duration.ofHours(1L).toMillis());
     List<String> staleFiles =
         fileCategorizer.query(filters.staledFilesPredicate).collect(Collectors.toList());
     if (!staleFiles.isEmpty()) {
+      // TODO: readOneHourHistory call is very heavy and may be throttled at our API side
+      // consider changing the logic to read that history once every 10-15 minutes (would require
+      // new or modified
+      // readOneHourHistory method though)
       LOGGER.debug(
           "Checking stale file history for pipe: {}, staleFileCount: {}, staleFiles:{}",
           pipeName,
@@ -499,8 +484,6 @@ class StageFilesProcessor {
     private static final KCLogger LOGGER = new KCLogger(ProgressRegister.class.getName());
     private final LinkedBlockingQueue<String> files = new LinkedBlockingQueue<>();
     private final AtomicLong offset = new AtomicLong(Long.MAX_VALUE);
-    private final CountDownLatch startSignal = new CountDownLatch(1);
-    private final CountDownLatch stopSignal = new CountDownLatch(1);
     private final AtomicReference<StageFilesProcessor> owner = new AtomicReference<>();
 
     public ProgressRegisterImpl(StageFilesProcessor filesProcessor) {
@@ -525,11 +508,6 @@ class StageFilesProcessor {
       if (processor != null) {
         LOGGER.info("Client closed");
         processor.close();
-        try {
-          stopSignal.await(30L, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-          LOGGER.debug("interrupt while waiting for close");
-        }
       }
     }
 
@@ -543,31 +521,11 @@ class StageFilesProcessor {
           processor == null ? "n/a" : processor.pipeName);
       ctx.files.addAll(freshFiles);
     }
-
-    private void markStarted() {
-      startSignal.countDown();
-    }
-
-    private void markCompleted() {
-      stopSignal.countDown();
-    }
-
-    @VisibleForTesting
-    void waitForStart() {
-      boolean started = false;
-      try {
-        started = startSignal.await(10, TimeUnit.SECONDS);
-      } catch (InterruptedException e) {
-        LOGGER.debug("interrupt while waiting for cleaner to start");
-      }
-      if (!started) {
-        throw SnowflakeErrors.ERROR_5024.getException();
-      }
-    }
   }
 
   static class FilteringPredicates {
     @VisibleForTesting final Predicate<Map.Entry<String, IngestEntry>> loadedFilesPredicate;
+    @VisibleForTesting final Predicate<Map.Entry<String, IngestEntry>> matureFilePredicate;
     @VisibleForTesting final Predicate<Map.Entry<String, IngestEntry>> failedFilesPredicate;
     @VisibleForTesting final Predicate<Map.Entry<String, IngestEntry>> staledFilesPredicate;
     @VisibleForTesting final Predicate<Map.Entry<String, IngestEntry>> trackableFilesPredicate;
@@ -579,23 +537,31 @@ class StageFilesProcessor {
       // need to track it anymore
       trackableFilesPredicate = entry -> entry.getValue().keepTracking;
 
+      // do not purge or delete files 'younger' than one minute - they may not have been processed
+      // yet
+      long oneMinute = Duration.ofSeconds(60).toMillis();
+      matureFilePredicate =
+          entry -> entry.getValue().timestamp + oneMinute <= timeSupplier.currentTime();
+
       // loaded files - simple case - their ingest status is LOADED
       loadedFilesPredicate =
           entry ->
               trackableFilesPredicate.test(entry)
+                  && matureFilePredicate.test(entry)
                   && entry.getValue().status == InternalUtils.IngestedFileStatus.LOADED;
 
       // failed files, either:
+      long oneHour = Duration.ofHours(1).toMillis();
       failedFilesPredicate =
           entry ->
               trackableFilesPredicate.test(entry)
+                  && matureFilePredicate.test(entry)
                   // their status is partially loaded
                   && (entry.getValue().status == InternalUtils.IngestedFileStatus.PARTIALLY_LOADED
                       // or their status is failed
                       || entry.getValue().status == InternalUtils.IngestedFileStatus.FAILED
                       // or they are NOT loaded, but been sitting around for over one hour
-                      || (entry.getValue().timestamp
-                              <= timeSupplier.currentTime() - Duration.ofHours(1).toMillis()
+                      || (entry.getValue().timestamp <= timeSupplier.currentTime() - oneHour
                           && loadedFilesPredicate.negate().test(entry)));
 
       // stale files - this is potentially grey zone - the files have not yet been processed, they
@@ -603,13 +569,13 @@ class StageFilesProcessor {
       // failed yet, we don't know their status, but they are sitting in our register for over 10
       // minutes, but less than
       // one hour
+      long tenMinutes = Duration.ofMinutes(10).toMillis();
       staledFilesPredicate =
           entry ->
               trackableFilesPredicate.test(entry)
                   && failedFilesPredicate.negate().test(entry)
                   && loadedFilesPredicate.negate().test(entry)
-                  && entry.getValue().timestamp
-                      <= timeSupplier.currentTime() - Duration.ofMinutes(10).toMillis();
+                  && entry.getValue().timestamp <= timeSupplier.currentTime() - tenMinutes;
 
       // stage files filter - history report returns all entries for given stage across all
       // partitions
@@ -629,6 +595,8 @@ class StageFilesProcessor {
     final Map<String, InternalUtils.IngestedFileStatus> ingestHistory = new HashMap<>();
     final AtomicReference<String> historyMarker = new AtomicReference<>();
     final PipeProgressRegistryTelemetry progressTelemetry;
+
+    final AtomicInteger cleanupCycle = new AtomicInteger(-1);
     long startTrackingHistoryTimestamp;
 
     private ProcessorContext(

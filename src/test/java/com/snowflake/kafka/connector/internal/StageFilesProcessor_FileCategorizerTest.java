@@ -39,6 +39,119 @@ class StageFilesProcessor_FileCategorizerTest {
   }
 
   @Test
+  void filesOlderThen1MinuteWillBeCategorizedAsMature() {
+    DateTime ts = new DateTime(2000, 1, 10, 12, 0, DateTimeZone.UTC);
+    List<String> files = new ArrayList<>();
+    String matureFile =
+        String.format(
+            "connector/topic/0/1_10_%d.json.gz",
+            ts.getMillis() - Duration.ofSeconds(61).toMillis());
+    String justMaturedFile =
+        String.format(
+            "connector/topic/0/11_19_%d.json.gz",
+            ts.getMillis() - Duration.ofSeconds(60).toMillis());
+    String toYoungFile =
+        String.format(
+            "connector/topic/0/20_29_%d.json.gz",
+            ts.getMillis() - Duration.ofSeconds(59).toMillis());
+
+    files.add(matureFile);
+    files.add(justMaturedFile);
+    files.add(toYoungFile);
+
+    StageFilesProcessor.FileCategorizer victim =
+        StageFilesProcessor.FileCategorizer.build(files, Long.MAX_VALUE);
+
+    StageFilesProcessor.FilteringPredicates filters =
+        new StageFilesProcessor.FilteringPredicates(ts::getMillis, "");
+
+    assertThat(victim.hasDirtyFiles()).isFalse();
+    assertThat(victim.hasStageFiles()).isTrue();
+    assertThat(victim.query(filters.matureFilePredicate).collect(Collectors.toList()))
+        .containsOnly(matureFile, justMaturedFile);
+  }
+
+  @Test
+  void filesYoungerThen1MinuteWillNotBeCategorizedAsLoaded() {
+    DateTime ts = new DateTime(2000, 1, 10, 12, 0, DateTimeZone.UTC);
+    List<String> files = new ArrayList<>();
+    String matureFile =
+        String.format(
+            "connector/topic/0/1_10_%d.json.gz",
+            ts.getMillis() - Duration.ofSeconds(59).toMillis());
+    String justMaturedFile =
+        String.format(
+            "connector/topic/0/11_19_%d.json.gz",
+            ts.getMillis() - Duration.ofSeconds(58).toMillis());
+    String toYoungFile =
+        String.format(
+            "connector/topic/0/20_29_%d.json.gz",
+            ts.getMillis() - Duration.ofSeconds(57).toMillis());
+
+    files.add(matureFile);
+    files.add(justMaturedFile);
+    files.add(toYoungFile);
+
+    StageFilesProcessor.FileCategorizer victim =
+        StageFilesProcessor.FileCategorizer.build(files, Long.MAX_VALUE);
+    Map<String, InternalUtils.IngestedFileStatus> statuses =
+        files.stream()
+            .collect(
+                Collectors.toMap(
+                    Functions.identity(), fileName -> InternalUtils.IngestedFileStatus.LOADED));
+    victim.updateFileStatus(statuses);
+
+    StageFilesProcessor.FilteringPredicates filters =
+        new StageFilesProcessor.FilteringPredicates(ts::getMillis, "");
+
+    assertThat(victim.hasDirtyFiles()).isFalse();
+    assertThat(victim.hasStageFiles()).isTrue();
+    assertThat(victim.query(filters.loadedFilesPredicate).collect(Collectors.toList())).isEmpty();
+    assertThat(victim.query(filters.trackableFilesPredicate).collect(Collectors.toList()))
+        .containsAll(files);
+  }
+
+  @Test
+  void filesYoungerThen1MinuteWillNotBeCategorizedAsFailed() {
+    DateTime ts = new DateTime(2000, 1, 10, 12, 0, DateTimeZone.UTC);
+    List<String> files = new ArrayList<>();
+    String matureFile =
+        String.format(
+            "connector/topic/0/1_10_%d.json.gz",
+            ts.getMillis() - Duration.ofSeconds(59).toMillis());
+    String justMaturedFile =
+        String.format(
+            "connector/topic/0/11_19_%d.json.gz",
+            ts.getMillis() - Duration.ofSeconds(58).toMillis());
+    String toYoungFile =
+        String.format(
+            "connector/topic/0/20_29_%d.json.gz",
+            ts.getMillis() - Duration.ofSeconds(57).toMillis());
+
+    files.add(matureFile);
+    files.add(justMaturedFile);
+    files.add(toYoungFile);
+
+    StageFilesProcessor.FileCategorizer victim =
+        StageFilesProcessor.FileCategorizer.build(files, Long.MAX_VALUE);
+    Map<String, InternalUtils.IngestedFileStatus> statuses =
+        files.stream()
+            .collect(
+                Collectors.toMap(
+                    Functions.identity(), fileName -> InternalUtils.IngestedFileStatus.FAILED));
+    victim.updateFileStatus(statuses);
+
+    StageFilesProcessor.FilteringPredicates filters =
+        new StageFilesProcessor.FilteringPredicates(ts::getMillis, "");
+
+    assertThat(victim.hasDirtyFiles()).isFalse();
+    assertThat(victim.hasStageFiles()).isTrue();
+    assertThat(victim.query(filters.failedFilesPredicate).collect(Collectors.toList())).isEmpty();
+    assertThat(victim.query(filters.trackableFilesPredicate).collect(Collectors.toList()))
+        .containsAll(files);
+  }
+
+  @Test
   void allFilesWillBeCategorizedAsDirtyFilesIfOffsetIsSmallerThanLastSubmittedFile() {
     DateTime ts = new DateTime(2000, 1, 10, 12, 0, DateTimeZone.UTC);
     List<String> files =
@@ -76,8 +189,9 @@ class StageFilesProcessor_FileCategorizerTest {
                         "connector/topic/0/%d_%d_%d.json.gz",
                         i * 100,
                         ((i + 1) * 100) - 1,
-                        ts.getMillis() + Duration.ofMinutes(i).toMillis()))
+                        ts.getMillis() - (10 - Duration.ofMinutes(i).toMillis())))
             .collect(Collectors.toList());
+
     Map<String, InternalUtils.IngestedFileStatus> statuses =
         files.stream()
             .collect(

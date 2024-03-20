@@ -51,6 +51,7 @@ public class SnowflakeSinkServiceFactory {
         this.service = svc;
         boolean useStageFilesProcessor =
             SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT;
+
         if (connectorConfig != null
             && connectorConfig.containsKey(
                 SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED)) {
@@ -59,7 +60,9 @@ public class SnowflakeSinkServiceFactory {
                   connectorConfig.get(
                       SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED));
         }
-        svc.setUseStageFilesProcessor(useStageFilesProcessor);
+        if (useStageFilesProcessor) {
+          svc.enableStageFilesProcessor();
+        }
       } else {
         this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
       }

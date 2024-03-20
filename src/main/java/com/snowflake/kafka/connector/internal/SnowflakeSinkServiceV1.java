@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -81,8 +83,8 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
   // default is false, unless the configuration provided true
   // if this is true, the service will use new file cleaner module
-  private boolean useStageFilesProcessor =
-      SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT;
+  private boolean useStageFilesProcessor = false;
+  @Nullable private ScheduledExecutorService cleanerServiceExecutor;
 
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
     if (conn == null || conn.isClosed()) {
@@ -129,7 +131,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
               pipeName,
               conn,
               topicPartition.partition(),
-              useStageFilesProcessor));
+              cleanerServiceExecutor));
     }
   }
 
@@ -243,6 +245,10 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
   @Override
   public void stop() {
+    if (cleanerServiceExecutor != null) {
+      cleanerServiceExecutor.shutdown();
+      cleanerServiceExecutor = null;
+    }
     this.isStopped = true; // release all cleaner and flusher threads
   }
 
@@ -324,8 +330,14 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   }
 
   // enable use of new stage files processor
-  void setUseStageFilesProcessor(boolean useStageFilesProcessor) {
-    this.useStageFilesProcessor = useStageFilesProcessor;
+  void enableStageFilesProcessor() {
+    this.useStageFilesProcessor = true;
+    if (null != cleanerServiceExecutor) {
+      cleanerServiceExecutor.shutdown();
+    }
+    cleanerServiceExecutor =
+        new ScheduledThreadPoolExecutor(
+            Math.max(1, Runtime.getRuntime().availableProcessors() / 2));
   }
 
   @Override
@@ -411,7 +423,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         String pipeName,
         SnowflakeConnectionService conn,
         int partition,
-        boolean useStageFilesProcessor) {
+        ScheduledExecutorService v2CleanerExecutor) {
       this.pipeName = pipeName;
       this.tableName = tableName;
       this.stageName = stageName;
@@ -447,8 +459,9 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             "Registered {} metrics for pipeName:{}", metricRegistry.getMetrics().size(), pipeName);
       }
 
-      this.useStageFilesProcessor = useStageFilesProcessor;
+      this.useStageFilesProcessor = v2CleanerExecutor != null;
       if (useStageFilesProcessor) {
+
         StageFilesProcessor processor =
             new StageFilesProcessor(
                 pipeName,
@@ -458,7 +471,8 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
                 conn,
                 ingestionService,
                 pipeStatus,
-                telemetryService);
+                telemetryService,
+                v2CleanerExecutor);
         this.stageFileProcessorClient = processor.trackFilesAsync();
         this.cleanerExecutor = null;
         this.reprocessCleanerExecutor = null;
