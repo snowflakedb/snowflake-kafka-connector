@@ -3,13 +3,14 @@ from snowflake.connector import DictCursor
 from test_suit.test_utils import NonRetryableError, RetryableError
 
 
+# Testing behavior for behavior.on.null.values = IGNORE and SMTs that can return null values.
 class TestNullableValuesAfterSmt:
 
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = 'travis_correct_nullable_values_after_smt'
+        self.fileName = 'nullable_values_after_smt'
         self.table = self.fileName + nameSalt
-        self.topic = self.table + '0'
+        self.topic = self.table
 
         self.driver.snowflake_conn.cursor().execute(
             f'create or replace table {self.table} (index number not null)')
