@@ -68,6 +68,12 @@ class StageFilesProcessor {
   private final SnowflakeTelemetryService telemetryService;
   private final FilteringPredicates filters;
   private final ScheduledExecutorService schedulingExecutor;
+  // start first cleanup cycle 60 seconds after start
+  private static final long INITIAL_DELAY_SECONDS = 60;
+  // then repeat every 61 seconds - potential call to loadHistory is throttled, so this extra second
+  // can
+  // save us from hitting "too many requests - 429 status code"
+  private static final long CLEANUP_PERIOD_SECONDS = 61;
 
   /**
    * Client interface for the StageFileProcessor - allows thread safe registration of new files and
@@ -177,7 +183,7 @@ class StageFilesProcessor {
         new ProcessorContext(progressTelemetry, currentTimeSupplier.currentTime());
 
     cleanerTaskHolder.set(
-        schedulingExecutor.schedule(
+        schedulingExecutor.scheduleWithFixedDelay(
             () -> {
               try {
                 // update metrics
@@ -223,8 +229,9 @@ class StageFilesProcessor {
                 ctx.startTrackingHistoryTimestamp = currentTimeSupplier.currentTime();
               }
             },
-            1L,
-            TimeUnit.MINUTES));
+            INITIAL_DELAY_SECONDS,
+            CLEANUP_PERIOD_SECONDS,
+            TimeUnit.SECONDS));
   }
 
   private void close() {
@@ -235,11 +242,13 @@ class StageFilesProcessor {
   }
 
   private void initializeCleanStartState(ProcessorContext ctx) {
-    ctx.files.addAll(fetchCurrentStage());
+    Collection<String> remoteStageFiles = fetchCurrentStage();
+    ctx.files.addAll(remoteStageFiles);
     // since we will load completely fresh history from remote, we can reset the history tracking
     // state
     ctx.ingestHistory.clear();
     ctx.historyMarker.set(null);
+    LOGGER.debug("for pipe {} found {} file(s) on remote stage", pipeName, remoteStageFiles.size());
   }
 
   private void nextCheck(ProcessorContext ctx, ProgressRegisterImpl register, boolean firstRun) {

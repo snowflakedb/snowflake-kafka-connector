@@ -254,7 +254,7 @@ class StageFilesProcessorTest {
     victim.trackFiles(register, telemetry);
 
     verify(conn, times(1)).listStage(STAGE_NAME, PREFIX);
-    verify(ingestionService, times(60)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
+    verify(ingestionService, times(59)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
     verify(conn, times(0)).purgeStage(anyString(), anyList());
     verify(ingestionService, times(50)).readOneHourHistory(anyList(), anyLong());
     // when files get to the 1 hour age, they will be automatically marked as failed and moved to
@@ -295,7 +295,7 @@ class StageFilesProcessorTest {
     victim.trackFiles(register, telemetry);
 
     verify(conn, times(1)).listStage(STAGE_NAME, PREFIX);
-    verify(ingestionService, times(11)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
+    verify(ingestionService, times(10)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
     verify(conn, times(1)).purgeStage(anyString(), loadedFiles.capture());
     verify(ingestionService, times(3)).readOneHourHistory(failedFiles.capture(), anyLong());
     // when files get to the 1 hour age, they will be automatically marked as failed and moved to
@@ -337,12 +337,14 @@ class StageFilesProcessorTest {
       AtomicReference<BiConsumer<Integer, Long>> nextTickCallback,
       AtomicReference<ScheduledFuture<?>> scheduledTaskReference) {
     ScheduledExecutorService service = mock(ScheduledExecutorService.class);
-    when(service.schedule(any(Runnable.class), anyLong(), any()))
+    when(service.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any()))
         .thenAnswer(
             a -> {
               Runnable task = a.getArgument(0);
-              Long period = a.getArgument(1);
-              TimeUnit unit = a.getArgument(2);
+              Long initialDelay = a.getArgument(1);
+              Long period = a.getArgument(2);
+              TimeUnit unit = a.getArgument(3);
+              currentTime.addAndGet(unit.toMillis(initialDelay));
               int run = 0;
               while (maxLoops.getAndDecrement() > 0) {
                 currentTime.addAndGet(unit.toMillis(period));
