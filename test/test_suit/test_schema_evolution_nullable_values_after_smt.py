@@ -21,6 +21,12 @@ class TestSchemaEvolutionNullableValuesAfterSmt:
         self.driver.snowflake_conn.cursor().execute(
             f'alter table {self.table} set enable_schema_evolution = true')
 
+        self.gold_type = {
+            'INDEX': {'type': 'NUMBER(38,0)', 'null?': 'N'},
+            'FROM_OPTIONAL_FIELD': {'type': 'BOOLEAN', 'null?': 'Y'},
+            'RECORD_METADATA': {'type': 'VARIANT', 'null?': 'Y'},
+        }
+
     def getConfigFileName(self):
         return self.fileName + '.json'
 
@@ -38,6 +44,27 @@ class TestSchemaEvolutionNullableValuesAfterSmt:
         self.driver.sendBytesData(self.topic, value)
 
     def verify(self, round):
+        self._verify_table_schema()
+        self._verify_data()
+
+    def _verify_table_schema(self):
+        cur = self.driver.snowflake_conn.cursor(DictCursor)
+        res = cur.execute(f'describe table {self.table}').fetchall()
+
+        if len(res) != len(self.gold_type):
+            raise NonRetryableError('Number columns in table is different from number of expected columns')
+
+        for col in res:
+            name = col['name']
+            expected_col = self.gold_type[name]
+
+            if expected_col['type'] != col['type']:
+                raise NonRetryableError(f"Invalid type for {name}. Expected: {expected_col['type']}, got: {col['type']}")
+
+            if expected_col['null?'] != col['null?']:
+                raise NonRetryableError(f"Invalid nullability for {name}. Expected: {expected_col['null?']}, got: {col['null?']}")
+
+    def _verify_data(self):
         cur = self.driver.snowflake_conn.cursor(DictCursor)
         res = cur.execute(f'select index, from_optional_field, record_metadata:offset::number as offset from {self.table}').fetchall()
 
