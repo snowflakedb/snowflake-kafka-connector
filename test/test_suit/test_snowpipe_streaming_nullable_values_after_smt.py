@@ -4,19 +4,14 @@ from test_suit.test_utils import NonRetryableError, RetryableError
 
 
 # Testing behavior for behavior.on.null.values = IGNORE and SMTs that can return null values.
-class TestNullableValuesAfterSmt:
+# Schematization is disabled.
+class TestSnowpipeStreamingNullableValuesAfterSmt:
 
     def __init__(self, driver, nameSalt):
         self.driver = driver
-        self.fileName = 'nullable_values_after_smt'
+        self.fileName = 'snowpipe_streaming_nullable_values_after_smt'
         self.table = self.fileName + nameSalt
         self.topic = self.table
-
-        self.driver.snowflake_conn.cursor().execute(
-            f'create or replace table {self.table} (index number not null)')
-
-        self.driver.snowflake_conn.cursor().execute(
-            f'alter table {self.table} set enable_schema_evolution = true')
 
     def getConfigFileName(self):
         return self.fileName + '.json'
@@ -36,7 +31,7 @@ class TestNullableValuesAfterSmt:
 
     def verify(self, round):
         cur = self.driver.snowflake_conn.cursor(DictCursor)
-        res = cur.execute(f'select index, from_optional_field, record_metadata:offset::number as offset from {self.table}').fetchall()
+        res = cur.execute(f'select record_content, record_metadata:offset::number as offset from {self.table}').fetchall()
 
         if len(res) == 0:
             raise RetryableError()
@@ -45,11 +40,10 @@ class TestNullableValuesAfterSmt:
 
         idx = 0
         for rec in res:
-            if rec['INDEX'] != idx:
-                raise NonRetryableError(f"Invalid index value. Expected: {idx}, got: {rec['INDEX']}")
+            expected_content = { 'index': idx, 'from_optional_field': True }
 
-            if not rec['FROM_OPTIONAL_FIELD']:
-                raise NonRetryableError('Invalid from_optional_field value. Expected to be true')
+            if json.loads(rec['RECORD_CONTENT']) != expected_content:
+                raise NonRetryableError(f"Invalid index value. Expected: {expected_content}, got: {rec['RECORD_CONTENT']}")
 
             if rec['OFFSET'] != idx:
                 raise NonRetryableError(f"Invalid offset value. Expected: {idx}, got: {rec['OFFSET']}")
