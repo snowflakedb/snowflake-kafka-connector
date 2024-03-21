@@ -13,6 +13,8 @@ class TestSchemaEvolutionNullableValuesAfterSmt:
         self.table = self.fileName + nameSalt
         self.topic = self.table
 
+        self.total_events = 200
+
         self.driver.snowflake_conn.cursor().execute(
             f'create or replace table {self.table} (index number not null)')
 
@@ -24,7 +26,7 @@ class TestSchemaEvolutionNullableValuesAfterSmt:
 
     def send(self):
         value = []
-        for idx in range(200):
+        for idx in range(self.total_events):
             event = { 'index': idx, 'someKey': 'someValue' }
 
             if idx % 2 == 0: # Only every other event contains optionalField.
@@ -44,18 +46,11 @@ class TestSchemaEvolutionNullableValuesAfterSmt:
         elif len(res) != 100:
             raise NonRetryableError('Number of record in table is different from number of expected records')
 
-        idx = 0
-        for rec in res:
-            if rec['INDEX'] != idx:
-                raise NonRetryableError(f"Invalid index value. Expected: {idx}, got: {rec['INDEX']}")
+        expected_idx = range(0, self.total_events, 2) # Only every other event is going to be ingested.
+        expected_res = [{'INDEX': idx, 'FROM_OPTIONAL_FIELD': True, 'OFFSET': idx} for idx in expected_idx]
 
-            if not rec['FROM_OPTIONAL_FIELD']:
-                raise NonRetryableError('Invalid from_optional_field value. Expected to be true')
-
-            if rec['OFFSET'] != idx:
-                raise NonRetryableError(f"Invalid offset value. Expected: {idx}, got: {rec['OFFSET']}")
-
-            idx += 2  # Only every other event is going to be ingested.
+        if expected_res != res:
+            raise NonRetryableError(f"Invalid result values. Expected: {expected_res}, got: {res}")
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic, self.table)
