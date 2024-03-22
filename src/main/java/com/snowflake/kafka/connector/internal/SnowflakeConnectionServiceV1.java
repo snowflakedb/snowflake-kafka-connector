@@ -21,11 +21,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
@@ -121,12 +117,10 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     String query;
     if (overwrite) {
       query =
-          "create or replace table identifier(?) (record_metadata "
-              + "variant, record_content variant)";
+          "create or replace table identifier(?) (record_metadata map(varchar, varchar), record_content map(varchar, varchar))";
     } else {
       query =
-          "create table if not exists identifier(?) (record_metadata "
-              + "variant, record_content variant)";
+          "create table if not exists identifier(?) (record_metadata map(varchar, varchar), record_content map(varchar, varchar))";
     }
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -338,12 +332,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       while (result.next()) {
         switch (result.getString(1)) {
           case TABLE_COLUMN_METADATA:
-            if (result.getString(2).equals("VARIANT")) {
+            if (result.getString(2).equals("VARIANT") || result.getString(2).startsWith("MAP")) {
               hasMeta = true;
             }
             break;
           case TABLE_COLUMN_CONTENT:
-            if (result.getString(2).equals("VARIANT")) {
+            if (result.getString(2).equals("VARIANT") || result.getString(2).startsWith("MAP")) {
               hasContent = true;
             }
             break;
