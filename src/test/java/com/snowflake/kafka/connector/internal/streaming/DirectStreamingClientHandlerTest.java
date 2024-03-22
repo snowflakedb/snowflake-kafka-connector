@@ -28,14 +28,14 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-public class StreamingClientHandlerTest {
+public class DirectStreamingClientHandlerTest {
   private StreamingClientHandler streamingClientHandler;
   private Map<String, String> connectorConfig;
   private Map<String, String> connectorConfigWithOAuth;
 
   @Before
   public void setup() {
-    this.streamingClientHandler = new StreamingClientHandler();
+    this.streamingClientHandler = new DirectStreamingClientHandler();
     this.connectorConfig = TestUtils.getConfForStreaming();
     this.connectorConfigWithOAuth = TestUtils.getConfForStreamingWithOAuth();
   }

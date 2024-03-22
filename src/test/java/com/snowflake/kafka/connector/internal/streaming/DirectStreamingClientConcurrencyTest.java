@@ -41,7 +41,7 @@ import org.junit.runners.Parameterized;
 import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
-public class StreamingClientConcurrencyTest {
+public class DirectStreamingClientConcurrencyTest {
   private Map<String, String> clientConfig;
 
   private StreamingClientProvider streamingClientProvider;
@@ -56,7 +56,7 @@ public class StreamingClientConcurrencyTest {
     return Arrays.asList(new Object[][] {{true}, {false}});
   }
 
-  public StreamingClientConcurrencyTest(boolean enableClientOptimization) {
+  public DirectStreamingClientConcurrencyTest(boolean enableClientOptimization) {
     this.enableClientOptimization = enableClientOptimization;
   }
 
@@ -67,7 +67,7 @@ public class StreamingClientConcurrencyTest {
         SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
         this.enableClientOptimization + "");
 
-    this.streamingClientHandler = Mockito.spy(StreamingClientHandler.class);
+    this.streamingClientHandler = Mockito.spy(DirectStreamingClientHandler.class);
     this.streamingClientProvider =
         StreamingClientProvider.getStreamingClientProviderForTests(
             this.streamingClientHandler,
