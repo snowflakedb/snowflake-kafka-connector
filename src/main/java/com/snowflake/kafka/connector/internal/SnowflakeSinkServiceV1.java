@@ -230,7 +230,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   }
 
   @Override
-  public void setIsStoppedToTrue() {
+  public void stop() {
     this.isStopped = true; // release all cleaner and flusher threads
   }
 

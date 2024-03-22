@@ -79,7 +79,7 @@ public class StreamingClientProvider {
   /***************************** BEGIN SINGLETON CODE *****************************/
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProvider.class.getName());
 
-  private StreamingClientHandler streamingClientHandler;
+  private final StreamingClientHandler streamingClientHandler;
   private LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> registeredClients;
 
   /**
@@ -93,7 +93,7 @@ public class StreamingClientProvider {
    * call close client manually as eviction is executed lazily
    */
   private StreamingClientProvider() {
-    this.streamingClientHandler = new StreamingClientHandler();
+    this.streamingClientHandler = new DirectStreamingClientHandler();
     this.registeredClients = buildLoadingCache(this.streamingClientHandler);
   }
 
@@ -179,7 +179,6 @@ public class StreamingClientProvider {
   private StreamingClientProvider(
       StreamingClientHandler streamingClientHandler,
       LoadingCache<StreamingClientProperties, SnowflakeStreamingIngestClient> registeredClients) {
-    this();
     this.streamingClientHandler = streamingClientHandler;
     this.registeredClients = registeredClients;
   }
