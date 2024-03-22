@@ -21,7 +21,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
@@ -117,10 +120,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     String query;
     if (overwrite) {
       query =
-          "create or replace table identifier(?) (record_metadata map(varchar, varchar), record_content map(varchar, varchar))";
+          "create or replace table identifier(?) (record_metadata map(varchar, varchar),"
+              + " record_content map(varchar, varchar))";
     } else {
       query =
-          "create table if not exists identifier(?) (record_metadata map(varchar, varchar), record_content map(varchar, varchar))";
+          "create table if not exists identifier(?) (record_metadata map(varchar, varchar),"
+              + " record_content map(varchar, varchar))";
     }
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
