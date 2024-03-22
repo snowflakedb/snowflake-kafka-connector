@@ -331,6 +331,50 @@ class StageFilesProcessorTest {
     assertThat(purgedFiles.getValue()).containsOnly(file1, file2, file3);
   }
 
+  @Test
+  void fileProcessorWillCleanHistoryEntriesOlderThanOneHour() {
+    String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
+    String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
+    String file3 = String.format("connector/topic/0/20_29_%d.json.gz", currentTime.get());
+    register.registerNewStageFile(file1);
+
+    // lets simulate 10 cleanup cycles
+    loops.set(61);
+
+    when(conn.listStage(STAGE_NAME, PREFIX)).thenReturn(new ArrayList<>());
+    when(ingestionService.readIngestHistoryForward(anyMap(), any(), any(), anyInt()))
+        .thenAnswer(
+            a -> {
+              // load history for 3 files, but 2 were available in previous run and have been moved
+              // from stage already
+              Map<String, InternalUtils.IngestedFileStatus> report = a.getArgument(0);
+              report.put(file1, InternalUtils.IngestedFileStatus.LOADED);
+              report.put(file2, InternalUtils.IngestedFileStatus.LOADED);
+              report.put(file3, InternalUtils.IngestedFileStatus.LOADED);
+              return 3;
+            })
+        .thenAnswer(a -> 0);
+
+    List<String> purgedFiles = new ArrayList<>();
+    doAnswer(
+            a -> {
+              purgedFiles.addAll(a.getArgument(1));
+              return null;
+            })
+        .when(conn)
+        .purgeStage(anyString(), anyList());
+
+    victim.trackFiles(register, telemetry);
+
+    verify(conn, times(1)).listStage(STAGE_NAME, PREFIX);
+    verify(ingestionService, times(1)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
+    verify(conn, times(1)).purgeStage(anyString(), anyList());
+    assertThat(purgedFiles).containsOnly(file1);
+    // check if these old not matched files have been removed from history and do not result in
+    // memory leak
+    assertThat(register.currentProcessorContext.ingestHistory).isEmpty();
+  }
+
   private static ScheduledExecutorService createTestScheduler(
       AtomicInteger maxLoops,
       AtomicLong currentTime,

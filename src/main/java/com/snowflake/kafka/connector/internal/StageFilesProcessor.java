@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -181,6 +182,8 @@ class StageFilesProcessor {
 
     ProcessorContext ctx =
         new ProcessorContext(progressTelemetry, currentTimeSupplier.currentTime());
+    // required for testing purposes
+    register.currentProcessorContext = ctx;
 
     cleanerTaskHolder.set(
         schedulingExecutor.scheduleWithFixedDelay(
@@ -273,7 +276,7 @@ class StageFilesProcessor {
       loadIngestReport(fileCategories, ctx);
       // if there are some stale files - i.e. older than 10 minutes, but no more than 1 hour - try
       // to fetch their history and update their state
-      checkAndRefreshStaleFiles(fileCategories);
+      checkAndRefreshStaleFiles(fileCategories, ctx);
       // for all LOADED files - purge them from stage
       purgeLoadedFiles(
           fileCategories,
@@ -289,6 +292,7 @@ class StageFilesProcessor {
     // to table stage)
     List<String> filesToTrack =
         fileCategories.query(filters.trackableFilesPredicate).collect(Collectors.toList());
+    cleanOldHistory(ctx);
     LOGGER.debug(
         "keep {} files and {} history entries for next cycle for pipe {}",
         filesToTrack.size(),
@@ -306,15 +310,26 @@ class StageFilesProcessor {
                 .getSeconds()
             + 5;
 
+    Map<String, InternalUtils.IngestedFileStatus> history = new HashMap<>();
     ingestionService.readIngestHistoryForward(
-        ctx.ingestHistory,
-        filters.currentPartitionFilePredicate,
-        ctx.historyMarker,
-        (int) secondsSinceStart);
+        history, filters.currentPartitionFilePredicate, ctx.historyMarker, (int) secondsSinceStart);
+
+    mergeHistory(ctx.ingestHistory, history);
+
     fileCategories.updateFileStatus(ctx.ingestHistory);
   }
 
-  private void checkAndRefreshStaleFiles(FileCategorizer fileCategorizer) {
+  private void mergeHistory(
+      Map<String, IngestEntry> trackedHistory,
+      Map<String, InternalUtils.IngestedFileStatus> freshHistory) {
+    long now = currentTimeSupplier.currentTime();
+    // copy all new entries to the tracked history - update timestamp of history entry
+    freshHistory.forEach(
+        (file, status) ->
+            trackedHistory.compute(file, (key, entry) -> new IngestEntry(status, now)));
+  }
+
+  private void checkAndRefreshStaleFiles(FileCategorizer fileCategorizer, ProcessorContext ctx) {
     long historyWindow = (currentTimeSupplier.currentTime() - Duration.ofHours(1L).toMillis());
     List<String> staleFiles =
         fileCategorizer.query(filters.staledFilesPredicate).collect(Collectors.toList());
@@ -331,7 +346,9 @@ class StageFilesProcessor {
 
       Map<String, InternalUtils.IngestedFileStatus> report =
           ingestionService.readOneHourHistory(staleFiles, historyWindow);
-      fileCategorizer.updateFileStatus(report);
+      mergeHistory(ctx.ingestHistory, report);
+
+      fileCategorizer.updateFileStatus(ctx.ingestHistory);
     }
   }
 
@@ -389,6 +406,20 @@ class StageFilesProcessor {
     files.forEach(ctx.ingestHistory::remove);
   }
 
+  private void cleanOldHistory(ProcessorContext ctx) {
+    int oldEntries = 0;
+    for (Iterator<Map.Entry<String, IngestEntry>> it = ctx.ingestHistory.entrySet().iterator();
+        it.hasNext(); ) {
+      if (filters.oneHourOldEntryPredicate.test(it.next())) {
+        it.remove();
+        ++oldEntries;
+      }
+    }
+    if (oldEntries > 0) {
+      LOGGER.debug("for pipe {} removed {} old history entries", pipeName, oldEntries);
+    }
+  }
+
   private Collection<String> fetchCurrentStage() {
     try {
       return conn.listStage(stageName, prefix);
@@ -442,13 +473,13 @@ class StageFilesProcessor {
       }
     }
 
-    void updateFileStatus(Map<String, InternalUtils.IngestedFileStatus> report) {
+    void updateFileStatus(Map<String, IngestEntry> report) {
       report.forEach(
-          (fileName, status) ->
+          (fileName, reportEntry) ->
               stageFiles.computeIfPresent(
                   fileName,
                   (key, entry) -> {
-                    entry.status = status;
+                    entry.status = reportEntry.status;
                     return entry;
                   }));
     }
@@ -530,6 +561,9 @@ class StageFilesProcessor {
           processor == null ? "n/a" : processor.pipeName);
       ctx.files.addAll(freshFiles);
     }
+
+    // only for testing purposes!
+    @VisibleForTesting ProcessorContext currentProcessorContext;
   }
 
   static class FilteringPredicates {
@@ -538,6 +572,7 @@ class StageFilesProcessor {
     @VisibleForTesting final Predicate<Map.Entry<String, IngestEntry>> failedFilesPredicate;
     @VisibleForTesting final Predicate<Map.Entry<String, IngestEntry>> staledFilesPredicate;
     @VisibleForTesting final Predicate<Map.Entry<String, IngestEntry>> trackableFilesPredicate;
+    @VisibleForTesting final Predicate<Map.Entry<String, IngestEntry>> oneHourOldEntryPredicate;
     @VisibleForTesting final Predicate<HistoryResponse.FileEntry> currentPartitionFilePredicate;
 
     public FilteringPredicates(TimeSupplier timeSupplier, String filePrefix) {
@@ -559,8 +594,11 @@ class StageFilesProcessor {
                   && matureFilePredicate.test(entry)
                   && entry.getValue().status == InternalUtils.IngestedFileStatus.LOADED;
 
-      // failed files, either:
       long oneHour = Duration.ofHours(1).toMillis();
+      oneHourOldEntryPredicate =
+          entry -> entry.getValue().timestamp <= timeSupplier.currentTime() - oneHour;
+
+      // failed files, either:
       failedFilesPredicate =
           entry ->
               trackableFilesPredicate.test(entry)
@@ -570,7 +608,7 @@ class StageFilesProcessor {
                       // or their status is failed
                       || entry.getValue().status == InternalUtils.IngestedFileStatus.FAILED
                       // or they are NOT loaded, but been sitting around for over one hour
-                      || (entry.getValue().timestamp <= timeSupplier.currentTime() - oneHour
+                      || (oneHourOldEntryPredicate.test(entry)
                           && loadedFilesPredicate.negate().test(entry)));
 
       // stale files - this is potentially grey zone - the files have not yet been processed, they
@@ -599,9 +637,10 @@ class StageFilesProcessor {
 
   // data class, to keep the execution context in a single place, rather than pass it around via
   // parameters
-  private static class ProcessorContext {
+  @VisibleForTesting
+  static class ProcessorContext {
     final List<String> files = new ArrayList<>();
-    final Map<String, InternalUtils.IngestedFileStatus> ingestHistory = new HashMap<>();
+    final Map<String, IngestEntry> ingestHistory = new HashMap<>();
     final AtomicReference<String> historyMarker = new AtomicReference<>();
     final PipeProgressRegistryTelemetry progressTelemetry;
 

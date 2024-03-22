@@ -94,11 +94,14 @@ class StageFilesProcessor_FileCategorizerTest {
 
     StageFilesProcessor.FileCategorizer victim =
         StageFilesProcessor.FileCategorizer.build(files, Long.MAX_VALUE);
-    Map<String, InternalUtils.IngestedFileStatus> statuses =
+    Map<String, StageFilesProcessor.IngestEntry> statuses =
         files.stream()
             .collect(
                 Collectors.toMap(
-                    Functions.identity(), fileName -> InternalUtils.IngestedFileStatus.LOADED));
+                    Functions.identity(),
+                    fileName ->
+                        new StageFilesProcessor.IngestEntry(
+                            InternalUtils.IngestedFileStatus.LOADED, ts.getMillis())));
     victim.updateFileStatus(statuses);
 
     StageFilesProcessor.FilteringPredicates filters =
@@ -134,11 +137,14 @@ class StageFilesProcessor_FileCategorizerTest {
 
     StageFilesProcessor.FileCategorizer victim =
         StageFilesProcessor.FileCategorizer.build(files, Long.MAX_VALUE);
-    Map<String, InternalUtils.IngestedFileStatus> statuses =
+    Map<String, StageFilesProcessor.IngestEntry> statuses =
         files.stream()
             .collect(
                 Collectors.toMap(
-                    Functions.identity(), fileName -> InternalUtils.IngestedFileStatus.FAILED));
+                    Functions.identity(),
+                    fileName ->
+                        new StageFilesProcessor.IngestEntry(
+                            InternalUtils.IngestedFileStatus.FAILED, ts.getMillis())));
     victim.updateFileStatus(statuses);
 
     StageFilesProcessor.FilteringPredicates filters =
@@ -192,11 +198,14 @@ class StageFilesProcessor_FileCategorizerTest {
                         ts.getMillis() - (10 - Duration.ofMinutes(i).toMillis())))
             .collect(Collectors.toList());
 
-    Map<String, InternalUtils.IngestedFileStatus> statuses =
+    Map<String, StageFilesProcessor.IngestEntry> statuses =
         files.stream()
             .collect(
                 Collectors.toMap(
-                    Functions.identity(), fileName -> InternalUtils.IngestedFileStatus.LOADED));
+                    Functions.identity(),
+                    fileName ->
+                        new StageFilesProcessor.IngestEntry(
+                            InternalUtils.IngestedFileStatus.LOADED, ts.getMillis())));
 
     StageFilesProcessor.FileCategorizer victim =
         StageFilesProcessor.FileCategorizer.build(files, Long.MAX_VALUE);
@@ -233,12 +242,15 @@ class StageFilesProcessor_FileCategorizerTest {
         };
     AtomicInteger idx = new AtomicInteger(0);
 
-    Map<String, InternalUtils.IngestedFileStatus> statuses =
+    Map<String, StageFilesProcessor.IngestEntry> statuses =
         files.stream()
             .collect(
                 Collectors.toMap(
                     Functions.identity(),
-                    fileName -> failedStatus[idx.getAndIncrement() % failedStatus.length]));
+                    fileName ->
+                        new StageFilesProcessor.IngestEntry(
+                            failedStatus[idx.getAndIncrement() % failedStatus.length],
+                            ts.getMillis())));
 
     StageFilesProcessor.FileCategorizer victim =
         StageFilesProcessor.FileCategorizer.build(files, Long.MAX_VALUE);
