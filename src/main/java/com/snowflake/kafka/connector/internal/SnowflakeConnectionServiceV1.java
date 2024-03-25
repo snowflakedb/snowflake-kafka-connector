@@ -121,12 +121,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     String query;
     if (overwrite) {
       query =
-          "create or replace table identifier(?) (record_metadata map(varchar, varchar),"
-              + " record_content map(varchar, varchar))";
+          "create or replace table identifier(?) (record_metadata varchar,"
+              + " record_content varchar)";
     } else {
       query =
-          "create table if not exists identifier(?) (record_metadata map(varchar, varchar),"
-              + " record_content map(varchar, varchar))";
+          "create table if not exists identifier(?) (record_metadata varchar,"
+              + " record_content varchar)";
     }
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -338,12 +338,14 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       while (result.next()) {
         switch (result.getString(1)) {
           case TABLE_COLUMN_METADATA:
-            if (result.getString(2).equals("VARIANT") || result.getString(2).startsWith("MAP")) {
+            if (result.getString(2).equals("VARIANT")
+                || result.getString(2).startsWith("VARCHAR")) {
               hasMeta = true;
             }
             break;
           case TABLE_COLUMN_CONTENT:
-            if (result.getString(2).equals("VARIANT") || result.getString(2).startsWith("MAP")) {
+            if (result.getString(2).equals("VARIANT")
+                || result.getString(2).startsWith("VARCHAR")) {
               hasContent = true;
             }
             break;
