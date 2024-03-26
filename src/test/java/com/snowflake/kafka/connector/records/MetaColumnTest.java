@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.record.TimestampType;
@@ -36,6 +37,12 @@ public class MetaColumnTest {
       new HashMap<String, String>() {
         {
           put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC, "false");
+        }
+      };
+  private HashMap<String, String> versionConfig =
+      new HashMap<String, String>() {
+        {
+          put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_SF_CONNECTOR_VERSION, "false");
         }
       };
   private HashMap<String, String> offsetAndPartitionConfig =
@@ -113,6 +120,18 @@ public class MetaColumnTest {
     assert result.get(META).has(RecordService.OFFSET);
     assert result.get(META).has(RecordService.PARTITION);
     assert result.get(META).has(record.timestampType().name);
+    assert !result.get(META).has(RecordService.SF_CONNECTOR_VERSION);
+
+    // test metadata configuration -- add version
+    metadataConfig = new SnowflakeMetadataConfig(versionConfig);
+    service.setMetadataConfig(metadataConfig);
+    result = mapper.readTree(service.getProcessedRecordForSnowpipe(record));
+    assert result.has(META);
+    assert !result.get(META).has(RecordService.SF_CONNECTOR_VERSION);
+    assert result.get(META).has(RecordService.OFFSET);
+    assert result.get(META).has(RecordService.PARTITION);
+    assert result.get(META).has(record.timestampType().name);
+    assert result.get(META).has(RecordService.TOPIC);
 
     // test metadata configuration -- remove offset and partition
     metadataConfig = new SnowflakeMetadataConfig(offsetAndPartitionConfig);
@@ -121,6 +140,7 @@ public class MetaColumnTest {
     assert result.has(META);
     assert !result.get(META).has(RecordService.OFFSET);
     assert !result.get(META).has(RecordService.PARTITION);
+    assert !result.get(META).has(RecordService.SF_CONNECTOR_VERSION);
     assert result.get(META).has(record.timestampType().name);
     assert result.get(META).has(RecordService.TOPIC);
 
@@ -130,6 +150,7 @@ public class MetaColumnTest {
     result = mapper.readTree(service.getProcessedRecordForSnowpipe(record));
     assert result.has(META);
     assert !result.get(META).has(record.timestampType().name);
+    assert !result.get(META).has(RecordService.SF_CONNECTOR_VERSION);
     assert result.get(META).has(RecordService.TOPIC);
     assert result.get(META).has(RecordService.OFFSET);
     assert result.get(META).has(RecordService.PARTITION);
@@ -141,6 +162,42 @@ public class MetaColumnTest {
     assert !result.has(META);
 
     System.out.println("Config test success");
+  }
+
+  @Test
+  public void testSfConnectorVersion() throws JsonProcessingException {
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    RecordService service = new RecordService();
+    SchemaAndValue input =
+        converter.toConnectData(
+            topic, ("{\"name\":\"test" + "\"}").getBytes(StandardCharsets.UTF_8));
+    long timestamp = System.currentTimeMillis();
+
+    SinkRecord record =
+        new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test",
+            input.schema(),
+            input.value(),
+            0,
+            timestamp,
+            TimestampType.CREATE_TIME);
+
+    SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig(topicConfig);
+    service.setMetadataConfig(metadataConfig);
+
+    metadataConfig = new SnowflakeMetadataConfig(versionConfig);
+    service.setMetadataConfig(metadataConfig);
+    JsonNode result = mapper.readTree(service.getProcessedRecordForSnowpipe(record));
+    assert result.has(META);
+    assert result.get(META).has(RecordService.SF_CONNECTOR_VERSION);
+    assert result.get(META).has(RecordService.OFFSET);
+    assert result.get(META).has(RecordService.PARTITION);
+    assert result.get(META).has(record.timestampType().name);
+    assert result.get(META).has(RecordService.TOPIC);
   }
 
   @Test
