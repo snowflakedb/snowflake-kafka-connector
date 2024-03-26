@@ -24,13 +24,13 @@ from test_suit.test_native_complex_smt import TestNativeComplexSmt
 from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
 from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
 from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
-from test_suit.test_nullable_values_after_smt import TestNullableValuesAfterSmt
 from test_suit.test_schema_evolution_avro_sr import TestSchemaEvolutionAvroSR
 from test_suit.test_schema_evolution_avro_sr_logical_types import TestSchemaEvolutionAvroSRLogicalTypes
 from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTable
 from test_suit.test_schema_evolution_json import TestSchemaEvolutionJson
 from test_suit.test_schema_evolution_json_ignore_tombstone import TestSchemaEvolutionJsonIgnoreTombstone
 from test_suit.test_schema_evolution_multi_topic_drop_table import TestSchemaEvolutionMultiTopicDropTable
+from test_suit.test_schema_evolution_nullable_values_after_smt import TestSchemaEvolutionNullableValuesAfterSmt
 from test_suit.test_schema_evolution_nonnullable_json import TestSchemaEvolutionNonNullableJson
 from test_suit.test_schema_evolution_w_auto_table_creation_avro_sr import \
     TestSchemaEvolutionWithAutoTableCreationAvroSR
@@ -43,6 +43,7 @@ from test_suit.test_schema_not_supported_converter import TestSchemaNotSupported
 from test_suit.test_snowpipe_streaming_channel_migration_disabled import \
     TestSnowpipeStreamingStringJsonChannelMigrationDisabled
 from test_suit.test_snowpipe_streaming_schema_mapping_dlq import TestSnowpipeStreamingSchemaMappingDLQ
+from test_suit.test_snowpipe_streaming_nullable_values_after_smt import TestSnowpipeStreamingNullableValuesAfterSmt
 from test_suit.test_snowpipe_streaming_string_avro_sr import TestSnowpipeStreamingStringAvroSR
 from test_suit.test_snowpipe_streaming_string_json import TestSnowpipeStreamingStringJson
 from test_suit.test_snowpipe_streaming_string_json_dlq import TestSnowpipeStreamingStringJsonDLQ
@@ -133,13 +134,13 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             test_instance=TestNativeStringProtobuf(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
         )),
-        ("TestNullableValuesAfterSmt", EndToEndTestSuite(
-            test_instance=TestNullableValuesAfterSmt(driver, nameSalt), clean=True, run_in_confluent=True,
-            run_in_apache=True
-        )),
         ("TestConfluentProtobufProtobuf", EndToEndTestSuite(
             test_instance=TestConfluentProtobufProtobuf(driver, nameSalt), clean=True, run_in_confluent=False,
             run_in_apache=False
+        )),
+        ("TestSnowpipeStreamingNullableValuesAfterSmt", EndToEndTestSuite(
+            test_instance=TestSnowpipeStreamingNullableValuesAfterSmt(driver, nameSalt), clean=True, run_in_confluent=True,
+            run_in_apache=True
         )),
         ("TestSnowpipeStreamingStringJson", EndToEndTestSuite(
             test_instance=TestSnowpipeStreamingStringJson(driver, nameSalt), clean=True, run_in_confluent=True,
@@ -216,6 +217,10 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         )),
         ("TestSchemaEvolutionNonNullableJson", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionNonNullableJson(driver, nameSalt), clean=True, run_in_confluent=True,
+            run_in_apache=True
+        )),
+        ("TestSchemaEvolutionNullableValuesAfterSmt", EndToEndTestSuite(
+            test_instance=TestSchemaEvolutionNullableValuesAfterSmt(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestSchemaNotSupportedConverter", EndToEndTestSuite(
