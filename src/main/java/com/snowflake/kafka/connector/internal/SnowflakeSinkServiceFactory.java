@@ -51,6 +51,7 @@ public class SnowflakeSinkServiceFactory {
         this.service = svc;
         boolean useStageFilesProcessor =
             SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT;
+        int threadCount = SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT;
 
         if (connectorConfig != null
             && connectorConfig.containsKey(
@@ -60,8 +61,16 @@ public class SnowflakeSinkServiceFactory {
                   connectorConfig.get(
                       SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED));
         }
+        if (connectorConfig != null
+            && connectorConfig.containsKey(
+                SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_THREADS)) {
+          threadCount =
+              Integer.parseInt(
+                  connectorConfig.get(SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_THREADS));
+        }
+
         if (useStageFilesProcessor) {
-          svc.enableStageFilesProcessor();
+          svc.enableStageFilesProcessor(threadCount);
         }
       } else {
         this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);

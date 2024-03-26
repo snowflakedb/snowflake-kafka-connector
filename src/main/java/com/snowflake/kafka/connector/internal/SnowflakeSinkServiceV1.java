@@ -330,14 +330,12 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   }
 
   // enable use of new stage files processor
-  void enableStageFilesProcessor() {
+  void enableStageFilesProcessor(int threadCount) {
     this.useStageFilesProcessor = true;
-    if (null != cleanerServiceExecutor) {
+    if (cleanerServiceExecutor != null) {
       cleanerServiceExecutor.shutdown();
     }
-    cleanerServiceExecutor =
-        new ScheduledThreadPoolExecutor(
-            Math.max(1, Runtime.getRuntime().availableProcessors() / 2));
+    cleanerServiceExecutor = new ScheduledThreadPoolExecutor(Math.max(1, threadCount));
   }
 
   @Override

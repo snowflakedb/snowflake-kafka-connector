@@ -78,7 +78,7 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
     this.stageName = stageName;
     this.pipeName = pipeName;
     this.ingestManager = ingestManager;
-    setTelemetry(telemetry);
+    this.telemetry = telemetry;
   }
 
   private static SimpleIngestManager createOrThrow(
