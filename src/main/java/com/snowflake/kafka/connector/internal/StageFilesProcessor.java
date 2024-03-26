@@ -172,10 +172,7 @@ class StageFilesProcessor {
    */
   @VisibleForTesting
   void trackFiles(ProgressRegisterImpl register, PipeProgressRegistryTelemetry progressTelemetry) {
-    LOGGER.info(
-        "Starting file cleaner for pipe {} on thread {}...",
-        pipeName,
-        Thread.currentThread().getName());
+    LOGGER.info("Starting file cleaner for pipe {} ...", pipeName);
 
     AtomicBoolean shouldFetchInitialStageFiles = new AtomicBoolean(true);
     AtomicBoolean firstRun = new AtomicBoolean(true);

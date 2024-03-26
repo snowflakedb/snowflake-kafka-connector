@@ -54,13 +54,12 @@ class StageFilesProcessorTest {
   private SnowflakeTelemetryService telemetryService;
 
   private PipeProgressRegistryTelemetry telemetry;
-  private AtomicInteger loops;
+  // private AtomicInteger loops;
   private AtomicReference<BiConsumer<Integer, Long>> nextTickCallback;
   private AtomicReference<ScheduledFuture<?>> scheduledFuture;
 
   @BeforeEach
   void setUp() {
-    loops = new AtomicInteger(0);
     currentTime = new AtomicLong(new DateTime(2000, 1, 10, 12, 0, DateTimeZone.UTC).getMillis());
     nextTickCallback = new AtomicReference<>();
     scheduledFuture = new AtomicReference<>();
@@ -71,7 +70,9 @@ class StageFilesProcessorTest {
     pipeTelemetry = Mockito.mock(SnowflakeTelemetryPipeStatus.class);
     telemetryService = Mockito.mock(SnowflakeTelemetryService.class);
     telemetry = new PipeProgressRegistryTelemetry(pipeCreation, pipeTelemetry, telemetryService);
+  }
 
+  private void createFileProcessor(int ticks) {
     victim =
         new StageFilesProcessor(
             PIPE_NAME,
@@ -82,22 +83,23 @@ class StageFilesProcessorTest {
             ingestionService,
             pipeTelemetry,
             telemetryService,
-            createTestScheduler(loops, currentTime, nextTickCallback, scheduledFuture),
+            createTestScheduler(ticks, currentTime, nextTickCallback, scheduledFuture),
             currentTime::get);
     register = new StageFilesProcessor.ProgressRegisterImpl(victim);
   }
 
   @Test
-  void filesProcessWillTerminateOnStopSignal() {
+  void fileProcessor_WillTerminateOnStopSignal() {
+    createFileProcessor(100);
     StageFilesProcessor.ProgressRegister client = victim.trackFilesAsync();
     client.close();
     verify(scheduledFuture.get(), times(1)).cancel(true);
   }
 
   @Test
-  void fileProcessorWillTryToGetInitialStateFromStageExactlyOnce() {
+  void fileProcessor_WillTryToGetInitialStateFromStage_ExactlyOnce() {
     // lets simulate 1 hour (60 cleanup cycles)
-    loops.set(60);
+    createFileProcessor(60);
 
     when(conn.listStage(STAGE_NAME, PREFIX)).thenReturn(new ArrayList<>());
 
@@ -107,12 +109,10 @@ class StageFilesProcessorTest {
   }
 
   @Test
-  void fileProcessorWillTryGettingStateFromStageOnError() {
+  void fileProcessor_WillTryGettingStateFromStage_OnError() {
+    createFileProcessor(10);
     String ingestFile = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     register.registerNewStageFile(ingestFile);
-
-    // lets simulate 10 cleanup cycles
-    loops.set(10);
 
     when(conn.listStage(STAGE_NAME, PREFIX)).thenReturn(new ArrayList<>());
     when(ingestionService.readIngestHistoryForward(anyMap(), any(), any(), anyInt()))
@@ -127,16 +127,15 @@ class StageFilesProcessorTest {
   }
 
   @Test
-  void fileProcessorWillPurgeLoadedFilesWhenHistoryIsAvailableAfterFilesHaveBeenSubmitted() {
+  void fileProcessor_WillPurgeLoadedFiles_WhenHistoryIsAvailable_AfterFilesHaveBeenSubmitted() {
+    createFileProcessor(10);
+
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
     String file3 = String.format("connector/topic/0/20_29_%d.json.gz", currentTime.get());
     register.registerNewStageFile(file1);
     register.registerNewStageFile(file2);
     register.registerNewStageFile(file3);
-
-    // lets simulate 10 cleanup cycles
-    loops.set(10);
 
     when(conn.listStage(STAGE_NAME, PREFIX)).thenReturn(new ArrayList<>());
     when(ingestionService.readIngestHistoryForward(anyMap(), any(), any(), anyInt()))
@@ -178,13 +177,13 @@ class StageFilesProcessorTest {
   }
 
   @Test
-  void fileProcessorWillPurgeLoadedFilesWhenHistoryIsFetchedSoonerThanFilesAreRegistered() {
+  void fileProcessor_WillPurgeLoadedFiles_WhenHistoryIsFetchedSooner_ThanFilesAreRegistered() {
+    createFileProcessor(10);
+
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
     String file3 = String.format("connector/topic/0/20_29_%d.json.gz", currentTime.get());
 
-    // lets simulate 10 cleanup cycles
-    loops.set(10);
     nextTickCallback.set(
         (run, timer) -> {
           if (run == 1) {
@@ -230,16 +229,15 @@ class StageFilesProcessorTest {
   }
 
   @Test
-  void fileProcessorWillMoveOldFilesToTableStage() {
+  void fileProcessor_WillMoveOldFilesToTableStage() {
+    createFileProcessor(60);
+
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
     String file3 = String.format("connector/topic/0/20_29_%d.json.gz", currentTime.get());
     register.registerNewStageFile(file1);
     register.registerNewStageFile(file2);
     register.registerNewStageFile(file3);
-
-    // lets simulate 1 hour run
-    loops.set(60);
 
     when(conn.listStage(STAGE_NAME, PREFIX)).thenReturn(new ArrayList<>());
     // no report for request files
@@ -264,15 +262,14 @@ class StageFilesProcessorTest {
   }
 
   @Test
-  void fileProcessorWillProperlyHandleStaleFiles() {
+  void fileProcessor_WillProperlyHandleStaleFiles() {
+    createFileProcessor(13);
+
     String fileOk = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
     String fileFailed = String.format("connector/topic/0/20_29_%d.json.gz", currentTime.get());
     currentTime.addAndGet(Duration.ofMinutes(1).toMillis());
     register.registerNewStageFile(fileOk);
     register.registerNewStageFile(fileFailed);
-
-    // lets simulate 13 cleanup cycles
-    loops.set(13);
 
     when(conn.listStage(STAGE_NAME, PREFIX)).thenReturn(new ArrayList<>());
     // no report for request files
@@ -307,13 +304,13 @@ class StageFilesProcessorTest {
   }
 
   @Test
-  void fileProcessorWillDeleteDirtyFiles() {
+  void fileProcessor_WillDeleteDirtyFiles() {
+    createFileProcessor(10);
+
     String file1 = String.format("connector/topic/0/100_199_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/200_299_%d.json.gz", currentTime.get());
     String file3 = String.format("connector/topic/0/300_399_%d.json.gz", currentTime.get());
 
-    // lets simulate 10 cleanup cycle
-    loops.set(10);
     // reset offset before first file
     register.newOffset(100L);
     register.registerNewStageFile(file1);
@@ -332,14 +329,13 @@ class StageFilesProcessorTest {
   }
 
   @Test
-  void fileProcessorWillCleanHistoryEntriesOlderThanOneHour() {
+  void fileProcessor_WillCleanHistoryEntries_OlderThanOneHour() {
+    createFileProcessor(61);
+
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
     String file3 = String.format("connector/topic/0/20_29_%d.json.gz", currentTime.get());
     register.registerNewStageFile(file1);
-
-    // lets simulate 10 cleanup cycles
-    loops.set(61);
 
     when(conn.listStage(STAGE_NAME, PREFIX)).thenReturn(new ArrayList<>());
     when(ingestionService.readIngestHistoryForward(anyMap(), any(), any(), anyInt()))
@@ -376,11 +372,12 @@ class StageFilesProcessorTest {
   }
 
   private static ScheduledExecutorService createTestScheduler(
-      AtomicInteger maxLoops,
+      int ticks,
       AtomicLong currentTime,
       AtomicReference<BiConsumer<Integer, Long>> nextTickCallback,
       AtomicReference<ScheduledFuture<?>> scheduledTaskReference) {
     ScheduledExecutorService service = mock(ScheduledExecutorService.class);
+    AtomicInteger maxLoops = new AtomicInteger(ticks);
     when(service.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any()))
         .thenAnswer(
             a -> {
