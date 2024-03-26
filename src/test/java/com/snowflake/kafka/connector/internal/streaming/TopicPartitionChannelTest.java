@@ -626,11 +626,11 @@ public class TopicPartitionChannelTest {
       validationResponse2.addError(insertError2);
 
       Mockito.when(
-              mockStreamingChannel.insertRow(
-                  ArgumentMatchers.any(), ArgumentMatchers.any(String.class)))
-          .thenReturn(new InsertValidationResponse())
+              mockStreamingChannel.insertRows(
+                  ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any()))
+          .thenReturn(validationResponse2)
           .thenReturn(validationResponse1)
-          .thenReturn(validationResponse2);
+          .thenReturn(new InsertValidationResponse());
 
       Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenReturn("0");
 
@@ -674,6 +674,23 @@ public class TopicPartitionChannelTest {
       List<SinkRecord> records =
           TestUtils.createNativeJsonSinkRecords(0, noOfRecords, TOPIC, PARTITION);
 
+      for (int idx = 0; idx < records.size(); idx++) {
+        topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
+      }
+
+      // In an ideal world, put API is going to invoke this to check if flush time threshold has
+      // reached.
+      // We are mimicking that call.
+      // Will wait for 10 seconds.
+      Thread.sleep(bufferFlushTimeSeconds * 1000 + 10);
+
+      topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
+
+      // Verify that the buffer is cleaned up and nothing is in DLQ because of schematization error
+      Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
+      Assert.assertEquals(0, kafkaRecordErrorReporter.getReportedRecords().size());
+
+      // Do it again without any schematization error, and we should have row in DLQ
       for (int idx = 0; idx < records.size(); idx++) {
         topicPartitionChannel.insertRecordToBuffer(records.get(idx), idx == 0);
       }
