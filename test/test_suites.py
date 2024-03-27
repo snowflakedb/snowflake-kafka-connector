@@ -24,6 +24,7 @@ from test_suit.test_native_complex_smt import TestNativeComplexSmt
 from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
 from test_suit.test_native_string_json_without_schema import TestNativeStringJsonWithoutSchema
 from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
+from test_suit.test_nullable_values_after_smt import TestNullableValuesAfterSmt
 from test_suit.test_schema_evolution_avro_sr import TestSchemaEvolutionAvroSR
 from test_suit.test_schema_evolution_avro_sr_logical_types import TestSchemaEvolutionAvroSRLogicalTypes
 from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTable
@@ -132,6 +133,10 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         )),
         ("TestNativeStringProtobuf", EndToEndTestSuite(
             test_instance=TestNativeStringProtobuf(driver, nameSalt), clean=True, run_in_confluent=True,
+            run_in_apache=True
+        )),
+        ("TestNullableValuesAfterSmt", EndToEndTestSuite(
+            test_instance=TestNullableValuesAfterSmt(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestConfluentProtobufProtobuf", EndToEndTestSuite(
