@@ -561,6 +561,13 @@ public class SnowflakeSinkConnectorConfig {
             Importance.LOW,
             "Whether to use new file cleaner for snowpipe data ingestion")
         .define(
+            SNOWPIPE_FILE_CLEANER_THREADS,
+            Type.INT,
+            SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT,
+            Importance.LOW,
+            "Defines number of worker threads to associate with the cleaner task. By default there"
+                + " is one cleaner per topic's partition and they all share one worker thread")
+        .define(
             SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
             Type.LONG,
             StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC,
