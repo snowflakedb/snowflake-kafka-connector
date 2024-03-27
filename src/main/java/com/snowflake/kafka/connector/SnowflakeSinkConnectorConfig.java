@@ -117,6 +117,14 @@ public class SnowflakeSinkConnectorConfig {
   public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
       IngestionMethodConfig.SNOWPIPE.toString();
 
+  // addresses https://snowflakecomputing.atlassian.net/browse/SNOW-1019628 - use new file cleaner
+  public static final String SNOWPIPE_FILE_CLEANER_FIX_ENABLED =
+      "snowflake.snowpipe.v2CleanerEnabled";
+  public static final String SNOWPIPE_FILE_CLEANER_THREADS = "snowflake.snowpipe.v2CleanerThreads";
+
+  public static final boolean SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT = false;
+  public static final int SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT = 1;
+
   // This is the streaming max client lag which can be defined in config
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
       "snowflake.streaming.max.client.lag";
@@ -546,6 +554,19 @@ public class SnowflakeSinkConnectorConfig {
             5,
             ConfigDef.Width.NONE,
             INGESTION_METHOD_OPT)
+        .define(
+            SNOWPIPE_FILE_CLEANER_FIX_ENABLED,
+            Type.BOOLEAN,
+            SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT,
+            Importance.LOW,
+            "Whether to use new file cleaner for snowpipe data ingestion")
+        .define(
+            SNOWPIPE_FILE_CLEANER_THREADS,
+            Type.INT,
+            SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT,
+            Importance.LOW,
+            "Defines number of worker threads to associate with the cleaner task. By default there"
+                + " is one cleaner per topic's partition and they all share one worker thread")
         .define(
             SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
             Type.LONG,
