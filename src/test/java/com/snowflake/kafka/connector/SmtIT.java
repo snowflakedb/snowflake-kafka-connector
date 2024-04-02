@@ -54,7 +54,7 @@ public class SmtIT extends ConnectClusterBaseIT {
     }
 
     @Test
-    void testSMT() {
+    void testIfSmtRetuningNullsIngestDataCorrectly() {
         Stream.iterate(0, UnaryOperator.identity())
                 .limit(10)
                 .flatMap(v -> Stream.of("{}", "{\"message\":\"value\"}"))
