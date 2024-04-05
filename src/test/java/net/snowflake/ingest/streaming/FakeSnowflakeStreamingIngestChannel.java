@@ -1,5 +1,6 @@
 package net.snowflake.ingest.streaming;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -153,5 +154,9 @@ public class FakeSnowflakeStreamingIngestChannel implements SnowflakeStreamingIn
   @Override
   public Map<String, ColumnProperties> getTableSchema() {
     throw new UnsupportedOperationException("Method is unsupported in fake communication channel");
+  }
+
+  List<Map<String, Object>> getRows() {
+    return ImmutableList.copyOf(this.rows);
   }
 }

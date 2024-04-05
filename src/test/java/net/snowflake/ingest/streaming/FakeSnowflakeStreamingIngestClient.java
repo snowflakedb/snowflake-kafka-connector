@@ -1,8 +1,10 @@
 package net.snowflake.ingest.streaming;
 
 import com.snowflake.kafka.connector.internal.KCLogger;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -18,7 +20,7 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
   private boolean closed;
   private static final KCLogger LOGGER =
       new KCLogger(FakeSnowflakeStreamingIngestClient.class.getName());
-  private final ConcurrentHashMap<String, SnowflakeStreamingIngestChannel> channelCache =
+  private final ConcurrentHashMap<String, FakeSnowflakeStreamingIngestChannel> channelCache =
       new ConcurrentHashMap<>();
 
   public FakeSnowflakeStreamingIngestClient(String name) {
@@ -73,5 +75,12 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
   @Override
   public void close() throws Exception {
     closed = true;
+  }
+
+  public Set<Map<String, Object>> ingestedRecords() {
+    return channelCache.values().stream()
+        .map(FakeSnowflakeStreamingIngestChannel::getRows)
+        .flatMap(Collection::stream)
+        .collect(Collectors.toSet());
   }
 }

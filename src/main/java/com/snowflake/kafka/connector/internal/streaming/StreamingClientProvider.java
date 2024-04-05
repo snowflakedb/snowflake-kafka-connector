@@ -20,9 +20,11 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.Map;
+import java.util.function.Supplier;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.RemovalCause;
@@ -38,10 +40,10 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
  * node with equal {@link StreamingClientProperties} will use the same client
  */
 public class StreamingClientProvider {
-  private static class StreamingClientProviderSingleton {
-    private static final StreamingClientProvider streamingClientProvider =
-        new StreamingClientProvider();
-  }
+  private static StreamingClientProvider streamingClientProvider = null;
+
+  private static Supplier<StreamingClientHandler> clientHandlerSupplier =
+      DirectStreamingClientHandler::new;
 
   /**
    * Gets the current streaming provider
@@ -49,7 +51,18 @@ public class StreamingClientProvider {
    * @return The streaming client provider
    */
   public static StreamingClientProvider getStreamingClientProviderInstance() {
-    return StreamingClientProviderSingleton.streamingClientProvider;
+    if (streamingClientProvider == null) {
+      streamingClientProvider = new StreamingClientProvider(clientHandlerSupplier.get());
+    }
+
+    return streamingClientProvider;
+  }
+
+  public static void overrideStreamingClientHandler(StreamingClientHandler streamingClientHandler) {
+    Preconditions.checkState(
+        streamingClientProvider == null,
+        "StreamingClientProvider is already initialized and cannot be overridden.");
+    clientHandlerSupplier = () -> streamingClientHandler;
   }
 
   /**
@@ -92,8 +105,8 @@ public class StreamingClientProvider {
    * When a client is evicted, the cache will try closing the client, however it is best to still
    * call close client manually as eviction is executed lazily
    */
-  private StreamingClientProvider() {
-    this.streamingClientHandler = new DirectStreamingClientHandler();
+  public StreamingClientProvider(StreamingClientHandler streamingClientHandler) {
+    this.streamingClientHandler = streamingClientHandler;
     this.registeredClients = buildLoadingCache(this.streamingClientHandler);
   }
 

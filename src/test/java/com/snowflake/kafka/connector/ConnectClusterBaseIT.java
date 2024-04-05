@@ -1,22 +1,5 @@
 package com.snowflake.kafka.connector;
 
-import com.snowflake.kafka.connector.fake.SnowflakeFakeSinkConnector;
-import com.snowflake.kafka.connector.fake.SnowflakeFakeSinkTask;
-import org.apache.kafka.connect.runtime.AbstractStatus;
-import org.apache.kafka.connect.runtime.rest.entities.ConnectorStateInfo;
-import org.apache.kafka.connect.storage.StringConverter;
-import org.apache.kafka.connect.util.clusters.EmbeddedConnectCluster;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInstance;
-
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.Callable;
-
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
@@ -31,12 +14,23 @@ import static org.apache.kafka.connect.runtime.ConnectorConfig.TASKS_MAX_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG;
 import static org.apache.kafka.connect.sink.SinkConnector.TOPICS_CONFIG;
 
+import com.snowflake.kafka.connector.fake.SnowflakeFakeSinkConnector;
+import com.snowflake.kafka.connector.fake.SnowflakeFakeSinkTask;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.kafka.connect.storage.StringConverter;
+import org.apache.kafka.connect.util.clusters.EmbeddedConnectCluster;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInstance;
+
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ConnectClusterBaseIT {
 
   EmbeddedConnectCluster connectCluster;
   static final Integer TASK_NUMBER = 1;
-  static final Duration CONNECTOR_MAX_STARTUP_TIME = Duration.ofSeconds(20);
 
   @BeforeAll
   public void beforeAll() {
@@ -90,15 +84,14 @@ class ConnectClusterBaseIT {
     return config;
   }
 
-  final Callable<Boolean> isConnectorRunning(String connectorName) {
-    return () -> {
-      ConnectorStateInfo status = connectCluster.connectorStatus(connectorName);
-      return status != null
-              && status.connector().state().equals(AbstractStatus.State.RUNNING.toString())
-              && status.tasks().size() >= TASK_NUMBER
-              && status.tasks().stream()
-              .allMatch(state -> state.state().equals(AbstractStatus.State.RUNNING.toString()));
-
-    };
+  final void waitForConnectorRunning(String connectorName) {
+    try {
+      connectCluster
+          .assertions()
+          .assertConnectorAndAtLeastNumTasksAreRunning(
+              connectorName, 1, "The connector did not start.");
+    } catch (InterruptedException e) {
+      throw new IllegalStateException("The connector is not running");
+    }
   }
 }
