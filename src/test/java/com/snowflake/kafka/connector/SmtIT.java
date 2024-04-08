@@ -20,7 +20,6 @@ public class SmtIT extends ConnectClusterBaseIT {
       String smtTopic, String smtConnector, String behaviorOnNull) {
     Map<String, String> config = defaultProperties(smtTopic, smtConnector);
 
-    config.put("log4j.rootLogger", "INFO, stdout");
     config.put(VALUE_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
     config.put("value.converter.schemas.enable", "false");
     config.put("behavior.on.null.values", behaviorOnNull);
@@ -56,9 +55,12 @@ public class SmtIT extends ConnectClusterBaseIT {
       await()
           .timeout(Duration.ofSeconds(60))
           .untilAsserted(
-              () ->
-                  assertThat(fakeStreamingClientHandler.ingestedRows())
-                      .hasSize(expectedRecordNumber));
+              () -> {
+                assertThat(fakeStreamingClientHandler.ingestedRows()).hasSize(expectedRecordNumber);
+                assertThat(fakeStreamingClientHandler.getLatestCommittedOffsetTokensPerChannel())
+                    .hasSize(1)
+                    .containsValue("19");
+              });
     } finally {
       connectCluster.kafka().deleteTopic(smtTopic);
       connectCluster.deleteConnector(smtConnector);

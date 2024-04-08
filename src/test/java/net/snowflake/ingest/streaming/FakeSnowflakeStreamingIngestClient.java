@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import net.snowflake.ingest.utils.Pair;
 
 /**
  * Fake implementation of {@link SnowflakeStreamingIngestClient}. Uses in memory state only.
@@ -82,5 +83,11 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
         .map(FakeSnowflakeStreamingIngestChannel::getRows)
         .flatMap(Collection::stream)
         .collect(Collectors.toSet());
+  }
+
+  public Map<String, String> getLatestCommittedOffsetTokensPerChannel() {
+    return this.channelCache.values().stream()
+        .map(channel -> new Pair<>(channel.getName(), channel.getLatestCommittedOffsetToken()))
+        .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
   }
 }

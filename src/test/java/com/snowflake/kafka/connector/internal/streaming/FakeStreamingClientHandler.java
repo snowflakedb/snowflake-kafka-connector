@@ -52,4 +52,12 @@ public class FakeStreamingClientHandler implements StreamingClientHandler {
         .flatMap(Collection::stream)
         .collect(Collectors.toSet());
   }
+
+  public Map<String, String> getLatestCommittedOffsetTokensPerChannel() {
+    return this.clients.stream()
+        .map(FakeSnowflakeStreamingIngestClient::getLatestCommittedOffsetTokensPerChannel)
+        .map(Map::entrySet)
+        .flatMap(Collection::stream)
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
 }
