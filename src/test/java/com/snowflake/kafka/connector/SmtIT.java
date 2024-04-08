@@ -1,66 +1,29 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
-import static org.apache.kafka.connect.runtime.ConnectorConfig.CONNECTOR_CLASS_CONFIG;
-import static org.apache.kafka.connect.runtime.ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG;
-import static org.apache.kafka.connect.runtime.ConnectorConfig.TASKS_MAX_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.TRANSFORMS_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG;
-import static org.apache.kafka.connect.sink.SinkConnector.TOPICS_CONFIG;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.FakeStreamingClientHandler;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider;
 import java.time.Duration;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import org.apache.kafka.connect.json.JsonConverter;
-import org.apache.kafka.connect.storage.StringConverter;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 public class SmtIT extends ConnectClusterBaseIT {
 
-  private static final String SMT_TOPIC = "SMT_TOPIC";
-  private static final String SMT_CONNECTOR = "SMT_CONNECTOR";
-  private static final FakeStreamingClientHandler fakeStreamingClientHandler =
-      new FakeStreamingClientHandler();
+  private Map<String, String> smtProperties(
+      String smtTopic, String smtConnector, String behaviorOnNull) {
+    Map<String, String> config = defaultProperties(smtTopic, smtConnector);
 
-  @BeforeAll
-  public void createConnector() {
-    StreamingClientProvider.overrideStreamingClientHandler(fakeStreamingClientHandler);
-    connectCluster.kafka().createTopic(SMT_TOPIC);
-    connectCluster.configureConnector(SMT_CONNECTOR, smtProperties());
-    waitForConnectorRunning(SMT_CONNECTOR);
-  }
-
-  @AfterAll
-  public void deleteConnector() {
-    connectCluster.deleteConnector(SMT_CONNECTOR);
-    connectCluster.kafka().deleteTopic(SMT_TOPIC);
-  }
-
-  private Map<String, String> smtProperties() {
-    Map<String, String> config = TestUtils.getConf();
-
-    config.put(CONNECTOR_CLASS_CONFIG, SnowflakeSinkConnector.class.getName());
-    config.put(NAME, SMT_CONNECTOR);
-    config.put(TOPICS_CONFIG, SMT_TOPIC);
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(Utils.SF_ROLE, "testrole_kafka");
-    config.put(BUFFER_FLUSH_TIME_SEC, "1");
-
-    config.put(TASKS_MAX_CONFIG, TASK_NUMBER.toString());
-    config.put(KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
+    config.put("log4j.rootLogger", "INFO, stdout");
     config.put(VALUE_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
     config.put("value.converter.schemas.enable", "false");
+    config.put("behavior.on.null.values", behaviorOnNull);
 
     config.put(TRANSFORMS_CONFIG, "extractField");
     config.put(
@@ -70,15 +33,35 @@ public class SmtIT extends ConnectClusterBaseIT {
     return config;
   }
 
-  @Test
-  void testIfSmtRetuningNullsIngestDataCorrectly() {
-    Stream.iterate(0, UnaryOperator.identity())
-        .limit(10)
-        .flatMap(v -> Stream.of("{}", "{\"message\":\"value\"}"))
-        .forEach(message -> connectCluster.kafka().produce(SMT_TOPIC, message));
+  @ParameterizedTest
+  @CsvSource({"DEFAULT, 20", "IGNORE, 10"})
+  void testIfSmtReturningNullsIngestDataCorrectly(String behaviorOnNull, int expectedRecordNumber) {
+    String smtTopic = TestUtils.randomTableName();
+    String smtConnector = String.format("%s_connector", smtTopic);
 
-    await()
-        .timeout(Duration.ofSeconds(60))
-        .untilAsserted(() -> assertThat(fakeStreamingClientHandler.ingestedRows()).hasSize(20));
+    try {
+      // given
+      connectCluster.kafka().createTopic(smtTopic);
+      connectCluster.configureConnector(
+          smtConnector, smtProperties(smtTopic, smtConnector, behaviorOnNull));
+      waitForConnectorRunning(smtConnector);
+
+      // when
+      Stream.iterate(0, UnaryOperator.identity())
+          .limit(10)
+          .flatMap(v -> Stream.of("{}", "{\"message\":\"value\"}"))
+          .forEach(message -> connectCluster.kafka().produce(smtTopic, message));
+
+      // then
+      await()
+          .timeout(Duration.ofSeconds(60))
+          .untilAsserted(
+              () ->
+                  assertThat(fakeStreamingClientHandler.ingestedRows())
+                      .hasSize(expectedRecordNumber));
+    } finally {
+      connectCluster.kafka().deleteTopic(smtTopic);
+      connectCluster.deleteConnector(smtConnector);
+    }
   }
 }

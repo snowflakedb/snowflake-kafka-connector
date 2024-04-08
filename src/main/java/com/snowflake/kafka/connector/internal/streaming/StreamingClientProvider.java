@@ -40,7 +40,7 @@ import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
  * node with equal {@link StreamingClientProperties} will use the same client
  */
 public class StreamingClientProvider {
-  private static StreamingClientProvider streamingClientProvider = null;
+  private static volatile StreamingClientProvider streamingClientProvider = null;
 
   private static Supplier<StreamingClientHandler> clientHandlerSupplier =
       DirectStreamingClientHandler::new;
@@ -52,12 +52,36 @@ public class StreamingClientProvider {
    */
   public static StreamingClientProvider getStreamingClientProviderInstance() {
     if (streamingClientProvider == null) {
-      streamingClientProvider = new StreamingClientProvider(clientHandlerSupplier.get());
+      synchronized (StreamingClientProvider.class) {
+        if (streamingClientProvider == null) {
+          streamingClientProvider = new StreamingClientProvider(clientHandlerSupplier.get());
+        }
+      }
     }
 
     return streamingClientProvider;
   }
 
+  public static void reset() {
+    if (streamingClientProvider != null || clientHandlerSupplier != null) {
+      synchronized (StreamingClientProvider.class) {
+        if (streamingClientProvider != null || clientHandlerSupplier != null) {
+          streamingClientProvider = null;
+          clientHandlerSupplier = null;
+        }
+      }
+    }
+  }
+
+  /***
+   * The method allows for providing custom {@link StreamingClientHandler} to be used by the connector
+   * instead of the default that is {@link DirectStreamingClientHandler}
+   *
+   * This method is currently used by the test code only.
+   *
+   * @param streamingClientHandler The handler that will be used by the connector.
+   */
+  @VisibleForTesting
   public static void overrideStreamingClientHandler(StreamingClientHandler streamingClientHandler) {
     Preconditions.checkState(
         streamingClientProvider == null,
@@ -105,7 +129,7 @@ public class StreamingClientProvider {
    * When a client is evicted, the cache will try closing the client, however it is best to still
    * call close client manually as eviction is executed lazily
    */
-  public StreamingClientProvider(StreamingClientHandler streamingClientHandler) {
+  private StreamingClientProvider(StreamingClientHandler streamingClientHandler) {
     this.streamingClientHandler = streamingClientHandler;
     this.registeredClients = buildLoadingCache(this.streamingClientHandler);
   }
