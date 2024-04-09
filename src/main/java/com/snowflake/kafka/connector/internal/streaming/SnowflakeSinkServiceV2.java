@@ -543,6 +543,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         : Optional.empty();
   }
 
+  @Override
+  public void setMetricRegistry(MetricRegistry metricRegistry) {
+    this.metricsJmxReporter = new MetricsJmxReporter(metricRegistry, this.conn.getConnectorName());
+  }
+
   /**
    * Gets a unique identifier consisting of connector name, topic name and partition number.
    *

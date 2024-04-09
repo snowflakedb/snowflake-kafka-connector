@@ -157,4 +157,6 @@ public interface SnowflakeSinkService {
   /* Get metric registry of an associated partition */
   @VisibleForTesting
   Optional<MetricRegistry> getMetricRegistry(final String partitionIdentifier);
+
+  default void setMetricRegistry(MetricRegistry metricRegistry) {}
 }

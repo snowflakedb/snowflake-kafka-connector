@@ -3,7 +3,9 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.SUCCESS;
 import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.isChannelMigrationResponseSuccessful;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+import static org.junit.Assert.assertEquals;
 
+import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -17,8 +19,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.utils.Pair;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -596,7 +600,7 @@ public class TopicPartitionChannelIT {
         conn.migrateStreamingChannelOffsetToken(
             testTableName, channelNameFormatV2, testChannelName);
     Assert.assertTrue(isChannelMigrationResponseSuccessful(channelMigrateOffsetTokenResponseDTO));
-    Assert.assertEquals(
+    assertEquals(
         SUCCESS.getStatusCode(), channelMigrateOffsetTokenResponseDTO.getResponseCode());
 
     // Fetch offsetToken from API should now give you same as other channel
@@ -775,6 +779,120 @@ public class TopicPartitionChannelIT {
 
     assert TestUtils.tableSize(testTableName) == 4
         : "expected: " + 4 + " actual: " + TestUtils.tableSize(testTableName);
+    service.closeAll();
+  }
+
+
+  @Test
+  public void testInsertRowsTime() throws Exception {
+    long sumNewRegistryDuration = 0;
+    long sumExistingRegistryDuration = 0;
+
+    for (int i = 0; i < 10; i++) {
+      Pair<Long, Long> runDurations = this.insertRowsRunner();
+      sumNewRegistryDuration += runDurations.getFirst();
+      sumExistingRegistryDuration += runDurations.getSecond();
+    }
+
+    // got: avg newRegistryDuration 3697, avg existingRegistryDuration: 3550
+    assertEquals(sumNewRegistryDuration / 10, sumExistingRegistryDuration / 10);
+  }
+
+  private Pair<Long, Long> insertRowsRunner() throws Exception {
+    // setup
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    TopicPartition tp0 = new TopicPartition("amarettoTopic", 0);
+    TopicPartition tp1 = new TopicPartition("scotchTopic", 0);
+
+    String tp0Table = "amarettoTable" + TestUtils.randomTableName();
+    String tp1Table = "scotchTable" + TestUtils.randomTableName();
+
+    // create and insert service with new registry
+    SnowflakeSinkServiceV2 newRegistryService = (SnowflakeSinkServiceV2) SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(tp0)))
+            .addTask(tp0Table, tp0)
+            .build();
+    final long newRegistryDuration = timeInsertRowsMetrics(newRegistryService, tp0);
+
+    // hacky way to create a valid metrics registry
+    MetricRegistry metricsRegistry =
+            ((SnowflakeSinkServiceV2) SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+                    .setRecordNumber(1)
+                    .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+                    .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(tp1)))
+                    .addTask(tp1Table, tp1)
+                    .build())
+                    .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(tp1.topic(), tp1.partition()))
+                    .get();
+    SnowflakeSinkServiceV2 existingRegistryService = (SnowflakeSinkServiceV2) SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(tp1)))
+            .addTask(tp1Table, tp1)
+            .setMetricsRegistry(metricsRegistry)
+            .build();
+    final long existingRegistryDuration = timeInsertRowsMetrics(existingRegistryService, tp1);
+
+    return new Pair<>(newRegistryDuration, existingRegistryDuration);
+  }
+
+  private long timeInsertRowsMetrics(SnowflakeSinkServiceV2 service, TopicPartition topicPartition) throws Exception {
+    final long beginTime = System.currentTimeMillis();
+
+    service.insert(TestUtils.createJsonStringSinkRecords(0, 1000, topicPartition.topic(), topicPartition.partition()));
+
+    // verify ingestion
+    TestUtils.assertWithRetry(
+            () ->
+                    service.getOffset(new TopicPartition(topicPartition.topic(), topicPartition.partition())) == 1000,
+            1,
+            20);
+
+    service.closeAll();
+
+    return System.currentTimeMillis() - beginTime;
+  }
+
+  // this contains InstanceAlreadyExistsException in the logs
+  @Test
+  public void testInsertRowsWithExistingMetrics() throws Exception {
+    // setup
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    // hacky way to create a valid metrics registry
+    MetricRegistry metricsRegistry =
+            ((SnowflakeSinkServiceV2) SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+                    .setRecordNumber(1)
+                    .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+                    .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+                    .addTask(testTableName, topicPartition)
+                    .build())
+                    .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topicPartition.topic(), topicPartition.partition()))
+                    .get();
+
+    // use service with existing metric registry
+    SnowflakeSinkServiceV2 service = (SnowflakeSinkServiceV2) SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setRecordNumber(1)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .addTask(testTableName, topicPartition)
+            .setMetricsRegistry(metricsRegistry)
+            .build();
+
+    service.insert(TestUtils.createJsonStringSinkRecords(0, 10, topic, PARTITION));
+
+    // verify ingestion
+    TestUtils.assertWithRetry(
+            () ->
+                    service.getOffset(new TopicPartition(topic, PARTITION)) == 10,
+            5,
+            5);
+
     service.closeAll();
   }
 }

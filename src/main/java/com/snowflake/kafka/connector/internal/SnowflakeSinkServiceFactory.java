@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -162,6 +163,11 @@ public class SnowflakeSinkServiceFactory {
      */
     public SnowflakeSinkServiceBuilder setSinkTaskContext(SinkTaskContext sinkTaskContext) {
       this.service.setSinkTaskContext(sinkTaskContext);
+      return this;
+    }
+
+    public SnowflakeSinkServiceBuilder setMetricsRegistry(MetricRegistry metricRegistry) {
+      this.service.setMetricRegistry(metricRegistry);
       return this;
     }
 
