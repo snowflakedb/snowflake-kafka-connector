@@ -62,14 +62,15 @@ public class StreamingClientProvider {
     return streamingClientProvider;
   }
 
+  /**
+   * Gets the provider state to pre-initialization state. This method is currently used by the test
+   * code only.
+   */
+  @VisibleForTesting
   public static void reset() {
-    if (streamingClientProvider != null || clientHandlerSupplier != null) {
-      synchronized (StreamingClientProvider.class) {
-        if (streamingClientProvider != null || clientHandlerSupplier != null) {
-          streamingClientProvider = null;
-          clientHandlerSupplier = null;
-        }
-      }
+    synchronized (StreamingClientProvider.class) {
+      streamingClientProvider = null;
+      clientHandlerSupplier = DirectStreamingClientHandler::new;
     }
   }
 
@@ -86,7 +87,9 @@ public class StreamingClientProvider {
     Preconditions.checkState(
         streamingClientProvider == null,
         "StreamingClientProvider is already initialized and cannot be overridden.");
-    clientHandlerSupplier = () -> streamingClientHandler;
+    synchronized (StreamingClientProvider.class) {
+      clientHandlerSupplier = () -> streamingClientHandler;
+    }
   }
 
   /**
