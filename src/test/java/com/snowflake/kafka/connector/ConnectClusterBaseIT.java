@@ -17,6 +17,7 @@ import java.util.Map;
 import org.apache.kafka.connect.storage.StringConverter;
 import org.apache.kafka.connect.util.clusters.EmbeddedConnectCluster;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
@@ -45,6 +46,11 @@ class ConnectClusterBaseIT {
     StreamingClientProvider.reset();
     fakeStreamingClientHandler = new FakeStreamingClientHandler();
     StreamingClientProvider.overrideStreamingClientHandler(fakeStreamingClientHandler);
+  }
+
+  @AfterEach
+  public void afterEach() {
+    StreamingClientProvider.reset();
   }
 
   @AfterAll
