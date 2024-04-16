@@ -51,6 +51,9 @@ public class SnowflakeSinkConnectorConfig {
   public static final String BEHAVIOR_ON_NULL_VALUES_CONFIG = "behavior.on.null.values";
 
   // Buffer thresholds
+  public static final String BUFFER_ENABLE_SINGLE_BUFFER = "buffer.enable.single.buffer";
+  public static final boolean BUFFER_ENABLE_SINGLE_BUFFER_DEFAULT = false;
+
   public static final String BUFFER_FLUSH_TIME_SEC = "buffer.flush.time";
   public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 120;
   public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
@@ -128,6 +131,15 @@ public class SnowflakeSinkConnectorConfig {
   // This is the streaming max client lag which can be defined in config
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
       "snowflake.streaming.max.client.lag";
+
+  public static final String SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE =
+      "snowflake.streaming.max.channel.size";
+  public static final long SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE_DEFAULT = 128 * 1024 * 1024;
+
+  public static final String SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT =
+      "snowflake.streaming.max.memory.limit";
+
+  public static final long SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_DEFAULT = -1L;
 
   public static final String SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP =
       "snowflake.streaming.client.provider.override.map";
@@ -228,12 +240,19 @@ public class SnowflakeSinkConnectorConfig {
     setFieldToDefaultValues(config, BUFFER_SIZE_BYTES, BUFFER_SIZE_BYTES_DEFAULT);
 
     setFieldToDefaultValues(config, BUFFER_FLUSH_TIME_SEC, BUFFER_FLUSH_TIME_SEC_DEFAULT);
+
+    setFieldToDefaultValues(
+        config, BUFFER_ENABLE_SINGLE_BUFFER, BUFFER_ENABLE_SINGLE_BUFFER_DEFAULT);
+    setFieldToDefaultValues(
+        config, SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE, SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE_DEFAULT);
+    setFieldToDefaultValues(
+        config, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_DEFAULT);
   }
 
-  static void setFieldToDefaultValues(Map<String, String> config, String field, Long value) {
+  static void setFieldToDefaultValues(Map<String, String> config, String field, Object value) {
     if (!config.containsKey(field)) {
       config.put(field, value + "");
-      LOGGER.info("{} set to default {} seconds", field, value);
+      LOGGER.info("{} set to default {}", field, value);
     }
   }
 
@@ -578,6 +597,19 @@ public class SnowflakeSinkConnectorConfig {
             6,
             ConfigDef.Width.NONE,
             SNOWPIPE_STREAMING_MAX_CLIENT_LAG)
+        .define(
+            SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE,
+            Type.LONG,
+            SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE_DEFAULT,
+            Importance.LOW,
+            "Max buffer channel size in bytes in the Ingest SDK after which buffer will be"
+                + " flushed.")
+        .define(
+            SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT,
+            Type.LONG,
+            SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_DEFAULT,
+            Importance.LOW,
+            "Memory limit for ingest sdk client.")
         .define(
             SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
             Type.STRING,

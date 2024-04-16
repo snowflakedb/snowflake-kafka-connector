@@ -17,9 +17,14 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_ENABLE_SINGLE_BUFFER;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT;
+import static net.snowflake.ingest.utils.ParameterProvider.MAX_CHANNEL_SIZE_IN_BYTES;
 import static net.snowflake.ingest.utils.ParameterProvider.MAX_CLIENT_LAG;
+import static net.snowflake.ingest.utils.ParameterProvider.MAX_MEMORY_LIMIT_IN_BYTES;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -79,15 +84,33 @@ public class StreamingClientProperties {
         STREAMING_CLIENT_PREFIX_NAME
             + connectorConfig.getOrDefault(Utils.NAME, DEFAULT_CLIENT_NAME);
 
-    // Override only if the max client lag is explicitly set in config
+    // Override only if the streaming client property is explicitly set in config
     this.parameterOverrides = new HashMap<>();
     Optional<String> snowpipeStreamingMaxClientLag =
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG));
     snowpipeStreamingMaxClientLag.ifPresent(
-        overriddenValue -> {
-          parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue));
-        });
+        overriddenValue ->
+            parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue)));
+
+    if (isSingleBufferEnabled(connectorConfig)) {
+      Optional<String> snowpipeStreamingMaxChannelSize =
+          Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE));
+      snowpipeStreamingMaxChannelSize.ifPresent(
+          overriddenValue -> parameterOverrides.put(MAX_CHANNEL_SIZE_IN_BYTES, overriddenValue));
+
+      Optional<String> snowpipeStreamingMaxMemoryLimit =
+          Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT));
+      snowpipeStreamingMaxMemoryLimit.ifPresent(
+          overriddenValue -> parameterOverrides.put(MAX_MEMORY_LIMIT_IN_BYTES, overriddenValue));
+    }
+
     combineStreamingClientOverriddenProperties(connectorConfig);
+  }
+
+  private static Boolean isSingleBufferEnabled(Map<String, String> connectorConfig) {
+    return Optional.ofNullable(connectorConfig.get(BUFFER_ENABLE_SINGLE_BUFFER))
+        .map(Boolean::parseBoolean)
+        .orElse(false);
   }
 
   /**
@@ -97,10 +120,16 @@ public class StreamingClientProperties {
    * href="https://github.com/snowflakedb/snowflake-ingest-java/blob/master/src/main/java/net/snowflake/ingest/utils/ParameterProvider.java">Ingest
    * SDK</a>
    *
-   * <p>MAX_CLIENT_LAG can be provided in SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP or in
-   * SNOWPIPE_STREAMING_MAX_CLIENT_LAG.
+   * <p>MAX_CLIENT_LAG can be provided in SNOWPIPE_STREAMING_MAX_CLIENT_LAG
    *
-   * <p>We will honor the value provided in SNOWPIPE_STREAMING_MAX_CLIENT_LAG
+   * <p>MAX_CHANNEL_SIZE_IN_BYTES can be provided in SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE
+   *
+   * <p>MAX_MEMORY_LIMIT_IN_BYTES can be provided in SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT All the
+   * listed above parameters can be provided in SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP as
+   * well.
+   *
+   * <p>We will honor the value provided explicitly over the ones in
+   * SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP
    *
    * <p>Example, if two configs are provided and map has MAX_CLIENT_LAG, Value from
    * snowflake.streaming.max.client.lag will be honored.
@@ -142,19 +171,38 @@ public class StreamingClientProperties {
                   clientOverridePropertiesMap.put(overriddenKey.toLowerCase(), overriddenValue);
                 }
               });
-          if (clientOverridePropertiesMap.containsKey(MAX_CLIENT_LAG)
-              && parameterOverrides.containsKey(MAX_CLIENT_LAG)) {
-            LOGGER.info(
-                "Honoring {} value in MAX_CLIENT_LAG for streaming client provider, since it is"
-                    + " explicitly provided. Using: {}",
-                SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
-                parameterOverrides.get(MAX_CLIENT_LAG));
-            clientOverridePropertiesMap.remove(MAX_CLIENT_LAG);
+          overrideStreamingClientPropertyIfSet(
+              clientOverridePropertiesMap, MAX_CLIENT_LAG, SNOWPIPE_STREAMING_MAX_CLIENT_LAG);
+          if (isSingleBufferEnabled(connectorConfig)) {
+            overrideStreamingClientPropertyIfSet(
+                clientOverridePropertiesMap,
+                MAX_CHANNEL_SIZE_IN_BYTES,
+                SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE);
+            overrideStreamingClientPropertyIfSet(
+                clientOverridePropertiesMap,
+                MAX_MEMORY_LIMIT_IN_BYTES,
+                SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT);
           }
           parameterOverrides.putAll(clientOverridePropertiesMap);
         });
     parameterOverrides.forEach(
         (key, value) -> LOGGER.info("Streaming Client Config is overridden for {}={}", key, value));
+  }
+
+  private void overrideStreamingClientPropertyIfSet(
+      Map<String, String> clientOverridePropertiesMap,
+      String ingestSdkPropName,
+      String connectorPropName) {
+    if (clientOverridePropertiesMap.containsKey(ingestSdkPropName)
+        && parameterOverrides.containsKey(ingestSdkPropName)) {
+      LOGGER.info(
+          "Honoring {} value in {} for streaming client provider, since it is"
+              + " explicitly provided. Using: {}",
+          connectorPropName,
+          ingestSdkPropName,
+          parameterOverrides.get(ingestSdkPropName));
+      clientOverridePropertiesMap.remove(ingestSdkPropName);
+    }
   }
 
   /**

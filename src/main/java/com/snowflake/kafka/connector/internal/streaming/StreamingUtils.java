@@ -8,7 +8,9 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ErrorTolerance;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
 import com.google.common.base.Strings;
@@ -239,16 +241,15 @@ public class StreamingUtils {
           }
 
           if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
-            try {
-              Long.parseLong(inputConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG));
-            } catch (NumberFormatException exception) {
-              invalidParams.put(
-                  SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
-                  Utils.formatString(
-                      "Max client lag configuration must be a parsable long. Given configuration"
-                          + " was: {}",
-                      inputConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)));
-            }
+            ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_CLIENT_LAG, invalidParams);
+          }
+
+          if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE)) {
+            ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE, invalidParams);
+          }
+
+          if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT)) {
+            ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT, invalidParams);
           }
 
           // Valid schematization for Snowpipe Streaming
@@ -263,6 +264,19 @@ public class StreamingUtils {
     }
 
     return ImmutableMap.copyOf(invalidParams);
+  }
+
+  private static void ensureValidLong(
+      Map<String, String> inputConfig, String param, Map<String, String> invalidParams) {
+    try {
+      Long.parseLong(inputConfig.get(param));
+    } catch (NumberFormatException exception) {
+      invalidParams.put(
+          param,
+          Utils.formatString(
+              param + " configuration must be a parsable long. Given configuration" + " was: {}",
+              inputConfig.get(param)));
+    }
   }
 
   /**

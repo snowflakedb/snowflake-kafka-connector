@@ -443,6 +443,30 @@ public class Utils {
                 SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
+      if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE)) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE,
+            Utils.formatString(
+                "{} is only available with ingestion type: {}.",
+                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE,
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      }
+      if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT)) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT,
+            Utils.formatString(
+                "{} is only available with ingestion type: {}.",
+                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT,
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      }
+      if (config.containsKey(SnowflakeSinkConnectorConfig.BUFFER_ENABLE_SINGLE_BUFFER)) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.BUFFER_ENABLE_SINGLE_BUFFER,
+            Utils.formatString(
+                "{} is only available with ingestion type: {}.",
+                SnowflakeSinkConnectorConfig.BUFFER_ENABLE_SINGLE_BUFFER,
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      }
       if (config.containsKey(
           SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)) {
         invalidConfigParams.put(
