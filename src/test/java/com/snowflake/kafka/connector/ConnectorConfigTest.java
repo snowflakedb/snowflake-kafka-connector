@@ -75,7 +75,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testEmptyFlushTime() {
-
     Map<String, String> config = getConfig();
     config.remove(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
     assertThatThrownBy(() -> Utils.validateConfig(config))
@@ -85,7 +84,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testFlushTimeSmall() {
-
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
@@ -97,7 +95,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testFlushTimeNotNumber() {
-
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "fdas");
     assertThatThrownBy(() -> Utils.validateConfig(config))
@@ -134,7 +131,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testEmptyPort() {
-
     Map<String, String> config = getConfig();
     config.put(JVM_PROXY_HOST, "127.0.0.1");
     assertThatThrownBy(() -> Utils.validateConfig(config))
@@ -180,7 +176,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testIllegalTopicMap() {
-
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "$@#$#@%^$12312");
     assertThatThrownBy(() -> Utils.validateConfig(config))
@@ -190,7 +185,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testIllegalTableName() {
-
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:!@#@!#!@");
     assertThatThrownBy(() -> Utils.validateConfig(config))
@@ -204,7 +198,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testDuplicatedTopic() {
-
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:table1,topic1:table2");
     assertThatThrownBy(() -> Utils.validateConfig(config))
@@ -233,7 +226,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testBufferSizeRange() {
-
     Map<String, String> config = getConfig();
     config.put(BUFFER_SIZE_BYTES, SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN - 1 + "");
     assertThatThrownBy(() -> Utils.validateConfig(config))
@@ -243,7 +235,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testBufferSizeValue() {
-
     Map<String, String> config = getConfig();
     config.put(BUFFER_SIZE_BYTES, "afdsa");
     assertThatThrownBy(() -> Utils.validateConfig(config))
@@ -317,7 +308,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testBehaviorOnNullValuesConfig_invalid_value() {
-
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, "INVALID");
     assertThatThrownBy(() -> Utils.validateConfig(config))
@@ -474,7 +464,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testErrorLog_DisallowedValues() {
-
     Map<String, String> config = getConfig();
     config.put(ERRORS_LOG_ENABLE_CONFIG, "INVALID");
     config.put(
@@ -530,7 +519,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testStreamingEmptyBufferSize() {
-
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -544,7 +532,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testStreamingEmptyBufferCount() {
-
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -739,7 +726,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testSchematizationWithUnsupportedConverter() {
-
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -782,7 +768,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testInvalidEnableOptimizeStreamingClientConfig() {
-
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -809,7 +794,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testEnableStreamingChannelMigrationConfig_invalidWithSnowpipe() {
-
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
@@ -855,7 +839,6 @@ public class ConnectorConfigTest {
 
   @Test
   public void testStreamingProviderOverrideConfig_validWithSnowpipeStreaming() {
-
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
