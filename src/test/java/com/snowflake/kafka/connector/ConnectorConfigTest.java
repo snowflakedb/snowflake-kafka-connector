@@ -617,37 +617,34 @@ public class ConnectorConfigTest {
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
 
     config.put(
-        SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD, converter.getClass().toString());
+        SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD, converter.getClass().getName());
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
         "org.apache.kafka.connect.storage.StringConverter");
 
     assertThatThrownBy(() -> Utils.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
+        .hasMessageContaining(SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD);
   }
 
-  @Test
-  public void testInvalidValueConvertersForStreamingSnowpipe() {
+  @ParameterizedTest
+  @MethodSource("customSnowflakeConverters")
+  public void testInvalidValueConvertersForStreamingSnowpipe(Converter converter) {
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
 
-    CUSTOM_SNOWFLAKE_CONVERTERS.forEach(
-        converter -> {
-          config.put(
-              SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
-              "org.apache.kafka.connect.storage.StringConverter");
-          config.put(
-              SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
-              converter.getClass().toString());
+    config.put(
+        SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD,
+        "org.apache.kafka.connect.storage.StringConverter");
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD, converter.getClass().getName());
 
-          assertThatThrownBy(() -> Utils.validateConfig(config))
-              .isInstanceOf(SnowflakeKafkaConnectorException.class)
-              .hasMessageContaining(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
-        });
+    assertThatThrownBy(() -> Utils.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD);
   }
 
   @ParameterizedTest
@@ -768,9 +765,7 @@ public class ConnectorConfigTest {
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
         "org.apache.kafka.connect.storage.StringConverter");
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    assertThatThrownBy(() -> Utils.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG);
+    Utils.validateConfig(config);
   }
 
   @Test
@@ -828,7 +823,8 @@ public class ConnectorConfigTest {
   }
 
   @Test
-  public void testEnableStreamingChannelMigrationConfig_invalidWithSnowpipeStreaming() {
+  public void
+      testEnableStreamingChannelMigrationConfig_invalidBooleanValue_WithSnowpipeStreaming() {
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
