@@ -32,6 +32,9 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigException;
 
+import static com.snowflake.kafka.connector.Utils.isSnowpipeIngestion;
+import static com.snowflake.kafka.connector.Utils.isSnowpipeStreamingIngestion;
+
 /**
  * SnowflakeSinkConnectorConfig class is used for specifying the set of expected configurations. For
  * each configuration, we can specify the name, the type, the default value, the documentation, the
@@ -134,13 +137,8 @@ public class SnowflakeSinkConnectorConfig {
 
   public static final String SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE =
       "snowflake.streaming.max.channel.size";
-  public static final long SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE_DEFAULT = 128 * 1024 * 1024;
-
   public static final String SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT =
       "snowflake.streaming.max.memory.limit";
-
-  public static final long SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_DEFAULT = -1L;
-
   public static final String SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP =
       "snowflake.streaming.client.provider.override.map";
 
@@ -241,12 +239,10 @@ public class SnowflakeSinkConnectorConfig {
 
     setFieldToDefaultValues(config, BUFFER_FLUSH_TIME_SEC, BUFFER_FLUSH_TIME_SEC_DEFAULT);
 
-    setFieldToDefaultValues(
-        config, BUFFER_ENABLE_SINGLE_BUFFER, BUFFER_ENABLE_SINGLE_BUFFER_DEFAULT);
-    setFieldToDefaultValues(
-        config, SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE, SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE_DEFAULT);
-    setFieldToDefaultValues(
-        config, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_DEFAULT);
+    if(isSnowpipeStreamingIngestion(config)) {
+      setFieldToDefaultValues(
+              config, BUFFER_ENABLE_SINGLE_BUFFER, BUFFER_ENABLE_SINGLE_BUFFER_DEFAULT);
+    }
   }
 
   static void setFieldToDefaultValues(Map<String, String> config, String field, Object value) {
@@ -600,14 +596,12 @@ public class SnowflakeSinkConnectorConfig {
         .define(
             SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE,
             Type.LONG,
-            SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE_DEFAULT,
             Importance.LOW,
             "Max buffer channel size in bytes in the Ingest SDK after which buffer will be"
                 + " flushed.")
         .define(
             SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT,
             Type.LONG,
-            SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_DEFAULT,
             Importance.LOW,
             "Memory limit for ingest sdk client.")
         .define(

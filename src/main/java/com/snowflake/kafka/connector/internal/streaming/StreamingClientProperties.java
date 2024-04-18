@@ -18,6 +18,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_ENABLE_SINGLE_BUFFER;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_ENABLE_SINGLE_BUFFER_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
@@ -110,7 +111,7 @@ public class StreamingClientProperties {
   private static Boolean isSingleBufferEnabled(Map<String, String> connectorConfig) {
     return Optional.ofNullable(connectorConfig.get(BUFFER_ENABLE_SINGLE_BUFFER))
         .map(Boolean::parseBoolean)
-        .orElse(false);
+        .orElse(BUFFER_ENABLE_SINGLE_BUFFER_DEFAULT);
   }
 
   /**
@@ -189,17 +190,17 @@ public class StreamingClientProperties {
 
   private void overrideStreamingClientPropertyIfSet(
       Map<String, String> clientOverridePropertiesMap,
-      String ingestSdkPropName,
+      String streamingClientPropName,
       String connectorPropName) {
-    if (clientOverridePropertiesMap.containsKey(ingestSdkPropName)
-        && parameterOverrides.containsKey(ingestSdkPropName)) {
+    if (clientOverridePropertiesMap.containsKey(streamingClientPropName)
+        && parameterOverrides.containsKey(streamingClientPropName)) {
       LOGGER.info(
           "Honoring {} value in {} for streaming client provider, since it is"
               + " explicitly provided. Using: {}",
           connectorPropName,
-          ingestSdkPropName,
-          parameterOverrides.get(ingestSdkPropName));
-      clientOverridePropertiesMap.remove(ingestSdkPropName);
+          streamingClientPropName,
+          parameterOverrides.get(streamingClientPropName));
+      clientOverridePropertiesMap.remove(streamingClientPropName);
     }
   }
 
