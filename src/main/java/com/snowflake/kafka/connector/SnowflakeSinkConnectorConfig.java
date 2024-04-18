@@ -16,6 +16,8 @@
  */
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.Utils.isSnowpipeStreamingIngestion;
+
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -31,9 +33,6 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigException;
-
-import static com.snowflake.kafka.connector.Utils.isSnowpipeIngestion;
-import static com.snowflake.kafka.connector.Utils.isSnowpipeStreamingIngestion;
 
 /**
  * SnowflakeSinkConnectorConfig class is used for specifying the set of expected configurations. For
@@ -239,9 +238,9 @@ public class SnowflakeSinkConnectorConfig {
 
     setFieldToDefaultValues(config, BUFFER_FLUSH_TIME_SEC, BUFFER_FLUSH_TIME_SEC_DEFAULT);
 
-    if(isSnowpipeStreamingIngestion(config)) {
+    if (isSnowpipeStreamingIngestion(config)) {
       setFieldToDefaultValues(
-              config, BUFFER_ENABLE_SINGLE_BUFFER, BUFFER_ENABLE_SINGLE_BUFFER_DEFAULT);
+          config, BUFFER_ENABLE_SINGLE_BUFFER, BUFFER_ENABLE_SINGLE_BUFFER_DEFAULT);
     }
   }
 

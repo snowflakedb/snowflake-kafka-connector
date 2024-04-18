@@ -632,19 +632,21 @@ public class Utils {
   }
 
   /**
-   * Returns whether INGESTION_METHOD_OPT is set to SNOWPIPE. If INGESTION_METHOD_OPT not specified, returns true as default.
+   * Returns whether INGESTION_METHOD_OPT is set to SNOWPIPE. If INGESTION_METHOD_OPT not specified,
+   * returns true as default.
    *
    * @param config input config object
    */
   static boolean isSnowpipeIngestion(Map<String, String> config) {
     return !config.containsKey(INGESTION_METHOD_OPT)
-            || config
+        || config
             .get(INGESTION_METHOD_OPT)
             .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString());
   }
 
   /**
-   * Returns whether INGESTION_METHOD_OPT is set to SNOWPIPE_STREAMING. If INGESTION_METHOD_OPT not specified, returns false as default.
+   * Returns whether INGESTION_METHOD_OPT is set to SNOWPIPE_STREAMING. If INGESTION_METHOD_OPT not
+   * specified, returns false as default.
    *
    * @param config input config object
    */
