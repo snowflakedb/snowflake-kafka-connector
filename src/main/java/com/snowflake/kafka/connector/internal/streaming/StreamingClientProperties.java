@@ -124,7 +124,7 @@ public class StreamingClientProperties {
    *
    * <p>MAX_CHANNEL_SIZE_IN_BYTES can be provided in SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE
    *
-   * <p>MAX_MEMORY_LIMIT_IN_BYTES can be provided in SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT All the
+   * <p>MAX_MEMORY_LIMIT_IN_BYTES can be provided in SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT. All the
    * listed above parameters can be provided in SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP as
    * well.
    *
@@ -173,16 +173,14 @@ public class StreamingClientProperties {
               });
           overrideStreamingClientPropertyIfSet(
               clientOverridePropertiesMap, MAX_CLIENT_LAG, SNOWPIPE_STREAMING_MAX_CLIENT_LAG);
-          if (isSingleBufferEnabled(connectorConfig)) {
-            overrideStreamingClientPropertyIfSet(
-                clientOverridePropertiesMap,
-                MAX_CHANNEL_SIZE_IN_BYTES,
-                SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE);
-            overrideStreamingClientPropertyIfSet(
-                clientOverridePropertiesMap,
-                MAX_MEMORY_LIMIT_IN_BYTES,
-                SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT);
-          }
+          overrideStreamingClientPropertyIfSet(
+              clientOverridePropertiesMap,
+              MAX_CHANNEL_SIZE_IN_BYTES,
+              SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE);
+          overrideStreamingClientPropertyIfSet(
+              clientOverridePropertiesMap,
+              MAX_MEMORY_LIMIT_IN_BYTES,
+              SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT);
           parameterOverrides.putAll(clientOverridePropertiesMap);
         });
     parameterOverrides.forEach(
