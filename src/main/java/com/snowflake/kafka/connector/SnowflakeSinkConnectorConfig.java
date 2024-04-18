@@ -136,8 +136,11 @@ public class SnowflakeSinkConnectorConfig {
 
   public static final String SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE =
       "snowflake.streaming.max.channel.size";
+  public static final long SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE_DEFAULT = 128 * 1024 * 1024;
+
   public static final String SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT =
       "snowflake.streaming.max.memory.limit";
+  public static final long SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_DEFAULT = -1L;
   public static final String SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP =
       "snowflake.streaming.client.provider.override.map";
 
@@ -595,12 +598,14 @@ public class SnowflakeSinkConnectorConfig {
         .define(
             SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE,
             Type.LONG,
+            SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE_DEFAULT,
             Importance.LOW,
             "Max buffer channel size in bytes in the Ingest SDK after which buffer will be"
                 + " flushed.")
         .define(
             SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT,
             Type.LONG,
+            SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_DEFAULT,
             Importance.LOW,
             "Memory limit for ingest sdk client.")
         .define(
