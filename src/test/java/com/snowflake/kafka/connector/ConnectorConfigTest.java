@@ -704,19 +704,18 @@ public class ConnectorConfigTest {
 
   @ParameterizedTest
   @EnumSource(IngestionMethodConfig.class)
-  public void shouldThrowExceptionWHenStreamingSingleBufferEnabled(IngestionMethodConfig ingestionMethod) {
+  public void shouldThrowExceptionWHenStreamingSingleBufferEnabled(
+      IngestionMethodConfig ingestionMethod) {
     // GIVEN
     Map<String, String> config = getConfig();
-    config.put(
-            SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-            ingestionMethod.toString());
+    config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, ingestionMethod.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "true");
 
     // WHEN/THEN
     assertThatThrownBy(() -> Utils.validateConfig(config))
-            .isInstanceOf(SnowflakeKafkaConnectorException.class)
-            .hasMessageContaining(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER);
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER);
   }
 
   @Test

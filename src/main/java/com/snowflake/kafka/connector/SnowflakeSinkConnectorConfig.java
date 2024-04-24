@@ -128,7 +128,8 @@ public class SnowflakeSinkConnectorConfig {
   public static final int SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT = 1;
 
   // This is the streaming max client lag which can be defined in config
-  public static final String SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER = "snowflake.streaming.enable.single.buffer";
+  public static final String SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER =
+      "snowflake.streaming.enable.single.buffer";
 
   public static final boolean SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT = false;
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
@@ -239,15 +240,20 @@ public class SnowflakeSinkConnectorConfig {
 
     setFieldToDefaultValues(config, BUFFER_SIZE_BYTES, BUFFER_SIZE_BYTES_DEFAULT, "bytes");
 
-    setFieldToDefaultValues(config, BUFFER_FLUSH_TIME_SEC, BUFFER_FLUSH_TIME_SEC_DEFAULT, "seconds");
+    setFieldToDefaultValues(
+        config, BUFFER_FLUSH_TIME_SEC, BUFFER_FLUSH_TIME_SEC_DEFAULT, "seconds");
 
     if (isSnowpipeStreamingIngestion(config)) {
       setFieldToDefaultValues(
-          config, SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT, "");
+          config,
+          SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
+          SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT,
+          "");
     }
   }
 
-  static void setFieldToDefaultValues(Map<String, String> config, String field, Object value, String unitName) {
+  static void setFieldToDefaultValues(
+      Map<String, String> config, String field, Object value, String unitName) {
     if (!config.containsKey(field)) {
       config.put(field, value + "");
       LOGGER.info("{} set to default {} {}", field, value, unitName);
@@ -609,11 +615,12 @@ public class SnowflakeSinkConnectorConfig {
             Importance.LOW,
             "Memory limit for ingest sdk client.")
         .define(
-                SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
+            SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
             Type.BOOLEAN,
-                SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT,
+            SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT,
             Importance.LOW,
-            "When enabled, it will disable kafka connector buffer and only use ingest sdk buffer instead of both.")
+            "When enabled, it will disable kafka connector buffer and only use ingest sdk buffer"
+                + " instead of both.")
         .define(
             SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
             Type.STRING,

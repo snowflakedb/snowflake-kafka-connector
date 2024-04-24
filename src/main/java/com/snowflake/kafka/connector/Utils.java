@@ -416,15 +416,12 @@ public class Utils {
               SnowflakeSinkConnectorConfig.NAME));
     }
 
-    if (config.containsKey(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER)
-            && Boolean.parseBoolean(
-            config.get(
-                    SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER))) {
+    if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER)
+        && Boolean.parseBoolean(
+            config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER))) {
       invalidConfigParams.put(
-              SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-
-                      "Currently not supported.");
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
+          "Currently not supported.");
     }
 
     // If config doesnt have ingestion method defined, default is snowpipe or if snowpipe is
@@ -467,13 +464,14 @@ public class Utils {
                 SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT,
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
-      if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER)) {
+      if (config.containsKey(
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER)) {
         invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
+            Utils.formatString(
+                "{} is only available with ingestion type: {}.",
                 SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-                Utils.formatString(
-                        "{} is only available with ingestion type: {}.",
-                        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-                        IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
       if (config.containsKey(
           SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)) {
