@@ -53,9 +53,6 @@ public class SnowflakeSinkConnectorConfig {
   public static final String BEHAVIOR_ON_NULL_VALUES_CONFIG = "behavior.on.null.values";
 
   // Buffer thresholds
-  public static final String BUFFER_ENABLE_SINGLE_BUFFER = "buffer.enable.single.buffer";
-  public static final boolean BUFFER_ENABLE_SINGLE_BUFFER_DEFAULT = false;
-
   public static final String BUFFER_FLUSH_TIME_SEC = "buffer.flush.time";
   public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 120;
   public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
@@ -131,6 +128,9 @@ public class SnowflakeSinkConnectorConfig {
   public static final int SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT = 1;
 
   // This is the streaming max client lag which can be defined in config
+  public static final String SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER = "snowflake.streaming.enable.single.buffer";
+
+  public static final boolean SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT = false;
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
       "snowflake.streaming.max.client.lag";
 
@@ -235,22 +235,22 @@ public class SnowflakeSinkConnectorConfig {
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
 
   public static void setDefaultValues(Map<String, String> config) {
-    setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT);
+    setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT, "");
 
-    setFieldToDefaultValues(config, BUFFER_SIZE_BYTES, BUFFER_SIZE_BYTES_DEFAULT);
+    setFieldToDefaultValues(config, BUFFER_SIZE_BYTES, BUFFER_SIZE_BYTES_DEFAULT, "bytes");
 
-    setFieldToDefaultValues(config, BUFFER_FLUSH_TIME_SEC, BUFFER_FLUSH_TIME_SEC_DEFAULT);
+    setFieldToDefaultValues(config, BUFFER_FLUSH_TIME_SEC, BUFFER_FLUSH_TIME_SEC_DEFAULT, "seconds");
 
     if (isSnowpipeStreamingIngestion(config)) {
       setFieldToDefaultValues(
-          config, BUFFER_ENABLE_SINGLE_BUFFER, BUFFER_ENABLE_SINGLE_BUFFER_DEFAULT);
+          config, SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT, "");
     }
   }
 
-  static void setFieldToDefaultValues(Map<String, String> config, String field, Object value) {
+  static void setFieldToDefaultValues(Map<String, String> config, String field, Object value, String unitName) {
     if (!config.containsKey(field)) {
       config.put(field, value + "");
-      LOGGER.info("{} set to default {}", field, value);
+      LOGGER.info("{} set to default {} {}", field, value, unitName);
     }
   }
 
@@ -608,6 +608,12 @@ public class SnowflakeSinkConnectorConfig {
             SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_DEFAULT,
             Importance.LOW,
             "Memory limit for ingest sdk client.")
+        .define(
+                SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
+            Type.BOOLEAN,
+                SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT,
+            Importance.LOW,
+            "When enabled, it will disable kafka connector buffer and only use ingest sdk buffer instead of both.")
         .define(
             SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
             Type.STRING,
