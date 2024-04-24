@@ -80,7 +80,7 @@ jobs:
         distribution: 'zulu'
         java-version: ${{ matrix.java_test_version }}
 
-    - name: End to End Test of Apache Platform ${{ matrix.apache_kafka_version }} against Snowflake in ${{ matrix.snowflake_cloud }}
+    - name: End to End Test of Apache Platform ${{ matrix.apache_kafka_version }} against Snowflake in ${{ matrix.snowflake_cloud }} with JAVA ${{ matrix.java_test_version }}
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SF_CLOUD_PLATFORM: ${{ matrix.snowflake_cloud }}
