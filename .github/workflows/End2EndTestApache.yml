@@ -17,11 +17,12 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2
-    - name: "Install Java 8"
+    - name: "Install Java"
       uses: actions/setup-java@v3
       with:
+        distribution: 'zulu'
         java-version: |
-          1.8
+          8
           11
           17
     - name: "Cache local Maven repository"
