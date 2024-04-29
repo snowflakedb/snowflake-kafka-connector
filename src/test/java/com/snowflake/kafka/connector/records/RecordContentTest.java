@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Map;
+import java.util.stream.Stream;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.type.TypeReference;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
@@ -20,12 +21,16 @@ import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class RecordContentTest {
-  private ObjectMapper mapper = new ObjectMapper();
-  private static String topic = "test";
-  private static int partition = 0;
+  private static final ObjectMapper mapper = new ObjectMapper();
+  private static final String topic = "test";
+  private static final int partition = 0;
 
   @Test
   public void test() throws IOException {
@@ -125,103 +130,98 @@ public class RecordContentTest {
             "{\"int8\":12,\"int16\":12,\"int32\":12,\"int64\":12,\"float32\":12.2,\"float64\":12.2,\"boolean\":true,\"string\":\"foo\",\"bytes\":\"Zm9v\",\"array\":[\"a\",\"b\",\"c\"],\"map\":{\"field\":1},\"mapNonStringKeys\":[[1,1]]}");
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testEmptyValueDisabledTombstone() {
+  @ParameterizedTest
+  @MethodSource("disabledTombstoneSource")
+  public void recordService_getProcessedRecordForSnowpipe_whenDisabledTombstone_throwException(
+      String testCase, SinkRecord record) {
+    // given
     RecordService service = new RecordService();
     service.setBehaviorOnNullValues(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE);
 
-    SinkRecord record =
-        new SinkRecord(topic, partition, null, null, Schema.STRING_SCHEMA, null, partition);
-    service.getProcessedRecordForSnowpipe(record);
+    // expect
+    Assertions.assertThrows(
+        SnowflakeKafkaConnectorException.class,
+        () -> service.getProcessedRecordForSnowpipe(record));
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testEmptyValueSchemaDisabledTombstone() throws IOException {
+  public static Stream<Arguments> disabledTombstoneSource() throws JsonProcessingException {
     JsonNode data = mapper.readTree("{\"name\":123}");
     SnowflakeRecordContent content = new SnowflakeRecordContent(data);
-    RecordService service = new RecordService();
-    service.setBehaviorOnNullValues(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE);
-
-    SinkRecord record = new SinkRecord(topic, partition, null, null, null, content, partition);
-    service.getProcessedRecordForSnowpipe(record);
+    return Stream.of(
+        Arguments.of(
+            "empty value with schema",
+            new SinkRecord(topic, partition, null, null, Schema.STRING_SCHEMA, null, partition)),
+        Arguments.of(
+            "not empty value without schema",
+            new SinkRecord(topic, partition, null, null, null, content, partition)));
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testWrongValueSchema() throws IOException {
-    JsonNode data = mapper.readTree("{\"name\":123}");
-    SnowflakeRecordContent content = new SnowflakeRecordContent(data);
+  @ParameterizedTest
+  @MethodSource("invalidSchemaSource")
+  public void recordService_getProcessedRecordForSnowpipe_whenInvalidSchema_throwException(
+      String testCase, Schema schema, Object value) {
+    // given
     RecordService service = new RecordService();
+    SinkRecord record = new SinkRecord(topic, partition, null, null, schema, value, partition);
 
-    SinkRecord record =
-        new SinkRecord(
-            topic,
-            partition,
-            null,
-            null,
+    // expect
+    Assertions.assertThrows(
+        SnowflakeKafkaConnectorException.class,
+        () -> service.getProcessedRecordForSnowpipe(record));
+  }
+
+  public static Stream<Arguments> invalidSchemaSource() throws JsonProcessingException {
+    return Stream.of(
+        Arguments.of(
+            "schema not matching content",
             SchemaBuilder.string().name("aName").build(),
-            content,
-            partition);
-    // TODO: SNOW-215915 Fix this after stability push, if schema does not have a name
-    // There is OOM error in this test.
-    service.getProcessedRecordForSnowpipe(record);
+            new SnowflakeRecordContent(mapper.readTree("{\"name\":123}"))),
+        Arguments.of("invalid schema type", new SnowflakeJsonSchema(), "string"));
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testWrongValueType() {
+  @ParameterizedTest
+  @MethodSource("invalidPutKeyInputSource")
+  public void recordService_putKey_whenInvalidInput_throwException(
+      String testCase, Schema schema, Object content) {
+    // given
     RecordService service = new RecordService();
 
-    SinkRecord record =
-        new SinkRecord(
-            topic, partition, null, null, new SnowflakeJsonSchema(), "string", partition);
-    service.getProcessedRecordForSnowpipe(record);
+    SinkRecord record = new SinkRecord(topic, partition, schema, content, null, null, partition);
+
+    // expect
+    Assertions.assertThrows(
+        SnowflakeKafkaConnectorException.class,
+        () -> service.putKey(record, mapper.createObjectNode()));
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testWrongKeySchema() throws IOException {
-    JsonNode data = mapper.readTree("{\"name\":123}");
-    SnowflakeRecordContent content = new SnowflakeRecordContent(data);
-    RecordService service = new RecordService();
-
-    SinkRecord record =
-        new SinkRecord(
-            topic,
-            partition,
+  public static Stream<Arguments> invalidPutKeyInputSource() throws JsonProcessingException {
+    return Stream.of(
+        Arguments.of(
+            "schema not matching content",
             SchemaBuilder.string().name("aName").build(),
-            content,
-            null,
-            null,
-            partition);
-    service.putKey(record, mapper.createObjectNode());
+            new SnowflakeRecordContent(mapper.readTree("{\"name\":123}"))),
+        Arguments.of("invalid schema type", new SnowflakeJsonSchema(), "string"));
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testWrongKeyType() {
-    RecordService service = new RecordService();
-
-    SinkRecord record =
-        new SinkRecord(
-            topic, partition, new SnowflakeJsonSchema(), "string", null, null, partition);
-    service.putKey(record, mapper.createObjectNode());
+  @ParameterizedTest
+  @MethodSource("convertToJsonSource")
+  public void recordService_convertToJson_whenInvalidInput_throwException(
+      String testCase, Schema schema) {
+    Assertions.assertThrows(
+        SnowflakeKafkaConnectorException.class,
+        () -> RecordService.convertToJson(schema, null, false));
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testConvertToJsonEmptyValue() {
+  public static Stream<Arguments> convertToJsonSource() {
+    return Stream.of(
+        Arguments.of("int32 schema", SchemaBuilder.int32().build()),
+        Arguments.of("snowflake json schema", new SnowflakeJsonSchema()));
+  }
+
+  @Test
+  public void recordService_convertToJson_returnDefaultValue() {
     Schema schema = SchemaBuilder.int32().optional().defaultValue(123).build();
-    assert RecordService.convertToJson(schema, null, false).toString().equals("123");
-
-    schema = SchemaBuilder.int32().build();
-    RecordService.convertToJson(schema, null, false);
-  }
-
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testConvertToJsonNonOptional() {
-    Schema schema = SchemaBuilder.int32().build();
-    RecordService.convertToJson(schema, null, false);
-  }
-
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testConvertToJsonNoSchemaType() {
-    RecordService.convertToJson(null, new SnowflakeJsonSchema(), false);
+    Assertions.assertEquals("123", RecordService.convertToJson(schema, null, false).toString());
   }
 
   @Test
