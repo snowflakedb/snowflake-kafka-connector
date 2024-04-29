@@ -254,10 +254,7 @@ public class RecordContentTest {
     SchemaAndValue sv = jsonConverter.toConnectData(TOPIC, valueContents);
 
     SinkRecord record =
-        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
-            .withValueSchema(sv.schema())
-            .withValue(sv.value())
-            .build();
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION).withSchemaAndValue(sv).build();
 
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
     // each field should be dumped into string format
@@ -279,10 +276,7 @@ public class RecordContentTest {
     SchemaAndValue sv = jsonConverter.toConnectData(TOPIC, valueContents);
 
     SinkRecord record =
-        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
-            .withValueSchema(sv.schema())
-            .withValue(sv.value())
-            .build();
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION).withSchemaAndValue(sv).build();
 
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
     assert got.get("\"PLAYERS\"")
@@ -300,10 +294,7 @@ public class RecordContentTest {
     SchemaAndValue sv = jsonConverter.toConnectData(TOPIC, valueContents);
 
     SinkRecord record =
-        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
-            .withValueSchema(sv.schema())
-            .withValue(sv.value())
-            .build();
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION).withSchemaAndValue(sv).build();
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
 
     assert got.containsKey("\"NaMe\"");

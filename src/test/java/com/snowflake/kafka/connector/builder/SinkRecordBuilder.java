@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.builder;
 
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 public class SinkRecordBuilder {
@@ -43,6 +44,12 @@ public class SinkRecordBuilder {
 
   public SinkRecordBuilder withValue(Object value) {
     this.value = value;
+    return this;
+  }
+
+  public SinkRecordBuilder withSchemaAndValue(SchemaAndValue schemaAndValue) {
+    this.valueSchema = schemaAndValue.schema();
+    this.value = schemaAndValue.value();
     return this;
   }
 
