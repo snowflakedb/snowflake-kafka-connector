@@ -1231,7 +1231,12 @@ public class TopicPartitionChannel {
         }
       }
     } catch (Exception e) {
-      // We ignore any errors here because this is just calculating the record size
+      boolean isJsonProcessingEx = e instanceof JsonProcessingException;
+      boolean isSnowflakeParsingEx = e instanceof SnowflakeKafkaConnectorException && ((SnowflakeKafkaConnectorException) e).checkErrorCode(SnowflakeErrors.ERROR_0010);
+      if (!(isJsonProcessingEx || isSnowflakeParsingEx)) {
+        // We ignore any errors parsing exceptions here because this is just calculating the record size
+        throw new RuntimeException(e);
+      }
     }
 
     sinkRecordBufferSizeInBytes += StreamingUtils.MAX_RECORD_OVERHEAD_BYTES;
