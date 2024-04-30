@@ -69,6 +69,9 @@ jobs:
       run: |
         cd test
         ./build_runtime_jar.sh ../../snowflake-kafka-connector
-      
-    - name: Code Coverage
-      uses: codecov/codecov-action@v1
+
+#      Commented out because the build was very unstable
+#      Error that might be a hint: {'detail': ErrorDetail(string='Rate limit reached. Please upload with the Codecov repository upload token to resolve issue. Expected available in 383 seconds.', code='throttled')}
+#      Consider migrating to newer version (v4)
+#    - name: Code Coverage
+#      uses: codecov/codecov-action@v1
