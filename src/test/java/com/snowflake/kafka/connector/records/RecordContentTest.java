@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.records;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -152,12 +153,13 @@ public class RecordContentTest {
         Arguments.of(
             Named.of(
                 "empty value with schema",
-                new SinkRecord(
-                    TOPIC, PARTITION, null, "key", Schema.STRING_SCHEMA, null, PARTITION))),
-        Arguments.of(
-            Named.of(
-                "not empty value without schema",
-                new SinkRecord(TOPIC, PARTITION, null, "key", null, content, PARTITION))));
+                SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION).withValue(null).build()),
+            Arguments.of(
+                Named.of(
+                    "not empty value without schema",
+                    SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+                        .withValue(content)
+                        .build()))));
   }
 
   @ParameterizedTest
@@ -166,7 +168,11 @@ public class RecordContentTest {
       Schema schema, Object value) {
     // given
     RecordService service = new RecordService();
-    SinkRecord record = new SinkRecord(TOPIC, PARTITION, null, null, schema, value, PARTITION);
+    SinkRecord record =
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withValueSchema(schema)
+            .withValue(value)
+            .build();
 
     // expect
     Assertions.assertThrows(
@@ -184,11 +190,14 @@ public class RecordContentTest {
 
   @ParameterizedTest
   @MethodSource("invalidPutKeyInputSource")
-  public void recordService_putKey_whenInvalidInput_throwException(Schema schema, Object content) {
+  public void recordService_putKey_whenInvalidInput_throwException(Schema keySchema, Object key) {
     // given
     RecordService service = new RecordService();
-
-    SinkRecord record = new SinkRecord(TOPIC, PARTITION, schema, content, null, null, PARTITION);
+    SinkRecord record =
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withKeySchema(keySchema)
+            .withKey(key)
+            .build();
 
     // expect
     Assertions.assertThrows(
@@ -245,8 +254,10 @@ public class RecordContentTest {
     SchemaAndValue sv = jsonConverter.toConnectData(TOPIC, valueContents);
 
     SinkRecord record =
-        new SinkRecord(
-            TOPIC, PARTITION, Schema.STRING_SCHEMA, "string", sv.schema(), sv.value(), PARTITION);
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withValueSchema(sv.schema())
+            .withValue(sv.value())
+            .build();
 
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
     // each field should be dumped into string format
@@ -268,8 +279,10 @@ public class RecordContentTest {
     SchemaAndValue sv = jsonConverter.toConnectData(TOPIC, valueContents);
 
     SinkRecord record =
-        new SinkRecord(
-            TOPIC, PARTITION, Schema.STRING_SCHEMA, "string", sv.schema(), sv.value(), PARTITION);
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withValueSchema(sv.schema())
+            .withValue(sv.value())
+            .build();
 
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
     assert got.get("\"PLAYERS\"")
@@ -287,8 +300,10 @@ public class RecordContentTest {
     SchemaAndValue sv = jsonConverter.toConnectData(TOPIC, valueContents);
 
     SinkRecord record =
-        new SinkRecord(
-            TOPIC, PARTITION, Schema.STRING_SCHEMA, "string", sv.schema(), sv.value(), PARTITION);
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withValueSchema(sv.schema())
+            .withValue(sv.value())
+            .build();
     Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
 
     assert got.containsKey("\"NaMe\"");
