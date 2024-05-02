@@ -193,7 +193,7 @@ public class TopicPartitionChannel {
         kafkaRecordErrorReporter,
         sinkTaskContext,
         conn,
-        new RecordService(telemetryService),
+        new RecordService(),
         telemetryService,
         false,
         null);

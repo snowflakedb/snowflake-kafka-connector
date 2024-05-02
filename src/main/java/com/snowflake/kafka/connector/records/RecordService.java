@@ -24,7 +24,6 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
@@ -53,6 +52,10 @@ import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
 
+/**
+ * Process records output JSON format: <i>{ "meta": { "offset": 123, "topic": "topic name",
+ * "partition": 123, "key":"key name" } "content": "record content" }</i>
+ */
 public class RecordService {
   private final KCLogger LOGGER = new KCLogger(RecordService.class.getName());
 
@@ -93,26 +96,9 @@ public class RecordService {
   // This class is designed to work with empty metadata config map
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
 
-  /** Send Telemetry Data to Snowflake */
-  private final SnowflakeTelemetryService telemetryService;
-
-  /**
-   * process records output JSON format: { "meta": { "offset": 123, "topic": "topic name",
-   * "partition": 123, "key":"key name" } "content": "record content" }
-   *
-   * <p>create a JsonRecordService instance
-   *
-   * @param telemetryService Telemetry Service Instance. Can be null.
-   */
-  public RecordService(SnowflakeTelemetryService telemetryService) {
-    this.telemetryService = telemetryService;
-  }
-
   /** Record service with null telemetry Service, only use it for testing. */
   @VisibleForTesting
-  public RecordService() {
-    this(null);
-  }
+  public RecordService() {}
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
     metadataConfig = metadataConfigIn;

@@ -243,7 +243,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            new RecordService(mockTelemetryService),
+            new RecordService(),
             mockTelemetryService,
             false,
             null);
@@ -273,7 +273,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            new RecordService(mockTelemetryService),
+            new RecordService(),
             mockTelemetryService,
             false,
             null);
@@ -295,7 +295,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            new RecordService(mockTelemetryService),
+            new RecordService(),
             mockTelemetryService,
             false,
             null);
@@ -318,7 +318,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             anotherMockForParamDisabled,
-            new RecordService(mockTelemetryService),
+            new RecordService(),
             mockTelemetryService,
             false,
             null);
@@ -348,7 +348,7 @@ public class TopicPartitionChannelTest {
               mockKafkaRecordErrorReporter,
               mockSinkTaskContext,
               mockSnowflakeConnectionService,
-              new RecordService(mockTelemetryService),
+              new RecordService(),
               mockTelemetryService,
               false,
               null);
@@ -810,7 +810,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            new RecordService(mockTelemetryService),
+            new RecordService(),
             mockTelemetryService,
             false,
             null);
