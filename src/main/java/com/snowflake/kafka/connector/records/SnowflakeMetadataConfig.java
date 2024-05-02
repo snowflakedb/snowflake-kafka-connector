@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CONNECTOR_TIME;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC;
@@ -13,6 +14,7 @@ import java.util.Optional;
 
 public class SnowflakeMetadataConfig {
   final boolean createtimeFlag;
+  final boolean connectorTimeFlag;
   final boolean topicFlag;
   final boolean offsetAndPartitionFlag;
   final boolean allFlag;
@@ -29,6 +31,7 @@ public class SnowflakeMetadataConfig {
    */
   public SnowflakeMetadataConfig(Map<String, String> config) {
     createtimeFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_CREATETIME);
+    connectorTimeFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_CONNECTOR_TIME);
     topicFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_TOPIC);
     offsetAndPartitionFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_OFFSET_AND_PARTITION);
     allFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_ALL);
@@ -39,14 +42,13 @@ public class SnowflakeMetadataConfig {
         Optional.ofNullable(config.get(property))
             .orElse(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_DEFAULT);
 
-    // Cannot use Boolean.parseBoolean in order to ensure backward compatibility.
-    // The equality check must be case sensitive.
-    return "true".equals(value);
+    return Boolean.parseBoolean(value);
   }
 
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("createtimeFlag", createtimeFlag)
+        .add("connectorTimeFlag", connectorTimeFlag)
         .add("topicFlag", topicFlag)
         .add("offsetAndPartitionFlag", offsetAndPartitionFlag)
         .add("allFlag", allFlag)

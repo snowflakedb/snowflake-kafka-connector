@@ -43,7 +43,7 @@ class TestNativeStringAvrosr:
             "Select * from {} limit 1".format(self.topic)).fetchone()
 
         # "schema_id" is lost since they are using native avro converter
-        goldMeta = r'{"CreateTime":\d*,"offset":0,"partition":0,' \
+        goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorTime":\d*,"offset":0,"partition":0,' \
                    r'"topic":"travis_correct_native_string_avrosr....."}'
         goldContent = r'{"firstName":"abc0","time":1835}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)

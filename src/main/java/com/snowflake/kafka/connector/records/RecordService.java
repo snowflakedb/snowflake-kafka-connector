@@ -27,6 +27,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -69,6 +70,7 @@ public class RecordService {
   static final String CONTENT = "content";
   static final String META = "meta";
   static final String SCHEMA_ID = "schema_id";
+  static final String CONNECTOR_TIME = "SnowflakeConnectorTime";
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
 
@@ -96,9 +98,15 @@ public class RecordService {
   // This class is designed to work with empty metadata config map
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
 
-  /** Record service with null telemetry Service, only use it for testing. */
-  @VisibleForTesting
-  public RecordService() {}
+  private final Clock clock;
+
+  public RecordService(Clock clock) {
+    this.clock = clock;
+  }
+
+  public RecordService() {
+    this(Clock.systemUTC());
+  }
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
     metadataConfig = metadataConfigIn;
@@ -191,6 +199,10 @@ public class RecordService {
     // include schema id if using avro with schema registry
     if (valueContent.getSchemaID() != SnowflakeRecordContent.NON_AVRO_SCHEMA) {
       meta.put(SCHEMA_ID, valueContent.getSchemaID());
+    }
+
+    if (metadataConfig.connectorTimeFlag) {
+      meta.put(CONNECTOR_TIME, clock.instant().toEpochMilli());
     }
 
     putKey(record, meta);

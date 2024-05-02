@@ -29,7 +29,7 @@ class TestStringAvro:
         # validate content of line 1
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
-        goldMeta = r'{"CreateTime":\d*,"offset":0,"partition":0,' \
+        goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorTime":\d*,"offset":0,"partition":0,' \
                    r'"topic":"travis_correct_string_avro....."}'
         goldContent = r'{"timestamp":\d*,"tweet":"Rock:Nerfpaper,scissorsisfine.","username":"miguno"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)

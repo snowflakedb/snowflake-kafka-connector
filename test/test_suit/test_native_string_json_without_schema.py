@@ -29,7 +29,7 @@ class TestNativeStringJsonWithoutSchema:
         # validate content of line 1, this way we ensure SMT is working
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
-        goldMeta = r'{"CreateTime":\d*,"offset":0,"partition":0,' \
+        goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorTime":\d*,"offset":0,"partition":0,' \
                    r'"topic":"travis_correct_native_string_json_without_schema....."}'
         goldContent = r'{"number":"0"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
