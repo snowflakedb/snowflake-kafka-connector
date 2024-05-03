@@ -559,7 +559,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-registry-client</artifactId>
-            <version>7.2.1</version>
+            <version>7.6.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -583,7 +583,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
-            <version>7.2.1</version>
+            <version>7.6.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -595,7 +595,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-connect-avro-converter</artifactId>
-            <version>7.2.1</version>
+            <version>7.6.0</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/io.dropwizard.metrics/metrics-core -->
