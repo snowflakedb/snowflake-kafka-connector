@@ -503,7 +503,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       if (first) {
         first = false;
       } else {
-        appendColumnQuery.append(", ");
+        appendColumnQuery.append(", if not exists ");
         logColumn.append(",");
       }
       appendColumnQuery
