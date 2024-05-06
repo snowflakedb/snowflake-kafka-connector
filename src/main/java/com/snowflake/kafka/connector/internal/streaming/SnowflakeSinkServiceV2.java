@@ -118,7 +118,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.flushTimeSeconds = StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
     this.conn = conn;
     this.telemetryService = conn.getTelemetryClient();
-    this.recordService = new RecordService(this.telemetryService);
+    this.recordService = new RecordService();
     this.topicToTableMap = new HashMap<>();
 
     // Setting the default value in constructor

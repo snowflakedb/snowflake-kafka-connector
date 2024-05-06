@@ -98,7 +98,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     this.conn = conn;
     isStopped = false;
     this.telemetryService = conn.getTelemetryClient();
-    this.recordService = new RecordService(this.telemetryService);
+    this.recordService = new RecordService();
     this.topic2TableMap = new HashMap<>();
 
     // Setting the default value in constructor
