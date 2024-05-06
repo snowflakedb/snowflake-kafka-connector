@@ -15,7 +15,8 @@ class TestSnowpipeStreamingSchemaMappingDLQ:
         self.recordNum = 10
 
         self.expected_record_count_in_table = 0
-        self.expected_record_count_in_dlq = self.recordNum
+        # 2 types of incorrect records are sent
+        self.expected_record_count_in_dlq = 2 * self.recordNum
 
         # Create or replace is performed just after
         self.driver.snowflake_conn.cursor().execute(
@@ -27,6 +28,12 @@ class TestSnowpipeStreamingSchemaMappingDLQ:
             'PERFORMANCE_STRING': 'Excellent',
             'RATING_INT': "NO-a-NO"
         }
+
+        # record containing list can't be schematized
+        self.another_incorrect_kafka_record = [{
+            'PERFORMANCE_STRING': 'Excellent',
+            'RATING_INT': 100
+        }]
 
         self.correct_kafka_record = {
             'PERFORMANCE_STRING': 'Excellent',
@@ -43,21 +50,17 @@ class TestSnowpipeStreamingSchemaMappingDLQ:
 
     def send(self):
         # Send incorrect data and send correct data, in serialized fashion
+        self.__sendRecord(self.incorrect_kafka_record, self.recordNum)
+        self.__sendRecord(self.another_incorrect_kafka_record, self.recordNum)
+        self.__sendRecord(self.correct_kafka_record, self.recordNum)
+
+    def __sendRecord(self, record, number_of_records):
         key = []
         value = []
-        for e in range(self.recordNum):
+        for e in range(number_of_records):
             key.append(json.dumps({'number': str(e)}).encode('utf-8'))
-            value.append(json.dumps(self.incorrect_kafka_record).encode('utf-8'))
+            value.append(json.dumps(record).encode('utf-8'))
         self.driver.sendBytesData(self.topic, value, key)
-
-        # Send correct data
-        key = []
-        value = []
-        for e in range(self.recordNum):
-            key.append(json.dumps({'number': str(e)}).encode('utf-8'))
-            value.append(json.dumps(self.correct_kafka_record).encode('utf-8'))
-        self.driver.sendBytesData(self.topic, value, key)
-
 
     def verify(self, round):
         rows = self.driver.snowflake_conn.cursor().execute(
