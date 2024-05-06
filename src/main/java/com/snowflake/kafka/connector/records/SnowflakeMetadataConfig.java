@@ -1,8 +1,15 @@
 package com.snowflake.kafka.connector.records;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC;
+
+import com.google.common.base.MoreObjects;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public class SnowflakeMetadataConfig {
   final boolean createtimeFlag;
@@ -12,64 +19,37 @@ public class SnowflakeMetadataConfig {
 
   /** initialize with default config */
   public SnowflakeMetadataConfig() {
-    this(new HashMap<String, String>());
+    this(new HashMap<>());
   }
 
   /**
-   * set flag to false only if metadata config is set to false in config
+   * Set flag to false only if metadata config is not set to "true" in config.
    *
    * @param config a String to String map of configs
    */
   public SnowflakeMetadataConfig(Map<String, String> config) {
-    // have those local variable to avoid assigning to final values multiple times
-    // these values are the default values of the configuration
-    boolean createtime = true;
-    boolean topic = true;
-    boolean offsetAndPartition = true;
-    boolean all = true;
-    if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME)
-        && !config
-            .get(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME)
-            .equals(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_DEFAULT)) {
-      createtime = false;
-    }
-    if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC)
-        && !config
-            .get(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC)
-            .equals(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_DEFAULT)) {
-      topic = false;
-    }
-    if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION)
-        && !config
-            .get(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION)
-            .equals(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_DEFAULT)) {
-      offsetAndPartition = false;
-    }
-    if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL)
-        && !config
-            .get(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL)
-            .equals(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_DEFAULT)) {
-      all = false;
-    }
+    createtimeFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_CREATETIME);
+    topicFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_TOPIC);
+    offsetAndPartitionFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_OFFSET_AND_PARTITION);
+    allFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_ALL);
+  }
 
-    createtimeFlag = createtime;
-    topicFlag = topic;
-    offsetAndPartitionFlag = offsetAndPartition;
-    allFlag = all;
+  private static boolean getMetadataProperty(Map<String, String> config, String property) {
+    String value =
+        Optional.ofNullable(config.get(property))
+            .orElse(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_DEFAULT);
+
+    // Cannot use Boolean.parseBoolean in order to ensure backward compatibility.
+    // The equality check must be case sensitive.
+    return "true".equals(value);
   }
 
   public String toString() {
-    return "{createtimeFlag: "
-        + createtimeFlag
-        + ", "
-        + "topicFlag: "
-        + topicFlag
-        + ", "
-        + "offsetAndPartitionFlag: "
-        + offsetAndPartitionFlag
-        + ", "
-        + "allFlag: "
-        + allFlag
-        + "}";
+    return MoreObjects.toStringHelper(this)
+        .add("createtimeFlag", createtimeFlag)
+        .add("topicFlag", topicFlag)
+        .add("offsetAndPartitionFlag", offsetAndPartitionFlag)
+        .add("allFlag", allFlag)
+        .toString();
   }
 }
