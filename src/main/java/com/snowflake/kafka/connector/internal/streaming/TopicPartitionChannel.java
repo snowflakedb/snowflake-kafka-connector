@@ -20,6 +20,8 @@ import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
@@ -1228,8 +1230,16 @@ public class TopicPartitionChannel {
           }
         }
       }
-    } catch (JsonProcessingException e) {
-      // We ignore any errors here because this is just calculating the record size
+    } catch (Exception e) {
+      boolean isJsonProcessingEx = e instanceof JsonProcessingException;
+      boolean isSnowflakeParsingEx =
+          e instanceof SnowflakeKafkaConnectorException
+              && ((SnowflakeKafkaConnectorException) e).checkErrorCode(SnowflakeErrors.ERROR_0010);
+      if (!(isJsonProcessingEx || isSnowflakeParsingEx)) {
+        // We ignore any errors parsing exceptions here because this is just calculating the record
+        // size
+        throw new RuntimeException(e);
+      }
     }
 
     sinkRecordBufferSizeInBytes += StreamingUtils.MAX_RECORD_OVERHEAD_BYTES;
@@ -1320,6 +1330,16 @@ public class TopicPartitionChannel {
                 kafkaSinkRecord.kafkaOffset(),
                 kafkaSinkRecord.topic());
             kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
+          } catch (SnowflakeKafkaConnectorException e) {
+            if (e.checkErrorCode(SnowflakeErrors.ERROR_0010)) {
+              LOGGER.warn(
+                  "Cannot parse record offset:{}, topic:{}. Sending to DLQ.",
+                  kafkaSinkRecord.kafkaOffset(),
+                  kafkaSinkRecord.topic());
+              kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
+            } else {
+              throw e;
+            }
           }
         }
       }
