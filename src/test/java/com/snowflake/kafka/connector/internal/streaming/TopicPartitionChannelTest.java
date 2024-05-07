@@ -252,6 +252,71 @@ public class TopicPartitionChannelTest {
   }
 
   @Test
+  public void closeChannel_withSFExceptionInFuture_swallowsException() {
+    // given
+    CompletableFuture<Void> closeChannelFuture = new CompletableFuture<>();
+    closeChannelFuture.completeExceptionally(SF_EXCEPTION);
+
+    Mockito.when(mockStreamingChannel.close()).thenReturn(closeChannelFuture);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            true,
+            streamingBufferThreshold,
+            sfConnectorConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext,
+            mockSnowflakeConnectionService,
+            new RecordService(),
+            mockTelemetryService,
+            false,
+            null);
+
+    // when
+    topicPartitionChannel.closeChannel();
+
+    // then
+    Mockito.verify(mockTelemetryService, Mockito.times(1))
+        .reportKafkaConnectFatalError(anyString());
+  }
+
+  @Test
+  public void closeChannel_withSFExceptionThrown_swallowsException() {
+    // given
+    Mockito.when(mockStreamingChannel.close()).thenThrow(SF_EXCEPTION);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            true,
+            streamingBufferThreshold,
+            sfConnectorConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext,
+            mockSnowflakeConnectionService,
+            new RecordService(),
+            mockTelemetryService,
+            false,
+            null);
+
+    // when
+    topicPartitionChannel.closeChannel();
+
+    // then
+    Mockito.verify(mockTelemetryService, Mockito.times(1))
+        .reportKafkaConnectFatalError(anyString());
+  }
+
+  @Test
   public void testStreamingChannelMigrationEnabledAndDisabled() {
 
     Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
