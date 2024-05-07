@@ -13,6 +13,7 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
@@ -258,7 +259,7 @@ public class RecordContentTest {
     SinkRecord record =
         SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION).withSchemaAndValue(sv).build();
 
-    Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
+    Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record, Instant.now());
     // each field should be dumped into string format
     // json string should not be enclosed in additional brackets
     // a non-double-quoted column name will be transformed into uppercase
@@ -280,7 +281,7 @@ public class RecordContentTest {
     SinkRecord record =
         SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION).withSchemaAndValue(sv).build();
 
-    Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
+    Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record, Instant.now());
     assertEquals(
         "[{\"name\":\"John Doe\",\"age\":30},{\"name\":\"Jane Doe\",\"age\":30}]",
         got.get("\"PLAYERS\""));
@@ -298,7 +299,7 @@ public class RecordContentTest {
 
     SinkRecord record =
         SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION).withSchemaAndValue(sv).build();
-    Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record);
+    Map<String, Object> got = service.getProcessedRecordForStreamingIngest(record, Instant.now());
 
     assertTrue(got.containsKey("\"NaMe\""));
     assertTrue(got.containsKey("\"ANSWER\""));
@@ -373,7 +374,8 @@ public class RecordContentTest {
       SinkRecord record, String expectedRecordContent, String expectedRecordMetadataKey)
       throws JsonProcessingException {
     RecordService service = new RecordService();
-    Map<String, Object> recordData = service.getProcessedRecordForStreamingIngest(record);
+    Map<String, Object> recordData =
+        service.getProcessedRecordForStreamingIngest(record, Instant.now());
 
     assertEquals(2, recordData.size());
     assertEquals(expectedRecordContent, recordData.get("RECORD_CONTENT"));

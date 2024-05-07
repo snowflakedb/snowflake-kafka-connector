@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CONNECTOR_TIME;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CONNECTOR_PUSH_TIME;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC;
@@ -14,7 +14,7 @@ import java.util.Optional;
 
 public class SnowflakeMetadataConfig {
   final boolean createtimeFlag;
-  final boolean connectorTimeFlag;
+  final boolean connectorPushTimeFlag;
   final boolean topicFlag;
   final boolean offsetAndPartitionFlag;
   final boolean allFlag;
@@ -31,7 +31,7 @@ public class SnowflakeMetadataConfig {
    */
   public SnowflakeMetadataConfig(Map<String, String> config) {
     createtimeFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_CREATETIME);
-    connectorTimeFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_CONNECTOR_TIME);
+    connectorPushTimeFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_CONNECTOR_PUSH_TIME);
     topicFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_TOPIC);
     offsetAndPartitionFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_OFFSET_AND_PARTITION);
     allFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_ALL);
@@ -48,7 +48,7 @@ public class SnowflakeMetadataConfig {
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("createtimeFlag", createtimeFlag)
-        .add("connectorTimeFlag", connectorTimeFlag)
+        .add("connectorPushTimeFlag", connectorPushTimeFlag)
         .add("topicFlag", topicFlag)
         .add("offsetAndPartitionFlag", offsetAndPartitionFlag)
         .add("allFlag", allFlag)

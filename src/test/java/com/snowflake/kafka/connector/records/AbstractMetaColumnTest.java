@@ -1,11 +1,9 @@
 package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CONNECTOR_TIME;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC;
-import static com.snowflake.kafka.connector.records.RecordService.CONNECTOR_TIME;
 import static com.snowflake.kafka.connector.records.RecordService.KEY;
 import static com.snowflake.kafka.connector.records.RecordService.OFFSET;
 import static com.snowflake.kafka.connector.records.RecordService.PARTITION;
@@ -28,9 +26,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -50,8 +45,8 @@ abstract class AbstractMetaColumnTest {
 
   private static final String TEST_VALUE_FILE_NAME = "test.avro";
 
-  private final String topic = "test";
-  private final int partition = 0;
+  protected final String topic = "test";
+  protected final int partition = 0;
 
   /**
    * Expected to be implemented by concrete Snowpipe/Snowpipe Streaming tests.
@@ -120,29 +115,28 @@ abstract class AbstractMetaColumnTest {
     assertEquals(enabledFields.contains(OFFSET), metadata.has(OFFSET));
     assertEquals(enabledFields.contains(PARTITION), metadata.has(PARTITION));
     assertEquals(enabledFields.contains(timestampType.name), metadata.has(timestampType.name));
-    assertEquals(enabledFields.contains(CONNECTOR_TIME), metadata.has(CONNECTOR_TIME));
+    // ConnectorPushTime is present for SnowpipeStreaming only.
   }
 
   static Stream<Arguments> dataFor_disablingFields() {
     return Stream.of(
         arguments(
             ImmutableMap.of(SNOWFLAKE_METADATA_CREATETIME, "false"),
-            ImmutableSet.of(TOPIC, PARTITION, OFFSET, CONNECTOR_TIME)),
-        arguments(
-            ImmutableMap.of(SNOWFLAKE_METADATA_CONNECTOR_TIME, "false"),
-            ImmutableSet.of(TOPIC, PARTITION, OFFSET, TimestampType.CREATE_TIME.name)),
+            ImmutableSet.of(TOPIC, PARTITION, OFFSET)),
         arguments(
             ImmutableMap.of(SNOWFLAKE_METADATA_TOPIC, "false"),
-            ImmutableSet.of(PARTITION, OFFSET, TimestampType.CREATE_TIME.name, CONNECTOR_TIME)),
+            ImmutableSet.of(PARTITION, OFFSET, TimestampType.CREATE_TIME.name)),
         arguments(
             ImmutableMap.of(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "false"),
-            ImmutableSet.of(TOPIC, TimestampType.CREATE_TIME.name, CONNECTOR_TIME)),
+            ImmutableSet.of(TOPIC, TimestampType.CREATE_TIME.name)),
         arguments(
             ImmutableMap.of(
-                SNOWFLAKE_METADATA_CREATETIME, "false",
-                SNOWFLAKE_METADATA_CONNECTOR_TIME, "false",
-                SNOWFLAKE_METADATA_TOPIC, "false",
-                SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "false"),
+                SNOWFLAKE_METADATA_CREATETIME,
+                "false",
+                SNOWFLAKE_METADATA_TOPIC,
+                "false",
+                SNOWFLAKE_METADATA_OFFSET_AND_PARTITION,
+                "false"),
             emptySet()));
   }
 
@@ -279,30 +273,7 @@ abstract class AbstractMetaColumnTest {
     assertEquals(1, content.getSchemaID());
   }
 
-  @Test
-  void connectorTimestamp() throws JsonProcessingException {
-    // given
-    SchemaAndValue input = getJsonInputData();
-    SinkRecord record =
-        SinkRecordBuilder.forTopicPartition(topic, partition)
-            .withValueSchema(input.schema())
-            .withValue(input.value())
-            .build();
-
-    Instant fixedNow = Instant.now();
-    Clock fixedClock = Clock.fixed(fixedNow, ZoneOffset.UTC);
-
-    RecordService service = new RecordService(fixedClock);
-
-    // when
-    JsonNode metadata = getMetadataNode(service, record);
-
-    // then
-    assertNotNull(metadata);
-    assertEquals(fixedNow.toEpochMilli(), metadata.get(CONNECTOR_TIME).asLong());
-  }
-
-  private SchemaAndValue getJsonInputData() {
+  protected SchemaAndValue getJsonInputData() {
     return new SnowflakeJsonConverter()
         .toConnectData(topic, ("{\"name\":\"test\"}").getBytes(StandardCharsets.UTF_8));
   }

@@ -98,7 +98,8 @@ public class SnowflakeSinkConnectorConfig {
   // Snowflake Metadata Flags
   private static final String SNOWFLAKE_METADATA_FLAGS = "Snowflake Metadata Flags";
   public static final String SNOWFLAKE_METADATA_CREATETIME = "snowflake.metadata.createtime";
-  public static final String SNOWFLAKE_METADATA_CONNECTOR_TIME = "snowflake.metadata.connectorTime";
+  public static final String SNOWFLAKE_METADATA_CONNECTOR_PUSH_TIME =
+      "snowflake.metadata.connectorPushTime";
   public static final String SNOWFLAKE_METADATA_TOPIC = "snowflake.metadata.topic";
   public static final String SNOWFLAKE_METADATA_OFFSET_AND_PARTITION =
       "snowflake.metadata.offset.and.partition";
