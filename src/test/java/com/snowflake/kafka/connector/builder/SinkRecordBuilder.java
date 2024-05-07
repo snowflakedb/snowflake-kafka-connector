@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.builder;
 
+import com.google.common.base.Preconditions;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -63,6 +64,10 @@ public class SinkRecordBuilder {
   }
 
   public SinkRecordBuilder withTimestamp(long timestamp, TimestampType timestampType) {
+    Preconditions.checkArgument(
+        timestampType != TimestampType.NO_TIMESTAMP_TYPE,
+        "NO_TIMESTAMP_TYPE is the default timestampType");
+
     this.timestamp = timestamp;
     this.timestampType = timestampType;
     return this;
