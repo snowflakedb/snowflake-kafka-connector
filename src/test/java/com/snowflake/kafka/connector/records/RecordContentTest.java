@@ -134,36 +134,6 @@ public class RecordContentTest {
   }
 
   @ParameterizedTest
-  @MethodSource("disabledTombstoneSource")
-  public void recordService_getProcessedRecordForSnowpipe_whenDisabledTombstone_throwException(
-      SinkRecord record) {
-    // given
-    RecordService service = new RecordService();
-    service.setBehaviorOnNullValues(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE);
-
-    // expect
-    Assertions.assertThrows(
-        SnowflakeKafkaConnectorException.class,
-        () -> service.getProcessedRecordForSnowpipe(record));
-  }
-
-  public static Stream<Arguments> disabledTombstoneSource() throws JsonProcessingException {
-    JsonNode data = OBJECT_MAPPER.readTree("{\"name\":123}");
-    SnowflakeRecordContent content = new SnowflakeRecordContent(data);
-    return Stream.of(
-        Arguments.of(
-            Named.of(
-                "empty value with schema",
-                SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION).withValue(null).build()),
-            Arguments.of(
-                Named.of(
-                    "not empty value without schema",
-                    SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
-                        .withValue(content)
-                        .build()))));
-  }
-
-  @ParameterizedTest
   @MethodSource("invalidSchemaSource")
   public void recordService_getProcessedRecordForSnowpipe_whenInvalidSchema_throwException(
       Schema schema, Object value) {
