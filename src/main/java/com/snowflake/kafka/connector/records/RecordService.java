@@ -142,7 +142,7 @@ public class RecordService {
     SnowflakeRecordContent valueContent;
 
     if (record.value() == null || record.valueSchema() == null) {
-        valueContent = new SnowflakeRecordContent();
+      valueContent = new SnowflakeRecordContent();
     } else {
       if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME)) {
         throw SnowflakeErrors.ERROR_0009.getException();
