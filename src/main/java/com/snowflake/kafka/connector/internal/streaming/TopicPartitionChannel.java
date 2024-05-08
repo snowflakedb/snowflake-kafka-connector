@@ -1140,7 +1140,9 @@ public class TopicPartitionChannel {
             this.getChannelNameFormatV1(), cause.getMessage());
     this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
 
-    // Only SFExceptions are swallowed.
+    // Only SFExceptions are swallowed. If a channel-related error occurs, it shouldn't fail a
+    // connector task. The channel is going to be reopened after a rebalance, so the failed channel
+    // will be invalidated anyway.
     if (cause instanceof SFException) {
       LOGGER.warn(
           "Closing Streaming Channel={} encountered an exception {}: {} {}",
