@@ -3,6 +3,8 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
 import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
@@ -27,6 +29,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -92,7 +95,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // Config set in JSON
   private final Map<String, String> connectorConfig;
 
-  private boolean enableSchematization;
+  private final boolean enableSchematization;
+
+  private final boolean closeChannelsInParallel;
 
   /**
    * Key is formulated in {@link #partitionChannelKey(String, int)} }
@@ -130,6 +135,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
 
+    this.closeChannelsInParallel =
+        Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL))
+            .map(Boolean::parseBoolean)
+            .orElse(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT);
+
     this.streamingIngestClient =
         StreamingClientProvider.getStreamingClientProviderInstance()
             .getClient(this.connectorConfig);
@@ -162,6 +172,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       SnowflakeStreamingIngestClient streamingIngestClient,
       Map<String, String> connectorConfig,
       boolean enableSchematization,
+      boolean closeChannelsInParallel,
       Map<String, TopicPartitionChannel> partitionsToChannel) {
     this.flushTimeSeconds = flushTimeSeconds;
     this.fileSizeBytes = fileSizeBytes;
@@ -180,6 +191,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         StreamingClientProvider.getStreamingClientProviderInstance()
             .getClient(this.connectorConfig);
     this.enableSchematization = enableSchematization;
+    this.closeChannelsInParallel = closeChannelsInParallel;
     this.partitionsToChannel = partitionsToChannel;
 
     this.tableName2SchemaEvolutionPermission = new HashMap<>();
@@ -349,15 +361,40 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void closeAll() {
+    if (closeChannelsInParallel) {
+      closeAllInParallel();
+    } else {
+      closeAllSequentially();
+    }
+
+    partitionsToChannel.clear();
+
+    StreamingClientProvider.getStreamingClientProviderInstance()
+        .closeClient(this.connectorConfig, this.streamingIngestClient);
+  }
+
+  private void closeAllSequentially() {
     partitionsToChannel.forEach(
         (partitionChannelKey, topicPartitionChannel) -> {
           LOGGER.info("Closing partition channel:{}", partitionChannelKey);
           topicPartitionChannel.closeChannel();
         });
-    partitionsToChannel.clear();
+  }
 
-    StreamingClientProvider.getStreamingClientProviderInstance()
-        .closeClient(this.connectorConfig, this.streamingIngestClient);
+  private void closeAllInParallel() {
+    CompletableFuture<?>[] futures =
+        partitionsToChannel.entrySet().stream()
+            .map(
+                entry -> {
+                  String channelKey = entry.getKey();
+                  TopicPartitionChannel topicPartitionChannel = entry.getValue();
+
+                  LOGGER.info("Closing partition channel:{}", channelKey);
+                  return topicPartitionChannel.closeChannelAsync();
+                })
+            .toArray(CompletableFuture[]::new);
+
+    CompletableFuture.allOf(futures).join();
   }
 
   /**
@@ -374,6 +411,20 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void close(Collection<TopicPartition> partitions) {
+    if (closeChannelsInParallel) {
+      closeInParallel(partitions);
+    } else {
+      closeSequentially(partitions);
+    }
+
+    LOGGER.info(
+        "Closing {} partitions and remaining partitions which are not closed are:{}, with size:{}",
+        partitions.size(),
+        partitionsToChannel.keySet().toString(),
+        partitionsToChannel.size());
+  }
+
+  private void closeSequentially(Collection<TopicPartition> partitions) {
     partitions.forEach(
         topicPartition -> {
           final String partitionChannelKey =
@@ -392,11 +443,33 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               topicPartition.partition());
           partitionsToChannel.remove(partitionChannelKey);
         });
+  }
+
+  private void closeInParallel(Collection<TopicPartition> partitions) {
+    CompletableFuture<?>[] futures =
+        partitions.stream().map(this::closeTopicPartition).toArray(CompletableFuture[]::new);
+
+    CompletableFuture.allOf(futures).join();
+  }
+
+  private CompletableFuture<Void> closeTopicPartition(TopicPartition topicPartition) {
+    String key = partitionChannelKey(topicPartition.topic(), topicPartition.partition());
+
+    TopicPartitionChannel topicPartitionChannel = partitionsToChannel.get(key);
+
     LOGGER.info(
-        "Closing {} partitions and remaining partitions which are not closed are:{}, with size:{}",
-        partitions.size(),
-        partitionsToChannel.keySet().toString(),
-        partitionsToChannel.size());
+        "Closing partitionChannel:{}, partition:{}, topic:{}",
+        topicPartitionChannel == null ? null : topicPartitionChannel.getChannelNameFormatV1(),
+        topicPartition.topic(),
+        topicPartition.partition());
+
+    // It's possible that some partitions can be unassigned before their respective channels are
+    // even created.
+    return topicPartitionChannel == null
+        ? CompletableFuture.completedFuture(null)
+        : topicPartitionChannel
+            .closeChannelAsync()
+            .thenAccept(__ -> partitionsToChannel.remove(key));
   }
 
   @Override

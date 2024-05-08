@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.CONNECTOR_CLASS_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.TASKS_MAX_CONFIG;
@@ -71,6 +72,7 @@ class ConnectClusterBaseIT {
     config.put(Utils.SF_ROLE, "testrole_kafka");
     config.put(BUFFER_FLUSH_TIME_SEC, "1");
     config.put(TASKS_MAX_CONFIG, TASK_NUMBER.toString());
+    config.put(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL, "true");
     config.put(KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
     config.put(VALUE_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
 
