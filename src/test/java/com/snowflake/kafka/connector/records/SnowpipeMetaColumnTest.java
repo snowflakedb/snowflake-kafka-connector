@@ -1,12 +1,14 @@
 package com.snowflake.kafka.connector.records;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME;
 import static com.snowflake.kafka.connector.records.RecordService.CONNECTOR_PUSH_TIME;
 import static com.snowflake.kafka.connector.records.RecordService.META;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
-import java.time.Instant;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
@@ -37,9 +39,11 @@ class SnowpipeMetaColumnTest extends AbstractMetaColumnTest {
             .withValue(input.value())
             .build();
 
-    Instant now = Instant.now();
-
     RecordService service = new RecordService();
+
+    Map<String, String> config =
+        ImmutableMap.of(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME, "true");
+    service.setMetadataConfig(new SnowflakeMetadataConfig(config));
 
     // when
     JsonNode metadata = getMetadataNode(service, record);

@@ -1,10 +1,6 @@
 package com.snowflake.kafka.connector.records;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CONNECTOR_PUSH_TIME;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 
 import com.google.common.base.MoreObjects;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -31,10 +27,14 @@ public class SnowflakeMetadataConfig {
    */
   public SnowflakeMetadataConfig(Map<String, String> config) {
     createtimeFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_CREATETIME);
-    connectorPushTimeFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_CONNECTOR_PUSH_TIME);
     topicFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_TOPIC);
     offsetAndPartitionFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_OFFSET_AND_PARTITION);
     allFlag = getMetadataProperty(config, SNOWFLAKE_METADATA_ALL);
+
+    connectorPushTimeFlag =
+        Optional.ofNullable(config.get(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME))
+            .map(Boolean::parseBoolean)
+            .orElse(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME_DEFAULT);
   }
 
   private static boolean getMetadataProperty(Map<String, String> config, String property) {

@@ -41,7 +41,7 @@ class TestStringAvrosr:
         # validate content of line 1
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
-        goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorTime":\d*,"offset":0,"partition":0,"schema_id":\d*,' \
+        goldMeta = r'{"CreateTime":\d*,"offset":0,"partition":0,"schema_id":\d*,' \
                    r'"topic":"travis_correct_string_avrosr....."}'
         goldContent = r'{"firstName":"abc0","id":0,"time":1835}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)

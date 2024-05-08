@@ -98,13 +98,15 @@ public class SnowflakeSinkConnectorConfig {
   // Snowflake Metadata Flags
   private static final String SNOWFLAKE_METADATA_FLAGS = "Snowflake Metadata Flags";
   public static final String SNOWFLAKE_METADATA_CREATETIME = "snowflake.metadata.createtime";
-  public static final String SNOWFLAKE_METADATA_CONNECTOR_PUSH_TIME =
-      "snowflake.metadata.connectorPushTime";
   public static final String SNOWFLAKE_METADATA_TOPIC = "snowflake.metadata.topic";
   public static final String SNOWFLAKE_METADATA_OFFSET_AND_PARTITION =
       "snowflake.metadata.offset.and.partition";
   public static final String SNOWFLAKE_METADATA_ALL = "snowflake.metadata.all";
   public static final String SNOWFLAKE_METADATA_DEFAULT = "true";
+
+  public static final String SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME =
+      "snowflake.streaming.metadata.connectorPushTime";
+  public static final boolean SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME_DEFAULT = false;
 
   // Where is Kafka hosted? self, confluent or any other in future.
   // By default it will be None since this is not enforced and only used for monitoring
@@ -513,6 +515,17 @@ public class SnowflakeSinkConnectorConfig {
             3,
             ConfigDef.Width.NONE,
             SNOWFLAKE_METADATA_OFFSET_AND_PARTITION)
+        .define(
+            SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME,
+            Type.BOOLEAN,
+            SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME_DEFAULT,
+            Importance.LOW,
+            "Flag to control whether ConnectorPushTime is collected in snowflake metadata for"
+                + " Snowpipe Streaming",
+            SNOWFLAKE_METADATA_FLAGS,
+            4,
+            ConfigDef.Width.NONE,
+            SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME)
         .define(
             PROVIDER_CONFIG,
             Type.STRING,
