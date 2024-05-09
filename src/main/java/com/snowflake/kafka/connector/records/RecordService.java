@@ -71,7 +71,7 @@ public class RecordService {
   static final String CONTENT = "content";
   static final String META = "meta";
   static final String SCHEMA_ID = "schema_id";
-  static final String CONNECTOR_PUSH_TIME = "ConnectorPushTime";
+  static final String CONNECTOR_PUSH_TIME = "SnowflakeConnectorPushTime";
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
 

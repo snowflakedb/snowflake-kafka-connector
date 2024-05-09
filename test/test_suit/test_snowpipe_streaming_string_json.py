@@ -88,7 +88,7 @@ class TestSnowpipeStreamingStringJson:
         self._verify_connector_push_time()
 
     def _verify_connector_push_time(self):
-        res = self.driver.snowflake_conn.cursor().execute(f'select count(*) from {self.topic} where not is_null_value(record_metadata:ConnectorPushTime)').fetchone()[0]
+        res = self.driver.snowflake_conn.cursor().execute(f'select count(*) from {self.topic} where not is_null_value(record_metadata:SnowflakeConnectorPushTime)').fetchone()[0]
 
         if res != self.recordNum * self.partitionNum:
             raise NonRetryableError('Empty ConnectorPushTime detected')
