@@ -1,6 +1,11 @@
 package com.snowflake.kafka.connector.records;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME_DEFAULT;
 
 import com.google.common.base.MoreObjects;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
