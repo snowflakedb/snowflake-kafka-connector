@@ -73,8 +73,6 @@ public class RecordService {
   static final String HEADERS = "headers";
 
   private boolean enableSchematization = false;
-  private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues =
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
@@ -135,19 +133,6 @@ public class RecordService {
   }
 
   /**
-   * Directly set the behaviorOnNullValues through param
-   *
-   * <p>This method is only for testing
-   *
-   * @param behaviorOnNullValues how to handle null values
-   */
-  @VisibleForTesting
-  public void setBehaviorOnNullValues(
-      final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues) {
-    this.behaviorOnNullValues = behaviorOnNullValues;
-  }
-
-  /**
    * process given SinkRecord, only support snowflake converters
    *
    * @param record SinkRecord
@@ -157,11 +142,7 @@ public class RecordService {
     SnowflakeRecordContent valueContent;
 
     if (record.value() == null || record.valueSchema() == null) {
-      if (this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
-        valueContent = new SnowflakeRecordContent();
-      } else {
-        throw SnowflakeErrors.ERROR_5016.getException();
-      }
+      valueContent = new SnowflakeRecordContent();
     } else {
       if (!record.valueSchema().name().equals(SnowflakeJsonSchema.NAME)) {
         throw SnowflakeErrors.ERROR_0009.getException();
@@ -263,8 +244,7 @@ public class RecordService {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
 
     // return empty if tombstone record
-    if (node.size() == 0
-        && this.behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+    if (node.isEmpty()) {
       return streamingIngestRow;
     }
 

@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
@@ -131,36 +130,6 @@ public class RecordContentTest {
     assertEquals(
         "{\"int8\":12,\"int16\":12,\"int32\":12,\"int64\":12,\"float32\":12.2,\"float64\":12.2,\"boolean\":true,\"string\":\"foo\",\"bytes\":\"Zm9v\",\"array\":[\"a\",\"b\",\"c\"],\"map\":{\"field\":1},\"mapNonStringKeys\":[[1,1]]}",
         content.getData()[0].toString());
-  }
-
-  @ParameterizedTest
-  @MethodSource("disabledTombstoneSource")
-  public void recordService_getProcessedRecordForSnowpipe_whenDisabledTombstone_throwException(
-      SinkRecord record) {
-    // given
-    RecordService service = new RecordService();
-    service.setBehaviorOnNullValues(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.IGNORE);
-
-    // expect
-    Assertions.assertThrows(
-        SnowflakeKafkaConnectorException.class,
-        () -> service.getProcessedRecordForSnowpipe(record));
-  }
-
-  public static Stream<Arguments> disabledTombstoneSource() throws JsonProcessingException {
-    JsonNode data = OBJECT_MAPPER.readTree("{\"name\":123}");
-    SnowflakeRecordContent content = new SnowflakeRecordContent(data);
-    return Stream.of(
-        Arguments.of(
-            Named.of(
-                "empty value with schema",
-                SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION).withValue(null).build()),
-            Arguments.of(
-                Named.of(
-                    "not empty value without schema",
-                    SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
-                        .withValue(content)
-                        .build()))));
   }
 
   @ParameterizedTest
