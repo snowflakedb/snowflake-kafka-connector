@@ -93,8 +93,6 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
   }
 
   public long countChannels(Predicate<SnowflakeStreamingIngestChannel> predicate) {
-    return this.channelCache.values().stream()
-        .filter(predicate)
-        .count();
+    return this.channelCache.values().stream().filter(predicate).count();
   }
 }

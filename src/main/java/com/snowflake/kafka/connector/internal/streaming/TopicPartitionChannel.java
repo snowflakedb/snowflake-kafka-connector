@@ -1117,8 +1117,8 @@ public class TopicPartitionChannel {
     try {
       return this.channel.close();
     } catch (SFException e) {
-      // Calling channel.close() can throw an SFException if the channel has been invalidated already.
-      // Wrapping the exception into a CompletableFuture to keep a consistent method chain.
+      // Calling channel.close() can throw an SFException if the channel has been invalidated
+      // already. Wrapping the exception into a CompletableFuture to keep a consistent method chain.
       CompletableFuture<Void> future = new CompletableFuture<>();
       future.completeExceptionally(e);
       return future;

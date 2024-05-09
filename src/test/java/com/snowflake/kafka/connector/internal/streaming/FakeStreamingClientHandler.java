@@ -64,8 +64,6 @@ public class FakeStreamingClientHandler implements StreamingClientHandler {
   }
 
   public long countChannels(Predicate<SnowflakeStreamingIngestChannel> predicate) {
-    return this.clients.stream()
-        .mapToLong(channel -> channel.countChannels(predicate))
-        .sum();
+    return this.clients.stream().mapToLong(channel -> channel.countChannels(predicate)).sum();
   }
 }

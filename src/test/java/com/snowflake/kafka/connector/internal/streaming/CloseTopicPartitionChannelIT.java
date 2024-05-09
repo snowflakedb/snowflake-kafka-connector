@@ -31,8 +31,12 @@ class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
   }
 
   private void generateKafkaMessages() {
-    IntStream.range(0, PARTITIONS_NUMBER).forEach(partition ->
-        connectCluster.kafka().produce(topicName, partition, "key-" + partition, "message-" + partition));
+    IntStream.range(0, PARTITIONS_NUMBER)
+        .forEach(
+            partition ->
+                connectCluster
+                    .kafka()
+                    .produce(topicName, partition, "key-" + partition, "message-" + partition));
   }
 
   @AfterEach
@@ -47,29 +51,27 @@ class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
     connectCluster.configureConnector(connectorName, connectorProperties(closeInParallel));
     waitForConnectorRunning(connectorName);
 
-    await("channelsCreated")
-        .atMost(Duration.ofSeconds(30))
-        .until(this::channelsCreated);
+    await("channelsCreated").atMost(Duration.ofSeconds(30)).until(this::channelsCreated);
 
     // when
     connectCluster.deleteConnector(connectorName);
     waitForConnectorStopped(connectorName);
 
     // then
-    // Cluster considers the connector stopped even when it's still in the teardown phase. Therefore, some of the
-    // channels might still be opened instantly.
-    await("channelsClosed")
-        .atMost(Duration.ofSeconds(30))
-        .until(this::channelsClosed);
+    // Cluster considers the connector stopped even when it's still in the teardown phase.
+    // Therefore, some of the channels might still be opened instantly.
+    await("channelsClosed").atMost(Duration.ofSeconds(30)).until(this::channelsClosed);
   }
 
   private boolean channelsCreated() {
-    long channelsCount = fakeStreamingClientHandler.countChannels(SnowflakeStreamingIngestChannel::isValid);
+    long channelsCount =
+        fakeStreamingClientHandler.countChannels(SnowflakeStreamingIngestChannel::isValid);
     return PARTITIONS_NUMBER == channelsCount;
   }
 
   private boolean channelsClosed() {
-    long channelsCount = fakeStreamingClientHandler.countChannels(SnowflakeStreamingIngestChannel::isClosed);
+    long channelsCount =
+        fakeStreamingClientHandler.countChannels(SnowflakeStreamingIngestChannel::isClosed);
     return PARTITIONS_NUMBER == channelsCount;
   }
 
