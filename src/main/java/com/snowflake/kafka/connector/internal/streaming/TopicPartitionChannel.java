@@ -36,6 +36,7 @@ import dev.failsafe.function.CheckedSupplier;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -1082,13 +1083,18 @@ public class TopicPartitionChannel {
       // telemetry and metrics
       this.telemetryServiceV2.reportKafkaPartitionUsage(this.snowflakeTelemetryChannelStatus, true);
       this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException | ExecutionException | SFException e) {
       final String errMsg =
           String.format(
               "Failure closing Streaming Channel name:%s msg:%s",
               this.getChannelNameFormatV1(), e.getMessage());
       this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
-      LOGGER.error(errMsg, e);
+      LOGGER.error(
+          "Closing Streaming Channel={} encountered an exception {}: {} {}",
+          this.getChannelNameFormatV1(),
+          e.getClass(),
+          e.getMessage(),
+          Arrays.toString(e.getStackTrace()));
     }
   }
 
