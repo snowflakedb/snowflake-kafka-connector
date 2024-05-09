@@ -466,7 +466,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // It's possible that some partitions can be unassigned before their respective channels are
     // even created.
     return topicPartitionChannel == null
-        ? CompletableFuture.completedFuture(null)
+        ? CompletableFuture.completedFuture(null) // All is good, nothing needs to be done.
         : topicPartitionChannel
             .closeChannelAsync()
             .thenAccept(__ -> partitionsToChannel.remove(key));
