@@ -10,7 +10,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -29,8 +31,7 @@ class SnowpipeStreamingMetaColumnTest extends AbstractMetaColumnTest {
   @Nullable
   JsonNode getMetadataNode(RecordService service, SinkRecord record)
       throws JsonProcessingException {
-    Map<String, Object> processedRecord =
-        service.getProcessedRecordForStreamingIngest(record, Instant.now());
+    Map<String, Object> processedRecord = service.getProcessedRecordForStreamingIngest(record);
     return getMetadataNode(processedRecord);
   }
 
@@ -44,21 +45,22 @@ class SnowpipeStreamingMetaColumnTest extends AbstractMetaColumnTest {
             .withValue(input.value())
             .build();
 
-    Instant now = Instant.now();
+    Instant fixedNow = Instant.now();
+    Clock fixedClock = Clock.fixed(fixedNow, ZoneOffset.UTC);
 
-    RecordService service = new RecordService();
+    RecordService service = new RecordService(fixedClock);
 
     Map<String, String> config =
         ImmutableMap.of(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME, "true");
     service.setMetadataConfig(new SnowflakeMetadataConfig(config));
 
     // when
-    Map<String, Object> recordData = service.getProcessedRecordForStreamingIngest(record, now);
+    Map<String, Object> recordData = service.getProcessedRecordForStreamingIngest(record);
     JsonNode metadata = getMetadataNode(recordData);
 
     // then
     assertNotNull(metadata);
-    assertEquals(now.toEpochMilli(), metadata.get(CONNECTOR_PUSH_TIME).asLong());
+    assertEquals(fixedNow.toEpochMilli(), metadata.get(CONNECTOR_PUSH_TIME).asLong());
   }
 
   @Test

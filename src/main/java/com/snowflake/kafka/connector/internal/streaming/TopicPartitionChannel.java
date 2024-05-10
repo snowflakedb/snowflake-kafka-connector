@@ -35,7 +35,6 @@ import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -1214,7 +1213,7 @@ public class TopicPartitionChannel {
     try {
       // get the row that we want to insert into Snowflake.
       Map<String, Object> tableRow =
-          recordService.getProcessedRecordForStreamingIngest(snowflakeRecord, Instant.now());
+          recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
       // need to loop through the map and get the object node
       for (Map.Entry<String, Object> entry : tableRow.entrySet()) {
         sinkRecordBufferSizeInBytes += entry.getKey().length() * 2L;
@@ -1300,8 +1299,6 @@ public class TopicPartitionChannel {
       final List<Map<String, Object>> records = new ArrayList<>();
       final List<Long> offsets = new ArrayList<>();
 
-      final Instant now = Instant.now();
-
       for (SinkRecord kafkaSinkRecord : sinkRecords) {
         SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
 
@@ -1325,7 +1322,7 @@ public class TopicPartitionChannel {
           // there is an exception
           try {
             Map<String, Object> tableRow =
-                recordService.getProcessedRecordForStreamingIngest(snowflakeRecord, now);
+                recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
             records.add(tableRow);
             offsets.add(snowflakeRecord.kafkaOffset());
           } catch (JsonProcessingException e) {

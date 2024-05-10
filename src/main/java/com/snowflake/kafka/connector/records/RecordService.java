@@ -27,6 +27,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
@@ -96,8 +97,21 @@ public class RecordService {
       ThreadLocal.withInitial(() -> new SimpleDateFormat("HH:mm:ss.SSSXXX"));
   static final int MAX_SNOWFLAKE_NUMBER_PRECISION = 38;
 
+  private final Clock clock;
+
   // This class is designed to work with empty metadata config map
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
+
+  RecordService(Clock clock) {
+    this.clock = clock;
+  }
+
+  /**
+   * Creates a record service with a UTC {@link Clock}.
+   */
+  public RecordService() {
+    this(Clock.systemUTC());
+  }
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
     metadataConfig = metadataConfigIn;
@@ -245,12 +259,11 @@ public class RecordService {
    * <p>When schematization is enabled, the content of the record is extracted into a map
    *
    * @param record record from Kafka to (Which was serialized in Json)
-   * @param connectorPushTime a timestamp when the record is being pushed to ingest-sdk.
    * @return Json String with metadata and actual Payload from Kafka Record
    */
-  public Map<String, Object> getProcessedRecordForStreamingIngest(
-      SinkRecord record, Instant connectorPushTime) throws JsonProcessingException {
-    SnowflakeTableRow row = processRecord(record, connectorPushTime);
+  public Map<String, Object> getProcessedRecordForStreamingIngest(SinkRecord record)
+      throws JsonProcessingException {
+    SnowflakeTableRow row = processRecord(record, clock.instant());
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.content.getData()) {
       if (enableSchematization) {
