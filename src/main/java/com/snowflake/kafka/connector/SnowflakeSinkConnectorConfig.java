@@ -106,7 +106,7 @@ public class SnowflakeSinkConnectorConfig {
 
   public static final String SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME =
       "snowflake.streaming.metadata.connectorPushTime";
-  public static final boolean SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME_DEFAULT = false;
+  public static final boolean SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME_DEFAULT = true;
 
   // Where is Kafka hosted? self, confluent or any other in future.
   // By default it will be None since this is not enforced and only used for monitoring

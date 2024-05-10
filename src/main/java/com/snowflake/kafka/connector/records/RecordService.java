@@ -106,9 +106,7 @@ public class RecordService {
     this.clock = clock;
   }
 
-  /**
-   * Creates a record service with a UTC {@link Clock}.
-   */
+  /** Creates a record service with a UTC {@link Clock}. */
   public RecordService() {
     this(Clock.systemUTC());
   }

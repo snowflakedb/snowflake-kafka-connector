@@ -36,7 +36,7 @@ class SnowpipeStreamingMetaColumnTest extends AbstractMetaColumnTest {
   }
 
   @Test
-  void connectorTimestamp_whenEnabled_writes() throws JsonProcessingException {
+  void connectorTimestamp_byDefault_writes() throws JsonProcessingException {
     // given
     SchemaAndValue input = getJsonInputData();
     SinkRecord record =
@@ -50,10 +50,6 @@ class SnowpipeStreamingMetaColumnTest extends AbstractMetaColumnTest {
 
     RecordService service = new RecordService(fixedClock);
 
-    Map<String, String> config =
-        ImmutableMap.of(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME, "true");
-    service.setMetadataConfig(new SnowflakeMetadataConfig(config));
-
     // when
     Map<String, Object> recordData = service.getProcessedRecordForStreamingIngest(record);
     JsonNode metadata = getMetadataNode(recordData);
@@ -64,7 +60,7 @@ class SnowpipeStreamingMetaColumnTest extends AbstractMetaColumnTest {
   }
 
   @Test
-  void connectorTimestamp_byDefault_ignores() throws JsonProcessingException {
+  void connectorTimestamp_whenDisabled_ignores() throws JsonProcessingException {
     // given
     SchemaAndValue input = getJsonInputData();
     SinkRecord record =
@@ -74,6 +70,10 @@ class SnowpipeStreamingMetaColumnTest extends AbstractMetaColumnTest {
             .build();
 
     RecordService service = new RecordService();
+
+    Map<String, String> config =
+        ImmutableMap.of(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME, "false");
+    service.setMetadataConfig(new SnowflakeMetadataConfig(config));
 
     // when
     JsonNode metadata = getMetadataNode(service, record);
