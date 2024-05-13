@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL;
 
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -10,7 +11,12 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+
+import java.io.FileWriter;
+import java.io.IOException;
 import java.sql.ResultSet;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -21,17 +27,23 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.ingest.utils.Pair;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.runners.Parameterized;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -43,12 +55,11 @@ import org.slf4j.Logger;
  * Sink Task IT test which uses {@link
  * com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2}
  */
-@RunWith(Parameterized.class)
 public class SnowflakeSinkTaskForStreamingIT {
 
-  private String topicName;
+  private static String topicName;
   private static int partition = 0;
-  private TopicPartition topicPartition;
+  private static TopicPartition topicPartition;
 
   @Mock Logger logger = Mockito.mock(Logger.class);
 
@@ -60,24 +71,20 @@ public class SnowflakeSinkTaskForStreamingIT {
   // use OAuth as authenticator or not
   private boolean useOAuth;
 
-  @Parameterized.Parameters(name = "useOAuth: {0}")
+    @Parameterized.Parameters(name = "useOAuth: {0}")
   public static Collection<Object[]> input() {
     // TODO: Added {true} after SNOW-352846 is released
     return Arrays.asList(new Object[][] {{false}});
   }
 
-  public SnowflakeSinkTaskForStreamingIT(boolean useOAuth) {
-    this.useOAuth = useOAuth;
-  }
-
-  @Before
-  public void setup() {
+  @BeforeAll
+  public static void setup() {
     topicName = TestUtils.randomTableName();
     topicPartition = new TopicPartition(topicName, partition);
   }
 
-  @After
-  public void after() {
+  @AfterAll
+  public static void after() {
     TestUtils.dropTable(topicName);
   }
 
@@ -212,6 +219,53 @@ public class SnowflakeSinkTaskForStreamingIT {
         });
 
     assert partitionsInTable.size() == 2;
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true})
+  public void testClosingManyChannels(boolean closeInParallel) throws Exception {
+    int partitions = 50;
+    Map<String, String> config = getConfig();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    config.put(BUFFER_COUNT_RECORDS, "10"); // override
+
+    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+
+    config.put(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL, Boolean.toString(closeInParallel));
+
+    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
+    // Inits the sinktaskcontext
+    sinkTask.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
+
+    sinkTask.start(config);
+    ArrayList<TopicPartition> topicPartitions = IntStream.range(0, partitions)
+            .mapToObj(i -> new TopicPartition(topicName, i))
+            .collect(Collectors.toCollection(ArrayList<TopicPartition>::new));
+
+    sinkTask.open(topicPartitions);
+
+    final long noOfRecords = 1;
+    final long lastOffsetNo = noOfRecords - 1;
+
+    // send regular data
+    List<SinkRecord> records = IntStream.range(0, partitions)
+            .mapToObj(i -> {
+                try {
+                    return TestUtils.createJsonStringSinkRecords(0, noOfRecords, topicName, i);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            })
+            .flatMap(List::stream)
+            .collect(Collectors.toList());
+    sinkTask.put(records);
+
+    Instant start = Instant.now();
+    sinkTask.close(topicPartitions);
+    Instant end = Instant.now();
+
+    long duration = Duration.between(start, end).toMillis();
+    System.out.println(String.format("Closing channels took %s ms", duration));
   }
 
   @Test
