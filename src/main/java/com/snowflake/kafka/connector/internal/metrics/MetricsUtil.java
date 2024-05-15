@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal.metrics;
 
+import com.snowflake.kafka.connector.internal.streaming.BufferedTopicPartitionChannel;
+
 import java.util.Collection;
 import java.util.Map;
 
@@ -85,7 +87,7 @@ public class MetricsUtil {
 
   // ************ Streaming Constants ************//
   /**
-   * See {@link com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} for offset
+   * See {@link BufferedTopicPartitionChannel} for offset
    * description
    */
   public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";

@@ -18,13 +18,14 @@
 package com.snowflake.kafka.connector.internal.streaming.telemetry;
 
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constructMetricName;
-import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
+import com.snowflake.kafka.connector.internal.streaming.BufferedTopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants;
@@ -52,8 +53,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   private final AtomicLong latestConsumerOffset;
 
   /**
-   * Creates a new object tracking {@link
-   * com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} metrics with JMX and
+   * Creates a new object tracking
+   * {@link com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel} metrics with JMX and
    * send telemetry data to snowflake
    *
    * @param tableName the table the channel is ingesting to

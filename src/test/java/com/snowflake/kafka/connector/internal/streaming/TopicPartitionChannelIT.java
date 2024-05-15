@@ -2,7 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.SUCCESS;
 import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.isChannelMigrationResponseSuccessful;
-import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -11,6 +11,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -89,7 +90,7 @@ public class TopicPartitionChannelIT {
 
     // Ctor of TopicPartitionChannel tries to open the channel.
     TopicPartitionChannel channel =
-        new TopicPartitionChannel(
+        new BufferedTopicPartitionChannel(
             snowflakeSinkServiceV2.getStreamingIngestClient(),
             topicPartition,
             testChannelName,
@@ -561,12 +562,12 @@ public class TopicPartitionChannelIT {
 
     // get the corresponding V2 format for above topic partition channel
     final String channelNameFormatV2 =
-        topicPartitionChannel.generateChannelNameFormatV2(testChannelName, conn.getConnectorName());
+        TopicPartitionChannel.generateChannelNameFormatV2(testChannelName, conn.getConnectorName());
 
     // create a channel with new format and ingest few rows
     // Ctor of TopicPartitionChannel tries to open the channel (new format) for same partition
     TopicPartitionChannel topicPartitionChannelForFormatV2 =
-        new TopicPartitionChannel(
+        new BufferedTopicPartitionChannel(
             ((SnowflakeSinkServiceV2) service).getStreamingIngestClient(),
             topicPartition,
             channelNameFormatV2,
@@ -586,7 +587,7 @@ public class TopicPartitionChannelIT {
         TestUtils.createJsonStringSinkRecords(0, noOfRecords, testTableName, PARTITION);
 
     for (int idx = 0; idx < records.size(); idx++) {
-      topicPartitionChannelForFormatV2.insertRecordToBuffer(records.get(idx), idx == 0);
+      topicPartitionChannelForFormatV2.insertRecord(records.get(idx), idx == 0);
     }
     TestUtils.assertWithRetry(
         () -> topicPartitionChannelForFormatV2.getOffsetSafeToCommitToKafka() == noOfRecords, 5, 5);
@@ -653,12 +654,12 @@ public class TopicPartitionChannelIT {
 
     // get the corresponding V2 format for above topic partition channel
     final String channelNameFormatV2 =
-        topicPartitionChannel.generateChannelNameFormatV2(testChannelName, conn.getConnectorName());
+        TopicPartitionChannel.generateChannelNameFormatV2(testChannelName, conn.getConnectorName());
 
     // create a channel with new format and dont ingest anything
     // Ctor of TopicPartitionChannel tries to open the channel (new format) for same partition
     TopicPartitionChannel topicPartitionChannelForFormatV2 =
-        new TopicPartitionChannel(
+        new BufferedTopicPartitionChannel(
             ((SnowflakeSinkServiceV2) service).getStreamingIngestClient(),
             topicPartition,
             channelNameFormatV2,
