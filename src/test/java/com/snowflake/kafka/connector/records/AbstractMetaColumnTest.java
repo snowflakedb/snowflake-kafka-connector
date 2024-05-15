@@ -8,6 +8,7 @@ import static com.snowflake.kafka.connector.records.RecordService.KEY;
 import static com.snowflake.kafka.connector.records.RecordService.OFFSET;
 import static com.snowflake.kafka.connector.records.RecordService.PARTITION;
 import static com.snowflake.kafka.connector.records.RecordService.TOPIC;
+import static java.util.Collections.emptySet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -44,8 +45,8 @@ abstract class AbstractMetaColumnTest {
 
   private static final String TEST_VALUE_FILE_NAME = "test.avro";
 
-  private final String topic = "test";
-  private final int partition = 0;
+  protected final String topic = "test";
+  protected final int partition = 0;
 
   /**
    * Expected to be implemented by concrete Snowpipe/Snowpipe Streaming tests.
@@ -60,11 +61,8 @@ abstract class AbstractMetaColumnTest {
 
   @Test
   public void testKey() throws IOException {
-    SnowflakeConverter converter = new SnowflakeJsonConverter();
     RecordService service = new RecordService();
-    SchemaAndValue input =
-        converter.toConnectData(
-            topic, ("{\"name\":\"test" + "\"}").getBytes(StandardCharsets.UTF_8));
+    SchemaAndValue input = getJsonInputData();
     long timestamp = System.currentTimeMillis();
 
     // no timestamp
@@ -92,11 +90,9 @@ abstract class AbstractMetaColumnTest {
   void whenSomeFieldsDisabled(Map<String, String> config, Set<String> enabledFields)
       throws JsonProcessingException {
     // given
-    SchemaAndValue input =
-        new SnowflakeJsonConverter()
-            .toConnectData(topic, ("{\"name\":\"test\"}").getBytes(StandardCharsets.UTF_8));
-
     TimestampType timestampType = TimestampType.CREATE_TIME;
+
+    SchemaAndValue input = getJsonInputData();
     SinkRecord record =
         SinkRecordBuilder.forTopicPartition(topic, partition)
             .withKeySchema(Schema.STRING_SCHEMA)
@@ -119,6 +115,7 @@ abstract class AbstractMetaColumnTest {
     assertEquals(enabledFields.contains(OFFSET), metadata.has(OFFSET));
     assertEquals(enabledFields.contains(PARTITION), metadata.has(PARTITION));
     assertEquals(enabledFields.contains(timestampType.name), metadata.has(timestampType.name));
+    // ConnectorPushTime is present for SnowpipeStreaming only.
   }
 
   static Stream<Arguments> dataFor_disablingFields() {
@@ -131,16 +128,22 @@ abstract class AbstractMetaColumnTest {
             ImmutableSet.of(PARTITION, OFFSET, TimestampType.CREATE_TIME.name)),
         arguments(
             ImmutableMap.of(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "false"),
-            ImmutableSet.of(TOPIC, TimestampType.CREATE_TIME.name)));
+            ImmutableSet.of(TOPIC, TimestampType.CREATE_TIME.name)),
+        arguments(
+            ImmutableMap.of(
+                SNOWFLAKE_METADATA_CREATETIME,
+                "false",
+                SNOWFLAKE_METADATA_TOPIC,
+                "false",
+                SNOWFLAKE_METADATA_OFFSET_AND_PARTITION,
+                "false"),
+            emptySet()));
   }
 
   @Test
   void whenMetadataDisabled() throws IOException {
     // given
-    SchemaAndValue input =
-        new SnowflakeJsonConverter()
-            .toConnectData(topic, ("{\"name\":\"test\"}").getBytes(StandardCharsets.UTF_8));
-
+    SchemaAndValue input = getJsonInputData();
     SinkRecord record =
         SinkRecordBuilder.forTopicPartition(topic, partition)
             .withValueSchema(input.schema())
@@ -161,10 +164,8 @@ abstract class AbstractMetaColumnTest {
 
   @Test
   public void testTimeStamp() throws IOException {
-    SnowflakeConverter converter = new SnowflakeJsonConverter();
     RecordService service = new RecordService();
-    SchemaAndValue input =
-        converter.toConnectData(topic, ("{\"name\":\"test\"}").getBytes(StandardCharsets.UTF_8));
+    SchemaAndValue input = getJsonInputData();
     long timestamp = System.currentTimeMillis();
 
     // no timestamp
@@ -270,5 +271,10 @@ abstract class AbstractMetaColumnTest {
             topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), 0);
     content = assertInstanceOf(SnowflakeRecordContent.class, record.value());
     assertEquals(1, content.getSchemaID());
+  }
+
+  protected SchemaAndValue getJsonInputData() {
+    return new SnowflakeJsonConverter()
+        .toConnectData(topic, ("{\"name\":\"test\"}").getBytes(StandardCharsets.UTF_8));
   }
 }

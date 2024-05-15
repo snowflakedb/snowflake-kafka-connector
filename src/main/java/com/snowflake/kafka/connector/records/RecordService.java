@@ -27,12 +27,15 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.TimeZone;
+import javax.annotation.Nullable;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
@@ -69,6 +72,7 @@ public class RecordService {
   static final String CONTENT = "content";
   static final String META = "meta";
   static final String SCHEMA_ID = "schema_id";
+  static final String CONNECTOR_PUSH_TIME = "SnowflakeConnectorPushTime";
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
 
@@ -91,12 +95,19 @@ public class RecordService {
       ThreadLocal.withInitial(() -> new SimpleDateFormat("HH:mm:ss.SSSXXX"));
   static final int MAX_SNOWFLAKE_NUMBER_PRECISION = 38;
 
+  private final Clock clock;
+
   // This class is designed to work with empty metadata config map
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
 
-  /** Record service with null telemetry Service, only use it for testing. */
-  @VisibleForTesting
-  public RecordService() {}
+  RecordService(Clock clock) {
+    this.clock = clock;
+  }
+
+  /** Creates a record service with a UTC {@link Clock}. */
+  public RecordService() {
+    this(Clock.systemUTC());
+  }
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
     metadataConfig = metadataConfigIn;
@@ -136,9 +147,11 @@ public class RecordService {
    * process given SinkRecord, only support snowflake converters
    *
    * @param record SinkRecord
+   * @param connectorPushTime a timestamp when the record is being pushed further. If null, the
+   *     respective metadata field is ignored.
    * @return a Row wrapper which contains both actual content(payload) and metadata
    */
-  private SnowflakeTableRow processRecord(SinkRecord record) {
+  private SnowflakeTableRow processRecord(SinkRecord record, @Nullable Instant connectorPushTime) {
     SnowflakeRecordContent valueContent;
 
     if (record.value() == null || record.valueSchema() == null) {
@@ -174,6 +187,10 @@ public class RecordService {
       meta.put(SCHEMA_ID, valueContent.getSchemaID());
     }
 
+    if (connectorPushTime != null && metadataConfig.connectorPushTimeFlag) {
+      meta.put(CONNECTOR_PUSH_TIME, connectorPushTime.toEpochMilli());
+    }
+
     putKey(record, meta);
 
     if (!record.headers().isEmpty()) {
@@ -193,7 +210,9 @@ public class RecordService {
    * @return Json String with metadata and actual Payload from Kafka Record
    */
   public String getProcessedRecordForSnowpipe(SinkRecord record) {
-    SnowflakeTableRow row = processRecord(record);
+    SnowflakeTableRow row =
+        processRecord(
+            record, /*connectorPushTime=*/ null); // ConnectorPushTime is not used for Snowpipe.
     StringBuilder buffer = new StringBuilder();
     for (JsonNode node : row.content.getData()) {
       ObjectNode data = MAPPER.createObjectNode();
@@ -223,7 +242,7 @@ public class RecordService {
    */
   public Map<String, Object> getProcessedRecordForStreamingIngest(SinkRecord record)
       throws JsonProcessingException {
-    SnowflakeTableRow row = processRecord(record);
+    SnowflakeTableRow row = processRecord(record, clock.instant());
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.content.getData()) {
       if (enableSchematization) {
