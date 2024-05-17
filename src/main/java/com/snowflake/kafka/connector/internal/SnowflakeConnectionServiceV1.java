@@ -21,6 +21,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -431,19 +432,21 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   public boolean hasSchemaEvolutionPermission(String tableName, String role) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
+
+    List<String> grantedRoles = getRolesToCheck(role);
+
     String query = "show grants on table identifier(?)";
     List<String> schemaEvolutionAllowedPrivilegeList =
         Arrays.asList("EVOLVE SCHEMA", "ALL", "OWNERSHIP");
     ResultSet result = null;
     // whether the role has the privilege to do schema evolution (EVOLVE SCHEMA / ALL / OWNERSHIP)
     boolean hasRolePrivilege = false;
-    String myRole = SchematizationUtils.formatName(role);
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
       result = stmt.executeQuery();
       while (result.next()) {
-        if (!result.getString("grantee_name").equals(myRole)) {
+        if (!grantedRoles.contains(result.getString("grantee_name"))) {
           continue;
         }
         if (schemaEvolutionAllowedPrivilegeList.contains(
@@ -483,6 +486,27 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     LOGGER.info(
         String.format("Table: %s has schema evolution permission: %s", tableName, hasPermission));
     return hasPermission;
+  }
+
+  private List<String> getRolesToCheck(String connectorRole) {
+    String formattedRole = SchematizationUtils.formatName(connectorRole);
+
+    List<String> rolesToCheck = new ArrayList<>();
+    rolesToCheck.add(formattedRole);
+
+    String query = "show grants to role " + connectorRole;
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      ResultSet result = stmt.executeQuery();
+      while (result.next()) {
+        rolesToCheck.add(result.getString("name"));
+      }
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2017.getException(e);
+    }
+    return rolesToCheck;
   }
 
   /**
