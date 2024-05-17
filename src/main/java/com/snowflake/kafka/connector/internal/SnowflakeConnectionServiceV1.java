@@ -433,7 +433,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
 
-    List<String> grantedRoles = getRolesToCheck(role);
+    List<String> rolesToCheck = getRolesToCheckSchematizationPermissions(role);
 
     String query = "show grants on table identifier(?)";
     List<String> schemaEvolutionAllowedPrivilegeList =
@@ -446,7 +446,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       stmt.setString(1, tableName);
       result = stmt.executeQuery();
       while (result.next()) {
-        if (!grantedRoles.contains(result.getString("grantee_name"))) {
+        if (!rolesToCheck.contains(result.getString("grantee_name"))) {
           continue;
         }
         if (schemaEvolutionAllowedPrivilegeList.contains(
@@ -488,25 +488,25 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     return hasPermission;
   }
 
-  private List<String> getRolesToCheck(String connectorRole) {
+  /** Return formatted connector role and inherited roles */
+  private List<String> getRolesToCheckSchematizationPermissions(String connectorRole) {
     String formattedRole = SchematizationUtils.formatName(connectorRole);
 
-    List<String> rolesToCheck = new ArrayList<>();
-    rolesToCheck.add(formattedRole);
+    List<String> ret = new ArrayList<>();
+    ret.add(formattedRole);
 
     String query = "show grants to role " + connectorRole;
-
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       ResultSet result = stmt.executeQuery();
       while (result.next()) {
-        rolesToCheck.add(result.getString("name"));
+        ret.add(result.getString("name"));
       }
       stmt.close();
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2017.getException(e);
     }
-    return rolesToCheck;
+    return ret;
   }
 
   /**
