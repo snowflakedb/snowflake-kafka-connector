@@ -120,7 +120,7 @@ public class SchematizationUtils {
       return new HashMap<>();
     }
     Map<String, Pair<String, String>> columnToType = new HashMap<>();
-    Map<String, String> schemaMap = getSchemaMapFromRecord(record);
+    Map<String, Pair<String, String>> schemaMap = getSchemaMapFromRecord(record);
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
     Set<String> columnNamesSet = new HashSet<>(columnNames);
 
@@ -129,23 +129,22 @@ public class SchematizationUtils {
       Map.Entry<String, JsonNode> field = fields.next();
       String colName = Utils.quoteNameIfNeeded(field.getKey());
       if (columnNamesSet.contains(colName)) {
-        String type;
+        Pair<String, String> p;
         if (schemaMap.isEmpty()) {
           // No schema associated with the record, we will try to infer it based on the data
-          type = inferDataTypeFromJsonObject(field.getValue());
+          p = new ImmutablePair<>(inferDataTypeFromJsonObject(field.getValue()), null);
         } else {
           // Get from the schema
-          type = schemaMap.get(field.getKey());
-          if (type == null) {
+          p = schemaMap.get(field.getKey());
+          if (p == null) {
             // only when the type of the value is unrecognizable for JAVA
             throw SnowflakeErrors.ERROR_5022.getException(
                 "column: " + field.getKey() + " schemaMap: " + schemaMap);
           }
         }
-        columnToType.put(colName, type);
+        columnToType.put(colName, p);
       }
     }
-
     return columnToType;
   }
 
