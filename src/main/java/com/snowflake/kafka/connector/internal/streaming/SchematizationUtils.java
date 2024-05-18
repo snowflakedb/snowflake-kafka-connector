@@ -160,10 +160,11 @@ public class SchematizationUtils {
       for (Field field : schema.fields()) {
         String snowflakeType = convertToSnowflakeType(field.schema().type(), field.schema().name());
         LOGGER.info(
-            "Got the snowflake data type for field:{}, schemaName:{}, kafkaType:{},"
+            "Got the snowflake data type for field:{}, schemaName:{}, schemaDoc: {} kafkaType:{},"
                 + " snowflakeType:{}",
             field.name(),
             field.schema().name(),
+            field.schema().doc(),
             field.schema().type(),
             snowflakeType);
         schemaMap.put(field.name(), snowflakeType);
