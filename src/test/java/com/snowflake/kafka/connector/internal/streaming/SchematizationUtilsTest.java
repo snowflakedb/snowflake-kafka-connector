@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.json.JsonConverter;
@@ -56,10 +57,10 @@ public class SchematizationUtilsTest {
 
     String processedColumnName = Utils.quoteNameIfNeeded(columnName);
     String processedNonExistingColumnName = Utils.quoteNameIfNeeded(nonExistingColumnName);
-    Map<String, String> columnToTypes =
+    Map<String, Pair<String, String>> columnToTypes =
         SchematizationUtils.getColumnTypes(
             recordWithoutSchema, Collections.singletonList(processedColumnName));
-    Assert.assertEquals("VARCHAR", columnToTypes.get(processedColumnName));
+    Assert.assertEquals("VARCHAR", columnToTypes.get(processedColumnName).getLeft());
     // Get non-existing column name should return nothing
     columnToTypes =
         SchematizationUtils.getColumnTypes(
@@ -90,10 +91,10 @@ public class SchematizationUtilsTest {
             System.currentTimeMillis(),
             TimestampType.CREATE_TIME);
 
-    Map<String, String> columnToTypes =
+    Map<String, Pair<String, String>> columnToTypes =
         SchematizationUtils.getColumnTypes(
             recordWithoutSchema, Arrays.asList(columnName1, columnName2));
-    Assert.assertEquals("VARCHAR", columnToTypes.get(columnName1));
-    Assert.assertEquals("VARCHAR", columnToTypes.get(columnName2));
+    Assert.assertEquals("VARCHAR", columnToTypes.get(columnName1).getLeft());
+    Assert.assertEquals("VARCHAR", columnToTypes.get(columnName2).getLeft());
   }
 }

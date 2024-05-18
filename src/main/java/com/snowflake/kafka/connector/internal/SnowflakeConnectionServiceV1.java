@@ -21,15 +21,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 import net.snowflake.client.jdbc.cloud.storage.StageInfo;
+import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * Implementation of Snowflake Connection Service interface which includes all handshake between KC
@@ -492,13 +489,15 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
    * @param columnToType the mapping from the columnNames to their types
    */
   @Override
-  public void appendColumnsToTable(String tableName, Map<String, String> columnToType) {
+  public void appendColumnsToTable(
+      String tableName, Map<String, Pair<String, String>> columnToType) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     StringBuilder appendColumnQuery =
         new StringBuilder("alter table identifier(?) add column if not exists ");
     boolean first = true;
     StringBuilder logColumn = new StringBuilder("[");
+
     for (String columnName : columnToType.keySet()) {
       if (first) {
         first = false;
@@ -506,13 +505,16 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
         appendColumnQuery.append(", if not exists ");
         logColumn.append(",");
       }
-      appendColumnQuery
-          .append(columnName)
-          .append(" ")
-          .append(columnToType.get(columnName))
-          .append(" comment 'column created by schema evolution from Snowflake Kafka Connector'");
+      Pair<String, String> p = columnToType.get(columnName);
+      String columnComment =
+          Optional.ofNullable(p.getRight())
+              .map(comment -> String.format(" comment '%s'", comment))
+              .orElse(
+                  " comment 'column created by schema evolution from Snowflake Kafka Connector'");
+      appendColumnQuery.append(columnName).append(" ").append(p.getLeft()).append(columnComment);
       logColumn.append(columnName).append(" (").append(columnToType.get(columnName)).append(")");
     }
+
     try {
       LOGGER.info("Trying to run query: {}", appendColumnQuery.toString());
       PreparedStatement stmt = conn.prepareStatement(appendColumnQuery.toString());

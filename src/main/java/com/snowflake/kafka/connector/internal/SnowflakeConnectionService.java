@@ -5,6 +5,7 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServic
 import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.lang3.tuple.Pair;
 
 public interface SnowflakeConnectionService {
   /**
@@ -108,7 +109,7 @@ public interface SnowflakeConnectionService {
    * @param tableName the name of the table
    * @param columnToType the mapping from the columnNames to their types
    */
-  void appendColumnsToTable(String tableName, Map<String, String> columnToType);
+  void appendColumnsToTable(String tableName, Map<String, Pair<String, String>> columnToType);
 
   /**
    * Alter table to drop non-nullability of a list of columns
