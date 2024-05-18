@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
@@ -113,11 +115,11 @@ public class SchematizationUtils {
    * @param columnNames the names of the extra columns
    * @return a Map object where the key is column name and value is Snowflake data type
    */
-  static Map<String, String> getColumnTypes(SinkRecord record, List<String> columnNames) {
+  static Map<String, Pair<String, String>> getColumnTypes(SinkRecord record, List<String> columnNames) {
     if (columnNames == null) {
       return new HashMap<>();
     }
-    Map<String, String> columnToType = new HashMap<>();
+    Map<String, Pair<String, String>> columnToType = new HashMap<>();
     Map<String, String> schemaMap = getSchemaMapFromRecord(record);
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
     Set<String> columnNamesSet = new HashSet<>(columnNames);
@@ -151,10 +153,10 @@ public class SchematizationUtils {
    * Given a SinkRecord, get the schema information from it
    *
    * @param record the sink record that contains the schema and actual data
-   * @return a Map object where the key is column name and value is Snowflake data type
+   * @return a Map object where the key is column name and value is a pair containing the column type and column comment.
    */
-  private static Map<String, String> getSchemaMapFromRecord(SinkRecord record) {
-    Map<String, String> schemaMap = new HashMap<>();
+  private static Map<String, Pair<String, String>> getSchemaMapFromRecord(SinkRecord record) {
+    Map<String, Pair<String, String>> schemaMap = new HashMap<>();
     Schema schema = record.valueSchema();
     if (schema != null && schema.fields() != null) {
       for (Field field : schema.fields()) {
@@ -167,7 +169,7 @@ public class SchematizationUtils {
             field.schema().doc(),
             field.schema().type(),
             snowflakeType);
-        schemaMap.put(field.name(), snowflakeType);
+        schemaMap.put(field.name(), new ImmutablePair<>(snowflakeType, field.schema().doc()));
       }
     }
     return schemaMap;
