@@ -486,11 +486,11 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
    * Alter table to add columns according to a map from columnNames to their types
    *
    * @param tableName the name of the table
-   * @param columnToType the mapping from the columnNames to their types
+   * @param columnInfos the mapping from the columnNames to their types
    */
   @Override
   public void appendColumnsToTable(
-      String tableName, Map<String, Pair<String, String>> columnToType) {
+      String tableName, Map<String, Pair<String, String>> columnInfos) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     StringBuilder appendColumnQuery =
@@ -498,21 +498,21 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     boolean first = true;
     StringBuilder logColumn = new StringBuilder("[");
 
-    for (String columnName : columnToType.keySet()) {
+    for (String columnName : columnInfos.keySet()) {
       if (first) {
         first = false;
       } else {
         appendColumnQuery.append(", if not exists ");
         logColumn.append(",");
       }
-      Pair<String, String> p = columnToType.get(columnName);
+      Pair<String, String> p = columnInfos.get(columnName);
       String columnComment =
           Optional.ofNullable(p.getRight())
               .map(comment -> String.format(" comment '%s'", comment))
               .orElse(
                   " comment 'column created by schema evolution from Snowflake Kafka Connector'");
       appendColumnQuery.append(columnName).append(" ").append(p.getLeft()).append(columnComment);
-      logColumn.append(columnName).append(" (").append(columnToType.get(columnName)).append(")");
+      logColumn.append(columnName).append(" (").append(columnInfos.get(columnName)).append(")");
     }
 
     try {

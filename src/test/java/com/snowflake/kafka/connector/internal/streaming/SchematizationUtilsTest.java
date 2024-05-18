@@ -57,15 +57,15 @@ public class SchematizationUtilsTest {
 
     String processedColumnName = Utils.quoteNameIfNeeded(columnName);
     String processedNonExistingColumnName = Utils.quoteNameIfNeeded(nonExistingColumnName);
-    Map<String, Pair<String, String>> columnToTypes =
-        SchematizationUtils.getColumnTypes(
+    Map<String, Pair<String, String>> columnInfos =
+        SchematizationUtils.getColumnInfos(
             recordWithoutSchema, Collections.singletonList(processedColumnName));
-    Assert.assertEquals("VARCHAR", columnToTypes.get(processedColumnName).getLeft());
+    Assert.assertEquals("VARCHAR", columnInfos.get(processedColumnName).getLeft());
     // Get non-existing column name should return nothing
-    columnToTypes =
-        SchematizationUtils.getColumnTypes(
+    columnInfos =
+        SchematizationUtils.getColumnInfos(
             recordWithoutSchema, Collections.singletonList(processedNonExistingColumnName));
-    Assert.assertTrue(columnToTypes.isEmpty());
+    Assert.assertTrue(columnInfos.isEmpty());
   }
 
   @Test
@@ -91,10 +91,11 @@ public class SchematizationUtilsTest {
             System.currentTimeMillis(),
             TimestampType.CREATE_TIME);
 
-    Map<String, Pair<String, String>> columnToTypes =
-        SchematizationUtils.getColumnTypes(
+    Map<String, Pair<String, String>> columnInfos =
+        SchematizationUtils.getColumnInfos(
             recordWithoutSchema, Arrays.asList(columnName1, columnName2));
-    Assert.assertEquals("VARCHAR", columnToTypes.get(columnName1).getLeft());
-    Assert.assertEquals("VARCHAR", columnToTypes.get(columnName2).getLeft());
+    Assert.assertEquals("VARCHAR", columnInfos.get(columnName1).getLeft());
+    Assert.assertEquals("doc", columnInfos.get(columnName1).getRight());
+    Assert.assertEquals("VARCHAR", columnInfos.get(columnName2).getLeft());
   }
 }

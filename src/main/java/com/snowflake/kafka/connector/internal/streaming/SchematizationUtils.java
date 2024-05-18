@@ -93,9 +93,9 @@ public class SchematizationUtils {
 
     // Add columns if needed, ignore any exceptions since other task might be succeeded
     if (extraColNames != null) {
-      Map<String, Pair<String, String>> extraColumnsToType = getColumnTypes(record, extraColNames);
+      Map<String, Pair<String, String>> extraColumnsInfos = getColumnInfos(record, extraColNames);
       try {
-        conn.appendColumnsToTable(tableName, extraColumnsToType);
+        conn.appendColumnsToTable(tableName, extraColumnsInfos);
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             String.format(
@@ -113,9 +113,10 @@ public class SchematizationUtils {
    *
    * @param record the sink record that contains the schema and actual data
    * @param columnNames the names of the extra columns
-   * @return a Map object where the key is column name and value is Snowflake data type
+   * @return a Map object where the key is column name and value is a pair containing the column
+   *     type and column comment.
    */
-  static Map<String, Pair<String, String>> getColumnTypes(
+  static Map<String, Pair<String, String>> getColumnInfos(
       SinkRecord record, List<String> columnNames) {
     if (columnNames == null) {
       return new HashMap<>();
