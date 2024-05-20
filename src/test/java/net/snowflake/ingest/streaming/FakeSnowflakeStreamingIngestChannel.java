@@ -2,7 +2,11 @@ package net.snowflake.ingest.streaming;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -97,8 +101,7 @@ public class FakeSnowflakeStreamingIngestChannel implements SnowflakeStreamingIn
 
   @Override
   public CompletableFuture<Void> close() {
-    closed = true;
-    return CompletableFuture.completedFuture(null);
+    return close(false);
   }
 
   @Override

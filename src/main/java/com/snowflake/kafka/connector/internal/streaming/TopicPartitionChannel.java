@@ -39,6 +39,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
@@ -1075,7 +1077,10 @@ public class TopicPartitionChannel {
   /**
    * Close channel associated to this partition Not rethrowing connect exception because the
    * connector will stop. Channel will eventually be reopened.
+   *
+   * @deprecated use {@link #closeChannelAsync()} instead.
    */
+  @Deprecated
   public void closeChannel() {
     try {
       this.channel.close().get();
@@ -1095,6 +1100,59 @@ public class TopicPartitionChannel {
           e.getClass(),
           e.getMessage(),
           Arrays.toString(e.getStackTrace()));
+    }
+  }
+
+  /**
+   * Asynchronously closes a channel associated to this partition. Any {@link SFException} occurred
+   * is swallowed and a successful {@link CompletableFuture} is returned instead.
+   */
+  public CompletableFuture<Void> closeChannelAsync() {
+    return closeChannelWrapped()
+        .thenAccept(__ -> onCloseChannelSuccess())
+        .exceptionally(this::tryRecoverFromCloseChannelError);
+  }
+
+  private CompletableFuture<Void> closeChannelWrapped() {
+    try {
+      return this.channel.close();
+    } catch (SFException e) {
+      // Calling channel.close() can throw an SFException if the channel has been invalidated
+      // already. Wrapping the exception into a CompletableFuture to keep a consistent method chain.
+      CompletableFuture<Void> future = new CompletableFuture<>();
+      future.completeExceptionally(e);
+      return future;
+    }
+  }
+
+  private void onCloseChannelSuccess() {
+    this.telemetryServiceV2.reportKafkaPartitionUsage(this.snowflakeTelemetryChannelStatus, true);
+    this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
+  }
+
+  private Void tryRecoverFromCloseChannelError(Throwable e) {
+    // CompletableFuture wraps errors into CompletionException.
+    Throwable cause = e instanceof CompletionException ? e.getCause() : e;
+
+    String errMsg =
+        String.format(
+            "Failure closing Streaming Channel name:%s msg:%s",
+            this.getChannelNameFormatV1(), cause.getMessage());
+    this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
+
+    // Only SFExceptions are swallowed. If a channel-related error occurs, it shouldn't fail a
+    // connector task. The channel is going to be reopened after a rebalance, so the failed channel
+    // will be invalidated anyway.
+    if (cause instanceof SFException) {
+      LOGGER.warn(
+          "Closing Streaming Channel={} encountered an exception {}: {} {}",
+          this.getChannelNameFormatV1(),
+          cause.getClass(),
+          cause.getMessage(),
+          Arrays.toString(cause.getStackTrace()));
+      return null;
+    } else {
+      throw new CompletionException(cause);
     }
   }
 

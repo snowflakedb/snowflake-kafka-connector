@@ -129,6 +129,11 @@ public class SnowflakeSinkConnectorConfig {
   public static final boolean SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT = false;
   public static final int SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT = 1;
 
+  // Whether to close streaming channels in parallel.
+  public static final String SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL =
+      "snowflake.streaming.closeChannelsInParallel.enabled";
+  public static final boolean SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT = false;
+
   // This is the streaming max client lag which can be defined in config
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
       "snowflake.streaming.max.client.lag";
@@ -582,6 +587,13 @@ public class SnowflakeSinkConnectorConfig {
             Importance.LOW,
             "Defines number of worker threads to associate with the cleaner task. By default there"
                 + " is one cleaner per topic's partition and they all share one worker thread")
+        .define(
+            SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL,
+            Type.BOOLEAN,
+            SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT,
+            Importance.MEDIUM,
+            "Whether to close Snowpipe Streaming channels in parallel during task shutdown or"
+                + " rebalancing")
         .define(
             SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
             Type.LONG,

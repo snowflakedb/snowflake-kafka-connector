@@ -122,7 +122,8 @@ public class SnowflakeStreamingSinkTaskBuilder {
         inMemorySinkTaskContext,
         mockStreamingClient,
         config,
-        false,
+        /*enableSchematization=*/ false,
+        /*closeChannelsInParallel=*/ true,
         topicPartitionChannelMap);
   }
 
