@@ -20,6 +20,8 @@ import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
@@ -34,8 +36,11 @@ import dev.failsafe.function.CheckedSupplier;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
@@ -193,7 +198,7 @@ public class TopicPartitionChannel {
         kafkaRecordErrorReporter,
         sinkTaskContext,
         conn,
-        new RecordService(telemetryService),
+        new RecordService(),
         telemetryService,
         false,
         null);
@@ -1072,7 +1077,10 @@ public class TopicPartitionChannel {
   /**
    * Close channel associated to this partition Not rethrowing connect exception because the
    * connector will stop. Channel will eventually be reopened.
+   *
+   * @deprecated use {@link #closeChannelAsync()} instead.
    */
+  @Deprecated
   public void closeChannel() {
     try {
       this.channel.close().get();
@@ -1080,13 +1088,71 @@ public class TopicPartitionChannel {
       // telemetry and metrics
       this.telemetryServiceV2.reportKafkaPartitionUsage(this.snowflakeTelemetryChannelStatus, true);
       this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException | ExecutionException | SFException e) {
       final String errMsg =
           String.format(
               "Failure closing Streaming Channel name:%s msg:%s",
               this.getChannelNameFormatV1(), e.getMessage());
       this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
-      LOGGER.error(errMsg, e);
+      LOGGER.error(
+          "Closing Streaming Channel={} encountered an exception {}: {} {}",
+          this.getChannelNameFormatV1(),
+          e.getClass(),
+          e.getMessage(),
+          Arrays.toString(e.getStackTrace()));
+    }
+  }
+
+  /**
+   * Asynchronously closes a channel associated to this partition. Any {@link SFException} occurred
+   * is swallowed and a successful {@link CompletableFuture} is returned instead.
+   */
+  public CompletableFuture<Void> closeChannelAsync() {
+    return closeChannelWrapped()
+        .thenAccept(__ -> onCloseChannelSuccess())
+        .exceptionally(this::tryRecoverFromCloseChannelError);
+  }
+
+  private CompletableFuture<Void> closeChannelWrapped() {
+    try {
+      return this.channel.close();
+    } catch (SFException e) {
+      // Calling channel.close() can throw an SFException if the channel has been invalidated
+      // already. Wrapping the exception into a CompletableFuture to keep a consistent method chain.
+      CompletableFuture<Void> future = new CompletableFuture<>();
+      future.completeExceptionally(e);
+      return future;
+    }
+  }
+
+  private void onCloseChannelSuccess() {
+    this.telemetryServiceV2.reportKafkaPartitionUsage(this.snowflakeTelemetryChannelStatus, true);
+    this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
+  }
+
+  private Void tryRecoverFromCloseChannelError(Throwable e) {
+    // CompletableFuture wraps errors into CompletionException.
+    Throwable cause = e instanceof CompletionException ? e.getCause() : e;
+
+    String errMsg =
+        String.format(
+            "Failure closing Streaming Channel name:%s msg:%s",
+            this.getChannelNameFormatV1(), cause.getMessage());
+    this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
+
+    // Only SFExceptions are swallowed. If a channel-related error occurs, it shouldn't fail a
+    // connector task. The channel is going to be reopened after a rebalance, so the failed channel
+    // will be invalidated anyway.
+    if (cause instanceof SFException) {
+      LOGGER.warn(
+          "Closing Streaming Channel={} encountered an exception {}: {} {}",
+          this.getChannelNameFormatV1(),
+          cause.getClass(),
+          cause.getMessage(),
+          Arrays.toString(cause.getStackTrace()));
+      return null;
+    } else {
+      throw new CompletionException(cause);
     }
   }
 
@@ -1228,8 +1294,16 @@ public class TopicPartitionChannel {
           }
         }
       }
-    } catch (JsonProcessingException e) {
-      // We ignore any errors here because this is just calculating the record size
+    } catch (Exception e) {
+      boolean isJsonProcessingEx = e instanceof JsonProcessingException;
+      boolean isSnowflakeParsingEx =
+          e instanceof SnowflakeKafkaConnectorException
+              && ((SnowflakeKafkaConnectorException) e).checkErrorCode(SnowflakeErrors.ERROR_0010);
+      if (!(isJsonProcessingEx || isSnowflakeParsingEx)) {
+        // We ignore any errors parsing exceptions here because this is just calculating the record
+        // size
+        throw new RuntimeException(e);
+      }
     }
 
     sinkRecordBufferSizeInBytes += StreamingUtils.MAX_RECORD_OVERHEAD_BYTES;
@@ -1288,6 +1362,7 @@ public class TopicPartitionChannel {
     public Pair<List<Map<String, Object>>, List<Long>> getData() {
       final List<Map<String, Object>> records = new ArrayList<>();
       final List<Long> offsets = new ArrayList<>();
+
       for (SinkRecord kafkaSinkRecord : sinkRecords) {
         SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
 
@@ -1320,6 +1395,16 @@ public class TopicPartitionChannel {
                 kafkaSinkRecord.kafkaOffset(),
                 kafkaSinkRecord.topic());
             kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
+          } catch (SnowflakeKafkaConnectorException e) {
+            if (e.checkErrorCode(SnowflakeErrors.ERROR_0010)) {
+              LOGGER.warn(
+                  "Cannot parse record offset:{}, topic:{}. Sending to DLQ.",
+                  kafkaSinkRecord.kafkaOffset(),
+                  kafkaSinkRecord.topic());
+              kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
+            } else {
+              throw e;
+            }
           }
         }
       }

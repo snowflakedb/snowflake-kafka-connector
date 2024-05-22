@@ -8,6 +8,9 @@ import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NA
 import static com.snowflake.kafka.connector.internal.TestUtils.createBigAvroRecords;
 import static com.snowflake.kafka.connector.internal.TestUtils.createNativeJsonSinkRecords;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 
@@ -31,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -243,12 +247,182 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            new RecordService(mockTelemetryService),
+            new RecordService(),
             mockTelemetryService,
             false,
             null);
 
     topicPartitionChannel.closeChannel();
+  }
+
+  @Test
+  public void closeChannel_withSFExceptionInFuture_swallowsException() {
+    // given
+    CompletableFuture<Void> closeChannelFuture = new CompletableFuture<>();
+    closeChannelFuture.completeExceptionally(SF_EXCEPTION);
+
+    Mockito.when(mockStreamingChannel.close()).thenReturn(closeChannelFuture);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            true,
+            streamingBufferThreshold,
+            sfConnectorConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext,
+            mockSnowflakeConnectionService,
+            new RecordService(),
+            mockTelemetryService,
+            false,
+            null);
+
+    // when
+    assertDoesNotThrow(topicPartitionChannel::closeChannel);
+
+    // then
+    Mockito.verify(mockTelemetryService, Mockito.times(1))
+        .reportKafkaConnectFatalError(anyString());
+  }
+
+  @Test
+  public void closeChannel_withSFExceptionThrown_swallowsException() {
+    // given
+    Mockito.when(mockStreamingChannel.close()).thenThrow(SF_EXCEPTION);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            true,
+            streamingBufferThreshold,
+            sfConnectorConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext,
+            mockSnowflakeConnectionService,
+            new RecordService(),
+            mockTelemetryService,
+            false,
+            null);
+
+    // when
+    assertDoesNotThrow(topicPartitionChannel::closeChannel);
+
+    // then
+    Mockito.verify(mockTelemetryService, Mockito.times(1))
+        .reportKafkaConnectFatalError(anyString());
+  }
+
+  @Test
+  public void closeChannelAsync_withNotSFExceptionInFuture_propagatesException() {
+    // given
+    RuntimeException cause = new RuntimeException();
+
+    CompletableFuture<Void> closeChannelFuture = new CompletableFuture<>();
+    closeChannelFuture.completeExceptionally(cause);
+
+    Mockito.when(mockStreamingChannel.close()).thenReturn(closeChannelFuture);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            true,
+            streamingBufferThreshold,
+            sfConnectorConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext,
+            mockSnowflakeConnectionService,
+            new RecordService(),
+            mockTelemetryService,
+            false,
+            null);
+
+    // when
+    ExecutionException ex =
+        assertThrows(
+            ExecutionException.class, () -> topicPartitionChannel.closeChannelAsync().get());
+
+    // then
+    assertSame(cause, ex.getCause());
+
+    Mockito.verify(mockTelemetryService, Mockito.times(1))
+        .reportKafkaConnectFatalError(anyString());
+  }
+
+  @Test
+  public void closeChannelAsync_withSFExceptionInFuture_swallowsException() {
+    // given
+    CompletableFuture<Void> closeChannelFuture = new CompletableFuture<>();
+    closeChannelFuture.completeExceptionally(SF_EXCEPTION);
+
+    Mockito.when(mockStreamingChannel.close()).thenReturn(closeChannelFuture);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            true,
+            streamingBufferThreshold,
+            sfConnectorConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext,
+            mockSnowflakeConnectionService,
+            new RecordService(),
+            mockTelemetryService,
+            false,
+            null);
+
+    // when
+    assertDoesNotThrow(() -> topicPartitionChannel.closeChannelAsync().get());
+
+    // then
+    Mockito.verify(mockTelemetryService, Mockito.times(1))
+        .reportKafkaConnectFatalError(anyString());
+  }
+
+  @Test
+  public void closeChannelAsync_withSFExceptionThrown_swallowsException() {
+    // given
+    Mockito.when(mockStreamingChannel.close()).thenThrow(SF_EXCEPTION);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+
+    TopicPartitionChannel topicPartitionChannel =
+        new TopicPartitionChannel(
+            mockStreamingClient,
+            topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            true,
+            streamingBufferThreshold,
+            sfConnectorConfig,
+            mockKafkaRecordErrorReporter,
+            mockSinkTaskContext,
+            mockSnowflakeConnectionService,
+            new RecordService(),
+            mockTelemetryService,
+            false,
+            null);
+
+    // when
+    assertDoesNotThrow(() -> topicPartitionChannel.closeChannelAsync().get());
+
+    // then
+    Mockito.verify(mockTelemetryService, Mockito.times(1))
+        .reportKafkaConnectFatalError(anyString());
   }
 
   @Test
@@ -273,7 +447,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            new RecordService(mockTelemetryService),
+            new RecordService(),
             mockTelemetryService,
             false,
             null);
@@ -295,7 +469,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            new RecordService(mockTelemetryService),
+            new RecordService(),
             mockTelemetryService,
             false,
             null);
@@ -318,7 +492,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             anotherMockForParamDisabled,
-            new RecordService(mockTelemetryService),
+            new RecordService(),
             mockTelemetryService,
             false,
             null);
@@ -348,7 +522,7 @@ public class TopicPartitionChannelTest {
               mockKafkaRecordErrorReporter,
               mockSinkTaskContext,
               mockSnowflakeConnectionService,
-              new RecordService(mockTelemetryService),
+              new RecordService(),
               mockTelemetryService,
               false,
               null);
@@ -810,7 +984,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            new RecordService(mockTelemetryService),
+            new RecordService(),
             mockTelemetryService,
             false,
             null);

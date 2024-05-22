@@ -6,8 +6,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.FakeSnowflakeStreamingIngestClient;
+import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 
 public class FakeStreamingClientHandler implements StreamingClientHandler {
@@ -59,5 +61,9 @@ public class FakeStreamingClientHandler implements StreamingClientHandler {
         .map(Map::entrySet)
         .flatMap(Collection::stream)
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  public long countChannels(Predicate<SnowflakeStreamingIngestChannel> predicate) {
+    return this.clients.stream().mapToLong(channel -> channel.countChannels(predicate)).sum();
   }
 }

@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.snowflake.ingest.utils.Pair;
 
@@ -89,5 +90,9 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
     return this.channelCache.values().stream()
         .map(channel -> new Pair<>(channel.getName(), channel.getLatestCommittedOffsetToken()))
         .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+  }
+
+  public long countChannels(Predicate<SnowflakeStreamingIngestChannel> predicate) {
+    return this.channelCache.values().stream().filter(predicate).count();
   }
 }
