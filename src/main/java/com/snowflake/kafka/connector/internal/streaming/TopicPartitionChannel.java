@@ -1029,7 +1029,7 @@ public class TopicPartitionChannel {
     String offsetToken = null;
     try {
       offsetToken = this.channel.getLatestCommittedOffsetToken();
-      LOGGER.info(
+      LOGGER.debug(
           "Fetched offsetToken for channelName:{}, offset:{}",
           this.getChannelNameFormatV1(),
           offsetToken);
