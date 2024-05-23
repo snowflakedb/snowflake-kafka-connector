@@ -10,9 +10,8 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ErrorTo
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
 import com.google.common.base.Strings;
@@ -257,12 +256,8 @@ public class StreamingUtils {
             ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_CLIENT_LAG, invalidParams);
           }
 
-          if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE)) {
-            ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE, invalidParams);
-          }
-
-          if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT)) {
-            ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT, invalidParams);
+          if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES)) {
+            ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, invalidParams);
           }
 
           // Valid schematization for Snowpipe Streaming

@@ -17,12 +17,12 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
 import static net.snowflake.ingest.utils.ParameterProvider.MAX_CHANNEL_SIZE_IN_BYTES;
 import static net.snowflake.ingest.utils.ParameterProvider.MAX_CLIENT_LAG;
 import static net.snowflake.ingest.utils.ParameterProvider.MAX_MEMORY_LIMIT_IN_BYTES;
@@ -94,13 +94,13 @@ public class StreamingClientProperties {
             parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue)));
 
     if (isSingleBufferEnabled(connectorConfig)) {
-      Optional<String> snowpipeStreamingMaxChannelSize =
-          Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE));
-      snowpipeStreamingMaxChannelSize.ifPresent(
+      Optional<String> bufferMaxSizeBytes =
+          Optional.ofNullable(connectorConfig.get(BUFFER_SIZE_BYTES));
+      bufferMaxSizeBytes.ifPresent(
           overriddenValue -> parameterOverrides.put(MAX_CHANNEL_SIZE_IN_BYTES, overriddenValue));
 
       Optional<String> snowpipeStreamingMaxMemoryLimit =
-          Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT));
+          Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES));
       snowpipeStreamingMaxMemoryLimit.ifPresent(
           overriddenValue -> parameterOverrides.put(MAX_MEMORY_LIMIT_IN_BYTES, overriddenValue));
     }
@@ -123,7 +123,7 @@ public class StreamingClientProperties {
    *
    * <p>MAX_CLIENT_LAG can be provided in SNOWPIPE_STREAMING_MAX_CLIENT_LAG
    *
-   * <p>MAX_CHANNEL_SIZE_IN_BYTES can be provided in SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE
+   * <p>MAX_CHANNEL_SIZE_IN_BYTES can be provided in BUFFER_SIZE_BYTES
    *
    * <p>MAX_MEMORY_LIMIT_IN_BYTES can be provided in SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT. All the
    * listed above parameters can be provided in SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP as
@@ -177,11 +177,11 @@ public class StreamingClientProperties {
           overrideStreamingClientPropertyIfSet(
               clientOverridePropertiesMap,
               MAX_CHANNEL_SIZE_IN_BYTES,
-              SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE);
+              BUFFER_SIZE_BYTES);
           overrideStreamingClientPropertyIfSet(
               clientOverridePropertiesMap,
               MAX_MEMORY_LIMIT_IN_BYTES,
-              SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT);
+                  SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES);
           parameterOverrides.putAll(clientOverridePropertiesMap);
         });
     parameterOverrides.forEach(

@@ -13,9 +13,8 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLA
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_URL;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_USER;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
 import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import static org.assertj.core.api.Assertions.*;
@@ -640,8 +639,7 @@ public class ConnectorConfigTest {
   @CsvSource({
     SNOWPIPE_STREAMING_MAX_CLIENT_LAG + ", 1",
     SNOWPIPE_STREAMING_MAX_CLIENT_LAG + ", 3",
-    SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE + ", 10",
-    SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT + ", 10"
+    SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES + ", 10"
   })
   public void shouldNotThrowExceptionForProperStreamingClientPropsValue(String prop, String value) {
     // GIVEN
@@ -660,10 +658,10 @@ public class ConnectorConfigTest {
   @CsvSource({
     SNOWPIPE_STREAMING_MAX_CLIENT_LAG + ", fdf",
     SNOWPIPE_STREAMING_MAX_CLIENT_LAG + ", 10 dsada",
-    SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT + ", fdf",
-    SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT + ", 10 dsada",
-    SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT + ", fdf",
-    SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT + ", 10 dsada"
+    SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES + ", fdf",
+    SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES + ", 10 dsada",
+    SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES + ", fdf",
+    SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES + ", 10 dsada"
   })
   public void shouldThrowExceptionForInvalidStreamingClientPropsValue(String prop, String value) {
     // GIVEN
@@ -683,8 +681,7 @@ public class ConnectorConfigTest {
   @ParameterizedTest
   @CsvSource({
     SNOWPIPE_STREAMING_MAX_CLIENT_LAG + ", 10",
-    SNOWPIPE_STREAMING_MAX_CHANNEL_SIZE + ", 10",
-    SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT + ", 10"
+    SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES + ", 10"
   })
   public void shouldThrowExceptionForStreamingClientPropsWhenSnowpipeStreamingNotEnabled(
       String prop, String value) {
