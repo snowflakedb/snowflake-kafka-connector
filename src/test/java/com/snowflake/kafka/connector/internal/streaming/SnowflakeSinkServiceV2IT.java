@@ -1404,14 +1404,20 @@ public class SnowflakeSinkServiceV2IT {
     // get rid of these at the end
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
-    SchemaBuilder schemaBuilder = SchemaBuilder.struct().field("id_int8", Schema.INT8_SCHEMA);
-    Struct original = new Struct(schemaBuilder.build()).put("id_int8", (byte) 0);
+    Schema schema =
+        SchemaBuilder.struct()
+            .field("id_int8", Schema.INT8_SCHEMA)
+            .field("id_int8_non_nullable_null_value", Schema.OPTIONAL_INT8_SCHEMA)
+            .build();
+    Struct original =
+        new Struct(schema).put("id_int8", (byte) 0).put("id_int8_non_nullable_null_value", null);
 
     JsonConverter jsonConverter = new JsonConverter();
     jsonConverter.configure(config, false);
     byte[] converted = jsonConverter.fromConnectData(topic, original.schema(), original);
     conn.createTableWithOnlyMetadataColumn(table);
-    createNonNullableColumn(table, "id_int8_non_nullable");
+    createNonNullableColumn(table, "id_int8_non_nullable_missing_value");
+    createNonNullableColumn(table, "id_int8_non_nullable_null_value");
 
     SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
 
@@ -1445,7 +1451,17 @@ public class SnowflakeSinkServiceV2IT {
         5);
 
     // The second insert should fail again and schema evolution will kick in to update the
-    // nullability
+    // first not-nullable column nullability
+    service.insert(Collections.singletonList(jsonRecordValue));
+    TestUtils.assertWithRetry(
+        () ->
+            service.getOffset(new TopicPartition(topic, partition))
+                == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        20,
+        5);
+
+    // The third insert should fail again and schema evolution will kick in to update the
+    // second not-nullable column nullability
     service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
         () ->

@@ -37,8 +37,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -681,23 +684,39 @@ public class TopicPartitionChannel {
           if (response.hasErrors()) {
             InsertValidationResponse.InsertError insertError = response.getInsertErrors().get(0);
             List<String> extraColNames = insertError.getExtraColNames();
-            List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
+
+            List<String> missingNotNullColNames = insertError.getMissingNotNullColNames();
+            Set<String> nonNullableColumns =
+                new HashSet<>(
+                    missingNotNullColNames != null
+                        ? missingNotNullColNames
+                        : Collections.emptySet());
+
+            List<String> nullValueForNotNullColNames = insertError.getNullValueForNotNullColNames();
+            nonNullableColumns.addAll(
+                nullValueForNotNullColNames != null
+                    ? nullValueForNotNullColNames
+                    : Collections.emptySet());
+
             long originalSinkRecordIdx =
                 offsets.get(idx) - this.insertRowsStreamingBuffer.getFirstOffset();
-            if (extraColNames == null && nonNullableColumns == null) {
+
+            if (extraColNames == null && nonNullableColumns.isEmpty()) {
               InsertValidationResponse.InsertError newInsertError =
                   new InsertValidationResponse.InsertError(
                       insertError.getRowContent(), originalSinkRecordIdx);
               newInsertError.setException(insertError.getException());
               newInsertError.setExtraColNames(insertError.getExtraColNames());
               newInsertError.setMissingNotNullColNames(insertError.getMissingNotNullColNames());
+              newInsertError.setNullValueForNotNullColNames(
+                  insertError.getNullValueForNotNullColNames());
               // Simply added to the final response if it's not schema related errors
               finalResponse.addError(insertError);
             } else {
               SchematizationUtils.evolveSchemaIfNeeded(
                   this.conn,
                   this.channel.getTableName(),
-                  nonNullableColumns,
+                  new ArrayList<>(nonNullableColumns),
                   extraColNames,
                   this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
               // Offset reset needed since it's possible that we successfully ingested partial batch
