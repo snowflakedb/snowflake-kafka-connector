@@ -448,7 +448,8 @@ public class Utils {
                 SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
-      if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES)) {
+      if (config.containsKey(
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES)) {
         invalidConfigParams.put(
             SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES,
             Utils.formatString(

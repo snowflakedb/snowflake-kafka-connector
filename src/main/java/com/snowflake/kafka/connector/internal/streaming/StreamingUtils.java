@@ -257,7 +257,8 @@ public class StreamingUtils {
           }
 
           if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES)) {
-            ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, invalidParams);
+            ensureValidLong(
+                inputConfig, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, invalidParams);
           }
 
           // Valid schematization for Snowpipe Streaming

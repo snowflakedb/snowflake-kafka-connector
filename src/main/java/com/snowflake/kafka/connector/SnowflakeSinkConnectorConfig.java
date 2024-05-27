@@ -625,9 +625,9 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Width.NONE,
             SNOWPIPE_STREAMING_MAX_CLIENT_LAG)
         .define(
-                SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES,
+            SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES,
             Type.LONG,
-                SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES_DEFAULT,
+            SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES_DEFAULT,
             Importance.LOW,
             "Memory limit for ingest sdk client in bytes.")
         .define(

@@ -175,13 +175,11 @@ public class StreamingClientProperties {
           overrideStreamingClientPropertyIfSet(
               clientOverridePropertiesMap, MAX_CLIENT_LAG, SNOWPIPE_STREAMING_MAX_CLIENT_LAG);
           overrideStreamingClientPropertyIfSet(
-              clientOverridePropertiesMap,
-              MAX_CHANNEL_SIZE_IN_BYTES,
-              BUFFER_SIZE_BYTES);
+              clientOverridePropertiesMap, MAX_CHANNEL_SIZE_IN_BYTES, BUFFER_SIZE_BYTES);
           overrideStreamingClientPropertyIfSet(
               clientOverridePropertiesMap,
               MAX_MEMORY_LIMIT_IN_BYTES,
-                  SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES);
+              SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES);
           parameterOverrides.putAll(clientOverridePropertiesMap);
         });
     parameterOverrides.forEach(
