@@ -12,11 +12,12 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.BufferedTopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.StreamingBufferThreshold;
-import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.util.Collections;
@@ -93,7 +94,7 @@ public class SnowflakeStreamingSinkTaskBuilder {
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
 
     TopicPartitionChannel topicPartitionChannel =
-        new TopicPartitionChannel(
+        new BufferedTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
             SnowflakeSinkServiceV2.partitionChannelKey(topicName, partition),
