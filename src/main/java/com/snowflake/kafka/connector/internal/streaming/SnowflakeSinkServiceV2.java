@@ -302,7 +302,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     // check all partitions to see if they need to be flushed based on time
     for (TopicPartitionChannel partitionChannel : partitionsToChannel.values()) {
-        // Time based flushing
+      // Time based flushing
       partitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
     }
   }
@@ -339,7 +339,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         partitionChannelKey(topicPartition.topic(), topicPartition.partition());
     if (partitionsToChannel.containsKey(partitionChannelKey)) {
       long offset = partitionsToChannel.get(partitionChannelKey).getOffsetSafeToCommitToKafka();
-        partitionsToChannel.get(partitionChannelKey).setLatestConsumerOffset(offset);
+      partitionsToChannel.get(partitionChannelKey).setLatestConsumerOffset(offset);
 
       return offset;
     } else {

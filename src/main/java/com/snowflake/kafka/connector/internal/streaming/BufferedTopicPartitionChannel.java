@@ -79,7 +79,8 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
  * getLatestOffsetToken from Snowflake
  */
 public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
-  private static final KCLogger LOGGER = new KCLogger(BufferedTopicPartitionChannel.class.getName());
+  private static final KCLogger LOGGER =
+      new KCLogger(BufferedTopicPartitionChannel.class.getName());
 
   // last time we invoked insertRows API
   private long previousFlushTimeStampMs;
@@ -273,7 +274,8 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
     if (isEnableChannelOffsetMigration(sfConnectorConfig)) {
       /* Channel Name format V2 is computed from connector name, topic and partition */
       final String channelNameFormatV2 =
-          TopicPartitionChannel.generateChannelNameFormatV2(this.channelNameFormatV1, this.conn.getConnectorName());
+          TopicPartitionChannel.generateChannelNameFormatV2(
+              this.channelNameFormatV1, this.conn.getConnectorName());
       conn.migrateStreamingChannelOffsetToken(
           this.tableName, channelNameFormatV2, this.channelNameFormatV1);
     }
@@ -340,8 +342,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
   }
 
   @Override
-  public void insertRecord(
-          SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {
+  public void insertRecord(SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
 
@@ -1258,8 +1259,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
    * before calling insertRows API.
    */
   @VisibleForTesting
-  class StreamingBuffer
-      extends PartitionBuffer<Pair<List<Map<String, Object>>, List<Long>>> {
+  class StreamingBuffer extends PartitionBuffer<Pair<List<Map<String, Object>>, List<Long>>> {
     // Records coming from Kafka
     private final List<SinkRecord> sinkRecords;
 

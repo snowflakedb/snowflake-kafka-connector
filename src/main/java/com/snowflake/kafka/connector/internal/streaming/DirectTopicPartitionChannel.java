@@ -3,10 +3,9 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import java.util.concurrent.CompletableFuture;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import org.apache.kafka.connect.sink.SinkRecord;
-
-import java.util.concurrent.CompletableFuture;
 
 public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   @Override
@@ -50,8 +49,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   }
 
   @Override
-  public void insertRecord(SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {
-  }
+  public void insertRecord(SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {}
 
   @Override
   public long getOffsetSafeToCommitToKafka() {
@@ -59,9 +57,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   }
 
   @Override
-  public void closeChannel() {
-
-  }
+  public void closeChannel() {}
 
   @Override
   public CompletableFuture<Void> closeChannelAsync() {
@@ -79,12 +75,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   }
 
   @Override
-  public void insertBufferedRecordsIfFlushTimeThresholdReached() {
-
-  }
+  public void insertBufferedRecordsIfFlushTimeThresholdReached() {}
 
   @Override
-  public void setLatestConsumerOffset(long consumerOffset) {
-
-  }
+  public void setLatestConsumerOffset(long consumerOffset) {}
 }

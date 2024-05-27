@@ -1086,7 +1086,7 @@ public class TopicPartitionChannelTest {
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
     BufferedTopicPartitionChannel.StreamingBuffer streamingBuffer =
-            topicPartitionChannel.new StreamingBuffer();
+        topicPartitionChannel.new StreamingBuffer();
     streamingBuffer.insert(records.get(0));
 
     assert topicPartitionChannel.insertRecords(streamingBuffer).hasErrors();
