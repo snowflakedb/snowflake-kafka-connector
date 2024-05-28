@@ -416,13 +416,18 @@ public class Utils {
               SnowflakeSinkConnectorConfig.NAME));
     }
 
+    if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER)
+        && Boolean.parseBoolean(
+            config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER))) {
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
+          "Currently not supported.");
+    }
+
     // If config doesnt have ingestion method defined, default is snowpipe or if snowpipe is
     // explicitly passed in as ingestion method
     // Below checks are just for snowpipe.
-    if (!config.containsKey(INGESTION_METHOD_OPT)
-        || config
-            .get(INGESTION_METHOD_OPT)
-            .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString())) {
+    if (isSnowpipeIngestion(config)) {
       invalidConfigParams.putAll(
           BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE));
 
@@ -441,6 +446,24 @@ public class Utils {
             Utils.formatString(
                 "{} is only available with ingestion type: {}.",
                 SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      }
+      if (config.containsKey(
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES)) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES,
+            Utils.formatString(
+                "{} is only available with ingestion type: {}.",
+                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES,
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      }
+      if (config.containsKey(
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER)) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
+            Utils.formatString(
+                "{} is only available with ingestion type: {}.",
+                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
       if (config.containsKey(
@@ -608,6 +631,29 @@ public class Utils {
     handleInvalidParameters(ImmutableMap.copyOf(invalidConfigParams));
 
     return connectorName;
+  }
+
+  /**
+   * Returns whether INGESTION_METHOD_OPT is set to SNOWPIPE. If INGESTION_METHOD_OPT not specified,
+   * returns true as default.
+   *
+   * @param config input config object
+   */
+  static boolean isSnowpipeIngestion(Map<String, String> config) {
+    return !config.containsKey(INGESTION_METHOD_OPT)
+        || config
+            .get(INGESTION_METHOD_OPT)
+            .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString());
+  }
+
+  /**
+   * Returns whether INGESTION_METHOD_OPT is set to SNOWPIPE_STREAMING. If INGESTION_METHOD_OPT not
+   * specified, returns false as default.
+   *
+   * @param config input config object
+   */
+  static boolean isSnowpipeStreamingIngestion(Map<String, String> config) {
+    return !isSnowpipeIngestion(config);
   }
 
   /**
