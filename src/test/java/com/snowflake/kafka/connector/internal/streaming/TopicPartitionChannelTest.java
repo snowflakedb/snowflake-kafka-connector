@@ -189,6 +189,8 @@ public class TopicPartitionChannelTest {
                 ArgumentMatchers.any(String.class),
                 ArgumentMatchers.any(String.class)))
         .thenReturn(new InsertValidationResponse());
+    Mockito.when(mockStreamingChannel.insertRow(anyMap(), anyString()))
+            .thenReturn(new InsertValidationResponse());
 
     TopicPartitionChannel topicPartitionChannel =
         new BufferedTopicPartitionChannel(
