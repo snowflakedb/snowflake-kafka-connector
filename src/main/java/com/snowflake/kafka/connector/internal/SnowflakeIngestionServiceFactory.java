@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.security.PrivateKey;
+import javax.annotation.Nullable;
 
 /** A factory to create {@link SnowflakeIngestionService} */
 public class SnowflakeIngestionServiceFactory {
@@ -15,7 +16,8 @@ public class SnowflakeIngestionServiceFactory {
       String stageName,
       String pipeName,
       PrivateKey privateKey,
-      String userAgentSuffix) {
+      String userAgentSuffix,
+      SnowflakeTelemetryService telemetry) {
     return new SnowflakeIngestionServiceBuilder(
         accountName,
         userName,
@@ -25,7 +27,8 @@ public class SnowflakeIngestionServiceFactory {
         stageName,
         pipeName,
         privateKey,
-        userAgentSuffix);
+        userAgentSuffix,
+        telemetry);
   }
 
   /** Builder class to create instance of {@link SnowflakeIngestionService} */
@@ -41,7 +44,8 @@ public class SnowflakeIngestionServiceFactory {
         String stageName,
         String pipeName,
         PrivateKey privateKey,
-        String userAgentSuffix) {
+        String userAgentSuffix,
+        @Nullable SnowflakeTelemetryService telemetry) {
       this.service =
           new SnowflakeIngestionServiceV1(
               accountName,
@@ -52,7 +56,8 @@ public class SnowflakeIngestionServiceFactory {
               stageName,
               pipeName,
               privateKey,
-              userAgentSuffix);
+              userAgentSuffix,
+              telemetry);
     }
 
     SnowflakeIngestionServiceBuilder setTelemetry(SnowflakeTelemetryService telemetry) {
