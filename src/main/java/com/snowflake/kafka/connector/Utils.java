@@ -71,7 +71,7 @@ import org.apache.kafka.common.config.ConfigValue;
 public class Utils {
 
   // Connector version, change every release
-  public static final String VERSION = "2.2.2";
+  public static final String VERSION = "2.2.0";
 
   // connector parameter list
   public static final String NAME = "name";
@@ -444,15 +444,6 @@ public class Utils {
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
       if (config.containsKey(
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-            Utils.formatString(
-                "{} is only available with ingestion type: {}.",
-                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-      if (config.containsKey(
               SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG)
           && Boolean.parseBoolean(
               config.get(
@@ -735,29 +726,6 @@ public class Utils {
       throw SnowflakeErrors.ERROR_0021.getException();
     }
     return topic2Table;
-  }
-
-  /**
-   * Convert a Comma separated key value pairs into a Map
-   *
-   * @param input Provided in KC config
-   * @return Map
-   */
-  public static Map<String, String> parseCommaSeparatedKeyValuePairs(String input) {
-    Map<String, String> pairs = new HashMap<>();
-    for (String str : input.split(",")) {
-      String[] tt = str.split(":");
-
-      if (tt.length != 2 || tt[0].trim().isEmpty() || tt[1].trim().isEmpty()) {
-        LOGGER.error(
-            "Invalid {} config format: {}",
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-            input);
-        throw SnowflakeErrors.ERROR_0030.getException();
-      }
-      pairs.put(tt[0].trim(), tt[1].trim());
-    }
-    return pairs;
   }
 
   static final String loginPropList[] = {SF_URL, SF_USER, SF_SCHEMA, SF_DATABASE};

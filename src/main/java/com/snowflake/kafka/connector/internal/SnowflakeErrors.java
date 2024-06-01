@@ -128,15 +128,6 @@ public enum SnowflakeErrors {
           + " parameter when using oauth as authenticator"),
   ERROR_0029(
       "0029", "Invalid authenticator", "Authenticator should be either oauth or snowflake_jwt"),
-  ERROR_0030(
-      "0030",
-      String.format(
-          "Invalid %s map",
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP),
-      String.format(
-          "Failed to parse %s map",
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)),
-
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
@@ -312,12 +303,7 @@ public enum SnowflakeErrors {
       "5023",
       "Failure in Streaming Channel Offset Migration Response",
       "Streaming Channel Offset Migration from Source to Destination Channel has no/invalid"
-          + " response, please contact Snowflake Support"),
-  ERROR_5024(
-      "5024",
-      "Timeout while waiting for file cleaner to start",
-      "Could not allocate thread for file cleaner to start processing in given time. If problem"
-          + " persists, please try setting snowflake.snowpipe.use_new_cleaner to false");
+          + " response, please contact Snowflake Support");
 
   // properties
 

@@ -31,13 +31,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -81,11 +78,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
 
-  // default is false, unless the configuration provided true
-  // if this is true, the service will use new file cleaner module
-  private boolean useStageFilesProcessor = false;
-  @Nullable private ScheduledExecutorService cleanerServiceExecutor;
-
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
@@ -125,13 +117,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
       pipes.put(
           nameIndex,
-          new ServiceContext(
-              tableName,
-              stageName,
-              pipeName,
-              conn,
-              topicPartition.partition(),
-              cleanerServiceExecutor));
+          new ServiceContext(tableName, stageName, pipeName, conn, topicPartition.partition()));
     }
   }
 
@@ -244,11 +230,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   }
 
   @Override
-  public void stop() {
-    if (cleanerServiceExecutor != null) {
-      cleanerServiceExecutor.shutdown();
-      cleanerServiceExecutor = null;
-    }
+  public void setIsStoppedToTrue() {
     this.isStopped = true; // release all cleaner and flusher threads
   }
 
@@ -329,15 +311,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     this.behaviorOnNullValues = behavior;
   }
 
-  // enable use of new stage files processor
-  void enableStageFilesProcessor(int threadCount) {
-    this.useStageFilesProcessor = true;
-    if (cleanerServiceExecutor != null) {
-      cleanerServiceExecutor.shutdown();
-    }
-    cleanerServiceExecutor = new ScheduledThreadPoolExecutor(Math.max(1, threadCount));
-  }
-
   @Override
   public void setCustomJMXMetrics(boolean enableJMX) {
     this.enableCustomJMXMonitoring = enableJMX;
@@ -391,13 +364,10 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     private long previousFlushTimeStamp;
 
     // threads
-    @Nullable private final ExecutorService cleanerExecutor;
-    @Nullable private final ExecutorService reprocessCleanerExecutor;
+    private final ExecutorService cleanerExecutor;
+    private final ExecutorService reprocessCleanerExecutor;
     private final Lock bufferLock;
     private final Lock fileListLock;
-    // v2 file cleaner logic - either cleaner executors or stageFileProcessorClient is used
-    private final boolean useStageFilesProcessor;
-    @Nullable private final StageFilesProcessor.ProgressRegister stageFileProcessorClient;
 
     // telemetry
     private final SnowflakeTelemetryPipeStatus pipeStatus;
@@ -420,8 +390,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         String stageName,
         String pipeName,
         SnowflakeConnectionService conn,
-        int partition,
-        ScheduledExecutorService v2CleanerExecutor) {
+        int partition) {
       this.pipeName = pipeName;
       this.tableName = tableName;
       this.stageName = stageName;
@@ -446,6 +415,9 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
           new SnowflakeTelemetryPipeStatus(
               tableName, stageName, pipeName, enableCustomJMXMonitoring, this.metricsJmxReporter);
 
+      this.cleanerExecutor = Executors.newSingleThreadExecutor();
+      this.reprocessCleanerExecutor = Executors.newSingleThreadExecutor();
+
       if (enableCustomJMXMonitoring) {
         partitionBufferCountHistogram =
             this.metricRegistry.histogram(
@@ -455,29 +427,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
                 MetricsUtil.constructMetricName(pipeName, BUFFER_SUB_DOMAIN, BUFFER_SIZE_BYTES));
         LOGGER.info(
             "Registered {} metrics for pipeName:{}", metricRegistry.getMetrics().size(), pipeName);
-      }
-
-      this.useStageFilesProcessor = v2CleanerExecutor != null;
-      if (useStageFilesProcessor) {
-
-        StageFilesProcessor processor =
-            new StageFilesProcessor(
-                pipeName,
-                tableName,
-                stageName,
-                prefix,
-                conn,
-                ingestionService,
-                pipeStatus,
-                telemetryService,
-                v2CleanerExecutor);
-        this.stageFileProcessorClient = processor.trackFilesAsync();
-        this.cleanerExecutor = null;
-        this.reprocessCleanerExecutor = null;
-      } else {
-        this.cleanerExecutor = Executors.newSingleThreadExecutor();
-        this.reprocessCleanerExecutor = Executors.newSingleThreadExecutor();
-        this.stageFileProcessorClient = null;
       }
 
       LOGGER.info("pipe: {} - service started", pipeName);
@@ -493,14 +442,12 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       // recover will only check pipe status and create pipe if it does not exist.
       recover(pipeCreation);
 
-      if (!useStageFilesProcessor) {
-        try {
-          startCleaner(recordOffset, pipeCreation);
-        } catch (Exception e) {
-          LOGGER.warn("Cleaner and Flusher threads shut down before initialization");
-        }
+      try {
+        startCleaner(recordOffset, pipeCreation);
+        telemetryService.reportKafkaPartitionStart(pipeCreation);
+      } catch (Exception e) {
+        LOGGER.warn("Cleaner and Flusher threads shut down before initialization");
       }
-      telemetryService.reportKafkaPartitionStart(pipeCreation);
     }
 
     private boolean resetCleanerFiles() {
@@ -691,10 +638,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             bufferLock.unlock();
           }
 
-          if (useStageFilesProcessor) {
-            stageFileProcessorClient.newOffset(record.kafkaOffset());
-          }
-
           if (tmpBuff != null) {
             flush(tmpBuff);
           }
@@ -856,11 +799,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       fileListLock.lock();
       try {
         fileNames.add(fileName);
-        if (useStageFilesProcessor) {
-          stageFileProcessorClient.registerNewStageFile(fileName);
-        } else {
-          cleanerFileNames.add(fileName);
-        }
+        cleanerFileNames.add(fileName);
       } finally {
         fileListLock.unlock();
       }
@@ -1018,14 +957,10 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     }
 
     private void close() {
-      if (stageFileProcessorClient != null) {
-        stageFileProcessorClient.close();
-      } else {
-        try {
-          stopCleaner();
-        } catch (Exception e) {
-          LOGGER.warn("Failed to terminate Cleaner or Flusher");
-        }
+      try {
+        stopCleaner();
+      } catch (Exception e) {
+        LOGGER.warn("Failed to terminate Cleaner or Flusher");
       }
       ingestionService.close();
       telemetryService.reportKafkaPartitionUsage(pipeStatus, true);

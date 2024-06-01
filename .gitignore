@@ -8,6 +8,10 @@ target/
 .DS_Store
 __pycache__
 test/rest_request_generated/
+test/perf_test/config
+test/perf_test/confluent
+test/perf_test/data
+test/perf_test/confluent.tar.gz
 *.iml
 .vscode/
 docker-setup/connector-examples/*.json
@@ -16,4 +20,3 @@ docker-setup/snowflake-kafka-docker
 cc-docker-connect-snowflake/confluent-cloud-plugins/
 cc-docker-connect-snowflake/kafka-connect-snowflake/
 .cache/
-licenses/

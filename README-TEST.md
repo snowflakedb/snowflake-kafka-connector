@@ -20,6 +20,8 @@ GitHub Action is used for CI/CD test. The workflows can be found in `.github/wor
 
 `End2EndTestFullAzure.yml` : Same with the previous workflow but test with Snowflake deployed on AZURE.
 
+`PerfTest.yml` : Run performance test with Snowflake deployed on AWS.
+
 `StressTest.yml`: Run unit test. Then run stress test on Confluent 5.5.0 with Snowflake deployed on AWS.
 
 #### Manage secrets
@@ -49,15 +51,11 @@ Checkout from GitHub master and run integration test:
 The above command build a jar file and put it at `/usr/local/share/kafka/plugins`. Then the following command will spin up Kafka and Kafka Connect cluster and execute the test suits. 
 
 ```
-./run_test_<confluent/apache>.sh <version> <path to apache config folder> <stress> <ssl> [--skipProxy] [--tests=TestStringJson,TestAvroAvro,...]
+./run_test_<confluent/apache>.sh <version> <path to apache config folder> <stress> <ssl>
 Run end to end test on Confluent 5.5.0 with stress test, without ssl
 	./run_test_confluent.sh 5.5.0 ./apache_properties true
 Run end to end test on Apache 2.2.0 without stress test, with ssl
 	./run_test_apache.sh 2.2.0 ./apache_properties_ssl false true
-	
-Optional arguments (useful for local development):
-    --skipProxy - skip running proxy tests
-    --tests - comma separated list of test suites to run
 ```
 
 Note: if ssl is set to true, path to apache config folder must be `apache_properties_ssl` instead of `apache_properties`
@@ -130,6 +128,19 @@ Full version test aims at providing Confluent and Apache Kafka version coverage.
 | 5.4.0             | 2.4.0          |
 | 5.5.0             | 2.5.0          |
 
+### Performance Test
+
+Performance test is defined in `test/perf_test`. In the test we send 1G of data to Snowflake in different formats. To run the performance manually: under folder `/test/perf_test`:
+
+1. make sure `snowflake.json` is under `/test/perf_test/config`
+2. run `./scripts/run.sh`
+
+In the performance test we start Kafka Connect with Confluent package. The Kafka Connect is single node and in stand-alone mode. There are two input dataset, both of size 1G. One dataset contains 300 columns and the other dataset has < 10 columns but much more rows. The two dataset are casted into JSON, AVRO, and AVRO file input format. Resulting in 6 different tests. 
+
+The Snowflake connector takes around 20 minutes to ingest 1G of data no matter what the input format is. 6 test takes around 2 hours to finish. Most of the time is spent on fetching data from Kafka as well as Snowpipe ingestion. 
+
+Performance test is run daily and we manully check whether there is abnormal bahaviour in the running time of the test. As long as the test takes around 2 hours to finish, there is no big performance change. 
+
 ### Stress Test
 
 Stress test is a test case in end to end test framework. For stress test, the basic Kafka and Kafka Connect cluster configurations are the same with end to end test, which is single node Kafka and Kafka Connect cluster. The test case is run weekly with GitHub Action workflow defined in `StressTest.yml`. To run the stress test manually, follow the build step of end to end test, then execute:
@@ -156,6 +167,10 @@ Files in directory .github/scripts
 
 - decrypt_secret.sh: Decrypt `profile.json` for integration test and end to end test.
 
+- perf_test.json.gpg: Encrypted `profile.json` for performance test.
+
+- perf_test_decrypt_secret.sh: Decrypt `profile.json` for performance test.
+
 - profile.json.gpg: Encrypted `profile.json` for integration test and end to end test for AWS deployment
 
 - profile_azure.json.gpg: Encrypted `profile.json` for integration test and end to end test for Azure deployment
@@ -165,6 +180,7 @@ Folders and files in directory test/
 - apache_properties/: Configurations for Kafka, Zookeepers, Kafka Connect, etc.
 - apache_properties_ssl/: Configurations for Kafka cluster with SSL enabled.
 - helm_values/: Configuration for Kafka cluster deplyed with Kubernetes.
+- perf_test/: Performance test file.
 - rest_request_template/: Connector configuration file for end to end test.
 - test_data/: Avro/Profobuf data for end to end test.
 - test_suit/: End to end test cases.

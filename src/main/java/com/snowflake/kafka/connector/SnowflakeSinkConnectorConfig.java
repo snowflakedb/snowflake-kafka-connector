@@ -119,20 +119,9 @@ public class SnowflakeSinkConnectorConfig {
   public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
       IngestionMethodConfig.SNOWPIPE.toString();
 
-  // addresses https://snowflakecomputing.atlassian.net/browse/SNOW-1019628 - use new file cleaner
-  public static final String SNOWPIPE_FILE_CLEANER_FIX_ENABLED =
-      "snowflake.snowpipe.v2CleanerEnabled";
-  public static final String SNOWPIPE_FILE_CLEANER_THREADS = "snowflake.snowpipe.v2CleanerThreads";
-
-  public static final boolean SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT = false;
-  public static final int SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT = 1;
-
   // This is the streaming max client lag which can be defined in config
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
       "snowflake.streaming.max.client.lag";
-
-  public static final String SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP =
-      "snowflake.streaming.client.provider.override.map";
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
@@ -143,9 +132,6 @@ public class SnowflakeSinkConnectorConfig {
   private static final ConfigDef.Validator nonEmptyStringValidator = new ConfigDef.NonEmptyString();
   private static final ConfigDef.Validator topicToTableValidator = new TopicToTableValidator();
   private static final ConfigDef.Validator KAFKA_PROVIDER_VALIDATOR = new KafkaProviderValidator();
-
-  private static final ConfigDef.Validator STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP_VALIDATOR =
-      new CommaSeparatedKeyValueValidator();
 
   // For error handling
   public static final String ERROR_GROUP = "ERRORS";
@@ -557,19 +543,6 @@ public class SnowflakeSinkConnectorConfig {
             ConfigDef.Width.NONE,
             INGESTION_METHOD_OPT)
         .define(
-            SNOWPIPE_FILE_CLEANER_FIX_ENABLED,
-            Type.BOOLEAN,
-            SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT,
-            Importance.LOW,
-            "Whether to use new file cleaner for snowpipe data ingestion")
-        .define(
-            SNOWPIPE_FILE_CLEANER_THREADS,
-            Type.INT,
-            SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT,
-            Importance.LOW,
-            "Defines number of worker threads to associate with the cleaner task. By default there"
-                + " is one cleaner per topic's partition and they all share one worker thread")
-        .define(
             SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
             Type.LONG,
             StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC,
@@ -580,20 +553,6 @@ public class SnowflakeSinkConnectorConfig {
             6,
             ConfigDef.Width.NONE,
             SNOWPIPE_STREAMING_MAX_CLIENT_LAG)
-        .define(
-            SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-            Type.STRING,
-            "",
-            STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP_VALIDATOR,
-            Importance.LOW,
-            "Map of Key value pairs representing Streaming Client Properties to Override. These are"
-                + " optional and recommended to use ONLY after consulting Snowflake Support. Format"
-                + " : comma-separated tuples, e.g.:"
-                + " MAX_CLIENT_LAG:5000,other_key:value...",
-            CONNECTOR_CONFIG,
-            0,
-            ConfigDef.Width.NONE,
-            SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)
         .define(
             ERRORS_TOLERANCE_CONFIG,
             Type.STRING,
@@ -863,45 +822,4 @@ public class SnowflakeSinkConnectorConfig {
           this.validator.ensureValid(name, value);
         }
       };
-
-  /**
-   * Class which validates key value pairs in the format <key-1>:<value-1>,<key-2>:<value-2>
-   *
-   * <p>It doesn't validate the type of values, only making sure the format is correct.
-   */
-  public static class CommaSeparatedKeyValueValidator implements ConfigDef.Validator {
-    public CommaSeparatedKeyValueValidator() {}
-
-    public void ensureValid(String name, Object value) {
-      String s = (String) value;
-      // Validate the comma-separated key-value pairs string
-      if (s != null && !s.isEmpty() && !isValidCommaSeparatedKeyValueString(s)) {
-        throw new ConfigException(name, value, "Format: <key-1>:<value-1>,<key-2>:<value-2>,...");
-      }
-    }
-
-    private boolean isValidCommaSeparatedKeyValueString(String input) {
-      // Split the input string by commas
-      String[] pairs = input.split(",");
-      for (String pair : pairs) {
-        // Trim the pair to remove leading and trailing whitespaces
-        pair = pair.trim();
-        // Split each pair by colon
-        String[] keyValue = pair.split(":");
-        // Check if the pair has exactly two elements after trimming
-        if (keyValue.length != 2) {
-          return false;
-        }
-        // Check if the key or value is empty after trimming
-        if (keyValue[0].trim().isEmpty() || keyValue[1].trim().isEmpty()) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    public String toString() {
-      return "Comma-separated key-value pairs format: <key-1>:<value-1>,<key-2>:<value-2>,...";
-    }
-  }
 }

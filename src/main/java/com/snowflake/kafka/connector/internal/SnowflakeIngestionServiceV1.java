@@ -3,14 +3,9 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.internal.InternalUtils.convertIngestStatus;
 import static com.snowflake.kafka.connector.internal.InternalUtils.timestampToDate;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.security.PrivateKey;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Predicate;
-import javax.annotation.Nullable;
 import net.snowflake.ingest.SimpleIngestManager;
 import net.snowflake.ingest.connection.HistoryRangeResponse;
 import net.snowflake.ingest.connection.HistoryResponse;
@@ -49,61 +44,24 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
       String stageName,
       String pipeName,
       PrivateKey privateKey,
-      String userAgentSuffix,
-      @Nullable SnowflakeTelemetryService telemetry) {
-
-    this(
-        stageName,
-        pipeName,
-        createOrThrow(
-            accountName,
-            userName,
-            host,
-            port,
-            connectionScheme,
-            pipeName,
-            privateKey,
-            userAgentSuffix,
-            telemetry),
-        telemetry);
-    LOGGER.info("initialized the pipe connector for pipe {}", pipeName);
-  }
-
-  @VisibleForTesting
-  SnowflakeIngestionServiceV1(
-      String stageName,
-      String pipeName,
-      SimpleIngestManager ingestManager,
-      @Nullable SnowflakeTelemetryService telemetry) {
+      String userAgentSuffix) {
     this.stageName = stageName;
     this.pipeName = pipeName;
-    this.ingestManager = ingestManager;
-    this.telemetry = telemetry;
-  }
-
-  private static SimpleIngestManager createOrThrow(
-      String accountName,
-      String userName,
-      String host,
-      int port,
-      String connectionScheme,
-      String pipeName,
-      PrivateKey privateKey,
-      String userAgentSuffix,
-      SnowflakeTelemetryService telemetry) {
     try {
-      return new SimpleIngestManager(
-          accountName,
-          userName,
-          pipeName,
-          privateKey,
-          connectionScheme,
-          host,
-          port,
-          userAgentSuffix);
+      this.ingestManager =
+          new SimpleIngestManager(
+              accountName,
+              userName,
+              pipeName,
+              privateKey,
+              connectionScheme,
+              host,
+              port,
+              userAgentSuffix);
     } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_0002.getException(e, telemetry);
+      throw SnowflakeErrors.ERROR_0002.getException(e, this.telemetry);
     }
+    LOGGER.info("initialized the pipe connector for pipe {}", pipeName);
   }
 
   @Override
@@ -220,45 +178,6 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
         });
 
     return result;
-  }
-
-  @Override
-  public int readIngestHistoryForward(
-      Map<String, InternalUtils.IngestedFileStatus> storage,
-      Predicate<HistoryResponse.FileEntry> fileFilter,
-      AtomicReference<String> historyMarker,
-      Integer lastNSeconds) {
-    HistoryResponse response;
-    try {
-      response =
-          (HistoryResponse)
-              InternalUtils.backoffAndRetry(
-                  telemetry,
-                  SnowflakeInternalOperations.INSERT_REPORT_SNOWPIPE_API,
-                  () -> ingestManager.getHistory(null, lastNSeconds, historyMarker.get()));
-    } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_3002.getException(e, this.telemetry);
-    }
-
-    AtomicInteger loadedRecords = new AtomicInteger();
-    if (response != null) {
-      historyMarker.set(response.getNextBeginMark());
-      response.files.stream()
-          .filter(file -> fileFilter == null || fileFilter.test(file))
-          .forEach(
-              historyEntry -> {
-                storage.compute(
-                    historyEntry.getPath(),
-                    (key, status) -> convertIngestStatus(historyEntry.getStatus()));
-                loadedRecords.incrementAndGet();
-              });
-      LOGGER.info(
-          "loaded {} files out of {} in ingest report since marker {}",
-          loadedRecords.get(),
-          response.files.size(),
-          historyMarker.get());
-    }
-    return loadedRecords.get();
   }
 
   /**

@@ -73,13 +73,8 @@ public interface SnowflakeSinkService {
    */
   void close(Collection<TopicPartition> partitions);
 
-  /**
-   * close all cleaner thread but have no effect on sink service context
-   *
-   * <p>Note that calling this method does not perform synchronous cleanup in Snowpipe based
-   * implementation
-   */
-  void stop();
+  /** close all cleaner thread but have no effect on sink service context */
+  void setIsStoppedToTrue();
 
   /**
    * retrieve sink service status

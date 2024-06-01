@@ -947,8 +947,8 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
             stageName,
             fullPipeName,
             privateKey,
-            userAgentSuffixInHttpRequest,
-            telemetry)
+            userAgentSuffixInHttpRequest)
+        .setTelemetry(this.telemetry)
         .build();
   }
 
