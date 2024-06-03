@@ -219,7 +219,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
             !Strings.isNullOrEmpty(StreamingUtils.getDlqTopicName(this.sfConnectorConfig));
 
     /* Schematization related properties */
-    /* Schematization related properties */
     this.enableSchematization =
             this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
 
@@ -393,24 +392,26 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   // --------------- BUFFER FLUSHING LOGIC --------------- //
 
   @Override
+  @Deprecated
   public void insertBufferedRecordsIfFlushTimeThresholdReached() {
     // It is just a leftover after buffered channel, not needed here as a buffer was removed in the current class.
     // todo remove this method in the future
   }
 
-  public void transformAndSend(SinkRecord kafkaSinkRecord) {
+  private void transformAndSend(SinkRecord kafkaSinkRecord) {
     try {
       Map<String, Object> transformedRecord = transformDataBeforeSending(kafkaSinkRecord);
       if (!transformedRecord.isEmpty()) {
-        InsertValidationResponse response = insertRowsWithFallback(transformedRecord, kafkaSinkRecord.kafkaOffset());
+        InsertValidationResponse response = insertRowWithFallback(transformedRecord, kafkaSinkRecord.kafkaOffset());
         this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
 
-        LOGGER.info(
-                "Successfully called insertRows for channel:{}, insertResponseHasErrors:{},",
-                this.getChannelNameFormatV1(),
-                response.hasErrors());
         if (response.hasErrors()) {
-          handleInsertRowsFailure(response.getInsertErrors(), kafkaSinkRecord);
+          LOGGER.warn(
+                  "insertRow for channel:{} resulted in errors:{},",
+                  this.getChannelNameFormatV1(),
+                  response.hasErrors());
+
+          handleInsertRowFailure(response.getInsertErrors(), kafkaSinkRecord);
         }
       }
 
@@ -438,11 +439,11 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    *
    * @return InsertValidationResponse a response that wraps around InsertValidationResponse
    */
-  private InsertValidationResponse insertRowsWithFallback(Map<String, Object> transformedRecord, long offset) {
+  private InsertValidationResponse insertRowWithFallback(Map<String, Object> transformedRecord, long offset) {
     Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
             Fallback.builder(
                             executionAttemptedEvent -> {
-                              insertRowsFallbackSupplier(executionAttemptedEvent.getLastException());
+                              insertRowFallbackSupplier(executionAttemptedEvent.getLastException());
                             })
                     .handle(SFException.class)
                     .onFailedAttempt(
@@ -480,7 +481,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    * @throws TopicPartitionChannelInsertionException exception is thrown after channel reopen has
    *     been successful and offsetToken was fetched from Snowflake
    */
-  private void insertRowsFallbackSupplier(Throwable ex)
+  private void insertRowFallbackSupplier(Throwable ex)
           throws TopicPartitionChannelInsertionException {
     final long offsetRecoveredFromSnowflake =
             streamingApiFallbackSupplier(StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK);
@@ -501,7 +502,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    *
    * @param insertErrors errors from validation response. (Only if it has errors)
    */
-  private void handleInsertRowsFailure(
+  private void handleInsertRowFailure(
           List<InsertValidationResponse.InsertError> insertErrors,
           SinkRecord kafkaSinkRecord) {
     if (enableSchemaEvolution) {
@@ -525,7 +526,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     if (errorTolerance) {
       if (!isDLQTopicSet) {
         LOGGER.warn(
-                "Although config:{} is set, Dead Letter Queue topic:{} is not set.",
+                "{} is set, however {} is not. The message will not be added to the Dead Letter Queue topic.",
                 ERRORS_TOLERANCE_CONFIG,
                 ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
       } else {
@@ -658,6 +659,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
     final long offsetToResetInKafka = offsetRecoveredFromSnowflake + 1L;
     if (offsetToResetInKafka == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      LOGGER.info("There is no offset registered for {} channel in Snowflake. Stop recovering the channel metadata.",
+              this.getChannelNameFormatV1());
       return;
     }
 
@@ -674,11 +677,12 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       needToSkipCurrentBatch = true;
 
     LOGGER.warn(
-            "{} Channel:{}, OffsetRecoveredFromSnowflake:{}, reset kafka offset to:{}",
+            "{} Channel:{}, setting sinkTaskOffset to {}, offsetPersistedInSnowflake to {}, processedOffset = {}",
             streamingApiFallbackInvoker,
             this.getChannelNameFormatV1(),
+            offsetToResetInKafka,
             offsetRecoveredFromSnowflake,
-            offsetToResetInKafka);
+            offsetRecoveredFromSnowflake);
   }
 
   /**
@@ -878,6 +882,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
   @Override
   @VisibleForTesting
+  @Deprecated
   public boolean isPartitionBufferEmpty() {
     return true;
   }
@@ -901,6 +906,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   }
 
   @Override
+  @Deprecated
   public void setLatestConsumerOffset(long consumerOffset) {}
 
   /**

@@ -101,7 +101,7 @@ public class TopicPartitionChannelTest {
       this.useDoubleBuffer = useDoubleBuffer;
   }
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameterized.Parameters(name = "enableSchematization: {0}, useDoubleBuffer: {1}")
   public static Collection<Object[]> input() {
     return Arrays.asList(new Object[][] {
             {true, true},
