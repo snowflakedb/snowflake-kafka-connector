@@ -897,6 +897,10 @@ public class TopicPartitionChannelTest {
                 ArgumentMatchers.any(String.class),
                 ArgumentMatchers.any(String.class)))
         .thenReturn(new InsertValidationResponse());
+    Mockito.when(
+            mockStreamingChannel.insertRow(
+                ArgumentMatchers.any(Map.class), ArgumentMatchers.any(String.class)))
+            .thenReturn(new InsertValidationResponse());
 
     final long bufferFlushTimeSeconds = 5L;
     StreamingBufferThreshold bufferThreshold =
@@ -934,9 +938,14 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
 
     Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
-    Mockito.verify(mockStreamingChannel, Mockito.times(2))
-        .insertRows(
-            ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(String.class));
+    if (useDoubleBuffer) {
+      Mockito.verify(mockStreamingChannel, Mockito.times(2))
+              .insertRows(
+                      ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(String.class));
+    } else {
+      Mockito.verify(mockStreamingChannel, Mockito.times(5))
+              .insertRow(anyMap(), anyString());
+    }
   }
 
   @Test
@@ -952,6 +961,10 @@ public class TopicPartitionChannelTest {
                 ArgumentMatchers.any(String.class),
                 ArgumentMatchers.any(String.class)))
         .thenReturn(new InsertValidationResponse());
+    Mockito.when(
+            mockStreamingChannel.insertRow(
+                ArgumentMatchers.any(Map.class), ArgumentMatchers.any(String.class)))
+            .thenReturn(new InsertValidationResponse());
 
     final long bufferFlushTimeSeconds = 5L;
     StreamingBufferThreshold bufferThreshold =
@@ -987,9 +1000,15 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
 
     Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
-    Mockito.verify(mockStreamingChannel, Mockito.times(2))
-        .insertRows(
-            ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(String.class));
+
+    if (useDoubleBuffer) {
+      Mockito.verify(mockStreamingChannel, Mockito.times(2))
+              .insertRows(
+                      ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(String.class));
+    } else {
+      Mockito.verify(mockStreamingChannel, Mockito.times(3))
+              .insertRow(anyMap(), anyString());
+    }
 
     Assert.assertEquals(2L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }

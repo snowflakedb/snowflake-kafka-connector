@@ -252,7 +252,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
             metricsJmxReporter,
             this.offsetPersistedInSnowflake,
             this.processedOffset,
-            new AtomicLong(-1));
+            new AtomicLong(0));
     this.telemetryServiceV2.reportKafkaPartitionStart(
         new SnowflakeTelemetryChannelCreation(this.tableName, this.channelNameFormatV1, startTime));
 
@@ -891,7 +891,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   @VisibleForTesting
   @Deprecated
   public long getLatestConsumerOffset() {
-    return -1;
+    return 0;
   }
 
   @Override

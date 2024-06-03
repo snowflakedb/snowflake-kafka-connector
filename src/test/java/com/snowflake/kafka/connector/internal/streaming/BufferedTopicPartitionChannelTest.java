@@ -74,7 +74,7 @@ public class BufferedTopicPartitionChannelTest {
         this.enableSchematization = enableSchematization;
     }
 
-    @Parameterized.Parameters(name = "enableSchematization: {0}, useDoubleBuffer: {1}")
+    @Parameterized.Parameters(name = "enableSchematization: {0}")
     public static Collection<Object[]> input() {
         return Arrays.asList(
                 new Object[][] {
