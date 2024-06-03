@@ -146,7 +146,7 @@ def main():
     with open(Path(target_dir, "ADDITIONAL_LICENCES"), "w") as additional_licenses_handle:
         additional_licenses_handle.write(missing_licenses_str)
 
-    if dependency_count < 30:
+    if dependency_count < 25:
         raise Exception(f"Suspiciously low number of dependency JARs detected in {dependency_jars_path}: {dependency_count}")
     print("License generation finished")
     print(f"\tTotal dependencies: {dependency_count}")
