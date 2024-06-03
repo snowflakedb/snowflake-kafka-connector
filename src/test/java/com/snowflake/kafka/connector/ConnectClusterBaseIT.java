@@ -94,7 +94,7 @@ public abstract class ConnectClusterBaseIT {
     try {
       connectCluster
           .assertions()
-          .assertConnectorAndTasksAreStopped(connectorName, "Failed to stop the connector");
+          .assertConnectorIsStopped(connectorName, "Failed to stop the connector");
     } catch (InterruptedException e) {
       throw new IllegalStateException("The connector is not running");
     }
