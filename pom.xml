@@ -50,7 +50,7 @@
         <skipUnitTests>${skipTests}</skipUnitTests>
         <skipIntegrationTests>${skipTests}</skipIntegrationTests>
 
-        <kafka.version>3.4.0</kafka.version>
+        <kafka.version>3.7.0</kafka.version>
         <awaitility.version>4.0.0</awaitility.version>
         <assertj-core.version>3.25.3</assertj-core.version>
     </properties>
@@ -415,7 +415,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-registry-client</artifactId>
-            <version>7.2.1</version>
+            <version>7.6.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -439,7 +439,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
-            <version>7.2.1</version>
+            <version>7.6.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -451,7 +451,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-connect-avro-converter</artifactId>
-            <version>7.2.1</version>
+            <version>7.6.0</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/io.dropwizard.metrics/metrics-core -->
