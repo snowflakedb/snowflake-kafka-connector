@@ -14,6 +14,7 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.FakeStreamingClientHandler;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider;
+import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.connect.storage.StringConverter;
 import org.apache.kafka.connect.util.clusters.EmbeddedConnectCluster;
@@ -34,10 +35,13 @@ public abstract class ConnectClusterBaseIT {
 
   @BeforeAll
   public void beforeAll() {
+    Map<String, String> workerConfig = new HashMap<>();
+    workerConfig.put("plugin.discovery", "hybrid_warn");
     connectCluster =
         new EmbeddedConnectCluster.Builder()
             .name("kafka-push-connector-connect-cluster")
             .numWorkers(3)
+            .workerProps(workerConfig)
             .build();
     connectCluster.start();
   }
@@ -94,7 +98,7 @@ public abstract class ConnectClusterBaseIT {
     try {
       connectCluster
           .assertions()
-          .assertConnectorAndTasksAreStopped(connectorName, "Failed to stop the connector");
+          .assertConnectorDoesNotExist(connectorName, "Failed to stop the connector");
     } catch (InterruptedException e) {
       throw new IllegalStateException("The connector is not running");
     }

@@ -31,6 +31,7 @@ EDL_10_LICENSE = "EDL 1.0"
 MIT_LICENSE = "The MIT License"
 GO_LICENSE = "The Go license"
 BOUNCY_CASTLE_LICENSE = "Bouncy Castle License"
+LGPL = "LGPL License"
 
 # The SDK does not need to include licenses of dependencies, which aren't shaded
 IGNORED_DEPENDENCIES = {"net.snowflake:snowflake-jdbc", "org.slf4j:slf4j-api"}
@@ -39,21 +40,35 @@ IGNORED_DEPENDENCIES = {"net.snowflake:snowflake-jdbc", "org.slf4j:slf4j-api"}
 # Only add a new record here after verifying that the dependency JAR does not contain a license!
 ADDITIONAL_LICENSES_MAP = {
     "com.eclipsesource.minimal-json:minimal-json": MIT_LICENSE,
+    "com.fasterxml.jackson.dataformat:jackson-dataformat-protobuf": APACHE_LICENSE,
     "com.github.ben-manes.caffeine:caffeine": APACHE_LICENSE,
     "com.github.luben:zstd-jni": BSD_2_CLAUSE_LICENSE,
     "com.google.code.findbugs:jsr305": APACHE_LICENSE,
+    "com.google.crypto.tink:tink": APACHE_LICENSE,
     "com.google.errorprone:error_prone_annotations": APACHE_LICENSE,
+    "com.google.code.findbugs:annotations": LGPL,
+    "com.google.code.gson:gson": APACHE_LICENSE,
     "com.google.guava:failureaccess": APACHE_LICENSE,
     "com.google.guava:listenablefuture": APACHE_LICENSE,
     "com.google.j2objc:j2objc-annotations": APACHE_LICENSE,
+    "com.google.protobuf:protobuf-java": BSD_3_CLAUSE_LICENSE,
+    "com.google.protobuf:protobuf-java-util": BSD_3_CLAUSE_LICENSE,
     "com.google.re2j:re2j": GO_LICENSE,
+    "com.hubspot.jackson:jackson-datatype-protobuf": APACHE_LICENSE,
+    "com.ibm.jsonata4java:JSONata4Java": APACHE_LICENSE,
+    "com.squareup:protoparser": APACHE_LICENSE,
     "dev.failsafe:failsafe": APACHE_LICENSE,
+    "info.picocli:picocli": APACHE_LICENSE,
     "io.confluent:common-utils": APACHE_LICENSE,
+    "io.confluent:dek-registry-client": APACHE_LICENSE,
     "io.confluent:kafka-avro-serializer": APACHE_LICENSE,
     "io.confluent:kafka-connect-avro-converter": APACHE_LICENSE,
     "io.confluent:kafka-connect-avro-data": APACHE_LICENSE,
     "io.confluent:kafka-schema-converter": APACHE_LICENSE,
     "io.confluent:kafka-schema-registry-client": APACHE_LICENSE,
+    "io.confluent:kafka-schema-registry-client-encryption": APACHE_LICENSE,
+    "io.confluent:kafka-schema-registry-client-encryption-tink": APACHE_LICENSE,
+    "io.confluent:kafka-schema-rules": APACHE_LICENSE,
     "io.confluent:kafka-schema-serializer": APACHE_LICENSE,
     "io.confluent:logredactor": APACHE_LICENSE,
     "io.confluent:logredactor-metrics": APACHE_LICENSE,
@@ -63,12 +78,20 @@ ADDITIONAL_LICENSES_MAP = {
     "io.swagger.core.v3:swagger-annotations": APACHE_LICENSE,
     "net.snowflake:snowflake-kafka-connector": APACHE_LICENSE,
     "net.snowflake:snowflake-ingest-sdk": APACHE_LICENSE,
+    "org.agrona:agrona": APACHE_LICENSE,
+    "org.antlr:antlr4-runtime": BSD_3_CLAUSE_LICENSE,
     "org.apache.kafka:kafka-clients" : APACHE_LICENSE,
     "org.apache.parquet:parquet-common": APACHE_LICENSE,
     "org.apache.parquet:parquet-format-structures": APACHE_LICENSE,
     "org.bouncycastle:bc-fips": BOUNCY_CASTLE_LICENSE,
     "org.bouncycastle:bcpkix-fips": BOUNCY_CASTLE_LICENSE,
+    "org.projectnessie.cel:cel-core": APACHE_LICENSE,
+    "org.projectnessie.cel:cel-generated-antlr": APACHE_LICENSE,
+    "org.projectnessie.cel:cel-generated-pb": APACHE_LICENSE,
+    "org.projectnessie.cel:cel-jackson": APACHE_LICENSE,
+    "org.projectnessie.cel:cel-tools": APACHE_LICENSE,
     "org.xerial.snappy:snappy-java": APACHE_LICENSE,
+    "org.yaml:snakeyaml": APACHE_LICENSE
 }
 
 

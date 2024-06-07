@@ -100,8 +100,8 @@ case $CONFLUENT_VERSION in
 	6.2.*)
     DOWNLOAD_URL="https://packages.confluent.io/archive/6.2/confluent-community-$CONFLUENT_VERSION.tar.gz"
     ;;
-  7.2.*)
-    DOWNLOAD_URL="https://packages.confluent.io/archive/7.2/confluent-community-$CONFLUENT_VERSION.tar.gz"
+  7.6.*)
+    DOWNLOAD_URL="https://packages.confluent.io/archive/7.6/confluent-community-$CONFLUENT_VERSION.tar.gz"
     ;;
   *)
     error_exit "Usage: ./run_test.sh <version> <path to apache config folder>. Unknown version $CONFLUENT_VERSION Aborting."

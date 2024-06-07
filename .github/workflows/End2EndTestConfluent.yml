@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategyfail-fast
       matrix:
-        confluent_version: [ '6.2.6', '7.2.1' ]
+        confluent_version: [ '6.2.6', '7.6.0' ]
         snowflake_cloud: [ 'AWS', 'AZURE', 'GCS' ]
         java_test_version: [ '8', '11', '17' ]
     steps:
