@@ -26,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 import net.snowflake.client.jdbc.cloud.storage.StageInfo;
-import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * Implementation of Snowflake Connection Service interface which includes all handshake between KC
@@ -489,8 +488,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
    * @param columnInfos the mapping from the columnNames to their types
    */
   @Override
-  public void appendColumnsToTable(
-      String tableName, Map<String, Pair<String, String>> columnInfos) {
+  public void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     StringBuilder appendColumnQuery =
@@ -498,21 +496,21 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     boolean first = true;
     StringBuilder logColumn = new StringBuilder("[");
 
-    for (String columnName : columnInfos.keySet()) {
+    for (String columnName : columnInfosMap.keySet()) {
       if (first) {
         first = false;
       } else {
         appendColumnQuery.append(", if not exists ");
         logColumn.append(",");
       }
-      Pair<String, String> p = columnInfos.get(columnName);
-      String columnComment =
-          Optional.ofNullable(p.getRight())
-              .map(comment -> String.format(" comment '%s'", comment))
-              .orElse(
-                  " comment 'column created by schema evolution from Snowflake Kafka Connector'");
-      appendColumnQuery.append(columnName).append(" ").append(p.getLeft()).append(columnComment);
-      logColumn.append(columnName).append(" (").append(columnInfos.get(columnName)).append(")");
+      ColumnInfos columnInfos = columnInfosMap.get(columnName);
+
+      appendColumnQuery
+          .append(columnName)
+          .append(" ")
+          .append(columnInfos.getColumnType())
+          .append(columnInfos.getComments());
+      logColumn.append(columnName).append(" (").append(columnInfosMap.get(columnName)).append(")");
     }
 
     try {

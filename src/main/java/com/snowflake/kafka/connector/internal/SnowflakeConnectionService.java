@@ -4,6 +4,7 @@ import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetToke
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
+import java.util.Map;
 
 public interface SnowflakeConnectionService {
   /**
@@ -105,9 +106,9 @@ public interface SnowflakeConnectionService {
    * Alter table to add columns according to a map from columnNames to their types
    *
    * @param tableName the name of the table
-   * @param columnInfos the column infos (contains column name, comments)
+   * @param columnInfosMap the mapping from the columnNames to their columnInfos
    */
-  void appendColumnsToTable(String tableName, ColumnInfos columnInfos);
+  void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap);
 
   /**
    * Alter table to drop non-nullability of a list of columns
