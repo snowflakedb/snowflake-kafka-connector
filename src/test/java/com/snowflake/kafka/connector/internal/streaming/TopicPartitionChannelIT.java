@@ -14,6 +14,8 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -29,8 +31,13 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+@RunWith(Parameterized.class)
 public class TopicPartitionChannelIT {
+
+  private final boolean useDoubleBuffer;
 
   private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
   private String testTableName;
@@ -39,6 +46,18 @@ public class TopicPartitionChannelIT {
   private String topic;
   private TopicPartition topicPartition, topicPartition2;
   private String testChannelName, testChannelName2;
+
+  public TopicPartitionChannelIT(boolean useDoubleBuffer) {
+    this.useDoubleBuffer = useDoubleBuffer;
+  }
+
+  @Parameterized.Parameters(name = "use double buffer: {0}")
+  public static Collection<Object[]> input() {
+    return Arrays.asList(new Object[][] {
+            {false},
+            {true},
+    });
+  }
 
   @Before
   public void beforeEach() {
@@ -60,7 +79,7 @@ public class TopicPartitionChannelIT {
 
   @Test
   public void testAutoChannelReopenOn_OffsetTokenSFException() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -118,7 +137,7 @@ public class TopicPartitionChannelIT {
   /* This will automatically open the channel. */
   @Test
   public void testInsertRowsOnChannelClosed() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -182,7 +201,7 @@ public class TopicPartitionChannelIT {
    */
   @Test
   public void testAutoChannelReopen_InsertRowsSFException() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -269,7 +288,7 @@ public class TopicPartitionChannelIT {
    */
   @Test
   public void testAutoChannelReopen_MultiplePartitionsInsertRowsSFException() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
 
@@ -388,7 +407,7 @@ public class TopicPartitionChannelIT {
 
   @Test
   public void testAutoChannelReopen_SinglePartitionsInsertRowsSFException() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
 
@@ -463,7 +482,7 @@ public class TopicPartitionChannelIT {
 
   @Test
   public void testPartialBatchChannelInvalidationIngestion_schematization() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfForStreaming();
     config.put(
         SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "500"); // we want to flush on record
     config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "500000");
@@ -535,10 +554,17 @@ public class TopicPartitionChannelIT {
     service.closeAll();
   }
 
+  private Map<String, String> getConfForStreaming() {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    String enableSingleBufferValue = String.valueOf(!useDoubleBuffer);
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, enableSingleBufferValue);
+    return config;
+  }
+
   @Test
   public void testChannelMigrateOffsetTokenSystemFunction_NonNullOffsetTokenForSourceChannel()
       throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -619,7 +645,7 @@ public class TopicPartitionChannelIT {
   @Test
   public void testChannelMigrateOffsetTokenSystemFunction_NullOffsetTokenInFormatV2()
       throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -722,7 +748,7 @@ public class TopicPartitionChannelIT {
 
   private void testInsertRowsWithGaps(boolean withSchematization) throws Exception {
     // setup
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,

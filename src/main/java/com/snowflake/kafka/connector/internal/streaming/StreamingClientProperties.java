@@ -19,8 +19,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
 import static net.snowflake.ingest.utils.ParameterProvider.MAX_CHANNEL_SIZE_IN_BYTES;
@@ -37,6 +35,8 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import com.snowflake.kafka.connector.internal.parameters.InternalBufferParameters;
 import net.snowflake.ingest.utils.Constants;
 
 /**
@@ -93,7 +93,7 @@ public class StreamingClientProperties {
         overriddenValue ->
             parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue)));
 
-    if (isSingleBufferEnabled(connectorConfig)) {
+    if (InternalBufferParameters.isSingleBufferEnabled(connectorConfig)) {
       Optional<String> bufferMaxSizeBytes =
           Optional.ofNullable(connectorConfig.get(BUFFER_SIZE_BYTES));
       bufferMaxSizeBytes.ifPresent(
@@ -106,12 +106,6 @@ public class StreamingClientProperties {
     }
 
     combineStreamingClientOverriddenProperties(connectorConfig);
-  }
-
-  private static Boolean isSingleBufferEnabled(Map<String, String> connectorConfig) {
-    return Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER))
-        .map(Boolean::parseBoolean)
-        .orElse(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT);
   }
 
   /**
