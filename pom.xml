@@ -52,7 +52,7 @@
 
         <kafka.version>3.7.0</kafka.version>
         <awaitility.version>4.0.0</awaitility.version>
-        <assertj-core.version>3.25.3</assertj-core.version>
+        <assertj-core.version>3.26.0</assertj-core.version>
         <confluent.version>7.6.0</confluent.version>
     </properties>
 
