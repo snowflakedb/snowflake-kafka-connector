@@ -112,8 +112,7 @@ public class SchematizationUtils {
    *
    * @param record the sink record that contains the schema and actual data
    * @param columnNames the names of the extra columns
-   * @return a Map object where the key is column name and value is a pair containing the column
-   *     type and column comment.
+   * @return a Map object where the key is column name and value is ColumnInfos
    */
   static Map<String, ColumnInfos> getColumnInfos(SinkRecord record, List<String> columnNames) {
     if (columnNames == null) {
@@ -152,8 +151,7 @@ public class SchematizationUtils {
    * Given a SinkRecord, get the schema information from it
    *
    * @param record the sink record that contains the schema and actual data
-   * @return a Map object where the key is column name and value is a pair containing the column
-   *     type and column comment.
+   * @return a Map object where the key is column name and value is ColumnInfos
    */
   private static Map<String, ColumnInfos> getSchemaMapFromRecord(SinkRecord record) {
     Map<String, ColumnInfos> schemaMap = new HashMap<>();

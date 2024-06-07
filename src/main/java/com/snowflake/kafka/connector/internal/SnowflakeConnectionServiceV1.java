@@ -485,7 +485,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
    * Alter table to add columns according to a map from columnNames to their types
    *
    * @param tableName the name of the table
-   * @param columnInfos the mapping from the columnNames to their types
+   * @param columnInfosMap the mapping from the columnNames to their infos
    */
   @Override
   public void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap) {
