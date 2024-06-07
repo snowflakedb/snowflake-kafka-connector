@@ -97,5 +97,6 @@ public class SchematizationUtilsTest {
     Assert.assertEquals("VARCHAR", columnInfosMap.get(columnName1).getColumnType());
     Assert.assertEquals("doc", columnInfosMap.get(columnName1).getComments());
     Assert.assertEquals("VARCHAR", columnInfosMap.get(columnName2).getColumnType());
+    Assert.assertEquals(null, columnInfosMap.get(columnName2).getComments());
   }
 }
