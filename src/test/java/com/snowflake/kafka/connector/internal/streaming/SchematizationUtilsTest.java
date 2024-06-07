@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.ColumnInfos;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -9,7 +10,6 @@ import java.util.HashMap;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.json.JsonConverter;
@@ -57,15 +57,15 @@ public class SchematizationUtilsTest {
 
     String processedColumnName = Utils.quoteNameIfNeeded(columnName);
     String processedNonExistingColumnName = Utils.quoteNameIfNeeded(nonExistingColumnName);
-    Map<String, Pair<String, String>> columnInfos =
+    Map<String, ColumnInfos> columnInfosMap =
         SchematizationUtils.getColumnInfos(
             recordWithoutSchema, Collections.singletonList(processedColumnName));
-    Assert.assertEquals("VARCHAR", columnInfos.get(processedColumnName).getLeft());
+    Assert.assertEquals("VARCHAR", columnInfosMap.get(processedColumnName).getColumnType());
     // Get non-existing column name should return nothing
-    columnInfos =
+    columnInfosMap =
         SchematizationUtils.getColumnInfos(
             recordWithoutSchema, Collections.singletonList(processedNonExistingColumnName));
-    Assert.assertTrue(columnInfos.isEmpty());
+    Assert.assertTrue(columnInfosMap.isEmpty());
   }
 
   @Test
@@ -91,11 +91,11 @@ public class SchematizationUtilsTest {
             System.currentTimeMillis(),
             TimestampType.CREATE_TIME);
 
-    Map<String, Pair<String, String>> columnInfos =
+    Map<String, ColumnInfos> columnInfosMap =
         SchematizationUtils.getColumnInfos(
             recordWithoutSchema, Arrays.asList(columnName1, columnName2));
-    Assert.assertEquals("VARCHAR", columnInfos.get(columnName1).getLeft());
-    Assert.assertEquals("doc", columnInfos.get(columnName1).getRight());
-    Assert.assertEquals("VARCHAR", columnInfos.get(columnName2).getLeft());
+    Assert.assertEquals("VARCHAR", columnInfosMap.get(columnName1).getColumnType());
+    Assert.assertEquals("doc", columnInfosMap.get(columnName1).getComments());
+    Assert.assertEquals("VARCHAR", columnInfosMap.get(columnName2).getColumnType());
   }
 }

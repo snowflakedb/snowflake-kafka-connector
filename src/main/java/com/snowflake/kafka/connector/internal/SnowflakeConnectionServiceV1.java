@@ -509,7 +509,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
           .append(columnName)
           .append(" ")
           .append(columnInfos.getColumnType())
-          .append(columnInfos.getComments());
+          .append(columnInfos.getDdlComments());
       logColumn.append(columnName).append(" (").append(columnInfosMap.get(columnName)).append(")");
     }
 
