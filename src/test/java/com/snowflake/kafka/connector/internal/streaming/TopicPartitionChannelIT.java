@@ -37,7 +37,7 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class TopicPartitionChannelIT {
 
-  private final boolean useDoubleBuffer;
+  private final boolean useSingleBuffer;
 
   private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
   private String testTableName;
@@ -47,11 +47,11 @@ public class TopicPartitionChannelIT {
   private TopicPartition topicPartition, topicPartition2;
   private String testChannelName, testChannelName2;
 
-  public TopicPartitionChannelIT(boolean useDoubleBuffer) {
-    this.useDoubleBuffer = useDoubleBuffer;
+  public TopicPartitionChannelIT(boolean useSingleBuffer) {
+    this.useSingleBuffer = useSingleBuffer;
   }
 
-  @Parameterized.Parameters(name = "use double buffer: {0}")
+  @Parameterized.Parameters(name = "use single buffer: {0}")
   public static Collection<Object[]> input() {
     return Arrays.asList(
         new Object[][] {
@@ -556,7 +556,7 @@ public class TopicPartitionChannelIT {
 
   private Map<String, String> getConfForStreaming() {
     Map<String, String> config = TestUtils.getConfForStreaming();
-    String enableSingleBufferValue = String.valueOf(!useDoubleBuffer);
+    String enableSingleBufferValue = String.valueOf(useSingleBuffer);
     config.put(
         SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
         enableSingleBufferValue);
