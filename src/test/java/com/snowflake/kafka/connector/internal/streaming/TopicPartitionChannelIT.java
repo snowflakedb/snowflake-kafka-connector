@@ -53,10 +53,10 @@ public class TopicPartitionChannelIT {
 
   @Parameterized.Parameters(name = "use double buffer: {0}")
   public static Collection<Object[]> input() {
-    return Arrays.asList(new Object[][] {
-            {false},
-            {true},
-    });
+    return Arrays.asList(
+        new Object[][] {
+          {false}, {true},
+        });
   }
 
   @Before
@@ -557,7 +557,9 @@ public class TopicPartitionChannelIT {
   private Map<String, String> getConfForStreaming() {
     Map<String, String> config = TestUtils.getConfForStreaming();
     String enableSingleBufferValue = String.valueOf(!useDoubleBuffer);
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, enableSingleBufferValue);
+    config.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
+        enableSingleBufferValue);
     return config;
   }
 

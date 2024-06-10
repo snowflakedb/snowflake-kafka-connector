@@ -13,7 +13,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.SnowflakeSinkTask;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -260,13 +259,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // Create new instance of TopicPartitionChannel which will always open the channel.
     partitionsToChannel.put(
         partitionChannelKey,
-            createTopicPartitionChannel(tableName, topicPartition, hasSchemaEvolutionPermission, partitionChannelKey));
+        createTopicPartitionChannel(
+            tableName, topicPartition, hasSchemaEvolutionPermission, partitionChannelKey));
   }
 
-  private TopicPartitionChannel createTopicPartitionChannel(String tableName, TopicPartition topicPartition, boolean hasSchemaEvolutionPermission, String partitionChannelKey) {
+  private TopicPartitionChannel createTopicPartitionChannel(
+      String tableName,
+      TopicPartition topicPartition,
+      boolean hasSchemaEvolutionPermission,
+      String partitionChannelKey) {
 
     return InternalBufferParameters.isSingleBufferEnabled(connectorConfig)
-            ? new DirectTopicPartitionChannel(
+        ? new DirectTopicPartitionChannel(
             this.streamingIngestClient,
             topicPartition,
             partitionChannelKey, // Streaming channel name
@@ -281,7 +285,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.conn.getTelemetryClient(),
             this.enableCustomJMXMonitoring,
             this.metricsJmxReporter)
-            : new BufferedTopicPartitionChannel(
+        : new BufferedTopicPartitionChannel(
             this.streamingIngestClient,
             topicPartition,
             partitionChannelKey, // Streaming channel name

@@ -27,6 +27,7 @@ import static net.snowflake.ingest.utils.ParameterProvider.MAX_MEMORY_LIMIT_IN_B
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.parameters.InternalBufferParameters;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +36,6 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import com.snowflake.kafka.connector.internal.parameters.InternalBufferParameters;
 import net.snowflake.ingest.utils.Constants;
 
 /**
