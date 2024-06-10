@@ -20,6 +20,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
+import com.snowflake.kafka.connector.internal.parameters.InternalBufferParameters;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
@@ -258,7 +259,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // Create new instance of TopicPartitionChannel which will always open the channel.
     partitionsToChannel.put(
         partitionChannelKey,
-        new BufferedTopicPartitionChannel(
+        createTopicPartitionChannel(
+            tableName, topicPartition, hasSchemaEvolutionPermission, partitionChannelKey));
+  }
+
+  private TopicPartitionChannel createTopicPartitionChannel(
+      String tableName,
+      TopicPartition topicPartition,
+      boolean hasSchemaEvolutionPermission,
+      String partitionChannelKey) {
+
+    return InternalBufferParameters.isSingleBufferEnabled(connectorConfig)
+        ? new DirectTopicPartitionChannel(
             this.streamingIngestClient,
             topicPartition,
             partitionChannelKey, // Streaming channel name
@@ -272,7 +284,22 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.recordService,
             this.conn.getTelemetryClient(),
             this.enableCustomJMXMonitoring,
-            this.metricsJmxReporter));
+            this.metricsJmxReporter)
+        : new BufferedTopicPartitionChannel(
+            this.streamingIngestClient,
+            topicPartition,
+            partitionChannelKey, // Streaming channel name
+            tableName,
+            hasSchemaEvolutionPermission,
+            new StreamingBufferThreshold(this.flushTimeSeconds, this.fileSizeBytes, this.recordNum),
+            this.connectorConfig,
+            this.kafkaRecordErrorReporter,
+            this.sinkTaskContext,
+            this.conn,
+            this.recordService,
+            this.conn.getTelemetryClient(),
+            this.enableCustomJMXMonitoring,
+            this.metricsJmxReporter);
   }
 
   /**

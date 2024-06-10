@@ -19,8 +19,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
 import static net.snowflake.ingest.utils.ParameterProvider.MAX_CHANNEL_SIZE_IN_BYTES;
@@ -29,6 +27,7 @@ import static net.snowflake.ingest.utils.ParameterProvider.MAX_MEMORY_LIMIT_IN_B
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.parameters.InternalBufferParameters;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -93,7 +92,7 @@ public class StreamingClientProperties {
         overriddenValue ->
             parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue)));
 
-    if (isSingleBufferEnabled(connectorConfig)) {
+    if (InternalBufferParameters.isSingleBufferEnabled(connectorConfig)) {
       Optional<String> bufferMaxSizeBytes =
           Optional.ofNullable(connectorConfig.get(BUFFER_SIZE_BYTES));
       bufferMaxSizeBytes.ifPresent(
@@ -106,12 +105,6 @@ public class StreamingClientProperties {
     }
 
     combineStreamingClientOverriddenProperties(connectorConfig);
-  }
-
-  private static Boolean isSingleBufferEnabled(Map<String, String> connectorConfig) {
-    return Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER))
-        .map(Boolean::parseBoolean)
-        .orElse(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT);
   }
 
   /**
