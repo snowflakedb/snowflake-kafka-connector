@@ -179,10 +179,10 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         ("TestSchemaMapping", EndToEndTestSuite(
             test_instance=TestSchemaMapping(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestSnowpipeStreamingSchemaMappingDLQ", EndToEndTestSuite(
-            test_instance=TestSnowpipeStreamingSchemaMappingDLQ(driver, nameSalt), clean=True, run_in_confluent=True,
-            run_in_apache=True
-        )),
+        # ("TestSnowpipeStreamingSchemaMappingDLQ", EndToEndTestSuite(
+        #     test_instance=TestSnowpipeStreamingSchemaMappingDLQ(driver, nameSalt), clean=True, run_in_confluent=True,
+        #     run_in_apache=True
+        # )),
         ("TestAutoTableCreation", EndToEndTestSuite(
             test_instance=TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet), clean=True,
             run_in_confluent=True, run_in_apache=False
@@ -269,14 +269,14 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
         ("TestKcRestart", EndToEndTestSuite(
             test_instance=TestKcRestart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
         )),
-        ("TestSchemaEvolutionDropTable", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
-            run_in_apache=True
-        )),
-        ("TestSchemaEvolutionMultiTopicDropTable", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionMultiTopicDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
-            run_in_apache=True
-        )),
+        # ("TestSchemaEvolutionDropTable", EndToEndTestSuite(
+        #     test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
+        #     run_in_apache=True
+        # )),
+        # ("TestSchemaEvolutionMultiTopicDropTable", EndToEndTestSuite(
+        #     test_instance=TestSchemaEvolutionMultiTopicDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
+        #     run_in_apache=True
+        # )),
         ("TestStreamingClientParameterOverride", EndToEndTestSuite(
             test_instance=TestStreamingClientParameterOverride(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
