@@ -416,14 +416,6 @@ public class Utils {
               SnowflakeSinkConnectorConfig.NAME));
     }
 
-    if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER)
-        && Boolean.parseBoolean(
-            config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER))) {
-      invalidConfigParams.put(
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-          "Currently not supported.");
-    }
-
     // If config doesnt have ingestion method defined, default is snowpipe or if snowpipe is
     // explicitly passed in as ingestion method
     // Below checks are just for snowpipe.
