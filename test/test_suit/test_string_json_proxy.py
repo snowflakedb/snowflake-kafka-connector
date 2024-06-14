@@ -44,12 +44,20 @@ class TestStringJsonProxy:
         self.driver.cleanTableStagePipe(self.topic)
         # unset the JVM parameters
         print("Unset JVM Parameters in Clean phase of testing")
-        path_parent = os.path.dirname(os.getcwd())
-        print("Current Directory:{0}".format(path_parent))
+
+        current_dir = os.getcwd()
+        print(f"Current Directory:{current_dir}")
+
+        path_parent = os.path.dirname(current_dir)
+
+        print(f"Changing working directory to:{path_parent}")
         os.chdir(path_parent)
-        print("One directory Up:{0}".format(os.getcwd()))
+
         mvnExecMain = "mvn exec:java -Dexec.mainClass=\"com.snowflake.kafka.connector.internal.ResetProxyConfigExec\""
         print(self.run_cmd(mvnExecMain))
+
+        print(f"Changing working directory back to:{current_dir}")
+        os.chdir(current_dir)
 
     def run_cmd(self, command):
         import subprocess
