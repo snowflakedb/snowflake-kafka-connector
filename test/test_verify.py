@@ -30,10 +30,8 @@ class ConnectorParametersList:
         self.connectorParametersList = connectorParametersList
 
     def for_each(self, function: Callable[[ConnectorParameters], None]) -> None:
-        # This should be improved when number of parameter grows.
         for conenctor_parameters in self.connectorParametersList:
-            print(datetime.now().strftime("%H:%M:%S "), '=== Running tests with parameters ===')
-            print('===', conenctor_parameters, '===')
+            print(datetime.now().strftime("%H:%M:%S "), f'=== Using parameters: {conenctor_parameters} ===')
 
             function(conenctor_parameters)
 
@@ -44,8 +42,9 @@ def errorExit(message):
 
 
 class KafkaTest:
-    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, connectorParameters: ConnectorParameters,
-                 testVersion, enableSSL, snowflakeCloudPlatform, enableDeliveryGuaranteeTests=False):
+    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath,
+                 connectorParameters: ConnectorParameters, testVersion, enableSSL, snowflakeCloudPlatform,
+                 enableDeliveryGuaranteeTests=False):
         self.testVersion = testVersion
         self.credentialPath = credentialPath
         # can be None or one of AWS, AZURE, GCS
@@ -279,7 +278,6 @@ class KafkaTest:
     def get_kafka_version(self):
         return self.testVersion
 
-
     def cleanTableStagePipe(self, connectorName, topicName="", partitionNumber=1):
         if topicName == "":
             topicName = connectorName
@@ -296,6 +294,9 @@ class KafkaTest:
             pipeName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_PIPE_{}_{}".format(connectorName, topicName, p)
             print(datetime.now().strftime("%H:%M:%S "), "=== Drop pipe {} ===".format(pipeName))
             self.snowflake_conn.cursor().execute("DROP pipe IF EXISTS {}".format(pipeName))
+
+        print(datetime.now().strftime("%H:%M:%S "), f"=== Delete Kafka topic {topicName} ===")
+        self.deleteTopic(topicName)
 
         print(datetime.now().strftime("%H:%M:%S "), "=== Done ===", flush=True)
 
@@ -584,7 +585,6 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
                               flush=True)
 
             print(datetime.now().strftime("\n%H:%M:%S "), "=== All test passed ===")
-            print(driver.connectorParameters)
         except Exception as e:
             print(datetime.now().strftime("%H:%M:%S "), e)
             traceback.print_tb(e.__traceback__)
@@ -592,16 +592,10 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
             exit(1)
 
 
-def run_test_set_with_parameters(connectorParameters, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv):
-    kafka_test = KafkaTest(kafkaAddress,
-                          schemaRegistryAddress,
-                          kafkaConnectAddress,
-                          credentialPath,
-                          connectorParameters,
-                          testVersion,
-                          enableSSL,
-                          snowflakeCloudPlatform,
-                          False)
+def run_test_set_with_parameters(kafka_test: KafkaTest, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv):
+    if testSet != 'clean':
+        # Running clean before a test set.
+        runTestSet(kafka_test, 'clean', nameSalt, pressure, skipProxy, allowedTestsCsv)
 
     runTestSet(kafka_test, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv)
 
@@ -651,5 +645,19 @@ if __name__ == "__main__":
     ])
 
     parametersList.for_each(
-        lambda parameters: run_test_set_with_parameters(parameters, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv)
+        lambda parameters: run_test_set_with_parameters(
+            KafkaTest(kafkaAddress,
+                      schemaRegistryAddress,
+                      kafkaConnectAddress,
+                      credentialPath,
+                      parameters,
+                      testVersion,
+                      enableSSL,
+                      snowflakeCloudPlatform,
+                      False),
+            testSet,
+            nameSalt,
+            pressure,
+            skipProxy,
+            allowedTestsCsv)
     )
