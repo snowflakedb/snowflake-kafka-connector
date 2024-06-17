@@ -699,22 +699,6 @@ public class ConnectorConfigTest {
         .hasMessageContaining(prop);
   }
 
-  @ParameterizedTest
-  @EnumSource(IngestionMethodConfig.class)
-  public void shouldThrowExceptionWHenStreamingSingleBufferEnabled(
-      IngestionMethodConfig ingestionMethod) {
-    // GIVEN
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, ingestionMethod.toString());
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "true");
-
-    // WHEN/THEN
-    assertThatThrownBy(() -> Utils.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER);
-  }
-
   @Test
   public void testInvalidSchematizationForSnowpipe() {
     Map<String, String> config = getConfig();

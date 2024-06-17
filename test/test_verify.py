@@ -31,7 +31,7 @@ class ConnectorParametersList:
 
     def for_each(self, function: Callable[[int, ConnectorParameters], None]) -> None:
         for idx, conenctor_parameters in enumerate(self.connectorParametersList):
-            print(datetime.now().strftime("%H:%M:%S "), f'=== Using parameters. {idx}: {conenctor_parameters} ===')
+            print(datetime.now().strftime("%H:%M:%S "), f'=== Using parameters {idx}: {conenctor_parameters} ===')
 
             function(idx, conenctor_parameters)
 
