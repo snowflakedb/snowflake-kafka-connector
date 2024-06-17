@@ -14,6 +14,7 @@
     "snowflake.schema.name": "SNOWFLAKE_SCHEMA",
     "snowflake.role.name": "SNOWFLAKE_ROLE",
     "snowflake.ingestion.method": "SNOWPIPE_STREAMING",
+    "snowflake.streaming.enable.single.buffer": "$SNOWFLAKE_STREAMING_ENABLE_SINGLE_BUFFER",
     "snowflake.streaming.closeChannelsInParallel.enabled": true,
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "io.confluent.connect.avro.AvroConverter",
