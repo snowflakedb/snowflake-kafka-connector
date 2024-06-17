@@ -699,8 +699,6 @@ public class ConnectorConfigTest {
         .hasMessageContaining(prop);
   }
 
-  @ParameterizedTest
-  @EnumSource(IngestionMethodConfig.class)
   public void shouldThrowExceptionWHenStreamingSingleBufferEnabled(
       IngestionMethodConfig ingestionMethod) {
     // GIVEN

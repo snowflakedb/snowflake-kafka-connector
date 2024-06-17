@@ -13,6 +13,7 @@
     "snowflake.database.name": "SNOWFLAKE_DATABASE",
     "snowflake.schema.name": "SNOWFLAKE_SCHEMA",
     "snowflake.role.name": "SNOWFLAKE_ROLE",
+    "snowflake.streaming.enable.single.buffer": true,
     "snowflake.ingestion.method": "SNOWPIPE_STREAMING",
     "snowflake.streaming.closeChannelsInParallel.enabled": true,
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
