@@ -65,7 +65,7 @@ class TestConfluentProtobufProtobuf:
                    r'{"deviceID":"555-4321","enabled":true},"double_array_val":' \
                    r'[0.3333333333333333,32.21,4.343243210000000e+08],"float_val":4321.432,' \
                    r'"int32_val":2147483647,"reading":321.321,"sint32_val":2147483647,"sint64_val":9223372036854775807,' \
-                   r'"uint32_val":4294967295,"uint64_val":-1},"offset":\d*,"partition":\d*,"topic":"travis_correct_confluent_protobuf_protobuf....."}'
+                   r'"uint32_val":4294967295,"uint64_val":-1},"offset":\d*,"partition":\d*,"topic":"travis_correct_confluent_protobuf_protobuf_\w*"}'
         goldContent = r'{"bytes_val":"3q0=","dateTime":1234,"device":{"deviceID":"555-4321","enabled":true},"double_array_val":' \
                       r'[0.3333333333333333,32.21,4.343243210000000e+08],"float_val":4321.432,"int32_val":2147483647,' \
                       r'"reading":321.321,"sint32_val":2147483647,"sint64_val":9223372036854775807,"uint32_val":4294967295,"uint64_val":-1}'

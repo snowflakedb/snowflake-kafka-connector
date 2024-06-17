@@ -41,9 +41,9 @@ class TestStringJsonIgnoreTombstone:
         # validate content of line 1
         oldVersions = ["5.4.0", "5.3.0", "5.2.0", "2.4.0", "2.3.0", "2.2.0"]
         if self.driver.testVersion in oldVersions:
-            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":{}},"offset":0,"partition":0,"topic":"test_string_json_ignore_tombstone....."}'
+            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":{}},"offset":0,"partition":0,"topic":"test_string_json_ignore_tombstone_\w*"}'
         else:
-            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":[]},"offset":0,"partition":0,"topic":"test_string_json_ignore_tombstone....."}'
+            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":[]},"offset":0,"partition":0,"topic":"test_string_json_ignore_tombstone_\w*"}'
 
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()

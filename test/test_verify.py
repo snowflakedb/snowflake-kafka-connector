@@ -29,11 +29,11 @@ class ConnectorParametersList:
     def __init__(self, connectorParametersList: list[ConnectorParameters]):
         self.connectorParametersList = connectorParametersList
 
-    def for_each(self, function: Callable[[ConnectorParameters], None]) -> None:
-        for conenctor_parameters in self.connectorParametersList:
-            print(datetime.now().strftime("%H:%M:%S "), f'=== Using parameters: {conenctor_parameters} ===')
+    def for_each(self, function: Callable[[int, ConnectorParameters], None]) -> None:
+        for idx, conenctor_parameters in enumerate(self.connectorParametersList):
+            print(datetime.now().strftime("%H:%M:%S "), f'=== Using parameters. {idx}: {conenctor_parameters} ===')
 
-            function(conenctor_parameters)
+            function(idx, conenctor_parameters)
 
 
 def errorExit(message):
@@ -294,9 +294,6 @@ class KafkaTest:
             pipeName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_PIPE_{}_{}".format(connectorName, topicName, p)
             print(datetime.now().strftime("%H:%M:%S "), "=== Drop pipe {} ===".format(pipeName))
             self.snowflake_conn.cursor().execute("DROP pipe IF EXISTS {}".format(pipeName))
-
-        print(datetime.now().strftime("%H:%M:%S "), f"=== Delete Kafka topic {topicName} ===")
-        self.deleteTopic(topicName)
 
         print(datetime.now().strftime("%H:%M:%S "), "=== Done ===", flush=True)
 
@@ -593,10 +590,6 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
 
 
 def run_test_set_with_parameters(kafka_test: KafkaTest, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv):
-    if testSet != 'clean':
-        # Running clean before a test set.
-        runTestSet(kafka_test, 'clean', nameSalt, pressure, skipProxy, allowedTestsCsv)
-
     runTestSet(kafka_test, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv)
 
 
@@ -645,7 +638,7 @@ if __name__ == "__main__":
     ])
 
     parametersList.for_each(
-        lambda parameters: run_test_set_with_parameters(
+        lambda idx, parameters: runTestSet(
             KafkaTest(kafkaAddress,
                       schemaRegistryAddress,
                       kafkaConnectAddress,
@@ -656,7 +649,7 @@ if __name__ == "__main__":
                       snowflakeCloudPlatform,
                       False),
             testSet,
-            nameSalt,
+            nameSalt + str(idx),
             pressure,
             skipProxy,
             allowedTestsCsv)
