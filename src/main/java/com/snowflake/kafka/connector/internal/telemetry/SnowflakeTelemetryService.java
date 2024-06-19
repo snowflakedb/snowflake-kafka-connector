@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.telemetry;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG;
@@ -10,6 +11,8 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_DEFAULT_SNOWPIPE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -272,6 +275,22 @@ public abstract class SnowflakeTelemetryService {
         userProvidedConfig.getOrDefault(
             ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
             ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT + ""));
+    if (userProvidedConfig.containsKey(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG)) {
+      dataObjectNode.put(
+          ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
+          userProvidedConfig.get(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG));
+    }
+    // These are Optional, so we add only if it's provided in user config
+    if (userProvidedConfig.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
+      dataObjectNode.put(
+          SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
+          userProvidedConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG));
+    }
+    if (userProvidedConfig.containsKey(SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)) {
+      dataObjectNode.put(
+          SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+          userProvidedConfig.get(SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP));
+    }
   }
 
   public enum TelemetryType {
