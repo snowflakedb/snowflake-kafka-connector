@@ -79,13 +79,13 @@ pushd $SNOWFLAKE_CONNECTOR_PATH
 case $BUILD_METHOD in
 	verify)
 	  # mvn clean should clean the target directory, hence using default pom.xml
-	  mvn clean
+	  mvn -f $POM_FILE_NAME clean
 	  # mvn verify runs the integration test
     mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 		;;
 	package)
 	  # mvn clean should clean the target directory, hence using default pom.xml
-	  mvn clean
+	  mvn -f $POM_FILE_NAME clean
 	  # mvn package with pom_confluent runs the kafka-connect-maven-plugin which creates a zip file
 	  # More information: https://docs.confluent.io/platform/current/connect/kafka-connect-maven-plugin/site/plugin-info.html
     mvn -f $POM_FILE_NAME package -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120

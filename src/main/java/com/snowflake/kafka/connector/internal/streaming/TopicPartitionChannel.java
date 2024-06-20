@@ -668,7 +668,9 @@ public class TopicPartitionChannel {
       if (!enableSchemaEvolution) {
         finalResponse =
             this.channel.insertRows(
-                records, Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
+                records,
+                Long.toString(this.insertRowsStreamingBuffer.getFirstOffset()),
+                Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
       } else {
         for (int idx = 0; idx < records.size(); idx++) {
           // For schema evolution, we need to call the insertRows API row by row in order to
@@ -1063,6 +1065,7 @@ public class TopicPartitionChannel {
             .setSchemaName(this.sfConnectorConfig.get(Utils.SF_SCHEMA))
             .setTableName(this.tableName)
             .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
+            .setOffsetTokenVerificationFunction(StreamingUtils.offsetTokenVerificationFunction)
             .build();
     LOGGER.info(
         "Opening a channel with name:{} for table name:{}",
@@ -1353,8 +1356,8 @@ public class TopicPartitionChannel {
    */
   private enum StreamingApiFallbackInvoker {
     /**
-     * Fallback invoked when {@link SnowflakeStreamingIngestChannel#insertRows(Iterable, String)}
-     * has failures.
+     * Fallback invoked when {@link SnowflakeStreamingIngestChannel#insertRows(Iterable, String,
+     * String)} has failures.
      */
     INSERT_ROWS_FALLBACK,
 
