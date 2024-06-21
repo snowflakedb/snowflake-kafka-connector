@@ -106,9 +106,9 @@ public interface SnowflakeConnectionService {
    * Alter table to add columns according to a map from columnNames to their types
    *
    * @param tableName the name of the table
-   * @param columnToType the mapping from the columnNames to their types
+   * @param columnInfosMap the mapping from the columnNames to their columnInfos
    */
-  void appendColumnsToTable(String tableName, Map<String, String> columnToType);
+  void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap);
 
   /**
    * Alter table to drop non-nullability of a list of columns

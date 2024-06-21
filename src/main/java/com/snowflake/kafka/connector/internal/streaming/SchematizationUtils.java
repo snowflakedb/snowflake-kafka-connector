@@ -16,6 +16,7 @@ import static org.apache.kafka.connect.data.Schema.Type.STRING;
 import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.ColumnInfos;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
@@ -91,9 +92,9 @@ public class SchematizationUtils {
 
     // Add columns if needed, ignore any exceptions since other task might be succeeded
     if (extraColNames != null) {
-      Map<String, String> extraColumnsToType = getColumnTypes(record, extraColNames);
+      Map<String, ColumnInfos> extraColumnsInfos = getColumnInfos(record, extraColNames);
       try {
-        conn.appendColumnsToTable(tableName, extraColumnsToType);
+        conn.appendColumnsToTable(tableName, extraColumnsInfos);
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             String.format(
@@ -111,14 +112,14 @@ public class SchematizationUtils {
    *
    * @param record the sink record that contains the schema and actual data
    * @param columnNames the names of the extra columns
-   * @return a Map object where the key is column name and value is Snowflake data type
+   * @return a Map object where the key is column name and value is ColumnInfos
    */
-  static Map<String, String> getColumnTypes(SinkRecord record, List<String> columnNames) {
+  static Map<String, ColumnInfos> getColumnInfos(SinkRecord record, List<String> columnNames) {
     if (columnNames == null) {
       return new HashMap<>();
     }
-    Map<String, String> columnToType = new HashMap<>();
-    Map<String, String> schemaMap = getSchemaMapFromRecord(record);
+    Map<String, ColumnInfos> columnToType = new HashMap<>();
+    Map<String, ColumnInfos> schemaMap = getSchemaMapFromRecord(record);
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
     Set<String> columnNamesSet = new HashSet<>(columnNames);
 
@@ -127,23 +128,22 @@ public class SchematizationUtils {
       Map.Entry<String, JsonNode> field = fields.next();
       String colName = Utils.quoteNameIfNeeded(field.getKey());
       if (columnNamesSet.contains(colName)) {
-        String type;
+        ColumnInfos columnInfos;
         if (schemaMap.isEmpty()) {
           // No schema associated with the record, we will try to infer it based on the data
-          type = inferDataTypeFromJsonObject(field.getValue());
+          columnInfos = new ColumnInfos(inferDataTypeFromJsonObject(field.getValue()), null);
         } else {
           // Get from the schema
-          type = schemaMap.get(field.getKey());
-          if (type == null) {
+          columnInfos = schemaMap.get(field.getKey());
+          if (columnInfos == null) {
             // only when the type of the value is unrecognizable for JAVA
             throw SnowflakeErrors.ERROR_5022.getException(
                 "column: " + field.getKey() + " schemaMap: " + schemaMap);
           }
         }
-        columnToType.put(colName, type);
+        columnToType.put(colName, columnInfos);
       }
     }
-
     return columnToType;
   }
 
@@ -151,22 +151,24 @@ public class SchematizationUtils {
    * Given a SinkRecord, get the schema information from it
    *
    * @param record the sink record that contains the schema and actual data
-   * @return a Map object where the key is column name and value is Snowflake data type
+   * @return a Map object where the key is column name and value is ColumnInfos
    */
-  private static Map<String, String> getSchemaMapFromRecord(SinkRecord record) {
-    Map<String, String> schemaMap = new HashMap<>();
+  private static Map<String, ColumnInfos> getSchemaMapFromRecord(SinkRecord record) {
+    Map<String, ColumnInfos> schemaMap = new HashMap<>();
     Schema schema = record.valueSchema();
     if (schema != null && schema.fields() != null) {
       for (Field field : schema.fields()) {
         String snowflakeType = convertToSnowflakeType(field.schema().type(), field.schema().name());
         LOGGER.info(
-            "Got the snowflake data type for field:{}, schemaName:{}, kafkaType:{},"
+            "Got the snowflake data type for field:{}, schemaName:{}, schemaDoc: {} kafkaType:{},"
                 + " snowflakeType:{}",
             field.name(),
             field.schema().name(),
+            field.schema().doc(),
             field.schema().type(),
             snowflakeType);
-        schemaMap.put(field.name(), snowflakeType);
+
+        schemaMap.put(field.name(), new ColumnInfos(snowflakeType, field.schema().doc()));
       }
     }
     return schemaMap;

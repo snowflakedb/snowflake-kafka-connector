@@ -21,11 +21,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
@@ -489,30 +485,34 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
    * Alter table to add columns according to a map from columnNames to their types
    *
    * @param tableName the name of the table
-   * @param columnToType the mapping from the columnNames to their types
+   * @param columnInfosMap the mapping from the columnNames to their infos
    */
   @Override
-  public void appendColumnsToTable(String tableName, Map<String, String> columnToType) {
+  public void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     StringBuilder appendColumnQuery =
         new StringBuilder("alter table identifier(?) add column if not exists ");
     boolean first = true;
     StringBuilder logColumn = new StringBuilder("[");
-    for (String columnName : columnToType.keySet()) {
+
+    for (String columnName : columnInfosMap.keySet()) {
       if (first) {
         first = false;
       } else {
         appendColumnQuery.append(", if not exists ");
         logColumn.append(",");
       }
+      ColumnInfos columnInfos = columnInfosMap.get(columnName);
+
       appendColumnQuery
           .append(columnName)
           .append(" ")
-          .append(columnToType.get(columnName))
-          .append(" comment 'column created by schema evolution from Snowflake Kafka Connector'");
-      logColumn.append(columnName).append(" (").append(columnToType.get(columnName)).append(")");
+          .append(columnInfos.getColumnType())
+          .append(columnInfos.getDdlComments());
+      logColumn.append(columnName).append(" (").append(columnInfosMap.get(columnName)).append(")");
     }
+
     try {
       LOGGER.info("Trying to run query: {}", appendColumnQuery.toString());
       PreparedStatement stmt = conn.prepareStatement(appendColumnQuery.toString());
