@@ -29,11 +29,11 @@ class ConnectorParametersList:
     def __init__(self, connectorParametersList: list[ConnectorParameters]):
         self.connectorParametersList = connectorParametersList
 
-    def for_each(self, function: Callable[[int, ConnectorParameters], None]) -> None:
-        for idx, conenctor_parameters in enumerate(self.connectorParametersList):
-            print(datetime.now().strftime("%H:%M:%S "), f'=== Using parameters {idx}: {conenctor_parameters} ===')
+    def for_each(self, func: Callable[[int, ConnectorParameters], None]) -> None:
+        for idx, connector_parameters in enumerate(self.connectorParametersList):
+            print(datetime.now().strftime("%H:%M:%S "), f'=== Using parameters {idx}: {connector_parameters} ===')
 
-            function(idx, conenctor_parameters)
+            func(idx, connector_parameters)
 
 
 def errorExit(message):
@@ -380,7 +380,7 @@ class KafkaTest:
             pkEncrypted = credentialJson["encrypted_private_key"]
 
         print(datetime.now().strftime("\n%H:%M:%S "),
-              "=== generate sink connector rest reqeuest from {} ===".format(rest_template_path))
+              "=== generate sink connector rest request from {} ===".format(rest_template_path))
         if not os.path.exists(rest_generate_path):
             os.makedirs(rest_generate_path)
         snowflake_connector_name = fileName.split(".")[0] + nameSalt
