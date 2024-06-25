@@ -15,6 +15,8 @@
     "snowflake.schema.name": "SNOWFLAKE_SCHEMA",
     "snowflake.role.name": "SNOWFLAKE_ROLE",
     "snowflake.ingestion.method": "SNOWPIPE_STREAMING",
+    "snowflake.streaming.max.client.lag": 10,
+    "snowflake.streaming.enable.single.buffer": "$SNOWFLAKE_STREAMING_ENABLE_SINGLE_BUFFER",
     "snowflake.streaming.closeChannelsInParallel.enabled": true,
     "snowflake.enable.schematization": true,
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",

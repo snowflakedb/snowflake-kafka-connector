@@ -12,7 +12,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLA
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_URL;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_USER;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
 import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
@@ -36,7 +35,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class ConnectorConfigTest {
@@ -697,22 +695,6 @@ public class ConnectorConfigTest {
     assertThatThrownBy(() -> Utils.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(prop);
-  }
-
-  @ParameterizedTest
-  @EnumSource(IngestionMethodConfig.class)
-  public void shouldThrowExceptionWHenStreamingSingleBufferEnabled(
-      IngestionMethodConfig ingestionMethod) {
-    // GIVEN
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, ingestionMethod.toString());
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "true");
-
-    // WHEN/THEN
-    assertThatThrownBy(() -> Utils.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER);
   }
 
   @Test
