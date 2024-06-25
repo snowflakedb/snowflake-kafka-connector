@@ -248,7 +248,8 @@ class StageFilesProcessor {
     Collection<String> remoteStageFiles = fetchCurrentStage();
     if (firstRun) {
       HashSet<String> remoteFiles = new HashSet<>(remoteStageFiles);
-      long remoteFileCount = ctx.files.stream().filter(localFile -> !remoteFiles.contains(localFile)).count();
+      long remoteFileCount =
+          ctx.files.stream().filter(localFile -> !remoteFiles.contains(localFile)).count();
       ctx.progressTelemetry.setupInitialState(remoteFileCount);
     }
     ctx.files.addAll(remoteStageFiles);

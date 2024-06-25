@@ -53,5 +53,4 @@ class PipeProgressRegistryTelemetry {
     pipeTelemetry.addAndGetFileCountOnIngestion(-deletedFilesCount);
     pipeTelemetry.updateFailedIngestionMetrics(deletedFilesCount);
   }
-
 }
