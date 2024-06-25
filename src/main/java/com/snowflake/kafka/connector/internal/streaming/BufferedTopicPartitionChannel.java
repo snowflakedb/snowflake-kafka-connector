@@ -507,8 +507,6 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
     InsertRowsResponse response = null;
     try {
       response = insertRowsWithFallback(streamingBufferToInsert);
-      // Updates the flush time (last time we called insertRows API)
-      this.previousFlushTimeStampMs = System.currentTimeMillis();
 
       LOGGER.info(
           "Successfully called insertRows for channel:{}, buffer:{}, insertResponseHasErrors:{},"
@@ -517,10 +515,6 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
           streamingBufferToInsert,
           response.hasErrors(),
           response.needToResetOffset());
-      if (response.hasErrors()) {
-        handleInsertRowsFailures(
-            response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
-      }
 
       // Due to schema evolution, we may need to reopen the channel and reset the offset in kafka
       // since it's possible that not all rows are ingested
@@ -528,6 +522,18 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
         streamingApiFallbackSupplier(
             StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
       }
+      // If there are errors other than schema mismatch, we need to handle them and reinsert the
+      // good rows
+      if (response.hasErrors()) {
+        handleInsertRowsFailures(
+            response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
+        insertRecords(
+            rebuildBufferWithoutErrorRows(streamingBufferToInsert, response.getInsertErrors()));
+      }
+
+      // Updates the flush time (last time we successfully insert some rows)
+      this.previousFlushTimeStampMs = System.currentTimeMillis();
+
       return response;
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
@@ -538,6 +544,22 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
           ex);
     }
     return response;
+  }
+
+  /** Building a new buffer which contains only the good rows from the original buffer */
+  private StreamingBuffer rebuildBufferWithoutErrorRows(
+      StreamingBuffer streamingBufferToInsert,
+      List<InsertValidationResponse.InsertError> insertErrors) {
+    StreamingBuffer buffer = new StreamingBuffer();
+    int errorIdx = 0;
+    for (long rowIdx = 0; rowIdx < streamingBufferToInsert.getNumOfRecords(); rowIdx++) {
+      if (errorIdx < insertErrors.size() && rowIdx == insertErrors.get(errorIdx).getRowIndex()) {
+        errorIdx++;
+      } else {
+        buffer.insert(streamingBufferToInsert.getSinkRecord(rowIdx));
+      }
+    }
+    return buffer;
   }
 
   /**
@@ -620,65 +642,40 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
           this.insertRowsStreamingBuffer);
       Pair<List<Map<String, Object>>, List<Long>> recordsAndOffsets =
           this.insertRowsStreamingBuffer.getData();
-      List<Map<String, Object>> records = recordsAndOffsets.getKey();
-      List<Long> offsets = recordsAndOffsets.getValue();
       InsertValidationResponse finalResponse = new InsertValidationResponse();
+      List<Map<String, Object>> records = recordsAndOffsets.getKey();
       boolean needToResetOffset = false;
+      InsertValidationResponse response =
+          this.channel.insertRows(
+              records,
+              Long.toString(this.insertRowsStreamingBuffer.getFirstOffset()),
+              Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
       if (!enableSchemaEvolution) {
-        finalResponse =
-            this.channel.insertRows(
-                records,
-                Long.toString(this.insertRowsStreamingBuffer.getFirstOffset()),
-                Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
+        finalResponse = response;
       } else {
-        for (int idx = 0; idx < records.size(); idx++) {
-          // For schema evolution, we need to call the insertRows API row by row in order to
-          // preserve the original order, for anything after the first schema mismatch error we will
-          // retry after the evolution
-          InsertValidationResponse response =
-              this.channel.insertRow(records.get(idx), Long.toString(offsets.get(idx)));
-          if (response.hasErrors()) {
-            InsertValidationResponse.InsertError insertError = response.getInsertErrors().get(0);
-            List<String> extraColNames = insertError.getExtraColNames();
+        for (InsertValidationResponse.InsertError insertError : response.getInsertErrors()) {
+          List<String> extraColNames = insertError.getExtraColNames();
+          List<String> missingNotNullColNames = insertError.getMissingNotNullColNames();
+          Set<String> nonNullableColumns =
+              new HashSet<>(
+                  missingNotNullColNames != null ? missingNotNullColNames : Collections.emptySet());
 
-            List<String> missingNotNullColNames = insertError.getMissingNotNullColNames();
-            Set<String> nonNullableColumns =
-                new HashSet<>(
-                    missingNotNullColNames != null
-                        ? missingNotNullColNames
-                        : Collections.emptySet());
-
-            List<String> nullValueForNotNullColNames = insertError.getNullValueForNotNullColNames();
-            nonNullableColumns.addAll(
-                nullValueForNotNullColNames != null
-                    ? nullValueForNotNullColNames
-                    : Collections.emptySet());
-
-            long originalSinkRecordIdx =
-                offsets.get(idx) - this.insertRowsStreamingBuffer.getFirstOffset();
-
-            if (extraColNames == null && nonNullableColumns.isEmpty()) {
-              InsertValidationResponse.InsertError newInsertError =
-                  new InsertValidationResponse.InsertError(
-                      insertError.getRowContent(), originalSinkRecordIdx);
-              newInsertError.setException(insertError.getException());
-              newInsertError.setExtraColNames(insertError.getExtraColNames());
-              newInsertError.setMissingNotNullColNames(insertError.getMissingNotNullColNames());
-              newInsertError.setNullValueForNotNullColNames(
-                  insertError.getNullValueForNotNullColNames());
-              // Simply added to the final response if it's not schema related errors
-              finalResponse.addError(insertError);
-            } else {
-              SchematizationUtils.evolveSchemaIfNeeded(
-                  this.conn,
-                  this.channel.getTableName(),
-                  new ArrayList<>(nonNullableColumns),
-                  extraColNames,
-                  this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
-              // Offset reset needed since it's possible that we successfully ingested partial batch
-              needToResetOffset = true;
-              break;
-            }
+          List<String> nullValueForNotNullColNames = insertError.getNullValueForNotNullColNames();
+          nonNullableColumns.addAll(
+              nullValueForNotNullColNames != null
+                  ? nullValueForNotNullColNames
+                  : Collections.emptySet());
+          if (extraColNames != null || !nonNullableColumns.isEmpty()) {
+            SchematizationUtils.evolveSchemaIfNeeded(
+                this.conn,
+                this.channel.getTableName(),
+                new ArrayList<>(nonNullableColumns),
+                extraColNames,
+                this.insertRowsStreamingBuffer.getSinkRecord(insertError.getRowIndex()));
+            needToResetOffset = true;
+          } else {
+            // Simply added to the final response if it's not schema related errors
+            finalResponse.addError(insertError);
           }
         }
       }
@@ -998,7 +995,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
             .setDBName(this.sfConnectorConfig.get(Utils.SF_DATABASE))
             .setSchemaName(this.sfConnectorConfig.get(Utils.SF_SCHEMA))
             .setTableName(this.tableName)
-            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
+            .setOnErrorOption(OpenChannelRequest.OnErrorOption.SKIP_BATCH)
             .setOffsetTokenVerificationFunction(StreamingUtils.offsetTokenVerificationFunction)
             .build();
     LOGGER.info(
