@@ -297,6 +297,7 @@ class StageFilesProcessor {
         pipeName);
     ctx.files.clear();
     ctx.files.addAll(filesToTrack);
+    ctx.files.addAll(fileCategories.dirtyFiles);
   }
 
   private void loadIngestReport(FileCategorizer fileCategories, ProcessorContext ctx) {
@@ -435,6 +436,7 @@ class StageFilesProcessor {
           files.size(),
           String.join(", ", files));
       conn.purgeStage(stageName, new ArrayList<>(files));
+      files.clear();
     } catch (Exception e) {
       LOGGER.error(
           "Reprocess cleaner encountered an exception {}:\n{}\n{}",
