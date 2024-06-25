@@ -128,7 +128,7 @@ public class SnowflakeSinkConnectorConfig {
       "snowflake.snowpipe.v2CleanerEnabled";
   public static final String SNOWPIPE_FILE_CLEANER_THREADS = "snowflake.snowpipe.v2CleanerThreads";
 
-  public static final boolean SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT = false;
+  public static final boolean SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT = true;
   public static final int SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT = 1;
 
   // Whether to close streaming channels in parallel.

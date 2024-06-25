@@ -172,7 +172,7 @@ class StageFilesProcessor_FileCategorizerTest {
             .collect(Collectors.toList());
 
     StageFilesProcessor.FileCategorizer victim =
-        StageFilesProcessor.FileCategorizer.build(files, 0);
+        StageFilesProcessor.FileCategorizer.build(files, -1);
 
     assertThat(victim.hasDirtyFiles()).isTrue();
     assertThat(victim.hasStageFiles()).isFalse();

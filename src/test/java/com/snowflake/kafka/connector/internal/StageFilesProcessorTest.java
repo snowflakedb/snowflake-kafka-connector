@@ -312,7 +312,7 @@ class StageFilesProcessorTest {
     String file3 = String.format("connector/topic/0/300_399_%d.json.gz", currentTime.get());
 
     // reset offset before first file
-    register.newOffset(100L);
+    register.newOffset(99L);
     register.registerNewStageFile(file1);
     register.registerNewStageFile(file2);
     register.registerNewStageFile(file3);
