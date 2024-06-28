@@ -33,6 +33,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.Set;
 import javax.annotation.Nonnull;
+
+import com.snowflake.kafka.connector.templating.StreamkapQueryTemplate;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
@@ -117,6 +119,8 @@ public class SchematizationUtils {
                 tableName),
             e);
       }
+
+      StreamkapQueryTemplate.applyCreateScriptIfAvailable(tableName, record, conn);
     }
   }
 
