@@ -19,16 +19,17 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
 public class StreamkapQueryTemplate {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(StreamkapQueryTemplate.class);
     private static final StreamkapQueryTemplate INSTANCE = new StreamkapQueryTemplate();
-    private final Map<String, TopicConfig> allTopicConfigs = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, TopicConfig> allTopicConfigs = new ConcurrentHashMap<>();
 
     private StreamkapQueryTemplate() {
         // Private constructor to prevent instantiation
@@ -122,8 +123,12 @@ public class StreamkapQueryTemplate {
      * @return a map of record data
      */
     private Map<String, Object> getRecordDataAsMap(String tableName, SinkRecord sinkRecord) {
-        Map<String, Object> values = new HashMap<>();
+        Map<String, Object> values = new ConcurrentHashMap<>();
+        List<String> keyCols = (sinkRecord.keySchema() != null ? sinkRecord.keySchema().fields().stream().map(f -> f.name()) :
+                                sinkRecord.valueSchema().fields().stream().map(f -> f.name())).collect(Collectors.toList());
         values.put("table", tableName);
+        values.put("primaryKeyColumns", String.join(",", keyCols));
+        values.put("keyColumnsAndCondition", String.join("AND", keyCols.stream().map(v-> tableName+"."+v+" = subquery."+v).collect(Collectors.toList())));
         // Add more fields as necessary from the sinkRecord
         return values;
     }
@@ -186,16 +191,22 @@ public class StreamkapQueryTemplate {
         }
 
         private Map<String, TopicConfig> getAllTopicConfig(Map<String, TopicConfig> topicConfigs) {
-            Map<String, TopicConfig> allTopicConfigs = new HashMap<>();
+            Map<String, TopicConfig> allTopicConfigs = new ConcurrentHashMap<>();
             if (this.topicsString != null && !this.topicsString.trim().isEmpty()) {
                 Arrays.stream(this.topicsString.split(","))
-                        .forEach(topic -> allTopicConfigs.put(topic, getTopicConfig(topic, topicConfigs)));
+                        .forEach(topic -> {
+                            TopicConfig config = getTopicConfig(topic, topicConfigs);
+                            if (config == null) {
+                                config = new TopicConfig(null);
+                            }
+                            allTopicConfigs.put(topic, config);
+                        });
             }
             return allTopicConfigs;
         }
 
         private Map<String, TopicConfig> parseTopicConfigurations(String configValue) {
-            Map<String, TopicConfig> topicConfigs = new HashMap<>();
+            Map<String, TopicConfig> topicConfigs = new ConcurrentHashMap<>();
             try {
                 if (configValue == null || configValue.trim().isEmpty()) {
                     return topicConfigs;
