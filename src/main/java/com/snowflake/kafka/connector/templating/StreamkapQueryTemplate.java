@@ -31,6 +31,9 @@ public class StreamkapQueryTemplate {
     private static final StreamkapQueryTemplate INSTANCE = new StreamkapQueryTemplate();
     private final ConcurrentMap<String, TopicConfig> allTopicConfigs = new ConcurrentHashMap<>();
     private Mustache createSqlTemplate = null;
+    private String sfWarehouse;
+    private int targetLag = 15;
+    private boolean isSFWarehouseExists = false;
     static MustacheFactory mustacheFactory = new DefaultMustacheFactory();
 
     private StreamkapQueryTemplate() {
@@ -41,14 +44,30 @@ public class StreamkapQueryTemplate {
         return INSTANCE;
     }
 
+    public void setSFWarehouse (String sfWarehouse) {
+        this.sfWarehouse = sfWarehouse;
+        this.isSFWarehouseExists = (this.sfWarehouse != null && !this.sfWarehouse.trim().isEmpty());
+    }
+
+    public boolean isSFWarehouseExists () {
+        return this.isSFWarehouseExists;
+    }
+    public void setTargetLag(int targetLag) {
+        this.targetLag = targetLag;
+    }
+
     /**
      * Initializes the topic configurations based on provided topics and mappings.
      *
      * @param topics        the topics
      * @param topicsMapping the topic mappings
      */
-    public static void initConfigDef(final String topics, final String topicsMapping, final String createSqlExecute) {
+    public static void initConfigDef(final String topics, final String topicsMapping,
+                                     final String createSqlExecute, final String sfWarehouse,
+                                     final int targetLag) {
         StreamkapQueryTemplate instance = getInstance();
+        instance.setSFWarehouse(sfWarehouse);
+        instance.setTargetLag(targetLag);
         instance.setCreateSqlTemplate(createSqlExecute);
         TopicConfigProcess topicConfigProcess = new TopicConfigProcess(topics, topicsMapping);
         instance.allTopicConfigs.clear();
@@ -86,7 +105,8 @@ public class StreamkapQueryTemplate {
      */
     public static void applyCreateScriptIfAvailable(String tableName, SinkRecord record, SnowflakeConnectionService conn) {
         StreamkapQueryTemplate instance = getInstance();
-        if (instance.topicHasCreateTemplate(record.topic())) {
+        if (instance.topicHasCreateTemplate(record.topic())
+                && instance.isSFWarehouseExists() ) {
             try (Connection con = conn.getConnection(); Statement stmt = con.createStatement()) {
 
                 Mustache template = instance.getCreateTemplate(record.topic());
@@ -129,6 +149,8 @@ public class StreamkapQueryTemplate {
         Map<String, Object> values = new ConcurrentHashMap<>();
         List<String> keyCols = (sinkRecord.keySchema() != null ? sinkRecord.keySchema().fields().stream().map(f -> f.name()) :
                                 sinkRecord.valueSchema().fields().stream().map(f -> f.name())).collect(Collectors.toList());
+        values.put("warehouse", this.sfWarehouse);
+        values.put("targetLag", this.targetLag);
         values.put("table", tableName);
         values.put("primaryKeyColumns", String.join(",", keyCols));
         values.put("keyColumnsAndCondition", String.join("AND", keyCols.stream().map(v-> tableName+"."+v+" = subquery."+v).collect(Collectors.toList())));
