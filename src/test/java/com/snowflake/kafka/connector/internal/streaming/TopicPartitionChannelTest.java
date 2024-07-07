@@ -806,10 +806,11 @@ public class TopicPartitionChannelTest {
   }
 
   @Test
-  public void testInsertRowsWithSchemaEvolution() throws Exception {
+  public void testInsertRowsWithSchemaEvolution_onlySingleBuffer() throws Exception {
     if (this.sfConnectorConfig
-        .get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
-        .equals("true")) {
+            .get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
+            .equals("true")
+        && !useDoubleBuffer) {
       InsertValidationResponse validationResponse1 = new InsertValidationResponse();
       InsertValidationResponse.InsertError insertError1 =
           new InsertValidationResponse.InsertError("CONTENT", 0);

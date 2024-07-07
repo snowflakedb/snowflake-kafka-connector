@@ -10,10 +10,12 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +29,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -325,5 +328,108 @@ public class BufferedTopicPartitionChannelTest {
     assert topicPartitionChannel.insertRecords(streamingBuffer).hasErrors();
 
     assert kafkaRecordErrorReporter.getReportedRecords().size() == 1;
+  }
+
+  @Test
+  public void testInsertRowsWithSchemaEvolution() throws Exception {
+    if (this.sfConnectorConfig
+        .get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
+        .equals("true")) {
+      InsertValidationResponse notSchemaEvolutionErrorResponse = new InsertValidationResponse();
+      InsertValidationResponse.InsertError notSchemaEvolutionError =
+          new InsertValidationResponse.InsertError("CONTENT", 0);
+      notSchemaEvolutionError.setException(SF_EXCEPTION);
+      notSchemaEvolutionErrorResponse.addError(notSchemaEvolutionError);
+
+      InsertValidationResponse schemaEvolutionRecoverableErrorResponse =
+          new InsertValidationResponse();
+      InsertValidationResponse.InsertError schemaEvolutionRecoverableError =
+          new InsertValidationResponse.InsertError("CONTENT", 0);
+      schemaEvolutionRecoverableError.setException(SF_EXCEPTION);
+      schemaEvolutionRecoverableError.setExtraColNames(Collections.singletonList("gender"));
+      schemaEvolutionRecoverableErrorResponse.addError(schemaEvolutionRecoverableError);
+
+      Mockito.when(
+              mockStreamingChannel.insertRows(
+                  ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any()))
+          .thenReturn(schemaEvolutionRecoverableErrorResponse)
+          .thenReturn(notSchemaEvolutionErrorResponse)
+          .thenReturn(new InsertValidationResponse()); // last insert with correct batch
+
+      Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenReturn("0");
+
+      SnowflakeConnectionService conn = Mockito.mock(SnowflakeConnectionService.class);
+      Mockito.when(
+              conn.hasSchemaEvolutionPermission(ArgumentMatchers.any(), ArgumentMatchers.any()))
+          .thenReturn(true);
+      Mockito.doNothing()
+          .when(conn)
+          .appendColumnsToTable(ArgumentMatchers.any(), ArgumentMatchers.any());
+
+      long bufferFlushTimeSeconds = 5L;
+      StreamingBufferThreshold bufferThreshold =
+          new StreamingBufferThreshold(bufferFlushTimeSeconds, 1_000 /* < 1KB */, 10000000L);
+
+      Map<String, String> sfConnectorConfigWithErrors = new HashMap<>(sfConnectorConfig);
+      sfConnectorConfigWithErrors.put(
+          ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
+      sfConnectorConfigWithErrors.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
+      InMemoryKafkaRecordErrorReporter kafkaRecordErrorReporter =
+          new InMemoryKafkaRecordErrorReporter();
+
+      TopicPartitionChannel topicPartitionChannel =
+          new BufferedTopicPartitionChannel(
+              mockStreamingClient,
+              topicPartition,
+              TEST_CHANNEL_NAME,
+              TEST_TABLE_NAME,
+              this.enableSchematization,
+              bufferThreshold,
+              sfConnectorConfigWithErrors,
+              kafkaRecordErrorReporter,
+              mockSinkTaskContext,
+              conn,
+              new RecordService(),
+              mockTelemetryService,
+              false,
+              null);
+
+      final int noOfRecords = 3;
+      List<SinkRecord> records =
+          TestUtils.createNativeJsonSinkRecords(0, noOfRecords, TOPIC, PARTITION);
+
+      for (int idx = 0; idx < records.size(); idx++) {
+        topicPartitionChannel.insertRecord(records.get(idx), idx == 0);
+      }
+
+      // In an ideal world, put API is going to invoke this to check if flush time threshold has
+      // reached.
+      // We are mimicking that call.
+      // Will wait for 10 seconds.
+      Thread.sleep(bufferFlushTimeSeconds * 1000 + 10);
+
+      topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
+
+      // Verify that the buffer is cleaned up and nothing is in DLQ because of schematization error
+      Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
+      Assert.assertEquals(0, kafkaRecordErrorReporter.getReportedRecords().size());
+
+      // Do it again without any schematization error, and we should have row in DLQ
+      for (int idx = 0; idx < records.size(); idx++) {
+        topicPartitionChannel.insertRecord(records.get(idx), idx == 0);
+      }
+
+      // In an ideal world, put API is going to invoke this to check if flush time threshold has
+      // reached.
+      // We are mimicking that call.
+      // Will wait for 10 seconds.
+      Thread.sleep(bufferFlushTimeSeconds * 1000 + 10);
+
+      topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
+
+      // Verify that the buffer is cleaned up and one record is in the DLQ
+      Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
+      Assert.assertEquals(1, kafkaRecordErrorReporter.getReportedRecords().size());
+    }
   }
 }
