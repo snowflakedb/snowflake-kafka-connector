@@ -120,7 +120,6 @@ public class SchematizationUtils {
             e);
       }
 
-      LOGGER.info("Executing applyCreateScriptIfAvailable");
       StreamkapQueryTemplate.applyCreateScriptIfAvailable(tableName, record, conn);
     }
   }

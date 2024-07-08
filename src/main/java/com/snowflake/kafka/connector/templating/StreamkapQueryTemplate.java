@@ -82,7 +82,7 @@ public class StreamkapQueryTemplate {
      */
     public Mustache getCreateTemplate(String topic) {
         TopicConfig topicConfig = allTopicConfigs.get(topic);
-        return topicConfig != null ? topicConfig.getCreateTemplate() : createSqlTemplate;
+        return topicConfig != null && topicConfig.getCreateTemplate() != null ? topicConfig.getCreateTemplate() : createSqlTemplate;
     }
 
     /**
@@ -93,7 +93,7 @@ public class StreamkapQueryTemplate {
      */
     public boolean topicHasCreateTemplate(String topic) {
         TopicConfig topicConfig = allTopicConfigs.get(topic);
-        return (topicConfig != null ? topicConfig.getCreateTemplate() != null : createSqlTemplate !=null);
+        return (topicConfig != null && topicConfig.getCreateTemplate() != null ? true : createSqlTemplate !=null);
     }
 
     /**
@@ -178,8 +178,10 @@ public class StreamkapQueryTemplate {
 
     private void setCreateSqlTemplate(String createSqlExecute) {
         Mustache template = null;
+        LOGGER.info("Setting Create SQL Template query : {}", createSqlExecute);
         if (createSqlExecute != null && !createSqlExecute.trim().isEmpty()) {
             template = mustacheFactory.compile(new StringReader(createSqlExecute),  "create-sql-template");
+            LOGGER.info("Create SQL Template generated.");
         }
         this.createSqlTemplate = template;
     }
