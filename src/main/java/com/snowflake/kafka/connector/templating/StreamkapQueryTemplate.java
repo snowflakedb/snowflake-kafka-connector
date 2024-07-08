@@ -107,6 +107,7 @@ public class StreamkapQueryTemplate {
         StreamkapQueryTemplate instance = getInstance();
         if (instance.topicHasCreateTemplate(record.topic())
                 && instance.isSFWarehouseExists() ) {
+            LOGGER.info("Apply SQL template ...");
             try (Connection con = conn.getConnection(); Statement stmt = con.createStatement()) {
 
                 Mustache template = instance.getCreateTemplate(record.topic());
@@ -118,6 +119,8 @@ public class StreamkapQueryTemplate {
             } catch (SnowflakeKafkaConnectorException | SQLException | IOException e) {
                 LOGGER.warn("Failure executing additional statements for table {}. This could happen when multiple partitions try to alter the table at the same time and the warning could be ignored.", tableName, e);
             }
+        } else {
+            LOGGER.info("Skipping SQL template due to configuration. templateConfig:{} , whExists:{}", instance.topicHasCreateTemplate(record.topic()), instance.isSFWarehouseExists());
         }
     }
 
