@@ -108,16 +108,19 @@ public class StreamkapQueryTemplate {
         if (instance.topicHasCreateTemplate(record.topic())
                 && instance.isSFWarehouseExists() ) {
             LOGGER.info("Apply SQL template ...");
-            try (Connection con = conn.getConnection(); Statement stmt = con.createStatement()) {
+            try {
+                Connection con = conn.getConnection();
+                try (Statement stmt = con.createStatement()) {
+                    Mustache template = instance.getCreateTemplate(record.topic());
+                    List<String> statements = instance.generateSqlFromTemplate(tableName, record, template);
+                    instance.applyDdlStatements(con, statements);
 
-                Mustache template = instance.getCreateTemplate(record.topic());
-                List<String> statements = instance.generateSqlFromTemplate(tableName, record, template);
-                instance.applyDdlStatements(con, statements);
-
-                LOGGER.info("Additional query executed successfully for table: {}", tableName);
-
-            } catch (SnowflakeKafkaConnectorException | SQLException | IOException e) {
-                LOGGER.warn("Failure executing additional statements for table {}. This could happen when multiple partitions try to alter the table at the same time and the warning could be ignored.", tableName, e);
+                    LOGGER.info("Additional query executed successfully for table: {}", tableName);
+                } catch (Exception e) {
+                    LOGGER.warn("Failure executing additional statements for table {}. This could happen when multiple partitions try to alter the table at the same time and the warning could be ignored.", tableName, e);
+                }
+            } catch (Exception e) {
+                LOGGER.error("Error getting connection", e);
             }
         } else {
             LOGGER.info("Skipping SQL template due to configuration. templateConfig:{} , whExists:{}", instance.topicHasCreateTemplate(record.topic()), instance.isSFWarehouseExists());
