@@ -45,6 +45,7 @@ import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.utils.ErrorCode;
 import net.snowflake.ingest.utils.Pair;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
@@ -914,9 +915,17 @@ public class TopicPartitionChannel {
    */
   private long streamingApiFallbackSupplier(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
-    final long offsetRecoveredFromSnowflake =
-        getRecoveredOffsetFromSnowflake(streamingApiFallbackInvoker);
-    resetChannelMetadataAfterRecovery(streamingApiFallbackInvoker, offsetRecoveredFromSnowflake);
+    SnowflakeStreamingIngestChannel newChannel = reopenChannel(streamingApiFallbackInvoker);
+
+    LOGGER.warn(
+            "{} Fetching offsetToken after re-opening the channel:{}",
+            streamingApiFallbackInvoker,
+            this.getChannelNameFormatV1());
+    long offsetRecoveredFromSnowflake = fetchLatestOffsetFromChannel(newChannel);
+
+    resetChannelMetadataAfterRecovery(streamingApiFallbackInvoker, offsetRecoveredFromSnowflake);;
+
+    this.channel = newChannel;
     return offsetRecoveredFromSnowflake;
   }
 
@@ -996,16 +1005,11 @@ public class TopicPartitionChannel {
    * @param streamingApiFallbackInvoker Streaming API which invoked this function.
    * @return offset which was last present in Snowflake
    */
-  private long getRecoveredOffsetFromSnowflake(
+  private SnowflakeStreamingIngestChannel reopenChannel(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
     LOGGER.warn(
         "{} Re-opening channel:{}", streamingApiFallbackInvoker, this.getChannelNameFormatV1());
-    this.channel = Preconditions.checkNotNull(openChannelForTable());
-    LOGGER.warn(
-        "{} Fetching offsetToken after re-opening the channel:{}",
-        streamingApiFallbackInvoker,
-        this.getChannelNameFormatV1());
-    return fetchLatestCommittedOffsetFromSnowflake();
+    return Preconditions.checkNotNull(openChannelForTable());
   }
 
   /**
@@ -1019,18 +1023,23 @@ public class TopicPartitionChannel {
    *     snowflake.
    */
   private long fetchLatestCommittedOffsetFromSnowflake() {
+    SnowflakeStreamingIngestChannel channelToGetOffset = this.channel;
+    return fetchLatestOffsetFromChannel(channelToGetOffset);
+  }
+
+  private long fetchLatestOffsetFromChannel(SnowflakeStreamingIngestChannel channelToGetOffset) {
     LOGGER.debug(
         "Fetching last committed offset for partition channel:{}", this.getChannelNameFormatV1());
     String offsetToken = null;
     try {
-      offsetToken = this.channel.getLatestCommittedOffsetToken();
+      offsetToken = channelToGetOffset.getLatestCommittedOffsetToken();
       LOGGER.info(
           "Fetched offsetToken for channelName:{}, offset:{}",
           this.getChannelNameFormatV1(),
           offsetToken);
       return offsetToken == null
-          ? NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
-          : Long.parseLong(offsetToken);
+              ? NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+              : Long.parseLong(offsetToken);
     } catch (NumberFormatException ex) {
       LOGGER.error(
           "The offsetToken string does not contain a parsable long:{} for channel:{}",
