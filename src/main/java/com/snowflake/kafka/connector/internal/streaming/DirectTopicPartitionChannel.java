@@ -643,9 +643,9 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     SnowflakeStreamingIngestChannel newChannel = reopenChannel(streamingApiFallbackInvoker);
 
     LOGGER.warn(
-            "{} Fetching offsetToken after re-opening the channel:{}",
-            streamingApiFallbackInvoker,
-            this.getChannelNameFormatV1());
+        "{} Fetching offsetToken after re-opening the channel:{}",
+        streamingApiFallbackInvoker,
+        this.getChannelNameFormatV1());
     long offsetRecoveredFromSnowflake = fetchLatestOffsetFromChannel(newChannel);
 
     resetChannelMetadataAfterRecovery(streamingApiFallbackInvoker, offsetRecoveredFromSnowflake);
@@ -737,7 +737,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   private long fetchLatestCommittedOffsetFromSnowflake() {
     LOGGER.debug(
         "Fetching last committed offset for partition channel:{}", this.getChannelNameFormatV1());
-      SnowflakeStreamingIngestChannel channelToGetOffset = this.channel;
+    SnowflakeStreamingIngestChannel channelToGetOffset = this.channel;
     return fetchLatestOffsetFromChannel(channelToGetOffset);
   }
 
@@ -750,8 +750,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
           this.getChannelNameFormatV1(),
           offsetToken);
       return offsetToken == null
-              ? NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
-              : Long.parseLong(offsetToken);
+          ? NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+          : Long.parseLong(offsetToken);
     } catch (NumberFormatException ex) {
       LOGGER.error(
           "The offsetToken string does not contain a parsable long:{} for channel:{}",

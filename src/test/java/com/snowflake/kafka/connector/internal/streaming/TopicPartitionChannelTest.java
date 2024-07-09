@@ -10,9 +10,9 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MA
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyIterable;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 
@@ -1254,45 +1254,45 @@ public class TopicPartitionChannelTest {
 
     SnowflakeStreamingIngestChannel channel1 = Mockito.mock(SnowflakeStreamingIngestChannel.class);
     Mockito.when(channel1.getLatestCommittedOffsetToken())
-            .thenReturn("0")
-            .thenThrow(new SFException(ErrorCode.CHANNEL_STATUS_INVALID));
+        .thenReturn("0")
+        .thenThrow(new SFException(ErrorCode.CHANNEL_STATUS_INVALID));
 
     Mockito.when(channel1.insertRow(anyMap(), anyString()))
-            .thenThrow(new SFException(ErrorCode.CHANNEL_STATUS_INVALID));
+        .thenThrow(new SFException(ErrorCode.CHANNEL_STATUS_INVALID));
     Mockito.when(channel1.insertRows(anyIterable(), anyString(), anyString()))
-            .thenThrow(new SFException(ErrorCode.CHANNEL_STATUS_INVALID));
+        .thenThrow(new SFException(ErrorCode.CHANNEL_STATUS_INVALID));
 
     SnowflakeStreamingIngestChannel channel2 = Mockito.mock(SnowflakeStreamingIngestChannel.class);
     Mockito.when(channel2.getLatestCommittedOffsetToken())
-            .thenThrow(new SFException(ErrorCode.IO_ERROR));
+        .thenThrow(new SFException(ErrorCode.IO_ERROR));
     Mockito.when(channel2.insertRow(anyMap(), anyString()))
-            .thenReturn(new InsertValidationResponse());
+        .thenReturn(new InsertValidationResponse());
     Mockito.when(channel2.insertRows(anyIterable(), anyString(), anyString()))
-            .thenReturn(new InsertValidationResponse());
+        .thenReturn(new InsertValidationResponse());
 
     Mockito.when(mockStreamingClient.openChannel(any(OpenChannelRequest.class)))
-            .thenReturn(channel1, channel2);
+        .thenReturn(channel1, channel2);
 
     TopicPartitionChannel topicPartitionChannel =
-            createTopicPartitionChannel(
-                    this.mockStreamingClient,
-                    this.topicPartition,
-                    TEST_CHANNEL_NAME,
-                    TEST_TABLE_NAME,
-                    this.enableSchematization,
-                    this.streamingBufferThreshold,
-                    this.sfConnectorConfig,
-                    this.mockKafkaRecordErrorReporter,
-                    this.mockSinkTaskContext,
-                    this.mockSnowflakeConnectionService,
-                    new RecordService(),
-                    this.mockTelemetryService,
-                    true,
-                    null);
+        createTopicPartitionChannel(
+            this.mockStreamingClient,
+            this.topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            this.enableSchematization,
+            this.streamingBufferThreshold,
+            this.sfConnectorConfig,
+            this.mockKafkaRecordErrorReporter,
+            this.mockSinkTaskContext,
+            this.mockSnowflakeConnectionService,
+            new RecordService(),
+            this.mockTelemetryService,
+            true,
+            null);
 
     // expect
-    Assert.assertThrows(SFException.class, () -> topicPartitionChannel.getOffsetSafeToCommitToKafka());
-
+    Assert.assertThrows(
+        SFException.class, () -> topicPartitionChannel.getOffsetSafeToCommitToKafka());
 
     // when
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 2, TOPIC, PARTITION);
@@ -1301,7 +1301,8 @@ public class TopicPartitionChannelTest {
     Assert.assertThrows(SFException.class, () -> insertAndFlush(topicPartitionChannel, records));
   }
 
-  private void insertAndFlush(TopicPartitionChannel channel, List<SinkRecord> records) throws InterruptedException {
+  private void insertAndFlush(TopicPartitionChannel channel, List<SinkRecord> records)
+      throws InterruptedException {
     for (int idx = 0; idx < records.size(); idx++) {
       channel.insertRecord(records.get(idx), idx == 0);
     }
