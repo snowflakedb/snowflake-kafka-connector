@@ -353,6 +353,18 @@ public class TestUtils {
     return configuration;
   }
 
+  public static Map<String, String> getConfForStreamingWithOAuth(boolean useSingleBuffer) {
+    Map<String, String> config = getConfForStreamingWithOAuth();
+
+    if (useSingleBuffer) {
+      config.put(
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
+          Boolean.TRUE.toString());
+    }
+
+    return config;
+  }
+
   /** @return JDBC config with encrypted private key */
   static Map<String, String> getConfWithEncryptedKey() {
     if (conf == null) {

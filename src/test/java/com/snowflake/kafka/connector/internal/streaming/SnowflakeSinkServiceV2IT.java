@@ -1707,14 +1707,7 @@ public class SnowflakeSinkServiceV2IT {
     if (!useOAuth) {
       return TestUtils.getConfForStreaming(useSingleBuffer);
     } else {
-
-      Map<String, String> config = new HashMap<>(TestUtils.getConfForStreamingWithOAuth());
-      if (useSingleBuffer) {
-        config.put(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-            Boolean.TRUE.toString());
-      }
-      return config;
+      return TestUtils.getConfForStreamingWithOAuth(useSingleBuffer);
     }
   }
 
