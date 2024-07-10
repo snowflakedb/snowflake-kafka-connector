@@ -39,7 +39,6 @@ import dev.failsafe.RetryPolicy;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,15 +46,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
-
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.SFException;
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.collections.ListUtils;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -519,7 +515,9 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       List<String> extraColNames = insertError.getExtraColNames();
       List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
       List<String> nullValueForNotNullColNames = insertError.getNullValueForNotNullColNames();
-      if (extraColNames != null || nonNullableColumns != null || nullValueForNotNullColNames != null) {
+      if (extraColNames != null
+          || nonNullableColumns != null
+          || nullValueForNotNullColNames != null) {
         SchematizationUtils.evolveSchemaIfNeeded(
             this.conn,
             this.channel.getTableName(),
@@ -568,8 +566,10 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     }
   }
 
-  private List<String> join(List<String> nonNullableColumns, List<String> nullValueForNotNullColNames) {
-    return Lists.newArrayList(Iterables.concat(
+  private List<String> join(
+      List<String> nonNullableColumns, List<String> nullValueForNotNullColNames) {
+    return Lists.newArrayList(
+        Iterables.concat(
             Optional.ofNullable(nonNullableColumns).orElse(ImmutableList.of()),
             Optional.ofNullable(nullValueForNotNullColNames).orElse(ImmutableList.of())));
   }
