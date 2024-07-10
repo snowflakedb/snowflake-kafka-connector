@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.mustachejava.DefaultMustacheFactory;
 import com.github.mustachejava.Mustache;
 import com.github.mustachejava.MustacheFactory;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import org.apache.kafka.common.config.ConfigException;
@@ -16,11 +17,10 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -33,8 +33,14 @@ public class StreamkapQueryTemplate {
     private Mustache createSqlTemplate = null;
     private String sfWarehouse;
     private int targetLag = 15;
+    private long schemaChangeIntervalMs =0;
     private boolean isSFWarehouseExists = false;
     static MustacheFactory mustacheFactory = new DefaultMustacheFactory();
+    private long schemaCheckTime;
+    private boolean applyDynamicTableScrip;
+    private final ConcurrentHashMap<String, SinkRecord> recordByTopic = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Boolean> processedTopics = new ConcurrentHashMap<>();
+
 
     private StreamkapQueryTemplate() {
         // Private constructor to prevent instantiation
@@ -44,7 +50,7 @@ public class StreamkapQueryTemplate {
         return INSTANCE;
     }
 
-    public void setSFWarehouse (String sfWarehouse) {
+    void setSFWarehouse (String sfWarehouse) {
         this.sfWarehouse = sfWarehouse;
         this.isSFWarehouseExists = (this.sfWarehouse != null && !this.sfWarehouse.trim().isEmpty());
     }
@@ -52,8 +58,24 @@ public class StreamkapQueryTemplate {
     public boolean isSFWarehouseExists () {
         return this.isSFWarehouseExists;
     }
-    public void setTargetLag(int targetLag) {
+    void setTargetLag(int targetLag) {
         this.targetLag = targetLag;
+    }
+
+    void setSchemaChangeIntervalMs( long schemaChangeIntervalMs) {
+        this.schemaChangeIntervalMs = schemaChangeIntervalMs;
+    }
+
+    void setApplyDynamicTableScrip(boolean applyDynamicTableScrip) {
+        this.applyDynamicTableScrip = applyDynamicTableScrip;
+    }
+
+    public boolean isApplyDynamicTableScrip() {
+        return this.applyDynamicTableScrip;
+    }
+
+    public long getSchemaChangeIntervalMs() {
+        return this.schemaChangeIntervalMs;
     }
 
     /**
@@ -64,11 +86,16 @@ public class StreamkapQueryTemplate {
      */
     public static void initConfigDef(final String topics, final String topicsMapping,
                                      final String createSqlExecute, final String sfWarehouse,
-                                     final int targetLag) {
+                                     final int targetLag,
+                                     final long schemaChangeIntervalMs,
+                                     final boolean applyDynamicTableScrip) {
         StreamkapQueryTemplate instance = getInstance();
         instance.setSFWarehouse(sfWarehouse);
         instance.setTargetLag(targetLag);
         instance.setCreateSqlTemplate(createSqlExecute);
+        instance.setSchemaChangeIntervalMs(schemaChangeIntervalMs);
+        instance.setApplyDynamicTableScrip(applyDynamicTableScrip);
+        instance.schemaCheckTime =System.currentTimeMillis();
         TopicConfigProcess topicConfigProcess = new TopicConfigProcess(topics, topicsMapping);
         instance.allTopicConfigs.clear();
         instance.allTopicConfigs.putAll(topicConfigProcess.getAllTopicConfigs());
@@ -96,6 +123,64 @@ public class StreamkapQueryTemplate {
         return (topicConfig != null && topicConfig.getCreateTemplate() != null ? true : createSqlTemplate !=null);
     }
 
+    public static boolean checkIfDynamicTableExists(String tableName, SnowflakeConnectionService conn) {
+        boolean tableExists = false;
+        try {
+            Connection con = conn.getConnection();
+            try (Statement stmt = con.createStatement()) {
+                String statement = "DESC DYNAMIC TABLE "+ tableName + "_DT";
+                stmt.executeQuery(statement);
+                tableExists = true;
+            } catch (Exception e) {
+                LOGGER.warn("Dynamic table for table {}, doesn't exist.", tableName, e);
+            }
+        } catch (Exception e) {
+            LOGGER.error("Error getting connection", e);
+            throw e;
+        }
+
+        return tableExists;
+    }
+
+    private static long getDurationFromStartMs(long startTime) {
+        final long currTime = System.currentTimeMillis();
+        return currTime - startTime;
+    }
+
+    public static void checkSchemaChanges(final Collection<SinkRecord> records, Map<String, String> topic2table, SnowflakeConnectionService conn) {
+        StreamkapQueryTemplate instance = getInstance();
+
+        if (instance.applyDynamicTableScrip) {
+            for (SinkRecord record : records) {
+                if(!instance.processedTopics.containsKey(record.topic())) {
+                    instance.recordByTopic.putIfAbsent(record.topic(), record);
+                }
+            }
+
+            if (instance.getSchemaChangeIntervalMs() > 0
+                    && getDurationFromStartMs(instance.schemaCheckTime) >= instance.getSchemaChangeIntervalMs()) {
+
+                for (Map.Entry<String, SinkRecord> entry : instance.recordByTopic.entrySet()) {
+                    String topicName = entry.getKey();
+                    try {
+                        if (!checkIfDynamicTableExists(topicName, conn)) {
+                            String tableName = Utils.generateValidName(topicName, topic2table);
+                            if (applyCreateScriptIfAvailable(tableName, entry.getValue(), conn)) {
+                                instance.recordByTopic.remove(tableName);
+                            }
+                        } else {
+                            instance.processedTopics.putIfAbsent(topicName, true);
+                        }
+                    } catch (Exception e) {
+                        //ignore topic due to error
+                        LOGGER.info("Error inside PUT function in Streamkap template process");
+                    }
+                }
+                instance.schemaCheckTime = System.currentTimeMillis();
+            }
+        }
+    }
+
     /**
      * Applies create script if available for the given table name and record.
      *
@@ -103,28 +188,33 @@ public class StreamkapQueryTemplate {
      * @param record    the SinkRecord
      * @param conn      the SnowflakeConnectionService
      */
-    public static void applyCreateScriptIfAvailable(String tableName, SinkRecord record, SnowflakeConnectionService conn) {
+    public static boolean applyCreateScriptIfAvailable(String tableName, SinkRecord record, SnowflakeConnectionService conn) {
+        boolean scriptAppliedSuccessfully = false;
         StreamkapQueryTemplate instance = getInstance();
         if (instance.topicHasCreateTemplate(record.topic())
                 && instance.isSFWarehouseExists() ) {
-            LOGGER.info("Apply SQL template ...");
+            LOGGER.info("Apply SQL template on table: {}", tableName);
             try {
                 Connection con = conn.getConnection();
                 try (Statement stmt = con.createStatement()) {
                     Mustache template = instance.getCreateTemplate(record.topic());
                     List<String> statements = instance.generateSqlFromTemplate(tableName, record, template);
                     instance.applyDdlStatements(con, statements);
-
+                    instance.processedTopics.putIfAbsent(record.topic(), true);
+                    scriptAppliedSuccessfully = true;
                     LOGGER.info("Additional query executed successfully for table: {}", tableName);
                 } catch (Exception e) {
-                    LOGGER.warn("Failure executing additional statements for table {}. This could happen when multiple partitions try to alter the table at the same time and the warning could be ignored.", tableName, e);
+                    LOGGER.warn("Failure executing additional statements for table {}.", tableName, e);
                 }
             } catch (Exception e) {
                 LOGGER.error("Error getting connection", e);
             }
         } else {
+            scriptAppliedSuccessfully = true;
             LOGGER.info("Skipping SQL template due to configuration. templateConfig:{} , whExists:{}", instance.topicHasCreateTemplate(record.topic()), instance.isSFWarehouseExists());
         }
+
+        return scriptAppliedSuccessfully;
     }
 
     /**

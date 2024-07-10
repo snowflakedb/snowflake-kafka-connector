@@ -28,6 +28,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import com.snowflake.kafka.connector.templating.StreamkapQueryTemplate;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -302,6 +303,8 @@ public class SnowflakeSinkTask extends SinkTask {
     final long startTime = System.currentTimeMillis();
 
     getSink().insert(records);
+
+    StreamkapQueryTemplate.checkSchemaChanges(records, this.topic2table, this.conn);
 
     logWarningForPutAndPrecommit(
         startTime, Utils.formatString("called PUT with {} records", recordSize));
