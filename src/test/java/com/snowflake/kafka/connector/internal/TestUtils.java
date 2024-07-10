@@ -326,6 +326,18 @@ public class TestUtils {
     return configuration;
   }
 
+  public static Map<String, String> getConfForStreaming(boolean useSingleBuffer) {
+    Map<String, String> config = getConfForStreaming();
+
+    if (useSingleBuffer) {
+      config.put(
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
+          Boolean.TRUE.toString());
+    }
+
+    return config;
+  }
+
   /* Get configuration map from profile path. Used against prod deployment of Snowflake */
   public static Map<String, String> getConfForStreamingWithOAuth() {
     Map<String, String> configuration = getConfWithOAuth();

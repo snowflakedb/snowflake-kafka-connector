@@ -181,7 +181,7 @@ public class SnowflakeSinkServiceV2IT {
   public void testStreamingIngest_multipleChannelPartitions_closeSubsetOfPartitionsAssigned(
       boolean useSingleBuffer) throws Exception {
     conn = getConn(false);
-    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
     TopicPartition tp1 = new TopicPartition(table, partition);
@@ -525,7 +525,7 @@ public class SnowflakeSinkServiceV2IT {
     final int recordsInEachPartition = 2;
     final int topicCount = 3;
 
-    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     ArrayList<String> topics = new ArrayList<>();
@@ -594,7 +594,7 @@ public class SnowflakeSinkServiceV2IT {
     final int partitionCount = 5;
     final int recordsInEachPartition = 2;
 
-    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     SnowflakeSinkService service =
@@ -1144,7 +1144,7 @@ public class SnowflakeSinkServiceV2IT {
     conn = getConn(false);
 
     conn.createTable(table);
-    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
@@ -1205,7 +1205,7 @@ public class SnowflakeSinkServiceV2IT {
       boolean useSingleBuffer) throws Exception {
     conn = getConn(false);
     conn.createTable(table);
-    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
@@ -1266,7 +1266,7 @@ public class SnowflakeSinkServiceV2IT {
   public void testSchematizationWithTableCreationAndAvroInput(boolean useSingleBuffer)
       throws Exception {
     conn = getConn(false);
-    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
@@ -1365,7 +1365,7 @@ public class SnowflakeSinkServiceV2IT {
   public void testSchematizationWithTableCreationAndJsonInput(boolean useSingleBuffer)
       throws Exception {
     conn = getConn(false);
-    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
@@ -1456,7 +1456,7 @@ public class SnowflakeSinkServiceV2IT {
   public void testSchematizationSchemaEvolutionWithNonNullableColumn(boolean useSingleBuffer)
       throws Exception {
     conn = getConn(false);
-    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
@@ -1587,7 +1587,7 @@ public class SnowflakeSinkServiceV2IT {
   @MethodSource("singleBufferParameters")
   public void testStreamingIngestionInvalidClientLag(boolean useSingleBuffer) {
     conn = getConn(false);
-    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     Map<String, String> overriddenConfig = new HashMap<>(config);
     overriddenConfig.put(
@@ -1705,7 +1705,7 @@ public class SnowflakeSinkServiceV2IT {
 
   private Map<String, String> getConfig(boolean useOAuth, boolean useSingleBuffer) {
     if (!useOAuth) {
-      return getConfigForStreaming(useSingleBuffer);
+      return TestUtils.getConfForStreaming(useSingleBuffer);
     } else {
 
       Map<String, String> config = new HashMap<>(TestUtils.getConfForStreamingWithOAuth());
@@ -1716,16 +1716,6 @@ public class SnowflakeSinkServiceV2IT {
       }
       return config;
     }
-  }
-
-  private Map<String, String> getConfigForStreaming(boolean useSingleBuffer) {
-    Map<String, String> config = new HashMap<>(TestUtils.getConfForStreaming());
-    if (useSingleBuffer) {
-      config.put(
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-          Boolean.TRUE.toString());
-    }
-    return config;
   }
 
   // note this test relies on testrole_kafka and testrole_kafka_1 roles being granted to test_kafka
