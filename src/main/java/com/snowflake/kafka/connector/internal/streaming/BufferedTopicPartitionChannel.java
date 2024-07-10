@@ -861,10 +861,8 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
         this.getChannelNameFormatV1());
     long offsetRecoveredFromSnowflake = fetchLatestOffsetFromChannel(newChannel);
 
-    resetChannelMetadataAfterRecovery(streamingApiFallbackInvoker, offsetRecoveredFromSnowflake);
-    ;
+    resetChannelMetadataAfterRecovery(streamingApiFallbackInvoker, offsetRecoveredFromSnowflake, newChannel);
 
-    this.channel = newChannel;
     return offsetRecoveredFromSnowflake;
   }
 
@@ -876,14 +874,15 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
    * <p>Idea behind resetting offset (1 more than what we found in snowflake) is that Kafka should
    * send offsets from this offset number so as to not miss any data.
    *
-   * @param streamingApiFallbackInvoker Streaming API which is using this fallback function. Used
-   *     for logging mainly.
+   * @param streamingApiFallbackInvoker  Streaming API which is using this fallback function. Used
+   *                                     for logging mainly.
    * @param offsetRecoveredFromSnowflake offset number found in snowflake for this
-   *     channel(partition)
+   *                                     channel(partition)
+   * @param newChannel                   a channel to assign to the current instance
    */
   private void resetChannelMetadataAfterRecovery(
-      final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
-      final long offsetRecoveredFromSnowflake) {
+          final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
+          final long offsetRecoveredFromSnowflake, SnowflakeStreamingIngestChannel newChannel) {
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       LOGGER.info(
           "{} Channel:{}, offset token is NULL, will use the consumer offset managed by the"
@@ -924,6 +923,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
       // Set the flag so that any leftover rows in the buffer should be skipped, it will be
       // re-ingested since the offset in kafka was reset
       needToSkipCurrentBatch = true;
+      this.channel = newChannel;
     } finally {
       this.bufferLock.unlock();
     }
@@ -966,12 +966,12 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
     return fetchLatestOffsetFromChannel(channelToGetOffset);
   }
 
-  private long fetchLatestOffsetFromChannel(SnowflakeStreamingIngestChannel channelToGetOffset) {
+  private long fetchLatestOffsetFromChannel(SnowflakeStreamingIngestChannel channel) {
     LOGGER.debug(
         "Fetching last committed offset for partition channel:{}", this.getChannelNameFormatV1());
     String offsetToken = null;
     try {
-      offsetToken = channelToGetOffset.getLatestCommittedOffsetToken();
+      offsetToken = channel.getLatestCommittedOffsetToken();
       LOGGER.info(
           "Fetched offsetToken for channelName:{}, offset:{}",
           this.getChannelNameFormatV1(),
