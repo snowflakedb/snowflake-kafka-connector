@@ -64,6 +64,7 @@ public class SnowflakeSinkServiceV2IT {
 
   // use OAuth as authenticator or not
   private boolean useOAuth;
+  private boolean useSingleBuffer = true;
 
   @Parameterized.Parameters(name = "useOAuth: {0}")
   public static Collection<Object[]> input() {
@@ -170,7 +171,7 @@ public class SnowflakeSinkServiceV2IT {
   @Test
   public void testStreamingIngest_multipleChannelPartitions_closeSubsetOfPartitionsAssigned()
       throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
     TopicPartition tp1 = new TopicPartition(table, partition);
@@ -481,15 +482,17 @@ public class SnowflakeSinkServiceV2IT {
                         MetricsUtil.PROCESSED_OFFSET))
                 .getValue()
         == processedOffset;
-    assert (long)
-            metricRegistry
-                .get(
-                    MetricsUtil.constructMetricName(
-                        partitionChannelKey,
-                        MetricsUtil.OFFSET_SUB_DOMAIN,
-                        MetricsUtil.LATEST_CONSUMER_OFFSET))
-                .getValue()
-        == latestConsumerOffset;
+    if (!useSingleBuffer) {
+      assert (long)
+              metricRegistry
+                      .get(
+                              MetricsUtil.constructMetricName(
+                                      partitionChannelKey,
+                                      MetricsUtil.OFFSET_SUB_DOMAIN,
+                                      MetricsUtil.LATEST_CONSUMER_OFFSET))
+                      .getValue()
+              == latestConsumerOffset;
+    }
   }
 
   @Test
@@ -498,7 +501,7 @@ public class SnowflakeSinkServiceV2IT {
     final int recordsInEachPartition = 2;
     final int topicCount = 3;
 
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     ArrayList<String> topics = new ArrayList<>();
@@ -564,7 +567,7 @@ public class SnowflakeSinkServiceV2IT {
     final int partitionCount = 5;
     final int recordsInEachPartition = 2;
 
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     SnowflakeSinkService service =
@@ -1094,7 +1097,7 @@ public class SnowflakeSinkServiceV2IT {
   public void testStreamingIngestionWithExactlyOnceSemanticsNoOverlappingOffsets()
       throws Exception {
     conn.createTable(table);
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
@@ -1152,7 +1155,7 @@ public class SnowflakeSinkServiceV2IT {
   @Test
   public void testStreamingIngestionWithExactlyOnceSemanticsOverlappingOffsets() throws Exception {
     conn.createTable(table);
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
@@ -1210,7 +1213,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testSchematizationWithTableCreationAndAvroInput() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
@@ -1306,7 +1309,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testSchematizationWithTableCreationAndJsonInput() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
@@ -1394,7 +1397,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testSchematizationSchemaEvolutionWithNonNullableColumn() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
@@ -1520,7 +1523,7 @@ public class SnowflakeSinkServiceV2IT {
 
   @Test
   public void testStreamingIngestionInvalidClientLag() {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfigForStreaming(useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     Map<String, String> overriddenConfig = new HashMap<>(config);
     overriddenConfig.put(
@@ -1632,11 +1635,20 @@ public class SnowflakeSinkServiceV2IT {
 
   private Map<String, String> getConfig() {
     if (!useOAuth) {
-      return TestUtils.getConfForStreaming();
+      return getConfigForStreaming(useSingleBuffer);
     } else {
       return TestUtils.getConfForStreamingWithOAuth();
     }
   }
+
+  private Map<String, String> getConfigForStreaming(boolean useSingleBuffer) {
+    Map<String, String> config = new HashMap<>(TestUtils.getConfForStreaming());
+    if (useSingleBuffer) {
+      config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, Boolean.TRUE.toString());
+    }
+    return config;
+  }
+
 
   // note this test relies on testrole_kafka and testrole_kafka_1 roles being granted to test_kafka
   // user
