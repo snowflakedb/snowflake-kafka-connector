@@ -154,10 +154,10 @@ public class StreamkapQueryTemplate {
                 for (Map.Entry<String, SinkRecord> entry : recordByTopic.entrySet()) {
                     String topicName = entry.getKey();
                     try {
-                        if (!checkIfDynamicTableExists(topicName, conn)) {
-                            String tableName = Utils.generateValidName(topicName, topic2table);
+                        String tableName = Utils.generateValidName(topicName, topic2table);
+                        if (!checkIfDynamicTableExists(tableName, conn)) {
                             if (applyCreateScriptIfAvailable(tableName, entry.getValue(), conn)) {
-                                recordByTopic.remove(tableName);
+                                recordByTopic.remove(topicName);
                                 processedTopics.putIfAbsent(topicName, true);
                             }
                         } else {
