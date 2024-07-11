@@ -32,9 +32,11 @@ import net.snowflake.client.jdbc.internal.apache.http.HttpHeaders;
 import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpPost;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class ConnectionServiceIT {
   private final SnowflakeConnectionService conn = TestUtils.getConnectionService();
@@ -103,12 +105,12 @@ public class ConnectionServiceIT {
       for (Header h : httpPostInsertRequest.getAllHeaders()) {
         if (h.getName().equalsIgnoreCase(HttpHeaders.USER_AGENT)) {
           System.out.println(h);
-          Assert.assertTrue(h.getValue().contains(userAgentExpectedSuffixInHttpHeader));
-          Assert.assertTrue(h.getValue().endsWith(userAgentExpectedSuffixInHttpHeader));
+          Assertions.assertTrue(h.getValue().contains(userAgentExpectedSuffixInHttpHeader));
+          Assertions.assertTrue(h.getValue().endsWith(userAgentExpectedSuffixInHttpHeader));
         }
       }
     } catch (Exception e) {
-      Assert.fail("Should not throw an exception:" + e.getMessage());
+      Assertions.fail("Should not throw an exception:" + e.getMessage());
     }
   }
 
@@ -191,7 +193,7 @@ public class ConnectionServiceIT {
         .equals("1");
   }
 
-  @After
+  @AfterEach
   public void afterEach() {
     TestUtils.dropTable(tableName);
     conn.dropPipe(pipeName);
@@ -425,9 +427,10 @@ public class ConnectionServiceIT {
     assert service.isClosed();
   }
 
-  @Test
-  public void testStreamingChannelOffsetMigration() {
-    Map<String, String> testConfig = TestUtils.getConfForStreaming();
+  @ParameterizedTest(name = "useSingleBuffer: {0}")
+  @ValueSource(booleans = {false, true})
+  public void testStreamingChannelOffsetMigration(boolean useSingleBuffer) {
+    Map<String, String> testConfig = TestUtils.getConfForStreaming(useSingleBuffer);
     SnowflakeConnectionService conn =
         SnowflakeConnectionServiceFactory.builder().setProperties(testConfig).build();
     conn.createTable(tableName);
@@ -441,8 +444,9 @@ public class ConnectionServiceIT {
     ChannelMigrateOffsetTokenResponseDTO channelMigrateOffsetTokenResponseDTO =
         conn.migrateStreamingChannelOffsetToken(
             tableName, sourceChannelName, destinationChannelName);
-    Assert.assertTrue(isChannelMigrationResponseSuccessful(channelMigrateOffsetTokenResponseDTO));
-    Assert.assertEquals(
+    Assertions.assertTrue(
+        isChannelMigrationResponseSuccessful(channelMigrateOffsetTokenResponseDTO));
+    Assertions.assertEquals(
         OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST.getStatusCode(),
         channelMigrateOffsetTokenResponseDTO.getResponseCode());
 
@@ -459,7 +463,7 @@ public class ConnectionServiceIT {
 
     try {
       // ### TEST 3 - Source Channel (v2 channel doesnt exist)
-      Map<String, String> config = TestUtils.getConfForStreaming();
+      Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
       SnowflakeSinkConnectorConfig.setDefaultValues(config);
       TopicPartition topicPartition = new TopicPartition(tableName, 0);
 
@@ -489,8 +493,9 @@ public class ConnectionServiceIT {
       channelMigrateOffsetTokenResponseDTO =
           conn.migrateStreamingChannelOffsetToken(
               tableName, sourceChannelName, destinationChannelName);
-      Assert.assertTrue(isChannelMigrationResponseSuccessful(channelMigrateOffsetTokenResponseDTO));
-      Assert.assertEquals(
+      Assertions.assertTrue(
+          isChannelMigrationResponseSuccessful(channelMigrateOffsetTokenResponseDTO));
+      Assertions.assertEquals(
           OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST.getStatusCode(),
           channelMigrateOffsetTokenResponseDTO.getResponseCode());
 
@@ -531,7 +536,7 @@ public class ConnectionServiceIT {
       TestUtils.assertWithRetry(
           () -> service.getOffset(new TopicPartition(tableName, 0)) == (noOfRecords * 2), 5, 5);
     } catch (Exception e) {
-      Assert.fail("Should not throw an exception:" + e.getMessage());
+      Assertions.fail("Should not throw an exception:" + e.getMessage());
     } finally {
       TestUtils.dropTable(tableName);
     }

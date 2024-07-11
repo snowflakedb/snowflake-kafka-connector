@@ -13,7 +13,6 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -21,18 +20,19 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -43,7 +43,6 @@ import org.slf4j.Logger;
  * Sink Task IT test which uses {@link
  * com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2}
  */
-@RunWith(Parameterized.class)
 public class SnowflakeSinkTaskForStreamingIT {
 
   private String topicName;
@@ -57,33 +56,25 @@ public class SnowflakeSinkTaskForStreamingIT {
 
   @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
 
-  // use OAuth as authenticator or not
-  private boolean useOAuth;
-
-  @Parameterized.Parameters(name = "useOAuth: {0}")
-  public static Collection<Object[]> input() {
-    // TODO: Added {true} after SNOW-352846 is released
-    return Arrays.asList(new Object[][] {{false}});
-  }
-
-  public SnowflakeSinkTaskForStreamingIT(boolean useOAuth) {
-    this.useOAuth = useOAuth;
-  }
-
-  @Before
-  public void setup() {
+  @BeforeEach
+  public void beforeEach() {
     topicName = TestUtils.randomTableName();
     topicPartition = new TopicPartition(topicName, partition);
   }
 
-  @After
-  public void after() {
+  @AfterEach
+  public void afterEach() {
     TestUtils.dropTable(topicName);
   }
 
-  @Test
-  public void testSinkTask() throws Exception {
-    Map<String, String> config = getConfig();
+  private static Stream<Arguments> oAuthAndSingleBufferParameters() {
+    return TestUtils.nBooleanProduct(2);
+  }
+
+  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
+  @MethodSource("oAuthAndSingleBufferParameters")
+  public void testSinkTask(boolean useOAuth, boolean useSingleBuffer) throws Exception {
+    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(BUFFER_COUNT_RECORDS, "1"); // override
 
@@ -120,9 +111,11 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask.stop();
   }
 
-  @Test
-  public void testSinkTaskWithMultipleOpenClose() throws Exception {
-    Map<String, String> config = getConfig();
+  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
+  @MethodSource("oAuthAndSingleBufferParameters")
+  public void testSinkTaskWithMultipleOpenClose(boolean useOAuth, boolean useSingleBuffer)
+      throws Exception {
+    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(BUFFER_COUNT_RECORDS, "1"); // override
 
@@ -207,16 +200,17 @@ public class SnowflakeSinkTaskForStreamingIT {
             metadata.get("offset").asText().equals("0");
             partitionsInTable.add(metadata.get("partition").asLong());
           } catch (JsonProcessingException e) {
-            Assert.fail();
+            Assertions.fail();
           }
         });
 
     assert partitionsInTable.size() == 2;
   }
 
-  @Test
-  public void testTopicToTableRegex() {
-    Map<String, String> config = getConfig();
+  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
+  @MethodSource("oAuthAndSingleBufferParameters")
+  public void testTopicToTableRegex(boolean useOAuth, boolean useSingleBuffer) {
+    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
 
     testTopicToTableRegexMain(config);
   }
@@ -340,15 +334,15 @@ public class SnowflakeSinkTaskForStreamingIT {
           topic = currTp;
         }
       }
-      Assert.assertNotNull("Expected topic partition was not opened by the tast", topic);
+      Assertions.assertNotNull(topic, "Expected topic partition was not opened by the tast");
     }
   }
 
-  private Map<String, String> getConfig() {
+  private Map<String, String> getConfig(boolean useOAuth, boolean useSingleBuffer) {
     if (!useOAuth) {
-      return TestUtils.getConfForStreaming();
+      return TestUtils.getConfForStreaming(useSingleBuffer);
     } else {
-      return TestUtils.getConfForStreamingWithOAuth();
+      return TestUtils.getConfForStreamingWithOAuth(useSingleBuffer);
     }
   }
 }

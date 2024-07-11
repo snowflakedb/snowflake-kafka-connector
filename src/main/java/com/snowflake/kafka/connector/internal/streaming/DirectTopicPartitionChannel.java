@@ -13,7 +13,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -38,6 +41,7 @@ import java.io.ObjectOutputStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -510,11 +514,14 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       InsertValidationResponse.InsertError insertError = insertErrors.get(0);
       List<String> extraColNames = insertError.getExtraColNames();
       List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
-      if (extraColNames != null || nonNullableColumns != null) {
+      List<String> nullValueForNotNullColNames = insertError.getNullValueForNotNullColNames();
+      if (extraColNames != null
+          || nonNullableColumns != null
+          || nullValueForNotNullColNames != null) {
         SchematizationUtils.evolveSchemaIfNeeded(
             this.conn,
             this.channel.getTableName(),
-            nonNullableColumns,
+            join(nonNullableColumns, nullValueForNotNullColNames),
             extraColNames,
             kafkaSinkRecord);
         streamingApiFallbackSupplier(
@@ -557,6 +564,14 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
       throw new DataException(errMsg, insertErrors.get(0).getException());
     }
+  }
+
+  private List<String> join(
+      List<String> nonNullableColumns, List<String> nullValueForNotNullColNames) {
+    return Lists.newArrayList(
+        Iterables.concat(
+            Optional.ofNullable(nonNullableColumns).orElse(ImmutableList.of()),
+            Optional.ofNullable(nullValueForNotNullColNames).orElse(ImmutableList.of())));
   }
 
   // TODO: SNOW-529755 POLL committed offsets in background thread
