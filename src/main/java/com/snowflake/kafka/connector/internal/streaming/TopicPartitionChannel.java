@@ -27,6 +27,7 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServic
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
+import com.snowflake.kafka.connector.templating.StreamkapQueryTemplate;
 import dev.failsafe.Failsafe;
 import dev.failsafe.Fallback;
 import dev.failsafe.RetryPolicy;
@@ -623,7 +624,7 @@ public class TopicPartitionChannel {
     return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
         .get(
             new InsertRowsApiResponseSupplier(
-                this.channel, buffer, this.enableSchemaEvolution, this.conn));
+                this.channel, buffer, this.enableSchemaEvolution, this.conn, this.sfConnectorConfig));
   }
 
   /** Invokes the API given the channel and streaming Buffer. */
@@ -641,16 +642,19 @@ public class TopicPartitionChannel {
 
     // Connection service which will be used to do the ALTER TABLE command for schema evolution
     private final SnowflakeConnectionService conn;
+    private final Map<String, String> sfConnectorConfig;
 
     private InsertRowsApiResponseSupplier(
         SnowflakeStreamingIngestChannel channelForInsertRows,
         StreamingBuffer insertRowsStreamingBuffer,
         boolean enableSchemaEvolution,
-        SnowflakeConnectionService conn) {
+        SnowflakeConnectionService conn,
+        Map<String, String> sfConnectorConfig) {
       this.channel = channelForInsertRows;
       this.insertRowsStreamingBuffer = insertRowsStreamingBuffer;
       this.enableSchemaEvolution = enableSchemaEvolution;
       this.conn = conn;
+      this.sfConnectorConfig = sfConnectorConfig;
     }
 
     @Override
@@ -699,7 +703,8 @@ public class TopicPartitionChannel {
                   this.channel.getTableName(),
                   nonNullableColumns,
                   extraColNames,
-                  this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
+                  this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx),
+                  StreamkapQueryTemplate.buildStreamkapQueryTemplateFromConfig(this.sfConnectorConfig));
               // Offset reset needed since it's possible that we successfully ingested partial batch
               needToResetOffset = true;
               break;

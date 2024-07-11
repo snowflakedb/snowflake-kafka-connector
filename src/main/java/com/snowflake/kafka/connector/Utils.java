@@ -135,6 +135,13 @@ public class Utils {
   public static final String GET_EXCEPTION_MISSING_MESSAGE = "missing exception message";
   public static final String GET_EXCEPTION_MISSING_CAUSE = "missing exception cause";
 
+  /* For Streamkap Template */
+  public static final String TARGET_LAG_CONF = "dynamic.table.target.lag";
+  public static final String CREATE_SQL_EXECUTE_CONF = "create.sql.execute";
+  public static final String TOPICS_MAP_CONF = "topics.config.map";
+  public static final String SCHEMA_CHANGE_CHECK_MS = "schema.changes.check.interval.ms";
+  public static final String APPLY_DYNAMIC_TABLE_SCRIPT_CONF = "apply.dynamic.table.script";
+
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
   /**

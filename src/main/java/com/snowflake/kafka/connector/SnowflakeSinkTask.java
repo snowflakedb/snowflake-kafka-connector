@@ -90,6 +90,8 @@ public class SnowflakeSinkTask extends SinkTask {
 
   private IngestionMethodConfig ingestionMethodConfig;
 
+  private StreamkapQueryTemplate streamkapQueryTemplate = new StreamkapQueryTemplate();
+
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
     DYNAMIC_LOGGER = new KCLogger(this.getClass().getName());
@@ -228,6 +230,8 @@ public class SnowflakeSinkTask extends SinkTask {
             .setSinkTaskContext(this.context)
             .build();
 
+    this.streamkapQueryTemplate = StreamkapQueryTemplate.buildStreamkapQueryTemplateFromConfig(parsedConfig);
+
     DYNAMIC_LOGGER.info(
         "task started, execution time: {} milliseconds",
         this.taskConfigId,
@@ -304,7 +308,7 @@ public class SnowflakeSinkTask extends SinkTask {
 
     getSink().insert(records);
 
-    StreamkapQueryTemplate.checkSchemaChanges(records, this.topic2table, this.conn);
+    streamkapQueryTemplate.checkSchemaChanges(records, this.topic2table, this.conn);
 
     logWarningForPutAndPrecommit(
         startTime, Utils.formatString("called PUT with {} records", recordSize));

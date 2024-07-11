@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.mustachejava.DefaultMustacheFactory;
 import com.github.mustachejava.Mustache;
 import com.github.mustachejava.MustacheFactory;
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
@@ -28,7 +29,6 @@ import java.util.stream.Collectors;
 public class StreamkapQueryTemplate {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(StreamkapQueryTemplate.class);
-    private static final StreamkapQueryTemplate INSTANCE = new StreamkapQueryTemplate();
     private final ConcurrentMap<String, TopicConfig> allTopicConfigs = new ConcurrentHashMap<>();
     private Mustache createSqlTemplate = null;
     private String sfWarehouse;
@@ -42,12 +42,8 @@ public class StreamkapQueryTemplate {
     private final ConcurrentHashMap<String, Boolean> processedTopics = new ConcurrentHashMap<>();
 
 
-    private StreamkapQueryTemplate() {
+    public StreamkapQueryTemplate() {
         // Private constructor to prevent instantiation
-    }
-
-    public static StreamkapQueryTemplate getInstance() {
-        return INSTANCE;
     }
 
     void setSFWarehouse (String sfWarehouse) {
@@ -84,21 +80,37 @@ public class StreamkapQueryTemplate {
      * @param topics        the topics
      * @param topicsMapping the topic mappings
      */
-    public static void initConfigDef(final String topics, final String topicsMapping,
+    public void initConfigDef(final String topics, final String topicsMapping,
                                      final String createSqlExecute, final String sfWarehouse,
                                      final int targetLag,
                                      final long schemaChangeIntervalMs,
                                      final boolean applyDynamicTableScrip) {
-        StreamkapQueryTemplate instance = getInstance();
-        instance.setSFWarehouse(sfWarehouse);
-        instance.setTargetLag(targetLag);
-        instance.setCreateSqlTemplate(createSqlExecute);
-        instance.setSchemaChangeIntervalMs(schemaChangeIntervalMs);
-        instance.setApplyDynamicTableScrip(applyDynamicTableScrip);
-        instance.schemaCheckTime =System.currentTimeMillis();
+        setSFWarehouse(sfWarehouse);
+        setTargetLag(targetLag);
+        setCreateSqlTemplate(createSqlExecute);
+        setSchemaChangeIntervalMs(schemaChangeIntervalMs);
+        setApplyDynamicTableScrip(applyDynamicTableScrip);
+        schemaCheckTime =System.currentTimeMillis();
+        TopicConfigProcess topicConfigProcess = new TopicConfigProcess(topics, topicsMapping);
+        allTopicConfigs.clear();
+        allTopicConfigs.putAll(topicConfigProcess.getAllTopicConfigs());
+    }
+
+    public static StreamkapQueryTemplate buildStreamkapQueryTemplateFromConfig(final Map<String, String> parsedConfig) {
+        String topics = parsedConfig.get(SnowflakeSinkConnectorConfig.TOPICS);
+        String topicsMapping = parsedConfig.get(Utils.TOPICS_MAP_CONF);
+        StreamkapQueryTemplate instance = new StreamkapQueryTemplate();
+        instance.setSFWarehouse(parsedConfig.get(Utils.SF_WAREHOUSE));
+        instance.setTargetLag(Integer.parseInt(parsedConfig.get(Utils.TARGET_LAG_CONF)));
+        instance.setCreateSqlTemplate(parsedConfig.get(Utils.CREATE_SQL_EXECUTE_CONF));
+        instance.setSchemaChangeIntervalMs(Long.parseLong(parsedConfig.get(Utils.SCHEMA_CHANGE_CHECK_MS)));
+        instance.setApplyDynamicTableScrip(Boolean.parseBoolean(parsedConfig.get(Utils.APPLY_DYNAMIC_TABLE_SCRIPT_CONF)));
         TopicConfigProcess topicConfigProcess = new TopicConfigProcess(topics, topicsMapping);
         instance.allTopicConfigs.clear();
         instance.allTopicConfigs.putAll(topicConfigProcess.getAllTopicConfigs());
+        instance.schemaCheckTime =System.currentTimeMillis();
+
+        return instance;
     }
 
     /**
@@ -123,7 +135,7 @@ public class StreamkapQueryTemplate {
         return (topicConfig != null && topicConfig.getCreateTemplate() != null ? true : createSqlTemplate !=null);
     }
 
-    public static boolean checkIfDynamicTableExists(String tableName, SnowflakeConnectionService conn) {
+    public boolean checkIfDynamicTableExists(String tableName, SnowflakeConnectionService conn) {
         boolean tableExists = false;
         try {
             Connection con = conn.getConnection();
@@ -142,41 +154,41 @@ public class StreamkapQueryTemplate {
         return tableExists;
     }
 
-    private static long getDurationFromStartMs(long startTime) {
+    private long getDurationFromStartMs(long startTime) {
         final long currTime = System.currentTimeMillis();
         return currTime - startTime;
     }
 
-    public static void checkSchemaChanges(final Collection<SinkRecord> records, Map<String, String> topic2table, SnowflakeConnectionService conn) {
-        StreamkapQueryTemplate instance = getInstance();
+    public void checkSchemaChanges(final Collection<SinkRecord> records, Map<String, String> topic2table, SnowflakeConnectionService conn) {
 
-        if (instance.applyDynamicTableScrip) {
+        if (applyDynamicTableScrip) {
             for (SinkRecord record : records) {
-                if(!instance.processedTopics.containsKey(record.topic())) {
-                    instance.recordByTopic.putIfAbsent(record.topic(), record);
+                if(!processedTopics.containsKey(record.topic())) {
+                    recordByTopic.putIfAbsent(record.topic(), record);
                 }
             }
 
-            if (instance.getSchemaChangeIntervalMs() > 0
-                    && getDurationFromStartMs(instance.schemaCheckTime) >= instance.getSchemaChangeIntervalMs()) {
+            if (getSchemaChangeIntervalMs() > 0
+                    && getDurationFromStartMs(schemaCheckTime) >= getSchemaChangeIntervalMs()) {
 
-                for (Map.Entry<String, SinkRecord> entry : instance.recordByTopic.entrySet()) {
+                for (Map.Entry<String, SinkRecord> entry : recordByTopic.entrySet()) {
                     String topicName = entry.getKey();
                     try {
                         if (!checkIfDynamicTableExists(topicName, conn)) {
                             String tableName = Utils.generateValidName(topicName, topic2table);
                             if (applyCreateScriptIfAvailable(tableName, entry.getValue(), conn)) {
-                                instance.recordByTopic.remove(tableName);
+                                recordByTopic.remove(tableName);
+                                processedTopics.putIfAbsent(topicName, true);
                             }
                         } else {
-                            instance.processedTopics.putIfAbsent(topicName, true);
+                            processedTopics.putIfAbsent(topicName, true);
                         }
                     } catch (Exception e) {
                         //ignore topic due to error
                         LOGGER.info("Error inside PUT function in Streamkap template process");
                     }
                 }
-                instance.schemaCheckTime = System.currentTimeMillis();
+                schemaCheckTime = System.currentTimeMillis();
             }
         }
     }
@@ -188,19 +200,18 @@ public class StreamkapQueryTemplate {
      * @param record    the SinkRecord
      * @param conn      the SnowflakeConnectionService
      */
-    public static boolean applyCreateScriptIfAvailable(String tableName, SinkRecord record, SnowflakeConnectionService conn) {
+    public boolean applyCreateScriptIfAvailable(String tableName, SinkRecord record, SnowflakeConnectionService conn) {
         boolean scriptAppliedSuccessfully = false;
-        StreamkapQueryTemplate instance = getInstance();
-        if (instance.topicHasCreateTemplate(record.topic())
-                && instance.isSFWarehouseExists() ) {
+        if (topicHasCreateTemplate(record.topic())
+                && isSFWarehouseExists() ) {
             LOGGER.info("Apply SQL template on table: {}", tableName);
             try {
                 Connection con = conn.getConnection();
                 try (Statement stmt = con.createStatement()) {
-                    Mustache template = instance.getCreateTemplate(record.topic());
-                    List<String> statements = instance.generateSqlFromTemplate(tableName, record, template);
-                    instance.applyDdlStatements(con, statements);
-                    instance.processedTopics.putIfAbsent(record.topic(), true);
+                    Mustache template = getCreateTemplate(record.topic());
+                    List<String> statements = generateSqlFromTemplate(tableName, record, template);
+                    applyDdlStatements(con, statements);
+                    processedTopics.putIfAbsent(record.topic(), true);
                     scriptAppliedSuccessfully = true;
                     LOGGER.info("Additional query executed successfully for table: {}", tableName);
                 } catch (Exception e) {
@@ -211,7 +222,7 @@ public class StreamkapQueryTemplate {
             }
         } else {
             scriptAppliedSuccessfully = true;
-            LOGGER.info("Skipping SQL template due to configuration. templateConfig:{} , whExists:{}", instance.topicHasCreateTemplate(record.topic()), instance.isSFWarehouseExists());
+            LOGGER.info("Skipping SQL template due to configuration. templateConfig:{} , whExists:{}", topicHasCreateTemplate(record.topic()), isSFWarehouseExists());
         }
 
         return scriptAppliedSuccessfully;
