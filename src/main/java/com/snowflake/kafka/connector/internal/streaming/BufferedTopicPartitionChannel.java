@@ -861,7 +861,8 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
         this.getChannelNameFormatV1());
     long offsetRecoveredFromSnowflake = fetchLatestOffsetFromChannel(newChannel);
 
-    resetChannelMetadataAfterRecovery(streamingApiFallbackInvoker, offsetRecoveredFromSnowflake, newChannel);
+    resetChannelMetadataAfterRecovery(
+        streamingApiFallbackInvoker, offsetRecoveredFromSnowflake, newChannel);
 
     return offsetRecoveredFromSnowflake;
   }
@@ -874,15 +875,16 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
    * <p>Idea behind resetting offset (1 more than what we found in snowflake) is that Kafka should
    * send offsets from this offset number so as to not miss any data.
    *
-   * @param streamingApiFallbackInvoker  Streaming API which is using this fallback function. Used
-   *                                     for logging mainly.
+   * @param streamingApiFallbackInvoker Streaming API which is using this fallback function. Used
+   *     for logging mainly.
    * @param offsetRecoveredFromSnowflake offset number found in snowflake for this
-   *                                     channel(partition)
-   * @param newChannel                   a channel to assign to the current instance
+   *     channel(partition)
+   * @param newChannel a channel to assign to the current instance
    */
   private void resetChannelMetadataAfterRecovery(
-          final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
-          final long offsetRecoveredFromSnowflake, SnowflakeStreamingIngestChannel newChannel) {
+      final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
+      final long offsetRecoveredFromSnowflake,
+      SnowflakeStreamingIngestChannel newChannel) {
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       LOGGER.info(
           "{} Channel:{}, offset token is NULL, will use the consumer offset managed by the"
