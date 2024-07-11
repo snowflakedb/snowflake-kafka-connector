@@ -72,28 +72,6 @@ public class StreamkapQueryTemplate {
         return this.schemaChangeIntervalMs;
     }
 
-    /**
-     * Initializes the topic configurations based on provided topics and mappings.
-     *
-     * @param topics        the topics
-     * @param topicsMapping the topic mappings
-     */
-    public void initConfigDef(final String topics, final String topicsMapping,
-                                     final String createSqlExecute, final String sfWarehouse,
-                                     final int targetLag,
-                                     final long schemaChangeIntervalMs,
-                                     final boolean applyDynamicTableScrip) {
-        setSFWarehouse(sfWarehouse);
-        setTargetLag(targetLag);
-        setCreateSqlTemplate(createSqlExecute);
-        setSchemaChangeIntervalMs(schemaChangeIntervalMs);
-        setApplyDynamicTableScrip(applyDynamicTableScrip);
-        schemaCheckTime =System.currentTimeMillis();
-        TopicConfigProcess topicConfigProcess = new TopicConfigProcess(topics, topicsMapping);
-        allTopicConfigs.clear();
-        allTopicConfigs.putAll(topicConfigProcess.getAllTopicConfigs());
-    }
-
     public static StreamkapQueryTemplate buildStreamkapQueryTemplateFromConfig(final Map<String, String> parsedConfig) {
         String topics = parsedConfig.get(SnowflakeSinkConnectorConfig.TOPICS);
         String topicsMapping = parsedConfig.get(Utils.TOPICS_MAP_CONF);
