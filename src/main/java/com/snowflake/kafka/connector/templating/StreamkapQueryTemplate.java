@@ -8,7 +8,6 @@ import com.github.mustachejava.MustacheFactory;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
@@ -18,7 +17,6 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.*;
@@ -101,16 +99,20 @@ public class StreamkapQueryTemplate {
         String topicsMapping = parsedConfig.get(Utils.TOPICS_MAP_CONF);
         StreamkapQueryTemplate instance = new StreamkapQueryTemplate();
         instance.setSFWarehouse(parsedConfig.get(Utils.SF_WAREHOUSE));
-        instance.setTargetLag(Integer.parseInt(parsedConfig.get(Utils.TARGET_LAG_CONF)));
+        instance.setTargetLag(Integer.parseInt(getOrDefault(parsedConfig.get(Utils.TARGET_LAG_CONF),"15")));
         instance.setCreateSqlTemplate(parsedConfig.get(Utils.CREATE_SQL_EXECUTE_CONF));
-        instance.setSchemaChangeIntervalMs(Long.parseLong(parsedConfig.get(Utils.SCHEMA_CHANGE_CHECK_MS)));
-        instance.setApplyDynamicTableScrip(Boolean.parseBoolean(parsedConfig.get(Utils.APPLY_DYNAMIC_TABLE_SCRIPT_CONF)));
+        instance.setSchemaChangeIntervalMs(Long.parseLong(getOrDefault(parsedConfig.get(Utils.SCHEMA_CHANGE_CHECK_MS),"300000")));
+        instance.setApplyDynamicTableScrip(Boolean.parseBoolean(getOrDefault(parsedConfig.get(Utils.APPLY_DYNAMIC_TABLE_SCRIPT_CONF),"false")));
         TopicConfigProcess topicConfigProcess = new TopicConfigProcess(topics, topicsMapping);
         instance.allTopicConfigs.clear();
         instance.allTopicConfigs.putAll(topicConfigProcess.getAllTopicConfigs());
         instance.schemaCheckTime =System.currentTimeMillis();
 
         return instance;
+    }
+
+    public static String getOrDefault(String value, String defaultValue) {
+        return (value == null ? defaultValue : value);
     }
 
     /**
