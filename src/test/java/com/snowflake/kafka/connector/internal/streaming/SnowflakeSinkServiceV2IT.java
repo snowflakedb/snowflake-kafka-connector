@@ -61,9 +61,6 @@ public class SnowflakeSinkServiceV2IT {
   private String topic = table;
   private TopicPartition topicPartition = new TopicPartition(topic, partition);
 
-  // use OAuth as authenticator or not
-  private boolean useSingleBuffer = true;
-
   private SnowflakeConnectionService getConn(boolean useOAuth) {
     if (useOAuth) {
       return TestUtils.getOAuthConnectionServiceForStreaming();
