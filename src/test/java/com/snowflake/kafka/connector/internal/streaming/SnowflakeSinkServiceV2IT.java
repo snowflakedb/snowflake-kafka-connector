@@ -82,11 +82,7 @@ public class SnowflakeSinkServiceV2IT {
   }
 
   private static Stream<Arguments> oAuthAndSingleBufferParameters() {
-    return Stream.of(
-        Arguments.of(false, false),
-        Arguments.of(false, true),
-        Arguments.of(true, false),
-        Arguments.of(true, true));
+    return TestUtils.nBooleanProduct(2);
   }
 
   @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")

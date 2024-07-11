@@ -33,6 +33,8 @@ import static com.snowflake.kafka.connector.Utils.SF_USER;
 import static com.snowflake.kafka.connector.Utils.buildOAuthHttpPostRequest;
 import static com.snowflake.kafka.connector.Utils.getSnowflakeOAuthToken;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -61,6 +63,9 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import net.snowflake.client.jdbc.internal.apache.http.HttpHeaders;
 import net.snowflake.client.jdbc.internal.apache.http.client.methods.CloseableHttpResponse;
 import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpPost;
@@ -82,6 +87,7 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.junit.jupiter.params.provider.Arguments;
 
 public class TestUtils {
   // test profile properties
@@ -982,5 +988,15 @@ public class TestUtils {
     } catch (UnsupportedEncodingException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  public static Stream<Arguments> nBooleanProduct(int n) {
+    return Sets.cartesianProduct(
+            IntStream.range(0, n)
+                .mapToObj(i -> ImmutableSet.of(false, true))
+                .collect(Collectors.toList()))
+        .stream()
+        .map(List::toArray)
+        .map(Arguments::of);
   }
 }

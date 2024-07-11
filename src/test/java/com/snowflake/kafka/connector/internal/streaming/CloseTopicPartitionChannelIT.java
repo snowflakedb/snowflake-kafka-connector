@@ -48,11 +48,7 @@ class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
   }
 
   private static Stream<Arguments> closeInParallelAndSingleBufferParams() {
-    return Stream.of(
-        Arguments.of(false, false),
-        Arguments.of(false, true),
-        Arguments.of(true, false),
-        Arguments.of(true, true));
+    return TestUtils.nBooleanProduct(2);
   }
 
   @ParameterizedTest(name = "closeInParallel: {0}, useSingleBuffer: {1}")
