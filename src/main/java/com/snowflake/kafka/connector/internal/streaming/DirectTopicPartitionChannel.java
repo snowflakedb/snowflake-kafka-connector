@@ -640,9 +640,17 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    */
   private long streamingApiFallbackSupplier(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
-    final long offsetRecoveredFromSnowflake =
-        getRecoveredOffsetFromSnowflake(streamingApiFallbackInvoker);
-    resetChannelMetadataAfterRecovery(streamingApiFallbackInvoker, offsetRecoveredFromSnowflake);
+    SnowflakeStreamingIngestChannel newChannel = reopenChannel(streamingApiFallbackInvoker);
+
+    LOGGER.warn(
+        "{} Fetching offsetToken after re-opening the channel:{}",
+        streamingApiFallbackInvoker,
+        this.getChannelNameFormatV1());
+    long offsetRecoveredFromSnowflake = fetchLatestOffsetFromChannel(newChannel);
+
+    resetChannelMetadataAfterRecovery(
+        streamingApiFallbackInvoker, offsetRecoveredFromSnowflake, newChannel);
+
     return offsetRecoveredFromSnowflake;
   }
 
@@ -658,10 +666,12 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    *     for logging mainly.
    * @param offsetRecoveredFromSnowflake offset number found in snowflake for this
    *     channel(partition)
+   * @param newChannel a channel to assign to the current instance
    */
   private void resetChannelMetadataAfterRecovery(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker,
-      final long offsetRecoveredFromSnowflake) {
+      final long offsetRecoveredFromSnowflake,
+      SnowflakeStreamingIngestChannel newChannel) {
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       LOGGER.info(
           "{} Channel:{}, offset token is NULL",
@@ -689,6 +699,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     // Set the flag so that any leftover rows in the buffer should be skipped, it will be
     // re-ingested since the offset in kafka was reset
     needToSkipCurrentBatch = true;
+    this.channel = newChannel;
 
     LOGGER.warn(
         "{} Channel:{}, setting sinkTaskOffset to {}, offsetPersistedInSnowflake to {},"
@@ -709,16 +720,11 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    * @param streamingApiFallbackInvoker Streaming API which invoked this function.
    * @return offset which was last present in Snowflake
    */
-  private long getRecoveredOffsetFromSnowflake(
+  private SnowflakeStreamingIngestChannel reopenChannel(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
     LOGGER.warn(
         "{} Re-opening channel:{}", streamingApiFallbackInvoker, this.getChannelNameFormatV1());
-    this.channel = Preconditions.checkNotNull(openChannelForTable());
-    LOGGER.warn(
-        "{} Fetching offsetToken after re-opening the channel:{}",
-        streamingApiFallbackInvoker,
-        this.getChannelNameFormatV1());
-    return fetchLatestCommittedOffsetFromSnowflake();
+    return Preconditions.checkNotNull(openChannelForTable());
   }
 
   /**
@@ -734,9 +740,14 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   private long fetchLatestCommittedOffsetFromSnowflake() {
     LOGGER.debug(
         "Fetching last committed offset for partition channel:{}", this.getChannelNameFormatV1());
+    SnowflakeStreamingIngestChannel channelToGetOffset = this.channel;
+    return fetchLatestOffsetFromChannel(channelToGetOffset);
+  }
+
+  private long fetchLatestOffsetFromChannel(SnowflakeStreamingIngestChannel channel) {
     String offsetToken = null;
     try {
-      offsetToken = this.channel.getLatestCommittedOffsetToken();
+      offsetToken = channel.getLatestCommittedOffsetToken();
       LOGGER.info(
           "Fetched offsetToken for channelName:{}, offset:{}",
           this.getChannelNameFormatV1(),
