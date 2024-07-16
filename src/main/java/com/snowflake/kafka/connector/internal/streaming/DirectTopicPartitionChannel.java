@@ -80,10 +80,11 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   private final AtomicLong processedOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
-  // This offset is would not be required for buffer-less channel, but we add it to keep buffered and non-buffered
+  // This offset is would not be required for buffer-less channel, but we add it to keep buffered
+  // and non-buffered
   // channel versions compatible.
   private final AtomicLong latestConsumerOffset =
-          new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+      new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
   // Indicates whether we need to skip and discard any leftover rows in the current batch, this
   // could happen when the channel gets invalidated and reset, then anything left in the buffer
@@ -699,15 +700,15 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       SnowflakeStreamingIngestChannel newChannel) {
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       LOGGER.info(
-          "{} Channel:{}, offset token is NULL, will attempt to use offset managed by the connector" +
-                  ", consumer offset: {}",
+          "{} Channel:{}, offset token is NULL, will attempt to use offset managed by the connector"
+              + ", consumer offset: {}",
           streamingApiFallbackInvoker,
           this.getChannelNameFormatV1(),
           this.latestConsumerOffset.get());
     }
 
     final long offsetToResetInKafka =
-            offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+        offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
             ? latestConsumerOffset.get()
             : offsetRecoveredFromSnowflake + 1L;
 
