@@ -632,6 +632,13 @@
             <version>3.2.1</version>
         </dependency>
 
+        <!-- Templating -->
+        <dependency>
+            <groupId>com.github.spullara.mustache.java</groupId>
+            <artifactId>compiler</artifactId>
+            <version>0.9.10</version>
+        </dependency>
+
         <!--junit for unit test-->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
