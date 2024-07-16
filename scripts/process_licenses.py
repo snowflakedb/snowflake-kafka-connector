@@ -69,6 +69,7 @@ ADDITIONAL_LICENSES_MAP = {
     "org.bouncycastle:bc-fips": BOUNCY_CASTLE_LICENSE,
     "org.bouncycastle:bcpkix-fips": BOUNCY_CASTLE_LICENSE,
     "org.xerial.snappy:snappy-java": APACHE_LICENSE,
+    "com.github.spullara.mustache.java:compiler": APACHE_LICENSE,
 }
 
 
