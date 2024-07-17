@@ -121,7 +121,7 @@ public class SchematizationUtils {
             e);
       }
 
-      if( streamkapQueryTemplate.isApplyDynamicTableScrip()) {
+      if( streamkapQueryTemplate.isApplyDynamicTableScript()) {
         streamkapQueryTemplate.applyCreateScriptIfAvailable(tableName, record, conn);
       }
     }

@@ -36,7 +36,7 @@ public class StreamkapQueryTemplate {
     private boolean isSFWarehouseExists = false;
     static MustacheFactory mustacheFactory = new DefaultMustacheFactory();
     private long schemaCheckTime;
-    private boolean applyDynamicTableScrip;
+    private boolean applyDynamicTableScript;
     private final ConcurrentHashMap<String, SinkRecord> recordByTopic = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Boolean> processedTopics = new ConcurrentHashMap<>();
 
@@ -65,12 +65,12 @@ public class StreamkapQueryTemplate {
         this.schemaChangeIntervalMs = schemaChangeIntervalMs;
     }
 
-    void setApplyDynamicTableScrip(boolean applyDynamicTableScrip) {
-        this.applyDynamicTableScrip = applyDynamicTableScrip;
+    void setApplyDynamicTableScript(boolean applyDynamicTableScript) {
+        this.applyDynamicTableScript = applyDynamicTableScript;
     }
 
-    public boolean isApplyDynamicTableScrip() {
-        return this.applyDynamicTableScrip;
+    public boolean isApplyDynamicTableScript() {
+        return this.applyDynamicTableScript;
     }
 
     public long getSchemaChangeIntervalMs() {
@@ -86,7 +86,7 @@ public class StreamkapQueryTemplate {
         instance.setCleanupTaskSchedule(Integer.parseInt(getOrDefault(parsedConfig.get(Utils.CLEANUP_TASK_SCHEDULE_CONF),"60")));
         instance.setCreateSqlTemplate(parsedConfig.get(Utils.CREATE_SQL_EXECUTE_CONF));
         instance.setSchemaChangeIntervalMs(Long.parseLong(getOrDefault(parsedConfig.get(Utils.SCHEMA_CHANGE_CHECK_MS),"300000")));
-        instance.setApplyDynamicTableScrip(Boolean.parseBoolean(getOrDefault(parsedConfig.get(Utils.APPLY_DYNAMIC_TABLE_SCRIPT_CONF),"false")));
+        instance.setApplyDynamicTableScript(Boolean.parseBoolean(getOrDefault(parsedConfig.get(Utils.APPLY_DYNAMIC_TABLE_SCRIPT_CONF),"false")));
         TopicConfigProcess topicConfigProcess = new TopicConfigProcess(topics, topicsMapping);
         instance.allTopicConfigs.clear();
         instance.allTopicConfigs.putAll(topicConfigProcess.getAllTopicConfigs());
@@ -147,7 +147,7 @@ public class StreamkapQueryTemplate {
 
     public void checkSchemaChanges(final Collection<SinkRecord> records, Map<String, String> topic2table, SnowflakeConnectionService conn) {
 
-        if (applyDynamicTableScrip) {
+        if (applyDynamicTableScript) {
             for (SinkRecord record : records) {
                 if(!processedTopics.containsKey(record.topic())) {
                     recordByTopic.putIfAbsent(record.topic(), record);
