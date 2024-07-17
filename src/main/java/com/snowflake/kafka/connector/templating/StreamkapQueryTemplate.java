@@ -31,6 +31,7 @@ public class StreamkapQueryTemplate {
     private Mustache createSqlTemplate = null;
     private String sfWarehouse;
     private int targetLag = 15;
+    private int cleanupTaskSchedule = 60;
     private long schemaChangeIntervalMs =0;
     private boolean isSFWarehouseExists = false;
     static MustacheFactory mustacheFactory = new DefaultMustacheFactory();
@@ -56,6 +57,10 @@ public class StreamkapQueryTemplate {
         this.targetLag = targetLag;
     }
 
+    void setCleanupTaskSchedule(int cleanupTaskSchedule) {
+        this.cleanupTaskSchedule = cleanupTaskSchedule;
+    }
+
     void setSchemaChangeIntervalMs( long schemaChangeIntervalMs) {
         this.schemaChangeIntervalMs = schemaChangeIntervalMs;
     }
@@ -78,6 +83,7 @@ public class StreamkapQueryTemplate {
         StreamkapQueryTemplate instance = new StreamkapQueryTemplate();
         instance.setSFWarehouse(parsedConfig.get(Utils.SF_WAREHOUSE));
         instance.setTargetLag(Integer.parseInt(getOrDefault(parsedConfig.get(Utils.TARGET_LAG_CONF),"15")));
+        instance.setCleanupTaskSchedule(Integer.parseInt(getOrDefault(parsedConfig.get(Utils.CLEANUP_TASK_SCHEDULE_CONF),"60")));
         instance.setCreateSqlTemplate(parsedConfig.get(Utils.CREATE_SQL_EXECUTE_CONF));
         instance.setSchemaChangeIntervalMs(Long.parseLong(getOrDefault(parsedConfig.get(Utils.SCHEMA_CHANGE_CHECK_MS),"300000")));
         instance.setApplyDynamicTableScrip(Boolean.parseBoolean(getOrDefault(parsedConfig.get(Utils.APPLY_DYNAMIC_TABLE_SCRIPT_CONF),"false")));
@@ -238,6 +244,7 @@ public class StreamkapQueryTemplate {
                                 sinkRecord.valueSchema().fields().stream().map(f -> f.name())).collect(Collectors.toList());
         values.put("warehouse", this.sfWarehouse);
         values.put("targetLag", this.targetLag);
+        values.put("schedule", this.cleanupTaskSchedule);
         values.put("table", tableName);
         values.put("primaryKeyColumns", String.join(",", keyCols));
         values.put("keyColumnsAndCondition", String.join("AND", keyCols.stream().map(v-> tableName+"."+v+" = subquery."+v).collect(Collectors.toList())));
