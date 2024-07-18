@@ -669,6 +669,10 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
               // Simply added to the final response if it's not schema related errors
               finalResponse.addError(insertError);
             } else {
+              LOGGER.info(
+                  "Triggering schema evolution. NonNullableColumns={}, extraColumns={}",
+                  String.join(",", nonNullableColumns),
+                  extraColNames == null ? "null" : String.join(",", extraColNames));
               SchematizationUtils.evolveSchemaIfNeeded(
                   this.conn,
                   this.channel.getTableName(),

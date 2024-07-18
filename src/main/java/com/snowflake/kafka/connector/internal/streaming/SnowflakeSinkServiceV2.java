@@ -707,12 +707,19 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private void populateSchemaEvolutionPermissions(String tableName) {
     if (!tableName2SchemaEvolutionPermission.containsKey(tableName)) {
       if (enableSchematization) {
-        tableName2SchemaEvolutionPermission.put(
-            tableName,
+        boolean hasSchemaEvolutionPermission =
             conn != null
                 && conn.hasSchemaEvolutionPermission(
-                    tableName, connectorConfig.get(SNOWFLAKE_ROLE)));
+                    tableName, connectorConfig.get(SNOWFLAKE_ROLE));
+        LOGGER.info(
+            "[SCHEMA_EVOLUTION_CACHE] Setting {} for table {}",
+            hasSchemaEvolutionPermission,
+            tableName);
+        tableName2SchemaEvolutionPermission.put(tableName, hasSchemaEvolutionPermission);
       } else {
+        LOGGER.info(
+            "[SCHEMA_EVOLUTION_CACHE] Schematization disabled. Setting false for table {}",
+            tableName);
         tableName2SchemaEvolutionPermission.put(tableName, false);
       }
     }
