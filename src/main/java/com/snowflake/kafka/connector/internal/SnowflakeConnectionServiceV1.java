@@ -351,7 +351,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       }
       compatible = hasMeta && hasContent && allNullable;
     } catch (SQLException e) {
-      LOGGER.debug("table {} doesn't exist", tableName);
+      LOGGER.info("Table {} doesn't exist. Exception {}", tableName, e.getStackTrace());
       compatible = false;
     } finally {
       try {
@@ -370,6 +370,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
         e.printStackTrace();
       }
     }
+    LOGGER.info("Table {} compatibility is {}", tableName, compatible);
     return compatible;
   }
 
@@ -577,16 +578,17 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     checkConnection();
     InternalUtils.assertNotEmpty("stageName", stageName);
     if (!stageExist(stageName)) {
-      LOGGER.debug("stage {} doesn't exists", stageName);
+      LOGGER.info("stage {} doesn't exists", stageName);
       return false;
     }
     List<String> files = listStage(stageName, "");
     for (String name : files) {
       if (!FileNameUtils.verifyFileName(name)) {
-        LOGGER.debug("file name {} in stage {} is not valid", name, stageName);
+        LOGGER.info("file name {} in stage {} is not valid", name, stageName);
         return false;
       }
     }
+    LOGGER.info("Stage {} is valid", stageName);
     return true;
   }
 
