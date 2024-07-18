@@ -33,6 +33,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.Set;
 import javax.annotation.Nonnull;
+
+import com.snowflake.kafka.connector.templating.StreamkapQueryTemplate;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
@@ -68,18 +70,19 @@ public class SchematizationUtils {
    * Execute a ALTER TABLE command if there is any extra column that needs to be added, or any
    * column nullability that needs to be updated, used by schema evolution
    *
-   * @param conn connection to the Snowflake
-   * @param tableName table name
-   * @param nonNullableColumns a list of columns that needs to update the nullability
-   * @param extraColNames a list of columns that needs to be updated
-   * @param record the sink record that contains the schema and actual data
+   * @param conn                   connection to the Snowflake
+   * @param tableName              table name
+   * @param nonNullableColumns     a list of columns that needs to update the nullability
+   * @param extraColNames          a list of columns that needs to be updated
+   * @param record                 the sink record that contains the schema and actual data
+   * @param streamkapQueryTemplate
    */
   public static void evolveSchemaIfNeeded(
-      @Nonnull SnowflakeConnectionService conn,
-      String tableName,
-      List<String> nonNullableColumns,
-      List<String> extraColNames,
-      SinkRecord record) {
+          @Nonnull SnowflakeConnectionService conn,
+          String tableName,
+          List<String> nonNullableColumns,
+          List<String> extraColNames,
+          SinkRecord record, StreamkapQueryTemplate streamkapQueryTemplate) {
     // Update nullability if needed, ignore any exceptions since other task might be succeeded
     if (nonNullableColumns != null) {
       try {
@@ -116,6 +119,10 @@ public class SchematizationUtils {
                     + " ignored",
                 tableName),
             e);
+      }
+
+      if( streamkapQueryTemplate.isApplyDynamicTableScript()) {
+        streamkapQueryTemplate.applyCreateScriptIfAvailable(tableName, record, conn);
       }
     }
   }

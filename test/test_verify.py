@@ -467,11 +467,11 @@ def runStressTests(driver, testSet, nameSalt):
     ############################ Stress Tests Round 2 ############################
 
 
-def runTestSet(driver, testSet, nameSalt, enable_stress_test):
+def runTestSet(driver, testSet, nameSalt, enable_stress_test, skipProxy, allowedTestsCsv):
     if enable_stress_test:
         runStressTests(driver, testSet, nameSalt)
     else:
-        test_suites = create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet)
+        test_suites = create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet, allowedTestsCsv)
 
         ############################ round 1 ############################
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
@@ -494,6 +494,11 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test):
         ############################ Always run Proxy tests in the end ############################
 
         ############################ Proxy End To End Test ############################
+        # Don't run proxy tests locally
+        if skipProxy:
+            return
+
+        print("Running Proxy tests")
 
         from test_suit.test_string_json_proxy import TestStringJsonProxy
         from test_suites import EndToEndTestSuite
@@ -564,10 +569,10 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 9:
+    if len(sys.argv) < 10:
         errorExit(
             """\n=== Usage: ./ingest.py <kafka address> <schema registry address> <kafka connect address>
-             <test set> <test version> <name salt> <pressure> <enableSSL>===""")
+             <test set> <test version> <name salt> <pressure> <enableSSL> <skipProxy> [allowedTestsCsv]===""")
 
     kafkaAddress = sys.argv[1]
     global schemaRegistryAddress
@@ -578,6 +583,8 @@ if __name__ == "__main__":
     nameSalt = sys.argv[6]
     pressure = (sys.argv[7] == 'true')
     enableSSL = (sys.argv[8] == 'true')
+    skipProxy = (sys.argv[9] == 'true')
+    allowedTestsCsv = sys.argv[10] if len(sys.argv) == 11 else None
 
     if "SNOWFLAKE_CREDENTIAL_FILE" not in os.environ:
         errorExit(
@@ -609,4 +616,4 @@ if __name__ == "__main__":
                           snowflakeCloudPlatform,
                           False)
 
-    runTestSet(kafkaTest, testSet, nameSalt, pressure)
+    runTestSet(kafkaTest, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv)

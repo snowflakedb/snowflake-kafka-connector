@@ -19,6 +19,7 @@ package com.snowflake.kafka.connector.records;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
+import com.fasterxml.jackson.databind.node.DoubleNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
@@ -315,7 +316,17 @@ public boolean setAndGetAutoSchematizationFromConfig(
         columnValue = HexFormat.of().formatHex(binaryValue);        
       } else if (columnNode.isNull()) {
         columnValue = null;
-      } else {
+      } 
+      //BEGIN: ENG-355/aqemia-snowflake-missing-records
+      else if (columnNode.isDouble() && columnNode.doubleValue() == Double.POSITIVE_INFINITY) {
+        columnValue = "inf"; // corelate with net.snowflake.ingest.streaming.internal.DataValidationUtil.validateAndParseReal
+      } else if (columnNode.isDouble() && columnNode.doubleValue() == Double.NEGATIVE_INFINITY) {
+        columnValue = "-inf";
+      } else if (columnNode.isDouble() && columnNode.doubleValue() == Double.NaN) {
+        columnValue = "nan";
+      } 
+      // END: ENG-355/aqemia-snowflake-missing-records
+      else {
         columnValue = MAPPER.writeValueAsString(columnNode);
       }
       // while the value is always dumped into a string, the Streaming Ingest SDK

@@ -923,6 +923,39 @@ public class ConnectorConfigTest {
   }
 
   @Test
+  public void testStreamingProviderOverrideConfig_invalidWithSnowpipe() {
+    try {
+      Map<String, String> config = getConfig();
+      config.put(
+          SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+          IngestionMethodConfig.SNOWPIPE.toString());
+      config.put(
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "a:b,c:d");
+
+      Utils.validateConfig(config);
+      Assert.fail("exception expected");
+    } catch (SnowflakeKafkaConnectorException exception) {
+      assert exception
+          .getMessage()
+          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
+    }
+  }
+
+  @Test
+  public void testStreamingProviderOverrideConfig_validWithSnowpipeStreaming() {
+
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    config.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+        "a:b,c:d,e:100,f:true");
+    Utils.validateConfig(config);
+  }
+
+  @Test
   public void testInvalidEmptyConfig() {
     try {
       Map<String, String> config = new HashMap<>();

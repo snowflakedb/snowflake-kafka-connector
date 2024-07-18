@@ -71,7 +71,7 @@ import org.apache.kafka.common.config.ConfigValue;
 public class Utils {
 
   // Connector version, change every release
-  public static final String VERSION = "2.2.0";
+  public static final String VERSION = "2.2.2";
 
   // connector parameter list
   public static final String NAME = "name";
@@ -134,6 +134,14 @@ public class Utils {
   public static final String GET_EXCEPTION_FORMAT = "{}, Exception message: {}, cause: {}";
   public static final String GET_EXCEPTION_MISSING_MESSAGE = "missing exception message";
   public static final String GET_EXCEPTION_MISSING_CAUSE = "missing exception cause";
+
+  /* For Streamkap Template */
+  public static final String TARGET_LAG_CONF = "dynamic.table.target.lag";
+  public static final String CLEANUP_TASK_SCHEDULE_CONF = "cleanup.task.schedule";
+  public static final String CREATE_SQL_EXECUTE_CONF = "create.sql.execute";
+  public static final String TOPICS_MAP_CONF = "topics.config.map";
+  public static final String SCHEMA_CHANGE_CHECK_MS = "schema.changes.check.interval.ms";
+  public static final String APPLY_DYNAMIC_TABLE_SCRIPT_CONF = "apply.dynamic.table.script";
 
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
@@ -444,6 +452,15 @@ public class Utils {
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
       if (config.containsKey(
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+            Utils.formatString(
+                "{} is only available with ingestion type: {}.",
+                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      }
+      if (config.containsKey(
               SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG)
           && Boolean.parseBoolean(
               config.get(
@@ -740,6 +757,29 @@ public class Utils {
       throw SnowflakeErrors.ERROR_0021.getException();
     }
     return topic2Table;
+  }
+
+  /**
+   * Convert a Comma separated key value pairs into a Map
+   *
+   * @param input Provided in KC config
+   * @return Map
+   */
+  public static Map<String, String> parseCommaSeparatedKeyValuePairs(String input) {
+    Map<String, String> pairs = new HashMap<>();
+    for (String str : input.split(",")) {
+      String[] tt = str.split(":");
+
+      if (tt.length != 2 || tt[0].trim().isEmpty() || tt[1].trim().isEmpty()) {
+        LOGGER.error(
+            "Invalid {} config format: {}",
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+            input);
+        throw SnowflakeErrors.ERROR_0030.getException();
+      }
+      pairs.put(tt[0].trim(), tt[1].trim());
+    }
+    return pairs;
   }
 
   static final String loginPropList[] = {SF_URL, SF_USER, SF_SCHEMA, SF_DATABASE};
