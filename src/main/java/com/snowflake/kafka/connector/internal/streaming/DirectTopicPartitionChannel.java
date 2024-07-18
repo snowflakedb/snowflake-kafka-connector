@@ -335,13 +335,13 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         || kafkaSinkRecord.kafkaOffset() >= currentProcessedOffset + 1) {
       transformAndSend(kafkaSinkRecord);
     } else {
-      LOGGER.debug(
-          "Skip adding offset:{} to buffer for channel:{} because"
-              + " offsetPersistedInSnowflake:{}, processedOffset:{}",
-          kafkaSinkRecord.kafkaOffset(),
+      LOGGER.warn(
+          "Channel {} - skipping current record - expected offset {} but received {}. The current"
+              + " offset stored in Snowflake: {}",
           this.getChannelNameFormatV1(),
-          currentOffsetPersistedInSnowflake,
-          currentProcessedOffset);
+          currentProcessedOffset,
+          kafkaSinkRecord.kafkaOffset(),
+          currentOffsetPersistedInSnowflake);
     }
   }
 
