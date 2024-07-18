@@ -425,6 +425,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
    */
   @Override
   public boolean hasSchemaEvolutionPermission(String tableName, String role) {
+    LOGGER.info("Checking schema evolution permission for table {}", tableName);
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query = "show grants on table identifier(?)";
