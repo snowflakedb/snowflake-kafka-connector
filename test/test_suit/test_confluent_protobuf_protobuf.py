@@ -29,6 +29,9 @@ class TestConfluentProtobufProtobuf:
         self.sensor.uint64_val = (1 << 64) - 1
 
         self.schema_registry_client = SchemaRegistryClient({'url': driver.schemaRegistryAddress})
+        #uncomment for local tests
+        #self.keyProtobufSerializer = ProtobufSerializer(sensor_pb2.SensorReading, self.schema_registry_client, {'use.deprecated.format': True})
+        #self.valueProtobufSerializer = ProtobufSerializer(sensor_pb2.SensorReading, self.schema_registry_client, {'use.deprecated.format': True})
         self.keyProtobufSerializer = ProtobufSerializer(sensor_pb2.SensorReading, self.schema_registry_client)
         self.valueProtobufSerializer = ProtobufSerializer(sensor_pb2.SensorReading, self.schema_registry_client)
         producer_conf = {
