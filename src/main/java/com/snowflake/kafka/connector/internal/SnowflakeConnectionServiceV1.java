@@ -351,7 +351,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       }
       compatible = hasMeta && hasContent && allNullable;
     } catch (SQLException e) {
-      LOGGER.info("Table {} doesn't exist. Exception {}", tableName, e.getStackTrace());
+      LOGGER.debug("Table {} doesn't exist. Exception {}", tableName, e.getStackTrace());
       compatible = false;
     } finally {
       try {
@@ -577,19 +577,22 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   public boolean isStageCompatible(final String stageName) {
     checkConnection();
     InternalUtils.assertNotEmpty("stageName", stageName);
+    boolean isCompatible = true;
+
     if (!stageExist(stageName)) {
-      LOGGER.info("stage {} doesn't exists", stageName);
-      return false;
-    }
-    List<String> files = listStage(stageName, "");
-    for (String name : files) {
-      if (!FileNameUtils.verifyFileName(name)) {
-        LOGGER.info("file name {} in stage {} is not valid", name, stageName);
-        return false;
+      LOGGER.debug("stage {} doesn't exists", stageName);
+      isCompatible = false;
+    } else {
+      List<String> files = listStage(stageName, "");
+      for (String name : files) {
+        if (!FileNameUtils.verifyFileName(name)) {
+          LOGGER.info("file name {} in stage {} is not valid", name, stageName);
+          isCompatible = false;
+        }
       }
     }
-    LOGGER.info("Stage {} is valid", stageName);
-    return true;
+    LOGGER.info("Stage {} compatibility is {}", stageName, isCompatible);
+    return isCompatible;
   }
 
   @Override
