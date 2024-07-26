@@ -483,12 +483,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
             .build();
 
     return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
-        .get(
-            () -> {
-              LOGGER.debug(
-                  "Invoking insertRows API for channel:{}", this.channel.getFullyQualifiedName());
-              return this.channel.insertRow(transformedRecord, Long.toString(offset));
-            });
+        .get(() -> this.channel.insertRow(transformedRecord, Long.toString(offset)));
   }
 
   /**
