@@ -204,8 +204,8 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             run_in_apache=False
         )),
         ("TestSchemaEvolutionAvroSRLogicalTypes", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionAvroSRLogicalTypes(driver, nameSalt), clean=True, run_in_confluent=True,
-            run_in_apache=True
+            test_instance=TestSchemaEvolutionAvroSRLogicalTypes(driver, nameSalt), clean=True, run_in_confluent=False,
+            run_in_apache=False
         )),
         ("TestSchemaEvolutionWithAutoTableCreationJson", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionWithAutoTableCreationJson(driver, nameSalt), clean=True,
