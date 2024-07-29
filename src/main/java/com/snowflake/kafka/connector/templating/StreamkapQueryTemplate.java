@@ -225,7 +225,7 @@ public class StreamkapQueryTemplate {
      */
     private List<String> generateSqlFromTemplate(String tableName, SinkRecord sinkRecord, Mustache mustacheTemplate) throws IOException {
         StringWriter writer = new StringWriter();
-        Map<String, Object> fieldValues = getRecordDataAsMap(tableName, sinkRecord);
+        Map<String, Object> fieldValues = getRecordDataAsMap(tableName.toUpperCase(), sinkRecord);
         mustacheTemplate.execute(writer, fieldValues).flush();
         String[] sqlStatements = writer.toString().split(";"); // Split by semicolon to handle multiple statements
         return Arrays.asList(sqlStatements);
@@ -247,7 +247,7 @@ public class StreamkapQueryTemplate {
         values.put("schedule", this.cleanupTaskSchedule);
         values.put("table", tableName);
         values.put("primaryKeyColumns", String.join(",", keyCols));
-        values.put("keyColumnsAndCondition", String.join("AND", keyCols.stream().map(v-> tableName+"."+v+" = subquery."+v).collect(Collectors.toList())));
+        values.put("keyColumnsAndCondition", String.join("AND", keyCols.stream().map(v-> "\"" + tableName+"\"."+v+" = subquery."+v).collect(Collectors.toList())));
         // Add more fields as necessary from the sinkRecord
         return values;
     }
