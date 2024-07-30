@@ -203,7 +203,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             test_instance=TestSchemaEvolutionAvroSR(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=False
         )),
-        # SNOW-947731: Re-enable after avro-python3 package is updated in merge gate
         ("TestSchemaEvolutionAvroSRLogicalTypes", EndToEndTestSuite(
             test_instance=TestSchemaEvolutionAvroSRLogicalTypes(driver, nameSalt), clean=True, run_in_confluent=False,
             run_in_apache=False
