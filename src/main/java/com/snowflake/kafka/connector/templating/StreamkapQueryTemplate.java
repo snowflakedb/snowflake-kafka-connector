@@ -248,7 +248,7 @@ public class StreamkapQueryTemplate {
         values.put("schedule", this.cleanupTaskSchedule);
         values.put("table", tableName);
         values.put("primaryKeyColumns", String.join(",", keyCols));
-        values.put("keyColumnsAndCondition", String.join("AND", keyCols.stream().map(v-> "\"" + tableName+"\"."+v+" = subquery."+v).collect(Collectors.toList())));
+        values.put("keyColumnsAndCondition", String.join("AND", keyCols.stream().map(v-> Utils.quoteNameIfNeeded(tableName) +"."+v+" = subquery."+v).collect(Collectors.toList())));
         // Add more fields as necessary from the sinkRecord
         return values;
     }
@@ -264,6 +264,7 @@ public class StreamkapQueryTemplate {
         try (Statement statement = connection.createStatement()) {
             for (String ddlStatement : statements) {
                 statement.executeUpdate(ddlStatement);
+                LOGGER.info("DDL Statement: {}", ddlStatement);
             }
         }
     }
