@@ -63,7 +63,9 @@
         <kafka.version>3.7.0</kafka.version>
         <awaitility.version>4.0.0</awaitility.version>
         <assertj-core.version>3.25.3</assertj-core.version>
-        <confluent.version>7.6.0</confluent.version>
+        <confluent.version>7.7.0</confluent.version>
+        <!--Compatible protobuf version https://github.com/confluentinc/common/blob/v7.7.0/pom.xml#L91 -->
+        <protobuf.version>3.24.4</protobuf.version>
     </properties>
 
 
@@ -483,6 +485,17 @@
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-jdbc</artifactId>
             <version>3.14.5</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>${protobuf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
+            <version>${protobuf.version}</version>
         </dependency>
 
         <!-- Ingest SDK for copy staged file into snowflake table -->
