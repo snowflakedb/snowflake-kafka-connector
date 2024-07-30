@@ -188,6 +188,7 @@ public class StreamkapQueryTemplate {
      */
     public boolean applyCreateScriptIfAvailable(String tableName, SinkRecord record, SnowflakeConnectionService conn) {
         boolean scriptAppliedSuccessfully = false;
+        tableName = tableName.replaceAll("\"","");
         if (topicHasCreateTemplate(record.topic())
                 && isSFWarehouseExists() ) {
             LOGGER.info("Apply SQL template on table: {}", tableName);
