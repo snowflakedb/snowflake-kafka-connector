@@ -53,7 +53,9 @@
         <kafka.version>3.7.0</kafka.version>
         <awaitility.version>4.0.0</awaitility.version>
         <assertj-core.version>3.25.3</assertj-core.version>
-        <confluent.version>7.6.0</confluent.version>
+        <confluent.version>7.7.0</confluent.version>
+        <!--Compatible protobuf version https://github.com/confluentinc/common/blob/v7.7.0/pom.xml#L91 -->
+        <protobuf.version>3.24.4</protobuf.version>
     </properties>
 
 
@@ -484,6 +486,17 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>32.0.1-jre</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>${protobuf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
+            <version>${protobuf.version}</version>
         </dependency>
 
         <!-- https://github.com/failsafe-lib/failsafe-->
