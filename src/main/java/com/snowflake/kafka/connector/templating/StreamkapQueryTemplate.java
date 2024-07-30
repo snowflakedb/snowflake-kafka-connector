@@ -264,7 +264,6 @@ public class StreamkapQueryTemplate {
         try (Statement statement = connection.createStatement()) {
             for (String ddlStatement : statements) {
                 statement.executeUpdate(ddlStatement);
-                LOGGER.info("DDL Statement: {}", ddlStatement);
             }
         }
     }
