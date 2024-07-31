@@ -63,6 +63,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // Using setupComplete to synchronize
   private boolean setupComplete;
 
+  private final IConnectorConfigValidator connectorConfigValidator = new ConnectorConfigValidator();
+
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeSinkConnector() {
     setupComplete = false;
@@ -91,7 +93,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     // modify invalid connector name
     Utils.convertAppName(config);
 
-    Utils.validateConfig(config);
+    connectorConfigValidator.validateConfig(config);
 
     // enable mdc logging if needed
     KCLogger.toggleGlobalMdcLoggingContext(

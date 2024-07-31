@@ -15,6 +15,8 @@ import org.junit.Test;
 
 public class SecurityTest {
 
+  private final IConnectorConfigValidator connectorConfigValidator = new ConnectorConfigValidator();
+
   @Test
   public void testRSAPasswordOutput() throws IOException, OperatorCreationException {
     String testPasswd = "TestPassword1234!";
@@ -23,7 +25,7 @@ public class SecurityTest {
     testConf.remove(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY);
     testConf.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, testKey);
     testConf.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, testPasswd);
-    Utils.validateConfig(testConf);
+    connectorConfigValidator.validateConfig(testConf);
     EncryptionUtils.parseEncryptedPrivateKey(testKey, testPasswd);
     assert !searchInLogFile(testPasswd);
   }
