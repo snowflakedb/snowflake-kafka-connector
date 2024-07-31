@@ -12,21 +12,17 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Map;
 import org.bouncycastle.operator.OperatorCreationException;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 public class ConnectorConfigValidatorLogsTest {
 
-  private final IConnectorConfigValidator connectorConfigValidator =
-      new ConnectorConfigValidator(new DefaultStreamingConfigValidator());
+  private final ConnectorConfigValidator connectorConfigValidator =
+      new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
 
   @Test
   public void testRSAPasswordOutput() throws IOException, OperatorCreationException {

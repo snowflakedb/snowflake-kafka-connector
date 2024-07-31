@@ -64,8 +64,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // Using setupComplete to synchronize
   private boolean setupComplete;
 
-  private final IConnectorConfigValidator connectorConfigValidator =
-      new ConnectorConfigValidator(new DefaultStreamingConfigValidator());
+  private final ConnectorConfigValidator connectorConfigValidator =
+      new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
 
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeSinkConnector() {

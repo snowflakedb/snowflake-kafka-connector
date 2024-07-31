@@ -40,8 +40,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class ConnectorConfigValidatorTest {
 
-  private final IConnectorConfigValidator connectorConfigValidator =
-      new ConnectorConfigValidator(new DefaultStreamingConfigValidator());
+  private final ConnectorConfigValidator connectorConfigValidator =
+      new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
 
   // subset of valid community converters
   public static final List<Converter> COMMUNITY_CONVERTER_SUBSET =
