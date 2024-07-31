@@ -10,7 +10,7 @@ import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
+import com.snowflake.kafka.connector.internal.streaming.StreamingConfigValidator;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.common.config.ConfigException;
@@ -19,6 +19,12 @@ public class ConnectorConfigValidator implements IConnectorConfigValidator {
 
   private static final KCLogger LOGGER = new KCLogger(ConnectorConfigValidator.class.getName());
 
+  private final StreamingConfigValidator streamingConfigValidator;
+
+  public ConnectorConfigValidator(StreamingConfigValidator streamingConfigValidator) {
+    this.streamingConfigValidator = streamingConfigValidator;
+  }
+
   /**
    * Validate input configuration
    *
@@ -26,7 +32,7 @@ public class ConnectorConfigValidator implements IConnectorConfigValidator {
    * @return connector name
    */
   public String validateConfig(Map<String, String> config) {
-    Map<String, String> invalidConfigParams = new HashMap<String, String>(); // verify all config
+    Map<String, String> invalidConfigParams = new HashMap<String, String>();
 
     // define the input parameters / keys in one place as static constants,
     // instead of using them directly
@@ -245,7 +251,7 @@ public class ConnectorConfigValidator implements IConnectorConfigValidator {
     }
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
-    invalidConfigParams.putAll(StreamingUtils.validateStreamingSnowpipeConfig(config));
+    invalidConfigParams.putAll(streamingConfigValidator.validate(config));
 
     // logs and throws exception if there are invalid params
     handleInvalidParameters(ImmutableMap.copyOf(invalidConfigParams));

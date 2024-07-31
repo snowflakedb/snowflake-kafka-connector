@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.ArrayList;
@@ -39,7 +40,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class ConnectorConfigValidatorTest {
 
-  private final IConnectorConfigValidator connectorConfigValidator = new ConnectorConfigValidator();
+  private final IConnectorConfigValidator connectorConfigValidator =
+      new ConnectorConfigValidator(new DefaultStreamingConfigValidator());
 
   // subset of valid community converters
   public static final List<Converter> COMMUNITY_CONVERTER_SUBSET =
