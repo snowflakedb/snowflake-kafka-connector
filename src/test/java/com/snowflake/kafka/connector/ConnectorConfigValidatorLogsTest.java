@@ -66,7 +66,8 @@ public class ConnectorConfigValidatorLogsTest {
   }
 
   // Note that sf.log accumulates logs between the consecutive test runs
-  // That's why it's very hard to test many scenarios without hacks like test ordering and deleting log file
+  // That's why it's very hard to test many scenarios without hacks like test ordering and deleting
+  // log file
   private boolean logFileContains(String str) throws IOException {
     String fileName = "sf.log";
     File log = new File(fileName);

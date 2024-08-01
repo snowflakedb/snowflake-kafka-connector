@@ -17,7 +17,8 @@ import org.apache.kafka.common.config.ConfigException;
 
 public class DefaultConnectorConfigValidator implements ConnectorConfigValidator {
 
-  private static final KCLogger LOGGER = new KCLogger(DefaultConnectorConfigValidator.class.getName());
+  private static final KCLogger LOGGER =
+      new KCLogger(DefaultConnectorConfigValidator.class.getName());
 
   private final StreamingConfigValidator streamingConfigValidator;
 
