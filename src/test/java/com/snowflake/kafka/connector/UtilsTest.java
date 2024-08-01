@@ -11,6 +11,7 @@ import org.junit.Test;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
 
 public class UtilsTest {
+
   @Rule public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
   @Test

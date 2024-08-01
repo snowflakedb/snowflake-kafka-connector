@@ -911,6 +911,7 @@ public class Utils {
       String grantType,
       String credentialType,
       String tokenType) {
+    System.out.println("getSnowflakeOAuthToken1");
     Map<String, String> headers = new HashMap<>();
     headers.put(HttpHeaders.CONTENT_TYPE, OAuthConstants.OAUTH_CONTENT_TYPE_HEADER);
     headers.put(
@@ -922,6 +923,7 @@ public class Utils {
     payload.put(OAuthConstants.GRANT_TYPE_PARAM, grantType);
     payload.put(credentialType, credential);
     payload.put(OAuthConstants.REDIRECT_URI, OAuthConstants.DEFAULT_REDIRECT_URI);
+    System.out.println("getSnowflakeOAuthToken2");
 
     // Encode and convert payload into string entity
     String payloadString =
@@ -952,14 +954,18 @@ public class Utils {
                   String respBodyString = EntityUtils.toString(httpResponse.getEntity());
                   JsonObject respBody = JsonParser.parseString(respBodyString).getAsJsonObject();
                   // Trim surrounding quotation marks
+                  System.out.println("RespBody: " + respBody.toString());
+                  System.out.println("tokenType: " + respBody.get(tokenType).toString());
                   return respBody.get(tokenType).toString().replaceAll("^\"|\"$", "");
                 } catch (Exception e) {
+                  System.out.println("getSnowflakeOAuthToken - ex1" + e.getMessage());
                   throw SnowflakeErrors.ERROR_1004.getException(
                       "Failed to get Oauth access token after retries");
                 }
               })
           .toString();
     } catch (Exception e) {
+      System.out.println("getSnowflakeOAuthToken - ex2" + e.getMessage());
       throw SnowflakeErrors.ERROR_1004.getException(e);
     }
   }
