@@ -15,7 +15,8 @@ import org.junit.Test;
 
 public class SecurityTest {
 
-  private final IConnectorConfigValidator connectorConfigValidator = new ConnectorConfigValidator();
+  private final ConnectorConfigValidator connectorConfigValidator =
+      new DefaultConnectorConfigValidator();
 
   @Test
   public void testRSAPasswordOutput() throws IOException, OperatorCreationException {
