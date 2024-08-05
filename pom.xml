@@ -50,7 +50,7 @@
         <skipUnitTests>${skipTests}</skipUnitTests>
         <skipIntegrationTests>${skipTests}</skipIntegrationTests>
 
-        <kafka.version>3.7.0</kafka.version>
+        <kafka.version>7.7.0-ce</kafka.version>
         <awaitility.version>4.0.0</awaitility.version>
         <assertj-core.version>3.26.3</assertj-core.version>
         <confluent.version>7.7.0</confluent.version>
