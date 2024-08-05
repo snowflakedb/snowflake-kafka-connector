@@ -13,7 +13,7 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.parameters.InternalBufferParameters;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.kafka.common.config.ConfigException;
@@ -188,20 +188,18 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
 
     private void logDoubleBufferingParametersWarning(Map<String, String> config) {
       if (InternalBufferParameters.isSingleBufferEnabled(config)) {
-        Set<String> ignoredParameters =
-            new HashSet<>(
-                Arrays.asList(BUFFER_FLUSH_TIME_SEC, BUFFER_SIZE_BYTES, BUFFER_COUNT_RECORDS));
-        ignoredParameters.forEach(
-            param -> {
-              if (config.containsKey(param)) {
-                LOGGER.warn(
-                    "{} parameter value is ignored because internal buffer is disabled. To go back"
-                        + " to previous behaviour set "
-                        + SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER
-                        + " to false",
-                    param);
-              }
-            });
+        List<String> ignoredParameters =
+            Arrays.asList(BUFFER_FLUSH_TIME_SEC, BUFFER_SIZE_BYTES, BUFFER_COUNT_RECORDS);
+        ignoredParameters.stream()
+            .filter(config::containsKey)
+            .forEach(
+                param ->
+                    LOGGER.warn(
+                        "{} parameter value is ignored because internal buffer is disabled. To go"
+                            + " back to previous behaviour set "
+                            + SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER
+                            + " to false",
+                        param));
       }
     }
   }
