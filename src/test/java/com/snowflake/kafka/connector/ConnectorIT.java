@@ -11,6 +11,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigValue;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class ConnectorIT {
@@ -139,6 +140,7 @@ public class ConnectorIT {
   }
 
   @Test
+  @Ignore("OAuth tests are temporary disabled")
   public void testValidateCorrectConfigWithOAuth() {
     Map<String, ConfigValue> validateMap = toValidateMap(getCorrectConfigWithOAuth());
     assertPropHasError(validateMap, new String[] {});

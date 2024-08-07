@@ -284,8 +284,7 @@ public class UtilsTest {
   }
 
   @Test
-  @Ignore
-  // OAuth tests are temporary disabled
+  @Ignore("OAuth tests are temporary disabled")
   public void testGetSnowflakeOAuthAccessToken() {
     Map<String, String> config = TestUtils.getConfForStreamingWithOAuth();
     if (config != null) {
