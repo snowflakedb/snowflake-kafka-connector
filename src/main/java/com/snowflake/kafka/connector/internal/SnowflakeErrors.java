@@ -136,7 +136,10 @@ public enum SnowflakeErrors {
       String.format(
           "Failed to parse %s map",
           SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)),
-
+  ERROR_0031(
+      "0031",
+      "Failed to combine JDBC properties.",
+      "One of snowflake.jdbc.map is a duplicate of other jdbc property."),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
@@ -317,7 +320,8 @@ public enum SnowflakeErrors {
       "5024",
       "Timeout while waiting for file cleaner to start",
       "Could not allocate thread for file cleaner to start processing in given time. If problem"
-          + " persists, please try setting snowflake.snowpipe.use_new_cleaner to false");
+          + " persists, please try setting snowflake.snowpipe.use_new_cleaner to false"),
+  ;
 
   // properties
 
