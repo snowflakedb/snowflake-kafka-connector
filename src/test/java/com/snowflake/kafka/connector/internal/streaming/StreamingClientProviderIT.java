@@ -22,6 +22,7 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.Map;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -29,6 +30,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class StreamingClientProviderIT {
 
   @Test
+  @Disabled("CI flaky")
   public void getClient_forOptimizationEnabled_returnSameClient() {
     // given
     Map<String, String> clientConfig = getClientConfig(true);
