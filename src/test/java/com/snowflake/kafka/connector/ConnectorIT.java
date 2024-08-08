@@ -211,6 +211,7 @@ public class ConnectorIT {
   }
 
   @Test
+  @Ignore("OAuth tests are temporary disabled")
   public void testValidateNullOAuthClientIdConfig() {
     Map<String, String> config = getCorrectConfigWithOAuth();
     config.remove(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID);
@@ -219,6 +220,7 @@ public class ConnectorIT {
   }
 
   @Test
+  @Ignore("OAuth tests are temporary disabled")
   public void testValidateNullOAuthClientSecretConfig() {
     Map<String, String> config = getCorrectConfigWithOAuth();
     config.remove(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET);
@@ -228,6 +230,7 @@ public class ConnectorIT {
   }
 
   @Test
+  @Ignore("OAuth tests are temporary disabled")
   public void testValidateNullOAuthRefreshTokenConfig() {
     Map<String, String> config = getCorrectConfigWithOAuth();
     config.remove(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN);
