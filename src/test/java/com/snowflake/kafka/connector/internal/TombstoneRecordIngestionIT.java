@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.ConnectorConfigTest.COMMUNITY_CONVERTER_SUBSET;
-import static com.snowflake.kafka.connector.ConnectorConfigTest.CUSTOM_SNOWFLAKE_CONVERTERS;
+import static com.snowflake.kafka.connector.ConnectorConfigValidatorTest.COMMUNITY_CONVERTER_SUBSET;
+import static com.snowflake.kafka.connector.ConnectorConfigValidatorTest.CUSTOM_SNOWFLAKE_CONVERTERS;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
