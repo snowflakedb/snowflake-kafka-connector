@@ -2,14 +2,12 @@ package com.snowflake.kafka.connector.internal;
 
 import java.util.Properties;
 
-// docs
+/** Wrapper class for all snowflake jdbc properties */
 public class JdbcProperties {
 
-  private static final KCLogger LOGGER = new KCLogger(JdbcProperties.class.getName());
-
+  /** All jdbc properties including proxyProperties */
   private final Properties properties;
-
-  // Placeholder for all proxy related properties set in the connector configuration
+  /** Proxy related properties */
   private final Properties proxyProperties;
 
   private JdbcProperties(Properties combinedProperties, Properties proxyProperties) {
@@ -38,16 +36,18 @@ public class JdbcProperties {
   }
 
   /**
-   * @param connectionProperties
-   * @param proxyProperties
-   * @param jdbcPropertiesMap
-   * @return
+   * Combine all jdbc related properties. Throws error if jdbcPropertiesMap overrides any property
+   * defined in connectionProperties or proxyProperties.
+   *
+   * @param connectionProperties db, schema, user etc.
+   * @param proxyProperties jvm.proxy.xxx
+   * @param jdbcPropertiesMap snowflake.jdbc.map
    */
   static JdbcProperties create(
       Properties connectionProperties, Properties proxyProperties, Properties jdbcPropertiesMap) {
     InternalUtils.assertNotEmpty("connectionProperties", connectionProperties);
-    validateNull(proxyProperties);
-    validateNull(jdbcPropertiesMap);
+    proxyProperties = validateNull(proxyProperties);
+    jdbcPropertiesMap = validateNull(jdbcPropertiesMap);
 
     Properties proxyAndConnection = mergeProperties(connectionProperties, proxyProperties);
     detectOverrides(proxyAndConnection, jdbcPropertiesMap);
