@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
-import static org.junit.Assert.assertEquals;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.junit.Assert.*;
 
 import java.util.Properties;
 import org.junit.Test;
@@ -38,8 +39,14 @@ public class JdbcPropertiesTest {
     jdbcMap.put("user", "test_user2");
     jdbcMap.put("insecureMode", "true");
     // expect
-    assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0031, () -> JdbcProperties.create(connection, proxy, jdbcMap));
+    assertThatThrownBy(() -> JdbcProperties.create(connection, proxy, jdbcMap))
+        .isInstanceOfSatisfying(
+            SnowflakeKafkaConnectorException.class,
+            ex -> {
+              // property key is printed not value
+              assertTrue(ex.getMessage().contains("user"));
+              assertEquals("0031", ex.getCode());
+            });
   }
 
   @Test
@@ -54,7 +61,13 @@ public class JdbcPropertiesTest {
     jdbcMap.put("useProxy", "true");
     jdbcMap.put("insecureMode", "false");
     // expect
-    assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0031, () -> JdbcProperties.create(connection, proxy, jdbcMap));
+    assertThatThrownBy(() -> JdbcProperties.create(connection, proxy, jdbcMap))
+        .isInstanceOfSatisfying(
+            SnowflakeKafkaConnectorException.class,
+            ex -> {
+              // property key is printed not value
+              assertTrue(ex.getMessage().contains("useProxy"));
+              assertEquals("0031", ex.getCode());
+            });
   }
 }
