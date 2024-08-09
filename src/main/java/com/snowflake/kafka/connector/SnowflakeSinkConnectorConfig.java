@@ -97,6 +97,9 @@ public class SnowflakeSinkConnectorConfig {
   // JDBC trace Info (environment variable)
   public static final String SNOWFLAKE_JDBC_TRACE = "JDBC_TRACE";
 
+  // JDBC properties map
+  public static final String SNOWFLAKE_JDBC_MAP = "snowflake.jdbc.map";
+
   // Snowflake Metadata Flags
   private static final String SNOWFLAKE_METADATA_FLAGS = "Snowflake Metadata Flags";
   public static final String SNOWFLAKE_METADATA_CREATETIME = "snowflake.metadata.createtime";
