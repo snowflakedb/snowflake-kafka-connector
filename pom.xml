@@ -12,7 +12,7 @@
 
     <groupId>com.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>2.2.2</version>
+    <version>2.3.0</version>
     <packaging>jar</packaging>
     <name>Snowflake Kafka Connector</name>
     <description>Snowflake Kafka Connect Sink Connector</description>
@@ -51,9 +51,10 @@
         <junit.version>5.10.0</junit.version>
         <skipIntegrationTests>${skipTests}</skipIntegrationTests>
 
-        <kafka.version>3.4.0</kafka.version>
+        <kafka.version>3.7.0</kafka.version>
         <awaitility.version>4.0.0</awaitility.version>
         <assertj-core.version>3.25.3</assertj-core.version>
+        <confluent.version>7.6.0</confluent.version>
     </properties>
 
 
@@ -241,7 +242,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <version>3.2.1</version>
+                <version>3.3.1</version>
                 <executions>
                     <execution>
                         <id>attach-sources</id>
@@ -270,7 +271,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
-                <version>3.0.0</version>
+                <version>3.2.0</version>
                 <configuration>
                     <mainClass>com.snowflake.kafka.connector.internal.ResetProxyConfigExec</mainClass>
                     <classpathScope>test</classpathScope>
@@ -360,7 +361,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-ingest-sdk</artifactId>
-            <version>2.1.0</version>
+            <version>2.1.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>net.snowflake</groupId>
@@ -417,7 +418,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-registry-client</artifactId>
-            <version>7.2.1</version>
+            <version>${confluent.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -441,7 +442,7 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
-            <version>7.2.1</version>
+            <version>${confluent.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.confluent</groupId>
@@ -453,7 +454,19 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-connect-avro-converter</artifactId>
-            <version>7.2.1</version>
+            <version>${confluent.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-schema-rules</artifactId>
+            <version>${confluent.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-schema-registry-client-encryption</artifactId>
+            <version>${confluent.version}</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/io.dropwizard.metrics/metrics-core -->

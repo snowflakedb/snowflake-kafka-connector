@@ -30,7 +30,7 @@ class TestNativeStringJsonWithoutSchema:
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
         goldMeta = r'{"CreateTime":\d*,"offset":0,"partition":0,' \
-                   r'"topic":"travis_correct_native_string_json_without_schema....."}'
+                   r'"topic":"travis_correct_native_string_json_without_schema_\w*"}'
         goldContent = r'{"number":"0"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 

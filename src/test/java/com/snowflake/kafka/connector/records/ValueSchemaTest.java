@@ -1,24 +1,29 @@
 package com.snowflake.kafka.connector.records;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import org.apache.kafka.connect.data.Schema;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ValueSchemaTest {
+
   @Test
   public void testSnowflakeJsonSchema() {
     Schema schema = new SnowflakeJsonSchema();
 
-    assert schema.type() == Schema.Type.STRUCT;
-    assert !schema.isOptional();
-    assert schema.defaultValue() == null;
-    assert schema.name().equals(SnowflakeJsonSchema.NAME);
-    assert schema.version() == SnowflakeJsonSchema.VERSION;
-    assert schema.doc() == null;
-    assert schema.parameters() == null;
-    assert schema.keySchema() == null;
-    assert schema.valueSchema() == null;
-    assert schema.fields() == null;
-    assert schema.field("") == null;
-    assert schema.schema() == null;
+    assertEquals(Schema.Type.STRUCT, schema.type());
+    assertFalse(schema.isOptional());
+    assertNull(schema.defaultValue());
+    assertEquals(SnowflakeJsonSchema.NAME, schema.name());
+    assertEquals(SnowflakeJsonSchema.VERSION, schema.version());
+    assertNull(schema.doc());
+    assertNull(schema.parameters());
+    assertNull(schema.keySchema());
+    assertNull(schema.valueSchema());
+    assertNull(schema.fields());
+    assertNull(schema.field(""));
+    assertNull(schema.schema());
   }
 }

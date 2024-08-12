@@ -33,7 +33,7 @@ class TestAvroAvro:
             "Select * from {} limit 1".format(self.topic)).fetchone()
         goldMeta = r'{"CreateTime":\d*,"key":[{"timestamp":\d*,"tweet":"Rock:Nerfpaper,scissorsisfine.",' \
                    r'"username":"miguno"},{"timestamp":\d*,"tweet":"Worksasintended.TerranisIMBA.",' \
-                   r'"username":"BlizzardCS"}],"offset":0,"partition":0,"topic":"travis_correct_avro_avro....."}'
+                   r'"username":"BlizzardCS"}],"offset":0,"partition":0,"topic":"travis_correct_avro_avro_\w*"}'
         goldContent = r'{"timestamp":\d*,"tweet":"Rock:Nerfpaper,scissorsisfine.","username":"miguno"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 

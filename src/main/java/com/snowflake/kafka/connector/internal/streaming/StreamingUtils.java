@@ -2,13 +2,16 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ErrorTolerance;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
 import com.google.common.base.Strings;
@@ -237,18 +240,25 @@ public class StreamingUtils {
             BOOLEAN_VALIDATOR.ensureValid(
                 ERRORS_LOG_ENABLE_CONFIG, inputConfig.get(ERRORS_LOG_ENABLE_CONFIG));
           }
+          if (inputConfig.containsKey(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG)) {
+            BOOLEAN_VALIDATOR.ensureValid(
+                ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
+                inputConfig.get(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG));
+          }
+
+          if (inputConfig.containsKey(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER)) {
+            BOOLEAN_VALIDATOR.ensureValid(
+                SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
+                inputConfig.get(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER));
+          }
 
           if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
-            try {
-              Long.parseLong(inputConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG));
-            } catch (NumberFormatException exception) {
-              invalidParams.put(
-                  SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
-                  Utils.formatString(
-                      "Max client lag configuration must be a parsable long. Given configuration"
-                          + " was: {}",
-                      inputConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)));
-            }
+            ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_CLIENT_LAG, invalidParams);
+          }
+
+          if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES)) {
+            ensureValidLong(
+                inputConfig, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, invalidParams);
           }
 
           // Valid schematization for Snowpipe Streaming
@@ -263,6 +273,19 @@ public class StreamingUtils {
     }
 
     return ImmutableMap.copyOf(invalidParams);
+  }
+
+  private static void ensureValidLong(
+      Map<String, String> inputConfig, String param, Map<String, String> invalidParams) {
+    try {
+      Long.parseLong(inputConfig.get(param));
+    } catch (NumberFormatException exception) {
+      invalidParams.put(
+          param,
+          Utils.formatString(
+              param + " configuration must be a parsable long. Given configuration" + " was: {}",
+              inputConfig.get(param)));
+    }
   }
 
   /**

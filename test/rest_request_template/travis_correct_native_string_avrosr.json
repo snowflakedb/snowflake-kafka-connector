@@ -13,6 +13,6 @@
     "value.converter.schema.registry.url":"CONFLUENT_SCHEMA_REGISTRY",
     "transforms":"dropFieldC2",
     "transforms.dropFieldC2.type":"org.apache.kafka.connect.transforms.ReplaceField$Value",
-    "transforms.dropFieldC2.blacklist":"id"
+    "transforms.dropFieldC2.exclude":"id"
   }
 }

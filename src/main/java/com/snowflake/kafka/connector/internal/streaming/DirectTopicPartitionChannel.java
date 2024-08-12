@@ -13,40 +13,40 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.KCLogger;
-import com.snowflake.kafka.connector.internal.PartitionBuffer;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
+import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
-import com.snowflake.kafka.connector.templating.StreamkapQueryTemplate;
 import dev.failsafe.Failsafe;
 import dev.failsafe.Fallback;
 import dev.failsafe.RetryPolicy;
-import dev.failsafe.function.CheckedSupplier;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.utils.Pair;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -55,33 +55,8 @@ import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
-/**
- * This is a wrapper on top of Streaming Ingest Channel which is responsible for ingesting rows to
- * Snowflake.
- *
- * <p>There is a one to one relation between partition and channel.
- *
- * <p>The number of TopicPartitionChannel objects can scale in proportion to the number of
- * partitions of a topic.
- *
- * <p>Whenever a new instance is created, the cache(Map) in SnowflakeSinkService is also replaced,
- * and we will reload the offsets from SF and reset the consumer offset in kafka
- *
- * <p>During rebalance, we would lose this state and hence there is a need to invoke
- * getLatestOffsetToken from Snowflake
- */
-public class TopicPartitionChannel {
-  private static final KCLogger LOGGER = new KCLogger(TopicPartitionChannel.class.getName());
-
-  public static final long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
-
-  // last time we invoked insertRows API
-  private long previousFlushTimeStampMs;
-
-  /* Buffer to hold JSON converted incoming SinkRecords */
-  private StreamingBuffer streamingBuffer;
-
-  private final Lock bufferLock = new ReentrantLock(true);
+public class DirectTopicPartitionChannel implements TopicPartitionChannel {
+  private static final KCLogger LOGGER = new KCLogger(DirectTopicPartitionChannel.class.getName());
 
   // used to communicate to the streaming ingest's insertRows API
   // This is non final because we might decide to get the new instance of Channel
@@ -99,13 +74,6 @@ public class TopicPartitionChannel {
   // exactly once functionality. On the creation it is set to the latest committed token in
   // Snowflake (see offsetPersistedInSnowflake) and updated on each new row from KC.
   private final AtomicLong processedOffset =
-      new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-
-  // This offset is a fallback to represent the data buffered in KC. It is similar to
-  // processedOffset, however it is only used to resend the offset when the channel offset token is
-  // NULL. It is updated to the first offset sent by KC (see processedOffset) or the offset
-  // persisted in Snowflake (see offsetPersistedInSnowflake)
-  private final AtomicLong latestConsumerOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
   // Indicates whether we need to skip and discard any leftover rows in the current batch, this
@@ -150,12 +118,8 @@ public class TopicPartitionChannel {
   // Set to false if DLQ topic is null or empty. True if it is a valid string in config
   private final boolean isDLQTopicSet;
 
-  // Used to identify when to flush (Time, bytes or number of records)
-  private final BufferThreshold streamingBufferThreshold;
-
   // Whether schematization has been enabled.
   private final boolean enableSchematization;
-  private final boolean autoSchematization;
 
   // Whether schema evolution could be done on this channel
   private final boolean enableSchemaEvolution;
@@ -173,7 +137,7 @@ public class TopicPartitionChannel {
 
   /** Testing only, initialize TopicPartitionChannel without the connection service */
   @VisibleForTesting
-  public TopicPartitionChannel(
+  public DirectTopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
       TopicPartition topicPartition,
       final String channelNameFormatV1,
@@ -195,7 +159,7 @@ public class TopicPartitionChannel {
         kafkaRecordErrorReporter,
         sinkTaskContext,
         conn,
-        new RecordService(telemetryService),
+        new RecordService(),
         telemetryService,
         false,
         null);
@@ -218,7 +182,7 @@ public class TopicPartitionChannel {
    * @param telemetryService Telemetry Service which includes the Telemetry Client, sends Json data
    *     to Snowflake
    */
-  public TopicPartitionChannel(
+  public DirectTopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
       TopicPartition topicPartition,
       final String channelNameFormatV1,
@@ -240,7 +204,6 @@ public class TopicPartitionChannel {
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelNameFormatV1 = Preconditions.checkNotNull(channelNameFormatV1);
     this.tableName = Preconditions.checkNotNull(tableName);
-    this.streamingBufferThreshold = Preconditions.checkNotNull(streamingBufferThreshold);
     this.sfConnectorConfig = Preconditions.checkNotNull(sfConnectorConfig);
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
@@ -248,10 +211,6 @@ public class TopicPartitionChannel {
 
     this.recordService = recordService;
     this.telemetryServiceV2 = Preconditions.checkNotNull(telemetryService);
-
-    this.previousFlushTimeStampMs = System.currentTimeMillis();
-
-    this.streamingBuffer = new StreamingBuffer();
 
     /* Error properties */
     this.errorTolerance = StreamingUtils.tolerateErrors(this.sfConnectorConfig);
@@ -262,17 +221,14 @@ public class TopicPartitionChannel {
     /* Schematization related properties */
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
-    this.autoSchematization =
-        this.recordService.setAndGetAutoSchematizationFromConfig(sfConnectorConfig);
-    this.enableSchemaEvolution =
-        this.enableSchematization
-            && this.conn != null
-            && (!autoSchematization || hasSchemaEvolutionPermission);
+
+    this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
 
     if (isEnableChannelOffsetMigration(sfConnectorConfig)) {
       /* Channel Name format V2 is computed from connector name, topic and partition */
       final String channelNameFormatV2 =
-          generateChannelNameFormatV2(this.channelNameFormatV1, this.conn.getConnectorName());
+          TopicPartitionChannel.generateChannelNameFormatV2(
+              this.channelNameFormatV1, this.conn.getConnectorName());
       conn.migrateStreamingChannelOffsetToken(
           this.tableName, channelNameFormatV2, this.channelNameFormatV1);
     }
@@ -298,7 +254,7 @@ public class TopicPartitionChannel {
             metricsJmxReporter,
             this.offsetPersistedInSnowflake,
             this.processedOffset,
-            this.latestConsumerOffset);
+            new AtomicLong(0));
     this.telemetryServiceV2.reportKafkaPartitionStart(
         new SnowflakeTelemetryChannelCreation(this.tableName, this.channelNameFormatV1, startTime));
 
@@ -338,45 +294,10 @@ public class TopicPartitionChannel {
     return isEnableChannelOffsetMigration;
   }
 
-  /**
-   * This is the new channel Name format that was created. New channel name prefixes connector name
-   * in old format. Please note, we will not open channel with new format. We will run a migration
-   * function from this new channel format to old channel format and drop new channel format.
-   *
-   * @param channelNameFormatV1 Original format used.
-   * @param connectorName connector name used in SF config JSON.
-   * @return new channel name introduced as part of @see <a
-   *     href="https://github.com/snowflakedb/snowflake-kafka-connector/commit/3bf9106b22510c62068f7d2f7137b9e57989274c">
-   *     this change (released in version 2.1.0) </a>
-   */
-  @VisibleForTesting
-  public static String generateChannelNameFormatV2(
-      String channelNameFormatV1, String connectorName) {
-    return connectorName + "_" + channelNameFormatV1;
-  }
-
-  /**
-   * Inserts the record into buffer
-   *
-   * <p>Step 1: Initializes this channel by fetching the offsetToken from Snowflake for the first
-   * time this channel/partition has received offset after start/restart.
-   *
-   * <p>Step 2: Decides whether given offset from Kafka needs to be processed and whether it
-   * qualifies for being added into buffer.
-   *
-   * @param kafkaSinkRecord input record from Kafka
-   * @param isFirstRowPerPartitionInBatch indicates whether the given record is the first record per
-   *     partition in a batch
-   */
-  public void insertRecordToBuffer(
-      SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {
+  @Override
+  public void insertRecord(SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {
     final long currentOffsetPersistedInSnowflake = this.offsetPersistedInSnowflake.get();
     final long currentProcessedOffset = this.processedOffset.get();
-
-    // Set the consumer offset to be the first record that Kafka sends us
-    if (latestConsumerOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      this.latestConsumerOffset.set(kafkaSinkRecord.kafkaOffset());
-    }
 
     // Reset the value if it's a new batch
     if (isFirstRowPerPartitionInBatch) {
@@ -393,41 +314,11 @@ public class TopicPartitionChannel {
           currentProcessedOffset);
       return;
     }
-
     // Accept the incoming record only if we don't have a valid offset token at server side, or the
     // incoming record offset is 1 + the processed offset
     if (currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
         || kafkaSinkRecord.kafkaOffset() >= currentProcessedOffset + 1) {
-      StreamingBuffer copiedStreamingBuffer = null;
-      bufferLock.lock();
-      try {
-        this.streamingBuffer.insert(kafkaSinkRecord);
-        this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
-        // # of records or size based flushing
-        if (this.streamingBufferThreshold.shouldFlushOnBufferByteSize(
-                streamingBuffer.getBufferSizeBytes())
-            || this.streamingBufferThreshold.shouldFlushOnBufferRecordCount(
-                streamingBuffer.getNumOfRecords())) {
-          copiedStreamingBuffer = streamingBuffer;
-          this.streamingBuffer = new StreamingBuffer();
-          LOGGER.debug(
-              "Flush based on buffered bytes or buffered number of records for"
-                  + " channel:{},currentBufferSizeInBytes:{}, currentBufferedRecordCount:{},"
-                  + " connectorBufferThresholds:{}",
-              this.getChannelNameFormatV1(),
-              copiedStreamingBuffer.getBufferSizeBytes(),
-              copiedStreamingBuffer.getSinkRecords().size(),
-              this.streamingBufferThreshold);
-        }
-      } finally {
-        bufferLock.unlock();
-      }
-
-      // If we found reaching buffer size threshold or count based threshold, we will immediately
-      // flush (Insert them)
-      if (copiedStreamingBuffer != null) {
-        insertBufferedRecords(copiedStreamingBuffer);
-      }
+      transformAndSend(kafkaSinkRecord);
     } else {
       LOGGER.debug(
           "Skip adding offset:{} to buffer for channel:{} because"
@@ -500,86 +391,40 @@ public class TopicPartitionChannel {
 
   // --------------- BUFFER FLUSHING LOGIC --------------- //
 
-  /**
-   * If difference between current time and previous flush time is more than threshold, insert the
-   * buffered Rows.
-   *
-   * <p>Note: We acquire buffer lock since we copy the buffer.
-   *
-   * <p>Threshold is config parameter: {@link
-   * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
-   *
-   * <p>Previous flush time here means last time we called insertRows API with rows present in
-   */
-  protected void insertBufferedRecordsIfFlushTimeThresholdReached() {
-    if (this.streamingBufferThreshold.shouldFlushOnBufferTime(this.previousFlushTimeStampMs)) {
-      LOGGER.debug(
-          "Time based flush for channel:{}, CurrentTimeMs:{}, previousFlushTimeMs:{},"
-              + " bufferThresholdSeconds:{}",
-          this.getChannelNameFormatV1(),
-          System.currentTimeMillis(),
-          this.previousFlushTimeStampMs,
-          this.streamingBufferThreshold.getFlushTimeThresholdSeconds());
-      StreamingBuffer copiedStreamingBuffer;
-      bufferLock.lock();
-      try {
-        copiedStreamingBuffer = this.streamingBuffer;
-        this.streamingBuffer = new StreamingBuffer();
-      } finally {
-        bufferLock.unlock();
-      }
-      if (copiedStreamingBuffer != null) {
-        insertBufferedRecords(copiedStreamingBuffer);
-      }
-    }
+  @Override
+  @Deprecated
+  public void insertBufferedRecordsIfFlushTimeThresholdReached() {
+    // It is just a leftover after buffered channel, not needed here as a buffer was removed in the
+    // current class.
+    // todo remove this method in the future
   }
 
-  /**
-   * Invokes insertRows API using the provided offsets which were initially buffered for this
-   * partition. This buffer is decided based on the flush time threshold, buffered bytes or number
-   * of records
-   */
-  InsertRowsResponse insertBufferedRecords(StreamingBuffer streamingBufferToInsert) {
-    // intermediate buffer can be empty here if time interval reached but kafka produced no records.
-    if (streamingBufferToInsert.isEmpty()) {
-      LOGGER.debug("No Rows Buffered for channel:{}, returning", this.getChannelNameFormatV1());
-      this.previousFlushTimeStampMs = System.currentTimeMillis();
-      return null;
-    }
-    InsertRowsResponse response = null;
+  private void transformAndSend(SinkRecord kafkaSinkRecord) {
     try {
-      response = insertRowsWithFallback(streamingBufferToInsert);
-      // Updates the flush time (last time we called insertRows API)
-      this.previousFlushTimeStampMs = System.currentTimeMillis();
+      Map<String, Object> transformedRecord = transformDataBeforeSending(kafkaSinkRecord);
+      if (!transformedRecord.isEmpty()) {
+        InsertValidationResponse response =
+            insertRowWithFallback(transformedRecord, kafkaSinkRecord.kafkaOffset());
+        this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
 
-      LOGGER.info(
-          "Successfully called insertRows for channel:{}, buffer:{}, insertResponseHasErrors:{},"
-              + " needToResetOffset:{}",
-          this.getChannelNameFormatV1(),
-          streamingBufferToInsert,
-          response.hasErrors(),
-          response.needToResetOffset());
-      if (response.hasErrors()) {
-        handleInsertRowsFailures(
-            response.getInsertErrors(), streamingBufferToInsert.getSinkRecords());
+        if (response.hasErrors()) {
+          LOGGER.warn(
+              "insertRow for channel:{} resulted in errors:{},",
+              this.getChannelNameFormatV1(),
+              response.hasErrors());
+
+          handleInsertRowFailure(response.getInsertErrors(), kafkaSinkRecord);
+        }
       }
 
-      // Due to schema evolution, we may need to reopen the channel and reset the offset in kafka
-      // since it's possible that not all rows are ingested
-      if (response.needToResetOffset()) {
-        streamingApiFallbackSupplier(
-            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
-      }
-      return response;
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
       LOGGER.warn(
           String.format(
-              "[INSERT_BUFFERED_RECORDS] Failure inserting buffer:%s for channel:%s",
-              streamingBufferToInsert, this.getChannelNameFormatV1()),
+              "[INSERT_BUFFERED_RECORDS] Failure inserting rows for channel:%s",
+              this.getChannelNameFormatV1()),
           ex);
     }
-    return response;
   }
 
   /**
@@ -595,21 +440,22 @@ public class TopicPartitionChannel {
    * net.snowflake.ingest.streaming.InsertValidationResponse.InsertError} in form of response inside
    * {@link InsertValidationResponse}
    *
-   * @param buffer buffer to insert into snowflake
-   * @return InsertRowsResponse a response that wraps around InsertValidationResponse
+   * @return InsertValidationResponse a response that wraps around InsertValidationResponse
    */
-  private InsertRowsResponse insertRowsWithFallback(StreamingBuffer buffer) {
+  private InsertValidationResponse insertRowWithFallback(
+      Map<String, Object> transformedRecord, long offset) {
     Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
         Fallback.builder(
                 executionAttemptedEvent -> {
-                  insertRowsFallbackSupplier(executionAttemptedEvent.getLastException());
+                  insertRowFallbackSupplier(executionAttemptedEvent.getLastException());
                 })
             .handle(SFException.class)
             .onFailedAttempt(
                 event ->
                     LOGGER.warn(
                         String.format(
-                            "Failed Attempt to invoke the insertRows API for buffer:%s", buffer),
+                            "Failed Attempt to invoke the insertRows API for channel: %s",
+                            getChannelNameFormatV1()),
                         event.getLastException()))
             .onFailure(
                 event ->
@@ -623,121 +469,11 @@ public class TopicPartitionChannel {
 
     return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
         .get(
-            new InsertRowsApiResponseSupplier(
-                this.channel, buffer, this.enableSchemaEvolution, this.conn, this.sfConnectorConfig));
-  }
-
-  /** Invokes the API given the channel and streaming Buffer. */
-  private static class InsertRowsApiResponseSupplier
-      implements CheckedSupplier<InsertRowsResponse> {
-
-    // Reference to the Snowpipe Streaming channel
-    private final SnowflakeStreamingIngestChannel channel;
-
-    // Buffer that holds the original sink records from kafka
-    private final StreamingBuffer insertRowsStreamingBuffer;
-
-    // Whether the schema evolution is enabled
-    private final boolean enableSchemaEvolution;
-
-    // Connection service which will be used to do the ALTER TABLE command for schema evolution
-    private final SnowflakeConnectionService conn;
-    private final Map<String, String> sfConnectorConfig;
-
-    private InsertRowsApiResponseSupplier(
-        SnowflakeStreamingIngestChannel channelForInsertRows,
-        StreamingBuffer insertRowsStreamingBuffer,
-        boolean enableSchemaEvolution,
-        SnowflakeConnectionService conn,
-        Map<String, String> sfConnectorConfig) {
-      this.channel = channelForInsertRows;
-      this.insertRowsStreamingBuffer = insertRowsStreamingBuffer;
-      this.enableSchemaEvolution = enableSchemaEvolution;
-      this.conn = conn;
-      this.sfConnectorConfig = sfConnectorConfig;
-    }
-
-    @Override
-    public InsertRowsResponse get() throws Throwable {
-      LOGGER.debug(
-          "Invoking insertRows API for channel:{}, streamingBuffer:{}",
-          this.channel.getFullyQualifiedName(),
-          this.insertRowsStreamingBuffer);
-      Pair<List<Map<String, Object>>, List<Long>> recordsAndOffsets =
-          this.insertRowsStreamingBuffer.getData();
-      List<Map<String, Object>> records = recordsAndOffsets.getKey();
-      List<Long> offsets = recordsAndOffsets.getValue();
-      InsertValidationResponse finalResponse = new InsertValidationResponse();
-      boolean needToResetOffset = false;
-      if (!enableSchemaEvolution) {
-        finalResponse =
-            this.channel.insertRows(
-                records,
-                Long.toString(this.insertRowsStreamingBuffer.getFirstOffset()),
-                Long.toString(this.insertRowsStreamingBuffer.getLastOffset()));
-      } else {
-        for (int idx = 0; idx < records.size(); idx++) {
-          // For schema evolution, we need to call the insertRows API row by row in order to
-          // preserve the original order, for anything after the first schema mismatch error we will
-          // retry after the evolution
-          InsertValidationResponse response =
-              this.channel.insertRow(records.get(idx), Long.toString(offsets.get(idx)));
-          if (response.hasErrors()) {
-            InsertValidationResponse.InsertError insertError = response.getInsertErrors().get(0);
-            List<String> extraColNames = insertError.getExtraColNames();
-            List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
-            long originalSinkRecordIdx =
-                offsets.get(idx) - this.insertRowsStreamingBuffer.getFirstOffset();
-            if (extraColNames == null && nonNullableColumns == null) {
-              InsertValidationResponse.InsertError newInsertError =
-                  new InsertValidationResponse.InsertError(
-                      insertError.getRowContent(), originalSinkRecordIdx);
-              newInsertError.setException(insertError.getException());
-              newInsertError.setExtraColNames(insertError.getExtraColNames());
-              newInsertError.setMissingNotNullColNames(insertError.getMissingNotNullColNames());
-              // Simply added to the final response if it's not schema related errors
-              finalResponse.addError(insertError);
-            } else {
-              SchematizationUtils.evolveSchemaIfNeeded(
-                  this.conn,
-                  this.channel.getTableName(),
-                  nonNullableColumns,
-                  extraColNames,
-                  this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx),
-                  StreamkapQueryTemplate.buildStreamkapQueryTemplateFromConfig(this.sfConnectorConfig));
-              // Offset reset needed since it's possible that we successfully ingested partial batch
-              needToResetOffset = true;
-              break;
-            }
-          }
-        }
-      }
-      return new InsertRowsResponse(finalResponse, needToResetOffset);
-    }
-  }
-
-  // A class that wraps around the InsertValidationResponse from Ingest SDK plus some additional
-  // information
-  static class InsertRowsResponse {
-    private final InsertValidationResponse response;
-    private final boolean needToResetOffset;
-
-    InsertRowsResponse(InsertValidationResponse response, boolean needToResetOffset) {
-      this.response = response;
-      this.needToResetOffset = needToResetOffset;
-    }
-
-    boolean hasErrors() {
-      return response.hasErrors();
-    }
-
-    List<InsertValidationResponse.InsertError> getInsertErrors() {
-      return response.getInsertErrors();
-    }
-
-    boolean needToResetOffset() {
-      return this.needToResetOffset;
-    }
+            () -> {
+              LOGGER.debug(
+                  "Invoking insertRows API for channel:{}", this.channel.getFullyQualifiedName());
+              return this.channel.insertRow(transformedRecord, Long.toString(offset));
+            });
   }
 
   /**
@@ -747,7 +483,7 @@ public class TopicPartitionChannel {
    * @throws TopicPartitionChannelInsertionException exception is thrown after channel reopen has
    *     been successful and offsetToken was fetched from Snowflake
    */
-  private void insertRowsFallbackSupplier(Throwable ex)
+  private void insertRowFallbackSupplier(Throwable ex)
       throws TopicPartitionChannelInsertionException {
     final long offsetRecoveredFromSnowflake =
         streamingApiFallbackSupplier(StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK);
@@ -767,11 +503,26 @@ public class TopicPartitionChannel {
    * exception.
    *
    * @param insertErrors errors from validation response. (Only if it has errors)
-   * @param insertedRecordsToBuffer to map {@link SinkRecord} with insertErrors
    */
-  private void handleInsertRowsFailures(
-      List<InsertValidationResponse.InsertError> insertErrors,
-      List<SinkRecord> insertedRecordsToBuffer) {
+  private void handleInsertRowFailure(
+      List<InsertValidationResponse.InsertError> insertErrors, SinkRecord kafkaSinkRecord) {
+    if (enableSchemaEvolution) {
+      InsertValidationResponse.InsertError insertError = insertErrors.get(0);
+      List<String> extraColNames = insertError.getExtraColNames();
+      List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
+      if (extraColNames != null || nonNullableColumns != null) {
+        SchematizationUtils.evolveSchemaIfNeeded(
+            this.conn,
+            this.channel.getTableName(),
+            nonNullableColumns,
+            extraColNames,
+            kafkaSinkRecord);
+        streamingApiFallbackSupplier(
+            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
+        return;
+      }
+    }
+
     if (logErrors) {
       for (InsertValidationResponse.InsertError insertError : insertErrors) {
         LOGGER.error("Insert Row Error message:{}", insertError.getException().getMessage());
@@ -780,17 +531,23 @@ public class TopicPartitionChannel {
     if (errorTolerance) {
       if (!isDLQTopicSet) {
         LOGGER.warn(
-            "Although config:{} is set, Dead Letter Queue topic:{} is not set.",
+            "{} is set, however {} is not. The message will not be added to the Dead Letter Queue"
+                + " topic.",
             ERRORS_TOLERANCE_CONFIG,
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
       } else {
-        for (InsertValidationResponse.InsertError insertError : insertErrors) {
-          // Map error row number to index in sinkRecords list.
-          int rowIndexToOriginalSinkRecord = (int) insertError.getRowIndex();
-          this.kafkaRecordErrorReporter.reportError(
-              insertedRecordsToBuffer.get(rowIndexToOriginalSinkRecord),
-              insertError.getException());
-        }
+        LOGGER.warn(
+            "Adding the message to Dead Letter Queue topic: {}",
+            ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
+        this.kafkaRecordErrorReporter.reportError(
+            kafkaSinkRecord,
+            insertErrors.stream()
+                .map(InsertValidationResponse.InsertError::getException)
+                .findFirst()
+                .orElseThrow(
+                    () ->
+                        new IllegalStateException(
+                            "Reported record error, however exception list is empty.")));
       }
     } else {
       final String errMsg =
@@ -804,26 +561,7 @@ public class TopicPartitionChannel {
 
   // TODO: SNOW-529755 POLL committed offsets in background thread
 
-  /**
-   * Get committed offset from Snowflake. It does an HTTP call internally to find out what was the
-   * last offset inserted.
-   *
-   * <p>If committedOffset fetched from Snowflake is null, we would return -1(default value of
-   * committedOffset) back to original call. (-1) would return an empty Map of partition and offset
-   * back to kafka.
-   *
-   * <p>Else, we will convert this offset and return the offset which is safe to commit inside Kafka
-   * (+1 of this returned value).
-   *
-   * <p>Check {@link com.snowflake.kafka.connector.SnowflakeSinkTask#preCommit(Map)}
-   *
-   * <p>Note:
-   *
-   * <p>If we cannot fetch offsetToken from snowflake even after retries and reopening the channel,
-   * we will throw app
-   *
-   * @return (offsetToken present in Snowflake + 1), else -1
-   */
+  @Override
   public long getOffsetSafeToCommitToKafka() {
     final long committedOffsetInSnowflake = fetchOffsetTokenWithRetry();
     if (committedOffsetInSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
@@ -836,31 +574,9 @@ public class TopicPartitionChannel {
     }
   }
 
-  /**
-   * Fetches the offset token from Snowflake.
-   *
-   * <p>It uses <a href="https://github.com/failsafe-lib/failsafe">Failsafe library </a> which
-   * implements retries, fallbacks and circuit breaker.
-   *
-   * <p>Here is how Failsafe is implemented.
-   *
-   * <p>Fetches offsetToken from Snowflake (Streaming API)
-   *
-   * <p>If it returns a valid offset number, that number is returned back to caller.
-   *
-   * <p>If {@link net.snowflake.ingest.utils.SFException} is thrown, we will retry for max 3 times.
-   * (Including the original try)
-   *
-   * <p>Upon reaching the limit of maxRetries, we will {@link Fallback} to opening a channel and
-   * fetching offsetToken again.
-   *
-   * <p>Please note, upon executing fallback, we might throw an exception too. However, in that case
-   * we will not retry.
-   *
-   * @return long offset token present in snowflake for this channel/partition.
-   */
+  @Override
   @VisibleForTesting
-  protected long fetchOffsetTokenWithRetry() {
+  public long fetchOffsetTokenWithRetry() {
     final RetryPolicy<Long> offsetTokenRetryPolicy =
         RetryPolicy.<Long>builder()
             .handle(SFException.class)
@@ -948,53 +664,40 @@ public class TopicPartitionChannel {
       final long offsetRecoveredFromSnowflake) {
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       LOGGER.info(
-          "{} Channel:{}, offset token is NULL, will use the consumer offset managed by the"
-              + " connector instead, consumer offset:{}",
+          "{} Channel:{}, offset token is NULL",
           streamingApiFallbackInvoker,
-          this.getChannelNameFormatV1(),
-          latestConsumerOffset);
+          this.getChannelNameFormatV1());
     }
 
-    // If the offset token in the channel is null, use the consumer offset managed by the connector;
-    // otherwise use the offset token stored in the channel
-    final long offsetToResetInKafka =
-        offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
-            ? latestConsumerOffset.get()
-            : offsetRecoveredFromSnowflake + 1L;
+    final long offsetToResetInKafka = offsetRecoveredFromSnowflake + 1L;
     if (offsetToResetInKafka == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      LOGGER.info(
+          "There is no offset registered for {} channel in Snowflake. Stop recovering the channel"
+              + " metadata.",
+          this.getChannelNameFormatV1());
       return;
     }
 
-    // reset the buffer
-    this.bufferLock.lock();
-    try {
-      LOGGER.warn(
-          "[RESET_PARTITION] Emptying current buffer:{} for Channel:{} due to reset of offsets in"
-              + " kafka",
-          this.streamingBuffer,
-          this.getChannelNameFormatV1());
-      this.streamingBuffer = new StreamingBuffer();
+    // Reset Offset in kafka for this topic partition.
+    this.sinkTaskContext.offset(this.topicPartition, offsetToResetInKafka);
 
-      // Reset Offset in kafka for this topic partition.
-      this.sinkTaskContext.offset(this.topicPartition, offsetToResetInKafka);
+    // Need to update the in memory processed offset otherwise if same offset is send again, it
+    // might get rejected.
+    this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
+    this.processedOffset.set(offsetRecoveredFromSnowflake);
 
-      // Need to update the in memory processed offset otherwise if same offset is send again, it
-      // might get rejected.
-      this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
-      this.processedOffset.set(offsetRecoveredFromSnowflake);
+    // Set the flag so that any leftover rows in the buffer should be skipped, it will be
+    // re-ingested since the offset in kafka was reset
+    needToSkipCurrentBatch = true;
 
-      // Set the flag so that any leftover rows in the buffer should be skipped, it will be
-      // re-ingested since the offset in kafka was reset
-      needToSkipCurrentBatch = true;
-    } finally {
-      this.bufferLock.unlock();
-    }
     LOGGER.warn(
-        "{} Channel:{}, OffsetRecoveredFromSnowflake:{}, reset kafka offset to:{}",
+        "{} Channel:{}, setting sinkTaskOffset to {}, offsetPersistedInSnowflake to {},"
+            + " processedOffset = {}",
         streamingApiFallbackInvoker,
         this.getChannelNameFormatV1(),
+        offsetToResetInKafka,
         offsetRecoveredFromSnowflake,
-        offsetToResetInKafka);
+        offsetRecoveredFromSnowflake);
   }
 
   /**
@@ -1079,10 +782,7 @@ public class TopicPartitionChannel {
     return streamingIngestClient.openChannel(channelRequest);
   }
 
-  /**
-   * Close channel associated to this partition Not rethrowing connect exception because the
-   * connector will stop. Channel will eventually be reopened.
-   */
+  @Override
   public void closeChannel() {
     try {
       this.channel.close().get();
@@ -1090,27 +790,80 @@ public class TopicPartitionChannel {
       // telemetry and metrics
       this.telemetryServiceV2.reportKafkaPartitionUsage(this.snowflakeTelemetryChannelStatus, true);
       this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException | ExecutionException | SFException e) {
       final String errMsg =
           String.format(
               "Failure closing Streaming Channel name:%s msg:%s",
               this.getChannelNameFormatV1(), e.getMessage());
       this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
-      LOGGER.error(errMsg, e);
+      LOGGER.error(
+          "Closing Streaming Channel={} encountered an exception {}: {} {}",
+          this.getChannelNameFormatV1(),
+          e.getClass(),
+          e.getMessage(),
+          Arrays.toString(e.getStackTrace()));
+    }
+  }
+
+  @Override
+  public CompletableFuture<Void> closeChannelAsync() {
+    return closeChannelWrapped()
+        .thenAccept(__ -> onCloseChannelSuccess())
+        .exceptionally(this::tryRecoverFromCloseChannelError);
+  }
+
+  private CompletableFuture<Void> closeChannelWrapped() {
+    try {
+      return this.channel.close();
+    } catch (SFException e) {
+      // Calling channel.close() can throw an SFException if the channel has been invalidated
+      // already. Wrapping the exception into a CompletableFuture to keep a consistent method chain.
+      CompletableFuture<Void> future = new CompletableFuture<>();
+      future.completeExceptionally(e);
+      return future;
+    }
+  }
+
+  private void onCloseChannelSuccess() {
+    this.telemetryServiceV2.reportKafkaPartitionUsage(this.snowflakeTelemetryChannelStatus, true);
+    this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
+  }
+
+  private Void tryRecoverFromCloseChannelError(Throwable e) {
+    // CompletableFuture wraps errors into CompletionException.
+    Throwable cause = e instanceof CompletionException ? e.getCause() : e;
+
+    String errMsg =
+        String.format(
+            "Failure closing Streaming Channel name:%s msg:%s",
+            this.getChannelNameFormatV1(), cause.getMessage());
+    this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
+
+    // Only SFExceptions are swallowed. If a channel-related error occurs, it shouldn't fail a
+    // connector task. The channel is going to be reopened after a rebalance, so the failed channel
+    // will be invalidated anyway.
+    if (cause instanceof SFException) {
+      LOGGER.warn(
+          "Closing Streaming Channel={} encountered an exception {}: {} {}",
+          this.getChannelNameFormatV1(),
+          cause.getClass(),
+          cause.getMessage(),
+          Arrays.toString(cause.getStackTrace()));
+      return null;
+    } else {
+      throw new CompletionException(cause);
     }
   }
 
   /* Return true is channel is closed. Caller should handle the logic for reopening the channel if it is closed. */
+  @Override
   public boolean isChannelClosed() {
     return this.channel.isClosed();
   }
 
   // ------ GETTERS ------ //
 
-  public StreamingBuffer getStreamingBuffer() {
-    return streamingBuffer;
-  }
-
+  @Override
   public String getChannelNameFormatV1() {
     return this.channel.getFullyQualifiedName();
   }
@@ -1118,53 +871,59 @@ public class TopicPartitionChannel {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("previousFlushTimeStampMs", this.previousFlushTimeStampMs)
         .add("offsetPersistedInSnowflake", this.offsetPersistedInSnowflake)
         .add("channelName", this.getChannelNameFormatV1())
         .add("isStreamingIngestClientClosed", this.streamingIngestClient.isClosed())
         .toString();
   }
 
+  @Override
   @VisibleForTesting
-  protected long getOffsetPersistedInSnowflake() {
+  public long getOffsetPersistedInSnowflake() {
     return this.offsetPersistedInSnowflake.get();
   }
 
+  @Override
   @VisibleForTesting
-  protected long getProcessedOffset() {
+  public long getProcessedOffset() {
     return this.processedOffset.get();
   }
 
+  @Override
   @VisibleForTesting
-  protected long getLatestConsumerOffset() {
-    return this.latestConsumerOffset.get();
+  @Deprecated
+  public long getLatestConsumerOffset() {
+    return 0;
   }
 
+  @Override
   @VisibleForTesting
-  protected boolean isPartitionBufferEmpty() {
-    return streamingBuffer.isEmpty();
+  @Deprecated
+  public boolean isPartitionBufferEmpty() {
+    return true;
   }
 
+  @Override
   @VisibleForTesting
-  protected SnowflakeStreamingIngestChannel getChannel() {
+  public SnowflakeStreamingIngestChannel getChannel() {
     return this.channel;
   }
 
+  @Override
   @VisibleForTesting
-  protected SnowflakeTelemetryService getTelemetryServiceV2() {
+  public SnowflakeTelemetryService getTelemetryServiceV2() {
     return this.telemetryServiceV2;
   }
 
+  @Override
   @VisibleForTesting
-  protected SnowflakeTelemetryChannelStatus getSnowflakeTelemetryChannelStatus() {
+  public SnowflakeTelemetryChannelStatus getSnowflakeTelemetryChannelStatus() {
     return this.snowflakeTelemetryChannelStatus;
   }
 
-  protected void setLatestConsumerOffset(long consumerOffset) {
-    if (consumerOffset > this.latestConsumerOffset.get()) {
-      this.latestConsumerOffset.set(consumerOffset);
-    }
-  }
+  @Override
+  @Deprecated
+  public void setLatestConsumerOffset(long consumerOffset) {}
 
   /**
    * Converts the original kafka sink record into a Json Record. i.e key and values are converted
@@ -1185,171 +944,49 @@ public class TopicPartitionChannel {
     return snowflakeRecord;
   }
 
-  /**
-   * Get Approximate size of Sink Record which we get from Kafka. This is useful to find out how
-   * much data(records) we have buffered per channel/partition.
-   *
-   * <p>This is an approximate size since there is no API available to find out size of record.
-   *
-   * <p>We first serialize the incoming kafka record into a Json format and find estimate size.
-   *
-   * <p>Please note, the size we calculate here is not accurate and doesnt match with actual size of
-   * Kafka record which we buffer in memory. (Kafka Sink Record has lot of other metadata
-   * information which is discarded when we calculate the size of Json Record)
-   *
-   * <p>We also do the same processing just before calling insertRows API for the buffered rows.
-   *
-   * <p>Downside of this calculation is we might try to buffer more records but we could be close to
-   * JVM memory getting full
-   *
-   * @param kafkaSinkRecord sink record received as is from Kafka (With connector specific converter
-   *     being invoked)
-   * @return Approximate long size of record in bytes. 0 if record is broken
-   */
-  protected long getApproxSizeOfRecordInBytes(SinkRecord kafkaSinkRecord) {
-    long sinkRecordBufferSizeInBytes = 0L;
-
-    SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
-
-    if (isRecordBroken(snowflakeRecord)) {
-      // we won't be able to find accurate size of serialized record since serialization itself
-      // failed
-      // But this will not happen in streaming ingest since we deprecated custom converters.
-      return 0L;
-    }
-
-    try {
-      // get the row that we want to insert into Snowflake.
-      Map<String, Object> tableRow =
-          recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
-      // need to loop through the map and get the object node
-      for (Map.Entry<String, Object> entry : tableRow.entrySet()) {
-        sinkRecordBufferSizeInBytes += entry.getKey().length() * 2L;
-        // Can Typecast into string because value is JSON
-        Object value = entry.getValue();
-        if (value != null) {
-          if (value instanceof String) {
-            sinkRecordBufferSizeInBytes += ((String) value).length() * 2L; // 1 char = 2 bytes
-          } else {
-            // for now it could only be a list of string
-            for (String s : (List<String>) value) {
-              sinkRecordBufferSizeInBytes += s.length() * 2L;
-            }
-          }
-        }
+  private Map<String, Object> transformDataBeforeSending(SinkRecord kafkaSinkRecord) {
+    SinkRecord snowflakeSinkRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
+    // broken record
+    if (isRecordBroken(snowflakeSinkRecord)) {
+      // check for error tolerance and log tolerance values
+      // errors.log.enable and errors.tolerance
+      LOGGER.debug(
+          "Broken record offset:{}, topic:{}",
+          kafkaSinkRecord.kafkaOffset(),
+          kafkaSinkRecord.topic());
+      kafkaRecordErrorReporter.reportError(kafkaSinkRecord, new DataException("Broken Record"));
+    } else {
+      // lag telemetry, note that sink record timestamp might be null
+      if (kafkaSinkRecord.timestamp() != null
+          && kafkaSinkRecord.timestampType() != NO_TIMESTAMP_TYPE) {
+        // TODO:SNOW-529751 telemetry
       }
-    } catch (JsonProcessingException e) {
-      // We ignore any errors here because this is just calculating the record size
-    }
 
-    sinkRecordBufferSizeInBytes += StreamingUtils.MAX_RECORD_OVERHEAD_BYTES;
-    return sinkRecordBufferSizeInBytes;
-  }
-
-  // ------ INNER CLASS ------ //
-
-  /**
-   * A buffer which holds the rows before calling insertRows API. It implements the PartitionBuffer
-   * class which has all common fields about a buffer.
-   *
-   * <p>This buffer is a bit different from Snowpipe Buffer. In StreamingBuffer we buffer incoming
-   * records from Kafka and once threshold has reached, we would call insertRows API to insert into
-   * Snowflake.
-   *
-   * <p>We would transform kafka records to Snowflake understood records (In JSON format) just
-   * before calling insertRows API.
-   */
-  @VisibleForTesting
-  protected class StreamingBuffer
-      extends PartitionBuffer<Pair<List<Map<String, Object>>, List<Long>>> {
-    // Records coming from Kafka
-    private final List<SinkRecord> sinkRecords;
-
-    StreamingBuffer() {
-      super();
-      sinkRecords = new ArrayList<>();
-    }
-
-    @Override
-    public void insert(SinkRecord kafkaSinkRecord) {
-      if (sinkRecords.isEmpty()) {
-        setFirstOffset(kafkaSinkRecord.kafkaOffset());
-      }
-      sinkRecords.add(kafkaSinkRecord);
-
-      setNumOfRecords(getNumOfRecords() + 1);
-      setLastOffset(kafkaSinkRecord.kafkaOffset());
-
-      final long currentKafkaRecordSizeInBytes = getApproxSizeOfRecordInBytes(kafkaSinkRecord);
-      // update size of buffer
-      setBufferSizeBytes(getBufferSizeBytes() + currentKafkaRecordSizeInBytes);
-    }
-
-    /**
-     * Get all rows and their offsets. Each map corresponds to one row whose keys are column names
-     * and values are corresponding data in that column.
-     *
-     * <p>This goes over through all buffered kafka records and transforms into JsonSchema and
-     * JsonNode Check {@link #handleNativeRecord(SinkRecord, boolean)}
-     *
-     * @return A pair that contains the records and their corresponding offsets
-     */
-    @Override
-    public Pair<List<Map<String, Object>>, List<Long>> getData() {
-      final List<Map<String, Object>> records = new ArrayList<>();
-      final List<Long> offsets = new ArrayList<>();
-      for (SinkRecord kafkaSinkRecord : sinkRecords) {
-        SinkRecord snowflakeRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
-
-        // broken record
-        if (isRecordBroken(snowflakeRecord)) {
-          // check for error tolerance and log tolerance values
-          // errors.log.enable and errors.tolerance
-          LOGGER.debug(
-              "Broken record offset:{}, topic:{}",
+      // Convert this records into Json Schema which has content and metadata, add it to DLQ if
+      // there is an exception
+      try {
+        return recordService.getProcessedRecordForStreamingIngest(snowflakeSinkRecord);
+      } catch (JsonProcessingException e) {
+        LOGGER.warn(
+            "Record has JsonProcessingException offset:{}, topic:{}",
+            kafkaSinkRecord.kafkaOffset(),
+            kafkaSinkRecord.topic());
+        kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
+      } catch (SnowflakeKafkaConnectorException e) {
+        if (e.checkErrorCode(SnowflakeErrors.ERROR_0010)) {
+          LOGGER.warn(
+              "Cannot parse record offset:{}, topic:{}. Sending to DLQ.",
               kafkaSinkRecord.kafkaOffset(),
               kafkaSinkRecord.topic());
-          kafkaRecordErrorReporter.reportError(kafkaSinkRecord, new DataException("Broken Record"));
+          kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
         } else {
-          // lag telemetry, note that sink record timestamp might be null
-          if (snowflakeRecord.timestamp() != null
-              && snowflakeRecord.timestampType() != NO_TIMESTAMP_TYPE) {
-            // TODO:SNOW-529751 telemetry
-          }
-
-          // Convert this records into Json Schema which has content and metadata, add it to DLQ if
-          // there is an exception
-          try {
-            Map<String, Object> tableRow =
-                recordService.getProcessedRecordForStreamingIngest(snowflakeRecord);
-            records.add(tableRow);
-            offsets.add(snowflakeRecord.kafkaOffset());
-          } catch (JsonProcessingException e) {
-            LOGGER.warn(
-                "Record has JsonProcessingException offset:{}, topic:{}",
-                kafkaSinkRecord.kafkaOffset(),
-                kafkaSinkRecord.topic());
-            kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
-          }
+          throw e;
         }
       }
-      LOGGER.debug(
-          "Get rows for streaming ingest. {} records, {} bytes, offset {} - {}",
-          getNumOfRecords(),
-          getBufferSizeBytes(),
-          getFirstOffset(),
-          getLastOffset());
-      return new Pair<>(records, offsets);
     }
 
-    @Override
-    public List<SinkRecord> getSinkRecords() {
-      return sinkRecords;
-    }
-
-    public SinkRecord getSinkRecord(long idx) {
-      return sinkRecords.get((int) idx);
-    }
+    // return empty
+    return ImmutableMap.of();
   }
 
   /**

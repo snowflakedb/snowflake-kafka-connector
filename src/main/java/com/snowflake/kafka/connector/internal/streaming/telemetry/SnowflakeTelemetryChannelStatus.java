@@ -18,7 +18,7 @@
 package com.snowflake.kafka.connector.internal.streaming.telemetry;
 
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constructMetricName;
-import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
@@ -53,8 +53,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
   /**
    * Creates a new object tracking {@link
-   * com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel} metrics with JMX and
-   * send telemetry data to snowflake
+   * com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel} metrics with
+   * JMX and send telemetry data to snowflake
    *
    * @param tableName the table the channel is ingesting to
    * @param channelName the name of the TopicPartitionChannel to track

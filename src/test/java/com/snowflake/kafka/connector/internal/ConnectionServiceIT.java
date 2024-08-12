@@ -5,18 +5,18 @@ import static com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST;
 import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.isChannelMigrationResponseSuccessful;
-import static com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel.generateChannelNameFormatV2;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.streaming.BufferedTopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.StreamingBufferThreshold;
-import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceV1;
 import java.sql.ResultSet;
@@ -434,7 +434,7 @@ public class ConnectionServiceIT {
     final String channelNameFormatV1 = SnowflakeSinkServiceV2.partitionChannelKey(tableName, 0);
 
     final String sourceChannelName =
-        generateChannelNameFormatV2(channelNameFormatV1, TEST_CONNECTOR_NAME);
+        TopicPartitionChannel.generateChannelNameFormatV2(channelNameFormatV1, TEST_CONNECTOR_NAME);
     final String destinationChannelName = channelNameFormatV1;
 
     // ### TEST 1 - Both channels doesnt exist
@@ -506,7 +506,7 @@ public class ConnectionServiceIT {
       // Ctor of TopicPartitionChannel tries to open the channel.
       SnowflakeSinkServiceV2 snowflakeSinkServiceV2 = (SnowflakeSinkServiceV2) service;
       TopicPartitionChannel newChannelFormatV2 =
-          new TopicPartitionChannel(
+          new BufferedTopicPartitionChannel(
               snowflakeSinkServiceV2.getStreamingIngestClient(),
               topicPartition,
               sourceChannelName,
@@ -521,7 +521,7 @@ public class ConnectionServiceIT {
       List<SinkRecord> recordsInChannelFormatV2 =
           TestUtils.createJsonStringSinkRecords(0, noOfRecords * 2, tableName, 0);
       for (int idx = 0; idx < recordsInChannelFormatV2.size(); idx++) {
-        newChannelFormatV2.insertRecordToBuffer(recordsInChannelFormatV2.get(idx), idx == 0);
+        newChannelFormatV2.insertRecord(recordsInChannelFormatV2.get(idx), idx == 0);
       }
 
       TestUtils.assertWithRetry(

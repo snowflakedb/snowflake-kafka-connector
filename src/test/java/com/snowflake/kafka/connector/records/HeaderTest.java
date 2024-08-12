@@ -1,9 +1,13 @@
 package com.snowflake.kafka.connector.records;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -20,7 +24,7 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.header.ConnectHeaders;
 import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class HeaderTest {
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -41,7 +45,7 @@ public class HeaderTest {
     SinkRecord record = createTestRecord(headers);
     RecordService service = new RecordService();
     JsonNode node = MAPPER.readTree(service.getProcessedRecordForSnowpipe(record));
-    assert !node.get("meta").has("headers");
+    assertFalse(node.get("meta").has("headers"));
 
     // primitive types
     String byteName = "byte";
@@ -95,39 +99,38 @@ public class HeaderTest {
     record = createTestRecord(headers);
     node = MAPPER.readTree(service.getProcessedRecordForSnowpipe(record));
 
-    assert node.get("meta").has("headers");
+    assertTrue(node.get("meta").has("headers"));
     JsonNode headerNode = node.get("meta").get("headers");
 
-    assert headerNode.has(byteName);
-    assert headerNode.get(byteName).asInt() == byteData;
-    assert headerNode.has(shortName);
-    assert headerNode.get(shortName).asInt() == shortData;
-    assert headerNode.has(intName);
-    assert headerNode.get(intName).asInt() == intData;
-    assert headerNode.has(longName);
-    assert headerNode.get(longName).asLong() == longData;
-    assert headerNode.has(floatName);
-    assert headerNode.get(floatName).floatValue() == floatData;
-    assert headerNode.has(doubleName);
-    assert headerNode.get(doubleName).asDouble() == doubleData;
-    assert headerNode.has(booleanName);
-    assert headerNode.get(booleanName).asBoolean() == booleanData;
-    assert headerNode.has(stringName);
-    assert headerNode.get(stringName).asText().equals(stringData);
-    assert headerNode.has(bytesName);
-    assert Arrays.equals(headerNode.get(bytesName).binaryValue(), bytesData);
-    assert headerNode.has(bigDecimalName);
-    assert headerNode.get(bigDecimalName).decimalValue().equals(bigDecimalData);
-    assert headerNode.has(dateName);
-    assert headerNode.get(dateName).asText().equals(ISO_DATE_FORMAT.format(dateData));
-    assert headerNode.has(timeName);
-    assert headerNode.get(timeName).asText().equals(TIME_FORMAT.format(timeData));
-    assert headerNode.has(timestampName);
-    assert headerNode.get(timestampName).asLong() == timestampData.getTime();
-    assert headerNode
-        .get(bigDecimalExceedsMaxPrecisionName)
-        .asText()
-        .equals(bigDecimalExceedsMaxPrecisionData.toString());
+    assertTrue(headerNode.has(byteName));
+    assertEquals(byteData, headerNode.get(byteName).asInt());
+    assertTrue(headerNode.has(shortName));
+    assertEquals(shortData, headerNode.get(shortName).asInt());
+    assertTrue(headerNode.has(intName));
+    assertEquals(intData, headerNode.get(intName).asInt());
+    assertTrue(headerNode.has(longName));
+    assertEquals(longData, headerNode.get(longName).asLong());
+    assertTrue(headerNode.has(floatName));
+    assertEquals(floatData, headerNode.get(floatName).floatValue());
+    assertTrue(headerNode.has(doubleName));
+    assertEquals(doubleData, headerNode.get(doubleName).asDouble());
+    assertTrue(headerNode.has(booleanName));
+    assertEquals(booleanData, headerNode.get(booleanName).asBoolean());
+    assertTrue(headerNode.has(stringName));
+    assertEquals(stringData, headerNode.get(stringName).asText());
+    assertTrue(headerNode.has(bytesName));
+    assertArrayEquals(bytesData, headerNode.get(bytesName).binaryValue());
+    assertTrue(headerNode.has(bigDecimalName));
+    assertEquals(bigDecimalData, headerNode.get(bigDecimalName).decimalValue());
+    assertTrue(headerNode.has(dateName));
+    assertEquals(ISO_DATE_FORMAT.format(dateData), headerNode.get(dateName).asText());
+    assertTrue(headerNode.has(timeName));
+    assertEquals(TIME_FORMAT.format(timeData), headerNode.get(timeName).asText());
+    assertTrue(headerNode.has(timestampName));
+    assertEquals(timestampData.getTime(), headerNode.get(timestampName).asLong());
+    assertEquals(
+        bigDecimalExceedsMaxPrecisionData.toString(),
+        headerNode.get(bigDecimalExceedsMaxPrecisionName).asText());
 
     // array
     headers = new ConnectHeaders();
@@ -139,13 +142,13 @@ public class HeaderTest {
     headers.addList(arrayName, array, SchemaBuilder.array(Schema.INT32_SCHEMA).build());
     record = createTestRecord(headers);
     node = MAPPER.readTree(service.getProcessedRecordForSnowpipe(record));
-    assert node.get("meta").has("headers");
+    assertTrue(node.get("meta").has("headers"));
     headerNode = node.get("meta").get("headers");
-    assert headerNode.has(arrayName);
-    assert headerNode.get(arrayName).isArray();
+    assertTrue(headerNode.has(arrayName));
+    assertTrue(headerNode.get(arrayName).isArray());
     int i = 0;
     for (JsonNode element : headerNode.get(arrayName)) {
-      assert element.asInt() == array.get(i);
+      assertEquals(array.get(i), element.asInt());
       i++;
     }
 
@@ -162,20 +165,20 @@ public class HeaderTest {
     headers.addMap(mapName, map, SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.BOOLEAN_SCHEMA));
     record = createTestRecord(headers);
     node = MAPPER.readTree(service.getProcessedRecordForSnowpipe(record));
-    assert node.get("meta").has("headers");
+    assertTrue(node.get("meta").has("headers"));
     headerNode = node.get("meta").get("headers");
-    assert headerNode.has(mapName);
-    assert headerNode.get(mapName).has(mapKey1);
-    assert headerNode.get(mapName).get(mapKey1).asBoolean() == mapValue1;
-    assert headerNode.get(mapName).has(mapKey2);
-    assert headerNode.get(mapName).get(mapKey2).asBoolean() == mapValue2;
+    assertTrue(headerNode.has(mapName));
+    assertTrue(headerNode.get(mapName).has(mapKey1));
+    assertEquals(mapValue1, headerNode.get(mapName).get(mapKey1).asBoolean());
+    assertTrue(headerNode.get(mapName).has(mapKey2));
+    assertEquals(mapValue2, headerNode.get(mapName).get(mapKey2).asBoolean());
     i = 0;
     Iterator<String> names = headerNode.get(mapName).fieldNames();
     while (names.hasNext()) {
       i++;
       names.next();
     }
-    assert i == 2;
+    assertEquals(2, i);
 
     // struct
     headers = new ConnectHeaders();
@@ -195,13 +198,13 @@ public class HeaderTest {
     headers.addStruct(structName, struct);
     record = createTestRecord(headers);
     node = MAPPER.readTree(service.getProcessedRecordForSnowpipe(record));
-    assert node.get("meta").has("headers");
+    assertTrue(node.get("meta").has("headers"));
     headerNode = node.get("meta").get("headers");
-    assert headerNode.has(structName);
-    assert headerNode.get(structName).has(key1);
-    assert headerNode.get(structName).get(key1).asDouble() == value1;
-    assert headerNode.get(structName).has(key2);
-    assert headerNode.get(structName).get(key2).asLong() == value2;
+    assertTrue(headerNode.has(structName));
+    assertTrue(headerNode.get(structName).has(key1));
+    assertEquals(value1, headerNode.get(structName).get(key1).asDouble());
+    assertTrue(headerNode.get(structName).has(key2));
+    assertEquals(value2, headerNode.get(structName).get(key2).asLong());
   }
 
   private static SinkRecord createTestRecord(Headers headers) throws IOException {

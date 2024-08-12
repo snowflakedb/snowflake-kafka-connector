@@ -29,9 +29,9 @@ class TestStringJsonProxy:
         # validate content of line 1
         oldVersions = ["5.4.0", "5.3.0", "5.2.0", "2.4.0", "2.3.0", "2.2.0"]
         if self.driver.testVersion in oldVersions:
-            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":{}},"offset":0,"partition":0,"topic":"travis_correct_string_proxy....."}'
+            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":{}},"offset":0,"partition":0,"topic":"travis_correct_string_proxy_\w*"}'
         else:
-            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":[]},"offset":0,"partition":0,"topic":"travis_correct_string_proxy....."}'
+            goldMeta = r'{"CreateTime":\d*,"headers":{"header1":"value1","header2":[]},"offset":0,"partition":0,"topic":"travis_correct_string_proxy_\w*"}'
 
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
@@ -44,12 +44,20 @@ class TestStringJsonProxy:
         self.driver.cleanTableStagePipe(self.topic)
         # unset the JVM parameters
         print("Unset JVM Parameters in Clean phase of testing")
-        path_parent = os.path.dirname(os.getcwd())
-        print("Current Directory:{0}".format(path_parent))
+
+        current_dir = os.getcwd()
+        print(f"Current Directory:{current_dir}")
+
+        path_parent = os.path.dirname(current_dir)
+
+        print(f"Changing working directory to:{path_parent}")
         os.chdir(path_parent)
-        print("One directory Up:{0}".format(os.getcwd()))
+
         mvnExecMain = "mvn exec:java -Dexec.mainClass=\"com.snowflake.kafka.connector.internal.ResetProxyConfigExec\""
         print(self.run_cmd(mvnExecMain))
+
+        print(f"Changing working directory back to:{current_dir}")
+        os.chdir(current_dir)
 
     def run_cmd(self, command):
         import subprocess

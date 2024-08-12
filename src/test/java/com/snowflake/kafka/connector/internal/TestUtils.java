@@ -156,6 +156,7 @@ public class TestUtils {
           + "    \"fields\": [\n"
           + "      {\n"
           + "        \"type\": \"string\",\n"
+          + "        \"doc\": \"doc\", \n"
           + "        \"optional\": false,\n"
           + "        \"field\": \"regionid\"\n"
           + "      },\n"

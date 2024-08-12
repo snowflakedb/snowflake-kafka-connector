@@ -3,8 +3,10 @@ import os
 import re
 import sys
 import traceback
+from dataclasses import dataclass
 from datetime import datetime
 from time import sleep
+from typing import Callable
 
 import requests, uuid
 import snowflake.connector
@@ -18,14 +20,31 @@ import test_suit
 from test_suit.test_utils import parsePrivateKey, RetryableError
 
 
+@dataclass
+class ConnectorParameters:
+    snowflake_streaming_enable_single_buffer: str
+
+
+class ConnectorParametersList:
+    def __init__(self, connectorParametersList: list[ConnectorParameters]):
+        self.connectorParametersList = connectorParametersList
+
+    def for_each(self, func: Callable[[int, ConnectorParameters], None]) -> None:
+        for idx, connector_parameters in enumerate(self.connectorParametersList):
+            print(datetime.now().strftime("%H:%M:%S "), f'=== Using parameters {idx}: {connector_parameters} ===')
+
+            func(idx, connector_parameters)
+
+
 def errorExit(message):
     print(datetime.now().strftime("%H:%M:%S "), message)
     exit(1)
 
 
 class KafkaTest:
-    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath, testVersion, enableSSL,
-                 snowflakeCloudPlatform, enableDeliveryGuaranteeTests=False):
+    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath,
+                 connectorParameters: ConnectorParameters, testVersion, enableSSL, snowflakeCloudPlatform,
+                 enableDeliveryGuaranteeTests=False):
         self.testVersion = testVersion
         self.credentialPath = credentialPath
         # can be None or one of AWS, AZURE, GCS
@@ -94,6 +113,8 @@ class KafkaTest:
             database=testDatabase,
             schema=testSchema
         )
+
+        self.connectorParameters = connectorParameters
 
     def msgSendInterval(self):
         # sleep self.SEND_INTERVAL before send the second message
@@ -257,7 +278,6 @@ class KafkaTest:
     def get_kafka_version(self):
         return self.testVersion
 
-
     def cleanTableStagePipe(self, connectorName, topicName="", partitionNumber=1):
         if topicName == "":
             topicName = connectorName
@@ -360,7 +380,7 @@ class KafkaTest:
             pkEncrypted = credentialJson["encrypted_private_key"]
 
         print(datetime.now().strftime("\n%H:%M:%S "),
-              "=== generate sink connector rest reqeuest from {} ===".format(rest_template_path))
+              "=== generate sink connector rest request from {} ===".format(rest_template_path))
         if not os.path.exists(rest_generate_path):
             os.makedirs(rest_generate_path)
         snowflake_connector_name = fileName.split(".")[0] + nameSalt
@@ -383,7 +403,8 @@ class KafkaTest:
                 .replace("CONFLUENT_SCHEMA_REGISTRY", self.schemaRegistryAddress) \
                 .replace("SNOWFLAKE_TEST_TOPIC", snowflake_topic_name) \
                 .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name) \
-                .replace("SNOWFLAKE_ROLE", testRole)
+                .replace("SNOWFLAKE_ROLE", testRole) \
+                .replace("$SNOWFLAKE_STREAMING_ENABLE_SINGLE_BUFFER", self.connectorParameters.snowflake_streaming_enable_single_buffer)
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
                 fw.write(fileContent)
 
@@ -564,8 +585,12 @@ def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, dr
         except Exception as e:
             print(datetime.now().strftime("%H:%M:%S "), e)
             traceback.print_tb(e.__traceback__)
-            print(datetime.now().strftime("%H:%M:%S "), "Error: ", sys.exc_info()[0])
+            print(datetime.now().strftime("%H:%M:%S "), "Error: ", sys.exc_info()[0], driver.connectorParameters)
             exit(1)
+
+
+def run_test_set_with_parameters(kafka_test: KafkaTest, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv):
+    runTestSet(kafka_test, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv)
 
 
 if __name__ == "__main__":
@@ -607,13 +632,25 @@ if __name__ == "__main__":
     if "ENABLE_DELIVERY_GUARANTEE_TESTS" in os.environ:
         enableDeliveryGuaranteeTests = (os.environ['ENABLE_DELIVERY_GUARANTEE_TESTS'] == 'True')
 
-    kafkaTest = KafkaTest(kafkaAddress,
-                          schemaRegistryAddress,
-                          kafkaConnectAddress,
-                          credentialPath,
-                          testVersion,
-                          enableSSL,
-                          snowflakeCloudPlatform,
-                          False)
+    parametersList = ConnectorParametersList([
+        ConnectorParameters(snowflake_streaming_enable_single_buffer='false'),
+        ConnectorParameters(snowflake_streaming_enable_single_buffer='true'),
+    ])
 
-    runTestSet(kafkaTest, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv)
+    parametersList.for_each(
+        lambda idx, parameters: runTestSet(
+            KafkaTest(kafkaAddress,
+                      schemaRegistryAddress,
+                      kafkaConnectAddress,
+                      credentialPath,
+                      parameters,
+                      testVersion,
+                      enableSSL,
+                      snowflakeCloudPlatform,
+                      False),
+            testSet,
+            nameSalt + str(idx),
+            pressure,
+            skipProxy,
+            allowedTestsCsv)
+    )
