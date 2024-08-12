@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.mock.MockResultSetForSizeTest;

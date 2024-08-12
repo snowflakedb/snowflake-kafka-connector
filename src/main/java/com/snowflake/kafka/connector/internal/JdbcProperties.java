@@ -39,7 +39,8 @@ public class JdbcProperties {
    * Combine all jdbc related properties. Throws error if jdbcPropertiesMap overrides any property
    * defined in connectionProperties or proxyProperties.
    *
-   * @param connectionProperties snowflake.database.name, snowflake.schema,name, snowflake.private.key etc.
+   * @param connectionProperties snowflake.database.name, snowflake.schema,name,
+   *     snowflake.private.key etc.
    * @param proxyProperties jvm.proxy.xxx
    * @param jdbcPropertiesMap snowflake.jdbc.map
    */
