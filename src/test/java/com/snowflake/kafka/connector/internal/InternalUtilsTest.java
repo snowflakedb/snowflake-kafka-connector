@@ -145,9 +145,9 @@ public class InternalUtilsTest {
             + " networkTimeout:100";
     Map<String, String> config = new HashMap<>();
     config.put(key, input);
-
+    // when
     Properties jdbcPropertiesMap = InternalUtils.parseJdbcPropertiesMap(config);
-
+    // then
     assertEquals(jdbcPropertiesMap.size(), 5);
   }
 }
