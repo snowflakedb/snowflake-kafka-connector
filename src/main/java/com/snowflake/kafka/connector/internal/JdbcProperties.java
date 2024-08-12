@@ -46,8 +46,8 @@ public class JdbcProperties {
   static JdbcProperties create(
       Properties connectionProperties, Properties proxyProperties, Properties jdbcPropertiesMap) {
     InternalUtils.assertNotEmpty("connectionProperties", connectionProperties);
-    proxyProperties = validateNull(proxyProperties);
-    jdbcPropertiesMap = validateNull(jdbcPropertiesMap);
+    proxyProperties = setEmptyIfNull(proxyProperties);
+    jdbcPropertiesMap = setEmptyIfNull(jdbcPropertiesMap);
 
     Properties proxyAndConnection = mergeProperties(connectionProperties, proxyProperties);
     detectOverrides(proxyAndConnection, jdbcPropertiesMap);
@@ -80,7 +80,7 @@ public class JdbcProperties {
   }
 
   /** Parsing methods does not return null. However, It's better to be perfectly sure. */
-  private static Properties validateNull(Properties properties) {
+  private static Properties setEmptyIfNull(Properties properties) {
     if (properties != null) {
       return properties;
     }

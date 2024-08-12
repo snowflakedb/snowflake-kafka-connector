@@ -63,11 +63,6 @@ public class SnowflakeConnectionServiceFactory {
       this.url = new SnowflakeURL(conf.get(Utils.SF_URL));
       this.kafkaProvider =
           SnowflakeSinkConnectorConfig.KafkaProvider.of(conf.get(PROVIDER_CONFIG)).name();
-      // TODO: Ideally only one property is required, but because we dont pass it around in JDBC and
-      // snowpipe SDK,
-      //  it is better if we have two properties decoupled
-      // Right now, proxy parameters are picked from jvm system properties, in future they need to
-      // be decoupled
       this.connectorName = conf.get(Utils.NAME);
       this.ingestionMethodConfig = IngestionMethodConfig.determineIngestionMethod(conf);
 
