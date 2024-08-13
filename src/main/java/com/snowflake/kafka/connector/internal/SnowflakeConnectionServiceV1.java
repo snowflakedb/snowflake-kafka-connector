@@ -39,10 +39,8 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   private final SnowflakeTelemetryService telemetry;
   private final String connectorName;
   private final String taskID;
-  private final Properties prop;
+  private final JdbcProperties jdbcProperties;
 
-  // Placeholder for all proxy related properties set in the connector configuration
-  private final Properties proxyProperties;
   private final SnowflakeURL url;
   private final SnowflakeInternalStage internalStage;
 
@@ -60,30 +58,27 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   SnowflakeConnectionServiceV1(
-      Properties prop,
+      JdbcProperties jdbcProperties,
       SnowflakeURL url,
       String connectorName,
       String taskID,
-      Properties proxyProperties,
       String kafkaProvider,
       IngestionMethodConfig ingestionMethodConfig) {
+    this.jdbcProperties = jdbcProperties;
     this.connectorName = connectorName;
     this.taskID = taskID;
     this.url = url;
-    this.prop = prop;
     this.stageType = null;
-    this.proxyProperties = proxyProperties;
     this.kafkaProvider = kafkaProvider;
+    Properties proxyProperties = jdbcProperties.getProxyProperties();
+    Properties combinedProperties = jdbcProperties.getProperties();
     try {
-      if (proxyProperties != null && !proxyProperties.isEmpty()) {
-        Properties combinedProperties =
-            mergeProxyAndConnectionProperties(this.prop, this.proxyProperties);
+      if (!proxyProperties.isEmpty()) {
         LOGGER.debug("Proxy properties are set, passing in JDBC while creating the connection");
-        this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), combinedProperties);
       } else {
         LOGGER.info("Establishing a JDBC connection with url:{}", url.getJdbcUrl());
-        this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), prop);
       }
+      this.conn = new SnowflakeDriver().connect(url.getJdbcUrl(), combinedProperties);
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_1001.getException(e);
     }
@@ -97,17 +92,6 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
             .setTaskID(this.taskID)
             .build();
     LOGGER.info("initialized the snowflake connection");
-  }
-
-  /* Merges the two properties. */
-  private static Properties mergeProxyAndConnectionProperties(
-      Properties connectionProperties, Properties proxyProperties) {
-    assert connectionProperties != null;
-    assert proxyProperties != null;
-    Properties mergedProperties = new Properties();
-    mergedProperties.putAll(connectionProperties);
-    mergedProperties.putAll(proxyProperties);
-    return mergedProperties;
   }
 
   @Override
@@ -931,19 +915,19 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   public SnowflakeIngestionService buildIngestService(
       final String stageName, final String pipeName) {
     String account = url.getAccount();
-    String user = prop.getProperty(InternalUtils.JDBC_USER);
+    String user = jdbcProperties.getProperty(InternalUtils.JDBC_USER);
     String userAgentSuffixInHttpRequest =
         String.format(USER_AGENT_SUFFIX_FORMAT, Utils.VERSION, kafkaProvider);
     String host = url.getUrlWithoutPort();
     int port = url.getPort();
     String connectionScheme = url.getScheme();
     String fullPipeName =
-        prop.getProperty(InternalUtils.JDBC_DATABASE)
+        jdbcProperties.getProperty(InternalUtils.JDBC_DATABASE)
             + "."
-            + prop.getProperty(InternalUtils.JDBC_SCHEMA)
+            + jdbcProperties.getProperty(InternalUtils.JDBC_SCHEMA)
             + "."
             + pipeName;
-    PrivateKey privateKey = (PrivateKey) prop.get(InternalUtils.JDBC_PRIVATE_KEY);
+    PrivateKey privateKey = (PrivateKey) jdbcProperties.get(InternalUtils.JDBC_PRIVATE_KEY);
     return SnowflakeIngestionServiceFactory.builder(
             account,
             user,
@@ -1027,9 +1011,9 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     InternalUtils.assertNotEmpty("sourceChannelName", sourceChannelName);
     InternalUtils.assertNotEmpty("destinationChannelName", destinationChannelName);
     String fullyQualifiedTableName =
-        prop.getProperty(InternalUtils.JDBC_DATABASE)
+        jdbcProperties.getProperty(InternalUtils.JDBC_DATABASE)
             + "."
-            + prop.getProperty(InternalUtils.JDBC_SCHEMA)
+            + jdbcProperties.getProperty(InternalUtils.JDBC_SCHEMA)
             + "."
             + tableName;
     String query = "select SYSTEM$SNOWPIPE_STREAMING_MIGRATE_CHANNEL_OFFSET_TOKEN((?), (?), (?));";

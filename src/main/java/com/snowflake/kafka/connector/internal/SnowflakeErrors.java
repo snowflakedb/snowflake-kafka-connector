@@ -136,7 +136,10 @@ public enum SnowflakeErrors {
       String.format(
           "Failed to parse %s map",
           SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)),
-
+  ERROR_0031(
+      "0031",
+      "Failed to combine JDBC properties",
+      "One of snowflake.jdbc.map property overrides other jdbc property"),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",

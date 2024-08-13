@@ -306,6 +306,17 @@ public class InternalUtils {
     return proxyProperties;
   }
 
+  protected static Properties parseJdbcPropertiesMap(Map<String, String> conf) {
+    String jdbcConfigMapInput = conf.get(SnowflakeSinkConnectorConfig.SNOWFLAKE_JDBC_MAP);
+    if (jdbcConfigMapInput == null) {
+      return new Properties();
+    }
+    Map<String, String> jdbcMap = Utils.parseCommaSeparatedKeyValuePairs(jdbcConfigMapInput);
+    Properties properties = new Properties();
+    properties.putAll(jdbcMap);
+    return properties;
+  }
+
   /**
    * convert ingest status to ingested file status
    *

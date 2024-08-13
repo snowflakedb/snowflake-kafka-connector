@@ -15,8 +15,8 @@ public class SnowflakeConnectionServiceFactory {
   }
 
   public static class SnowflakeConnectionServiceBuilder {
-    private Properties prop;
-    private Properties proxyProperties;
+
+    private JdbcProperties jdbcProperties;
     private SnowflakeURL url;
     private String connectorName;
     private String taskID = "-1";
@@ -30,15 +30,15 @@ public class SnowflakeConnectionServiceFactory {
     private IngestionMethodConfig ingestionMethodConfig;
 
     @VisibleForTesting
-    public SnowflakeConnectionServiceBuilder setProperties(Properties prop) {
-      this.prop = prop;
+    public SnowflakeConnectionServiceBuilder setProperties(Properties connectionProperties) {
+      this.jdbcProperties = JdbcProperties.create(connectionProperties);
       this.ingestionMethodConfig = IngestionMethodConfig.SNOWPIPE;
       return this;
     }
 
     // For testing only
     public Properties getProperties() {
-      return this.prop;
+      return this.jdbcProperties.getProperties();
     }
 
     public SnowflakeConnectionServiceBuilder setURL(SnowflakeURL url) {
@@ -63,24 +63,24 @@ public class SnowflakeConnectionServiceFactory {
       this.url = new SnowflakeURL(conf.get(Utils.SF_URL));
       this.kafkaProvider =
           SnowflakeSinkConnectorConfig.KafkaProvider.of(conf.get(PROVIDER_CONFIG)).name();
-      // TODO: Ideally only one property is required, but because we dont pass it around in JDBC and
-      // snowpipe SDK,
-      //  it is better if we have two properties decoupled
-      // Right now, proxy parameters are picked from jvm system properties, in future they need to
-      // be decoupled
-      this.proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
       this.connectorName = conf.get(Utils.NAME);
       this.ingestionMethodConfig = IngestionMethodConfig.determineIngestionMethod(conf);
-      this.prop = InternalUtils.createProperties(conf, this.url, ingestionMethodConfig);
+
+      Properties proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
+      Properties connectionProperties =
+          InternalUtils.createProperties(conf, this.url, ingestionMethodConfig);
+      Properties jdbcPropertiesMap = InternalUtils.parseJdbcPropertiesMap(conf);
+      this.jdbcProperties =
+          JdbcProperties.create(connectionProperties, proxyProperties, jdbcPropertiesMap);
       return this;
     }
 
     public SnowflakeConnectionService build() {
-      InternalUtils.assertNotEmpty("properties", prop);
+      InternalUtils.assertNotEmpty("jdbcProperties", jdbcProperties);
       InternalUtils.assertNotEmpty("url", url);
       InternalUtils.assertNotEmpty("connectorName", connectorName);
       return new SnowflakeConnectionServiceV1(
-          prop, url, connectorName, taskID, proxyProperties, kafkaProvider, ingestionMethodConfig);
+          jdbcProperties, url, connectorName, taskID, kafkaProvider, ingestionMethodConfig);
     }
   }
 }

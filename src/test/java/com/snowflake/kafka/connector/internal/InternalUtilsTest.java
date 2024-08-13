@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.mock.MockResultSetForSizeTest;
 import java.sql.ResultSet;
@@ -8,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import net.snowflake.ingest.connection.IngestStatus;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class InternalUtilsTest {
   @Test
@@ -133,5 +135,19 @@ public class InternalUtilsTest {
     assert InternalUtils.resultSize(resultSet) == 0;
     resultSet = new MockResultSetForSizeTest(100);
     assert InternalUtils.resultSize(resultSet) == 100;
+  }
+
+  @Test
+  public void parseJdbcPropertiesMapTest() {
+    String key = "snowflake.jdbc.map";
+    String input =
+        "isInsecureMode:true,  disableSamlURLCheck:false, passcodeInPassword:on, foo:bar,"
+            + " networkTimeout:100";
+    Map<String, String> config = new HashMap<>();
+    config.put(key, input);
+    // when
+    Properties jdbcPropertiesMap = InternalUtils.parseJdbcPropertiesMap(config);
+    // then
+    assertEquals(jdbcPropertiesMap.size(), 5);
   }
 }
