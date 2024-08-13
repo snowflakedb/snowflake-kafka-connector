@@ -16,9 +16,7 @@ public class JdbcProperties {
   }
 
   public Properties getProperties() {
-    Properties copy = new Properties();
-    copy.putAll(this.properties);
-    return copy;
+    return properties;
   }
 
   public String getProperty(String key) {
@@ -30,9 +28,7 @@ public class JdbcProperties {
   }
 
   public Properties getProxyProperties() {
-    Properties copy = new Properties();
-    copy.putAll(this.proxyProperties);
-    return copy;
+    return proxyProperties;
   }
 
   /**
