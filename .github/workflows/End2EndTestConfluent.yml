@@ -43,9 +43,9 @@ jobs:
       run: |
         pip3 install --upgrade setuptools
         sudo apt-get install librdkafka-dev
-        pip3 install requests certifi "confluent-kafka[avro,json,protobuf]==1.7.0"
-        pip3 install avro-python3 kafka-python
-        pip3 install --upgrade protobuf==3.20.0
+        pip3 install requests certifi "confluent-kafka[avro,json,protobuf]==1.9.2"
+        pip3 install avro kafka-python
+        pip3 install --upgrade protobuf==3.20.3
         pip3 install --upgrade snowflake-connector-python==2.7.4
         curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
         sudo apt-get -y install jq vim

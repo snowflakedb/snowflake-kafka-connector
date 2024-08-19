@@ -29,8 +29,9 @@ class TestConfluentProtobufProtobuf:
         self.sensor.uint64_val = (1 << 64) - 1
 
         self.schema_registry_client = SchemaRegistryClient({'url': driver.schemaRegistryAddress})
-        self.keyProtobufSerializer = ProtobufSerializer(sensor_pb2.SensorReading, self.schema_registry_client)
-        self.valueProtobufSerializer = ProtobufSerializer(sensor_pb2.SensorReading, self.schema_registry_client)
+        self.keyProtobufSerializer = ProtobufSerializer(sensor_pb2.SensorReading, self.schema_registry_client, {'use.deprecated.format': True})
+        self.valueProtobufSerializer = ProtobufSerializer(sensor_pb2.SensorReading, self.schema_registry_client, {'use.deprecated.format': True})
+
         producer_conf = {
             'bootstrap.servers': driver.kafkaAddress,
             'key.serializer': self.keyProtobufSerializer,
