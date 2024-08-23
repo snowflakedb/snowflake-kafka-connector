@@ -16,10 +16,10 @@ import java.util.Map;
  */
 public class SnowflakeSinkTaskAuthorizationExceptionTracker {
 
-  public static final String AUTHORIZATION_EXCEPTION_MESSAGE = "Authorization failed after retry";
+  private static final String AUTHORIZATION_EXCEPTION_MESSAGE = "Authorization failed after retry";
 
-  boolean authorizationTaskFailureEnabled;
-  boolean authorizationErrorReported;
+  private boolean authorizationTaskFailureEnabled;
+  private boolean authorizationErrorReported;
 
   public SnowflakeSinkTaskAuthorizationExceptionTracker() {
     this.authorizationTaskFailureEnabled = true;
@@ -40,8 +40,7 @@ public class SnowflakeSinkTaskAuthorizationExceptionTracker {
    * @param ex - any exception that occurred during preCommit
    */
   public void reportPrecommitException(Exception ex) {
-    if (authorizationTaskFailureEnabled
-        && ex.getMessage().contains(AUTHORIZATION_EXCEPTION_MESSAGE)) {
+    if (ex.getMessage().contains(AUTHORIZATION_EXCEPTION_MESSAGE)) {
       authorizationErrorReported = true;
     }
   }
