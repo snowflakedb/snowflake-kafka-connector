@@ -214,6 +214,10 @@ public class SnowflakeSinkConnectorConfig {
           + " format is deprecated and V1 will be used always, disabling this config could have"
           + " ramifications. Please consult Snowflake support before setting this to false.";
 
+  public static final String ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS =
+      "enable.task.fail.on.authorization.errors";
+  public static final boolean ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT = false;
+
   // MDC logging header
   public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
   public static final String ENABLE_MDC_LOGGING_DISPLAY = "Enable MDC logging";
@@ -714,7 +718,14 @@ public class SnowflakeSinkConnectorConfig {
             CONNECTOR_CONFIG,
             9,
             ConfigDef.Width.NONE,
-            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY);
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY)
+        .define(
+            ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
+            Type.BOOLEAN,
+            ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT,
+            Importance.LOW,
+            "If set to true the Connector will fail its tasks when authorization error from"
+                + " Snowflake occurred");
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {

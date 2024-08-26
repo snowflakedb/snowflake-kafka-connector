@@ -155,6 +155,10 @@ public enum SnowflakeErrors {
       "Either the current connection is closed or hasn't connect to snowflake" + " server"),
   ERROR_1004(
       "1004", "Fetching OAuth token fail", "Fail to get OAuth token from authorization server"),
+  ERROR_1005(
+      "1005",
+      "Task failed due to authorization error",
+      "Set `enable.task.fail.on.authorization.errors=false` to avoid this behavior"),
   // SQL issues 2---
   ERROR_2001(
       "2001", "Failed to prepare SQL statement", "SQL Exception, reported by Snowflake JDBC"),
