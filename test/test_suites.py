@@ -164,7 +164,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             test_instance=TestSnowpipeStreamingStringJsonDLQ(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=True
         )),
-        ("TestSnowpipeStreamingStringAvro", EndToEndTestSuite(
+        ("TestSnowpipeStreamingStringAvroSR", EndToEndTestSuite(
             test_instance=TestSnowpipeStreamingStringAvroSR(driver, nameSalt), clean=True, run_in_confluent=True,
             run_in_apache=False
         )),

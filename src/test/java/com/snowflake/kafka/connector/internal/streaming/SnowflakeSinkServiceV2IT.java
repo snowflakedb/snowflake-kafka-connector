@@ -1294,7 +1294,7 @@ public class SnowflakeSinkServiceV2IT {
             .put("ID_INT32", 42)
             .put("id_int64", 42L)
             .put("first_name", "zekai")
-            .put("rating_float32", 0.99f)
+            .put("rating_float32", Float.NaN)
             .put("rating_float64", 0.99d)
             .put("approval", true)
             .put("info_array_string", Arrays.asList("a", "b"))

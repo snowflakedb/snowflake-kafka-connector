@@ -87,6 +87,7 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.provider.Arguments;
 
 public class TestUtils {
@@ -879,11 +880,24 @@ public class TestUtils {
         if ("RECORD_METADATA_PLACE_HOLDER".equals(contentMap.get(columnName))) {
           continue;
         }
-        assert value.equals(contentMap.get(columnName))
-            : "expected: " + contentMap.get(columnName) + " actual: " + value;
+        if (value instanceof Double) {
+          assertDouble((Double) value, contentMap.get(columnName));
+        } else {
+          assert value.equals(contentMap.get(columnName))
+                  : "expected: " + contentMap.get(columnName) + " actual: " + value;
+        }
       } else {
         assert contentMap.get(columnName) == null : "value should be null";
       }
+    }
+  }
+
+  private static void assertDouble(Double actual, Object expected) {
+    if (expected instanceof Double) {
+      Assertions.assertEquals(actual, (Double) expected);
+    }
+    if (expected instanceof Float) {
+      Assertions.assertEquals(actual, Double.valueOf(expected.toString()));
     }
   }
 
