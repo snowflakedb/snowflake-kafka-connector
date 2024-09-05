@@ -69,7 +69,8 @@ class TestSchemaEvolutionAvroSR:
             'RATING_INT': 'NUMBER',
             'RATING_DOUBLE': 'FLOAT',
             'APPROVAL': 'BOOLEAN',
-            'RECORD_METADATA': 'VARIANT'
+            'SOME_FLOAT_NAN': 'FLOAT',
+            'RECORD_METADATA': 'VARIANT',
         }
 
         self.gold_columns = [columnName for columnName in self.gold_type]

@@ -39,7 +39,6 @@ import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
@@ -78,8 +77,6 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.google.gson.JsonObject;
 import net.snowflake.client.jdbc.internal.google.gson.JsonParser;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -87,7 +84,6 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.provider.Arguments;
 
 public class TestUtils {
@@ -880,34 +876,24 @@ public class TestUtils {
         if ("RECORD_METADATA_PLACE_HOLDER".equals(contentMap.get(columnName))) {
           continue;
         }
-        if (value instanceof Double) {
-          assertDouble((Double) value, contentMap.get(columnName));
-        } else {
-          assert value.equals(contentMap.get(columnName))
-                  : "expected: " + contentMap.get(columnName) + " actual: " + value;
-        }
+        assert value.equals(contentMap.get(columnName))
+            : "expected: " + contentMap.get(columnName) + " actual: " + value;
       } else {
         assert contentMap.get(columnName) == null : "value should be null";
       }
     }
   }
 
-  private static void assertDouble(Double actual, Object expected) {
-    if (expected instanceof Double) {
-      Assertions.assertEquals(actual, (Double) expected);
-    }
-    if (expected instanceof Float) {
-      Assertions.assertEquals(actual, Double.valueOf(expected.toString()));
-    }
-  }
+  public static Map<String, Object> getTableContentOneRow(String tableName) throws SQLException {
+    String getRowQuery = "select * from " + tableName + " limit 1";
+    ResultSet result = executeQuery(getRowQuery);
+    result.next();
 
-  public static SnowflakeStreamingIngestClient createStreamingClient(
-      Map<String, String> config, String clientName) {
-    Properties clientProperties = new Properties();
-    clientProperties.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
-    return SnowflakeStreamingIngestClientFactory.builder(clientName)
-        .setProperties(clientProperties)
-        .build();
+    Map<String, Object> contentMap = new HashMap<>();
+    for (int i = 0; i < result.getMetaData().getColumnCount(); i++) {
+      contentMap.put(result.getMetaData().getColumnName(i + 1), result.getObject(i + 1));
+    }
+    return contentMap;
   }
 
   /**
