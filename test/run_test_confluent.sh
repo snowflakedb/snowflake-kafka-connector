@@ -204,6 +204,5 @@ if [ $testError -ne 0 ]; then
     RED='\033[0;31m'
     NC='\033[0m' # No Color
     echo -e "${RED} There is error above this line ${NC}"
-    cat $APACHE_LOG_PATH/kc.log
     error_exit "=== test_verify.py failed ==="
 fi
