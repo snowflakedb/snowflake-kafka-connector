@@ -350,7 +350,7 @@ public enum SnowflakeErrors {
     for (StackTraceElement element : e.getStackTrace()) {
       str.append("\n").append(element.toString());
     }
-    return getException(str.toString(), telemetryService);
+    return getException(str.toString(), telemetryService, e.getMessage());
   }
 
   public SnowflakeKafkaConnectorException getException(SnowflakeTelemetryService telemetryService) {
@@ -381,6 +381,34 @@ public enum SnowflakeErrors {
           Utils.formatLogMessage(
               "Exception: {}\nError Code: {}\nDetail: {}\nMessage: {}", name, code, detail, msg),
           code);
+    }
+  }
+
+  /**
+   * Convert a given message into SnowflakeKafkaConnectorException.
+   *
+   * <p>If message is null, we use Enum's toString() method to wrap inside
+   * SnowflakeKafkaConnectorException
+   *
+   * @param msg Message to send to Telemetry Service. Remember, we Strip the message
+   * @param telemetryService can be null
+   * @param errorMessage Trimmed exception message, can be empty
+   * @return Exception wrapped in Snowflake Connector Exception
+   */
+  public SnowflakeKafkaConnectorException getException(
+      String msg, SnowflakeTelemetryService telemetryService, String errorMessage) {
+    if (telemetryService != null) {
+      telemetryService.reportKafkaConnectFatalError(
+          getCode() + msg.substring(0, Math.min(msg.length(), 500)));
+    }
+
+    if (msg == null || msg.isEmpty()) {
+      return new SnowflakeKafkaConnectorException(toString(), code);
+    } else {
+      return new SnowflakeKafkaConnectorException(
+          Utils.formatLogMessage(
+              "Exception: {}\nError Code: {}\nDetail: {}\nMessage: {}", name, code, detail, msg),
+          code, errorMessage);
     }
   }
 

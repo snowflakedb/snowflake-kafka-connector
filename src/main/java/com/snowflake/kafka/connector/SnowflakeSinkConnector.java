@@ -234,16 +234,20 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error(
-          "Validate: Error connecting to snowflake:{}, errorCode:{}", e.getMessage(), e.getCode());
+          "Validate: Error connecting to snowflake:{}, errorCode:{}, exception:{}",
+          e.getExceptionUserMessage(), e.getCode(), e.getMessage()
+      );
       // Since url, user, db, schema, exist in config and is not empty,
       // the exceptions here would be invalid URL, and cannot connect, and no private key
       switch (e.getCode()) {
         case "1001":
           // Could be caused by invalid url, invalid user name, invalid password.
-          Utils.updateConfigErrorMessage(result, Utils.SF_URL, ": Cannot connect to Snowflake");
-          Utils.updateConfigErrorMessage(
-              result, Utils.SF_PRIVATE_KEY, ": Cannot connect to Snowflake");
-          Utils.updateConfigErrorMessage(result, Utils.SF_USER, ": Cannot connect to Snowflake");
+          String errrorString = String.format(
+              ": Cannot connect to Snowflake, due to %s", e.getExceptionUserMessage()
+          );
+          Utils.updateConfigErrorMessage(result, Utils.SF_URL, errrorString);
+          Utils.updateConfigErrorMessage(result, Utils.SF_PRIVATE_KEY, errrorString);
+          Utils.updateConfigErrorMessage(result, Utils.SF_USER, errrorString);
           break;
         case "0007":
           Utils.updateConfigErrorMessage(result, Utils.SF_URL, " is not a valid snowflake url");

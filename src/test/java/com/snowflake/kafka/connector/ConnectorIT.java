@@ -5,10 +5,12 @@ import static com.snowflake.kafka.connector.Utils.TASK_ID;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConf;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfWithOAuth;
+import static org.junit.Assert.assertEquals;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import com.snowflake.kafka.connector.internal.TestUtils;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigValue;
 import org.junit.Test;
@@ -165,6 +167,10 @@ public class ConnectorIT {
           SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
           SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY
         });
+    assertEquals(
+        SnowflakeSinkConnectorConfig.SNOWFLAKE_URL + ": Cannot connect to Snowflake, due to JDBC driver encountered communication error. Message: HTTP status=513.",
+        validateMap.get(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL).errorMessages().get(0)
+    );
   }
 
   @Test
@@ -188,6 +194,10 @@ public class ConnectorIT {
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(
         validateMap, new String[] {SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY});
+    assertEquals(
+        SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY + " must be a valid PEM RSA private key",
+        validateMap.get(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY).errorMessages().get(0)
+    );
   }
 
   @Test
@@ -206,6 +216,24 @@ public class ConnectorIT {
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(
         validateMap, new String[] {SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY});
+  }
+
+  @Test
+  public void testValidateWrongRoleConfig() {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE, "wrongRole");
+    Map<String, ConfigValue> validateMap = toValidateMap(config);
+    assertPropHasError(
+        validateMap,
+        new String[] {
+            SnowflakeSinkConnectorConfig.SNOWFLAKE_USER,
+            SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
+            SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY
+        });
+    assertEquals(
+        "snowflake.url.name: Cannot connect to Snowflake, due to Role 'WRONGROLE' specified in the connect string does not exist or not authorized. Contact your local system administrator, or attempt to login with another role, e.g. PUBLIC.",
+        validateMap.get(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL).errorMessages().get(0)
+    );
   }
 
   @Test
