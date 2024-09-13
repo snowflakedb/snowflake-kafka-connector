@@ -21,6 +21,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -670,6 +671,129 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
+  public void hasSchemaPrivileges(String schemaName, String ingestionMethod) {
+    checkConnection();
+    String queryUseSchema = "USE SCHEMA IDENTIFIER(?)";
+    String queryCheckPrivileges = "SHOW GRANTS ON SCHEMA " + schemaName + ";";
+    String currentRole = getCurrentRole(conn);
+
+    boolean hasOwnershipPrivilege = false;
+    boolean hasAllPrivilege = false;
+    boolean hasCreateTablePrivilege = false;
+    boolean hasCreateStagePrivilege = false;
+    boolean hasCreatePipePrivilege = false;
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(queryUseSchema);
+      stmt.setString(1, schemaName);
+      stmt.execute();
+      stmt.close();
+
+      stmt = conn.prepareStatement(queryCheckPrivileges);
+      ResultSet rs = stmt.executeQuery();
+      while (rs.next()) {
+        if (!rs.getString("grantee_name").equals(currentRole)) {
+          continue;
+        }
+        String privilege = rs.getString("privilege");
+        if (privilege.equalsIgnoreCase("OWNERSHIP")) {
+          hasOwnershipPrivilege = true;
+          break;
+        }
+        if (privilege.equalsIgnoreCase("ALL")) {
+          hasAllPrivilege = true;
+          break;
+        }
+        if (privilege.equalsIgnoreCase("CREATE TABLE")) {
+          hasCreateTablePrivilege = true;
+        }
+        if (privilege.equalsIgnoreCase("CREATE STAGE")) {
+          hasCreateStagePrivilege = true;
+        }
+        if (privilege.equalsIgnoreCase("CREATE PIPE")) {
+          hasCreatePipePrivilege = true;
+        }
+      }
+      rs.close();
+      stmt.close();
+
+      if (hasOwnershipPrivilege || hasAllPrivilege) {
+        LOGGER.info("Schema {} has required privileges", schemaName);
+        return;
+      }
+
+      if (!hasCreateTablePrivilege) {
+        throw SnowflakeErrors.ERROR_2001.getException("Missing CREATE TABLE privilege on schema " + schemaName);
+      }
+
+      if(ingestionMethod.equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE_STREAMING.toString())) {
+        LOGGER.info("Schema {} has required privileges for SNOWPIPE_STREAMING ingestion", schemaName);
+        return;
+      }
+
+      // For SNOWPIPE ingestion, we need CREATE STAGE and CREATE PIPE privileges as well
+      if (!hasCreateStagePrivilege) {
+        throw SnowflakeErrors.ERROR_2001.getException("Missing CREATE STAGE privilege on schema " + schemaName);
+      }
+      if (!hasCreatePipePrivilege) {
+        throw SnowflakeErrors.ERROR_2001.getException("Missing CREATE PIPE privilege on schema " + schemaName);
+      }
+
+      LOGGER.info("Schema {} has required privileges", schemaName);
+
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2001.getException(e);
+    }
+  }
+
+  @Override
+  public void hasTableRequiredPrivileges(String tableName) {
+    checkConnection();
+    String queryCheckTablePrivileges = "SHOW GRANTS ON TABLE " + tableName + ";";
+    String currentRole = getCurrentRole(conn);
+    boolean hasOwnershipPrivilege = false;
+    boolean hasAllPrivileges = false;
+    boolean hasInsertPrivilege = false;
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(queryCheckTablePrivileges);
+      ResultSet rs = stmt.executeQuery();
+      while (rs.next()) {
+        if (!rs.getString("grantee_name").equals(currentRole)) {
+          continue;
+        }
+        String privilege = rs.getString("privilege");
+        if (privilege.equalsIgnoreCase("OWNERSHIP")) {
+          hasOwnershipPrivilege = true;
+          break;
+        }
+        if (privilege.equalsIgnoreCase("ALL")) {
+          hasAllPrivileges = true;
+        }
+        if (privilege.equalsIgnoreCase("INSERT")) {
+          hasInsertPrivilege = true;
+        }
+      }
+      rs.close();
+      stmt.close();
+
+      if (hasOwnershipPrivilege || hasAllPrivileges) {
+        LOGGER.info("Table {} has either OWNERSHIP or ALL privileges", tableName);
+        return;
+      }
+
+      if (!hasInsertPrivilege) { // only checking the bare minimum privilege we need
+        throw SnowflakeErrors.ERROR_2001.getException("Missing INSERT privilege on table " + tableName);
+      }
+
+      LOGGER.info("Table {} has required privilege", tableName);
+
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2001.getException(e);
+    }
+  }
+
+  @Override
   public void dropPipe(final String pipeName) {
     checkConnection();
     InternalUtils.assertNotEmpty("pipeName", pipeName);
@@ -1087,4 +1211,24 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
             migrateOffsetTokenResultFromSysFunc, ChannelMigrateOffsetTokenResponseDTO.class);
     return channelMigrateOffsetTokenResponseDTO;
   }
+
+  private String getCurrentRole(Connection conn) {
+    String query = "SELECT CURRENT_ROLE()";
+    String currentRole = null;
+    try {
+      Statement stmt = conn.createStatement();
+      ResultSet rs = stmt.executeQuery(query);
+      if (rs.next()) {
+        currentRole = rs.getString(1);
+      }
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2001.getException("Failed to fetch the current role");
+    }
+    if (currentRole == null) {
+      throw SnowflakeErrors.ERROR_2001.getException("Got current role as null");
+    }
+
+    return currentRole;
+  }
+
 }
