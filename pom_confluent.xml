@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   ~ /*
-  ~  * Copyright (c) 2019 - 2020 Snowflake Computing Inc. All rights reserved.
+  ~  * Copyright (c) 2019 - 2024 Snowflake Computing Inc. All rights reserved.
   ~  */
   -->
 
@@ -12,7 +12,7 @@
 
     <groupId>com.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>2.4.0</version>
+    <version>2.4.1</version>
     <packaging>jar</packaging>
     <name>Snowflake Kafka Connector</name>
     <description>Snowflake Kafka Connect Sink Connector</description>
@@ -502,7 +502,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-ingest-sdk</artifactId>
-            <version>2.2.0</version>
+            <version>2.2.2</version>
             <exclusions>
                 <exclusion>
                     <groupId>net.snowflake</groupId>
