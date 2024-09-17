@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 
 /** Validates connector config for Snowpipe Streaming */
+// TODO (separate PR) - rename to ConfigValidator and return an ordinary Map
 public interface StreamingConfigValidator {
 
   /**

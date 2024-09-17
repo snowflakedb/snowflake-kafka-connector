@@ -21,9 +21,13 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       new KCLogger(DefaultConnectorConfigValidator.class.getName());
 
   private final StreamingConfigValidator streamingConfigValidator;
+  private final StreamingConfigValidator icebergConfigValidator;
 
-  public DefaultConnectorConfigValidator(StreamingConfigValidator streamingConfigValidator) {
+  public DefaultConnectorConfigValidator(
+      StreamingConfigValidator streamingConfigValidator,
+      StreamingConfigValidator icebergConfigValidator) {
     this.streamingConfigValidator = streamingConfigValidator;
+    this.icebergConfigValidator = icebergConfigValidator;
   }
 
   /**
@@ -253,6 +257,7 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
     invalidConfigParams.putAll(streamingConfigValidator.validate(config));
+    invalidConfigParams.putAll(icebergConfigValidator.validate(config));
 
     // logs and throws exception if there are invalid params
     handleInvalidParameters(ImmutableMap.copyOf(invalidConfigParams));

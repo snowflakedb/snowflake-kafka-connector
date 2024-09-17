@@ -19,6 +19,8 @@ import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.Assert.assertEquals;
 
+import com.snowflake.kafka.connector.config.IcebergConfigValidator;
+import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
@@ -41,7 +43,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class ConnectorConfigValidatorTest {
 
   private final ConnectorConfigValidator connectorConfigValidator =
-      new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
+      new DefaultConnectorConfigValidator(
+          new DefaultStreamingConfigValidator(), new IcebergConfigValidator());
 
   // subset of valid community converters
   public static final List<Converter> COMMUNITY_CONVERTER_SUBSET =
@@ -63,14 +66,16 @@ public class ConnectorConfigValidatorTest {
 
   @Test
   public void testConfig() {
-    Map<String, String> config = getConfig();
+    Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.snowpipeConfig().build();
     connectorConfigValidator.validateConfig(config);
   }
 
   @Test
   public void testConfig_ConvertedInvalidAppName() {
-    Map<String, String> config = getConfig();
-    config.put(NAME, "testConfig.snowflake-connector");
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.snowpipeConfig()
+            .withName("testConfig.snowflake-connector")
+            .build();
 
     Utils.convertAppName(config);
 

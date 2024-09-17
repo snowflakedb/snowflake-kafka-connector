@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 
+import com.snowflake.kafka.connector.config.IcebergConfigValidator;
 import com.snowflake.kafka.connector.internal.EncryptionUtils;
 import com.snowflake.kafka.connector.internal.FIPSTest;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -22,7 +23,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class ConnectorConfigValidatorLogsTest {
 
   private final ConnectorConfigValidator connectorConfigValidator =
-      new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
+      new DefaultConnectorConfigValidator(
+          new DefaultStreamingConfigValidator(), new IcebergConfigValidator());
 
   @Test
   public void testRSAPasswordOutput() throws IOException, OperatorCreationException {

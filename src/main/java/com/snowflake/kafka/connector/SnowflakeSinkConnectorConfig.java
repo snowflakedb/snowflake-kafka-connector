@@ -139,6 +139,10 @@ public class SnowflakeSinkConnectorConfig {
   public static final String SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP =
       "snowflake.streaming.client.provider.override.map";
 
+  // Iceberg
+  public static final String ICEBERG_ENABLED = "snowflake.streaming.iceberg.enabled";
+  public static final boolean ICEBERG_ENABLED_DEFAULT_VALUE = false;
+
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
   public static final boolean REBALANCING_DEFAULT = false;
