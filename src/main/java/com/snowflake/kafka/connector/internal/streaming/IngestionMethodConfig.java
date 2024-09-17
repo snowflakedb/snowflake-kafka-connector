@@ -7,7 +7,7 @@ import org.apache.kafka.common.config.ConfigDef;
 
 /**
  * Enum representing the allowed values for config {@link
- * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#INGESTION_METHOD_OPT}
+ * SnowflakeSinkConnectorConfig#INGESTION_METHOD_OPT}
  *
  * <p>NOTE: Please do not change ordering of this Enums, please append to the end.
  */

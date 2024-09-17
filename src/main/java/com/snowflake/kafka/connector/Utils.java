@@ -404,7 +404,7 @@ public class Utils {
    *
    * @param config input config object
    */
-  static boolean isSnowpipeStreamingIngestion(Map<String, String> config) {
+  public static boolean isSnowpipeStreamingIngestion(Map<String, String> config) {
     return !isSnowpipeIngestion(config);
   }
 

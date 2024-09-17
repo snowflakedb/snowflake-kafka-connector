@@ -97,7 +97,7 @@ public interface SnowflakeSinkService {
 
   /**
    * change data size of buffer to control the flush rate, the minimum file size is controlled by
-   * {@link com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES_MIN}
+   * {@link SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES_MIN}
    *
    * <p>Please note: The buffer size for Streaming and snowpipe doesnt necessarily translate to same
    * file size in Snowflake.
@@ -117,7 +117,7 @@ public interface SnowflakeSinkService {
 
   /**
    * change flush rate of sink service the minimum flush time is controlled by {@link
-   * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC_MIN}
+   * SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC_MIN}
    *
    * @param time a non negative long number represents service flush time in seconds
    */
