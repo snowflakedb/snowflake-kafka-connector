@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
@@ -10,7 +9,6 @@ import com.snowflake.kafka.connector.Utils;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import net.snowflake.ingest.streaming.OffsetTokenVerificationFunction;
 import net.snowflake.ingest.utils.Constants;
 import org.apache.kafka.common.record.DefaultRecord;
@@ -45,10 +43,6 @@ public class StreamingUtils {
    * <p>1 MB is an ideal size for streaming ingestion so 95% if 20MB = 1MB
    */
   protected static final long STREAMING_BUFFER_BYTES_DEFAULT = 20_000_000;
-
-  private static final Set<String> DISALLOWED_CONVERTERS_STREAMING = CUSTOM_SNOWFLAKE_CONVERTERS;
-  private static final String STRING_CONVERTER_KEYWORD = "StringConverter";
-  private static final String BYTE_ARRAY_CONVERTER_KEYWORD = "ByteArrayConverter";
 
   // excluding key, value and headers: 5 bytes length + 10 bytes timestamp + 5 bytes offset + 1
   // byte attributes. (This is not for record metadata, this is before we transform to snowflake
