@@ -47,6 +47,7 @@ import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -422,6 +423,23 @@ public class TestUtils {
   }
 
   /**
+   * execute sql query
+   *
+   * @param query sql query string
+   * @param parameter parameter to be inserted at index 1
+   */
+  static void executeQueryWithParameter(String query, String parameter) {
+    try {
+      PreparedStatement stmt = getConnection().prepareStatement(query);
+      stmt.setString(1, parameter);
+      stmt.execute();
+      stmt.close();
+    } catch (Exception e) {
+      throw new RuntimeException("Error executing query: " + query, e);
+    }
+  }
+
+  /**
    * drop a table
    *
    * @param tableName table name
@@ -430,6 +448,35 @@ public class TestUtils {
     String query = "drop table if exists " + tableName;
 
     executeQuery(query);
+  }
+
+  /**
+   * drop an iceberg table
+   *
+   * @param tableName table name
+   */
+  public static void dropIcebergTable(String tableName) {
+    String query = "drop iceberg table if exists identifier(?)";
+    executeQueryWithParameter(query, tableName);
+  }
+
+  /**
+   * create an iceberg table
+   *
+   * @param tableName table name
+   */
+  public static void createIcebergTable(String tableName) throws Exception {
+    String query =
+            "create or replace iceberg table identifier(?) (record_metadata object())" +
+                    "external_volume = 'test_exvol'" +
+                    "catalog = 'SNOWFLAKE'" +
+                    "base_location = 'it'";
+    executeQueryWithParameter(query, tableName);
+  }
+
+  public static void enableSchemaEvolution(String tableName) throws Exception {
+    String query = "alter iceberg table identifier(?) set enable_schema_evolution = true";
+    executeQueryWithParameter(query, tableName);
   }
 
   /** Select * from table */
