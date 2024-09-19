@@ -136,7 +136,7 @@ public enum SnowflakeErrors {
       String.format(
           "Failed to parse %s map",
           SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)),
-
+  ERROR_0031("0031", "Empty Schema name", "Input Schema name is empty string or null"),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
@@ -205,6 +205,10 @@ public enum SnowflakeErrors {
       "2017",
       "Failed to check schema evolution permission",
       "Failed to check schema evolution permission"),
+  ERROR_2018(
+          "2018",
+          "Failed to create schema",
+          "Failed to create schema on Snowflake, please check that you have permission to do so."),
   // Snowpipe related issues 3---
   ERROR_3001("3001", "Failed to ingest file", "Exception reported by Ingest SDK"),
 
