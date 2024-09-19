@@ -466,7 +466,7 @@ public class ConnectorConfigDefinition {
             ICEBERG_ENABLED,
             ConfigDef.Type.BOOLEAN,
             ICEBERG_ENABLED_DEFAULT_VALUE,
-            ConfigDef.Importance.MEDIUM,
+            ConfigDef.Importance.HIGH,
             "When set to true the connector will ingest data into the Iceberg table. Check the"
                 + " official Snowflake documentation for the prerequisites.");
   }
