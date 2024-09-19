@@ -461,6 +461,13 @@ public class ConnectorConfigDefinition {
             ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT,
             ConfigDef.Importance.LOW,
             "If set to true the Connector will fail its tasks when authorization error from"
-                + " Snowflake occurred");
+                + " Snowflake occurred")
+        .define(
+            ICEBERG_ENABLED,
+            ConfigDef.Type.BOOLEAN,
+            ICEBERG_ENABLED_DEFAULT_VALUE,
+            ConfigDef.Importance.HIGH,
+            "When set to true the connector will ingest data into the Iceberg table. Check the"
+                + " official Snowflake documentation for the prerequisites.");
   }
 }

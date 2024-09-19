@@ -26,10 +26,6 @@ import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
 import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_USER;
 import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
 import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
-import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
-import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
-import static com.snowflake.kafka.connector.Utils.SF_URL;
-import static com.snowflake.kafka.connector.Utils.SF_USER;
 import static com.snowflake.kafka.connector.Utils.buildOAuthHttpPostRequest;
 import static com.snowflake.kafka.connector.Utils.getSnowflakeOAuthToken;
 
@@ -38,6 +34,7 @@ import com.google.common.collect.Sets;
 import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -762,25 +759,10 @@ public class TestUtils {
     return records;
   }
 
+  /** @deprecated use SnowflakeSinkConnectorConfigBuilder instead */
+  @Deprecated
   public static Map<String, String> getConfig() {
-    Map<String, String> config = new HashMap<>();
-    config.put(Utils.NAME, "test");
-    config.put(SnowflakeSinkConnectorConfig.TOPICS, "topic1,topic2");
-    config.put(SF_URL, "https://testaccount.snowflake.com:443");
-    config.put(SF_USER, "userName");
-    config.put(Utils.SF_PRIVATE_KEY, "fdsfsdfsdfdsfdsrqwrwewrwrew42314424");
-    config.put(SF_SCHEMA, "testSchema");
-    config.put(SF_DATABASE, "testDatabase");
-    config.put(
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT + "");
-    config.put(
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT + "");
-    config.put(
-        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT + "");
-    return config;
+    return SnowflakeSinkConnectorConfigBuilder.snowpipeConfig().build();
   }
 
   /**
