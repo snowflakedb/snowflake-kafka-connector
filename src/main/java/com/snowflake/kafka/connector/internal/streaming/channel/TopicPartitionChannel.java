@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming.channel;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import net.snowflake.ingest.utils.SFException;
@@ -87,8 +88,7 @@ public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionCh
    *
    * <p>Note: We acquire buffer lock since we copy the buffer.
    *
-   * <p>Threshold is config parameter: {@link
-   * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
+   * <p>Threshold is config parameter: {@link SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
    *
    * <p>Previous flush time here means last time we called insertRows API with rows present in
    */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Snowflake Inc. All rights reserved.
+ * Copyright (c) 2024 Snowflake Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
@@ -65,7 +65,7 @@ import org.apache.kafka.common.config.ConfigValue;
 public class Utils {
 
   // Connector version, change every release
-  public static final String VERSION = "2.3.0";
+  public static final String VERSION = "2.4.1";
 
   // connector parameter list
   public static final String NAME = "name";
@@ -404,7 +404,7 @@ public class Utils {
    *
    * @param config input config object
    */
-  static boolean isSnowpipeStreamingIngestion(Map<String, String> config) {
+  public static boolean isSnowpipeStreamingIngestion(Map<String, String> config) {
     return !isSnowpipeIngestion(config);
   }
 

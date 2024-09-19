@@ -707,6 +707,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
             ? currentConsumerGroupOffset.get()
             : offsetRecoveredFromSnowflake + 1L;
     if (offsetToResetInKafka == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      this.channel = newChannel;
       return;
     }
 

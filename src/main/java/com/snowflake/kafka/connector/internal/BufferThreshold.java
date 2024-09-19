@@ -26,8 +26,7 @@ public abstract class BufferThreshold {
    * Time based buffer flush threshold in seconds. Corresponds to the duration since last kafka
    * flush Set in config
    *
-   * <p>Config parameter: {@link
-   * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
+   * <p>Config parameter: {@link SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
    */
   private final long bufferFlushTimeThreshold;
 
@@ -35,16 +34,14 @@ public abstract class BufferThreshold {
    * Size based buffer flush threshold in bytes. Corresponds to the buffer size in kafka Set in
    * config
    *
-   * <p>Config parameter: {@link
-   * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES}
+   * <p>Config parameter: {@link SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES}
    */
   private final long bufferByteSizeThreshold;
 
   /**
    * Count based buffer flush threshold. Corresponds to the record count in kafka Set in config.
    *
-   * <p>Config parameter: {@link
-   * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_COUNT_RECORDS}
+   * <p>Config parameter: {@link SnowflakeSinkConnectorConfig#BUFFER_COUNT_RECORDS}
    */
   private final long bufferRecordCountThreshold;
 
@@ -73,8 +70,7 @@ public abstract class BufferThreshold {
   /**
    * Returns true the buffer should flush based on the current buffer byte size
    *
-   * <p>Threshold is config parameter: {@link
-   * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES}
+   * <p>Threshold is config parameter: {@link SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES}
    *
    * @param currBufferByteSize current size of buffer in bytes
    * @return true if the currByteSize > configByteSizeThreshold
@@ -86,8 +82,7 @@ public abstract class BufferThreshold {
   /**
    * Returns true the buffer should flush based on the current buffer record count
    *
-   * <p>Threshold is config parameter: {@link
-   * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_COUNT_RECORDS}
+   * <p>Threshold is config parameter: {@link SnowflakeSinkConnectorConfig#BUFFER_COUNT_RECORDS}
    *
    * @param currentBufferedRecordCount current size of buffer in number of kafka records
    * @return true if the currRecordCount > configRecordCountThreshold
@@ -100,8 +95,7 @@ public abstract class BufferThreshold {
   /**
    * Returns true the buffer should flush based on the last flush time
    *
-   * <p>Threshold is config parameter: {@link
-   * com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
+   * <p>Threshold is config parameter: {@link SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
    *
    * @param previousFlushTimeStampMs when the previous buffered records flushed
    * @return true if currentTime - previousTime > configTimeThreshold

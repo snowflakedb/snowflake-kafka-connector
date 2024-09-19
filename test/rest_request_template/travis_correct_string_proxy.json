@@ -14,6 +14,7 @@
     "jvm.proxy.host": "localhost",
     "jvm.proxy.port": "3128",
     "jvm.proxy.username": "admin",
-    "jvm.proxy.password": "test"
+    "jvm.proxy.password": "test",
+    "snowflake.jdbc.map": "isInsecureMode : true, notYetExistingProp : true"
   }
 }

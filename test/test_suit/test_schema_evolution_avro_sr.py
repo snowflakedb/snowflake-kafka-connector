@@ -32,7 +32,8 @@ class TestSchemaEvolutionAvroSR:
         self.records.append({
             'PERFORMANCE_STRING': 'Excellent',
             'RATING_DOUBLE': 0.99,
-            'APPROVAL': True
+            'APPROVAL': True,
+            'SOME_FLOAT_NAN': "NaN"
         })
 
         self.ValueSchemaStr = []
@@ -56,7 +57,8 @@ class TestSchemaEvolutionAvroSR:
             "fields":[
                 {"name":"RATING_DOUBLE","type":"float"},
                 {"name":"PERFORMANCE_STRING","type":"string"},
-                {"name":"APPROVAL","type":"boolean"}
+                {"name":"APPROVAL","type":"boolean"},
+                {"name":"SOME_FLOAT_NAN","type":"float"}
             ]
         }
         """)
@@ -67,7 +69,8 @@ class TestSchemaEvolutionAvroSR:
             'RATING_INT': 'NUMBER',
             'RATING_DOUBLE': 'FLOAT',
             'APPROVAL': 'BOOLEAN',
-            'RECORD_METADATA': 'VARIANT'
+            'SOME_FLOAT_NAN': 'FLOAT',
+            'RECORD_METADATA': 'VARIANT',
         }
 
         self.gold_columns = [columnName for columnName in self.gold_type]

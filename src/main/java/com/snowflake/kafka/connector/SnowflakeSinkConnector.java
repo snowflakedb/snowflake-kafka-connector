@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector;
 
+import com.snowflake.kafka.connector.config.ConnectorConfigDefinition;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
@@ -192,7 +193,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   /** @return ConfigDef with original configuration properties */
   @Override
   public ConfigDef config() {
-    return SnowflakeSinkConnectorConfig.newConfigDef();
+    return ConnectorConfigDefinition.getConfig();
   }
 
   @Override

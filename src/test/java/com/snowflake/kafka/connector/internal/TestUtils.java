@@ -39,7 +39,6 @@ import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
@@ -78,8 +77,6 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.google.gson.JsonObject;
 import net.snowflake.client.jdbc.internal.google.gson.JsonParser;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -887,13 +884,16 @@ public class TestUtils {
     }
   }
 
-  public static SnowflakeStreamingIngestClient createStreamingClient(
-      Map<String, String> config, String clientName) {
-    Properties clientProperties = new Properties();
-    clientProperties.putAll(StreamingUtils.convertConfigForStreamingClient(new HashMap<>(config)));
-    return SnowflakeStreamingIngestClientFactory.builder(clientName)
-        .setProperties(clientProperties)
-        .build();
+  public static Map<String, Object> getTableContentOneRow(String tableName) throws SQLException {
+    String getRowQuery = "select * from " + tableName + " limit 1";
+    ResultSet result = executeQuery(getRowQuery);
+    result.next();
+
+    Map<String, Object> contentMap = new HashMap<>();
+    for (int i = 0; i < result.getMetaData().getColumnCount(); i++) {
+      contentMap.put(result.getMetaData().getColumnName(i + 1), result.getObject(i + 1));
+    }
+    return contentMap;
   }
 
   /**
