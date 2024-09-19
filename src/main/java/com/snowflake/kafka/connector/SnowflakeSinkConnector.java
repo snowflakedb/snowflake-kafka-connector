@@ -294,7 +294,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
       return result;
     }
 
-    try {
+    // Disabling config validation due to ENG-789/Auto create schema feature for Append SF connector
+    /*try {
       testConnection.schemaExists(connectorConfigs.get(Utils.SF_SCHEMA));
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error("Validate Error msg:{}, errorCode:{}", e.getMessage(), e.getCode());
@@ -304,7 +305,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
         throw e;
       }
       return result;
-    }
+    }*/
 
     LOGGER.info("Validated config with no error");
     return result;
