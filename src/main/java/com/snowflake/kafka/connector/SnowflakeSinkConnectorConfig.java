@@ -123,7 +123,7 @@ public class SnowflakeSinkConnectorConfig {
   // Whether to close streaming channels in parallel.
   public static final String SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL =
       "snowflake.streaming.closeChannelsInParallel.enabled";
-  public static final boolean SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT = false;
+  public static final boolean SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT = true;
 
   // This is the streaming max client lag which can be defined in config
   public static final String SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER =
