@@ -21,21 +21,24 @@ public class IcebergConfigValidator implements StreamingConfigValidator {
   @Override
   public ImmutableMap<String, String> validate(Map<String, String> inputConfig) {
     boolean isIcebergEnabled = Boolean.parseBoolean(inputConfig.get(ICEBERG_ENABLED));
+
+    if (!isIcebergEnabled) {
+      return ImmutableMap.of();
+    }
+
     Map<String, String> validationErrors = new HashMap<>();
 
-    if (isIcebergEnabled) {
-      boolean isSchematizationEnabled =
-          Boolean.parseBoolean(
-              inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
-      IngestionMethodConfig ingestionMethod =
-          IngestionMethodConfig.valueOf(inputConfig.get(INGESTION_METHOD_OPT).toUpperCase());
+    boolean isSchematizationEnabled =
+        Boolean.parseBoolean(
+            inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
+    IngestionMethodConfig ingestionMethod =
+        IngestionMethodConfig.valueOf(inputConfig.get(INGESTION_METHOD_OPT).toUpperCase());
 
-      if (!isSchematizationEnabled) {
-        validationErrors.put(ENABLE_SCHEMATIZATION_CONFIG, NO_SCHEMATIZATION_ERROR_MESSAGE);
-      }
-      if (ingestionMethod != SNOWPIPE_STREAMING) {
-        validationErrors.put(INGESTION_METHOD_OPT, INCOMPATIBLE_INGESTION_METHOD);
-      }
+    if (!isSchematizationEnabled) {
+      validationErrors.put(ENABLE_SCHEMATIZATION_CONFIG, NO_SCHEMATIZATION_ERROR_MESSAGE);
+    }
+    if (ingestionMethod != SNOWPIPE_STREAMING) {
+      validationErrors.put(INGESTION_METHOD_OPT, INCOMPATIBLE_INGESTION_METHOD);
     }
 
     return ImmutableMap.copyOf(validationErrors);

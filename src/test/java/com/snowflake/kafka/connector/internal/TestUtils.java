@@ -760,6 +760,7 @@ public class TestUtils {
   }
 
   /** @deprecated use SnowflakeSinkConnectorConfigBuilder instead */
+  @Deprecated
   public static Map<String, String> getConfig() {
     return SnowflakeSinkConnectorConfigBuilder.snowpipeConfig().build();
   }

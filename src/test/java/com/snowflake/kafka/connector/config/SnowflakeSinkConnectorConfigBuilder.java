@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * This is a builder class for the connector config For now it returns map. Let's change it to a
+ * This is a builder class for the connector config. For now it returns map. Let's change it to a
  * more convenient abstraction when we have it.
  */
 public class SnowflakeSinkConnectorConfigBuilder {
