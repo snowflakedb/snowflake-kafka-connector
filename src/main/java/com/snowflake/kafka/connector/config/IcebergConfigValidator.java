@@ -16,7 +16,7 @@ public class IcebergConfigValidator implements StreamingConfigValidator {
   private static final String NO_SCHEMATIZATION_ERROR_MESSAGE =
       "Ingestion to Iceberg table requires " + ENABLE_SCHEMATIZATION_CONFIG + " set to true";
   private static final String INCOMPATIBLE_INGESTION_METHOD =
-      "Ingestion to Iceberg table is supported only for " + SNOWPIPE_STREAMING;
+      "Ingestion to Iceberg table is supported only for Snowpipe Streaming";
 
   @Override
   public ImmutableMap<String, String> validate(Map<String, String> inputConfig) {
