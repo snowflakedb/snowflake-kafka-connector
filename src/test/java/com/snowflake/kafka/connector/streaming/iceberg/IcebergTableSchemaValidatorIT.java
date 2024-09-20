@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -33,7 +34,7 @@ public class IcebergTableSchemaValidatorIT extends BaseIcebergIT {
   }
 
   @Test
-  public void shouldValidateExpectedIcebergTableSchema() throws Exception {
+  public void shouldValidateExpectedIcebergTableSchema() {
     // given
     createIcebergTable(tableName);
     enableSchemaEvolution(tableName);
@@ -45,16 +46,29 @@ public class IcebergTableSchemaValidatorIT extends BaseIcebergIT {
   @Test
   public void shouldThrowExceptionWhenTableDoesNotExist() {
     Assertions.assertThrows(
-        RuntimeException.class, () -> schemaValidator.validateTable(tableName, TEST_ROLE));
+        SnowflakeKafkaConnectorException.class,
+        () -> schemaValidator.validateTable(tableName, TEST_ROLE));
   }
 
   @Test
   public void shouldThrowExceptionWhenRecordMetadataDoesNotExist() {
-    // TODO
+    // given
+    createIcebergTableWithColumnClause(tableName, "some_column VARCHAR");
+
+    // expect
+    Assertions.assertThrows(
+        SnowflakeKafkaConnectorException.class,
+        () -> schemaValidator.validateTable(tableName, TEST_ROLE));
   }
 
   @Test
   public void shouldThrowExceptionWhenRecordMetadataHasInvalidType() {
-    // TODO
+    // given
+    createIcebergTableWithColumnClause(tableName, "record_metadata MAP(VARCHAR, VARCHAR)");
+
+    // expect
+    Assertions.assertThrows(
+        SnowflakeKafkaConnectorException.class,
+        () -> schemaValidator.validateTable(tableName, TEST_ROLE));
   }
 }

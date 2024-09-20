@@ -140,6 +140,10 @@ public enum SnowflakeErrors {
       "0031",
       "Failed to combine JDBC properties",
       "One of snowflake.jdbc.map property overrides other jdbc property"),
+  ERROR_0032(
+      "0032",
+      "Iceberg table does not exist or is in invalid format",
+      "Check Snowflake Kafka Connector docs for details"),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
