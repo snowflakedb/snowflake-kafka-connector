@@ -660,6 +660,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
+  // TODO - move to test-only class
   public void dropPipe(final String pipeName) {
     checkConnection();
     InternalUtils.assertNotEmpty("pipeName", pipeName);
@@ -678,6 +679,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
+  // TODO - move to test-only class
   public boolean dropStageIfEmpty(final String stageName) {
     checkConnection();
     InternalUtils.assertNotEmpty("stageName", stageName);
@@ -761,6 +763,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
+  // TODO - move to test-only class
   public void moveToTableStage(
       final String tableName, final String stageName, final String prefix) {
     InternalUtils.assertNotEmpty("tableName", tableName);
@@ -808,6 +811,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   @Override
   @Deprecated
   // Only using it in test for performance testing
+  // TODO - move to test-only class
   public void put(final String stageName, final String fileName, final String content) {
     InternalUtils.assertNotEmpty("stageName", stageName);
     SnowflakeConnectionV1 sfconn = (SnowflakeConnectionV1) conn;
