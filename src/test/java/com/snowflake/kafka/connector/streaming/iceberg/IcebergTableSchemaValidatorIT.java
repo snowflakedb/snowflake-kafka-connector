@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.streaming.iceberg;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -10,10 +11,16 @@ public class IcebergTableSchemaValidatorIT extends BaseIcebergIT {
 
   private static final String TEST_ROLE = "testrole_kafka";
 
-  private static final IcebergTableSchemaValidator schemaValidator =
-      new IcebergTableSchemaValidator(conn);
+  private static IcebergTableSchemaValidator schemaValidator;
 
   private String tableName;
+
+  @BeforeAll
+  // overrides the base class @BeforeAll
+  public static void setup() {
+    conn = TestUtils.getConnectionServiceForStreaming();
+    schemaValidator = new IcebergTableSchemaValidator(conn);
+  }
 
   @BeforeEach
   public void setUp() {
