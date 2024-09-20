@@ -167,8 +167,9 @@ public class Utils {
       InputStream input = urlConnection.getInputStream();
       BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(input));
       String line;
-      Pattern pattern = Pattern.compile("(\\d+\\.\\d+\\.\\d+?)");
+      Pattern pattern = Pattern.compile("(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}?)"); // Secure Regex
       while ((line = bufferedReader.readLine()) != null) {
+        line = line.substring(0, Math.min(line.length(), 1000)); // Limit regex input to 1000 chars to prevent ReDOS
         Matcher matcher = pattern.matcher(line);
         if (matcher.find()) {
           String version = matcher.group(1);
