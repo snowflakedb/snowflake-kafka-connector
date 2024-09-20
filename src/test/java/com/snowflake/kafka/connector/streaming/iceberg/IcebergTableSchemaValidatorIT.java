@@ -1,17 +1,15 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class IcebergTableSchemaValidatorIT {
+public class IcebergTableSchemaValidatorIT extends BaseIcebergIT {
 
   private static final String TEST_ROLE = "testrole_kafka";
 
-  private static final SnowflakeConnectionService conn =
-      TestUtils.getConnectionServiceForStreaming();
   private static final IcebergTableSchemaValidator schemaValidator =
       new IcebergTableSchemaValidator(conn);
 
@@ -24,14 +22,14 @@ public class IcebergTableSchemaValidatorIT {
 
   @AfterEach
   public void tearDown() {
-    TestUtils.dropIcebergTable(tableName);
+    dropIcebergTable(tableName);
   }
 
   @Test
   public void shouldValidateExpectedIcebergTableSchema() throws Exception {
     // given
-    TestUtils.createIcebergTable(tableName);
-    TestUtils.enableSchemaEvolution(tableName);
+    createIcebergTable(tableName);
+    enableSchemaEvolution(tableName);
 
     // when, then
     schemaValidator.validateTable(tableName, TEST_ROLE);
@@ -39,13 +37,17 @@ public class IcebergTableSchemaValidatorIT {
 
   @Test
   public void shouldThrowExceptionWhenTableDoesNotExist() {
-    // Assertions.assertThrows(RuntimeException.class, () ->
-    // schemaValidator.validateTable(tableName, TEST_ROLE));
+    Assertions.assertThrows(
+        RuntimeException.class, () -> schemaValidator.validateTable(tableName, TEST_ROLE));
   }
 
   @Test
-  public void shouldThrowExceptionWhenRecordMetadataDoesNotExist() {}
+  public void shouldThrowExceptionWhenRecordMetadataDoesNotExist() {
+    // TODO
+  }
 
   @Test
-  public void shouldThrowExceptionWhenRecordMetadataHasInvalidType() {}
+  public void shouldThrowExceptionWhenRecordMetadataHasInvalidType() {
+    // TODO
+  }
 }

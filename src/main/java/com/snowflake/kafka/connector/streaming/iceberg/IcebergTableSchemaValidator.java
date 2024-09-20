@@ -12,15 +12,21 @@ public class IcebergTableSchemaValidator {
   }
 
   /**
-   * Ensure that table exists and record_metadata column is of type OBJECT(). TODO SNOW-1658914 -
-   * write a test for table with record_metadata schema altered by the connector
+   * Ensure that table exists and record_metadata column is of type OBJECT().
+   *
+   * <p>TODO SNOW-1658914 - write a test for table with record_metadata schema altered by the
+   * connector
    */
   public void validateTable(String tableName, String role) {
+    // TODO - plug into connector startup
     if (!snowflakeConnectionService.tableExist(tableName)) {
+      // TODO - better errors
       throw new RuntimeException("TODO");
     }
 
+    // TODO - why is it so slow?
     if (!snowflakeConnectionService.hasSchemaEvolutionPermission(tableName, role)) {
+      // TODO - better errors
       throw new RuntimeException("TODO");
     }
 

@@ -31,7 +31,6 @@ import static com.snowflake.kafka.connector.Utils.getSnowflakeOAuthToken;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
@@ -46,7 +45,6 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -56,7 +54,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -129,13 +126,9 @@ public class TestUtils {
       Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(key|value)_(\\d+)\\.gz$");
 
   // profile path
-  private static final String PROFILE_PATH = "profile.json";
+  public static final String PROFILE_PATH = "profile.json";
 
   private static final ObjectMapper mapper = new ObjectMapper();
-
-  private static Connection conn = null;
-
-  private static Connection connForStreamingIngestTests = null;
 
   private static Map<String, String> conf = null;
 
@@ -263,33 +256,6 @@ public class TestUtils {
   }
 
   /**
-   * Create snowflake jdbc connection
-   *
-   * @return jdbc connection
-   * @throws Exception when meeting error
-   */
-  private static Connection getConnection() throws Exception {
-    if (conn != null) {
-      return conn;
-    }
-
-    return generateConnectionToSnowflake(PROFILE_PATH);
-  }
-
-  /** Given a profile file path name, generate a connection by constructing a snowflake driver. */
-  private static Connection generateConnectionToSnowflake(final String profileFileName)
-      throws Exception {
-    SnowflakeURL url = new SnowflakeURL(getConfFromFileName(profileFileName).get(Utils.SF_URL));
-
-    Properties properties =
-        InternalUtils.createProperties(getConfFromFileName(profileFileName), url);
-
-    Connection connToSnowflake = new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
-
-    return connToSnowflake;
-  }
-
-  /**
    * read conf file
    *
    * @return a map of parameters
@@ -413,7 +379,7 @@ public class TestUtils {
    */
   static ResultSet executeQuery(String query) {
     try {
-      Statement statement = getConnection().createStatement();
+      Statement statement = TestSnowflakeConnection.getConnection().createStatement();
       return statement.executeQuery(query);
     }
     // if ANY exceptions occur, an illegal state has been reached
@@ -428,9 +394,9 @@ public class TestUtils {
    * @param query sql query string
    * @param parameter parameter to be inserted at index 1
    */
-  static void executeQueryWithParameter(String query, String parameter) {
+  public static void executeQueryWithParameter(String query, String parameter) {
     try {
-      PreparedStatement stmt = getConnection().prepareStatement(query);
+      PreparedStatement stmt = TestSnowflakeConnection.getConnection().prepareStatement(query);
       stmt.setString(1, parameter);
       stmt.execute();
       stmt.close();
@@ -448,35 +414,6 @@ public class TestUtils {
     String query = "drop table if exists " + tableName;
 
     executeQuery(query);
-  }
-
-  /**
-   * drop an iceberg table
-   *
-   * @param tableName table name
-   */
-  public static void dropIcebergTable(String tableName) {
-    String query = "drop iceberg table if exists identifier(?)";
-    executeQueryWithParameter(query, tableName);
-  }
-
-  /**
-   * create an iceberg table
-   *
-   * @param tableName table name
-   */
-  public static void createIcebergTable(String tableName) throws Exception {
-    String query =
-        "create or replace iceberg table identifier(?) (record_metadata object())"
-            + "external_volume = 'test_exvol'"
-            + "catalog = 'SNOWFLAKE'"
-            + "base_location = 'it'";
-    executeQueryWithParameter(query, tableName);
-  }
-
-  public static void enableSchemaEvolution(String tableName) throws Exception {
-    String query = "alter iceberg table identifier(?) set enable_schema_evolution = true";
-    executeQueryWithParameter(query, tableName);
   }
 
   /** Select * from table */
