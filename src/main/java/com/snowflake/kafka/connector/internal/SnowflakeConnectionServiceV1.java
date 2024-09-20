@@ -159,6 +159,32 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
+  public void initializeMetadataColumnTypeForIceberg(String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "ALTER ICEBERG TABLE identifier(?) ALTER COLUMN RECORD_METADATA SET DATA TYPE OBJECT AS (" +
+            "offset NUMBER," +
+            "topic STRING," +
+            "partition NUMBER," +
+            "key STRING," +
+            "schema_id NUMBER," +
+            "key_schema_id NUMBER," +
+            "CreateTime NUMBER," +
+            "headers MAP(VARCHAR, VARCHAR)" +
+            ")";
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      LOGGER.error("Couldn't alter table {} RECORD_METADATA column type to align with iceberg format", tableName);
+      throw SnowflakeErrors.ERROR_2018.getException(e);
+    }
+    LOGGER.info("alter table {} RECORD_METADATA column type to align with iceberg format", tableName);
+  }
+
+  @Override
   public void createPipe(
       final String tableName,
       final String stageName,
