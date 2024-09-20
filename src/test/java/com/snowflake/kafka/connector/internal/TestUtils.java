@@ -467,10 +467,10 @@ public class TestUtils {
    */
   public static void createIcebergTable(String tableName) throws Exception {
     String query =
-            "create or replace iceberg table identifier(?) (record_metadata object())" +
-                    "external_volume = 'test_exvol'" +
-                    "catalog = 'SNOWFLAKE'" +
-                    "base_location = 'it'";
+        "create or replace iceberg table identifier(?) (record_metadata object())"
+            + "external_volume = 'test_exvol'"
+            + "catalog = 'SNOWFLAKE'"
+            + "base_location = 'it'";
     executeQueryWithParameter(query, tableName);
   }
 
