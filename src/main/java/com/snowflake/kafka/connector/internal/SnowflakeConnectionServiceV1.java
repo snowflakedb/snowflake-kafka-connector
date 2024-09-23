@@ -162,14 +162,15 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   public void initializeMetadataColumnTypeForIceberg(String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-    String query = "ALTER ICEBERG TABLE identifier(?) ALTER COLUMN RECORD_METADATA SET DATA TYPE OBJECT AS (" +
-            "offset NUMBER," +
+    String query = "ALTER ICEBERG TABLE identifier(?) ALTER COLUMN RECORD_METADATA SET DATA TYPE OBJECT(" +
+            "offset INTEGER," +
             "topic STRING," +
-            "partition NUMBER," +
+            "partition INTEGER," +
             "key STRING," +
-            "schema_id NUMBER," +
-            "key_schema_id NUMBER," +
-            "CreateTime NUMBER," +
+            "schema_id INTEGER," +
+            "key_schema_id INTEGER," +
+            "CreateTime BIGINT," +
+            "SnowflakeConnectorPushTime BIGINT," +
             "headers MAP(VARCHAR, VARCHAR)" +
             ")";
     try {
