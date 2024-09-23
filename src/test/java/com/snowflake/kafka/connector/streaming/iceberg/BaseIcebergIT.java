@@ -21,9 +21,15 @@ public class BaseIcebergIT {
     conn.close();
   }
 
-  protected static void createIcebergTable(String tableName) throws Exception {
+  protected static void createIcebergTable(String tableName) {
+    createIcebergTableWithColumnClause(tableName, "record_metadata object()");
+  }
+
+  protected static void createIcebergTableWithColumnClause(String tableName, String columnClause) {
     String query =
-        "create or replace iceberg table identifier(?) (record_metadata object())"
+        "create or replace iceberg table identifier(?) ("
+            + columnClause
+            + ")"
             + "external_volume = 'test_exvol'"
             + "catalog = 'SNOWFLAKE'"
             + "base_location = 'it'";
@@ -35,7 +41,7 @@ public class BaseIcebergIT {
     executeQueryWithParameter(query, tableName);
   }
 
-  protected static void enableSchemaEvolution(String tableName) throws Exception {
+  protected static void enableSchemaEvolution(String tableName) {
     String query = "alter iceberg table identifier(?) set enable_schema_evolution = true";
     executeQueryWithParameter(query, tableName);
   }

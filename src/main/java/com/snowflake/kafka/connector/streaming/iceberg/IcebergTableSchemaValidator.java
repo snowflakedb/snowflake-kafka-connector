@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 
 /** Performs validations of Iceberg table schema on the connector startup. */
 public class IcebergTableSchemaValidator {
@@ -20,14 +21,11 @@ public class IcebergTableSchemaValidator {
   public void validateTable(String tableName, String role) {
     // TODO - plug into connector startup
     if (!snowflakeConnectionService.tableExist(tableName)) {
-      // TODO - better errors
-      throw new RuntimeException("TODO");
+      throw SnowflakeErrors.ERROR_0032.getException("table_not_found");
     }
 
-    // TODO - why is it so slow?
     if (!snowflakeConnectionService.hasSchemaEvolutionPermission(tableName, role)) {
-      // TODO - better errors
-      throw new RuntimeException("TODO");
+      throw SnowflakeErrors.ERROR_0032.getException("schema_evolution_not_enabled");
     }
 
     // TODO - call describe table and analyze record_metadata schema
