@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+
 import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
@@ -309,7 +310,9 @@ public interface SnowflakeConnectionService {
       String tableName, String sourceChannelName, String destinationChannelName);
 
   /**
-   * Alter the RECORD_METADATA column to be of the required structured OBJECT type for iceberg tables.
+   * Alter the RECORD_METADATA column to be of the required structured OBJECT type for iceberg
+   * tables.
+   *
    * @param tableName iceberg table name
    */
   void initializeMetadataColumnTypeForIceberg(String tableName);

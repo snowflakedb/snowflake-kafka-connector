@@ -409,13 +409,15 @@ public class TestUtils {
 
   /**
    * execute sql query and collect result
+   *
    * @param query sql query string
    * @param parameter parameter to be inserted at index 1
    * @param resultCollector function to collect result
    * @return result
    * @param <T> result type
    */
-  public static <T> T executeQueryAndCollectResult(String query, String parameter, Function<ResultSet, T> resultCollector) {
+  public static <T> T executeQueryAndCollectResult(
+      String query, String parameter, Function<ResultSet, T> resultCollector) {
     try {
       PreparedStatement stmt = TestSnowflakeConnection.getConnection().prepareStatement(query);
       stmt.setString(1, parameter);

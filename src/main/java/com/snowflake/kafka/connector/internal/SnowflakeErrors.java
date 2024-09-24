@@ -218,9 +218,10 @@ public enum SnowflakeErrors {
       "Failed to check schema evolution permission"),
 
   ERROR_2018(
-          "2018",
-          "Failed to alter RECORD_METADATA column type for iceberg",
-          "Failed to alter RECORD_METADATA column type to required format for iceberg, please check column exists."),
+      "2018",
+      "Failed to alter RECORD_METADATA column type for iceberg",
+      "Failed to alter RECORD_METADATA column type to required format for iceberg, please check"
+          + " column exists."),
   // Snowpipe related issues 3---
   ERROR_3001("3001", "Failed to ingest file", "Exception reported by Ingest SDK"),
 

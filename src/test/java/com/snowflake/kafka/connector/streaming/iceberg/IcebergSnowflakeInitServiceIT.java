@@ -12,61 +12,65 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class IcebergSnowflakeInitServiceIT extends BaseIcebergIT {
 
-    private static IcebergSnowflakeInitService icebergSnowflakeInitService;
+  private static IcebergSnowflakeInitService icebergSnowflakeInitService;
 
-    private String tableName;
+  private String tableName;
 
-    @BeforeAll
-    // overrides the base class @BeforeAll
-    public static void setup() {
-        conn = TestUtils.getConnectionServiceForStreaming();
-        icebergSnowflakeInitService = new IcebergSnowflakeInitService(conn);
-    }
+  @BeforeAll
+  // overrides the base class @BeforeAll
+  public static void setup() {
+    conn = TestUtils.getConnectionServiceForStreaming();
+    icebergSnowflakeInitService = new IcebergSnowflakeInitService(conn);
+  }
 
-    @BeforeEach
-    public void setUp() {
-        tableName = TestUtils.randomTableName();
-    }
+  @BeforeEach
+  public void setUp() {
+    tableName = TestUtils.randomTableName();
+  }
 
-    @AfterEach
-    public void tearDown() {
-        dropIcebergTable(tableName);
-    }
+  @AfterEach
+  public void tearDown() {
+    dropIcebergTable(tableName);
+  }
 
-    @Test
-    void shouldInitializeMetadataType() {
-        // given
-        createIcebergTable(tableName);
+  @Test
+  void shouldInitializeMetadataType() {
+    // given
+    createIcebergTable(tableName);
 
-        // when
-        icebergSnowflakeInitService.initializeIcebergTableProperties(tableName);
+    // when
+    icebergSnowflakeInitService.initializeIcebergTableProperties(tableName);
 
-        // then
-        assertThat(describeRecordMetadataType(tableName)).isEqualTo("OBJECT(offset NUMBER(10,0), " +
-                "topic VARCHAR(16777216), " +
-                "partition NUMBER(10,0), " +
-                "key VARCHAR(16777216), " +
-                "schema_id NUMBER(10,0), " +
-                "key_schema_id NUMBER(10,0), " +
-                "CreateTime NUMBER(19,0), " +
-                "SnowflakeConnectorPushTime NUMBER(19,0), " +
-                "headers MAP(VARCHAR(16777216), " +
-                "VARCHAR(16777216)))");
-    }
+    // then
+    assertThat(describeRecordMetadataType(tableName))
+        .isEqualTo(
+            "OBJECT(offset NUMBER(10,0), "
+                + "topic VARCHAR(16777216), "
+                + "partition NUMBER(10,0), "
+                + "key VARCHAR(16777216), "
+                + "schema_id NUMBER(10,0), "
+                + "key_schema_id NUMBER(10,0), "
+                + "CreateTime NUMBER(19,0), "
+                + "SnowflakeConnectorPushTime NUMBER(19,0), "
+                + "headers MAP(VARCHAR(16777216), "
+                + "VARCHAR(16777216)))");
+  }
 
-    @Test
-    void shouldThrowExceptionWhenTableDoesNotExist() {
-        assertThatThrownBy(() -> icebergSnowflakeInitService.initializeIcebergTableProperties(tableName))
-                .isInstanceOf(SnowflakeKafkaConnectorException.class);
-    }
+  @Test
+  void shouldThrowExceptionWhenTableDoesNotExist() {
+    assertThatThrownBy(
+            () -> icebergSnowflakeInitService.initializeIcebergTableProperties(tableName))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class);
+  }
 
-    @Test
-    void shouldThrowExceptionWhenRecordMetadataDoesNotExist() {
-        // given
-        createIcebergTableWithColumnClause(tableName, "some_column VARCHAR");
+  @Test
+  void shouldThrowExceptionWhenRecordMetadataDoesNotExist() {
+    // given
+    createIcebergTableWithColumnClause(tableName, "some_column VARCHAR");
 
-        // expect
-        assertThatThrownBy(() -> icebergSnowflakeInitService.initializeIcebergTableProperties(tableName))
-                .isInstanceOf(SnowflakeKafkaConnectorException.class);
-    }
+    // expect
+    assertThatThrownBy(
+            () -> icebergSnowflakeInitService.initializeIcebergTableProperties(tableName))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class);
+  }
 }

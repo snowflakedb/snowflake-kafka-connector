@@ -9,14 +9,14 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 class IcebergSnowflakeInitServiceTest {
 
-    private final SnowflakeConnectionService mockConnection = mock(SnowflakeConnectionService.class);
-    private final IcebergSnowflakeInitService icebergSnowflakeInitService = new IcebergSnowflakeInitService(mockConnection);
+  private final SnowflakeConnectionService mockConnection = mock(SnowflakeConnectionService.class);
+  private final IcebergSnowflakeInitService icebergSnowflakeInitService =
+      new IcebergSnowflakeInitService(mockConnection);
 
-    @Test
-    void testInitializeIcebergTableProperties() {
-        icebergSnowflakeInitService.initializeIcebergTableProperties("test_table");
-        verify(mockConnection).initializeMetadataColumnTypeForIceberg("test_table");
-        verifyNoMoreInteractions(mockConnection);
-    }
-
+  @Test
+  void testInitializeIcebergTableProperties() {
+    icebergSnowflakeInitService.initializeIcebergTableProperties("test_table");
+    verify(mockConnection).initializeMetadataColumnTypeForIceberg("test_table");
+    verifyNoMoreInteractions(mockConnection);
+  }
 }

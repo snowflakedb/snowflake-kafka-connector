@@ -51,17 +51,20 @@ public class BaseIcebergIT {
 
   protected static String describeRecordMetadataType(String tableName) {
     String query = "describe table identifier(?)";
-    return executeQueryAndCollectResult(query, tableName, (resultSet) -> {
-      try {
-        while (resultSet.next()) {
-          if (resultSet.getString("name").equals("RECORD_METADATA")) {
-            return resultSet.getString("type");
+    return executeQueryAndCollectResult(
+        query,
+        tableName,
+        (resultSet) -> {
+          try {
+            while (resultSet.next()) {
+              if (resultSet.getString("name").equals("RECORD_METADATA")) {
+                return resultSet.getString("type");
+              }
+            }
+          } catch (SQLException e) {
+            throw new RuntimeException(e);
           }
-        }
-      } catch (SQLException e) {
-        throw new RuntimeException(e);
-      }
-      throw new IllegalArgumentException("RECORD_METADATA column not found in the table");
-    });
+          throw new IllegalArgumentException("RECORD_METADATA column not found in the table");
+        });
   }
 }
