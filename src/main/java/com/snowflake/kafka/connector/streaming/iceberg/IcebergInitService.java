@@ -3,13 +3,13 @@ package com.snowflake.kafka.connector.streaming.iceberg;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 
-public class IcebergSnowflakeInitService {
+public class IcebergInitService {
 
-  private final KCLogger LOGGER = new KCLogger(IcebergSnowflakeInitService.class.getName());
+  private final KCLogger LOGGER = new KCLogger(IcebergInitService.class.getName());
 
   private final SnowflakeConnectionService snowflakeConnectionService;
 
-  public IcebergSnowflakeInitService(SnowflakeConnectionService snowflakeConnectionService) {
+  public IcebergInitService(SnowflakeConnectionService snowflakeConnectionService) {
     this.snowflakeConnectionService = snowflakeConnectionService;
   }
 

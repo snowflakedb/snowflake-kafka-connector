@@ -10,9 +10,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class IcebergSnowflakeInitServiceIT extends BaseIcebergIT {
+public class IcebergInitServiceIT extends BaseIcebergIT {
 
-  private static IcebergSnowflakeInitService icebergSnowflakeInitService;
+  private static IcebergInitService icebergInitService;
 
   private String tableName;
 
@@ -20,7 +20,7 @@ public class IcebergSnowflakeInitServiceIT extends BaseIcebergIT {
   // overrides the base class @BeforeAll
   public static void setup() {
     conn = TestUtils.getConnectionServiceForStreaming();
-    icebergSnowflakeInitService = new IcebergSnowflakeInitService(conn);
+    icebergInitService = new IcebergInitService(conn);
   }
 
   @BeforeEach
@@ -39,7 +39,7 @@ public class IcebergSnowflakeInitServiceIT extends BaseIcebergIT {
     createIcebergTable(tableName);
 
     // when
-    icebergSnowflakeInitService.initializeIcebergTableProperties(tableName);
+    icebergInitService.initializeIcebergTableProperties(tableName);
 
     // then
     assertThat(describeRecordMetadataType(tableName))
@@ -58,8 +58,7 @@ public class IcebergSnowflakeInitServiceIT extends BaseIcebergIT {
 
   @Test
   void shouldThrowExceptionWhenTableDoesNotExist() {
-    assertThatThrownBy(
-            () -> icebergSnowflakeInitService.initializeIcebergTableProperties(tableName))
+    assertThatThrownBy(() -> icebergInitService.initializeIcebergTableProperties(tableName))
         .isInstanceOf(SnowflakeKafkaConnectorException.class);
   }
 
@@ -69,8 +68,7 @@ public class IcebergSnowflakeInitServiceIT extends BaseIcebergIT {
     createIcebergTableWithColumnClause(tableName, "some_column VARCHAR");
 
     // expect
-    assertThatThrownBy(
-            () -> icebergSnowflakeInitService.initializeIcebergTableProperties(tableName))
+    assertThatThrownBy(() -> icebergInitService.initializeIcebergTableProperties(tableName))
         .isInstanceOf(SnowflakeKafkaConnectorException.class);
   }
 }

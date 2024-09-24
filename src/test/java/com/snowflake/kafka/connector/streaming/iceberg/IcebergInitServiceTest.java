@@ -7,15 +7,14 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import org.junit.jupiter.api.Test;
 
-class IcebergSnowflakeInitServiceTest {
+class IcebergInitServiceTest {
 
   private final SnowflakeConnectionService mockConnection = mock(SnowflakeConnectionService.class);
-  private final IcebergSnowflakeInitService icebergSnowflakeInitService =
-      new IcebergSnowflakeInitService(mockConnection);
+  private final IcebergInitService icebergInitService = new IcebergInitService(mockConnection);
 
   @Test
   void testInitializeIcebergTableProperties() {
-    icebergSnowflakeInitService.initializeIcebergTableProperties("test_table");
+    icebergInitService.initializeIcebergTableProperties("test_table");
     verify(mockConnection).initializeMetadataColumnTypeForIceberg("test_table");
     verifyNoMoreInteractions(mockConnection);
   }
