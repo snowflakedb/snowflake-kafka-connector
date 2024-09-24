@@ -1,11 +1,11 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import org.junit.jupiter.api.Test;
-
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import org.junit.jupiter.api.Test;
 
 class IcebergSnowflakeInitServiceTest {
 

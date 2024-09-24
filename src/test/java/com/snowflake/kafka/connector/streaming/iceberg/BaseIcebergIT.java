@@ -1,14 +1,13 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.TestUtils;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-
-import java.sql.SQLException;
-
 import static com.snowflake.kafka.connector.internal.TestUtils.executeQueryAndCollectResult;
 import static com.snowflake.kafka.connector.internal.TestUtils.executeQueryWithParameter;
+
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.TestUtils;
+import java.sql.SQLException;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
 public class BaseIcebergIT {
 
