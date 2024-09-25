@@ -39,7 +39,7 @@ public class IcebergIngestionIT {
     SnowflakeStreamingIngestClient client =
         SnowflakeStreamingIngestClientFactory.builder("name")
             .setProperties(props)
-//            .setIsIceberg(true)
+            // .setIsIceberg(true)
             .build();
 
     OpenChannelRequest channelRequest =
