@@ -5,6 +5,7 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServic
 import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public interface SnowflakeConnectionService {
   /**
@@ -315,4 +316,13 @@ public interface SnowflakeConnectionService {
    * @param tableName iceberg table name
    */
   void initializeMetadataColumnTypeForIceberg(String tableName);
+
+  /**
+   * Calls describe table statement and returns all columns and corresponding types.
+   *
+   * @param tableName - table name
+   * @return Optional.empty() if table does not exist. List of all table columns and their types
+   *     otherwise.
+   */
+  Optional<List<DescribeTableRow>> describeTable(String tableName);
 }

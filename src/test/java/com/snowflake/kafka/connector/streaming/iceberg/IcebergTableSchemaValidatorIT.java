@@ -54,6 +54,7 @@ public class IcebergTableSchemaValidatorIT extends BaseIcebergIT {
   public void shouldThrowExceptionWhenRecordMetadataDoesNotExist() {
     // given
     createIcebergTableWithColumnClause(tableName, "some_column VARCHAR");
+    enableSchemaEvolution(tableName);
 
     // expect
     Assertions.assertThrows(
@@ -65,6 +66,7 @@ public class IcebergTableSchemaValidatorIT extends BaseIcebergIT {
   public void shouldThrowExceptionWhenRecordMetadataHasInvalidType() {
     // given
     createIcebergTableWithColumnClause(tableName, "record_metadata MAP(VARCHAR, VARCHAR)");
+    enableSchemaEvolution(tableName);
 
     // expect
     Assertions.assertThrows(
