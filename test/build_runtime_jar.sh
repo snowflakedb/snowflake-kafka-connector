@@ -85,9 +85,8 @@ case $BUILD_METHOD in
 	  # mvn clean should clean the target directory, hence using default pom.xml
 	  mvn -f $POM_FILE_NAME clean
 
-	  # mvn verify runs the integration test
+	  # skip Iceberg tests outside of AWS
 	  if [BUILD_FOR_CLOUD == "AWS"]; then
-	    # skip Iceberg tests outside of AWS
 	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 	  else
 	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 '-Dtest=!*Iceberg*IT'
