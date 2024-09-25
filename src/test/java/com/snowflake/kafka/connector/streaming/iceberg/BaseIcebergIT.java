@@ -1,9 +1,11 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
+import static com.snowflake.kafka.connector.internal.TestUtils.executeQueryAndCollectResult;
 import static com.snowflake.kafka.connector.internal.TestUtils.executeQueryWithParameter;
 
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import java.sql.SQLException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
@@ -44,5 +46,24 @@ public class BaseIcebergIT {
   protected static void enableSchemaEvolution(String tableName) {
     String query = "alter iceberg table identifier(?) set enable_schema_evolution = true";
     executeQueryWithParameter(query, tableName);
+  }
+
+  protected static String describeRecordMetadataType(String tableName) {
+    String query = "describe table identifier(?)";
+    return executeQueryAndCollectResult(
+        query,
+        tableName,
+        (resultSet) -> {
+          try {
+            while (resultSet.next()) {
+              if (resultSet.getString("name").equals("RECORD_METADATA")) {
+                return resultSet.getString("type");
+              }
+            }
+          } catch (SQLException e) {
+            throw new RuntimeException(e);
+          }
+          throw new IllegalArgumentException("RECORD_METADATA column not found in the table");
+        });
   }
 }

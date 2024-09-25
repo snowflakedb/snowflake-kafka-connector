@@ -55,6 +55,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -400,6 +401,31 @@ public class TestUtils {
       stmt.setString(1, parameter);
       stmt.execute();
       stmt.close();
+    } catch (Exception e) {
+      throw new RuntimeException("Error executing query: " + query, e);
+    }
+  }
+
+  /**
+   * execute sql query and collect result
+   *
+   * @param query sql query string
+   * @param parameter parameter to be inserted at index 1
+   * @param resultCollector function to collect result
+   * @return result
+   * @param <T> result type
+   */
+  public static <T> T executeQueryAndCollectResult(
+      String query, String parameter, Function<ResultSet, T> resultCollector) {
+    try {
+      PreparedStatement stmt = TestSnowflakeConnection.getConnection().prepareStatement(query);
+      stmt.setString(1, parameter);
+      stmt.execute();
+      ResultSet resultSet = stmt.getResultSet();
+      T result = resultCollector.apply(resultSet);
+      resultSet.close();
+      stmt.close();
+      return result;
     } catch (Exception e) {
       throw new RuntimeException("Error executing query: " + query, e);
     }

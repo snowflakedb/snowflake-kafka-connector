@@ -21,7 +21,11 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
@@ -156,6 +160,38 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     }
 
     LOGGER.info("Created table {} with only RECORD_METADATA column", tableName);
+  }
+
+  @Override
+  public void initializeMetadataColumnTypeForIceberg(String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query =
+        "ALTER ICEBERG TABLE identifier(?) ALTER COLUMN RECORD_METADATA SET DATA TYPE OBJECT("
+            + "offset INTEGER,"
+            + "topic STRING,"
+            + "partition INTEGER,"
+            + "key STRING,"
+            + "schema_id INTEGER,"
+            + "key_schema_id INTEGER,"
+            + "CreateTime BIGINT,"
+            + "LogAppendTime BIGINT,"
+            + "SnowflakeConnectorPushTime BIGINT,"
+            + "headers MAP(VARCHAR, VARCHAR)"
+            + ")";
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      LOGGER.error(
+          "Couldn't alter table {} RECORD_METADATA column type to align with iceberg format",
+          tableName);
+      throw SnowflakeErrors.ERROR_2018.getException(e);
+    }
+    LOGGER.info(
+        "alter table {} RECORD_METADATA column type to align with iceberg format", tableName);
   }
 
   @Override

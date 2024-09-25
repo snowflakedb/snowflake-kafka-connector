@@ -307,4 +307,12 @@ public interface SnowflakeConnectionService {
    */
   ChannelMigrateOffsetTokenResponseDTO migrateStreamingChannelOffsetToken(
       String tableName, String sourceChannelName, String destinationChannelName);
+
+  /**
+   * Alter the RECORD_METADATA column to be of the required structured OBJECT type for iceberg
+   * tables.
+   *
+   * @param tableName iceberg table name
+   */
+  void initializeMetadataColumnTypeForIceberg(String tableName);
 }

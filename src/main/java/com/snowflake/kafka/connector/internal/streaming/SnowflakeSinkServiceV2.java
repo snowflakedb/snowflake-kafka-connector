@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT;
@@ -25,6 +26,7 @@ import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionCh
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import com.snowflake.kafka.connector.streaming.iceberg.IcebergInitService;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -71,6 +73,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private final RecordService recordService;
   private final SnowflakeTelemetryService telemetryService;
+
+  private final IcebergInitService icebergInitService;
+
   private Map<String, String> topicToTableMap;
 
   // Behavior to be set at the start of connector start. (For tombstone records)
@@ -126,6 +131,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.conn = conn;
     this.telemetryService = conn.getTelemetryClient();
     this.recordService = new RecordService();
+    this.icebergInitService = new IcebergInitService(conn);
     this.topicToTableMap = new HashMap<>();
 
     // Setting the default value in constructor
@@ -166,6 +172,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       SnowflakeConnectionService conn,
       RecordService recordService,
       SnowflakeTelemetryService telemetryService,
+      IcebergInitService icebergInitService,
       Map<String, String> topicToTableMap,
       SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues,
       boolean enableCustomJMXMonitoring,
@@ -181,6 +188,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.recordNum = recordNum;
     this.conn = conn;
     this.recordService = recordService;
+    this.icebergInitService = icebergInitService;
     this.telemetryService = telemetryService;
     this.topicToTableMap = topicToTableMap;
     this.behaviorOnNullValues = behaviorOnNullValues;
@@ -238,10 +246,22 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         tp -> {
           String tableName = Utils.tableName(tp.topic(), topic2Table);
           createTableIfNotExists(tableName);
-
+          initIcebergTableProperties(tableName);
           createStreamingChannelForTopicPartition(
               tableName, tp, tableName2SchemaEvolutionPermission.get(tableName));
         });
+  }
+
+  /**
+   * Initializes Iceberg table properties if Iceberg is enabled. See more in {@link
+   * IcebergInitService}
+   *
+   * @param tableName name of the table to initialize
+   */
+  private void initIcebergTableProperties(String tableName) {
+    if (Boolean.parseBoolean(connectorConfig.get(ICEBERG_ENABLED))) {
+      icebergInitService.initializeIcebergTableProperties(tableName);
+    }
   }
 
   /**

@@ -216,6 +216,12 @@ public enum SnowflakeErrors {
       "2017",
       "Failed to check schema evolution permission",
       "Failed to check schema evolution permission"),
+
+  ERROR_2018(
+      "2018",
+      "Failed to alter RECORD_METADATA column type for iceberg",
+      "Failed to alter RECORD_METADATA column type to required format for iceberg, please check"
+          + " column exists."),
   // Snowpipe related issues 3---
   ERROR_3001("3001", "Failed to ingest file", "Exception reported by Ingest SDK"),
 
@@ -328,7 +334,8 @@ public enum SnowflakeErrors {
       "5024",
       "Timeout while waiting for file cleaner to start",
       "Could not allocate thread for file cleaner to start processing in given time. If problem"
-          + " persists, please try setting snowflake.snowpipe.use_new_cleaner to false");
+          + " persists, please try setting snowflake.snowpipe.use_new_cleaner to false"),
+  ;
 
   // properties
 

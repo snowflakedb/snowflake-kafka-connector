@@ -20,6 +20,7 @@ import com.snowflake.kafka.connector.internal.streaming.StreamingBufferThreshold
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
+import com.snowflake.kafka.connector.streaming.iceberg.IcebergInitService;
 import java.util.Collections;
 import java.util.Map;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
@@ -92,6 +93,7 @@ public class SnowflakeStreamingSinkTaskBuilder {
     SnowflakeTelemetryService mockTelemetryService = Mockito.mock(SnowflakeTelemetryService.class);
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
+    IcebergInitService mockIcebergInitService = Mockito.mock(IcebergInitService.class);
 
     TopicPartitionChannel topicPartitionChannel =
         new BufferedTopicPartitionChannel(
@@ -116,6 +118,7 @@ public class SnowflakeStreamingSinkTaskBuilder {
         mockConnectionService,
         new RecordService(),
         mockTelemetryService,
+        mockIcebergInitService,
         null,
         SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT,
         true,
