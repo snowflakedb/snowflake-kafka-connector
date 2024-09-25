@@ -10,7 +10,6 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.SchematizationUtils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
 import java.io.ByteArrayInputStream;
@@ -437,7 +436,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     ResultSet result = null;
     // whether the role has the privilege to do schema evolution (EVOLVE SCHEMA / ALL / OWNERSHIP)
     boolean hasRolePrivilege = false;
-    String myRole = SchematizationUtils.formatName(role);
+    String myRole = FormattingUtils.formatName(role);
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
@@ -1130,5 +1129,22 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
         OBJECT_MAPPER.readValue(
             migrateOffsetTokenResultFromSysFunc, ChannelMigrateOffsetTokenResponseDTO.class);
     return channelMigrateOffsetTokenResponseDTO;
+  }
+
+  public static class FormattingUtils {
+    /**
+     * Transform the objectName to uppercase unless it is enclosed in double quotes
+     *
+     * <p>In that case, drop the quotes and leave it as it is.
+     *
+     * @param objectName name of the snowflake object, could be tableName, columnName, roleName,
+     *     etc.
+     * @return Transformed objectName
+     */
+    public static String formatName(String objectName) {
+      return (objectName.charAt(0) == '"' && objectName.charAt(objectName.length() - 1) == '"')
+          ? objectName.substring(1, objectName.length() - 1)
+          : objectName.toUpperCase();
+    }
   }
 }

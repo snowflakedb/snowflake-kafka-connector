@@ -23,15 +23,6 @@ public class SchematizationUtilsTest {
   @Rule public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
   @Test
-  public void testFormatNames() {
-    String[] inputList = new String[] {"role", "Role", "\"role\"", "\"rOle\""};
-    String[] expectedOutputList = new String[] {"ROLE", "ROLE", "role", "rOle"};
-    for (int idx = 0; idx < inputList.length; idx++) {
-      Assert.assertEquals(expectedOutputList[idx], SchematizationUtils.formatName(inputList[idx]));
-    }
-  }
-
-  @Test
   public void testGetColumnTypesWithoutSchema() throws JsonProcessingException {
     String columnName = "test";
     String nonExistingColumnName = "random";

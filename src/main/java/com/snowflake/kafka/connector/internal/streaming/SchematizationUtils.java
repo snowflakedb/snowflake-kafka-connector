@@ -46,20 +46,6 @@ public class SchematizationUtils {
   private static final Logger LOGGER = LoggerFactory.getLogger(SchematizationUtils.class);
 
   /**
-   * Transform the objectName to uppercase unless it is enclosed in double quotes
-   *
-   * <p>In that case, drop the quotes and leave it as it is.
-   *
-   * @param objectName name of the snowflake object, could be tableName, columnName, roleName, etc.
-   * @return Transformed objectName
-   */
-  public static String formatName(String objectName) {
-    return (objectName.charAt(0) == '"' && objectName.charAt(objectName.length() - 1) == '"')
-        ? objectName.substring(1, objectName.length() - 1)
-        : objectName.toUpperCase();
-  }
-
-  /**
    * Execute a ALTER TABLE command if there is any extra column that needs to be added, or any
    * column nullability that needs to be updated, used by schema evolution
    *
