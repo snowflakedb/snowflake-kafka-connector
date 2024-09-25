@@ -175,6 +175,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
             + "schema_id INTEGER,"
             + "key_schema_id INTEGER,"
             + "CreateTime BIGINT,"
+            + "LogAppendTime BIGINT,"
             + "SnowflakeConnectorPushTime BIGINT,"
             + "headers MAP(VARCHAR, VARCHAR)"
             + ")";

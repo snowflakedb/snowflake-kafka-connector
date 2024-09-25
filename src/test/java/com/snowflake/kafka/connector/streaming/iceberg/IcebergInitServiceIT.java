@@ -51,6 +51,7 @@ public class IcebergInitServiceIT extends BaseIcebergIT {
                 + "schema_id NUMBER(10,0), "
                 + "key_schema_id NUMBER(10,0), "
                 + "CreateTime NUMBER(19,0), "
+                + "LogAppendTime NUMBER(19,0), "
                 + "SnowflakeConnectorPushTime NUMBER(19,0), "
                 + "headers MAP(VARCHAR(16777216), "
                 + "VARCHAR(16777216)))");
