@@ -10,29 +10,33 @@ function error_exit() {
 }
 
 # check argument number is 1 or 2 or 3
-if [ $# -gt 3 ] || [ $# -lt 1 ]; then
-    error_exit "Usage: ./build_runtime_jar.sh [<path to snowflake repo>] [verify/package/none] [apache/confluent].
-    Default for Second argument is verify and third argument is apache. Exiting script"
+if [ $# -gt 4 ] || [ $# -lt 1 ]; then
+    error_exit "Usage: ./build_runtime_jar.sh [<path to snowflake repo>] [verify/package/none] [apache/confluent] [AWS/AZURE/GCP].
+    Default values are: verify, apache, AWS. Exiting script"
 fi
 
 SNOWFLAKE_CONNECTOR_PATH=$1
 BUILD_METHOD=$2
 BUILD_FOR_RUNTIME=$3
+BUILD_FOR_CLOUD=$4
 
 if [[ -z "${BUILD_METHOD}" ]]; then
     # Default build method verify
     BUILD_METHOD="verify"
 fi
 
-# Set POM file name based on target kafka runtime environment
-if [[ -z "${BUILD_FOR_RUNTIME}" ]]; then
-    # Default build target is for Apache
-    BUILD_FOR_RUNTIME="apache"
-    POM_FILE_NAME="pom.xml"
-fi
-
 if [[ $BUILD_FOR_RUNTIME == "confluent" ]]; then
     POM_FILE_NAME="pom_confluent.xml"
+else
+  # Default build target is for Apache
+  BUILD_FOR_RUNTIME="apache"
+  POM_FILE_NAME="pom.xml"
+fi
+
+# Some of the integration tests use cloud vendor specific resources
+if [[ -z "${BUILD_FOR_CLOUD}" ]]; then
+    # Default
+    BUILD_FOR_CLOUD="AWS"
 fi
 
 # check if connector path is set or checkout from github master
@@ -80,8 +84,13 @@ case $BUILD_METHOD in
 	verify)
 	  # mvn clean should clean the target directory, hence using default pom.xml
 	  mvn -f $POM_FILE_NAME clean
-	  # mvn verify runs the integration test
-    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
+
+	  # skip Iceberg tests outside of AWS
+	  if [BUILD_FOR_CLOUD == "AWS"]; then
+	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
+	  else
+	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 '-Dtest=!*Iceberg*IT'
+	  fi
 		;;
 	package)
 	  # mvn clean should clean the target directory, hence using default pom.xml

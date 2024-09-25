@@ -68,7 +68,7 @@ jobs:
         SHELL: "/bin/bash"
       run: |
         cd test
-        ./build_runtime_jar.sh ../../snowflake-kafka-connector
+        ./build_runtime_jar.sh ../../snowflake-kafka-connector verify apache ${{ matrix.snowflake_cloud }}
 
 #      Commented out because the build was very unstable
 #      Error that might be a hint: {'detail': ErrorDetail(string='Rate limit reached. Please upload with the Codecov repository upload token to resolve issue. Expected available in 383 seconds.', code='throttled')}
