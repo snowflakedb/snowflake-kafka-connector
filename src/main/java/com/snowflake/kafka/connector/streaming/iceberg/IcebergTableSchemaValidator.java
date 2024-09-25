@@ -17,9 +17,11 @@ public class IcebergTableSchemaValidator {
    *
    * <p>TODO SNOW-1658914 - write a test for table with record_metadata schema altered by the
    * connector
+   *
+   * @param tableName table to be validated
+   * @param role role used for validation
    */
   public void validateTable(String tableName, String role) {
-    // TODO - plug into connector startup
     if (!snowflakeConnectionService.tableExist(tableName)) {
       throw SnowflakeErrors.ERROR_0032.getException("table_not_found");
     }
