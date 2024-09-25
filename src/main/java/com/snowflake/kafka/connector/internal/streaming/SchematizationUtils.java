@@ -16,7 +16,7 @@ import static org.apache.kafka.connect.data.Schema.Type.STRING;
 import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
 
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.ColumnInfos;
+import com.snowflake.kafka.connector.internal.streaming.schematization.ColumnInfos;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;

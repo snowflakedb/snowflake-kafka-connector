@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.ColumnInfos;
+import com.snowflake.kafka.connector.internal.streaming.schematization.ColumnInfos;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;

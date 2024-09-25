@@ -1,4 +1,4 @@
-package com.snowflake.kafka.connector.internal;
+package com.snowflake.kafka.connector.internal.streaming.schematization;
 
 import java.util.Optional;
 
