@@ -86,7 +86,7 @@ case $BUILD_METHOD in
 	  mvn -f $POM_FILE_NAME clean
 
 	  # skip Iceberg tests outside of AWS
-	  if [BUILD_FOR_CLOUD == "AWS"]; then
+	  if [$BUILD_FOR_CLOUD == "AWS"]; then
 	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 	  else
 	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 '-Dtest=!*Iceberg*IT'
