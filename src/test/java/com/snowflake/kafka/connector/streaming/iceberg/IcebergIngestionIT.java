@@ -22,7 +22,8 @@ public class IcebergIngestionIT {
   private static final String tableName = "tbl1";
   private static final int PARTITION = 0;
   private static final String topic = tableName;
-  private static final String testChannelName = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION);
+  private static final String testChannelName =
+      SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION);
 
   @Test
   @Disabled
@@ -38,7 +39,7 @@ public class IcebergIngestionIT {
     SnowflakeStreamingIngestClient client =
         SnowflakeStreamingIngestClientFactory.builder("name")
             .setProperties(props)
-            .setIsIceberg(true)
+//            .setIsIceberg(true)
             .build();
 
     OpenChannelRequest channelRequest =
