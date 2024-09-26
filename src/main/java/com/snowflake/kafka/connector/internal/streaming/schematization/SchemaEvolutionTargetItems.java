@@ -16,7 +16,7 @@ public class SchemaEvolutionTargetItems {
   @Nonnull private final List<String> columnsToAdd;
 
   public SchemaEvolutionTargetItems(
-          String tableName, List<String> columnsToDropNonNullability, List<String> columnsToAdd) {
+      String tableName, List<String> columnsToDropNonNullability, List<String> columnsToAdd) {
     this.tableName = tableName;
     this.columnsToDropNonNullability =
         columnsToDropNonNullability != null ? columnsToDropNonNullability : Collections.emptyList();

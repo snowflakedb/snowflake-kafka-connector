@@ -8,21 +8,20 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SnowflakeSchemaEvolutionService implements SchemaEvolutionService {
+public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
 
-  private static final Logger LOGGER =
-      LoggerFactory.getLogger(SnowflakeSchemaEvolutionService.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(IcebergSchemaEvolutionService.class);
 
   private final SnowflakeConnectionService conn;
   private final TableSchemaResolver tableSchemaResolver;
 
-  public SnowflakeSchemaEvolutionService(SnowflakeConnectionService conn) {
+  public IcebergSchemaEvolutionService(SnowflakeConnectionService conn) {
     this.conn = conn;
-    this.tableSchemaResolver = new TableSchemaResolver(new SnowflakeColumnTypeMapper());
+    this.tableSchemaResolver = new TableSchemaResolver(new IcebergColumnTypeMapper());
   }
 
   @VisibleForTesting
-  SnowflakeSchemaEvolutionService(
+  IcebergSchemaEvolutionService(
       SnowflakeConnectionService conn, TableSchemaResolver tableSchemaResolver) {
     this.conn = conn;
     this.tableSchemaResolver = tableSchemaResolver;
@@ -39,35 +38,18 @@ public class SnowflakeSchemaEvolutionService implements SchemaEvolutionService {
   @Override
   public void evolveSchemaIfNeeded(SchemaEvolutionTargetItems targetItems, SinkRecord record) {
     String tableName = targetItems.getTableName();
-    List<String> columnsToDropNullability = targetItems.getColumnsToDropNonNullability();
-    // Update nullability if needed, ignore any exceptions since other task might be succeeded
-    if (!columnsToDropNullability.isEmpty()) {
-      LOGGER.debug(
-          "Dropping nonNullability for table: {} columns: {}", tableName, columnsToDropNullability);
-      try {
-        conn.alterNonNullableColumns(targetItems.getTableName(), columnsToDropNullability);
-      } catch (SnowflakeKafkaConnectorException e) {
-        LOGGER.warn(
-            String.format(
-                "Failure altering table to update nullability: %s, this could happen when multiple"
-                    + " partitions try to alter the table at the same time and the warning could be"
-                    + " ignored",
-                tableName),
-            e);
-      }
-    }
     List<String> columnsToAdd = targetItems.getColumnsToAdd();
     // Add columns if needed, ignore any exceptions since other task might be succeeded
     if (!columnsToAdd.isEmpty()) {
-      LOGGER.debug("Adding columns to table: {} columns: {}", tableName, columnsToAdd);
+      LOGGER.debug("Adding columns to iceberg table: {} columns: {}", tableName, columnsToAdd);
       TableSchema tableSchema =
           tableSchemaResolver.resolveTableSchemaFromRecord(record, columnsToAdd);
       try {
-        conn.appendColumnsToTable(tableName, tableSchema.getColumnInfos());
+        conn.appendColumnsToIcebergTable(tableName, tableSchema.getColumnInfos());
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             String.format(
-                "Failure altering table to add column: %s, this could happen when multiple"
+                "Failure altering iceberg table to add column: %s, this could happen when multiple"
                     + " partitions try to alter the table at the same time and the warning could be"
                     + " ignored",
                 tableName),
