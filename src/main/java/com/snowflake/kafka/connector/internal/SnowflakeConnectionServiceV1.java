@@ -493,10 +493,32 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
    */
   @Override
   public void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap) {
+    LOGGER.debug("Appending columns to snowflake table");
+    appendColumnsToTable(tableName, columnInfosMap, false);
+  }
+
+  /**
+   * Alter iceberg table to add columns according to a map from columnNames to their types
+   *
+   * @param tableName the name of the table
+   * @param columnInfosMap the mapping from the columnNames to their infos
+   */
+  @Override
+  public void appendColumnsToIcebergTable(
+      String tableName, Map<String, ColumnInfos> columnInfosMap) {
+    LOGGER.debug("Appending columns to iceberg table");
+    appendColumnsToTable(tableName, columnInfosMap, true);
+  }
+
+  private void appendColumnsToTable(
+      String tableName, Map<String, ColumnInfos> columnInfosMap, boolean isIcebergTable) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-    StringBuilder appendColumnQuery =
-        new StringBuilder("alter table identifier(?) add column if not exists ");
+    StringBuilder appendColumnQuery = new StringBuilder("alter ");
+    if (isIcebergTable) {
+      appendColumnQuery.append("iceberg ");
+    }
+    appendColumnQuery.append("table identifier(?) add column if not exists ");
     boolean first = true;
     StringBuilder logColumn = new StringBuilder("[");
 
