@@ -88,10 +88,10 @@ case $BUILD_METHOD in
 	  # skip Iceberg tests outside of AWS
 	  if [[ $BUILD_FOR_CLOUD == "AWS" ]]; then
 	    echo "Running integration tests against AWS cloud"
-	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
+	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 -P aws
 	  else
 	    echo "Running integration tests against non-AWS cloud"
-	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 '-Dtest=!*Iceberg*IT'
+	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 -P non-aws
 	  fi
 		;;
 	package)
