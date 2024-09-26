@@ -21,10 +21,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
@@ -257,29 +259,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
 
   @Override
   public boolean tableExist(final String tableName) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    String query = "desc table identifier(?)";
-    PreparedStatement stmt = null;
-    boolean exist;
-    try {
-      stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
-      stmt.execute();
-      exist = true;
-    } catch (Exception e) {
-      LOGGER.debug("table {} doesn't exist", tableName);
-      exist = false;
-    } finally {
-      if (stmt != null) {
-        try {
-          stmt.close();
-        } catch (SQLException e) {
-          e.printStackTrace();
-        }
-      }
-    }
-    return exist;
+    return describeTable(tableName).isPresent();
   }
 
   @Override
@@ -337,6 +317,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
+  // TODO - use describeTable()
   public boolean isTableCompatible(final String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
@@ -395,6 +376,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
+  // TODO - use describeTable()
   public void appendMetaColIfNotExist(final String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
@@ -1106,6 +1088,38 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
               e.getMessage(),
               Arrays.toString(e.getStackTrace()));
       throw SnowflakeErrors.ERROR_5023.getException(errorMsg, this.telemetry);
+    }
+  }
+
+  @Override
+  public Optional<List<DescribeTableRow>> describeTable(String tableName) {
+    checkConnection();
+    String query = "desc table identifier(?)";
+    PreparedStatement stmt = null;
+    List<DescribeTableRow> rows = new ArrayList<>();
+
+    try {
+      stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      ResultSet result = stmt.executeQuery();
+
+      while (result.next()) {
+        String columnName = result.getString("name");
+        String type = result.getString("type");
+        rows.add(new DescribeTableRow(columnName, type));
+      }
+      return Optional.of(rows);
+    } catch (Exception e) {
+      LOGGER.debug("table {} doesn't exist", tableName);
+      return Optional.empty();
+    } finally {
+      if (stmt != null) {
+        try {
+          stmt.close();
+        } catch (SQLException e) {
+          e.printStackTrace();
+        }
+      }
     }
   }
 

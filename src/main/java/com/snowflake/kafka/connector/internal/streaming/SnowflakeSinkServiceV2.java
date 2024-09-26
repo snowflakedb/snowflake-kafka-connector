@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT;
@@ -27,6 +26,7 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServic
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.streaming.iceberg.IcebergInitService;
+import com.snowflake.kafka.connector.streaming.iceberg.IcebergTableSchemaValidator;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -74,6 +74,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final RecordService recordService;
   private final SnowflakeTelemetryService telemetryService;
 
+  private final IcebergTableSchemaValidator icebergTableSchemaValidator;
   private final IcebergInitService icebergInitService;
 
   private Map<String, String> topicToTableMap;
@@ -131,6 +132,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.conn = conn;
     this.telemetryService = conn.getTelemetryClient();
     this.recordService = new RecordService();
+    this.icebergTableSchemaValidator = new IcebergTableSchemaValidator(conn);
     this.icebergInitService = new IcebergInitService(conn);
     this.topicToTableMap = new HashMap<>();
 
@@ -172,6 +174,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       SnowflakeConnectionService conn,
       RecordService recordService,
       SnowflakeTelemetryService telemetryService,
+      IcebergTableSchemaValidator icebergTableSchemaValidator,
       IcebergInitService icebergInitService,
       Map<String, String> topicToTableMap,
       SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues,
@@ -188,6 +191,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.recordNum = recordNum;
     this.conn = conn;
     this.recordService = recordService;
+    this.icebergTableSchemaValidator = icebergTableSchemaValidator;
     this.icebergInitService = icebergInitService;
     this.telemetryService = telemetryService;
     this.topicToTableMap = topicToTableMap;
@@ -242,25 +246,25 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void startPartitions(
       Collection<TopicPartition> partitions, Map<String, String> topic2Table) {
+    partitions.stream()
+        .map(TopicPartition::topic)
+        .distinct()
+        .forEach(topic -> perTopicActionsOnStartPartitions(topic, topic2Table));
     partitions.forEach(
         tp -> {
           String tableName = Utils.tableName(tp.topic(), topic2Table);
-          createTableIfNotExists(tableName);
-          initIcebergTableProperties(tableName);
           createStreamingChannelForTopicPartition(
               tableName, tp, tableName2SchemaEvolutionPermission.get(tableName));
         });
   }
 
-  /**
-   * Initializes Iceberg table properties if Iceberg is enabled. See more in {@link
-   * IcebergInitService}
-   *
-   * @param tableName name of the table to initialize
-   */
-  private void initIcebergTableProperties(String tableName) {
-    if (Boolean.parseBoolean(connectorConfig.get(ICEBERG_ENABLED))) {
+  private void perTopicActionsOnStartPartitions(String topic, Map<String, String> topic2Table) {
+    String tableName = Utils.tableName(topic, topic2Table);
+    if (Utils.isIcebergEnabled(connectorConfig)) {
+      icebergTableSchemaValidator.validateTable(tableName, Utils.role(connectorConfig));
       icebergInitService.initializeIcebergTableProperties(tableName);
+    } else {
+      createTableIfNotExists(tableName);
     }
   }
 
