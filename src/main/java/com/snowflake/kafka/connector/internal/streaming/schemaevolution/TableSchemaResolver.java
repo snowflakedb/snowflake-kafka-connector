@@ -16,7 +16,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TableSchemaResolver {
+public abstract class TableSchemaResolver {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(TableSchemaResolver.class);
 

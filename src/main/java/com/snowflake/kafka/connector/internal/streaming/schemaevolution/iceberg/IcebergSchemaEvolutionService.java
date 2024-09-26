@@ -21,7 +21,7 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
 
   public IcebergSchemaEvolutionService(SnowflakeConnectionService conn) {
     this.conn = conn;
-    this.tableSchemaResolver = new TableSchemaResolver(new IcebergColumnTypeMapper());
+    this.tableSchemaResolver = new IcebergTableSchemaResolver(new IcebergColumnTypeMapper());
   }
 
   @VisibleForTesting
