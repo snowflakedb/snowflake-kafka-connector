@@ -17,6 +17,7 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.StreamingBufferThreshold;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceV1;
 import java.sql.ResultSet;
@@ -523,7 +524,8 @@ public class ConnectionServiceIT {
               new InMemoryKafkaRecordErrorReporter(),
               new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
               conn,
-              conn.getTelemetryClient());
+              conn.getTelemetryClient(),
+              new SnowflakeSchemaEvolutionService(conn));
 
       List<SinkRecord> recordsInChannelFormatV2 =
           TestUtils.createJsonStringSinkRecords(0, noOfRecords * 2, tableName, 0);

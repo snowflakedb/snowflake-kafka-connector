@@ -24,6 +24,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -177,6 +178,8 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
    */
   private final SnowflakeTelemetryService telemetryServiceV2;
 
+  private final SchemaEvolutionService schemaEvolutionService;
+
   /** Testing only, initialize TopicPartitionChannel without the connection service */
   @VisibleForTesting
   public BufferedTopicPartitionChannel(
@@ -189,7 +192,8 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn,
-      SnowflakeTelemetryService telemetryService) {
+      SnowflakeTelemetryService telemetryService,
+      SchemaEvolutionService schemaEvolutionService) {
     this(
         streamingIngestClient,
         topicPartition,
@@ -204,7 +208,8 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
         new RecordService(),
         telemetryService,
         false,
-        null);
+        null,
+        schemaEvolutionService);
   }
 
   /**
@@ -223,6 +228,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
    * @param recordService record service for processing incoming offsets from Kafka
    * @param telemetryService Telemetry Service which includes the Telemetry Client, sends Json data
    *     to Snowflake
+   * @param schemaEvolutionService
    */
   public BufferedTopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
@@ -238,7 +244,8 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
       RecordService recordService,
       SnowflakeTelemetryService telemetryService,
       boolean enableCustomJMXMonitoring,
-      MetricsJmxReporter metricsJmxReporter) {
+      MetricsJmxReporter metricsJmxReporter,
+      SchemaEvolutionService schemaEvolutionService) {
     final long startTime = System.currentTimeMillis();
 
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
@@ -270,6 +277,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
         this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
 
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
+    this.schemaEvolutionService = schemaEvolutionService;
 
     if (isEnableChannelOffsetMigration(sfConnectorConfig)) {
       /* Channel Name format V2 is computed from connector name, topic and partition */

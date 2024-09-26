@@ -27,6 +27,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -111,6 +112,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   /* Responsible for returning errors to DLQ if records have failed to be ingested. */
   private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
 
+  private final SchemaEvolutionService schemaEvolutionService;
+
   /**
    * Available from {@link org.apache.kafka.connect.sink.SinkTask} which has access to various
    * utility methods.
@@ -157,7 +160,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn,
-      SnowflakeTelemetryService telemetryService) {
+      SnowflakeTelemetryService telemetryService,
+      SchemaEvolutionService schemaEvolutionService) {
     this(
         streamingIngestClient,
         topicPartition,
@@ -172,7 +176,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         new RecordService(),
         telemetryService,
         false,
-        null);
+        null,
+        schemaEvolutionService);
   }
 
   /**
@@ -206,7 +211,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       RecordService recordService,
       SnowflakeTelemetryService telemetryService,
       boolean enableCustomJMXMonitoring,
-      MetricsJmxReporter metricsJmxReporter) {
+      MetricsJmxReporter metricsJmxReporter,
+      SchemaEvolutionService schemaEvolutionService) {
     final long startTime = System.currentTimeMillis();
 
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
@@ -233,6 +239,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
 
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
+    this.schemaEvolutionService = schemaEvolutionService;
 
     if (isEnableChannelOffsetMigration(sfConnectorConfig)) {
       /* Channel Name format V2 is computed from connector name, topic and partition */

@@ -22,7 +22,7 @@ public class SnowflakeSchemaEvolutionService implements SchemaEvolutionService {
 
   public SnowflakeSchemaEvolutionService(SnowflakeConnectionService conn) {
     this.conn = conn;
-    this.tableSchemaResolver = new TableSchemaResolver(new SnowflakeColumnTypeMapper());
+    this.tableSchemaResolver = new SnowflakeTableSchemaResolver(new SnowflakeColumnTypeMapper());
   }
 
   @VisibleForTesting
