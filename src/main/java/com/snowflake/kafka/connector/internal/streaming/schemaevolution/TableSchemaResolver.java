@@ -1,4 +1,4 @@
-package com.snowflake.kafka.connector.internal.streaming.schematization;
+package com.snowflake.kafka.connector.internal.streaming.schemaevolution;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -33,7 +33,7 @@ public class TableSchemaResolver {
    * @param columnNames the names of the extra columns
    * @return a Map object where the key is column name and value is ColumnInfos
    */
-  TableSchema resolveTableSchemaFromRecord(SinkRecord record, List<String> columnNames) {
+  public TableSchema resolveTableSchemaFromRecord(SinkRecord record, List<String> columnNames) {
     if (columnNames == null) {
       return new TableSchema(new HashMap<>());
     }
@@ -77,18 +77,18 @@ public class TableSchemaResolver {
     Schema schema = record.valueSchema();
     if (schema != null && schema.fields() != null) {
       for (Field field : schema.fields()) {
-        String snowflakeType =
+        String columnType =
             columnTypeMapper.mapToColumnType(field.schema().type(), field.schema().name());
         LOGGER.info(
-            "Got the snowflake data type for field:{}, schemaName:{}, schemaDoc: {} kafkaType:{},"
-                + " snowflakeType:{}",
+            "Got the data type for field:{}, schemaName:{}, schemaDoc: {} kafkaType:{},"
+                + " columnType:{}",
             field.name(),
             field.schema().name(),
             field.schema().doc(),
             field.schema().type(),
-            snowflakeType);
+            columnType);
 
-        schemaMap.put(field.name(), new ColumnInfos(snowflakeType, field.schema().doc()));
+        schemaMap.put(field.name(), new ColumnInfos(columnType, field.schema().doc()));
       }
     }
     return schemaMap;

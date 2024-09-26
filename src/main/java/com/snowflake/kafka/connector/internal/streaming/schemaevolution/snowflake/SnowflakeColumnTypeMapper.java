@@ -1,5 +1,6 @@
-package com.snowflake.kafka.connector.internal.streaming.schematization;
+package com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake;
 
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnTypeMapper;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;

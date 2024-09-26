@@ -1,8 +1,12 @@
-package com.snowflake.kafka.connector.internal.streaming.schematization;
+package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.TableSchema;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.TableSchemaResolver;
 import java.util.List;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;

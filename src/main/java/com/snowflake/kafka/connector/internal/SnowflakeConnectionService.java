@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
-import com.snowflake.kafka.connector.internal.streaming.schematization.ColumnInfos;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;

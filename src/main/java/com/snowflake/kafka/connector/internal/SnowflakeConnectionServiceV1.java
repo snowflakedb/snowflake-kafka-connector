@@ -10,7 +10,7 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.schematization.ColumnInfos;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
 import java.io.ByteArrayInputStream;

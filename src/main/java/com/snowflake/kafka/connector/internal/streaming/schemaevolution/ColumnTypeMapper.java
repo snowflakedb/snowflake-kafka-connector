@@ -1,4 +1,4 @@
-package com.snowflake.kafka.connector.internal.streaming.schematization;
+package com.snowflake.kafka.connector.internal.streaming.schemaevolution;
 
 import static org.apache.kafka.connect.data.Schema.Type.ARRAY;
 import static org.apache.kafka.connect.data.Schema.Type.BOOLEAN;
