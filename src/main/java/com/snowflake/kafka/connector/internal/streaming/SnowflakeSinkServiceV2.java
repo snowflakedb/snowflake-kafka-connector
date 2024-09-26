@@ -260,7 +260,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private void perTopicActionsOnStartPartitions(String topic, Map<String, String> topic2Table) {
     String tableName = Utils.tableName(topic, topic2Table);
-    if (Utils.isIcebergIngestion(connectorConfig)) {
+    if (Utils.isIcebergEnabled(connectorConfig)) {
       icebergTableSchemaValidator.validateTable(tableName, Utils.role(connectorConfig));
       icebergInitService.initializeIcebergTableProperties(tableName);
     } else {

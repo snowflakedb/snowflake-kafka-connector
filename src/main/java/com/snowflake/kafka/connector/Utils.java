@@ -403,7 +403,7 @@ public class Utils {
    * @param config config with applied default values
    * @return true when Iceberg mode is enabled.
    */
-  public static boolean isIcebergIngestion(Map<String, String> config) {
+  public static boolean isIcebergEnabled(Map<String, String> config) {
     return Boolean.parseBoolean(config.get(ICEBERG_ENABLED));
   }
 

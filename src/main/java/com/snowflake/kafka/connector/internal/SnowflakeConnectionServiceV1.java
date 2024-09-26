@@ -1104,8 +1104,8 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       ResultSet result = stmt.executeQuery();
 
       while (result.next()) {
-        String columnName = result.getString(1);
-        String type = result.getString(2);
+        String columnName = result.getString("name");
+        String type = result.getString("type");
         rows.add(new DescribeTableRow(columnName, type));
       }
       return Optional.of(rows);

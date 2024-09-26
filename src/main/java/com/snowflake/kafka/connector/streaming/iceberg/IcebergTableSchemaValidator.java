@@ -11,6 +11,8 @@ import java.util.Objects;
 /** Performs validations of Iceberg table schema on the connector startup. */
 public class IcebergTableSchemaValidator {
 
+  private static final String SF_STRUCTURED_OBJECT = "OBJECT";
+
   private final SnowflakeConnectionService snowflakeConnectionService;
 
   public IcebergTableSchemaValidator(SnowflakeConnectionService snowflakeConnectionService) {
@@ -36,12 +38,16 @@ public class IcebergTableSchemaValidator {
             .orElseThrow(
                 () -> SnowflakeErrors.ERROR_0032.getException("record_metadata_not_found"));
 
-    if (!metadata.getType().startsWith("OBJECT")) {
+    if (!isOfStructuredObjectType(metadata)) {
       throw SnowflakeErrors.ERROR_0032.getException("invalid_metadata_type");
     }
 
     if (!snowflakeConnectionService.hasSchemaEvolutionPermission(tableName, role)) {
       throw SnowflakeErrors.ERROR_0032.getException("schema_evolution_not_enabled");
     }
+  }
+
+  private static boolean isOfStructuredObjectType(DescribeTableRow metadata) {
+    return metadata.getType().startsWith(SF_STRUCTURED_OBJECT);
   }
 }
