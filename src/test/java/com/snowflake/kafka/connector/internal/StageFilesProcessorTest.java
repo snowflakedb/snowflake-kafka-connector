@@ -81,6 +81,8 @@ class StageFilesProcessorTest {
             TABLE_NAME,
             STAGE_NAME,
             PREFIX,
+            "topic",
+            0,
             conn,
             ingestionService,
             pipeTelemetry,

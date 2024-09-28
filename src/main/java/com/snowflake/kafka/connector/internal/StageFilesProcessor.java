@@ -62,6 +62,8 @@ class StageFilesProcessor {
   private final String tableName;
   private final String stageName;
   private final String prefix;
+  private final String topic;
+  private final int partition;
   private final SnowflakeConnectionService conn;
   private final AtomicReference<ScheduledFuture<?>> cleanerTaskHolder = new AtomicReference<>();
   private final TimeSupplier currentTimeSupplier;
@@ -100,6 +102,8 @@ class StageFilesProcessor {
       String tableName,
       String stageName,
       String prefix,
+      String topic,
+      int partition,
       SnowflakeConnectionService conn,
       SnowflakeIngestionService ingestionService,
       SnowflakeTelemetryPipeStatus pipeTelemetry,
@@ -110,6 +114,8 @@ class StageFilesProcessor {
         tableName,
         stageName,
         prefix,
+        topic,
+        partition,
         conn,
         ingestionService,
         pipeTelemetry,
@@ -124,6 +130,8 @@ class StageFilesProcessor {
       String tableName,
       String stageName,
       String prefix,
+      String topic,
+      int partition,
       SnowflakeConnectionService conn,
       SnowflakeIngestionService ingestionService,
       SnowflakeTelemetryPipeStatus pipeTelemetry,
@@ -134,6 +142,8 @@ class StageFilesProcessor {
     this.tableName = tableName;
     this.stageName = stageName;
     this.prefix = prefix;
+    this.topic = topic;
+    this.partition = partition;
     this.conn = conn;
     this.currentTimeSupplier = currentTimeSupplier;
     this.ingestionService = ingestionService;
@@ -173,7 +183,7 @@ class StageFilesProcessor {
    */
   @VisibleForTesting
   void trackFiles(ProgressRegisterImpl register, PipeProgressRegistryTelemetry progressTelemetry) {
-    LOGGER.info("Starting file cleaner for pipe {} ...", pipeName);
+    LOGGER.info("Starting file cleaner for pipe {} ... [matching stage files with prefix: {}]", pipeName, prefix);
 
     AtomicBoolean shouldFetchInitialStageFiles = new AtomicBoolean(true);
     AtomicBoolean isFirstRun = new AtomicBoolean(true);
@@ -184,9 +194,12 @@ class StageFilesProcessor {
     // required for testing purposes
     register.currentProcessorContext = ctx;
 
+    final String threadName = String.format("file-processor-[%s/%d:%s]", topic, partition, tableName);
+
     cleanerTaskHolder.set(
         schedulingExecutor.scheduleWithFixedDelay(
             () -> {
+              Thread.currentThread().setName(threadName);
               try {
                 // update metrics
                 progressTelemetry.reportKafkaPartitionUsage(false);

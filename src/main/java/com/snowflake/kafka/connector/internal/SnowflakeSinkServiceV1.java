@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.config.TopicToTableModeExtractor.determineTopic2TableMode;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_RECORD_COUNT;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SIZE_BYTES;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SUB_DOMAIN;
@@ -8,8 +9,10 @@ import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.TopicToTableModeExtractor;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeCreation;
@@ -129,6 +132,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
               tableName,
               stageName,
               pipeName,
+              topicPartition.topic(),
               conn,
               topicPartition.partition(),
               cleanerServiceExecutor));
@@ -419,6 +423,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         String tableName,
         String stageName,
         String pipeName,
+        String topicName,
         SnowflakeConnectionService conn,
         int partition,
         ScheduledExecutorService v2CleanerExecutor) {
@@ -430,7 +435,12 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       this.cleanerFileNames = new LinkedList<>();
       this.buffer = new SnowpipeBuffer();
       this.ingestionService = conn.buildIngestService(stageName, pipeName);
-      this.prefix = FileNameUtils.filePrefix(conn.getConnectorName(), tableName, partition);
+      // SNOW-1642799 = if multiple topics load data into single table, we need to ensure prefix is unique per table - otherwise, file cleaners for different channels may run into race condition
+      if (determineTopic2TableMode(topic2TableMap, topicName) == TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE) {
+        this.prefix = FileNameUtils.filePrefix(conn.getConnectorName(), tableName, topicName, partition);
+      } else {
+        this.prefix = FileNameUtils.filePrefix(conn.getConnectorName(), tableName, "", partition);
+      }
       this.processedOffset = new AtomicLong(-1);
       this.flushedOffset = new AtomicLong(-1);
       this.committedOffset = new AtomicLong(0);
@@ -466,6 +476,8 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
                 tableName,
                 stageName,
                 prefix,
+                topicName,
+                partition,
                 conn,
                 ingestionService,
                 pipeStatus,
