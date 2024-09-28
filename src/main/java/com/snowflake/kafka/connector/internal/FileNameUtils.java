@@ -1,12 +1,11 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.google.common.base.Strings;
-import org.apache.kafka.common.utils.Crc32C;
-
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.kafka.common.utils.Crc32C;
 
 public class FileNameUtils {
   private static final KCLogger LOGGER = new KCLogger(FileNameUtils.class.getName());
@@ -16,21 +15,27 @@ public class FileNameUtils {
    * Note: all file names should using the this format
    *
    * @param appName connector name
-   * @param table table name
-   * @Param topic name
+   * @param table table name @Param topic name
    * @param partition partition number
    * @param start start offset
    * @param end end offset
    * @return file name
    */
-  public static String fileName(String appName, String table, String topic, int partition, long start, long end) {
+  public static String fileName(
+      String appName, String table, String topic, int partition, long start, long end) {
     return fileName(filePrefix(appName, table, topic, partition), start, end);
   }
 
   // Used for testing only
   static String fileName(
       String appName, String table, String topic, int partition, long start, long end, long time) {
-    return filePrefix(appName, table, topic, partition) + start + "_" + end + "_" + time + ".json.gz";
+    return filePrefix(appName, table, topic, partition)
+        + start
+        + "_"
+        + end
+        + "_"
+        + time
+        + ".json.gz";
   }
 
   /**
@@ -90,7 +95,8 @@ public class FileNameUtils {
    */
   static String filePrefix(String appName, String table, String topic, int partition) {
     if (partition >= 0x8000) {
-      throw new IllegalArgumentException(String.format("partition id=%d is too large (max=%d)", partition, 0x8000));
+      throw new IllegalArgumentException(
+          String.format("partition id=%d is too large (max=%d)", partition, 0x8000));
     }
     BigInteger partitionPart = BigInteger.valueOf(partition);
     if (!Strings.isNullOrEmpty(topic)) {
@@ -98,11 +104,16 @@ public class FileNameUtils {
       // 1. lets calculate stable hash code out of it,
       // 2. bit shift it by 16 bits left,
       // 3. add 0x8000 (light up 15th bit as a marker)
-      // 4. add partition id (which should in production use cases never reach a value above 5.000 partitions pers topic).
+      // 4. add partition id (which should in production use cases never reach a value above 5.000
+      // partitions pers topic).
       // In theory - we would support 32767 partitions, which is more than
       byte[] bytes = topic.toUpperCase().getBytes(StandardCharsets.UTF_8);
       BigInteger hash = BigInteger.valueOf(Crc32C.compute(bytes, 0, bytes.length));
-      partitionPart = hash.abs().multiply(BigInteger.valueOf(0x10000)).add(BigInteger.valueOf(0x8000)).add(partitionPart);
+      partitionPart =
+          hash.abs()
+              .multiply(BigInteger.valueOf(0x10000))
+              .add(BigInteger.valueOf(0x8000))
+              .add(partitionPart);
     }
     return appName + "/" + table + "/" + partitionPart + "/";
   }

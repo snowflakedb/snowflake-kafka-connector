@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
-import static com.snowflake.kafka.connector.internal.TestUtils.getConf;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.Assert.assertEquals;
@@ -228,9 +227,12 @@ public class ConnectorConfigValidatorTest {
     config.put(TOPICS_TABLES_MAP, "src1:target1,src2:target2,src3:target1");
     connectorConfigValidator.validateConfig(config);
     Map<String, String> topic2Table = Utils.parseTopicToTableMap(config.get(TOPICS_TABLES_MAP));
-    assertThat(TopicToTableModeExtractor.determineTopic2TableMode(topic2Table, "src1")).isEqualTo(TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE);
-    assertThat(TopicToTableModeExtractor.determineTopic2TableMode(topic2Table, "src2")).isEqualTo(TopicToTableModeExtractor.Topic2TableMode.SINGLE_TOPIC_SINGLE_TABLE);
-    assertThat(TopicToTableModeExtractor.determineTopic2TableMode(topic2Table, "src3")).isEqualTo(TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE);
+    assertThat(TopicToTableModeExtractor.determineTopic2TableMode(topic2Table, "src1"))
+        .isEqualTo(TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE);
+    assertThat(TopicToTableModeExtractor.determineTopic2TableMode(topic2Table, "src2"))
+        .isEqualTo(TopicToTableModeExtractor.Topic2TableMode.SINGLE_TOPIC_SINGLE_TABLE);
+    assertThat(TopicToTableModeExtractor.determineTopic2TableMode(topic2Table, "src3"))
+        .isEqualTo(TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE);
   }
 
   @Test

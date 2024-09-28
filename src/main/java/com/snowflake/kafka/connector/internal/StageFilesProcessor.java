@@ -183,7 +183,10 @@ class StageFilesProcessor {
    */
   @VisibleForTesting
   void trackFiles(ProgressRegisterImpl register, PipeProgressRegistryTelemetry progressTelemetry) {
-    LOGGER.info("Starting file cleaner for pipe {} ... [matching stage files with prefix: {}]", pipeName, prefix);
+    LOGGER.info(
+        "Starting file cleaner for pipe {} ... [matching stage files with prefix: {}]",
+        pipeName,
+        prefix);
 
     AtomicBoolean shouldFetchInitialStageFiles = new AtomicBoolean(true);
     AtomicBoolean isFirstRun = new AtomicBoolean(true);
@@ -194,7 +197,8 @@ class StageFilesProcessor {
     // required for testing purposes
     register.currentProcessorContext = ctx;
 
-    final String threadName = String.format("file-processor-[%s/%d:%s]", topic, partition, tableName);
+    final String threadName =
+        String.format("file-processor-[%s/%d:%s]", topic, partition, tableName);
 
     cleanerTaskHolder.set(
         schedulingExecutor.scheduleWithFixedDelay(

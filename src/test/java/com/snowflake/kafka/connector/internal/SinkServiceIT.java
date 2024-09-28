@@ -124,7 +124,11 @@ public class SinkServiceIT {
         () ->
             conn.listStage(
                         stage,
-                        FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, topicFileNamePlaceholder, partition))
+                        FileNameUtils.filePrefix(
+                            TestUtils.TEST_CONNECTOR_NAME,
+                            table,
+                            topicFileNamePlaceholder,
+                            partition))
                     .size()
                 == 1,
         5,
@@ -132,7 +136,9 @@ public class SinkServiceIT {
     service.callAllGetOffset();
     List<String> files =
         conn.listStage(
-            stage, FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, topicFileNamePlaceholder, partition));
+            stage,
+            FileNameUtils.filePrefix(
+                TestUtils.TEST_CONNECTOR_NAME, table, topicFileNamePlaceholder, partition));
     String fileName = files.get(0);
 
     assert FileNameUtils.fileNameToTimeIngested(fileName) < System.currentTimeMillis();
@@ -248,7 +254,8 @@ public class SinkServiceIT {
         () ->
             conn.listStage(
                         stage,
-                        FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, "", partition))
+                        FileNameUtils.filePrefix(
+                            TestUtils.TEST_CONNECTOR_NAME, table, "", partition))
                     .size()
                 == 1,
         5,
@@ -434,7 +441,8 @@ public class SinkServiceIT {
         () ->
             conn.listStage(
                         stage,
-                        FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, "", partition))
+                        FileNameUtils.filePrefix(
+                            TestUtils.TEST_CONNECTOR_NAME, table, "", partition))
                     .size()
                 == 1,
         5,
@@ -562,7 +570,8 @@ public class SinkServiceIT {
         () ->
             conn.listStage(
                         stage,
-                        FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, null, partition))
+                        FileNameUtils.filePrefix(
+                            TestUtils.TEST_CONNECTOR_NAME, table, null, partition))
                     .size()
                 == 1,
         5,
@@ -744,10 +753,14 @@ public class SinkServiceIT {
     // Two hours ago                         h   m    s    milli
     long time = System.currentTimeMillis() - 2 * 60 * 60 * 1000L;
 
-    String fileName1 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 0, 0, time);
-    String fileName2 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 1, 1, time);
-    String fileName3 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null,0, 2, 3, time);
-    String fileName4 = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 4, 5, time);
+    String fileName1 =
+        FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 0, 0, time);
+    String fileName2 =
+        FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 1, 1, time);
+    String fileName3 =
+        FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 2, 3, time);
+    String fileName4 =
+        FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 4, 5, time);
 
     conn.createStage(stage);
     conn.createTable(table);
@@ -880,7 +893,8 @@ public class SinkServiceIT {
             spyConn
                     .listStage(
                         stage,
-                        FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, topicName, partition))
+                        FileNameUtils.filePrefix(
+                            TestUtils.TEST_CONNECTOR_NAME, table, topicName, partition))
                     .size()
                 == 1,
         5,
@@ -908,7 +922,8 @@ public class SinkServiceIT {
             spyConn
                     .listStage(
                         stage,
-                        FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, topicName, partition))
+                        FileNameUtils.filePrefix(
+                            TestUtils.TEST_CONNECTOR_NAME, table, topicName, partition))
                     .size()
                 == 0,
         30,
@@ -947,7 +962,8 @@ public class SinkServiceIT {
             spyConn
                     .listStage(
                         stage,
-                        FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, null, partition))
+                        FileNameUtils.filePrefix(
+                            TestUtils.TEST_CONNECTOR_NAME, table, null, partition))
                     .size()
                 == 1,
         5,
@@ -971,7 +987,8 @@ public class SinkServiceIT {
             spyConn
                     .listStage(
                         stage,
-                        FileNameUtils.filePrefix(TestUtils.TEST_CONNECTOR_NAME, table, null, partition))
+                        FileNameUtils.filePrefix(
+                            TestUtils.TEST_CONNECTOR_NAME, table, null, partition))
                     .size()
                 == 0,
         60,

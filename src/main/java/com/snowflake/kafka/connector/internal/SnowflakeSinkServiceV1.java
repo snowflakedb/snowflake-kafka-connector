@@ -9,7 +9,6 @@ import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.TopicToTableModeExtractor;
@@ -435,9 +434,13 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       this.cleanerFileNames = new LinkedList<>();
       this.buffer = new SnowpipeBuffer();
       this.ingestionService = conn.buildIngestService(stageName, pipeName);
-      // SNOW-1642799 = if multiple topics load data into single table, we need to ensure prefix is unique per table - otherwise, file cleaners for different channels may run into race condition
-      if (determineTopic2TableMode(topic2TableMap, topicName) == TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE) {
-        this.prefix = FileNameUtils.filePrefix(conn.getConnectorName(), tableName, topicName, partition);
+      // SNOW-1642799 = if multiple topics load data into single table, we need to ensure prefix is
+      // unique per table - otherwise, file cleaners for different channels may run into race
+      // condition
+      if (determineTopic2TableMode(topic2TableMap, topicName)
+          == TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE) {
+        this.prefix =
+            FileNameUtils.filePrefix(conn.getConnectorName(), tableName, topicName, partition);
       } else {
         this.prefix = FileNameUtils.filePrefix(conn.getConnectorName(), tableName, "", partition);
       }

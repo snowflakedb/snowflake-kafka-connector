@@ -1,9 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
-import org.junit.Test;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import org.junit.Test;
 
 public class FileNameUtilsTest {
   @Test
@@ -27,9 +27,10 @@ public class FileNameUtilsTest {
     assertThat(FileNameUtils.fileNameToPartition(fileName)).isEqualTo(partition);
 
     long createTime = FileNameUtils.fileNameToTimeIngested(fileName);
-    assertThat( (createTime > time1) && (createTime < time2)).isTrue();
+    assertThat((createTime > time1) && (createTime < time2)).isTrue();
 
-    assertThat(FileNameUtils.removePrefixAndGZFromFileName("A/B/C/abc.tar.gz")).isEqualTo("abc.tar");
+    assertThat(FileNameUtils.removePrefixAndGZFromFileName("A/B/C/abc.tar.gz"))
+        .isEqualTo("abc.tar");
     assertThat(FileNameUtils.removePrefixAndGZFromFileName("A/B/C/abc.json")).isEqualTo("abc.json");
     assertThat(FileNameUtils.getPrefixFromFileName("A/B/C/abc.tar.gz")).isEqualTo("A/B/C");
     assertThat(FileNameUtils.getPrefixFromFileName("A/B/C/abc.json")).isEqualTo("A/B/C");
@@ -75,18 +76,21 @@ public class FileNameUtilsTest {
     String topicName = "test_topic";
     long now = System.currentTimeMillis();
     String fileName =
-            FileNameUtils.fileName(
-                    TestUtils.TEST_CONNECTOR_NAME, tableName, topicName, partition, startOffset, endOffset);
+        FileNameUtils.fileName(
+            TestUtils.TEST_CONNECTOR_NAME, tableName, topicName, partition, startOffset, endOffset);
 
     assertThat(fileName).isNotNull();
     assertThat(FileNameUtils.verifyFileName(fileName)).isTrue();
     assertThat(FileNameUtils.fileNameToPartition(fileName)).isEqualTo(partition);
     assertThat(FileNameUtils.fileNameToStartOffset(fileName)).isEqualTo(startOffset);
     assertThat(FileNameUtils.fileNameToEndOffset(fileName)).isEqualTo(endOffset);
-    assertThat(FileNameUtils.fileNameToTimeIngested(fileName)).isGreaterThanOrEqualTo(now - 5000L).isLessThanOrEqualTo(now + 5000L);
+    assertThat(FileNameUtils.fileNameToTimeIngested(fileName))
+        .isGreaterThanOrEqualTo(now - 5000L)
+        .isLessThanOrEqualTo(now + 5000L);
 
     String prefix = FileNameUtils.getPrefixFromFileName(fileName);
-    // without bit shifting - the expression would match \d\d\d expression, but since we are left shifting by 16 bits left, it is going to be a larger number
+    // without bit shifting - the expression would match \d\d\d expression, but since we are left
+    // shifting by 16 bits left, it is going to be a larger number
     assertThat(prefix).matches("^TEST_CONNECTOR/test_table/\\d\\d\\d\\d\\d\\d\\d\\d\\d.*");
   }
 
@@ -99,18 +103,27 @@ public class FileNameUtilsTest {
     String topicName1 = "test_topic1";
     String topicName2 = "test_topic2";
     String fileName1 =
-            FileNameUtils.fileName(
-                    TestUtils.TEST_CONNECTOR_NAME, tableName, topicName1, partition, startOffset, endOffset);
+        FileNameUtils.fileName(
+            TestUtils.TEST_CONNECTOR_NAME,
+            tableName,
+            topicName1,
+            partition,
+            startOffset,
+            endOffset);
     String fileName2 =
-            FileNameUtils.fileName(
-                    TestUtils.TEST_CONNECTOR_NAME, tableName, topicName2, partition, startOffset, endOffset);
+        FileNameUtils.fileName(
+            TestUtils.TEST_CONNECTOR_NAME,
+            tableName,
+            topicName2,
+            partition,
+            startOffset,
+            endOffset);
     String fileName3 =
-            FileNameUtils.fileName(
-                    TestUtils.TEST_CONNECTOR_NAME, tableName, "", partition, startOffset, endOffset);
+        FileNameUtils.fileName(
+            TestUtils.TEST_CONNECTOR_NAME, tableName, "", partition, startOffset, endOffset);
     String fileName4 =
-            FileNameUtils.fileName(
-                    TestUtils.TEST_CONNECTOR_NAME, tableName, "", partition, startOffset, endOffset);
-
+        FileNameUtils.fileName(
+            TestUtils.TEST_CONNECTOR_NAME, tableName, "", partition, startOffset, endOffset);
 
     String prefix1 = FileNameUtils.getPrefixFromFileName(fileName1);
     String prefix2 = FileNameUtils.getPrefixFromFileName(fileName2);
@@ -130,10 +143,15 @@ public class FileNameUtilsTest {
     long endOffset = 789L;
     String tableName = "test_table";
     String topicName = "test_topic";
-    assertThatThrownBy(() -> FileNameUtils.fileName(
-                    TestUtils.TEST_CONNECTOR_NAME, tableName, topicName, partition, startOffset, endOffset))
-            .isInstanceOf(IllegalArgumentException.class);
-
+    assertThatThrownBy(
+            () ->
+                FileNameUtils.fileName(
+                    TestUtils.TEST_CONNECTOR_NAME,
+                    tableName,
+                    topicName,
+                    partition,
+                    startOffset,
+                    endOffset))
+        .isInstanceOf(IllegalArgumentException.class);
   }
-
 }
