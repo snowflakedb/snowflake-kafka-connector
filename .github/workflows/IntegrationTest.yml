@@ -39,8 +39,8 @@ jobs:
     - name: Install Dependency
       run: |
         pip3 install --upgrade setuptools
-        pip3 install requests certifi "confluent-kafka[avro,json,protobuf]==1.7.0"
-        pip3 install avro-python3 kafka-python
+        pip3 install requests certifi "confluent-kafka[avro,json,protobuf]==1.9.2"
+        pip3 install avro kafka-python
         pip3 install protobuf
         pip3 install --upgrade snowflake-connector-python==2.7.4
         curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
@@ -69,6 +69,9 @@ jobs:
       run: |
         cd test
         ./build_runtime_jar.sh ../../snowflake-kafka-connector
-      
-    - name: Code Coverage
-      uses: codecov/codecov-action@v1
+
+#      Commented out because the build was very unstable
+#      Error that might be a hint: {'detail': ErrorDetail(string='Rate limit reached. Please upload with the Codecov repository upload token to resolve issue. Expected available in 383 seconds.', code='throttled')}
+#      Consider migrating to newer version (v4)
+#    - name: Code Coverage
+#      uses: codecov/codecov-action@v1

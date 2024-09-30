@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.ColumnInfos;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -56,15 +57,15 @@ public class SchematizationUtilsTest {
 
     String processedColumnName = Utils.quoteNameIfNeeded(columnName);
     String processedNonExistingColumnName = Utils.quoteNameIfNeeded(nonExistingColumnName);
-    Map<String, String> columnToTypes =
-        SchematizationUtils.getColumnTypes(
+    Map<String, ColumnInfos> columnInfosMap =
+        SchematizationUtils.getColumnInfos(
             recordWithoutSchema, Collections.singletonList(processedColumnName));
-    Assert.assertEquals("VARCHAR", columnToTypes.get(processedColumnName));
+    Assert.assertEquals("VARCHAR", columnInfosMap.get(processedColumnName).getColumnType());
     // Get non-existing column name should return nothing
-    columnToTypes =
-        SchematizationUtils.getColumnTypes(
+    columnInfosMap =
+        SchematizationUtils.getColumnInfos(
             recordWithoutSchema, Collections.singletonList(processedNonExistingColumnName));
-    Assert.assertTrue(columnToTypes.isEmpty());
+    Assert.assertTrue(columnInfosMap.isEmpty());
   }
 
   @Test
@@ -90,10 +91,12 @@ public class SchematizationUtilsTest {
             System.currentTimeMillis(),
             TimestampType.CREATE_TIME);
 
-    Map<String, String> columnToTypes =
-        SchematizationUtils.getColumnTypes(
+    Map<String, ColumnInfos> columnInfosMap =
+        SchematizationUtils.getColumnInfos(
             recordWithoutSchema, Arrays.asList(columnName1, columnName2));
-    Assert.assertEquals("VARCHAR", columnToTypes.get(columnName1));
-    Assert.assertEquals("VARCHAR", columnToTypes.get(columnName2));
+    Assert.assertEquals("VARCHAR", columnInfosMap.get(columnName1).getColumnType());
+    Assert.assertEquals("doc", columnInfosMap.get(columnName1).getComments());
+    Assert.assertEquals("VARCHAR", columnInfosMap.get(columnName2).getColumnType());
+    Assert.assertNull(columnInfosMap.get(columnName2).getComments());
   }
 }

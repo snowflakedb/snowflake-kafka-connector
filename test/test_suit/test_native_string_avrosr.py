@@ -44,7 +44,7 @@ class TestNativeStringAvrosr:
 
         # "schema_id" is lost since they are using native avro converter
         goldMeta = r'{"CreateTime":\d*,"offset":0,"partition":0,' \
-                   r'"topic":"travis_correct_native_string_avrosr....."}'
+                   r'"topic":"travis_correct_native_string_avrosr_\w*"}'
         goldContent = r'{"firstName":"abc0","time":1835}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 

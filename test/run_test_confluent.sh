@@ -100,8 +100,8 @@ case $CONFLUENT_VERSION in
 	6.2.*)
     DOWNLOAD_URL="https://packages.confluent.io/archive/6.2/confluent-community-$CONFLUENT_VERSION.tar.gz"
     ;;
-  7.2.*)
-    DOWNLOAD_URL="https://packages.confluent.io/archive/7.2/confluent-community-$CONFLUENT_VERSION.tar.gz"
+  7.6.*)
+    DOWNLOAD_URL="https://packages.confluent.io/archive/7.6/confluent-community-$CONFLUENT_VERSION.tar.gz"
     ;;
   *)
     error_exit "Usage: ./run_test.sh <version> <path to apache config folder>. Unknown version $CONFLUENT_VERSION Aborting."
@@ -154,6 +154,8 @@ sleep 10
 echo -e "\n=== Start Kafka ==="
 $CONFLUENT_FOLDER_NAME/bin/kafka-server-start $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_KAFKA_CONFIG > $APACHE_LOG_PATH/kafka.log 2>&1 &
 sleep 10
+echo -e "\n=== Java version used ==="
+java -version
 echo -e "\n=== Start Kafka Connect ==="
 KAFKA_HEAP_OPTS="-Xms512m -Xmx6g" $CONFLUENT_FOLDER_NAME/bin/connect-distributed $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_KAFKA_CONNECT_CONFIG > $APACHE_LOG_PATH/kc.log 2>&1 &
 sleep 10

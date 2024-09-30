@@ -31,17 +31,16 @@ public class SnowflakeSinkServiceV2StopIT {
     TestUtils.dropTable(topicAndTableName);
   }
 
-  @ParameterizedTest
+  @ParameterizedTest(name = "useSingleBuffer: {0}, optimizationEnabled: {1}")
   @MethodSource("singleServiceTestCases")
   public void stop_forSingleService_closesClientDependingOnOptimization(
-      boolean optimizationEnabled, boolean clientClosed) {
+      boolean useSingleBuffer, boolean optimizationEnabled) {
+    final boolean clientClosed = !optimizationEnabled;
     // given
     SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = getConfig(optimizationEnabled, useSingleBuffer);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(
-        SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
-        String.valueOf(optimizationEnabled));
+
     conn.createTable(topicAndTableName);
     int partition = 0;
     TopicPartition topicPartition = new TopicPartition(topicAndTableName, partition);
@@ -66,7 +65,18 @@ public class SnowflakeSinkServiceV2StopIT {
     Assertions.assertEquals(clientClosed, client.isClosed());
   }
 
+  private Map<String, String> getConfig(boolean optimizationEnabled, boolean useSingleBuffer) {
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    config.put(
+        SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+        String.valueOf(optimizationEnabled));
+    config.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
+        String.valueOf(useSingleBuffer));
+    return config;
+  }
+
   public static Stream<Arguments> singleServiceTestCases() {
-    return Stream.of(Arguments.of(true, false), Arguments.of(false, true));
+    return TestUtils.nBooleanProduct(2);
   }
 }

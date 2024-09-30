@@ -31,13 +31,11 @@ import org.mockito.Mockito;
 public class DirectStreamingClientHandlerTest {
   private StreamingClientHandler streamingClientHandler;
   private Map<String, String> connectorConfig;
-  private Map<String, String> connectorConfigWithOAuth;
 
   @Before
   public void setup() {
     this.streamingClientHandler = new DirectStreamingClientHandler();
     this.connectorConfig = TestUtils.getConfForStreaming();
-    this.connectorConfigWithOAuth = TestUtils.getConfForStreamingWithOAuth();
   }
 
   @Test
@@ -67,9 +65,10 @@ public class DirectStreamingClientHandlerTest {
   @Test
   @Ignore // TODO: Remove ignore after SNOW-859929 is released
   public void testCreateOAuthClient() {
-    if (this.connectorConfigWithOAuth != null) {
+    Map<String, String> connectorConfigWithOAuth = TestUtils.getConfForStreamingWithOAuth();
+    if (connectorConfigWithOAuth != null) {
       this.streamingClientHandler.createClient(
-          new StreamingClientProperties(this.connectorConfigWithOAuth));
+          new StreamingClientProperties(connectorConfigWithOAuth));
     }
   }
 

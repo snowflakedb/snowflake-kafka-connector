@@ -85,6 +85,14 @@ class TestSnowpipeStreamingStringJson:
                 if rows[p][0] != self.recordNum or rows[p][1] != p:
                     raise NonRetryableError("Unique offsets for partitions count doesnt match")
 
+        self._verify_connector_push_time()
+
+    def _verify_connector_push_time(self):
+        res = self.driver.snowflake_conn.cursor().execute(f'select count(*) from {self.topic} where not is_null_value(record_metadata:SnowflakeConnectorPushTime)').fetchone()[0]
+
+        if res != self.recordNum * self.partitionNum:
+            raise NonRetryableError('Empty ConnectorPushTime detected')
+
     def clean(self):
         # dropping of stage and pipe doesnt apply for snowpipe streaming. (It executes drop if exists)
         self.driver.cleanTableStagePipe(self.topic)

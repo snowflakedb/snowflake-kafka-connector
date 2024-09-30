@@ -17,6 +17,12 @@
 package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.records.RecordService.ISO_DATE_TIME_FORMAT;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
@@ -34,7 +40,6 @@ import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.GregorianCalendar;
@@ -61,8 +66,7 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.storage.SimpleHeaderConverter;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ConverterTest {
 
@@ -93,20 +97,19 @@ public class ConverterTest {
     SchemaAndValue sv =
         converter.toConnectData("test", node.toString().getBytes(StandardCharsets.UTF_8));
 
-    assert sv.schema().name().equals(SnowflakeJsonSchema.NAME);
+    assertEquals(SnowflakeJsonSchema.NAME, sv.schema().name());
 
-    assert sv.value() instanceof SnowflakeRecordContent;
-
-    SnowflakeRecordContent content = (SnowflakeRecordContent) sv.value();
+    SnowflakeRecordContent content = assertInstanceOf(SnowflakeRecordContent.class, sv.value());
 
     JsonNode[] jsonNodes = content.getData();
 
-    assert jsonNodes.length == 1;
-    assert node.toString().equals(jsonNodes[0].toString());
+    assertEquals(1, jsonNodes.length);
+    assertEquals(node.toString(), jsonNodes[0].toString());
 
     // null value
     sv = converter.toConnectData("test", null);
-    assert ((SnowflakeRecordContent) sv.value()).getData()[0].toString().equals("{}");
+    content = assertInstanceOf(SnowflakeRecordContent.class, sv.value());
+    assertEquals("{}", content.getData()[0].toString());
   }
 
   @Test
@@ -120,22 +123,21 @@ public class ConverterTest {
 
     SchemaAndValue sv = converter.toConnectData("test", testFile);
 
-    assert sv.schema().name().equals(SnowflakeJsonSchema.NAME);
+    assertEquals(SnowflakeJsonSchema.NAME, sv.schema().name());
 
-    assert sv.value() instanceof SnowflakeRecordContent;
-
-    SnowflakeRecordContent content = (SnowflakeRecordContent) sv.value();
+    SnowflakeRecordContent content = assertInstanceOf(SnowflakeRecordContent.class, sv.value());
 
     JsonNode[] jsonNodes = content.getData();
 
-    assert jsonNodes.length == 2;
+    assertEquals(2, jsonNodes.length);
 
-    assert jsonNodes[0].toString().equals("{\"name\":\"foo\",\"age\":30}");
-    assert jsonNodes[1].toString().equals("{\"name\":\"bar\",\"age\":29}");
+    assertEquals("{\"name\":\"foo\",\"age\":30}", jsonNodes[0].toString());
+    assertEquals("{\"name\":\"bar\",\"age\":29}", jsonNodes[1].toString());
 
     // null value
     sv = converter.toConnectData("test", null);
-    assert ((SnowflakeRecordContent) sv.value()).getData()[0].toString().equals("{}");
+    content = assertInstanceOf(SnowflakeRecordContent.class, sv.value());
+    assertEquals("{}", content.getData()[0].toString());
   }
 
   @Test
@@ -144,13 +146,14 @@ public class ConverterTest {
     SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
     converter.setSchemaRegistry(client);
     SchemaAndValue input = converter.toConnectData("test", client.getData());
-    SnowflakeRecordContent content = (SnowflakeRecordContent) input.value();
-    assert content.getData().length == 1;
-    assert content.getData()[0].asText().equals(mapper.readTree("{\"int" + "\":1234}").asText());
+    SnowflakeRecordContent content = assertInstanceOf(SnowflakeRecordContent.class, input.value());
+    assertEquals(1, content.getData().length);
+    assertEquals(mapper.readTree("{\"int\":1234}").asText(), content.getData()[0].asText());
 
     // null value
     input = converter.toConnectData("test", null);
-    assert ((SnowflakeRecordContent) input.value()).getData()[0].toString().equals("{}");
+    content = assertInstanceOf(SnowflakeRecordContent.class, input.value());
+    assertEquals("{}", content.getData()[0].toString());
   }
 
   @Test
@@ -167,32 +170,28 @@ public class ConverterTest {
     converter.setSchemaRegistry(client);
 
     SchemaAndValue input = converter.toConnectData("test", client.getData());
-    SnowflakeRecordContent content = (SnowflakeRecordContent) input.value();
-    assert content.getData().length == 1;
-    assert content
-        .getData()[0]
-        .asText()
-        .equals(mapper.readTree("{\"int" + "\":1234, \"newfield\":1}").asText());
+    SnowflakeRecordContent content = assertInstanceOf(SnowflakeRecordContent.class, input.value());
+    assertEquals(1, content.getData().length);
+    assertEquals(
+        mapper.readTree("{\"int\":1234, \"newfield\":1}").asText(), content.getData()[0].asText());
 
     // null value
     input = converter.toConnectData("test", null);
-    assert ((SnowflakeRecordContent) input.value()).getData()[0].toString().equals("{}");
+    content = assertInstanceOf(SnowflakeRecordContent.class, input.value());
+    assertEquals("{}", content.getData()[0].toString());
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
-  public void testAvroWithSchemaRegistryAndWrongReaderSchema() throws IOException {
-    MockSchemaRegistryClient client = new MockSchemaRegistryClient();
+  @Test
+  public void testAvroWithSchemaRegistryAndWrongReaderSchema() {
     SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
-    Map<String, String> configs = new HashMap<String, String>();
+    Map<String, String> configs = new HashMap<>();
     configs.put(
         SnowflakeAvroConverter.READER_SCHEMA,
         "{\"name\":\"test_avro\",\"type\":\"record\",\"fields\":[{\"name\":\"int\",\"type\":\"int\"},{\"name\":\"newfield\",\"type\":\"int\",\"default\":"
             + " 1},{\"name\":\"missingfield\",\"type\"::\"int\"}]}");
     configs.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, "http://fake-url");
-    converter.configure(configs, false);
-    converter.setSchemaRegistry(client);
 
-    SchemaAndValue input = converter.toConnectData("test", client.getData());
+    assertThrows(SnowflakeKafkaConnectorException.class, () -> converter.configure(configs, false));
   }
 
   @Test
@@ -218,7 +217,7 @@ public class ConverterTest {
 
     // Verify that byte representation of unscaled BigDecimal(90.0000) is equivalent with
     // BigInteger("0DBBA0", 16)
-    assert Arrays.equals(testInt.toByteArray(), new BigInteger("0DBBA0", 16).toByteArray());
+    assertArrayEquals(new BigInteger("0DBBA0", 16).toByteArray(), testInt.toByteArray());
 
     // Convert AVRO data to Kafka Connect Data for AVRO converter
     AvroData avroData = new AvroData(100);
@@ -246,7 +245,7 @@ public class ConverterTest {
     SnowflakeRecordContent content = (SnowflakeRecordContent) avroInputValue.value();
 
     // This string is exactly what will appear in Snowflake Database.
-    assert content.getData()[0].toString().equals("{\"bytesDecimal\":90.0}");
+    assertEquals("{\"bytesDecimal\":90.0}", content.getData()[0].toString());
   }
 
   @Test
@@ -254,31 +253,36 @@ public class ConverterTest {
     byte[] data = "fasfas".getBytes(StandardCharsets.UTF_8);
     SnowflakeConverter converter = new SnowflakeJsonConverter();
     SchemaAndValue result = converter.toConnectData("test", data);
-    assert ((SnowflakeRecordContent) result.value()).isBroken();
-    assert Arrays.equals(data, ((SnowflakeRecordContent) result.value()).getBrokenData());
+    SnowflakeRecordContent content = assertInstanceOf(SnowflakeRecordContent.class, result.value());
+    assertTrue(content.isBroken());
+    assertArrayEquals(data, content.getBrokenData());
 
     converter = new SnowflakeAvroConverter();
     result = converter.toConnectData("test", data);
-    assert ((SnowflakeRecordContent) result.value()).isBroken();
-    assert Arrays.equals(data, ((SnowflakeRecordContent) result.value()).getBrokenData());
+    content = assertInstanceOf(SnowflakeRecordContent.class, result.value());
+    assertTrue(content.isBroken());
+    assertArrayEquals(data, content.getBrokenData());
 
     MockSchemaRegistryClient client = new MockSchemaRegistryClient();
 
     byte[] brokenAvroData =
         new byte[] {(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x01};
     result = converter.toConnectData("test", brokenAvroData);
-    assert ((SnowflakeRecordContent) result.value()).isBroken();
-    assert Arrays.equals(brokenAvroData, ((SnowflakeRecordContent) result.value()).getBrokenData());
+    content = assertInstanceOf(SnowflakeRecordContent.class, result.value());
+    assertTrue(content.isBroken());
+    assertArrayEquals(brokenAvroData, content.getBrokenData());
 
     ((SnowflakeAvroConverter) converter).setSchemaRegistry(client);
     result = converter.toConnectData("test", brokenAvroData);
-    assert ((SnowflakeRecordContent) result.value()).isBroken();
-    assert Arrays.equals(brokenAvroData, ((SnowflakeRecordContent) result.value()).getBrokenData());
+    content = assertInstanceOf(SnowflakeRecordContent.class, result.value());
+    assertTrue(content.isBroken());
+    assertArrayEquals(brokenAvroData, content.getBrokenData());
 
     converter = new SnowflakeAvroConverterWithoutSchemaRegistry();
     result = converter.toConnectData("test", data);
-    assert ((SnowflakeRecordContent) result.value()).isBroken();
-    assert Arrays.equals(data, ((SnowflakeRecordContent) result.value()).getBrokenData());
+    content = assertInstanceOf(SnowflakeRecordContent.class, result.value());
+    assertTrue(content.isBroken());
+    assertArrayEquals(data, content.getBrokenData());
   }
 
   @Test
@@ -296,7 +300,7 @@ public class ConverterTest {
 
     ObjectNode expected = mapper.createObjectNode();
     expected.put("test", Integer.MAX_VALUE);
-    assert expected.toString().equals(result.toString());
+    assertEquals(expected.toString(), result.toString());
   }
 
   @Test
@@ -317,7 +321,7 @@ public class ConverterTest {
 
     // look at the results
     for (Future<Boolean> result : results) {
-      Assert.assertTrue(result.get());
+      assertTrue(result.get());
     }
   }
 
@@ -357,7 +361,7 @@ public class ConverterTest {
     ObjectNode expected = mapper.createObjectNode();
     expected.put("test", new BigDecimal("999999999999999999999999999999999999999"));
     // TODO: uncomment it once KAFKA-10457 is merged
-    // assert expected.toString().equals(result.toString());
+    // assertEquals(expected.toString(), result.toString());
   }
 
   @Test
@@ -379,7 +383,7 @@ public class ConverterTest {
             .getTime();
     expected.put("f1", expectedTimestampValue);
     expected.put("f2", true);
-    assert expected.toString().equals(result.toString());
+    assertEquals(expected.toString(), result.toString());
   }
 
   @Test
@@ -389,31 +393,34 @@ public class ConverterTest {
 
     Map<String, ?> config = Collections.singletonMap("schema.registry.url", "mock://my-scope-name");
     converter.readBreakOnSchemaRegistryError(config);
-    assert !converter.getBreakOnSchemaRegistryError();
+    assertFalse(converter.getBreakOnSchemaRegistryError());
 
     config =
         Collections.singletonMap(SnowflakeAvroConverter.BREAK_ON_SCHEMA_REGISTRY_ERROR, "true");
     converter.readBreakOnSchemaRegistryError(config);
-    assert converter.getBreakOnSchemaRegistryError();
+    assertTrue(converter.getBreakOnSchemaRegistryError());
 
     config =
         Collections.singletonMap(SnowflakeAvroConverter.BREAK_ON_SCHEMA_REGISTRY_ERROR, "trueeee");
     converter.readBreakOnSchemaRegistryError(config);
-    assert !converter.getBreakOnSchemaRegistryError();
+    assertFalse(converter.getBreakOnSchemaRegistryError());
 
     config =
         Collections.singletonMap(SnowflakeAvroConverter.BREAK_ON_SCHEMA_REGISTRY_ERROR, "True");
     converter.readBreakOnSchemaRegistryError(config);
-    assert converter.getBreakOnSchemaRegistryError();
+    assertTrue(converter.getBreakOnSchemaRegistryError());
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testAvroConverterErrorConfig() {
     SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
-    converter.configure(new HashMap<String, String>(), true);
+
+    assertThrows(
+        SnowflakeKafkaConnectorException.class,
+        () -> converter.configure(new HashMap<String, String>(), true));
   }
 
-  @Test(expected = SnowflakeKafkaConnectorException.class)
+  @Test
   public void testAvroConverterSchemaRegistryErrorFail() {
     SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
     Map<String, ?> config =
@@ -431,8 +438,9 @@ public class ConverterTest {
     avroConverter.configure(
         Collections.singletonMap("schema.registry.url", "http://fake-url"), false);
     byte[] converted = avroConverter.fromConnectData("test", original.schema(), original);
-    // This line will throw expected exception
-    SchemaAndValue result = converter.toConnectData("test", converted);
+
+    assertThrows(
+        SnowflakeKafkaConnectorException.class, () -> converter.toConnectData("test", converted));
   }
 
   @Test
@@ -451,6 +459,7 @@ public class ConverterTest {
         Collections.singletonMap("schema.registry.url", "http://fake-url"), false);
     byte[] converted = avroConverter.fromConnectData("test", original.schema(), original);
     SchemaAndValue result = converter.toConnectData("test", converted);
-    assert ((SnowflakeRecordContent) result.value()).isBroken();
+    SnowflakeRecordContent content = assertInstanceOf(SnowflakeRecordContent.class, result.value());
+    assertTrue(content.isBroken());
   }
 }
