@@ -28,6 +28,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -531,11 +532,11 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       if (extraColNames != null
           || nonNullableColumns != null
           || nullValueForNotNullColNames != null) {
-        SchematizationUtils.evolveSchemaIfNeeded(
-            this.conn,
-            this.channel.getTableName(),
-            join(nonNullableColumns, nullValueForNotNullColNames),
-            extraColNames,
+        schemaEvolutionService.evolveSchemaIfNeeded(
+            new SchemaEvolutionTargetItems(
+                this.channel.getTableName(),
+                join(nonNullableColumns, nullValueForNotNullColNames),
+                extraColNames),
             kafkaSinkRecord);
         streamingApiFallbackSupplier(
             StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
