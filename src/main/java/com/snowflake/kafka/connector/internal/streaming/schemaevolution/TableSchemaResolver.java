@@ -22,7 +22,7 @@ public abstract class TableSchemaResolver {
 
   private final ColumnTypeMapper columnTypeMapper;
 
-  public TableSchemaResolver(ColumnTypeMapper columnTypeMapper) {
+  protected TableSchemaResolver(ColumnTypeMapper columnTypeMapper) {
     this.columnTypeMapper = columnTypeMapper;
   }
 
