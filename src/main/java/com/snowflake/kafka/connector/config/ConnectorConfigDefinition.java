@@ -350,6 +350,16 @@ public class ConnectorConfigDefinition {
             "Defines number of worker threads to associate with the cleaner task. By default there"
                 + " is one cleaner per topic's partition and they all share one worker thread")
         .define(
+            SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED,
+            ConfigDef.Type.BOOLEAN,
+            SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED_DEFAULT,
+            ConfigDef.Importance.LOW,
+            "Defines whether stage file names should be prefixed with source topic's name hash."
+                + " This is required in scenarios, when there are multiple topics configured to"
+                + " ingest data into a single table via topic2table map. If disabled, there is a"
+                + " risk that files from various topics may collide with each other and be deleted"
+                + " before ingestion.")
+        .define(
             SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL,
             ConfigDef.Type.BOOLEAN,
             SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT,

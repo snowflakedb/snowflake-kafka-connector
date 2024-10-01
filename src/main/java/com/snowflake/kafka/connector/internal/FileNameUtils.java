@@ -106,7 +106,8 @@ public class FileNameUtils {
       // 3. add 0x8000 (light up 15th bit as a marker)
       // 4. add partition id (which should in production use cases never reach a value above 5.000
       // partitions pers topic).
-      // In theory - we would support 32767 partitions, which is more than
+      // In theory - we would support 32767 partitions, which is more than any reasonable value for
+      // a single topic
       byte[] bytes = topic.toUpperCase().getBytes(StandardCharsets.UTF_8);
       BigInteger hash = BigInteger.valueOf(Crc32C.compute(bytes, 0, bytes.length));
       partitionPart =
