@@ -22,6 +22,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.parameters.InternalBufferParameters;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
@@ -321,7 +322,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.conn.getTelemetryClient(),
             this.enableCustomJMXMonitoring,
             this.metricsJmxReporter,
-            this.schemaEvolutionService)
+            this.schemaEvolutionService,
+            new InsertErrorMapper())
         : new BufferedTopicPartitionChannel(
             this.streamingIngestClient,
             topicPartition,
@@ -337,7 +339,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.conn.getTelemetryClient(),
             this.enableCustomJMXMonitoring,
             this.metricsJmxReporter,
-            this.schemaEvolutionService);
+            this.schemaEvolutionService,
+            new InsertErrorMapper());
   }
 
   /**

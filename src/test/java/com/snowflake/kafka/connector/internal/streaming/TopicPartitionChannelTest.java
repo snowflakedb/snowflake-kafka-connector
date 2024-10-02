@@ -25,6 +25,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
@@ -1207,7 +1208,8 @@ public class TopicPartitionChannelTest {
             sinkTaskContext,
             conn,
             telemetryService,
-            this.schemaEvolutionService)
+            this.schemaEvolutionService,
+            new InsertErrorMapper())
         : new DirectTopicPartitionChannel(
             streamingIngestClient,
             topicPartition,
@@ -1219,7 +1221,8 @@ public class TopicPartitionChannelTest {
             sinkTaskContext,
             conn,
             telemetryService,
-            this.schemaEvolutionService);
+            this.schemaEvolutionService,
+            new InsertErrorMapper());
   }
 
   public TopicPartitionChannel createTopicPartitionChannel(
@@ -1254,7 +1257,8 @@ public class TopicPartitionChannelTest {
             telemetryService,
             enableCustomJMXMonitoring,
             metricsJmxReporter,
-            this.schemaEvolutionService)
+            this.schemaEvolutionService,
+            new InsertErrorMapper())
         : new DirectTopicPartitionChannel(
             streamingIngestClient,
             topicPartition,
@@ -1270,7 +1274,8 @@ public class TopicPartitionChannelTest {
             telemetryService,
             enableCustomJMXMonitoring,
             metricsJmxReporter,
-            this.schemaEvolutionService);
+            this.schemaEvolutionService,
+            new InsertErrorMapper());
   }
 
   @Test
