@@ -248,7 +248,8 @@ public class ConnectionServiceIT {
     // stage exists
     assert conn.stageExist(stageName);
     // put a file to stage
-    String fileName = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, "topic", 1, 123, 456);
+    String fileName =
+        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, "topic", 1, 123, 456);
     conn.put(stageName, fileName, "test");
     // list stage with prefix
     List<String> files = conn.listStage(stageName, TEST_CONNECTOR_NAME);
@@ -337,17 +338,23 @@ public class ConnectionServiceIT {
     // stage exists
     assert conn.stageExist(stageName);
     // put two files to stage
-    String fileName1 = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 1, 3);
+    String fileName1 =
+        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 1, 3);
     conn.put(stageName, fileName1, "test");
-    String fileName2 = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 4, 6);
+    String fileName2 =
+        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 4, 6);
     conn.put(stageName, fileName2, "test");
-    String fileName3 = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 14, 16);
+    String fileName3 =
+        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 14, 16);
     conn.put(stageName, fileName3, "test");
-    String fileName4 = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 24, 26);
+    String fileName4 =
+        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 24, 26);
     conn.put(stageName, fileName4, "test");
-    String fileName5 = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 34, 36);
+    String fileName5 =
+        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 34, 36);
     conn.put(stageName, fileName5, "test");
-    String fileName6 = FileNameUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 44, 46);
+    String fileName6 =
+        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 44, 46);
     conn.put(stageName, fileName6, "test");
     // list stage with prefix
     List<String> files = conn.listStage(stageName, TEST_CONNECTOR_NAME);

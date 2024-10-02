@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED;
 import static com.snowflake.kafka.connector.config.TopicToTableModeExtractor.determineTopic2TableMode;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_RECORD_COUNT;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SIZE_BYTES;
@@ -406,13 +407,15 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     return topic + "_" + partition;
   }
 
-  public void configureSingleTableLoadFromMultipleTopcis(boolean fixEnabled) {
+  public void configureSingleTableLoadFromMultipleTopics(boolean fixEnabled) {
     enableStageFilePrefixExtension = fixEnabled;
   }
 
   /**
-   * util method, checks if there are stage files present matching "old" file name format, if they
-   * are - lists them and asks user to manually delete them.
+   * util method, checks if there are stage files present matching "appName/table/partition/" file
+   * name format, if they are - lists them and asks user to manually delete them. The file format
+   * for tables used by multiple topics is "appName/table/{hashOf(tableName) << 16 | 0x8000 |
+   * partition}/"
    */
   private void checkTableStageForObsoleteFiles(String stageName, String tableName, int partition) {
     try {
@@ -507,7 +510,9 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             "The table {} is used as ingestion target by multiple topics - including this one"
                 + " '{}'.\n"
                 + "To prevent potential data loss consider setting"
-                + " 'snowflake.snowpipe.stageFileNameExtensionEnabled' to true",
+                + " '"
+                + SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED
+                + "' to true",
             topicName,
             tableName);
       }

@@ -84,7 +84,7 @@ public class SnowflakeSinkServiceFactory {
                       SnowflakeSinkConnectorConfig
                           .SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED));
         }
-        svc.configureSingleTableLoadFromMultipleTopcis(extendedStageFileNameFix);
+        svc.configureSingleTableLoadFromMultipleTopics(extendedStageFileNameFix);
       } else {
         this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
       }

@@ -15,7 +15,7 @@ public class FileNameUtilsTest {
     long time1 = System.currentTimeMillis();
     Thread.sleep(5); // error in maven without sleep
     String fileName =
-        FileNameUtils.fileName(
+        FileNameTestUtils.fileName(
             TestUtils.TEST_CONNECTOR_NAME, tableName, "", partition, startOffset, endOffset);
     Thread.sleep(5);
     long time2 = System.currentTimeMillis();
@@ -40,12 +40,12 @@ public class FileNameUtilsTest {
     assertThatThrownBy(() -> FileNameUtils.getPrefixFromFileName(""));
 
     String brokenFileName =
-        FileNameUtils.brokenRecordFileName(
+        FileNameTestUtils.brokenRecordFileName(
             TestUtils.TEST_CONNECTOR_NAME, tableName, "", partition, startOffset, true);
     assertThat(TestUtils.verifyBrokenRecordName(brokenFileName)).isTrue();
 
     brokenFileName =
-        FileNameUtils.brokenRecordFileName(
+        FileNameTestUtils.brokenRecordFileName(
             TestUtils.TEST_CONNECTOR_NAME, tableName, "", partition, startOffset, false);
     assertThat(TestUtils.verifyBrokenRecordName(brokenFileName)).isTrue();
   }
@@ -63,8 +63,8 @@ public class FileNameUtilsTest {
             + (time - InternalUtils.MAX_RECOVERY_TIME + 3600 * 1000)
             + ".json.gz";
 
-    assertThat(FileNameUtils.isFileExpired(expiredFile)).isTrue();
-    assertThat(FileNameUtils.isFileExpired(unexpiredFile)).isFalse();
+    assertThat(FileNameTestUtils.isFileExpired(expiredFile)).isTrue();
+    assertThat(FileNameTestUtils.isFileExpired(unexpiredFile)).isFalse();
   }
 
   @Test
@@ -76,7 +76,7 @@ public class FileNameUtilsTest {
     String topicName = "test_topic";
     long now = System.currentTimeMillis();
     String fileName =
-        FileNameUtils.fileName(
+        FileNameTestUtils.fileName(
             TestUtils.TEST_CONNECTOR_NAME, tableName, topicName, partition, startOffset, endOffset);
 
     assertThat(fileName).isNotNull();
@@ -103,7 +103,7 @@ public class FileNameUtilsTest {
     String topicName1 = "test_topic1";
     String topicName2 = "test_topic2";
     String fileName1 =
-        FileNameUtils.fileName(
+        FileNameTestUtils.fileName(
             TestUtils.TEST_CONNECTOR_NAME,
             tableName,
             topicName1,
@@ -111,7 +111,7 @@ public class FileNameUtilsTest {
             startOffset,
             endOffset);
     String fileName2 =
-        FileNameUtils.fileName(
+        FileNameTestUtils.fileName(
             TestUtils.TEST_CONNECTOR_NAME,
             tableName,
             topicName2,
@@ -119,10 +119,10 @@ public class FileNameUtilsTest {
             startOffset,
             endOffset);
     String fileName3 =
-        FileNameUtils.fileName(
+        FileNameTestUtils.fileName(
             TestUtils.TEST_CONNECTOR_NAME, tableName, "", partition, startOffset, endOffset);
     String fileName4 =
-        FileNameUtils.fileName(
+        FileNameTestUtils.fileName(
             TestUtils.TEST_CONNECTOR_NAME, tableName, "", partition, startOffset, endOffset);
 
     String prefix1 = FileNameUtils.getPrefixFromFileName(fileName1);
@@ -145,7 +145,7 @@ public class FileNameUtilsTest {
     String topicName = "test_topic";
     assertThatThrownBy(
             () ->
-                FileNameUtils.fileName(
+                FileNameTestUtils.fileName(
                     TestUtils.TEST_CONNECTOR_NAME,
                     tableName,
                     topicName,

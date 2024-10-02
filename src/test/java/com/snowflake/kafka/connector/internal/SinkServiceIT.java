@@ -754,13 +754,13 @@ public class SinkServiceIT {
     long time = System.currentTimeMillis() - 2 * 60 * 60 * 1000L;
 
     String fileName1 =
-        FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 0, 0, time);
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 0, 0, time);
     String fileName2 =
-        FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 1, 1, time);
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 1, 1, time);
     String fileName3 =
-        FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 2, 3, time);
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 2, 3, time);
     String fileName4 =
-        FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 4, 5, time);
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 4, 5, time);
 
     conn.createStage(stage);
     conn.createTable(table);

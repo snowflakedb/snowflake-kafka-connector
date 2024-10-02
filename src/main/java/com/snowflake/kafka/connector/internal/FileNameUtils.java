@@ -11,34 +11,6 @@ public class FileNameUtils {
   private static final KCLogger LOGGER = new KCLogger(FileNameUtils.class.getName());
 
   /**
-   * generate file name File Name Format: app/table/partition/start_end_timeStamp.fileFormat.gz
-   * Note: all file names should using the this format
-   *
-   * @param appName connector name
-   * @param table table name @Param topic name
-   * @param partition partition number
-   * @param start start offset
-   * @param end end offset
-   * @return file name
-   */
-  public static String fileName(
-      String appName, String table, String topic, int partition, long start, long end) {
-    return fileName(filePrefix(appName, table, topic, partition), start, end);
-  }
-
-  // Used for testing only
-  static String fileName(
-      String appName, String table, String topic, int partition, long start, long end, long time) {
-    return filePrefix(appName, table, topic, partition)
-        + start
-        + "_"
-        + end
-        + "_"
-        + time
-        + ".json.gz";
-  }
-
-  /**
    * generate file name
    *
    * @param prefix prefix
@@ -51,21 +23,6 @@ public class FileNameUtils {
     String fileName = prefix + start + "_" + end + "_" + time + ".json.gz";
     LOGGER.debug("generated file name: {}", fileName);
     return fileName;
-  }
-
-  /**
-   * generate file name for broken data
-   *
-   * @param appName app name
-   * @param table table name
-   * @param partition partition id
-   * @param offset record offset
-   * @param isKey is the broken record a key or a value
-   * @return file name
-   */
-  static String brokenRecordFileName(
-      String appName, String table, String topic, int partition, long offset, boolean isKey) {
-    return brokenRecordFileName(filePrefix(appName, table, topic, partition), offset, isKey);
   }
 
   /**
@@ -98,6 +55,10 @@ public class FileNameUtils {
       throw new IllegalArgumentException(
           String.format("partition id=%d is too large (max=%d)", partition, 0x8000));
     }
+    return appName + "/" + table + "/" + calculatePartitionPart(topic, partition) + "/";
+  }
+
+  private static BigInteger calculatePartitionPart(String topic, int partition) {
     BigInteger partitionPart = BigInteger.valueOf(partition);
     if (!Strings.isNullOrEmpty(topic)) {
       // if topic is provided as part of the file prefix,
@@ -116,7 +77,7 @@ public class FileNameUtils {
               .add(BigInteger.valueOf(0x8000))
               .add(partitionPart);
     }
-    return appName + "/" + table + "/" + partitionPart + "/";
+    return partitionPart;
   }
 
   // applicationName/tableName/partitionNumber
@@ -172,17 +133,6 @@ public class FileNameUtils {
   static int fileNameToPartition(String fileName) {
     BigInteger value = new BigInteger(readFromFileName(fileName, 1));
     return value.and(BigInteger.valueOf(0x7FFF)).intValue();
-  }
-
-  /**
-   * check whether the given file is expired
-   *
-   * @param fileName file name
-   * @return true if expired, otherwise false
-   */
-  static boolean isFileExpired(String fileName) {
-    return System.currentTimeMillis() - fileNameToTimeIngested(fileName)
-        > InternalUtils.MAX_RECOVERY_TIME;
   }
 
   /**
