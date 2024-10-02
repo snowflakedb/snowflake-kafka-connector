@@ -120,6 +120,10 @@ public class SnowflakeSinkConnectorConfig {
   public static final boolean SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT = true;
   public static final int SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT = 1;
 
+  public static final String SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED =
+      "snowflake.snowpipe.stageFileNameExtensionEnabled";
+  public static final boolean SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED_DEFAULT = true;
+
   // Whether to close streaming channels in parallel.
   public static final String SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL =
       "snowflake.streaming.closeChannelsInParallel.enabled";

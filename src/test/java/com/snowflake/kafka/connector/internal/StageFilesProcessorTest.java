@@ -9,6 +9,7 @@ import static org.mockito.Mockito.anyMap;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -19,6 +20,7 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeSt
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -79,6 +81,8 @@ class StageFilesProcessorTest {
             TABLE_NAME,
             STAGE_NAME,
             PREFIX,
+            "topic",
+            0,
             conn,
             ingestionService,
             pipeTelemetry,
@@ -257,8 +261,92 @@ class StageFilesProcessorTest {
     verify(ingestionService, times(50)).readOneHourHistory(anyList(), anyLong());
     // when files get to the 1 hour age, they will be automatically marked as failed and moved to
     // table stage
+    verify(conn, times(3)).moveToTableStage(anyString(), anyString(), failedFiles.capture());
+    assertThat(failedFiles.getAllValues().stream().flatMap(Collection::stream))
+        .containsOnly(file1, file2, file3);
+  }
+
+  @Test
+  void fileProcessor_WillMoveFailedFilesToStageEvenWhenOneFails() {
+    createFileProcessor(61);
+
+    String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
+    String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
+    String file3 = String.format("connector/topic/0/20_29_%d.json.gz", currentTime.get());
+    register.registerNewStageFile(file1);
+    register.registerNewStageFile(file2);
+    register.registerNewStageFile(file3);
+
+    when(conn.listStage(STAGE_NAME, PREFIX)).thenReturn(new ArrayList<>());
+    // no report for request files
+    when(ingestionService.readIngestHistoryForward(anyMap(), any(), any(), anyInt()))
+        .thenAnswer(
+            a -> {
+              Map<String, InternalUtils.IngestedFileStatus> report = a.getArgument(0);
+              report.put(file1, InternalUtils.IngestedFileStatus.FAILED);
+              report.put(file2, InternalUtils.IngestedFileStatus.FAILED);
+              report.put(file3, InternalUtils.IngestedFileStatus.FAILED);
+              return 3;
+            });
+    // ... nor any history entry in the past one hour
+    when(ingestionService.readOneHourHistory(anyList(), anyLong())).thenReturn(new HashMap<>());
+    // we should not purge stage when file is not LOADED
+    doNothing().when(conn).purgeStage(anyString(), anyList());
+    ArgumentCaptor<List<String>> failedFiles = ArgumentCaptor.forClass(List.class);
+    doThrow(new SnowflakeKafkaConnectorException("ups", "123"))
+        .doNothing()
+        .doNothing()
+        .when(conn)
+        .moveToTableStage(anyString(), anyString(), failedFiles.capture());
+
+    victim.trackFiles(register, telemetry);
+
+    verify(conn, times(1)).listStage(STAGE_NAME, PREFIX);
+    verify(ingestionService, times(1)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
+    verify(conn, times(0)).purgeStage(anyString(), anyList());
+    verify(ingestionService, times(0)).readOneHourHistory(anyList(), anyLong());
+    verify(conn, times(3)).moveToTableStage(anyString(), anyString(), failedFiles.capture());
+    assertThat(failedFiles.getAllValues().stream().flatMap(Collection::stream))
+        .containsOnly(file1, file2, file3);
+  }
+
+  @Test
+  void fileProcessor_WillTreatFreshStaleFileAsStageOne() {
+    createFileProcessor(61);
+
+    String file1 =
+        String.format(
+            "connector/topic/0/1_9_%d.json.gz",
+            currentTime.get() + Duration.ofSeconds(65L).toMillis());
+    register.registerNewStageFile(file1);
+    register.newOffset(Long.MIN_VALUE);
+    nextTickCallback.set(
+        (run, time) -> {
+          if (run == 1) {
+            register.newOffset(Long.MAX_VALUE);
+          }
+        });
+
+    when(conn.listStage(STAGE_NAME, PREFIX)).thenReturn(new ArrayList<>());
+    // no report for request files
+    when(ingestionService.readIngestHistoryForward(anyMap(), any(), any(), anyInt())).thenReturn(0);
+    // ... nor any history entry in the past one hour
+    when(ingestionService.readOneHourHistory(anyList(), anyLong())).thenReturn(new HashMap<>());
+    // we should not purge stage when file is not LOADED
+    doNothing().when(conn).purgeStage(anyString(), anyList());
+    ArgumentCaptor<List<String>> failedFiles = ArgumentCaptor.forClass(List.class);
+    doNothing().when(conn).moveToTableStage(anyString(), anyString(), failedFiles.capture());
+
+    victim.trackFiles(register, telemetry);
+
+    verify(conn, times(1)).listStage(STAGE_NAME, PREFIX);
+    verify(ingestionService, times(60)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
+    verify(conn, times(0)).purgeStage(anyString(), anyList());
+    verify(ingestionService, times(50)).readOneHourHistory(anyList(), anyLong());
+    // when files get to the 1 hour age, they will be automatically marked as failed and moved to
+    // table stage
     verify(conn, times(1)).moveToTableStage(anyString(), anyString(), failedFiles.capture());
-    assertThat(failedFiles.getValue()).containsOnly(file1, file2, file3);
+    assertThat(failedFiles.getValue()).containsOnly(file1);
   }
 
   @Test
