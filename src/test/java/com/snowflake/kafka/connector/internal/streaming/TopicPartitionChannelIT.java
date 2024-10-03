@@ -12,6 +12,8 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -103,7 +105,9 @@ public class TopicPartitionChannelIT {
             new InMemoryKafkaRecordErrorReporter(),
             new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
             conn,
-            conn.getTelemetryClient());
+            conn.getTelemetryClient(),
+            new SnowflakeSchemaEvolutionService(conn),
+            new InsertErrorMapper());
 
     // since channel is updated, try to insert data again or may be call getOffsetToken
     // We will reopen the channel in since the older channel in service is stale because we
@@ -590,7 +594,9 @@ public class TopicPartitionChannelIT {
             new InMemoryKafkaRecordErrorReporter(),
             new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
             conn,
-            conn.getTelemetryClient());
+            conn.getTelemetryClient(),
+            new SnowflakeSchemaEvolutionService(conn),
+            new InsertErrorMapper());
 
     // insert few records via new channel
     final int noOfRecords = 5;
@@ -684,7 +690,9 @@ public class TopicPartitionChannelIT {
             new InMemoryKafkaRecordErrorReporter(),
             new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
             conn,
-            conn.getTelemetryClient());
+            conn.getTelemetryClient(),
+            new SnowflakeSchemaEvolutionService(conn),
+            new InsertErrorMapper());
 
     // close the partition and open the partition to mimic migration
     service.close(Collections.singletonList(topicPartition));

@@ -22,6 +22,10 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.parameters.InternalBufferParameters;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
@@ -76,6 +80,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private final IcebergTableSchemaValidator icebergTableSchemaValidator;
   private final IcebergInitService icebergInitService;
+
+  private final SchemaEvolutionService schemaEvolutionService;
 
   private Map<String, String> topicToTableMap;
 
@@ -134,6 +140,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.recordService = new RecordService();
     this.icebergTableSchemaValidator = new IcebergTableSchemaValidator(conn);
     this.icebergInitService = new IcebergInitService(conn);
+    this.schemaEvolutionService =
+        Utils.isIcebergEnabled(connectorConfig)
+            ? new IcebergSchemaEvolutionService(conn)
+            : new SnowflakeSchemaEvolutionService(conn);
+
     this.topicToTableMap = new HashMap<>();
 
     // Setting the default value in constructor
@@ -185,7 +196,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       Map<String, String> connectorConfig,
       boolean enableSchematization,
       boolean closeChannelsInParallel,
-      Map<String, TopicPartitionChannel> partitionsToChannel) {
+      Map<String, TopicPartitionChannel> partitionsToChannel,
+      SchemaEvolutionService schemaEvolutionService) {
     this.flushTimeSeconds = flushTimeSeconds;
     this.fileSizeBytes = fileSizeBytes;
     this.recordNum = recordNum;
@@ -205,6 +217,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         StreamingClientProvider.getStreamingClientProviderInstance()
             .getClient(this.connectorConfig);
     this.enableSchematization = enableSchematization;
+    this.schemaEvolutionService = schemaEvolutionService;
     this.closeChannelsInParallel = closeChannelsInParallel;
     this.partitionsToChannel = partitionsToChannel;
 
@@ -308,7 +321,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.recordService,
             this.conn.getTelemetryClient(),
             this.enableCustomJMXMonitoring,
-            this.metricsJmxReporter)
+            this.metricsJmxReporter,
+            this.schemaEvolutionService,
+            new InsertErrorMapper())
         : new BufferedTopicPartitionChannel(
             this.streamingIngestClient,
             topicPartition,
@@ -323,7 +338,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.recordService,
             this.conn.getTelemetryClient(),
             this.enableCustomJMXMonitoring,
-            this.metricsJmxReporter);
+            this.metricsJmxReporter,
+            this.schemaEvolutionService,
+            new InsertErrorMapper());
   }
 
   /**

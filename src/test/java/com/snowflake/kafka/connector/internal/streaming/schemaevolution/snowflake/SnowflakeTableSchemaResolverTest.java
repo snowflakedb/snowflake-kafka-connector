@@ -1,8 +1,11 @@
-package com.snowflake.kafka.connector.internal.streaming;
+package com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake;
+
+import static org.assertj.core.api.Assertions.*;
 
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.ColumnInfos;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.TableSchema;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
@@ -14,22 +17,11 @@ import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.contrib.java.lang.system.EnvironmentVariables;
+import org.junit.jupiter.api.Test;
 
-public class SchematizationUtilsTest {
-  @Rule public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
+public class SnowflakeTableSchemaResolverTest {
 
-  @Test
-  public void testFormatNames() {
-    String[] inputList = new String[] {"role", "Role", "\"role\"", "\"rOle\""};
-    String[] expectedOutputList = new String[] {"ROLE", "ROLE", "role", "rOle"};
-    for (int idx = 0; idx < inputList.length; idx++) {
-      Assert.assertEquals(expectedOutputList[idx], SchematizationUtils.formatName(inputList[idx]));
-    }
-  }
+  private final SnowflakeTableSchemaResolver schemaResolver = new SnowflakeTableSchemaResolver();
 
   @Test
   public void testGetColumnTypesWithoutSchema() throws JsonProcessingException {
@@ -57,19 +49,22 @@ public class SchematizationUtilsTest {
 
     String processedColumnName = Utils.quoteNameIfNeeded(columnName);
     String processedNonExistingColumnName = Utils.quoteNameIfNeeded(nonExistingColumnName);
-    Map<String, ColumnInfos> columnInfosMap =
-        SchematizationUtils.getColumnInfos(
+    TableSchema tableSchema =
+        schemaResolver.resolveTableSchemaFromRecord(
             recordWithoutSchema, Collections.singletonList(processedColumnName));
-    Assert.assertEquals("VARCHAR", columnInfosMap.get(processedColumnName).getColumnType());
+
+    assertThat(tableSchema.getColumnInfos())
+        .containsExactlyInAnyOrderEntriesOf(
+            Collections.singletonMap(processedColumnName, new ColumnInfos("VARCHAR", null)));
     // Get non-existing column name should return nothing
-    columnInfosMap =
-        SchematizationUtils.getColumnInfos(
+    tableSchema =
+        schemaResolver.resolveTableSchemaFromRecord(
             recordWithoutSchema, Collections.singletonList(processedNonExistingColumnName));
-    Assert.assertTrue(columnInfosMap.isEmpty());
+    assertThat(tableSchema.getColumnInfos()).isEmpty();
   }
 
   @Test
-  public void testGetColumnTypesWithSchema() throws JsonProcessingException {
+  public void testGetColumnTypesWithSchema() {
     JsonConverter converter = new JsonConverter();
     Map<String, String> converterConfig = new HashMap<>();
     converterConfig.put("schemas.enable", "true");
@@ -91,12 +86,13 @@ public class SchematizationUtilsTest {
             System.currentTimeMillis(),
             TimestampType.CREATE_TIME);
 
-    Map<String, ColumnInfos> columnInfosMap =
-        SchematizationUtils.getColumnInfos(
+    TableSchema tableSchema =
+        schemaResolver.resolveTableSchemaFromRecord(
             recordWithoutSchema, Arrays.asList(columnName1, columnName2));
-    Assert.assertEquals("VARCHAR", columnInfosMap.get(columnName1).getColumnType());
-    Assert.assertEquals("doc", columnInfosMap.get(columnName1).getComments());
-    Assert.assertEquals("VARCHAR", columnInfosMap.get(columnName2).getColumnType());
-    Assert.assertNull(columnInfosMap.get(columnName2).getComments());
+
+    assertThat(tableSchema.getColumnInfos().get(columnName1).getColumnType()).isEqualTo("VARCHAR");
+    assertThat(tableSchema.getColumnInfos().get(columnName1).getComments()).isEqualTo("doc");
+    assertThat(tableSchema.getColumnInfos().get(columnName2).getColumnType()).isEqualTo("VARCHAR");
+    assertThat(tableSchema.getColumnInfos().get(columnName2).getComments()).isNull();
   }
 }

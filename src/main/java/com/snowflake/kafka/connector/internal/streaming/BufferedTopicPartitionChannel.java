@@ -24,6 +24,9 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -38,11 +41,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -177,6 +177,10 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
    */
   private final SnowflakeTelemetryService telemetryServiceV2;
 
+  private final SchemaEvolutionService schemaEvolutionService;
+
+  private final InsertErrorMapper insertErrorMapper;
+
   /** Testing only, initialize TopicPartitionChannel without the connection service */
   @VisibleForTesting
   public BufferedTopicPartitionChannel(
@@ -189,7 +193,9 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn,
-      SnowflakeTelemetryService telemetryService) {
+      SnowflakeTelemetryService telemetryService,
+      SchemaEvolutionService schemaEvolutionService,
+      InsertErrorMapper insertErrorMapper) {
     this(
         streamingIngestClient,
         topicPartition,
@@ -204,7 +210,9 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
         new RecordService(),
         telemetryService,
         false,
-        null);
+        null,
+        schemaEvolutionService,
+        insertErrorMapper);
   }
 
   /**
@@ -223,6 +231,8 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
    * @param recordService record service for processing incoming offsets from Kafka
    * @param telemetryService Telemetry Service which includes the Telemetry Client, sends Json data
    *     to Snowflake
+   * @param schemaEvolutionService
+   * @param insertErrorMapper maps insert errors to schema evolution items
    */
   public BufferedTopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
@@ -238,7 +248,9 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
       RecordService recordService,
       SnowflakeTelemetryService telemetryService,
       boolean enableCustomJMXMonitoring,
-      MetricsJmxReporter metricsJmxReporter) {
+      MetricsJmxReporter metricsJmxReporter,
+      SchemaEvolutionService schemaEvolutionService,
+      InsertErrorMapper insertErrorMapper) {
     final long startTime = System.currentTimeMillis();
 
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
@@ -270,6 +282,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
         this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
 
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
+    this.schemaEvolutionService = schemaEvolutionService;
 
     if (isEnableChannelOffsetMigration(sfConnectorConfig)) {
       /* Channel Name format V2 is computed from connector name, topic and partition */
@@ -304,6 +317,8 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
             this.latestConsumerOffset);
     this.telemetryServiceV2.reportKafkaPartitionStart(
         new SnowflakeTelemetryChannelCreation(this.tableName, this.channelNameFormatV1, startTime));
+
+    this.insertErrorMapper = insertErrorMapper;
 
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
@@ -582,7 +597,11 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
     return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
         .get(
             new InsertRowsApiResponseSupplier(
-                this.channel, buffer, this.enableSchemaEvolution, this.conn));
+                this.channel,
+                buffer,
+                this.enableSchemaEvolution,
+                this.schemaEvolutionService,
+                this.insertErrorMapper));
   }
 
   /** Invokes the API given the channel and streaming Buffer. */
@@ -598,18 +617,21 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
     // Whether the schema evolution is enabled
     private final boolean enableSchemaEvolution;
 
-    // Connection service which will be used to do the ALTER TABLE command for schema evolution
-    private final SnowflakeConnectionService conn;
+    private final SchemaEvolutionService schemaEvolutionService;
+
+    private final InsertErrorMapper insertErrorMapper;
 
     private InsertRowsApiResponseSupplier(
         SnowflakeStreamingIngestChannel channelForInsertRows,
         StreamingBuffer insertRowsStreamingBuffer,
         boolean enableSchemaEvolution,
-        SnowflakeConnectionService conn) {
+        SchemaEvolutionService schemaEvolutionService,
+        InsertErrorMapper insertErrorMapper) {
       this.channel = channelForInsertRows;
       this.insertRowsStreamingBuffer = insertRowsStreamingBuffer;
       this.enableSchemaEvolution = enableSchemaEvolution;
-      this.conn = conn;
+      this.schemaEvolutionService = schemaEvolutionService;
+      this.insertErrorMapper = insertErrorMapper;
     }
 
     @Override
@@ -639,25 +661,14 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
               this.channel.insertRow(records.get(idx), Long.toString(offsets.get(idx)));
           if (response.hasErrors()) {
             InsertValidationResponse.InsertError insertError = response.getInsertErrors().get(0);
-            List<String> extraColNames = insertError.getExtraColNames();
-
-            List<String> missingNotNullColNames = insertError.getMissingNotNullColNames();
-            Set<String> nonNullableColumns =
-                new HashSet<>(
-                    missingNotNullColNames != null
-                        ? missingNotNullColNames
-                        : Collections.emptySet());
-
-            List<String> nullValueForNotNullColNames = insertError.getNullValueForNotNullColNames();
-            nonNullableColumns.addAll(
-                nullValueForNotNullColNames != null
-                    ? nullValueForNotNullColNames
-                    : Collections.emptySet());
+            SchemaEvolutionTargetItems schemaEvolutionTargetItems =
+                insertErrorMapper.mapToSchemaEvolutionItems(
+                    insertError, this.channel.getTableName());
 
             long originalSinkRecordIdx =
                 offsets.get(idx) - this.insertRowsStreamingBuffer.getFirstOffset();
 
-            if (extraColNames == null && nonNullableColumns.isEmpty()) {
+            if (!schemaEvolutionTargetItems.hasDataForSchemaEvolution()) {
               InsertValidationResponse.InsertError newInsertError =
                   new InsertValidationResponse.InsertError(
                       insertError.getRowContent(), originalSinkRecordIdx);
@@ -669,15 +680,9 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
               // Simply added to the final response if it's not schema related errors
               finalResponse.addError(insertError);
             } else {
-              LOGGER.info(
-                  "Triggering schema evolution. NonNullableColumns={}, extraColumns={}",
-                  String.join(",", nonNullableColumns),
-                  extraColNames == null ? "null" : String.join(",", extraColNames));
-              SchematizationUtils.evolveSchemaIfNeeded(
-                  this.conn,
-                  this.channel.getTableName(),
-                  new ArrayList<>(nonNullableColumns),
-                  extraColNames,
+              LOGGER.info("Triggering schema evolution. Items: {}", schemaEvolutionTargetItems);
+              schemaEvolutionService.evolveSchemaIfNeeded(
+                  schemaEvolutionTargetItems,
                   this.insertRowsStreamingBuffer.getSinkRecord(originalSinkRecordIdx));
               // Offset reset needed since it's possible that we successfully ingested partial batch
               needToResetOffset = true;

@@ -27,6 +27,9 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -111,6 +114,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   /* Responsible for returning errors to DLQ if records have failed to be ingested. */
   private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
 
+  private final SchemaEvolutionService schemaEvolutionService;
+
   /**
    * Available from {@link org.apache.kafka.connect.sink.SinkTask} which has access to various
    * utility methods.
@@ -139,6 +144,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
   private final SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus;
 
+  private final InsertErrorMapper insertErrorMapper;
+
   /**
    * Used to send telemetry to Snowflake. Currently, TelemetryClient created from a Snowflake
    * Connection Object, i.e. not a session-less Client
@@ -157,7 +164,9 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn,
-      SnowflakeTelemetryService telemetryService) {
+      SnowflakeTelemetryService telemetryService,
+      SchemaEvolutionService schemaEvolutionService,
+      InsertErrorMapper insertErrorMapper) {
     this(
         streamingIngestClient,
         topicPartition,
@@ -172,7 +181,9 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         new RecordService(),
         telemetryService,
         false,
-        null);
+        null,
+        schemaEvolutionService,
+        insertErrorMapper);
   }
 
   /**
@@ -191,6 +202,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    * @param recordService record service for processing incoming offsets from Kafka
    * @param telemetryService Telemetry Service which includes the Telemetry Client, sends Json data
    *     to Snowflake
+   * @param insertErrorMapper Mapper to map insert errors to schema evolution items
    */
   public DirectTopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
@@ -206,7 +218,9 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       RecordService recordService,
       SnowflakeTelemetryService telemetryService,
       boolean enableCustomJMXMonitoring,
-      MetricsJmxReporter metricsJmxReporter) {
+      MetricsJmxReporter metricsJmxReporter,
+      SchemaEvolutionService schemaEvolutionService,
+      InsertErrorMapper insertErrorMapper) {
     final long startTime = System.currentTimeMillis();
 
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
@@ -233,6 +247,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
 
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
+    this.schemaEvolutionService = schemaEvolutionService;
 
     if (isEnableChannelOffsetMigration(sfConnectorConfig)) {
       /* Channel Name format V2 is computed from connector name, topic and partition */
@@ -267,6 +282,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
             this.currentConsumerGroupOffset);
     this.telemetryServiceV2.reportKafkaPartitionStart(
         new SnowflakeTelemetryChannelCreation(this.tableName, this.channelNameFormatV1, startTime));
+
+    this.insertErrorMapper = insertErrorMapper;
 
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
@@ -518,18 +535,10 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       List<InsertValidationResponse.InsertError> insertErrors, SinkRecord kafkaSinkRecord) {
     if (enableSchemaEvolution) {
       InsertValidationResponse.InsertError insertError = insertErrors.get(0);
-      List<String> extraColNames = insertError.getExtraColNames();
-      List<String> nonNullableColumns = insertError.getMissingNotNullColNames();
-      List<String> nullValueForNotNullColNames = insertError.getNullValueForNotNullColNames();
-      if (extraColNames != null
-          || nonNullableColumns != null
-          || nullValueForNotNullColNames != null) {
-        SchematizationUtils.evolveSchemaIfNeeded(
-            this.conn,
-            this.channel.getTableName(),
-            join(nonNullableColumns, nullValueForNotNullColNames),
-            extraColNames,
-            kafkaSinkRecord);
+      SchemaEvolutionTargetItems schemaEvolutionTargetItems =
+          insertErrorMapper.mapToSchemaEvolutionItems(insertError, this.channel.getTableName());
+      if (schemaEvolutionTargetItems.hasDataForSchemaEvolution()) {
+        schemaEvolutionService.evolveSchemaIfNeeded(schemaEvolutionTargetItems, kafkaSinkRecord);
         streamingApiFallbackSupplier(
             StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
         return;
