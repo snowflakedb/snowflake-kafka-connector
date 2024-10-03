@@ -10,6 +10,7 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
@@ -139,7 +140,8 @@ public class BufferedTopicPartitionChannelTest {
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
             mockTelemetryService,
-            schemaEvolutionService);
+            schemaEvolutionService,
+            new InsertErrorMapper());
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -177,7 +179,8 @@ public class BufferedTopicPartitionChannelTest {
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
             mockTelemetryService,
-            schemaEvolutionService);
+            schemaEvolutionService,
+            new InsertErrorMapper());
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -223,7 +226,8 @@ public class BufferedTopicPartitionChannelTest {
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
             mockTelemetryService,
-            schemaEvolutionService);
+            schemaEvolutionService,
+            new InsertErrorMapper());
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -276,7 +280,8 @@ public class BufferedTopicPartitionChannelTest {
             mockTelemetryService,
             false,
             null,
-            schemaEvolutionService);
+            schemaEvolutionService,
+            new InsertErrorMapper());
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 
@@ -322,7 +327,8 @@ public class BufferedTopicPartitionChannelTest {
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
             mockTelemetryService,
-            schemaEvolutionService);
+            schemaEvolutionService,
+            new InsertErrorMapper());
 
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, TOPIC, PARTITION);
 

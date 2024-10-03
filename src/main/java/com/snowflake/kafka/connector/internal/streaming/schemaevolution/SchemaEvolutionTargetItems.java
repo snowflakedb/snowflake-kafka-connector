@@ -23,6 +23,10 @@ public class SchemaEvolutionTargetItems {
     this.columnsToAdd = columnsToAdd != null ? columnsToAdd : Collections.emptyList();
   }
 
+  public boolean hasDataForSchemaEvolution() {
+    return !columnsToDropNonNullability.isEmpty() || !columnsToAdd.isEmpty();
+  }
+
   public SchemaEvolutionTargetItems(String tableName, List<String> columnsToAdd) {
     this(tableName, null, columnsToAdd);
   }
