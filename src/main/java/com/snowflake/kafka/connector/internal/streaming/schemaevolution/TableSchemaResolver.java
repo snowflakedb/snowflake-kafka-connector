@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 import com.snowflake.kafka.connector.Utils;
@@ -38,7 +39,7 @@ public abstract class TableSchemaResolver {
   public TableSchema resolveTableSchemaFromRecord(
       SinkRecord record, List<String> columnsToInclude) {
     if (columnsToInclude == null || columnsToInclude.isEmpty()) {
-      return new TableSchema(new HashMap<>());
+      return new TableSchema(ImmutableMap.of());
     }
 
     Set<String> columnNamesSet = new HashSet<>(columnsToInclude);
@@ -60,23 +61,32 @@ public abstract class TableSchemaResolver {
       SinkRecord record, Set<String> columnNamesSet) {
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
     Map<String, ColumnInfos> schemaMap = getFullSchemaMapFromRecord(record);
-    Map<String, ColumnInfos> columnsInferredFromSchema =
+    Map<Boolean, List<ColumnValuePair>> columnsWitValue =
         Streams.stream(recordNode.fields())
-            .map(ColumnValuePair::of)
+            .map(ColumnValuePair::from)
             .filter(pair -> columnNamesSet.contains(pair.getQuotedColumnName()))
-            .peek(
-                field -> {
-                  if (!schemaMap.containsKey(field.getColumnName())) {
-                    // only when the type of the value is unrecognizable for JAVA
-                    throw SnowflakeErrors.ERROR_5022.getException(
-                        "column: " + field.getColumnName() + " schemaMap: " + schemaMap);
-                  }
-                })
+            .collect(
+                Collectors.partitioningBy((pair -> schemaMap.containsKey(pair.getColumnName()))));
+
+    List<ColumnValuePair> notFoundFieldsInSchema = columnsWitValue.get(false);
+    List<ColumnValuePair> foundFieldsInSchema = columnsWitValue.get(true);
+
+    if (!notFoundFieldsInSchema.isEmpty()) {
+      throw SnowflakeErrors.ERROR_5022.getException(
+          "Columns not found in schema: "
+              + notFoundFieldsInSchema.stream()
+                  .map(ColumnValuePair::getColumnName)
+                  .collect(Collectors.toList())
+              + ", schemaMap: "
+              + schemaMap);
+    }
+    Map<String, ColumnInfos> columnsInferredFromSchema =
+        foundFieldsInSchema.stream()
             .map(
-                field ->
+                pair ->
                     Maps.immutableEntry(
-                        Utils.quoteNameIfNeeded(field.getQuotedColumnName()),
-                        schemaMap.get(field.getColumnName())))
+                        Utils.quoteNameIfNeeded(pair.getQuotedColumnName()),
+                        schemaMap.get(pair.getColumnName())))
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey, Map.Entry::getValue, (oldValue, newValue) -> newValue));
@@ -87,7 +97,7 @@ public abstract class TableSchemaResolver {
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
     Map<String, ColumnInfos> columnsInferredFromJson =
         Streams.stream(recordNode.fields())
-            .map(ColumnValuePair::of)
+            .map(ColumnValuePair::from)
             .filter(pair -> columnNamesSet.contains(pair.getQuotedColumnName()))
             .map(
                 pair ->
@@ -144,7 +154,7 @@ public abstract class TableSchemaResolver {
     private final String quotedColumnName;
     private final JsonNode jsonNode;
 
-    public static ColumnValuePair of(Map.Entry<String, JsonNode> field) {
+    public static ColumnValuePair from(Map.Entry<String, JsonNode> field) {
       return new ColumnValuePair(field.getKey(), field.getValue());
     }
 
