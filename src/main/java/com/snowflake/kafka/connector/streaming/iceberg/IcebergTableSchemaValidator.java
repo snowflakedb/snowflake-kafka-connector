@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
+import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
@@ -38,15 +39,6 @@ public class IcebergTableSchemaValidator {
             .filter(c -> Objects.equals(c.getColumn(), TABLE_COLUMN_METADATA))
             .findFirst();
 
-    if (schemaEvolutionEnabled) {
-      validateSchemaEvolutionScenario(tableName, role, metadata);
-    } else {
-      validateNoSchemaEvolutionScenario(metadata);
-    }
-  }
-
-  private void validateSchemaEvolutionScenario(
-      String tableName, String role, Optional<DescribeTableRow> metadata) {
     metadata.ifPresent(
         m -> {
           // if metadata column exists it must be of type OBJECT(), if not exists we create on our
@@ -56,17 +48,29 @@ public class IcebergTableSchemaValidator {
           }
         });
 
+    if (schemaEvolutionEnabled) {
+      validateSchemaEvolutionScenario(tableName, role);
+    } else {
+      validateNoSchemaEvolutionScenario(columns);
+    }
+  }
+
+  private void validateSchemaEvolutionScenario(String tableName, String role) {
     if (!snowflakeConnectionService.hasSchemaEvolutionPermission(tableName, role)) {
       throw SnowflakeErrors.ERROR_0032.getException("schema_evolution_not_enabled");
     }
   }
 
-  private static void validateNoSchemaEvolutionScenario(Optional<DescribeTableRow> metadata) {
-    if (!metadata.isPresent()) {
-      throw SnowflakeErrors.ERROR_0032.getException("metadata_column_not_found");
+  private static void validateNoSchemaEvolutionScenario(List<DescribeTableRow> columns) {
+    Optional<DescribeTableRow> recordContent =
+        columns.stream()
+            .filter(c -> Objects.equals(c.getColumn(), TABLE_COLUMN_CONTENT))
+            .findFirst();
+    if (!recordContent.isPresent()) {
+      throw SnowflakeErrors.ERROR_0032.getException("record_content_column_not_found");
     }
-    if (!isOfStructuredObjectType(metadata.get())) {
-      throw SnowflakeErrors.ERROR_0032.getException("invalid_metadata_type");
+    if (!isOfStructuredObjectType(recordContent.get())) {
+      throw SnowflakeErrors.ERROR_0032.getException("invalid_record_content_type");
     }
   }
 
