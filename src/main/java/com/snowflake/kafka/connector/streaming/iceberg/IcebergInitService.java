@@ -15,6 +15,7 @@ public class IcebergInitService {
 
   public void initializeIcebergTableProperties(String tableName) {
     LOGGER.info("Initializing properties for Iceberg table: {}", tableName);
+    snowflakeConnectionService.addMetadataColumnForIcebergIfNotExists(tableName);
     snowflakeConnectionService.initializeMetadataColumnTypeForIceberg(tableName);
   }
 }

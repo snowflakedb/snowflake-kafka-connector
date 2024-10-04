@@ -327,6 +327,13 @@ public interface SnowflakeConnectionService {
   void initializeMetadataColumnTypeForIceberg(String tableName);
 
   /**
+   * Add the RECORD_METADATA column to the iceberg table if it does not exist.
+   *
+   * @param tableName iceberg table name
+   */
+  void addMetadataColumnForIcebergIfNotExists(String tableName);
+
+  /**
    * Calls describe table statement and returns all columns and corresponding types.
    *
    * @param tableName - table name

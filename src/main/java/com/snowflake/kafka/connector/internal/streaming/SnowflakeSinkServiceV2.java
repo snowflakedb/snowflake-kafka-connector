@@ -274,7 +274,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private void perTopicActionsOnStartPartitions(String topic, Map<String, String> topic2Table) {
     String tableName = Utils.tableName(topic, topic2Table);
     if (Utils.isIcebergEnabled(connectorConfig)) {
-      icebergTableSchemaValidator.validateTable(tableName, Utils.role(connectorConfig));
+      icebergTableSchemaValidator.validateTable(
+          tableName, Utils.role(connectorConfig), enableSchematization);
       icebergInitService.initializeIcebergTableProperties(tableName);
     } else {
       createTableIfNotExists(tableName);
