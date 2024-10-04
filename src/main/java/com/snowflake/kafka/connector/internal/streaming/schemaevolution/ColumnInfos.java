@@ -12,6 +12,11 @@ public class ColumnInfos {
     this.comments = comments;
   }
 
+  public ColumnInfos(String columnType) {
+    this.columnType = columnType;
+    this.comments = null;
+  }
+
   public String getColumnType() {
     return columnType;
   }
