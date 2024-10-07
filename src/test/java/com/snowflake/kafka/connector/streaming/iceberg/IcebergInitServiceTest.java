@@ -15,6 +15,8 @@ class IcebergInitServiceTest {
   @Test
   void testInitializeIcebergTableProperties() {
     icebergInitService.initializeIcebergTableProperties("test_table");
+
+    verify(mockConnection).addMetadataColumnForIcebergIfNotExists("test_table");
     verify(mockConnection).initializeMetadataColumnTypeForIceberg("test_table");
     verifyNoMoreInteractions(mockConnection);
   }

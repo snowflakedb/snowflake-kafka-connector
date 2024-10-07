@@ -27,6 +27,11 @@ public class BaseIcebergIT {
     createIcebergTableWithColumnClause(tableName, "record_metadata object()");
   }
 
+  protected static void createIcebergTableNoSchemaEvolution(String tableName) {
+    createIcebergTableWithColumnClause(
+        tableName, "record_metadata object(), record_content object()");
+  }
+
   protected static void createIcebergTableWithColumnClause(String tableName, String columnClause) {
     String query =
         "create or replace iceberg table identifier(?) ("

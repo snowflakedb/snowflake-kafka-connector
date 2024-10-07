@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
+import static com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -165,22 +166,34 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
+  public void addMetadataColumnForIcebergIfNotExists(String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query =
+        "ALTER ICEBERG TABLE identifier(?) ADD COLUMN IF NOT EXISTS RECORD_METADATA "
+            + ICEBERG_METADATA_OBJECT_SCHEMA;
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      LOGGER.error(
+          "Couldn't alter table {} add RECORD_METADATA column to align with iceberg format",
+          tableName);
+      throw SnowflakeErrors.ERROR_2019.getException(e);
+    }
+    LOGGER.info(
+        "alter table {} add RECORD_METADATA column to align with iceberg format", tableName);
+  }
+
+  @Override
   public void initializeMetadataColumnTypeForIceberg(String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query =
-        "ALTER ICEBERG TABLE identifier(?) ALTER COLUMN RECORD_METADATA SET DATA TYPE OBJECT("
-            + "offset INTEGER,"
-            + "topic STRING,"
-            + "partition INTEGER,"
-            + "key STRING,"
-            + "schema_id INTEGER,"
-            + "key_schema_id INTEGER,"
-            + "CreateTime BIGINT,"
-            + "LogAppendTime BIGINT,"
-            + "SnowflakeConnectorPushTime BIGINT,"
-            + "headers MAP(VARCHAR, VARCHAR)"
-            + ")";
+        "ALTER ICEBERG TABLE identifier(?) ALTER COLUMN RECORD_METADATA SET DATA TYPE "
+            + ICEBERG_METADATA_OBJECT_SCHEMA;
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);

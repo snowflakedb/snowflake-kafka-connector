@@ -220,8 +220,12 @@ public enum SnowflakeErrors {
   ERROR_2018(
       "2018",
       "Failed to alter RECORD_METADATA column type for iceberg",
-      "Failed to alter RECORD_METADATA column type to required format for iceberg, please check"
-          + " column exists."),
+      "Failed to alter RECORD_METADATA column type to required format for iceberg."),
+  ERROR_2019(
+      "2019",
+      "Failed to add RECORD_METADATA column for iceberg",
+      "Failed to add RECORD_METADATA column with required format for iceberg."),
+
   // Snowpipe related issues 3---
   ERROR_3001("3001", "Failed to ingest file", "Exception reported by Ingest SDK"),
 
