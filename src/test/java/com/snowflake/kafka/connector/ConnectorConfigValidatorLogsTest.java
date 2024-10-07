@@ -45,7 +45,7 @@ public class ConnectorConfigValidatorLogsTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {BUFFER_FLUSH_TIME_SEC, BUFFER_SIZE_BYTES, BUFFER_COUNT_RECORDS})
+  @ValueSource(strings = {BUFFER_FLUSH_TIME_SEC, BUFFER_COUNT_RECORDS})
   public void shouldLogWarningIfBufferingPropertiesDefinedForSingleBuffer(String parameter)
       throws IOException {
     // given

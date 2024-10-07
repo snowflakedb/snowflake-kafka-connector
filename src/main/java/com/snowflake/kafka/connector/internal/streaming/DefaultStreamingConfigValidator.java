@@ -188,8 +188,7 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
 
     private void logDoubleBufferingParametersWarning(Map<String, String> config) {
       if (InternalBufferParameters.isSingleBufferEnabled(config)) {
-        List<String> ignoredParameters =
-            Arrays.asList(BUFFER_FLUSH_TIME_SEC, BUFFER_SIZE_BYTES, BUFFER_COUNT_RECORDS);
+        List<String> ignoredParameters = Arrays.asList(BUFFER_FLUSH_TIME_SEC, BUFFER_COUNT_RECORDS);
         ignoredParameters.stream()
             .filter(config::containsKey)
             .forEach(
