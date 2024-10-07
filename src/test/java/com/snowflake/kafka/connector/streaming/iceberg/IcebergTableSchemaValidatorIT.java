@@ -8,6 +8,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class IcebergTableSchemaValidatorIT extends BaseIcebergIT {
 
@@ -49,13 +51,6 @@ public class IcebergTableSchemaValidatorIT extends BaseIcebergIT {
     }
 
     @Test
-    public void shouldThrowExceptionWhenTableDoesNotExist() {
-      Assertions.assertThrows(
-          SnowflakeKafkaConnectorException.class,
-          () -> schemaValidator.validateTable(tableName, TEST_ROLE, SCHEMA_EVOLUTION));
-    }
-
-    @Test
     public void shouldNotThrowExceptionWhenColumnRecordMetadataDoesNotExist() {
       // given
       createIcebergTableWithColumnClause(tableName, "some_column VARCHAR");
@@ -86,7 +81,6 @@ public class IcebergTableSchemaValidatorIT extends BaseIcebergIT {
     public void shouldValidateExpectedIcebergTableSchema() {
       // given
       createIcebergTableNoSchemaEvolution(tableName);
-      enableSchemaEvolution(tableName);
 
       // when, then
       schemaValidator.validateTable(tableName, TEST_ROLE, SCHEMA_EVOLUTION);
@@ -103,7 +97,6 @@ public class IcebergTableSchemaValidatorIT extends BaseIcebergIT {
     public void shouldThrowExceptionWhenRecordContentDoesNotExist() {
       // given
       createIcebergTableWithColumnClause(tableName, "some_column VARCHAR");
-      enableSchemaEvolution(tableName);
 
       // expect
       Assertions.assertThrows(
@@ -115,7 +108,6 @@ public class IcebergTableSchemaValidatorIT extends BaseIcebergIT {
     public void shouldThrowExceptionWhenRecordContentHasInvalidType() {
       // given
       createIcebergTableWithColumnClause(tableName, "record_content MAP(VARCHAR, VARCHAR)");
-      enableSchemaEvolution(tableName);
 
       // expect
       Assertions.assertThrows(
@@ -127,22 +119,17 @@ public class IcebergTableSchemaValidatorIT extends BaseIcebergIT {
     public void shouldNotThrowExceptionWhenColumnRecordMetadataDoesNotExist() {
       // given
       createIcebergTableWithColumnClause(tableName, "record_content object()");
-      enableSchemaEvolution(tableName);
 
       // expect
       schemaValidator.validateTable(tableName, TEST_ROLE, SCHEMA_EVOLUTION);
     }
+  }
 
-    @Test
-    public void shouldThrowExceptionWhenRecordMetadataHasInvalidType() {
-      // given
-      createIcebergTableWithColumnClause(tableName, "record_metadata MAP(VARCHAR, VARCHAR)");
-      enableSchemaEvolution(tableName);
-
-      // expect
-      Assertions.assertThrows(
-          SnowflakeKafkaConnectorException.class,
-          () -> schemaValidator.validateTable(tableName, TEST_ROLE, SCHEMA_EVOLUTION));
-    }
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void shouldThrowExceptionWhenTableDoesNotExist(boolean schemaEvolution) {
+    Assertions.assertThrows(
+        SnowflakeKafkaConnectorException.class,
+        () -> schemaValidator.validateTable(tableName, TEST_ROLE, schemaEvolution));
   }
 }

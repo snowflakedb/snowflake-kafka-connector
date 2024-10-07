@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.config;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 
 import com.google.common.collect.ImmutableMap;
@@ -44,8 +43,7 @@ public class IcebergConfigValidationTest {
         Arguments.of(
             SnowflakeSinkConnectorConfigBuilder.icebergConfig()
                 .withSchematizationEnabled(false)
-                .build(),
-            ENABLE_SCHEMATIZATION_CONFIG));
+                .build()));
   }
 
   public static Stream<Arguments> invalidConfigs() {
