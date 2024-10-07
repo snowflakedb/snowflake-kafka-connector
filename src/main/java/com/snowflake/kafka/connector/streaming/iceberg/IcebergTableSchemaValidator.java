@@ -62,14 +62,14 @@ public class IcebergTableSchemaValidator {
   }
 
   private static void validateNoSchemaEvolutionScenario(List<DescribeTableRow> columns) {
-    Optional<DescribeTableRow> recordContent =
+    DescribeTableRow recordContent =
         columns.stream()
             .filter(c -> Objects.equals(c.getColumn(), TABLE_COLUMN_CONTENT))
-            .findFirst();
-    if (!recordContent.isPresent()) {
-      throw SnowflakeErrors.ERROR_0032.getException("record_content_column_not_found");
-    }
-    if (!isOfStructuredObjectType(recordContent.get())) {
+            .findFirst()
+            .orElseThrow(
+                () -> SnowflakeErrors.ERROR_0032.getException("record_content_column_not_found"));
+
+    if (!isOfStructuredObjectType(recordContent)) {
       throw SnowflakeErrors.ERROR_0032.getException("invalid_record_content_type");
     }
   }
