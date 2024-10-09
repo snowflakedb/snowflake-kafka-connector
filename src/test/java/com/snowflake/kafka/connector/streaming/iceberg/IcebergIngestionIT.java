@@ -26,7 +26,6 @@ public class IcebergIngestionIT {
       SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION);
 
   @Test
-  @Disabled
   void shouldInsertValue() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
     Properties props = new Properties();
@@ -39,7 +38,7 @@ public class IcebergIngestionIT {
     SnowflakeStreamingIngestClient client =
         SnowflakeStreamingIngestClientFactory.builder("name")
             .setProperties(props)
-            // .setIsIceberg(true)
+            .setIsIceberg(true)
             .build();
 
     OpenChannelRequest channelRequest =
@@ -59,4 +58,44 @@ public class IcebergIngestionIT {
     channel.close().get();
     client.close();
   }
+
+  @Test
+  void shouldInsertObject() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    Properties props = new Properties();
+    Iterator<Map.Entry<String, JsonNode>> propIt =
+            mapper.readTree(new String(Files.readAllBytes(Paths.get(PROFILE_PATH)))).fields();
+    while (propIt.hasNext()) {
+      Map.Entry<String, JsonNode> prop = propIt.next();
+      props.put(prop.getKey(), prop.getValue().asText());
+    }
+    SnowflakeStreamingIngestClient client =
+            SnowflakeStreamingIngestClientFactory.builder("name")
+                    .setProperties(props)
+                    .setIsIceberg(true)
+                    .build();
+
+    OpenChannelRequest channelRequest =
+            OpenChannelRequest.builder(testChannelName)
+                    .setDBName("TESTDB")
+                    .setSchemaName("TESTSCHEMA")
+                    .setTableName(tableName)
+                    .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
+                    .build();
+
+    // Open a channel with same name will bump up the client sequencer number for this channel
+    SnowflakeStreamingIngestChannel channel = client.openChannel(channelRequest);
+    HashMap<String, Object> row = new HashMap<>();
+
+    HashMap<String, Object> data = new HashMap<>();
+    data.put("a", 123);
+    data.put("b", 456);
+
+    row.put("c1", data);
+
+    channel.insertRow(row, "0");
+    channel.close().get();
+    client.close();
+  }
+
 }

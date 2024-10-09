@@ -345,6 +345,8 @@
                     <artifactId>snowflake-jdbc</artifactId>
                 </exclusion>
             </exclusions>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/snowflake-ingest-sdk.jar</systemPath>
         </dependency>
 
         <dependency>
