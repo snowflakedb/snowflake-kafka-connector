@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import net.snowflake.ingest.utils.SFException;
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.kafka.connect.errors.ConnectException;
 
 /** This class handles all calls to manage the streaming ingestion client */
@@ -42,12 +43,15 @@ public class DirectStreamingClientHandler implements StreamingClientHandler {
     LOGGER.info("Initializing Streaming Client...");
 
     try {
-      SnowflakeStreamingIngestClient createdClient =
+      SnowflakeStreamingIngestClientFactory.Builder builder =
           SnowflakeStreamingIngestClientFactory.builder(
                   streamingClientProperties.clientName + "_" + createdClientId.getAndIncrement())
               .setProperties(streamingClientProperties.clientProperties)
-              .setParameterOverrides(streamingClientProperties.parameterOverrides)
-              .build();
+              .setParameterOverrides(streamingClientProperties.parameterOverrides);
+
+      enableIceberg(builder);
+
+      SnowflakeStreamingIngestClient createdClient = builder.build();
 
       LOGGER.info(
           "Successfully initialized Streaming Client:{} with properties {}",
@@ -58,6 +62,15 @@ public class DirectStreamingClientHandler implements StreamingClientHandler {
     } catch (SFException ex) {
       LOGGER.error("Exception creating streamingIngestClient");
       throw new ConnectException(ex);
+    }
+  }
+
+  private static void enableIceberg(SnowflakeStreamingIngestClientFactory.Builder builder) {
+    try {
+      FieldUtils.writeField(builder, "isIceberg", true, true);
+    } catch (IllegalAccessException e) {
+      throw new IllegalStateException(
+          "Couldn't enable iceberg by accessing private field: " + "isIceberg", e);
     }
   }
 
