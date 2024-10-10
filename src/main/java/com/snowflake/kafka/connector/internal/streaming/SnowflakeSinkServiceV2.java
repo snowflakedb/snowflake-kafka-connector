@@ -155,6 +155,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
+    this.recordService.setIcebergEnabledFromConfig(this.connectorConfig);
 
     this.closeChannelsInParallel =
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL))
