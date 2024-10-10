@@ -27,6 +27,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,10 +36,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 public class TopicPartitionChannelIT {
 
-  private SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
+  private static final SnowflakeConnectionService conn =
+      TestUtils.getConnectionServiceForStreaming();
   private String testTableName;
 
-  private static int PARTITION = 0, PARTITION_2 = 1;
+  private static final int PARTITION = 0, PARTITION_2 = 1;
   private String topic;
   private TopicPartition topicPartition, topicPartition2;
   private String testChannelName, testChannelName2;
@@ -59,6 +61,11 @@ public class TopicPartitionChannelIT {
   @AfterEach
   public void afterEach() {
     TestUtils.dropTable(testTableName);
+  }
+
+  @AfterAll
+  public static void afterAll() {
+    conn.close();
   }
 
   @ParameterizedTest

@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -397,7 +398,22 @@ public class TestUtils {
    */
   public static void executeQueryWithParameter(String query, String parameter) {
     try {
-      PreparedStatement stmt = TestSnowflakeConnection.getConnection().prepareStatement(query);
+      executeQueryWithParameter(TestSnowflakeConnection.getConnection(), query, parameter);
+    } catch (Exception e) {
+      throw new RuntimeException("Error executing query: " + query, e);
+    }
+  }
+
+  /**
+   * execute sql query
+   *
+   * @param conn jdbc connection
+   * @param query sql query string
+   * @param parameter parameter to be inserted at index 1
+   */
+  public static void executeQueryWithParameter(Connection conn, String query, String parameter) {
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, parameter);
       stmt.execute();
       stmt.close();
@@ -418,7 +434,27 @@ public class TestUtils {
   public static <T> T executeQueryAndCollectResult(
       String query, String parameter, Function<ResultSet, T> resultCollector) {
     try {
-      PreparedStatement stmt = TestSnowflakeConnection.getConnection().prepareStatement(query);
+      return executeQueryAndCollectResult(
+          TestSnowflakeConnection.getConnection(), query, parameter, resultCollector);
+    } catch (Exception e) {
+      throw new RuntimeException("Error executing query: " + query, e);
+    }
+  }
+
+  /**
+   * execute sql query and collect result
+   *
+   * @param conn jdbc connection
+   * @param query sql query string
+   * @param parameter parameter to be inserted at index 1
+   * @param resultCollector function to collect result
+   * @return result
+   * @param <T> result type
+   */
+  public static <T> T executeQueryAndCollectResult(
+      Connection conn, String query, String parameter, Function<ResultSet, T> resultCollector) {
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, parameter);
       stmt.execute();
       ResultSet resultSet = stmt.getResultSet();
