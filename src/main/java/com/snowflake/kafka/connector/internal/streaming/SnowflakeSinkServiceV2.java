@@ -242,7 +242,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void startPartition(String tableName, TopicPartition topicPartition) {
     // the table should be present before opening a channel so let's do a table existence check here
-    createTableIfNotExists(tableName);
+    tableActionsOnStartPartition(tableName);
 
     // Create channel for the given partition
     createStreamingChannelForTopicPartition(
@@ -273,10 +273,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private void perTopicActionsOnStartPartitions(String topic, Map<String, String> topic2Table) {
     String tableName = Utils.tableName(topic, topic2Table);
+    tableActionsOnStartPartition(tableName);
+  }
+
+  private void tableActionsOnStartPartition(String tableName) {
     if (Utils.isIcebergEnabled(connectorConfig)) {
       icebergTableSchemaValidator.validateTable(
           tableName, Utils.role(connectorConfig), enableSchematization);
       icebergInitService.initializeIcebergTableProperties(tableName);
+      populateSchemaEvolutionPermissions(tableName);
     } else {
       createTableIfNotExists(tableName);
     }
