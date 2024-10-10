@@ -40,22 +40,30 @@ public class BaseIcebergIT {
             + "external_volume = 'test_exvol'"
             + "catalog = 'SNOWFLAKE'"
             + "base_location = 'it'";
-    executeQueryWithParameter(query, tableName);
+    doExecuteQueryWithParameter(query, tableName);
+    String query2 =
+        "alter table identifier(?) set ALLOW_STREAMING_INGESTION_FOR_MANAGED_ICEBERG = true;";
+    doExecuteQueryWithParameter(query2, tableName);
+  }
+
+  private static void doExecuteQueryWithParameter(String query, String tableName) {
+    executeQueryWithParameter(conn.getConnection(), query, tableName);
   }
 
   protected static void dropIcebergTable(String tableName) {
     String query = "drop iceberg table if exists identifier(?)";
-    executeQueryWithParameter(query, tableName);
+    doExecuteQueryWithParameter(query, tableName);
   }
 
   protected static void enableSchemaEvolution(String tableName) {
     String query = "alter iceberg table identifier(?) set enable_schema_evolution = true";
-    executeQueryWithParameter(query, tableName);
+    doExecuteQueryWithParameter(query, tableName);
   }
 
   protected static String describeRecordMetadataType(String tableName) {
     String query = "describe table identifier(?)";
     return executeQueryAndCollectResult(
+        conn.getConnection(),
         query,
         tableName,
         (resultSet) -> {
