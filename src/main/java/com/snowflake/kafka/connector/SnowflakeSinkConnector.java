@@ -323,7 +323,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error("Validate Error msg:{}, errorCode:{}", e.getMessage(), e.getCode());
       if (e.getCode().equals("2001")) {
-        Utils.updateConfigErrorMessage(result, Utils.SF_SCHEMA, ": provided role does not have one of the required privileges "
+        LOGGER.error(Utils.SF_SCHEMA + ": provided role does not have one of the required privileges "
                 + "(CREATE TABLE, CREATE STAGE, CREATE PIPE) on the schema");
       }
     } catch (Exception e) {
@@ -333,7 +333,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     if (shouldCheckTablePrivilege(connectorConfigs)) {
       Map<String, String> topicsTablesMap = Utils.parseTopicToTableMap(connectorConfigs.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP));
       if (topicsTablesMap != null) {
-        checkTablePrivilege(topicsTablesMap, testConnection, result);
+        checkTablePrivilege(topicsTablesMap, testConnection);
       }
     }
 
@@ -346,8 +346,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
     return topicsTablesMap != null && !topicsTablesMap.isEmpty();
   }
 
-  private static void checkTablePrivilege(Map<String, String> topicsTablesMap, SnowflakeConnectionService testConnection, Config result) {
-    List<String> tablesWithoutPrivileges = new ArrayList<>();
+  private static void checkTablePrivilege(Map<String, String> topicsTablesMap, SnowflakeConnectionService testConnection) {
     topicsTablesMap.forEach((topic, table) -> {
       try {
         if (testConnection.tableExist(table)) {
@@ -355,17 +354,14 @@ public class SnowflakeSinkConnector extends SinkConnector {
           testConnection.hasTableRequiredPrivileges(table);
         }
       } catch (SnowflakeKafkaConnectorException e) {
+        LOGGER.error("Validation Error for table {}: msg:{}, errorCode:{}", table, e.getMessage(), e.getCode());
         if (e.getCode().equals("2001")) {
-          tablesWithoutPrivileges.add(table);
+          LOGGER.error(table, " Table does not have the required OWNERSHIP privilege");
         }
       } catch (Exception e) {
         LOGGER.error("Unexpected Exception in validate for table privilege check {}: msg:{}, errorCode:{}", table, e.getMessage(), e);
       }
     });
-    if (!tablesWithoutPrivileges.isEmpty()){
-        String errorMessage = String.format("Validation Error: Tables %s do not have the required privileges", tablesWithoutPrivileges);
-        Utils.updateConfigErrorMessage(result, SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, errorMessage);
-    }
   }
 
   private static boolean isUsingConfigProvider(Map<String, String> connectorConfigs) {
