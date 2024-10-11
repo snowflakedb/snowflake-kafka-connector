@@ -16,7 +16,7 @@ public class TelemetryUnitTest {
         new MetricsJmxReporter(new MetricRegistry(), connectorName);
     SnowflakeTelemetryPipeStatus pipeStatus =
         new SnowflakeTelemetryPipeStatus(
-            table, stage, pipe, true /* Set true for test*/, metricsJmxReporter);
+            table, stage, pipe, 0, true /* Set true for test*/, metricsJmxReporter);
     assert pipeStatus.isEmpty();
     pipeStatus.setAverageCommitLagFileCount(1);
     assert !pipeStatus.isEmpty();

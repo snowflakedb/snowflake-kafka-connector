@@ -22,6 +22,7 @@ import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstant
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.FILE_COUNT_TABLE_STAGE_INGEST_FAIL;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.FLUSHED_OFFSET;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.MEMORY_USAGE;
+import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PARTITION_ID;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PIPE_NAME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PROCESSED_OFFSET;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.PURGED_OFFSET;
@@ -125,16 +126,19 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
 
   private final String stageName;
   private final String pipeName;
+  private final int partitionId;
 
   public SnowflakeTelemetryPipeStatus(
       final String tableName,
       final String stageName,
       final String pipeName,
+      final int partitionId,
       final boolean enableCustomJMXConfig,
       final MetricsJmxReporter metricsJmxReporter) {
     super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_PIPE_USAGE);
     this.stageName = stageName;
     this.pipeName = pipeName;
+    this.partitionId = partitionId;
 
     // Initial value of processed/flushed/committed/purged offset should be set to -1,
     // because the offset stands for the last offset of the record that are at the status.
@@ -282,6 +286,7 @@ public class SnowflakeTelemetryPipeStatus extends SnowflakeTelemetryBasicInfo {
     msg.put(TABLE_NAME, tableName);
     msg.put(STAGE_NAME, stageName);
     msg.put(PIPE_NAME, pipeName);
+    msg.put(PARTITION_ID, partitionId);
 
     msg.put(PROCESSED_OFFSET, processedOffset.get());
     msg.put(FLUSHED_OFFSET, flushedOffset.get());

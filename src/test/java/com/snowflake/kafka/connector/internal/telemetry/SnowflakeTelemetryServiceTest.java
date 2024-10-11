@@ -206,7 +206,7 @@ public class SnowflakeTelemetryServiceTest {
     if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
       SnowflakeTelemetryPipeStatus pipeStatus =
           new SnowflakeTelemetryPipeStatus(
-              expectedTableName, expectedStageName, expectedPipeName, false, null);
+              expectedTableName, expectedStageName, expectedPipeName, 0, false, null);
       pipeStatus.setFlushedOffset(expectedFlushedOffset);
       pipeStatus.setProcessedOffset(expectedProcessedOffset);
       pipeStatus.setCommittedOffset(expectedCommittedOffset);

@@ -19,8 +19,12 @@ class PipeProgressRegistryTelemetry {
     this.telemetryService = telemetryService;
   }
 
-  public void reportKafkaPartitionUsage(boolean isClosing) {
-    telemetryService.reportKafkaPartitionUsage(pipeCreation, isClosing);
+  public void reportKafkaPartitionStart() {
+    telemetryService.reportKafkaPartitionUsage(pipeCreation, false);
+  }
+
+  public void reportKafkaPartitionUsage() {
+    telemetryService.reportKafkaPartitionUsage(pipeTelemetry, false);
   }
 
   public void reportKafkaConnectFatalError(String message) {
