@@ -598,6 +598,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         } catch (Exception e) {
           LOGGER.warn("Cleaner and Flusher threads shut down before initialization");
         }
+        // with v2 cleaner enabled, this event is raised by the cleaner itself
         telemetryService.reportKafkaPartitionStart(pipeCreation);
       }
     }
