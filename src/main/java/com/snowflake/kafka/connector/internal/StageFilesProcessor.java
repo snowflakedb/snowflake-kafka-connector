@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.snowflake.ingest.connection.HistoryResponse;
@@ -556,18 +557,19 @@ class StageFilesProcessor {
 
   private CleanerPrerequisites checkPreRequisites() {
     CleanerPrerequisites result = CleanerPrerequisites.NONE;
-    if (conn.tableExist(tableName)) {
-      if (conn.isTableCompatible(tableName)) {
-        result = CleanerPrerequisites.TABLE_COMPATIBLE;
-        if (conn.stageExist(stageName)) {
-          if (conn.isStageCompatible(stageName)) {
-            result = CleanerPrerequisites.STAGE_COMPATIBLE;
-            if (conn.pipeExist(pipeName)) {
-              if (conn.isPipeCompatible(tableName, stageName, pipeName)) {
-                result = CleanerPrerequisites.PIPE_COMPATIBLE;
-              }
-            }
-          }
+    Supplier<Boolean> tableCompatible =
+        () -> conn.tableExist(tableName) && conn.isTableCompatible(tableName);
+    Supplier<Boolean> stageCompatible =
+        () -> conn.stageExist(stageName) && conn.isStageCompatible(stageName);
+    Supplier<Boolean> pipeCompatible =
+        () -> conn.pipeExist(pipeName) && conn.isPipeCompatible(tableName, stageName, pipeName);
+
+    if (tableCompatible.get()) {
+      result = CleanerPrerequisites.TABLE_COMPATIBLE;
+      if (stageCompatible.get()) {
+        result = CleanerPrerequisites.STAGE_COMPATIBLE;
+        if (pipeCompatible.get()) {
+          result = CleanerPrerequisites.PIPE_COMPATIBLE;
         }
       }
     }

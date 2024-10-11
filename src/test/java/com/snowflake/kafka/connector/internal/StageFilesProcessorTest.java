@@ -108,7 +108,7 @@ class StageFilesProcessorTest {
   void fileProcessor_WillTryToGetInitialStateFromStage_ExactlyOnce() {
     // lets simulate 1 hour (60 cleanup cycles)
     createFileProcessor(60);
-    Runnable initAssert = configureInitialState();
+    configureInitialState();
 
     when(conn.listStage(STAGE_NAME, PREFIX)).thenReturn(new ArrayList<>());
 
@@ -123,13 +123,13 @@ class StageFilesProcessorTest {
     assertThat(statuses).hasSize(60);
 
     verify(conn, times(1)).listStage(STAGE_NAME, PREFIX);
-    initAssert.run();
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillTryGettingStateFromStage_OnError() {
     createFileProcessor(10);
-    Runnable initAssert = configureInitialState();
+    configureInitialState();
 
     String ingestFile = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     register.registerNewStageFile(ingestFile);
@@ -144,13 +144,13 @@ class StageFilesProcessorTest {
 
     verify(conn, times(2)).listStage(STAGE_NAME, PREFIX);
     verify(ingestionService, times(10)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
-    initAssert.run();
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillPurgeLoadedFiles_WhenHistoryIsAvailable_AfterFilesHaveBeenSubmitted() {
     createFileProcessor(10);
-    Runnable initAssert = configureInitialState();
+    configureInitialState();
 
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
@@ -196,13 +196,13 @@ class StageFilesProcessorTest {
     verify(ingestionService, times(3)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
     verify(conn, times(3)).purgeStage(anyString(), anyList());
     assertThat(purgedFiles).containsOnly(file1, file2, file3);
-    initAssert.run();
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillPurgeLoadedFiles_WhenHistoryIsFetchedSooner_ThanFilesAreRegistered() {
     createFileProcessor(10);
-    Runnable initAssert = configureInitialState();
+    configureInitialState();
 
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
@@ -250,13 +250,13 @@ class StageFilesProcessorTest {
     verify(ingestionService, times(3)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
     verify(conn, times(3)).purgeStage(anyString(), anyList());
     assertThat(purgedFiles).containsOnly(file1, file2, file3);
-    initAssert.run();
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillMoveOldFilesToTableStage() {
     createFileProcessor(60);
-    Runnable initAssert = configureInitialState();
+    configureInitialState();
 
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
@@ -286,13 +286,13 @@ class StageFilesProcessorTest {
     verify(conn, times(3)).moveToTableStage(anyString(), anyString(), failedFiles.capture());
     assertThat(failedFiles.getAllValues().stream().flatMap(Collection::stream))
         .containsOnly(file1, file2, file3);
-    initAssert.run();
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillMoveFailedFilesToStageEvenWhenOneFails() {
     createFileProcessor(61);
-    Runnable initAssert = configureInitialState();
+    configureInitialState();
 
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
@@ -333,13 +333,13 @@ class StageFilesProcessorTest {
     assertThat(failedFiles.getAllValues().stream().flatMap(Collection::stream))
         .containsOnly(file1, file2, file3);
 
-    initAssert.run();
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillTreatFreshStaleFileAsStageOne() {
     createFileProcessor(61);
-    Runnable initAssert = configureInitialState();
+    configureInitialState();
 
     String file1 =
         String.format(
@@ -374,13 +374,13 @@ class StageFilesProcessorTest {
     // table stage
     verify(conn, times(1)).moveToTableStage(anyString(), anyString(), failedFiles.capture());
     assertThat(failedFiles.getValue()).containsOnly(file1);
-    initAssert.run();
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillProperlyHandleStaleFiles() {
     createFileProcessor(13);
-    Runnable initAssert = configureInitialState();
+    configureInitialState();
 
     String fileOk = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
     String fileFailed = String.format("connector/topic/0/20_29_%d.json.gz", currentTime.get());
@@ -418,13 +418,13 @@ class StageFilesProcessorTest {
 
     assertThat(failedFiles.getValue()).containsOnly(fileFailed);
     assertThat(loadedFiles.getValue()).containsOnly(fileOk);
-    initAssert.run();
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillDeleteDirtyFiles() {
     createFileProcessor(10);
-    Runnable initAssert = configureInitialState();
+    configureInitialState();
 
     String file1 = String.format("connector/topic/0/100_199_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/200_299_%d.json.gz", currentTime.get());
@@ -446,13 +446,13 @@ class StageFilesProcessorTest {
     verify(conn, times(1)).purgeStage(anyString(), purgedFiles.capture());
     assertThat(purgedFiles.getValue()).containsOnly(file1, file2, file3);
 
-    initAssert.run();
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillCleanHistoryEntries_OlderThanOneHour() {
     createFileProcessor(61);
-    Runnable initAssert = configureInitialState();
+    configureInitialState();
 
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
@@ -491,25 +491,25 @@ class StageFilesProcessorTest {
     // check if these old not matched files have been removed from history and do not result in
     // memory leak
     assertThat(register.currentProcessorContext.ingestHistory).isEmpty();
-    initAssert.run();
+    assertInitialStateWasConfigured();
   }
 
-  private Runnable configureInitialState() {
+  private void configureInitialState() {
     when(conn.tableExist(TABLE_NAME)).thenReturn(true);
     when(conn.isTableCompatible(TABLE_NAME)).thenReturn(true);
     when(conn.stageExist(STAGE_NAME)).thenReturn(true);
     when(conn.isStageCompatible(STAGE_NAME)).thenReturn(true);
     when(conn.pipeExist(PIPE_NAME)).thenReturn(true);
     when(conn.isPipeCompatible(TABLE_NAME, STAGE_NAME, PIPE_NAME)).thenReturn(true);
+  }
 
-    return () -> {
-      verify(conn, times(1)).tableExist(TABLE_NAME);
-      verify(conn, times(1)).isTableCompatible(TABLE_NAME);
-      verify(conn, times(1)).stageExist(STAGE_NAME);
-      verify(conn, times(1)).isStageCompatible(STAGE_NAME);
-      verify(conn, times(1)).pipeExist(PIPE_NAME);
-      verify(conn, times(1)).isPipeCompatible(TABLE_NAME, STAGE_NAME, PIPE_NAME);
-    };
+  private void assertInitialStateWasConfigured() {
+    verify(conn, times(1)).tableExist(TABLE_NAME);
+    verify(conn, times(1)).isTableCompatible(TABLE_NAME);
+    verify(conn, times(1)).stageExist(STAGE_NAME);
+    verify(conn, times(1)).isStageCompatible(STAGE_NAME);
+    verify(conn, times(1)).pipeExist(PIPE_NAME);
+    verify(conn, times(1)).isPipeCompatible(TABLE_NAME, STAGE_NAME, PIPE_NAME);
   }
 
   static ScheduledExecutorService createTestScheduler(
