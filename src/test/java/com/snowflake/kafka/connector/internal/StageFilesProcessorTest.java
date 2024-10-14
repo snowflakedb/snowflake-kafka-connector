@@ -15,6 +15,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeCreation;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -32,6 +34,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import net.snowflake.client.jdbc.internal.joda.time.DateTime;
 import net.snowflake.client.jdbc.internal.joda.time.DateTimeZone;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,10 +57,8 @@ class StageFilesProcessorTest {
   private StageFilesProcessor.ProgressRegisterImpl register;
   private SnowflakeTelemetryPipeCreation pipeCreation;
   private SnowflakeTelemetryPipeStatus pipeTelemetry;
-  private SnowflakeTelemetryService telemetryService;
-
+  private FakeSnowflakeTelemetryService telemetryService;
   private PipeProgressRegistryTelemetry telemetry;
-  // private AtomicInteger loops;
   private AtomicReference<BiConsumer<Integer, Long>> nextTickCallback;
   private AtomicReference<ScheduledFuture<?>> scheduledFuture;
 
@@ -69,8 +71,10 @@ class StageFilesProcessorTest {
     conn = Mockito.mock(SnowflakeConnectionService.class);
     ingestionService = Mockito.mock(SnowflakeIngestionService.class);
     pipeCreation = new SnowflakeTelemetryPipeCreation(TABLE_NAME, STAGE_NAME, PIPE_NAME);
-    pipeTelemetry = Mockito.mock(SnowflakeTelemetryPipeStatus.class);
-    telemetryService = Mockito.mock(SnowflakeTelemetryService.class);
+    pipeCreation = new SnowflakeTelemetryPipeCreation(TABLE_NAME, STAGE_NAME, PIPE_NAME);
+    pipeTelemetry =
+        new SnowflakeTelemetryPipeStatus(TABLE_NAME, STAGE_NAME, PIPE_NAME, 0, false, null);
+    telemetryService = new FakeSnowflakeTelemetryService();
     telemetry = new PipeProgressRegistryTelemetry(pipeCreation, pipeTelemetry, telemetryService);
   }
 
@@ -104,17 +108,29 @@ class StageFilesProcessorTest {
   void fileProcessor_WillTryToGetInitialStateFromStage_ExactlyOnce() {
     // lets simulate 1 hour (60 cleanup cycles)
     createFileProcessor(60);
+    configureInitialState();
 
     when(conn.listStage(STAGE_NAME, PREFIX)).thenReturn(new ArrayList<>());
 
     victim.trackFiles(register, telemetry);
 
+    assertThat(telemetryService.records).hasSize(61);
+    List<SnowflakeTelemetryPipeStatus> statuses =
+        telemetryService.records.stream()
+            .filter(r -> r instanceof SnowflakeTelemetryPipeStatus)
+            .map(SnowflakeTelemetryPipeStatus.class::cast)
+            .collect(Collectors.toList());
+    assertThat(statuses).hasSize(60);
+
     verify(conn, times(1)).listStage(STAGE_NAME, PREFIX);
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillTryGettingStateFromStage_OnError() {
     createFileProcessor(10);
+    configureInitialState();
+
     String ingestFile = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     register.registerNewStageFile(ingestFile);
 
@@ -128,11 +144,13 @@ class StageFilesProcessorTest {
 
     verify(conn, times(2)).listStage(STAGE_NAME, PREFIX);
     verify(ingestionService, times(10)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillPurgeLoadedFiles_WhenHistoryIsAvailable_AfterFilesHaveBeenSubmitted() {
     createFileProcessor(10);
+    configureInitialState();
 
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
@@ -178,11 +196,13 @@ class StageFilesProcessorTest {
     verify(ingestionService, times(3)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
     verify(conn, times(3)).purgeStage(anyString(), anyList());
     assertThat(purgedFiles).containsOnly(file1, file2, file3);
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillPurgeLoadedFiles_WhenHistoryIsFetchedSooner_ThanFilesAreRegistered() {
     createFileProcessor(10);
+    configureInitialState();
 
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
@@ -230,11 +250,13 @@ class StageFilesProcessorTest {
     verify(ingestionService, times(3)).readIngestHistoryForward(anyMap(), any(), any(), anyInt());
     verify(conn, times(3)).purgeStage(anyString(), anyList());
     assertThat(purgedFiles).containsOnly(file1, file2, file3);
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillMoveOldFilesToTableStage() {
     createFileProcessor(60);
+    configureInitialState();
 
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
@@ -264,11 +286,13 @@ class StageFilesProcessorTest {
     verify(conn, times(3)).moveToTableStage(anyString(), anyString(), failedFiles.capture());
     assertThat(failedFiles.getAllValues().stream().flatMap(Collection::stream))
         .containsOnly(file1, file2, file3);
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillMoveFailedFilesToStageEvenWhenOneFails() {
     createFileProcessor(61);
+    configureInitialState();
 
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
@@ -308,11 +332,14 @@ class StageFilesProcessorTest {
     verify(conn, times(3)).moveToTableStage(anyString(), anyString(), failedFiles.capture());
     assertThat(failedFiles.getAllValues().stream().flatMap(Collection::stream))
         .containsOnly(file1, file2, file3);
+
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillTreatFreshStaleFileAsStageOne() {
     createFileProcessor(61);
+    configureInitialState();
 
     String file1 =
         String.format(
@@ -347,11 +374,13 @@ class StageFilesProcessorTest {
     // table stage
     verify(conn, times(1)).moveToTableStage(anyString(), anyString(), failedFiles.capture());
     assertThat(failedFiles.getValue()).containsOnly(file1);
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillProperlyHandleStaleFiles() {
     createFileProcessor(13);
+    configureInitialState();
 
     String fileOk = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
     String fileFailed = String.format("connector/topic/0/20_29_%d.json.gz", currentTime.get());
@@ -389,11 +418,13 @@ class StageFilesProcessorTest {
 
     assertThat(failedFiles.getValue()).containsOnly(fileFailed);
     assertThat(loadedFiles.getValue()).containsOnly(fileOk);
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillDeleteDirtyFiles() {
     createFileProcessor(10);
+    configureInitialState();
 
     String file1 = String.format("connector/topic/0/100_199_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/200_299_%d.json.gz", currentTime.get());
@@ -414,11 +445,14 @@ class StageFilesProcessorTest {
     verify(conn, times(1)).listStage(STAGE_NAME, PREFIX);
     verify(conn, times(1)).purgeStage(anyString(), purgedFiles.capture());
     assertThat(purgedFiles.getValue()).containsOnly(file1, file2, file3);
+
+    assertInitialStateWasConfigured();
   }
 
   @Test
   void fileProcessor_WillCleanHistoryEntries_OlderThanOneHour() {
     createFileProcessor(61);
+    configureInitialState();
 
     String file1 = String.format("connector/topic/0/1_9_%d.json.gz", currentTime.get());
     String file2 = String.format("connector/topic/0/10_19_%d.json.gz", currentTime.get());
@@ -457,9 +491,28 @@ class StageFilesProcessorTest {
     // check if these old not matched files have been removed from history and do not result in
     // memory leak
     assertThat(register.currentProcessorContext.ingestHistory).isEmpty();
+    assertInitialStateWasConfigured();
   }
 
-  private static ScheduledExecutorService createTestScheduler(
+  private void configureInitialState() {
+    when(conn.tableExist(TABLE_NAME)).thenReturn(true);
+    when(conn.isTableCompatible(TABLE_NAME)).thenReturn(true);
+    when(conn.stageExist(STAGE_NAME)).thenReturn(true);
+    when(conn.isStageCompatible(STAGE_NAME)).thenReturn(true);
+    when(conn.pipeExist(PIPE_NAME)).thenReturn(true);
+    when(conn.isPipeCompatible(TABLE_NAME, STAGE_NAME, PIPE_NAME)).thenReturn(true);
+  }
+
+  private void assertInitialStateWasConfigured() {
+    verify(conn, times(1)).tableExist(TABLE_NAME);
+    verify(conn, times(1)).isTableCompatible(TABLE_NAME);
+    verify(conn, times(1)).stageExist(STAGE_NAME);
+    verify(conn, times(1)).isStageCompatible(STAGE_NAME);
+    verify(conn, times(1)).pipeExist(PIPE_NAME);
+    verify(conn, times(1)).isPipeCompatible(TABLE_NAME, STAGE_NAME, PIPE_NAME);
+  }
+
+  static ScheduledExecutorService createTestScheduler(
       int ticks,
       AtomicLong currentTime,
       AtomicReference<BiConsumer<Integer, Long>> nextTickCallback,
@@ -492,5 +545,31 @@ class StageFilesProcessorTest {
               return result;
             });
     return service;
+  }
+
+  class FakeSnowflakeTelemetryService extends SnowflakeTelemetryService {
+
+    List<Object> records = new ArrayList<Object>();
+
+    @Override
+    public ObjectNode getObjectNode() {
+      return getDefaultObjectNode(IngestionMethodConfig.SNOWPIPE);
+    }
+
+    @Override
+    public void reportKafkaConnectFatalError(String errorDetail) {
+      records.add(errorDetail);
+    }
+
+    @Override
+    public void reportKafkaPartitionUsage(
+        SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {
+      records.add(partitionStatus);
+    }
+
+    @Override
+    public void reportKafkaPartitionStart(SnowflakeTelemetryBasicInfo partitionCreation) {
+      records.add(partitionCreation);
+    }
   }
 }

@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.snowflake.ingest.connection.HistoryResponse;
@@ -165,7 +166,7 @@ class StageFilesProcessor {
     close();
 
     SnowflakeTelemetryPipeCreation pipeCreation =
-        new SnowflakeTelemetryPipeCreation(tableName, stageName, pipeName);
+        preparePipeStartTelemetryEvent(tableName, stageName, pipeName);
     ProgressRegisterImpl register = new ProgressRegisterImpl(this);
 
     PipeProgressRegistryTelemetry telemetry =
@@ -200,13 +201,27 @@ class StageFilesProcessor {
     final String threadName =
         String.format("file-processor-[%s/%d:%s]", topic, partition, tableName);
 
+    progressTelemetry.reportKafkaPartitionStart();
+
     cleanerTaskHolder.set(
         schedulingExecutor.scheduleWithFixedDelay(
             () -> {
               Thread.currentThread().setName(threadName);
               try {
-                // update metrics
-                progressTelemetry.reportKafkaPartitionUsage(false);
+                // cleaner starts along with the partition task, but until table, stage and pipe
+                // aren't created - there is no point in querying the stage.
+                if (isFirstRun.get()
+                    && checkPreRequisites() != CleanerPrerequisites.PIPE_COMPATIBLE) {
+                  LOGGER.debug(
+                      "neither table {} nor stage {} nor pipe {} have been initialized yet,"
+                          + " skipping cycle...",
+                      tableName,
+                      stageName,
+                      pipeName);
+                  return;
+                }
+
+                progressTelemetry.reportKafkaPartitionUsage();
 
                 // add all files which might have been collected during the last cycle for
                 // processing
@@ -422,7 +437,8 @@ class StageFilesProcessor {
           String.join(", ", failedFiles));
       // underlying code moves files one by one, so this is not going to impact performance.
       // we have been observing scenarios, when the file listed at the start of the process was
-      // removed - this would cause cleaner to fail - so instead we process file one by one to
+      // removed, or process didn't have access to it - this would cause cleaner to fail - so
+      // instead we process file one by one to
       // ensure all the ones which are still present will be actually moved
       failedFiles.stream()
           .map(Lists::newArrayList)
@@ -431,8 +447,11 @@ class StageFilesProcessor {
                 try {
                   conn.moveToTableStage(tableName, stageName, failedFile);
                 } catch (SnowflakeKafkaConnectorException e) {
+                  telemetryService.reportKafkaConnectFatalError(
+                      String.format("[cleaner for pipe %s]: %s", pipeName, e.getMessage()));
                   LOGGER.warn(
-                      "Could not move file {} for pipe {} to table stage due to {} <{}>",
+                      "Could not move file {} for pipe {} to table stage due to {} <{}>\n"
+                          + "File won't be tracked.",
                       failedFile.get(0),
                       pipeName,
                       e.getMessage(),
@@ -490,6 +509,71 @@ class StageFilesProcessor {
           e.getMessage(),
           e.getStackTrace());
     }
+  }
+
+  enum CleanerPrerequisites {
+    NONE,
+    TABLE_COMPATIBLE,
+    STAGE_COMPATIBLE,
+    PIPE_COMPATIBLE,
+  }
+
+  private SnowflakeTelemetryPipeCreation preparePipeStartTelemetryEvent(
+      String tableName, String stageName, String pipeName) {
+    SnowflakeTelemetryPipeCreation result =
+        new SnowflakeTelemetryPipeCreation(tableName, stageName, pipeName);
+    boolean canListFiles = false;
+
+    switch (checkPreRequisites()) {
+      case PIPE_COMPATIBLE:
+        result.setReusePipe(true);
+      case STAGE_COMPATIBLE:
+        result.setReuseStage(true);
+        canListFiles = true;
+      case TABLE_COMPATIBLE:
+        result.setReuseTable(true);
+      default:
+        break;
+    }
+
+    if (canListFiles) {
+      try {
+        List<String> stageFiles = conn.listStage(stageName, prefix);
+        result.setFileCountRestart(stageFiles.size());
+      } catch (Exception err) {
+        LOGGER.warn(
+            "could not list remote stage {} - {}<{}>\n{}",
+            stageName,
+            err.getMessage(),
+            err.getClass(),
+            err.getStackTrace());
+      }
+      // at this moment, file processor does not know how many files should be reprocessed...
+      result.setFileCountReprocessPurge(0);
+    }
+
+    return result;
+  }
+
+  private CleanerPrerequisites checkPreRequisites() {
+    CleanerPrerequisites result = CleanerPrerequisites.NONE;
+    Supplier<Boolean> tableCompatible =
+        () -> conn.tableExist(tableName) && conn.isTableCompatible(tableName);
+    Supplier<Boolean> stageCompatible =
+        () -> conn.stageExist(stageName) && conn.isStageCompatible(stageName);
+    Supplier<Boolean> pipeCompatible =
+        () -> conn.pipeExist(pipeName) && conn.isPipeCompatible(tableName, stageName, pipeName);
+
+    if (tableCompatible.get()) {
+      result = CleanerPrerequisites.TABLE_COMPATIBLE;
+      if (stageCompatible.get()) {
+        result = CleanerPrerequisites.STAGE_COMPATIBLE;
+        if (pipeCompatible.get()) {
+          result = CleanerPrerequisites.PIPE_COMPATIBLE;
+        }
+      }
+    }
+    return result;
   }
 
   public static class FileCategorizer {

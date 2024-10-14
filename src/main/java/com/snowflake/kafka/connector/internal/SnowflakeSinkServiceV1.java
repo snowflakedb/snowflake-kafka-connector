@@ -536,7 +536,12 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
       this.pipeStatus =
           new SnowflakeTelemetryPipeStatus(
-              tableName, stageName, pipeName, enableCustomJMXMonitoring, this.metricsJmxReporter);
+              tableName,
+              stageName,
+              pipeName,
+              partition,
+              enableCustomJMXMonitoring,
+              this.metricsJmxReporter);
 
       if (enableCustomJMXMonitoring) {
         partitionBufferCountHistogram =
@@ -593,8 +598,9 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         } catch (Exception e) {
           LOGGER.warn("Cleaner and Flusher threads shut down before initialization");
         }
+        // with v2 cleaner enabled, this event is raised by the cleaner itself
+        telemetryService.reportKafkaPartitionStart(pipeCreation);
       }
-      telemetryService.reportKafkaPartitionStart(pipeCreation);
     }
 
     private boolean resetCleanerFiles() {
