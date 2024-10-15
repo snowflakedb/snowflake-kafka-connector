@@ -49,7 +49,7 @@ public class DirectStreamingClientHandler implements StreamingClientHandler {
               .setProperties(streamingClientProperties.clientProperties)
               .setParameterOverrides(streamingClientProperties.parameterOverrides);
 
-      enableIceberg(builder);
+      setIcebergEnabled(builder, streamingClientProperties.isIcebergEnabled);
 
       SnowflakeStreamingIngestClient createdClient = builder.build();
 
@@ -65,13 +65,14 @@ public class DirectStreamingClientHandler implements StreamingClientHandler {
     }
   }
 
-  private static void enableIceberg(SnowflakeStreamingIngestClientFactory.Builder builder) {
+  private static void setIcebergEnabled(
+      SnowflakeStreamingIngestClientFactory.Builder builder, boolean isIcebergEnabled) {
     try {
       // TODO reflection should be replaced by proper builder.setIceberg(true) call in SNOW-1728002
-      FieldUtils.writeField(builder, "isIceberg", true, true);
+      FieldUtils.writeField(builder, "isIceberg", isIcebergEnabled, true);
     } catch (IllegalAccessException e) {
       throw new IllegalStateException(
-          "Couldn't enable iceberg by accessing private field: " + "isIceberg", e);
+          "Couldn't set iceberg by accessing private field: " + "isIceberg", e);
     }
   }
 
