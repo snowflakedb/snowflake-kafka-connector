@@ -59,6 +59,8 @@ public class InternalUtils {
   static void assertNotEmpty(String name, Object value) {
     if (value == null || (value instanceof String && value.toString().isEmpty())) {
       switch (name.toLowerCase()) {
+        case "schemaname":
+          throw SnowflakeErrors.ERROR_0031.getException();
         case "tablename":
           throw SnowflakeErrors.ERROR_0005.getException();
         case "stagename":

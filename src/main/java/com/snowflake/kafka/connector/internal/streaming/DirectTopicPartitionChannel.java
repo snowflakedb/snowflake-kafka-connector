@@ -131,6 +131,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
   // Whether schematization has been enabled.
   private final boolean enableSchematization;
+  private final boolean autoSchematization;
 
   // Whether schema evolution could be done on this channel
   private final boolean enableSchemaEvolution;
@@ -232,8 +233,13 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     /* Schematization related properties */
     this.enableSchematization =
         this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
-
-    this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
+    this.autoSchematization =
+            this.recordService.setAndGetAutoSchematizationFromConfig(sfConnectorConfig);
+    //this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
+    this.enableSchemaEvolution =
+            this.enableSchematization
+                    && this.conn != null
+                    && (!autoSchematization || hasSchemaEvolutionPermission);
 
     if (isEnableChannelOffsetMigration(sfConnectorConfig)) {
       /* Channel Name format V2 is computed from connector name, topic and partition */

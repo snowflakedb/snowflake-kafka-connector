@@ -8,6 +8,13 @@ import java.util.Map;
 
 public interface SnowflakeConnectionService {
   /**
+   * create schema is not exists
+   *
+   * @param schemaName schema name
+   */
+  void createSchema(String schemaName);
+
+  /**
    * Create a table with two variant columns: RECORD_METADATA and RECORD_CONTENT
    *
    * @param tableName a string represents table name
@@ -58,6 +65,14 @@ public interface SnowflakeConnectionService {
    * @param stageName stage name
    */
   void createStage(String stageName);
+
+  /**
+   * check schema existence
+   *
+   * @param schemaName table name
+   * @return true if schema exists, false otherwise
+   */
+  boolean schemaExist(String schemaName);
 
   /**
    * check table existence

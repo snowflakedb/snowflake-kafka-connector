@@ -111,6 +111,25 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
+  public void createSchema(final String schemaName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("schemaName", schemaName);
+    String query;
+      query = "create schema if not exists identifier(?) comment = 'created by"
+              + " automatic schema creation from Snowflake Kafka Connector'";
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, schemaName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2018.getException(e);
+    }
+
+    LOGGER.info("create schema {}", schemaName);
+  }
+
+  @Override
   public void createTable(final String tableName, final boolean overwrite) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
@@ -235,6 +254,33 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   @Override
   public void createStage(final String stageName) {
     createStage(stageName, false);
+  }
+
+  @Override
+  public boolean schemaExist(final String schemaName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("schemaName", schemaName);
+    String query = "desc schema identifier(?)";
+    PreparedStatement stmt = null;
+    boolean exist;
+    try {
+      stmt = conn.prepareStatement(query);
+      stmt.setString(1, schemaName);
+      stmt.execute();
+      exist = true;
+    } catch (Exception e) {
+      LOGGER.debug("schema {} doesn't exist", schemaName);
+      exist = false;
+    } finally {
+      if (stmt != null) {
+        try {
+          stmt.close();
+        } catch (SQLException e) {
+          e.printStackTrace();
+        }
+      }
+    }
+    return exist;
   }
 
   @Override
