@@ -67,6 +67,7 @@ public class DirectStreamingClientHandler implements StreamingClientHandler {
 
   private static void enableIceberg(SnowflakeStreamingIngestClientFactory.Builder builder) {
     try {
+      // TODO reflection should be replaced by proper builder.setIceberg(true) call in SNOW-1728002
       FieldUtils.writeField(builder, "isIceberg", true, true);
     } catch (IllegalAccessException e) {
       throw new IllegalStateException(

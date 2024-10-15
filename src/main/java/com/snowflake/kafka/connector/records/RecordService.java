@@ -277,6 +277,7 @@ public class RecordService {
 
   private Map<String, Object> processIcebergRecord(SnowflakeTableRow row)
       throws JsonProcessingException {
+    // TODO this not cover all cases, full implementation will be done in SNOW-1737840
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.content.getData()) {
       if (enableSchematization) {
