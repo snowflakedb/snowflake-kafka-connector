@@ -3,19 +3,23 @@ package com.snowflake.kafka.connector.streaming.iceberg;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfForStreaming;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -28,14 +32,14 @@ import org.junit.jupiter.api.Test;
 
 public class IcebergIngestionIT extends BaseIcebergIT {
 
-  private static final String ICEBERG_ENABLED_PRIVATE_FIELD_NAME = "icebergEnabled";
   private String tableName;
   private static final int PARTITION = 0;
   private String topic;
   private TopicPartition topicPartition;
-  private String testChannelName;
 
   private SnowflakeSinkService service;
+
+  private final String simpleRecordJson = "{\"simple\": \"extra field\"}";
 
   private final String primitiveJson =
       "{\n"
@@ -99,7 +103,6 @@ public class IcebergIngestionIT extends BaseIcebergIT {
     tableName = TestUtils.randomTableName();
     topic = tableName;
     topicPartition = new TopicPartition(topic, PARTITION);
-    testChannelName = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION);
     Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(ICEBERG_ENABLED, "TRUE");
@@ -133,22 +136,110 @@ public class IcebergIngestionIT extends BaseIcebergIT {
   @Test
   @Disabled
   void shouldInsertJsonRecordWithoutSchema() throws Exception {
+    // start off with just one column
+    List<DescribeTableRow> rows = describeTable(tableName);
+    assertThat(rows.size()).isEqualTo(1);
+    assertThat(rows.get(0).getColumn()).isEqualTo(Utils.TABLE_COLUMN_METADATA);
+
+    // send first record which should be discarded but schema evolution should kick in
     SinkRecord record = createKafkaRecord(primitiveJson, 0, false);
     service.insert(Collections.singletonList(record));
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == -1, 20, 5);
+    rows = describeTable(tableName);
+    assertThat(rows.size()).isEqualTo(9);
+
+    // don't check metadata column schema, we have different tests for that
+    rows =
+        rows.stream()
+            .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
+            .collect(Collectors.toList());
+    assertThat(rows)
+        .containsExactlyInAnyOrder(
+            new DescribeTableRow("ID_INT8", "NUMBER(19,0)"),
+            new DescribeTableRow("ID_INT16", "NUMBER(19,0)"),
+            new DescribeTableRow("ID_INT32", "NUMBER(19,0)"),
+            new DescribeTableRow("ID_INT64", "NUMBER(19,0)"),
+            new DescribeTableRow("DESCRIPTION", "VARCHAR(16777216)"),
+            new DescribeTableRow("RATING_FLOAT32", "FLOAT"),
+            new DescribeTableRow("RATING_FLOAT64", "FLOAT"),
+            new DescribeTableRow("APPROVAL", "BOOLEAN"));
+
+    // resend and store same record without any issues now
     service.insert(Collections.singletonList(record));
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 0 + 1, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 1, 20, 5);
+
+    // and another record with same schema
+    service.insert(Collections.singletonList(createKafkaRecord(primitiveJson, 1, false)));
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+
+    // and another record with extra field - schema evolves again
+    service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
+
+    rows = describeTable(tableName);
+    assertThat(rows.size()).isEqualTo(10);
+    assertThat(rows).contains(new DescribeTableRow("SIMPLE", "VARCHAR(16777216)"));
+
+    // reinsert record with extra field
+    service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 3, 20, 5);
   }
 
   @Test
+  @Disabled
   void shouldInsertJsonRecordWithSchema() throws Exception {
+    // start off with just one column
+    List<DescribeTableRow> rows = describeTable(tableName);
+    assertThat(rows.size()).isEqualTo(1);
+    assertThat(rows.get(0).getColumn()).isEqualTo(Utils.TABLE_COLUMN_METADATA);
+
     SinkRecord record = createKafkaRecord(primitiveJsonWithSchema, 0, true);
     service.insert(Collections.singletonList(record));
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == -1, 20, 5);
+    rows = describeTable(tableName);
+    assertThat(rows.size()).isEqualTo(9);
+
+    // don't check metadata column schema, we have different tests for that
+    rows =
+        rows.stream()
+            .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
+            .collect(Collectors.toList());
+    assertThat(rows)
+        .containsExactlyInAnyOrder(
+            new DescribeTableRow("ID_INT8", "NUMBER(10,0)"),
+            new DescribeTableRow("ID_INT16", "NUMBER(10,0)"),
+            new DescribeTableRow("ID_INT32", "NUMBER(10,0)"),
+            new DescribeTableRow("ID_INT64", "NUMBER(19,0)"),
+            new DescribeTableRow("DESCRIPTION", "VARCHAR(16777216)"),
+            new DescribeTableRow("RATING_FLOAT32", "FLOAT"),
+            new DescribeTableRow("RATING_FLOAT64", "FLOAT"),
+            new DescribeTableRow("APPROVAL", "BOOLEAN"));
+
+    // resend and store same record without any issues now
     service.insert(Collections.singletonList(record));
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 1, 20, 5);
+
+    // and another record with same schema
+    service.insert(Collections.singletonList(createKafkaRecord(primitiveJsonWithSchema, 1, true)));
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+
+    // and another record with extra field - schema evolves again
+    service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
+
+    rows = describeTable(tableName);
+    assertThat(rows.size()).isEqualTo(10);
+    assertThat(rows).contains(new DescribeTableRow("SIMPLE", "VARCHAR(16777216)"));
+
+    // reinsert record with extra field
+    service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 3, 20, 5);
   }
 
   private SinkRecord createKafkaRecord(String jsonString, int offset, boolean withSchema) {

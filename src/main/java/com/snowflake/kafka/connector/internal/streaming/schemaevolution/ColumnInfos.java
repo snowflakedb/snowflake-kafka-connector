@@ -43,4 +43,16 @@ public class ColumnInfos {
   public int hashCode() {
     return Objects.hash(columnType, comments);
   }
+
+  @Override
+  public String toString() {
+    return "ColumnInfos{"
+        + "columnType='"
+        + columnType
+        + '\''
+        + ", comments='"
+        + comments
+        + '\''
+        + '}';
+  }
 }
