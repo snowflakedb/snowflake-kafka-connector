@@ -149,8 +149,7 @@ public class IcebergIngestionIT extends BaseIcebergIT {
 
     SinkRecord record = createKafkaRecord(message, 0, withSchema);
     service.insert(Collections.singletonList(record));
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == -1, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == -1, 20, 5);
     rows = describeTable(tableName);
     assertThat(rows.size()).isEqualTo(9);
 
@@ -164,13 +163,11 @@ public class IcebergIngestionIT extends BaseIcebergIT {
 
     // resend and store same record without any issues now
     service.insert(Collections.singletonList(record));
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
 
     // and another record with same schema
     service.insert(Collections.singletonList(createKafkaRecord(message, 1, withSchema)));
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 2, 20, 5);
 
     // and another record with extra field - schema evolves again
     service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
@@ -181,8 +178,7 @@ public class IcebergIngestionIT extends BaseIcebergIT {
 
     // reinsert record with extra field
     service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 3, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 3, 20, 5);
   }
 
   private static Stream<Arguments> prepareData() {

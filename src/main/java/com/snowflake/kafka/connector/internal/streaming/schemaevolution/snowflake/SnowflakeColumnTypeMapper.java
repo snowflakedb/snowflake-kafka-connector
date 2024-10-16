@@ -70,6 +70,7 @@ public class SnowflakeColumnTypeMapper extends ColumnTypeMapper {
     }
   }
 
+  @Override
   public Schema.Type mapJsonNodeTypeToKafkaType(JsonNode value) {
     if (value == null || value.isNull()) {
       return STRING;
