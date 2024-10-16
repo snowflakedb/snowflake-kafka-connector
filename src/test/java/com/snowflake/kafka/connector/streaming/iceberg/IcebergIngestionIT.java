@@ -3,12 +3,9 @@ package com.snowflake.kafka.connector.streaming.iceberg;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfForStreaming;
-import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -17,10 +14,7 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -28,23 +22,17 @@ import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
-public class IcebergIngestionIT extends BaseIcebergIT {
+public abstract class IcebergIngestionIT extends BaseIcebergIT {
 
-  private String tableName;
   private static final int PARTITION = 0;
   private String topic;
-  private TopicPartition topicPartition;
 
-  private SnowflakeSinkService service;
-
-  private final String simpleRecordJson = "{\"simple\": \"extra field\"}";
-
-  private static final String primitiveJson =
+  protected String tableName;
+  protected TopicPartition topicPartition;
+  protected SnowflakeSinkService service;
+  protected static final String simpleRecordJson = "{\"simple\": \"extra field\"}";
+  protected static final String primitiveJson =
       "{\n"
           + "  \"id_int8\": 0,\n"
           + "  \"id_int16\": 42,\n"
@@ -56,7 +44,7 @@ public class IcebergIngestionIT extends BaseIcebergIT {
           + "  \"approval\": true\n"
           + "}";
 
-  private static final String primitiveJsonWithSchema =
+  protected static final String primitiveJsonWithSchema =
       "{\n"
           + "  \"schema\": {\n"
           + "    \"type\": \"struct\",\n"
@@ -109,9 +97,9 @@ public class IcebergIngestionIT extends BaseIcebergIT {
     Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(ICEBERG_ENABLED, "TRUE");
-    config.put(ENABLE_SCHEMATIZATION_CONFIG, "TRUE");
+    config.put(ENABLE_SCHEMATIZATION_CONFIG, isSchemaEvolutionEnabled().toString());
 
-    createIcebergTable(tableName);
+    createIcebergTable();
     enableSchemaEvolution(tableName);
 
     // only insert fist topic to topicTable
@@ -128,6 +116,16 @@ public class IcebergIngestionIT extends BaseIcebergIT {
             .build();
   }
 
+  protected void createIcebergTable() {
+    createIcebergTable(tableName);
+  }
+
+  protected abstract Boolean isSchemaEvolutionEnabled();
+
+  protected void waitForOffset(int targetOffset) throws Exception {
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == targetOffset, 20, 5);
+  }
+
   @AfterEach
   public void tearDown() {
     if (service != null) {
@@ -136,84 +134,7 @@ public class IcebergIngestionIT extends BaseIcebergIT {
     dropIcebergTable(tableName);
   }
 
-  @ParameterizedTest()
-  @MethodSource("prepareData")
-  @Disabled
-  void shouldEvolveSchemaAndInsertRecords(
-      String description, String message, DescribeTableRow[] expectedSchema, boolean withSchema)
-      throws Exception {
-    // start off with just one column
-    List<DescribeTableRow> rows = describeTable(tableName);
-    assertThat(rows.size()).isEqualTo(1);
-    assertThat(rows.get(0).getColumn()).isEqualTo(Utils.TABLE_COLUMN_METADATA);
-
-    SinkRecord record = createKafkaRecord(message, 0, withSchema);
-    service.insert(Collections.singletonList(record));
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == -1, 20, 5);
-    rows = describeTable(tableName);
-    assertThat(rows.size()).isEqualTo(9);
-
-    // don't check metadata column schema, we have different tests for that
-    rows =
-        rows.stream()
-            .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
-            .collect(Collectors.toList());
-
-    assertThat(rows).containsExactlyInAnyOrder(expectedSchema);
-
-    // resend and store same record without any issues now
-    service.insert(Collections.singletonList(record));
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
-
-    // and another record with same schema
-    service.insert(Collections.singletonList(createKafkaRecord(message, 1, withSchema)));
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 2, 20, 5);
-
-    // and another record with extra field - schema evolves again
-    service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
-
-    rows = describeTable(tableName);
-    assertThat(rows.size()).isEqualTo(10);
-    assertThat(rows).contains(new DescribeTableRow("SIMPLE", "VARCHAR(16777216)"));
-
-    // reinsert record with extra field
-    service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 3, 20, 5);
-  }
-
-  private static Stream<Arguments> prepareData() {
-    return Stream.of(
-        Arguments.of(
-            "Primitive JSON with schema",
-            primitiveJsonWithSchema,
-            new DescribeTableRow[] {
-              new DescribeTableRow("ID_INT8", "NUMBER(10,0)"),
-              new DescribeTableRow("ID_INT16", "NUMBER(10,0)"),
-              new DescribeTableRow("ID_INT32", "NUMBER(10,0)"),
-              new DescribeTableRow("ID_INT64", "NUMBER(19,0)"),
-              new DescribeTableRow("DESCRIPTION", "VARCHAR(16777216)"),
-              new DescribeTableRow("RATING_FLOAT32", "FLOAT"),
-              new DescribeTableRow("RATING_FLOAT64", "FLOAT"),
-              new DescribeTableRow("APPROVAL", "BOOLEAN")
-            },
-            true),
-        Arguments.of(
-            "Primitive JSON without schema",
-            primitiveJson,
-            new DescribeTableRow[] {
-              new DescribeTableRow("ID_INT8", "NUMBER(19,0)"),
-              new DescribeTableRow("ID_INT16", "NUMBER(19,0)"),
-              new DescribeTableRow("ID_INT32", "NUMBER(19,0)"),
-              new DescribeTableRow("ID_INT64", "NUMBER(19,0)"),
-              new DescribeTableRow("DESCRIPTION", "VARCHAR(16777216)"),
-              new DescribeTableRow("RATING_FLOAT32", "FLOAT"),
-              new DescribeTableRow("RATING_FLOAT64", "FLOAT"),
-              new DescribeTableRow("APPROVAL", "BOOLEAN")
-            },
-            false));
-  }
-
-  private SinkRecord createKafkaRecord(String jsonString, int offset, boolean withSchema) {
+  protected SinkRecord createKafkaRecord(String jsonString, int offset, boolean withSchema) {
     JsonConverter converter = new JsonConverter();
     converter.configure(
         Collections.singletonMap("schemas.enable", Boolean.toString(withSchema)), false);
