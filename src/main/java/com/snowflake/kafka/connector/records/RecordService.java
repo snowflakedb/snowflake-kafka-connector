@@ -79,6 +79,8 @@ public class RecordService {
 
   private boolean enableSchematization = false;
 
+  private boolean icebergEnabled = false;
+
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
   static final ThreadLocal<SimpleDateFormat> ISO_DATE_TIME_FORMAT =
@@ -130,6 +132,11 @@ public class RecordService {
               connectorConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
     }
     return this.enableSchematization;
+  }
+
+  public boolean setIcebergEnabledFromConfig(final Map<String, String> connectorConfig) {
+    this.icebergEnabled = Utils.isIcebergEnabled(connectorConfig);
+    return this.icebergEnabled;
   }
 
   /**
@@ -244,6 +251,16 @@ public class RecordService {
   public Map<String, Object> getProcessedRecordForStreamingIngest(SinkRecord record)
       throws JsonProcessingException {
     SnowflakeTableRow row = processRecord(record, clock.instant());
+
+    if (icebergEnabled) {
+      return processIcebergRecord(row);
+    } else {
+      return processSnowflakeRecord(row);
+    }
+  }
+
+  private Map<String, Object> processSnowflakeRecord(SnowflakeTableRow row)
+      throws JsonProcessingException {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.content.getData()) {
       if (enableSchematization) {
@@ -255,12 +272,38 @@ public class RecordService {
         streamingIngestRow.put(TABLE_COLUMN_METADATA, MAPPER.writeValueAsString(row.metadata));
       }
     }
+    return streamingIngestRow;
+  }
 
+  private Map<String, Object> processIcebergRecord(SnowflakeTableRow row)
+      throws JsonProcessingException {
+    // TODO this not cover all cases, full implementation will be done in SNOW-1737840
+    final Map<String, Object> streamingIngestRow = new HashMap<>();
+    for (JsonNode node : row.content.getData()) {
+      if (enableSchematization) {
+        streamingIngestRow.putAll(getMapFromJsonNodeForStreamingIngest(node));
+      } else {
+        streamingIngestRow.put(TABLE_COLUMN_CONTENT, getMapFromJsonNodeForIceberg(node));
+      }
+      if (metadataConfig.allFlag) {
+        streamingIngestRow.put(TABLE_COLUMN_METADATA, getMapFromJsonNodeForIceberg(row.metadata));
+      }
+    }
     return streamingIngestRow;
   }
 
   private Map<String, Object> getMapFromJsonNodeForStreamingIngest(JsonNode node)
       throws JsonProcessingException {
+    return getMapFromJsonNodeForStreamingIngest(node, true);
+  }
+
+  private Map<String, Object> getMapFromJsonNodeForIceberg(JsonNode node)
+      throws JsonProcessingException {
+    return getMapFromJsonNodeForStreamingIngest(node, false);
+  }
+
+  private Map<String, Object> getMapFromJsonNodeForStreamingIngest(
+      JsonNode node, boolean quoteColumnName) throws JsonProcessingException {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
 
     // return empty if tombstone record
@@ -282,7 +325,8 @@ public class RecordService {
       }
       // while the value is always dumped into a string, the Streaming Ingest SDK
       // will transform the value according to its type in the table
-      streamingIngestRow.put(Utils.quoteNameIfNeeded(columnName), columnValue);
+      streamingIngestRow.put(
+          quoteColumnName ? Utils.quoteNameIfNeeded(columnName) : columnName, columnValue);
     }
     // Thrown an exception if the input JsonNode is not in the expected format
     if (streamingIngestRow.isEmpty()) {

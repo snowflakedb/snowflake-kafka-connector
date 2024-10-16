@@ -3,9 +3,11 @@ package com.snowflake.kafka.connector.streaming.iceberg;
 import static com.snowflake.kafka.connector.internal.TestUtils.executeQueryAndCollectResult;
 import static com.snowflake.kafka.connector.internal.TestUtils.executeQueryWithParameter;
 
+import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.sql.SQLException;
+import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
@@ -40,22 +42,31 @@ public class BaseIcebergIT {
             + "external_volume = 'test_exvol'"
             + "catalog = 'SNOWFLAKE'"
             + "base_location = 'it'";
-    executeQueryWithParameter(query, tableName);
+    doExecuteQueryWithParameter(query, tableName);
+    String allowStreamingIngestionQuery =
+        "alter iceberg table identifier(?) set ALLOW_STREAMING_INGESTION_FOR_MANAGED_ICEBERG ="
+            + " true;";
+    doExecuteQueryWithParameter(allowStreamingIngestionQuery, tableName);
+  }
+
+  private static void doExecuteQueryWithParameter(String query, String tableName) {
+    executeQueryWithParameter(conn.getConnection(), query, tableName);
   }
 
   protected static void dropIcebergTable(String tableName) {
     String query = "drop iceberg table if exists identifier(?)";
-    executeQueryWithParameter(query, tableName);
+    doExecuteQueryWithParameter(query, tableName);
   }
 
   protected static void enableSchemaEvolution(String tableName) {
     String query = "alter iceberg table identifier(?) set enable_schema_evolution = true";
-    executeQueryWithParameter(query, tableName);
+    doExecuteQueryWithParameter(query, tableName);
   }
 
   protected static String describeRecordMetadataType(String tableName) {
     String query = "describe table identifier(?)";
     return executeQueryAndCollectResult(
+        conn.getConnection(),
         query,
         tableName,
         (resultSet) -> {
@@ -70,5 +81,10 @@ public class BaseIcebergIT {
           }
           throw new IllegalArgumentException("RECORD_METADATA column not found in the table");
         });
+  }
+
+  protected static List<DescribeTableRow> describeTable(String tableName) {
+    return conn.describeTable(tableName)
+        .orElseThrow(() -> new IllegalArgumentException("Table not found"));
   }
 }

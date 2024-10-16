@@ -1,6 +1,18 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake;
 
+import static org.apache.kafka.connect.data.Schema.Type.ARRAY;
+import static org.apache.kafka.connect.data.Schema.Type.BOOLEAN;
+import static org.apache.kafka.connect.data.Schema.Type.BYTES;
+import static org.apache.kafka.connect.data.Schema.Type.FLOAT32;
+import static org.apache.kafka.connect.data.Schema.Type.FLOAT64;
+import static org.apache.kafka.connect.data.Schema.Type.INT16;
+import static org.apache.kafka.connect.data.Schema.Type.INT32;
+import static org.apache.kafka.connect.data.Schema.Type.INT64;
+import static org.apache.kafka.connect.data.Schema.Type.STRING;
+import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
+
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnTypeMapper;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
@@ -55,6 +67,36 @@ public class SnowflakeColumnTypeMapper extends ColumnTypeMapper {
         LOGGER.debug(
             "The corresponding kafka type is {}, so infer to VARIANT type", kafkaType.getName());
         return "VARIANT";
+    }
+  }
+
+  @Override
+  public Schema.Type mapJsonNodeTypeToKafkaType(JsonNode value) {
+    if (value == null || value.isNull()) {
+      return STRING;
+    } else if (value.isNumber()) {
+      if (value.isShort()) {
+        return INT16;
+      } else if (value.isInt()) {
+        return INT32;
+      } else if (value.isFloat()) {
+        return FLOAT32;
+      } else if (value.isDouble()) {
+        return FLOAT64;
+      }
+      return INT64;
+    } else if (value.isTextual()) {
+      return STRING;
+    } else if (value.isBoolean()) {
+      return BOOLEAN;
+    } else if (value.isBinary()) {
+      return BYTES;
+    } else if (value.isArray()) {
+      return ARRAY;
+    } else if (value.isObject()) {
+      return STRUCT;
+    } else {
+      return null;
     }
   }
 }

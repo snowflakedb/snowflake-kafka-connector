@@ -62,6 +62,8 @@ public class StreamingClientProperties {
   public final String clientName;
   public final Map<String, Object> parameterOverrides;
 
+  public final boolean isIcebergEnabled;
+
   /**
    * Creates non-null properties, client name and parameter overrides for the {@link
    * net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient} from the given connectorConfig
@@ -79,6 +81,8 @@ public class StreamingClientProperties {
     }
 
     this.clientProperties = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
+
+    this.isIcebergEnabled = Utils.isIcebergEnabled(connectorConfig);
 
     this.clientName =
         STREAMING_CLIENT_PREFIX_NAME
@@ -225,7 +229,8 @@ public class StreamingClientProperties {
   public boolean equals(Object other) {
     return other.getClass().equals(StreamingClientProperties.class)
         && ((StreamingClientProperties) other).clientProperties.equals(this.clientProperties)
-        && ((StreamingClientProperties) other).parameterOverrides.equals(this.parameterOverrides);
+        && ((StreamingClientProperties) other).parameterOverrides.equals(this.parameterOverrides)
+        && ((StreamingClientProperties) other).isIcebergEnabled == this.isIcebergEnabled;
   }
 
   /**
@@ -236,6 +241,6 @@ public class StreamingClientProperties {
    */
   @Override
   public int hashCode() {
-    return Objects.hash(this.clientProperties, this.parameterOverrides);
+    return Objects.hash(this.clientProperties, this.parameterOverrides, this.isIcebergEnabled);
   }
 }
