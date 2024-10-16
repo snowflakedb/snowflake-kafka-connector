@@ -116,14 +116,12 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
             .build();
   }
 
-  protected void createIcebergTable() {
-    createIcebergTable(tableName);
-  }
+  protected abstract void createIcebergTable();
 
   protected abstract Boolean isSchemaEvolutionEnabled();
 
   protected void waitForOffset(int targetOffset) throws Exception {
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == targetOffset, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == targetOffset);
   }
 
   @AfterEach

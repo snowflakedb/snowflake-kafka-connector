@@ -21,7 +21,12 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     return true;
   }
 
-  @ParameterizedTest()
+  @Override
+  protected void createIcebergTable() {
+    createIcebergTable(tableName);
+  }
+
+  @ParameterizedTest(name = "{0}")
   @MethodSource("prepareData")
   @Disabled
   void shouldEvolveSchemaAndInsertRecords(
