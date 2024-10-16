@@ -459,7 +459,6 @@ def runStressTests(driver, testSet, nameSalt):
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Stress Tests Round 1 ===")
     testSuitList = [testPressureRestart]
 
-    testCleanEnableList = [True]
     testSuitEnableList = []
     if testSet == "confluent":
         testSuitEnableList = [True]
@@ -468,14 +467,13 @@ def runStressTests(driver, testSet, nameSalt):
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=1)
+    execution(testSet, testSuitList, testSuitEnableList, driver, nameSalt, round=1)
     ############################ Stress Tests Round 1 ############################
 
     ############################ Stress Tests Round 2 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Stress Tests Round 2 ===")
     testSuitList = [testPressure]
 
-    testCleanEnableList = [True]
     testSuitEnableList = []
     if testSet == "confluent":
         testSuitEnableList = [True]
@@ -484,7 +482,7 @@ def runStressTests(driver, testSet, nameSalt):
     elif testSet != "clean":
         errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-    execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=1)
+    execution(testSet, testSuitList, testSuitEnableList, driver, nameSalt, round=1)
     ############################ Stress Tests Round 2 ############################
 
 
@@ -499,8 +497,6 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test, skipProxy, allowed
 
         end_to_end_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in test_suites.values()]
 
-        end_to_end_tests_suite_cleaner = [single_end_to_end_test.clean for single_end_to_end_test in test_suites.values()]
-
         end_to_end_tests_suite_runner = []
 
         if testSet == "confluent":
@@ -510,7 +506,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test, skipProxy, allowed
         elif testSet != "clean":
             errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-        execution(testSet, end_to_end_tests_suite, end_to_end_tests_suite_cleaner, end_to_end_tests_suite_runner, driver, nameSalt)
+        execution(testSet, end_to_end_tests_suite, end_to_end_tests_suite_runner, driver, nameSalt)
 
         ############################ Always run Proxy tests in the end ############################
 
@@ -528,12 +524,10 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test, skipProxy, allowed
         print("Proxy Test should be the last test, since it modifies the JVM values")
 
         proxy_tests_suite = [EndToEndTestSuite(
-            test_instance=TestStringJsonProxy(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestStringJsonProxy(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )]
 
         end_to_end_proxy_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in proxy_tests_suite]
-
-        proxy_suite_clean_enable_list = [single_end_to_end_test.clean for single_end_to_end_test in proxy_tests_suite]
 
         proxy_suite_runner = []
 
@@ -544,15 +538,14 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test, skipProxy, allowed
         elif testSet != "clean":
             errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
 
-        execution(testSet, end_to_end_proxy_tests_suite, proxy_suite_clean_enable_list, proxy_suite_runner, driver, nameSalt)
+        execution(testSet, end_to_end_proxy_tests_suite, proxy_suite_runner, driver, nameSalt)
         ############################ Proxy End To End Test End ############################
 
 
-def execution(testSet, testSuitList, testCleanEnableList, testSuitEnableList, driver, nameSalt, round=1):
+def execution(testSet, testSuitList, testSuitEnableList, driver, nameSalt, round=1):
     if testSet == "clean":
         for i, test in enumerate(testSuitList):
-            if testCleanEnableList[i]:
-                test.clean()
+            test.clean()
         print(datetime.now().strftime("\n%H:%M:%S "), "=== All clean done ===")
     else:
         try:
