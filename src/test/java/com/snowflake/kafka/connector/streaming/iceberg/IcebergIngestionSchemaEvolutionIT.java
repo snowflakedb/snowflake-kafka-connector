@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -70,6 +73,32 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     // reinsert record with extra field
     service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
     waitForOffset(3);
+
+    assertRecordsInTable();
+  }
+
+  private void assertRecordsInTable() {
+    List<RecordWithMetadata<PrimitiveJsonRecord>> recordsWithMetadata =
+        selectAllSchematizedRecords();
+
+    assertThat(recordsWithMetadata)
+        .hasSize(3)
+        .extracting(RecordWithMetadata::getRecord)
+        .containsExactly(
+            primitiveJsonRecordValue, primitiveJsonRecordValue, emptyPrimitiveJsonRecordValue);
+    List<MetadataRecord> metadataRecords =
+        recordsWithMetadata.stream()
+            .map(RecordWithMetadata::getMetadata)
+            .collect(Collectors.toList());
+    assertThat(metadataRecords).extracting(MetadataRecord::getOffset).containsExactly(0L, 1L, 2L);
+    assertThat(metadataRecords)
+        .hasSize(3)
+        .allMatch(
+            r ->
+                r.getTopic().equals(topicPartition.topic())
+                    && r.getPartition().equals(topicPartition.partition())
+                    && r.getKey().equals("test")
+                    && r.getSnowflakeConnectorPushTime() != null);
   }
 
   private static Stream<Arguments> prepareData() {
