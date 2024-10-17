@@ -14,6 +14,8 @@ from confluent_kafka import Producer, Consumer, KafkaError
 from confluent_kafka.admin import AdminClient, NewTopic, ConfigResource, NewPartitions
 from confluent_kafka.avro import AvroProducer
 from test_suites import create_end_to_end_test_suites
+from test_executor import TestExecutor
+from test_selector import TestSelector
 import time
 
 import test_suit
@@ -457,32 +459,12 @@ def runStressTests(driver, testSet, nameSalt):
     ############################ Stress Tests Round 1 ############################
     # TestPressure and TestPressureRestart will only run when Running StressTests
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Stress Tests Round 1 ===")
-    testSuitList = [testPressureRestart]
-
-    testSuitEnableList = []
-    if testSet == "confluent":
-        testSuitEnableList = [True]
-    elif testSet == "apache":
-        testSuitEnableList = [True]
-    elif testSet != "clean":
-        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-    execution(testSet, testSuitList, testSuitEnableList, driver, nameSalt, round=1)
+    execution(testSet, [testPressureRestart], driver, nameSalt, round=1)
     ############################ Stress Tests Round 1 ############################
 
     ############################ Stress Tests Round 2 ############################
     print(datetime.now().strftime("\n%H:%M:%S "), "=== Stress Tests Round 2 ===")
-    testSuitList = [testPressure]
-
-    testSuitEnableList = []
-    if testSet == "confluent":
-        testSuitEnableList = [True]
-    elif testSet == "apache":
-        testSuitEnableList = [True]
-    elif testSet != "clean":
-        errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-    execution(testSet, testSuitList, testSuitEnableList, driver, nameSalt, round=1)
+    execution(testSet, [testPressure], driver, nameSalt, round=1)
     ############################ Stress Tests Round 2 ############################
 
 
@@ -490,23 +472,13 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test, skipProxy, allowed
     if enable_stress_test:
         runStressTests(driver, testSet, nameSalt)
     else:
-        test_suites = create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet, allowedTestsCsv)
-
         ############################ round 1 ############################
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
 
-        end_to_end_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in test_suites.values()]
+        testSelector = TestSelector()
+        end_to_end_tests_suite = testSelector.selectTestsToBeRun(driver, nameSalt, schemaRegistryAddress, testSet, allowedTestsCsv)
 
-        end_to_end_tests_suite_runner = []
-
-        if testSet == "confluent":
-            end_to_end_tests_suite_runner = [single_end_to_end_test.run_in_confluent for single_end_to_end_test in test_suites.values()]
-        elif testSet == "apache":
-            end_to_end_tests_suite_runner = [single_end_to_end_test.run_in_apache for single_end_to_end_test in test_suites.values()]
-        elif testSet != "clean":
-            errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-        execution(testSet, end_to_end_tests_suite, end_to_end_tests_suite_runner, driver, nameSalt)
+        execution(testSet, end_to_end_tests_suite, driver, nameSalt)
 
         ############################ Always run Proxy tests in the end ############################
 
@@ -529,57 +501,18 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test, skipProxy, allowed
 
         end_to_end_proxy_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in proxy_tests_suite]
 
-        proxy_suite_runner = []
-
-        if testSet == "confluent":
-            proxy_suite_runner = [single_end_to_end_test.run_in_confluent for single_end_to_end_test in proxy_tests_suite]
-        elif testSet == "apache":
-            proxy_suite_runner = [single_end_to_end_test.run_in_apache for single_end_to_end_test in proxy_tests_suite]
-        elif testSet != "clean":
-            errorExit("Unknown testSet option {}, please input confluent, apache or clean".format(testSet))
-
-        execution(testSet, end_to_end_proxy_tests_suite, proxy_suite_runner, driver, nameSalt)
+        execution(testSet, end_to_end_proxy_tests_suite, driver, nameSalt)
         ############################ Proxy End To End Test End ############################
 
 
-def execution(testSet, testSuitList, testSuitEnableList, driver, nameSalt, round=1):
+def execution(testSet, testSuitList, driver, nameSalt, round=1):
     if testSet == "clean":
-        for i, test in enumerate(testSuitList):
+        for test in testSuitList:
             test.clean()
         print(datetime.now().strftime("\n%H:%M:%S "), "=== All clean done ===")
     else:
-        try:
-            for i, test in enumerate(testSuitList):
-                if testSuitEnableList[i]:
-                    driver.createConnector(test.getConfigFileName(), nameSalt)
-
-            driver.startConnectorWaitTime()
-
-            for r in range(round):
-                print(datetime.now().strftime("\n%H:%M:%S "), "=== round {} ===".format(r))
-                for i, test in enumerate(testSuitList):
-                    if testSuitEnableList[i]:
-                        print(datetime.now().strftime("\n%H:%M:%S "),
-                              "=== Sending " + test.__class__.__name__ + " data ===")
-                        test.send()
-                        print(datetime.now().strftime("%H:%M:%S "), "=== Done " + test.__class__.__name__ + " ===",
-                              flush=True)
-
-                driver.verifyWaitTime()
-
-                for i, test in enumerate(testSuitList):
-                    if testSuitEnableList[i]:
-                        print(datetime.now().strftime("\n%H:%M:%S "), "=== Verify " + test.__class__.__name__ + " ===")
-                        driver.verifyWithRetry(test.verify, r, test.getConfigFileName())
-                        print(datetime.now().strftime("%H:%M:%S "), "=== Passed " + test.__class__.__name__ + " ===",
-                              flush=True)
-
-            print(datetime.now().strftime("\n%H:%M:%S "), "=== All test passed ===")
-        except Exception as e:
-            print(datetime.now().strftime("%H:%M:%S "), e)
-            traceback.print_tb(e.__traceback__)
-            print(datetime.now().strftime("%H:%M:%S "), "Error: ", sys.exc_info()[0], driver.connectorParameters)
-            exit(1)
+        testExecutor = TestExecutor()
+        testExecutor.execute(testSuitList, driver, nameSalt, round)
 
 
 def run_test_set_with_parameters(kafka_test: KafkaTest, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv):
