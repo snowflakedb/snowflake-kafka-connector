@@ -691,6 +691,10 @@ public class TestUtils {
     }
   }
 
+  public static void assertWithRetry(AssertFunction func) throws Exception {
+    assertWithRetry(func, 20, 5);
+  }
+
   /* Generate (noOfRecords - startOffset) for a given topic and partition. */
   public static List<SinkRecord> createJsonStringSinkRecords(
       final long startOffset, final long noOfRecords, final String topicName, final int partitionNo)
