@@ -1,8 +1,15 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -58,5 +65,30 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
     waitForOffset(2);
     service.insert(Collections.singletonList(createKafkaRecord(message, 2, withSchema)));
     waitForOffset(3);
+
+    assertRecordsInTable();
+  }
+
+  private void assertRecordsInTable() {
+    List<RecordWithMetadata<PrimitiveJsonRecord>> recordsWithMetadata =
+        selectAllFromRecordContent();
+    assertThat(recordsWithMetadata)
+        .hasSize(3)
+        .extracting(RecordWithMetadata::getRecord)
+        .containsExactly(
+            primitiveJsonRecordValue, primitiveJsonRecordValue, primitiveJsonRecordValue);
+    List<MetadataRecord> metadataRecords =
+        recordsWithMetadata.stream()
+            .map(RecordWithMetadata::getMetadata)
+            .collect(Collectors.toList());
+    assertThat(metadataRecords).extracting(MetadataRecord::getOffset).containsExactly(0L, 1L, 2L);
+    assertThat(metadataRecords)
+        .hasSize(3)
+        .allMatch(
+            record ->
+                record.getTopic().equals(topicPartition.topic())
+                    && record.getPartition().equals(topicPartition.partition())
+                    && record.getKey().equals("test")
+                    && record.getSnowflakeConnectorPushTime() != null);
   }
 }

@@ -11,9 +11,12 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -32,15 +35,22 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
   protected TopicPartition topicPartition;
   protected SnowflakeSinkService service;
   protected static final String simpleRecordJson = "{\"simple\": \"extra field\"}";
+
+  protected static final PrimitiveJsonRecord primitiveJsonRecordValue =
+      // FIXME: there is currently some bug in Iceberg when storing int64 values
+      new PrimitiveJsonRecord(8L, 16L, 32L, /*64L,*/ "dogs are the best", 0.5, 0.25, true);
+  protected static final PrimitiveJsonRecord emptyPrimitiveJsonRecordValue =
+      // FIXME: there is currently some bug in Iceberg when storing int64 values
+      new PrimitiveJsonRecord(0L, 0L, 0L, /*0L, */ null, 0.0, 0.0, false);
   protected static final String primitiveJson =
       "{"
-          + "  \"id_int8\": 0,"
-          + "  \"id_int16\": 42,"
-          + "  \"id_int32\": 42,"
-          + "  \"id_int64\": 42,"
+          + "  \"id_int8\": 8,"
+          + "  \"id_int16\": 16,"
+          + "  \"id_int32\": 32,"
+          + "  \"id_int64\": 64,"
           + "  \"description\": \"dogs are the best\","
-          + "  \"rating_float32\": 0.99,"
-          + "  \"rating_float64\": 0.99,"
+          + "  \"rating_float32\": 0.5,"
+          + "  \"rating_float64\": 0.25,"
           + "  \"approval\": true"
           + "}";
 
@@ -116,20 +126,20 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
             .build();
   }
 
-  protected abstract void createIcebergTable();
-
-  protected abstract Boolean isSchemaEvolutionEnabled();
-
-  protected void waitForOffset(int targetOffset) throws Exception {
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == targetOffset);
-  }
-
   @AfterEach
   public void tearDown() {
     if (service != null) {
       service.closeAll();
     }
     dropIcebergTable(tableName);
+  }
+
+  protected abstract void createIcebergTable();
+
+  protected abstract Boolean isSchemaEvolutionEnabled();
+
+  protected void waitForOffset(int targetOffset) throws Exception {
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == targetOffset);
   }
 
   protected SinkRecord createKafkaRecord(String jsonString, int offset, boolean withSchema) {
@@ -146,5 +156,22 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
         inputValue.schema(),
         inputValue.value(),
         offset);
+  }
+
+  private final String selectAllSortByOffset =
+      "WITH extracted_data AS ("
+          + "SELECT *, RECORD_METADATA:\"offset\"::number AS offset_extracted "
+          + "FROM identifier(?) "
+          + ") "
+          + "SELECT * FROM extracted_data "
+          + "ORDER BY offset_extracted asc;";
+
+  protected List<RecordWithMetadata<PrimitiveJsonRecord>> selectAllSchematizedRecords() {
+
+    return select(tableName, selectAllSortByOffset, PrimitiveJsonRecord::fromSchematizedResult);
+  }
+
+  protected List<RecordWithMetadata<PrimitiveJsonRecord>> selectAllFromRecordContent() {
+    return select(tableName, selectAllSortByOffset, PrimitiveJsonRecord::fromRecordContentColumn);
   }
 }

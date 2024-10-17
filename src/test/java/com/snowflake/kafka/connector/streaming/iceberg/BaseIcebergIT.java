@@ -6,8 +6,10 @@ import static com.snowflake.kafka.connector.internal.TestUtils.executeQueryWithP
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.function.Function;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
@@ -61,6 +63,11 @@ public class BaseIcebergIT {
   protected static void enableSchemaEvolution(String tableName) {
     String query = "alter iceberg table identifier(?) set enable_schema_evolution = true";
     doExecuteQueryWithParameter(query, tableName);
+  }
+
+  protected static <T> T select(
+      String tableName, String query, Function<ResultSet, T> resultCollector) {
+    return executeQueryAndCollectResult(conn.getConnection(), query, tableName, resultCollector);
   }
 
   protected static String describeRecordMetadataType(String tableName) {
