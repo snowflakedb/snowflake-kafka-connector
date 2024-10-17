@@ -64,19 +64,14 @@ class EndToEndTestSuite:
     In future can add whether it runs in snowpipe or snowpipe streaming mode.
     '''
 
-    def __init__(self, test_instance, clean, run_in_confluent, run_in_apache):
+    def __init__(self, test_instance, run_in_confluent, run_in_apache):
         self._test_instance = test_instance
-        self._clean = clean
         self._run_in_confluent = run_in_confluent
         self._run_in_apache = run_in_apache
 
     @property
     def test_instance(self):
         return self._test_instance
-
-    @property
-    def clean(self):
-        return self._clean
 
     @property
     def run_in_confluent(self):
@@ -99,185 +94,185 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
     '''
     test_suites = OrderedDict([
         ("TestStringJson", EndToEndTestSuite(
-            test_instance=TestStringJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestStringJson(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )),
         ("TestStringJsonIgnoreTombstone", EndToEndTestSuite(
-            test_instance=TestStringJsonIgnoreTombstone(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestStringJsonIgnoreTombstone(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestJsonJson", EndToEndTestSuite(
-            test_instance=TestJsonJson(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestJsonJson(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )),
         ("TestStringAvro", EndToEndTestSuite(
-            test_instance=TestStringAvro(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestStringAvro(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )),
         ("TestAvroAvro", EndToEndTestSuite(
-            test_instance=TestAvroAvro(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestAvroAvro(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )),
         ("TestStringAvrosr", EndToEndTestSuite(
-            test_instance=TestStringAvrosr(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=False
+            test_instance=TestStringAvrosr(driver, nameSalt), run_in_confluent=True, run_in_apache=False
         )),
         ("TestAvrosrAvrosr", EndToEndTestSuite(
-            test_instance=TestAvrosrAvrosr(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=False
+            test_instance=TestAvrosrAvrosr(driver, nameSalt), run_in_confluent=True, run_in_apache=False
         )),
         ("TestNativeStringAvrosr", EndToEndTestSuite(
-            test_instance=TestNativeStringAvrosr(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestNativeStringAvrosr(driver, nameSalt), run_in_confluent=True,
             run_in_apache=False
         )),
         ("TestNativeStringJsonWithoutSchema", EndToEndTestSuite(
-            test_instance=TestNativeStringJsonWithoutSchema(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestNativeStringJsonWithoutSchema(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestNativeComplexSmt", EndToEndTestSuite(
-            test_instance=TestNativeComplexSmt(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestNativeComplexSmt(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )),
         ("TestNativeStringProtobuf", EndToEndTestSuite(
-            test_instance=TestNativeStringProtobuf(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestNativeStringProtobuf(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestNullableValuesAfterSmt", EndToEndTestSuite(
-            test_instance=TestNullableValuesAfterSmt(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestNullableValuesAfterSmt(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestConfluentProtobufProtobuf", EndToEndTestSuite(
-            test_instance=TestConfluentProtobufProtobuf(driver, nameSalt), clean=True, run_in_confluent=False,
+            test_instance=TestConfluentProtobufProtobuf(driver, nameSalt), run_in_confluent=False,
             run_in_apache=False
         )),
         ("TestSnowpipeStreamingNullableValuesAfterSmt", EndToEndTestSuite(
-            test_instance=TestSnowpipeStreamingNullableValuesAfterSmt(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSnowpipeStreamingNullableValuesAfterSmt(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestSnowpipeStreamingStringJson", EndToEndTestSuite(
-            test_instance=TestSnowpipeStreamingStringJson(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSnowpipeStreamingStringJson(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestSnowpipeStreamingStringJsonChannelMigrationDisabled", EndToEndTestSuite(
-            test_instance=TestSnowpipeStreamingStringJsonChannelMigrationDisabled(driver, nameSalt), clean=True,
+            test_instance=TestSnowpipeStreamingStringJsonChannelMigrationDisabled(driver, nameSalt),
             run_in_confluent=True, run_in_apache=True
         )),
         ("TestSnowpipeStreamingStringJsonIgnoreTombstone", EndToEndTestSuite(
-            test_instance=TestSnowpipeStreamingStringJsonIgnoreTombstone(driver, nameSalt), clean=True,
+            test_instance=TestSnowpipeStreamingStringJsonIgnoreTombstone(driver, nameSalt),
             run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestSnowpipeStreamingStringJsonDLQ", EndToEndTestSuite(
-            test_instance=TestSnowpipeStreamingStringJsonDLQ(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSnowpipeStreamingStringJsonDLQ(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestSnowpipeStreamingStringAvroSR", EndToEndTestSuite(
-            test_instance=TestSnowpipeStreamingStringAvroSR(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSnowpipeStreamingStringAvroSR(driver, nameSalt), run_in_confluent=True,
             run_in_apache=False
         )),
         ("TestMultipleTopicToOneTableSnowpipeStreaming", EndToEndTestSuite(
-            test_instance=TestMultipleTopicToOneTableSnowpipeStreaming(driver, nameSalt), clean=True,
+            test_instance=TestMultipleTopicToOneTableSnowpipeStreaming(driver, nameSalt),
             run_in_confluent=True, run_in_apache=True
         )),
         ("TestMultipleTopicToOneTableSnowpipe", EndToEndTestSuite(
-            test_instance=TestMultipleTopicToOneTableSnowpipe(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestMultipleTopicToOneTableSnowpipe(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestSchemaMapping", EndToEndTestSuite(
-            test_instance=TestSchemaMapping(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestSchemaMapping(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )),
         ("TestSnowpipeStreamingSchemaMappingDLQ", EndToEndTestSuite(
-            test_instance=TestSnowpipeStreamingSchemaMappingDLQ(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSnowpipeStreamingSchemaMappingDLQ(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestAutoTableCreation", EndToEndTestSuite(
-            test_instance=TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet), clean=True,
+            test_instance=TestAutoTableCreation(driver, nameSalt, schemaRegistryAddress, testSet),
             run_in_confluent=True, run_in_apache=False
         )),
         ("TestAutoTableCreationTopic2Table", EndToEndTestSuite(
             test_instance=TestAutoTableCreationTopic2Table(driver, nameSalt, schemaRegistryAddress, testSet),
-            clean=True, run_in_confluent=True, run_in_apache=False
+            run_in_confluent=True, run_in_apache=False
         )),
         ("TestSchemaEvolutionJson", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionJson(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSchemaEvolutionJson(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestSchemaEvolutionJsonIgnoreTombstone", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionJsonIgnoreTombstone(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSchemaEvolutionJsonIgnoreTombstone(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestSchemaEvolutionAvroSR", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionAvroSR(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSchemaEvolutionAvroSR(driver, nameSalt), run_in_confluent=True,
             run_in_apache=False
         )),
         ("TestSchemaEvolutionAvroSRLogicalTypes", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionAvroSRLogicalTypes(driver, nameSalt), clean=True, run_in_confluent=False,
+            test_instance=TestSchemaEvolutionAvroSRLogicalTypes(driver, nameSalt), run_in_confluent=False,
             run_in_apache=False
         )),
         ("TestSchemaEvolutionWithAutoTableCreationJson", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionWithAutoTableCreationJson(driver, nameSalt), clean=True,
+            test_instance=TestSchemaEvolutionWithAutoTableCreationJson(driver, nameSalt),
             run_in_confluent=True, run_in_apache=True
         )),
         ("TestSchemaEvolutionWithAutoTableCreationAvroSR", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionWithAutoTableCreationAvroSR(driver, nameSalt), clean=True,
+            test_instance=TestSchemaEvolutionWithAutoTableCreationAvroSR(driver, nameSalt),
             run_in_confluent=True, run_in_apache=False
         )),
         ("TestSchemaEvolutionWithRandomRowCount", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionWithRandomRowCount(driver, nameSalt), clean=True,
+            test_instance=TestSchemaEvolutionWithRandomRowCount(driver, nameSalt),
             run_in_confluent=True, run_in_apache=True
         )),
         ("TestSchemaEvolutionNonNullableJson", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionNonNullableJson(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSchemaEvolutionNonNullableJson(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestSchemaEvolutionNullableValuesAfterSmt", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionNullableValuesAfterSmt(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSchemaEvolutionNullableValuesAfterSmt(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestSchemaNotSupportedConverter", EndToEndTestSuite(
-            test_instance=TestSchemaNotSupportedConverter(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSchemaNotSupportedConverter(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestKcDeleteCreate", EndToEndTestSuite(
-            test_instance=TestKcDeleteCreate(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestKcDeleteCreate(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )),
         ("TestKcDeleteCreateChaos", EndToEndTestSuite(
-            test_instance=TestKcDeleteCreateChaos(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestKcDeleteCreateChaos(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestKcDeleteResume", EndToEndTestSuite(
-            test_instance=TestKcDeleteResume(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestKcDeleteResume(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )),
         ("TestKcDeleteResumeChaos", EndToEndTestSuite(
-            test_instance=TestKcDeleteResumeChaos(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestKcDeleteResumeChaos(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestKcPauseCreate", EndToEndTestSuite(
-            test_instance=TestKcPauseCreate(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestKcPauseCreate(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )),
         ("TestKcPauseCreateChaos", EndToEndTestSuite(
-            test_instance=TestKcPauseCreateChaos(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestKcPauseCreateChaos(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestKcPauseResume", EndToEndTestSuite(
-            test_instance=TestKcPauseResume(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestKcPauseResume(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )),
         ("TestKcPauseResumeChaos", EndToEndTestSuite(
-            test_instance=TestKcPauseResumeChaos(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestKcPauseResumeChaos(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestKcRecreate", EndToEndTestSuite(
-            test_instance=TestKcRecreate(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestKcRecreate(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )),
         ("TestKcRecreateChaos", EndToEndTestSuite(
-            test_instance=TestKcRecreateChaos(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestKcRecreateChaos(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )),
         ("TestKcRestart", EndToEndTestSuite(
-            test_instance=TestKcRestart(driver, nameSalt), clean=True, run_in_confluent=True, run_in_apache=True
+            test_instance=TestKcRestart(driver, nameSalt), run_in_confluent=True, run_in_apache=True
         )),
         ("TestSchemaEvolutionDropTable", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSchemaEvolutionDropTable(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestSchemaEvolutionMultiTopicDropTable", EndToEndTestSuite(
-            test_instance=TestSchemaEvolutionMultiTopicDropTable(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestSchemaEvolutionMultiTopicDropTable(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
         ("TestStreamingClientParameterOverride", EndToEndTestSuite(
-            test_instance=TestStreamingClientParameterOverride(driver, nameSalt), clean=True, run_in_confluent=True,
+            test_instance=TestStreamingClientParameterOverride(driver, nameSalt), run_in_confluent=True,
             run_in_apache=True
         )),
     ])
