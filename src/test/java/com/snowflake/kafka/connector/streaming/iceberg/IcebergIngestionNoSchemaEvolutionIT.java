@@ -11,6 +11,18 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
 
+  private static final String RECORD_CONTENT_OBJECT_SCHEMA =
+      "object("
+          + "id_int8 NUMBER(10,0),"
+          + "id_int16 NUMBER(10,0),"
+          + "id_int32 NUMBER(10,0),"
+          + "id_int64 NUMBER(19,0),"
+          + "description VARCHAR(16777216),"
+          + "rating_float32 FLOAT,"
+          + "rating_float64 FLOAT,"
+          + "approval BOOLEAN"
+          + ")";
+
   @Override
   protected Boolean isSchemaEvolutionEnabled() {
     return false;
@@ -29,17 +41,11 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
             + RECORD_CONTENT_OBJECT_SCHEMA);
   }
 
-  private static final String RECORD_CONTENT_OBJECT_SCHEMA =
-      "object("
-          + "id_int8 NUMBER(10,0),"
-          + "id_int16 NUMBER(10,0),"
-          + "id_int32 NUMBER(10,0),"
-          + "id_int64 NUMBER(19,0),"
-          + "description VARCHAR(16777216),"
-          + "rating_float32 FLOAT,"
-          + "rating_float64 FLOAT,"
-          + "approval BOOLEAN"
-          + ")";
+  private static Stream<Arguments> prepareData() {
+    return Stream.of(
+        Arguments.of("Primitive JSON with schema", primitiveJsonWithSchema, true),
+        Arguments.of("Primitive JSON without schema", primitiveJson, false));
+  }
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareData")
@@ -52,11 +58,5 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
     waitForOffset(2);
     service.insert(Collections.singletonList(createKafkaRecord(message, 2, withSchema)));
     waitForOffset(3);
-  }
-
-  private static Stream<Arguments> prepareData() {
-    return Stream.of(
-        Arguments.of("Primitive JSON with schema", primitiveJsonWithSchema, true),
-        Arguments.of("Primitive JSON without schema", primitiveJson, false));
   }
 }

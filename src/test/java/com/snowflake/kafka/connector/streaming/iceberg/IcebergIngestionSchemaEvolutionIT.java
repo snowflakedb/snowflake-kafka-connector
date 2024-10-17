@@ -34,8 +34,10 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
       throws Exception {
     // start off with just one column
     List<DescribeTableRow> rows = describeTable(tableName);
-    assertThat(rows.size()).isEqualTo(1);
-    assertThat(rows.get(0).getColumn()).isEqualTo(Utils.TABLE_COLUMN_METADATA);
+    assertThat(rows)
+        .hasSize(1)
+        .extracting(DescribeTableRow::getColumn)
+        .contains(Utils.TABLE_COLUMN_METADATA);
 
     SinkRecord record = createKafkaRecord(message, 0, withSchema);
     service.insert(Collections.singletonList(record));
@@ -63,8 +65,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
 
     rows = describeTable(tableName);
-    assertThat(rows.size()).isEqualTo(10);
-    assertThat(rows).contains(new DescribeTableRow("SIMPLE", "VARCHAR(16777216)"));
+    assertThat(rows).hasSize(10).contains(new DescribeTableRow("SIMPLE", "VARCHAR(16777216)"));
 
     // reinsert record with extra field
     service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
