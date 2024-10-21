@@ -13,7 +13,7 @@ jobs:
       fail-fast: false # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategyfail-fast
       matrix:
         apache_kafka_version: [ '2.5.1', '2.8.1', '3.2.1' ]
-        snowflake_cloud: [ 'AWS', 'AZURE', 'GCS' ]
+        snowflake_cloud: [ 'AWS', 'AZURE', 'GCP' ]
         java_test_version: [ '8', '11', '17' ]
     steps:
     - name: Checkout Code
@@ -84,8 +84,6 @@ jobs:
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SF_CLOUD_PLATFORM: ${{ matrix.snowflake_cloud }}
-        # Will not run delivery guarantee tests in GCS (Check runDeliveryGuaranteeTests in test_verify.py)
-        ENABLE_DELIVERY_GUARANTEE_TESTS: "True"
       run: |
         cd test
         ./run_test_apache.sh ${{ matrix.apache_kafka_version }} ./apache_properties
