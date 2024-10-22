@@ -21,6 +21,8 @@ import time
 import test_suit
 from test_suit.test_utils import parsePrivateKey, RetryableError
 
+from cloud_platform import CloudPlatform
+
 
 @dataclass
 class ConnectorParameters:
@@ -45,14 +47,10 @@ def errorExit(message):
 
 class KafkaTest:
     def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath,
-                 connectorParameters: ConnectorParameters, testVersion, enableSSL, snowflakeCloudPlatform,
-                 enableDeliveryGuaranteeTests=False):
+                 connectorParameters: ConnectorParameters, testVersion, enableSSL, snowflakeCloudPlatform):
         self.testVersion = testVersion
         self.credentialPath = credentialPath
-        # can be None or one of AWS, AZURE, GCS
         self.snowflakeCloudPlatform = snowflakeCloudPlatform
-        # default is false or set to true as env variable
-        self.enableDeliveryGuaranteeTests = enableDeliveryGuaranteeTests
         with open(self.credentialPath) as f:
             credentialJson = json.load(f)
             testHost = credentialJson["host"]
@@ -519,6 +517,15 @@ def run_test_set_with_parameters(kafka_test: KafkaTest, testSet, nameSalt, press
     runTestSet(kafka_test, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv)
 
 
+def __parseCloudPlatform() -> CloudPlatform:
+    if "SF_CLOUD_PLATFORM" in os.environ:
+        rawCloudPlatform = os.environ['SF_CLOUD_PLATFORM']
+        return CloudPlatform[rawCloudPlatform]
+    else:
+        print("No SF_CLOUD_PLATFORM defined. Fallback to ALL.")
+        return CloudPlatform.ALL
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 10:
         errorExit(
@@ -547,16 +554,8 @@ if __name__ == "__main__":
         errorExit("\n=== Provided SNOWFLAKE_CREDENTIAL_FILE {} does not exist.  Aborting. ===".format(
             credentialPath))
 
-    # This will either be AWS, AZURE or GCS
-    snowflakeCloudPlatform = None
-
-    # If it is not set, we will not run delivery guarantee tests
-    enableDeliveryGuaranteeTests = False
-    if "SF_CLOUD_PLATFORM" in os.environ:
-        snowflakeCloudPlatform = os.environ['SF_CLOUD_PLATFORM']
-
-    if "ENABLE_DELIVERY_GUARANTEE_TESTS" in os.environ:
-        enableDeliveryGuaranteeTests = (os.environ['ENABLE_DELIVERY_GUARANTEE_TESTS'] == 'True')
+    snowflakeCloudPlatform: CloudPlatform = __parseCloudPlatform()
+    print("Running tests for platform {} and distribution {}".format(snowflakeCloudPlatform, testSet))
 
     parametersList = ConnectorParametersList([
         ConnectorParameters(snowflake_streaming_enable_single_buffer='false'),
@@ -572,8 +571,7 @@ if __name__ == "__main__":
                       parameters,
                       testVersion,
                       enableSSL,
-                      snowflakeCloudPlatform,
-                      False),
+                      snowflakeCloudPlatform),
             testSet,
             nameSalt + str(idx),
             pressure,

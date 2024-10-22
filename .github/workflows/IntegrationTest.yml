@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategyfail-fast
       matrix:
-        snowflake_cloud: [ 'AWS', 'AZURE', 'GCS' ]
+        snowflake_cloud: [ 'AWS', 'AZURE', 'GCP' ]
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2
