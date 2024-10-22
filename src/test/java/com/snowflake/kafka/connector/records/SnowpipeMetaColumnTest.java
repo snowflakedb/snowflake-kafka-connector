@@ -39,7 +39,7 @@ class SnowpipeMetaColumnTest extends AbstractMetaColumnTest {
             .withValue(input.value())
             .build();
 
-    RecordService service = new RecordService();
+    RecordService service = RecordServiceFactory.createRecordService(false, false);
 
     Map<String, String> config =
         ImmutableMap.of(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME, "true");

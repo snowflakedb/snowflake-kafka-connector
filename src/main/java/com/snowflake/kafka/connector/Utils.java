@@ -407,6 +407,11 @@ public class Utils {
     return Boolean.parseBoolean(config.get(ICEBERG_ENABLED));
   }
 
+  public static boolean isSchematizationEnabled(Map<String, String> config) {
+    return Boolean.parseBoolean(
+        config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
+  }
+
   /**
    * @param config config with applied default values
    * @return role specified in rhe config

@@ -29,7 +29,7 @@ public class ProcessRecordTest {
   @ParameterizedTest(name = "{index}: {0}")
   @MethodSource("data")
   public void test(Case testCase) throws IOException {
-    RecordService service = new RecordService();
+    RecordService service = RecordServiceFactory.createRecordService(false, false);
 
     SinkRecord record =
         new SinkRecord(

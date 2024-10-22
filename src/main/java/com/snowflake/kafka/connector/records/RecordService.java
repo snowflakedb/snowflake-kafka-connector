@@ -16,12 +16,8 @@
  */
 package com.snowflake.kafka.connector.records;
 
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.math.BigDecimal;
@@ -31,8 +27,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.TimeZone;
 import javax.annotation.Nullable;
@@ -41,7 +35,6 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.JsonNodeFactory;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.NumericNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.ConnectSchema;
@@ -77,9 +70,9 @@ public class RecordService {
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
 
-  private boolean enableSchematization = false;
+  private final boolean enableSchematization;
 
-  private boolean icebergEnabled = false;
+  private final StreamingRecordMapper streamingRecordMapper;
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
@@ -103,52 +96,20 @@ public class RecordService {
   // This class is designed to work with empty metadata config map
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
 
-  RecordService(Clock clock) {
+  RecordService(
+      Clock clock, boolean enableSchematization, StreamingRecordMapper streamingRecordMapper) {
     this.clock = clock;
+    this.enableSchematization = enableSchematization;
+    this.streamingRecordMapper = streamingRecordMapper;
   }
 
   /** Creates a record service with a UTC {@link Clock}. */
-  public RecordService() {
-    this(Clock.systemUTC());
+  public RecordService(boolean enableSchematization, StreamingRecordMapper streamingRecordMapper) {
+    this(Clock.systemUTC(), enableSchematization, streamingRecordMapper);
   }
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
     metadataConfig = metadataConfigIn;
-  }
-
-  /**
-   * extract enableSchematization from the connector config and set the value for the recordService
-   *
-   * <p>The extracted boolean is returned for external usage.
-   *
-   * @param connectorConfig the connector config map
-   * @return a boolean indicating whether schematization is enabled
-   */
-  public boolean setAndGetEnableSchematizationFromConfig(
-      final Map<String, String> connectorConfig) {
-    if (connectorConfig.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)) {
-      this.enableSchematization =
-          Boolean.parseBoolean(
-              connectorConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
-    }
-    return this.enableSchematization;
-  }
-
-  public boolean setIcebergEnabledFromConfig(final Map<String, String> connectorConfig) {
-    this.icebergEnabled = Utils.isIcebergEnabled(connectorConfig);
-    return this.icebergEnabled;
-  }
-
-  /**
-   * Directly set the enableSchematization through param
-   *
-   * <p>This method is only for testing
-   *
-   * @param enableSchematization whether we should enable schematization or not
-   */
-  @VisibleForTesting
-  public void setEnableSchematization(final boolean enableSchematization) {
-    this.enableSchematization = enableSchematization;
   }
 
   /**
@@ -252,100 +213,12 @@ public class RecordService {
       throws JsonProcessingException {
     SnowflakeTableRow row = processRecord(record, clock.instant());
 
-    if (icebergEnabled) {
-      return processIcebergRecord(row);
-    } else {
-      return processSnowflakeRecord(row);
-    }
-  }
-
-  private Map<String, Object> processSnowflakeRecord(SnowflakeTableRow row)
-      throws JsonProcessingException {
-    final Map<String, Object> streamingIngestRow = new HashMap<>();
-    for (JsonNode node : row.content.getData()) {
-      if (enableSchematization) {
-        streamingIngestRow.putAll(getMapFromJsonNodeForStreamingIngest(node));
-      } else {
-        streamingIngestRow.put(TABLE_COLUMN_CONTENT, MAPPER.writeValueAsString(node));
-      }
-      if (metadataConfig.allFlag) {
-        streamingIngestRow.put(TABLE_COLUMN_METADATA, MAPPER.writeValueAsString(row.metadata));
-      }
-    }
-    return streamingIngestRow;
-  }
-
-  private Map<String, Object> processIcebergRecord(SnowflakeTableRow row)
-      throws JsonProcessingException {
-    // TODO this not cover all cases, full implementation will be done in SNOW-1737840
-    final Map<String, Object> streamingIngestRow = new HashMap<>();
-    for (JsonNode node : row.content.getData()) {
-      if (enableSchematization) {
-        streamingIngestRow.putAll(getMapFromJsonNodeForStreamingIngest(node));
-      } else {
-        streamingIngestRow.put(TABLE_COLUMN_CONTENT, getMapFromJsonNodeForIceberg(node));
-      }
-      if (metadataConfig.allFlag) {
-        streamingIngestRow.put(TABLE_COLUMN_METADATA, getMapFromJsonNodeForIceberg(row.metadata));
-      }
-    }
-    return streamingIngestRow;
-  }
-
-  private Map<String, Object> getMapFromJsonNodeForStreamingIngest(JsonNode node)
-      throws JsonProcessingException {
-    return getMapFromJsonNodeForStreamingIngest(node, true);
-  }
-
-  private Map<String, Object> getMapFromJsonNodeForIceberg(JsonNode node)
-      throws JsonProcessingException {
-    return getMapFromJsonNodeForStreamingIngest(node, false);
-  }
-
-  private Map<String, Object> getMapFromJsonNodeForStreamingIngest(
-      JsonNode node, boolean quoteColumnName) throws JsonProcessingException {
-    final Map<String, Object> streamingIngestRow = new HashMap<>();
-
-    // return empty if tombstone record
-    if (node.isEmpty()) {
-      return streamingIngestRow;
-    }
-
-    Iterator<String> columnNames = node.fieldNames();
-    while (columnNames.hasNext()) {
-      String columnName = columnNames.next();
-      JsonNode columnNode = node.get(columnName);
-      Object columnValue;
-      if (columnNode.isTextual()) {
-        columnValue = columnNode.textValue();
-      } else if (columnNode.isNull()) {
-        columnValue = null;
-      } else {
-        columnValue = writeValueAsStringOrNan(columnNode);
-      }
-      // while the value is always dumped into a string, the Streaming Ingest SDK
-      // will transform the value according to its type in the table
-      streamingIngestRow.put(
-          quoteColumnName ? Utils.quoteNameIfNeeded(columnName) : columnName, columnValue);
-    }
-    // Thrown an exception if the input JsonNode is not in the expected format
-    if (streamingIngestRow.isEmpty()) {
-      throw SnowflakeErrors.ERROR_0010.getException(
-          "Not able to convert node to Snowpipe Streaming input format");
-    }
-    return streamingIngestRow;
-  }
-
-  private String writeValueAsStringOrNan(JsonNode columnNode) throws JsonProcessingException {
-    if (columnNode instanceof NumericNode && ((NumericNode) columnNode).isNaN()) {
-      return "NaN";
-    } else {
-      return MAPPER.writeValueAsString(columnNode);
-    }
+    return streamingRecordMapper.processSnowflakeRecord(
+        row, enableSchematization, metadataConfig.allFlag);
   }
 
   /** For now there are two columns one is content and other is metadata. Both are Json */
-  private static class SnowflakeTableRow {
+  static class SnowflakeTableRow {
     // This can be a JsonNode but we will keep this as is.
     private final SnowflakeRecordContent content;
     private final JsonNode metadata;
@@ -353,6 +226,14 @@ public class RecordService {
     public SnowflakeTableRow(SnowflakeRecordContent content, JsonNode metadata) {
       this.content = content;
       this.metadata = metadata;
+    }
+
+    public SnowflakeRecordContent getContent() {
+      return content;
+    }
+
+    public JsonNode getMetadata() {
+      return metadata;
     }
   }
 

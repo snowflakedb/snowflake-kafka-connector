@@ -48,7 +48,9 @@ class SnowpipeStreamingMetaColumnTest extends AbstractMetaColumnTest {
     Instant fixedNow = Instant.now();
     Clock fixedClock = Clock.fixed(fixedNow, ZoneOffset.UTC);
 
-    RecordService service = new RecordService(fixedClock);
+    RecordService service =
+        new RecordService(
+            fixedClock, false, new SnowflakeTableStreamingRecordMapper(new ObjectMapper()));
 
     // when
     Map<String, Object> recordData = service.getProcessedRecordForStreamingIngest(record);
@@ -69,7 +71,7 @@ class SnowpipeStreamingMetaColumnTest extends AbstractMetaColumnTest {
             .withValue(input.value())
             .build();
 
-    RecordService service = new RecordService();
+    RecordService service = RecordServiceFactory.createRecordService(false, false);
 
     Map<String, String> config =
         ImmutableMap.of(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME, "false");
