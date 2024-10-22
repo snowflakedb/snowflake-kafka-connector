@@ -16,7 +16,6 @@
  */
 package com.snowflake.kafka.connector.records;
 
-
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -56,7 +55,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 public class RecordService {
   private final KCLogger LOGGER = new KCLogger(RecordService.class.getName());
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+  private final ObjectMapper mapper;
 
   // deleted private to use these values in test
   static final String OFFSET = "offset";
@@ -97,15 +96,22 @@ public class RecordService {
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
 
   RecordService(
-      Clock clock, boolean enableSchematization, StreamingRecordMapper streamingRecordMapper) {
+      Clock clock,
+      boolean enableSchematization,
+      StreamingRecordMapper streamingRecordMapper,
+      ObjectMapper mapper) {
     this.clock = clock;
     this.enableSchematization = enableSchematization;
     this.streamingRecordMapper = streamingRecordMapper;
+    this.mapper = mapper;
   }
 
   /** Creates a record service with a UTC {@link Clock}. */
-  public RecordService(boolean enableSchematization, StreamingRecordMapper streamingRecordMapper) {
-    this(Clock.systemUTC(), enableSchematization, streamingRecordMapper);
+  RecordService(
+      boolean enableSchematization,
+      StreamingRecordMapper streamingRecordMapper,
+      ObjectMapper mapper) {
+    this(Clock.systemUTC(), enableSchematization, streamingRecordMapper, mapper);
   }
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
@@ -136,7 +142,7 @@ public class RecordService {
       valueContent = (SnowflakeRecordContent) record.value();
     }
 
-    ObjectNode meta = MAPPER.createObjectNode();
+    ObjectNode meta = mapper.createObjectNode();
     if (metadataConfig.topicFlag) {
       meta.put(TOPIC, record.topic());
     }
@@ -184,7 +190,7 @@ public class RecordService {
             record, /*connectorPushTime=*/ null); // ConnectorPushTime is not used for Snowpipe.
     StringBuilder buffer = new StringBuilder();
     for (JsonNode node : row.content.getData()) {
-      ObjectNode data = MAPPER.createObjectNode();
+      ObjectNode data = mapper.createObjectNode();
       data.set(CONTENT, node);
       if (metadataConfig.allFlag) {
         data.set(META, row.metadata);
@@ -263,7 +269,7 @@ public class RecordService {
       if (keyData.length == 1) {
         meta.set(KEY, keyData[0]);
       } else {
-        ArrayNode keyNode = MAPPER.createArrayNode();
+        ArrayNode keyNode = mapper.createArrayNode();
         keyNode.addAll(Arrays.asList(keyData));
         meta.set(KEY, keyNode);
       }
@@ -278,8 +284,8 @@ public class RecordService {
     }
   }
 
-  static JsonNode parseHeaders(Headers headers) {
-    ObjectNode result = MAPPER.createObjectNode();
+  private JsonNode parseHeaders(Headers headers) {
+    ObjectNode result = mapper.createObjectNode();
     for (Header header : headers) {
       result.set(header.key(), convertToJson(header.schema(), header.value(), false));
     }
