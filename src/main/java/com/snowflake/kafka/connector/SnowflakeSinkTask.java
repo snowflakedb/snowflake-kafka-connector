@@ -229,8 +229,11 @@ public class SnowflakeSinkTask extends SinkTask {
             .setErrorReporter(kafkaRecordErrorReporter)
             .setSinkTaskContext(this.context)
             .build();
-    createSchemaIfNotExists(getConnection(),
-            parsedConfig.get(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
+
+    if(Boolean.parseBoolean(parsedConfig.getOrDefault(Utils.CREATE_SCHEMA_AUTO,"false"))) {
+      createSchemaIfNotExists(getConnection(),
+              parsedConfig.get(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
+    }
     this.streamkapQueryTemplate = StreamkapQueryTemplate.buildStreamkapQueryTemplateFromConfig(parsedConfig);
 
     DYNAMIC_LOGGER.info(
