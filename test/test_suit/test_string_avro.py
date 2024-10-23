@@ -1,7 +1,8 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
+from test_suit.base_e2e import BaseE2eTest
 
 
-class TestStringAvro:
+class TestStringAvro(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.fileName = "travis_correct_string_avro"
@@ -19,8 +20,7 @@ class TestStringAvro:
         self.driver.sendBytesData(self.topic, value)
 
     def verify(self, round):
-        res = self.driver.snowflake_conn.cursor().execute(
-            "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
+        res = self.driver.select_number_of_records(self.topic)
         if res == 0:
             raise RetryableError()
         elif res != 100:

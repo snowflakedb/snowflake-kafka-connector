@@ -2,11 +2,12 @@ import json
 from time import sleep
 
 from test_suit.test_utils import NonRetryableError
+from test_suit.base_e2e import BaseE2eTest
 
 
 # test if the table is updated with the correct column
 # add test if all the records from different topics safely land in the table
-class TestSchemaEvolutionJsonIgnoreTombstone:
+class TestSchemaEvolutionJsonIgnoreTombstone(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.fileName = "test_schema_evolution_json_ignore_tombstone"

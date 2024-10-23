@@ -1,12 +1,13 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 import datetime
+from test_suit.base_e2e import BaseE2eTest
 
 # Test if incorrect data with a schematized column gets send to DLQ
 # It sends a String to a column with number data type - Expectation is that we send it to DLQ
 # This test is only running in kafka versions > 2.6.1 since DLQ apis are available only in later versions
 # Check createKafkaRecordErrorReporter in Java code
-class TestSnowpipeStreamingSchemaMappingDLQ:
+class TestSnowpipeStreamingSchemaMappingDLQ(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.fileName = "snowpipe_streaming_schema_mapping_dlq"
@@ -76,8 +77,7 @@ class TestSnowpipeStreamingSchemaMappingDLQ:
             raise NonRetryableError("Metadata column was not created")
 
         # recordNum of records should be inserted
-        res = self.driver.snowflake_conn.cursor().execute(
-            "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
+        res = self.driver.select_number_of_records(self.topic)
         if res == 0:
             raise RetryableError()
         elif res != self.recordNum:

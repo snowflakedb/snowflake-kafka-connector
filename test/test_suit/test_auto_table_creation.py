@@ -3,10 +3,11 @@ from time import sleep
 from confluent_kafka import avro
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry import Schema
+from test_suit.base_e2e import BaseE2eTest
 
 # SR -> Schema Registry
 # Runs only in confluent test suite environment
-class TestAutoTableCreation:
+class TestAutoTableCreation(BaseE2eTest):
     def __init__(self, driver, nameSalt, schemaRegistryAddress, testSet):
         self.driver = driver
         self.fileName = "travis_correct_auto_table_creation"
@@ -118,8 +119,7 @@ class TestAutoTableCreation:
                 raise NonRetryableError("Missing column {}".format(key))
 
 
-        res = self.driver.snowflake_conn.cursor().execute(
-            "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
+        res = self.driver.select_number_of_records(self.topic)
         if res == 0:
             raise RetryableError()
         elif res != 100:

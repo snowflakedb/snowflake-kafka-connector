@@ -2,8 +2,9 @@ from test_suit.test_utils import RetryableError, NonRetryableError, ResetAndRetr
 from time import sleep
 from multiprocessing.dummy import Pool as ThreadPool
 import json
+from test_suit.base_e2e import BaseE2eTest
 
-class TestPressure:
+class TestPressure(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.topics = []

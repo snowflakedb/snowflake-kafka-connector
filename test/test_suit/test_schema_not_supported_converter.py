@@ -1,11 +1,13 @@
 import json
 
 from test_suit.test_utils import NonRetryableError
+from test_suit.base_e2e import BaseE2eTest
+
 
 
 # test if each type of data fit into the right column with the right type
 # also test if the metadata column is automatically added
-class TestSchemaNotSupportedConverter:
+class TestSchemaNotSupportedConverter(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.fileName = "travis_correct_schema_not_supported_converter"
@@ -47,8 +49,7 @@ class TestSchemaNotSupportedConverter:
         self.driver.sendBytesData(self.topic, value, key)
 
     def verify(self, round):
-        res = self.driver.snowflake_conn.cursor().execute(
-            "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
+        res = self.driver.select_number_of_records(self.topic)
         if res != 0:
             raise NonRetryableError("Nothing should be ingested with not supported converters.")
 

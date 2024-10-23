@@ -2,9 +2,10 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 from time import sleep
 from confluent_kafka import avro
 import json
+from test_suit.base_e2e import BaseE2eTest
 
 # Runs only in confluent test suite environment
-class TestMultipleTopicToOneTableSnowpipeStreaming:
+class TestMultipleTopicToOneTableSnowpipeStreaming(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.fileName = "travis_correct_multiple_topic_to_one_table_snowpipe_streaming"

@@ -8,6 +8,7 @@ class TestExecutor:
     def execute(self, testSuitList, driver, nameSalt, round=1):
         try:
             for test in testSuitList:
+                test.setup()
                 driver.createConnector(test.getConfigFileName(), nameSalt)
 
             driver.startConnectorWaitTime()

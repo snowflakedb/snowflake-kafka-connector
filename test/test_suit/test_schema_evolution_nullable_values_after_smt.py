@@ -1,11 +1,12 @@
 import json
 from snowflake.connector import DictCursor
 from test_suit.test_utils import NonRetryableError, RetryableError
+from test_suit.base_e2e import BaseE2eTest
 
 
 # Testing behavior for behavior.on.null.values = IGNORE and SMTs that can return null values.
 # With enabled schematization.
-class TestSchemaEvolutionNullableValuesAfterSmt:
+class TestSchemaEvolutionNullableValuesAfterSmt(BaseE2eTest):
 
     def __init__(self, driver, nameSalt):
         self.driver = driver

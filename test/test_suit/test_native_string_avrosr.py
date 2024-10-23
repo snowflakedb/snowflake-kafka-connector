@@ -1,8 +1,8 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
 from confluent_kafka import avro
+from test_suit.base_e2e import BaseE2eTest
 
-
-class TestNativeStringAvrosr:
+class TestNativeStringAvrosr(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.fileName = "travis_correct_native_string_avrosr"
@@ -31,8 +31,7 @@ class TestNativeStringAvrosr:
         self.driver.sendAvroSRData(self.topic, value, self.valueSchema)
 
     def verify(self, round):
-        res = self.driver.snowflake_conn.cursor().execute(
-            "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
+        res = self.driver.select_number_of_records(self.topic)
         if res == 0:
             raise RetryableError()
         elif res != 100:

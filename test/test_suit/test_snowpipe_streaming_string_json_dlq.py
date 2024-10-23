@@ -3,12 +3,13 @@ import datetime
 from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 from time import sleep
+from test_suit.base_e2e import BaseE2eTest
 
 '''
 Testing this doesnt require a custom DLQ api to be invoked since this is happening at connect level. 
 i.e the bad message being to Kafka is not being serialized at Converter level. 
 '''
-class TestSnowpipeStreamingStringJsonDLQ:
+class TestSnowpipeStreamingStringJsonDLQ(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.fileName = "snowpipe_streaming_string_json_dlq"
@@ -42,8 +43,7 @@ class TestSnowpipeStreamingStringJsonDLQ:
             sleep(2)
 
     def verify(self, round):
-        res = self.driver.snowflake_conn.cursor().execute(
-            "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
+        res = self.driver.select_number_of_records(self.topic)
         print("Count records in table {}={}".format(self.topic, str(res)))
         if res > 0:
             print("Topic:" + self.topic + " count is more than expected, will not retry")

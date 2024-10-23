@@ -40,6 +40,7 @@ from test_suit.test_schema_evolution_avro_sr_logical_types import (
     TestSchemaEvolutionAvroSRLogicalTypes,
 )
 from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTable
+from test_suit.iceberg_json_aws import TestIcebergJsonAws
 from test_suit.test_schema_evolution_json import TestSchemaEvolutionJson
 from test_suit.test_schema_evolution_json_ignore_tombstone import (
     TestSchemaEvolutionJsonIgnoreTombstone,
@@ -614,6 +615,15 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     run_in_confluent=True,
                     run_in_apache=True,
                     cloud_platform=CloudPlatform.ALL,
+                ),
+            ),
+            (
+                "TestIcebergJsonAws",
+                EndToEndTestSuite(
+                    test_instance=TestIcebergJsonAws(driver, nameSalt),
+                    run_in_confluent=True,
+                    run_in_apache=True,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
         ]

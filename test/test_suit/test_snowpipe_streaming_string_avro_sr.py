@@ -1,10 +1,11 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
 from time import sleep
 from confluent_kafka import avro
+from test_suit.base_e2e import BaseE2eTest
 
 # SR -> Schema Registry
 # Runs only in confluent test suite environment
-class TestSnowpipeStreamingStringAvroSR:
+class TestSnowpipeStreamingStringAvroSR(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.fileName = "travis_correct_snowpipe_streaming_string_avro_sr"
@@ -47,8 +48,7 @@ class TestSnowpipeStreamingStringAvroSR:
             sleep(2)
 
     def verify(self, round):
-        res = self.driver.snowflake_conn.cursor().execute(
-            "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
+        res = self.driver.select_number_of_records(self.topic)
         print("Count records in table {}={}".format(self.topic, str(res)))
         if res < (self.recordNum * self.partitionNum):
             print("Topic:" + self.topic + " count is less, will retry")
