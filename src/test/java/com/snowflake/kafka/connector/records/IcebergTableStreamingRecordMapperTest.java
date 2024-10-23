@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -111,6 +112,20 @@ class IcebergTableStreamingRecordMapperTest {
     // Then
     assertThat(result.get(Utils.TABLE_COLUMN_METADATA)).isEqualTo(expected);
     assertThat(resultSchematized.get(Utils.TABLE_COLUMN_METADATA)).isEqualTo(expected);
+  }
+
+  @Test
+  void shouldSkipMapMetadata() throws JsonProcessingException {
+    // Given
+    SnowflakeTableRow row = buildRow(primitiveJsonExample);
+
+    // When
+    Map<String, Object> result = mapper.processSnowflakeRecord(row, false, false);
+    Map<String, Object> resultSchematized = mapper.processSnowflakeRecord(row, true, false);
+
+    // Then
+    assertThat(result).doesNotContainKey(Utils.TABLE_COLUMN_METADATA);
+    assertThat(resultSchematized).doesNotContainKey(Utils.TABLE_COLUMN_METADATA);
   }
 
   @ParameterizedTest(name = "{0}")
