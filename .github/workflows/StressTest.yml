@@ -16,7 +16,7 @@ jobs:
       matrix:
         confluent_version: [ '7.6.0' ]
         snowflake_cloud: [ 'AWS' ]
-        java_test_version: [ '8' ]
+        java_test_version: [ '11' ]
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2
