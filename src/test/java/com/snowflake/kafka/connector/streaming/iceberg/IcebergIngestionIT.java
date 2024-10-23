@@ -42,62 +42,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
   protected static final PrimitiveJsonRecord emptyPrimitiveJsonRecordValue =
       // FIXME: there is currently some bug in Iceberg when storing int64 values
       new PrimitiveJsonRecord(0L, 0L, 0L, /*0L, */ null, 0.0, 0.0, false);
-  protected static final String primitiveJson =
-      "{"
-          + "  \"id_int8\": 8,"
-          + "  \"id_int16\": 16,"
-          + "  \"id_int32\": 32,"
-          + "  \"id_int64\": 64,"
-          + "  \"description\": \"dogs are the best\","
-          + "  \"rating_float32\": 0.5,"
-          + "  \"rating_float64\": 0.25,"
-          + "  \"approval\": true"
-          + "}";
-
-  protected static final String primitiveJsonWithSchema =
-      "{"
-          + "  \"schema\": {"
-          + "    \"type\": \"struct\","
-          + "    \"fields\": ["
-          + "      {"
-          + "        \"field\": \"id_int8\","
-          + "        \"type\": \"int8\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"id_int16\","
-          + "        \"type\": \"int16\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"id_int32\","
-          + "        \"type\": \"int32\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"id_int64\","
-          + "        \"type\": \"int64\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"description\","
-          + "        \"type\": \"string\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"rating_float32\","
-          + "        \"type\": \"float\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"rating_float64\","
-          + "        \"type\": \"double\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"approval\","
-          + "        \"type\": \"boolean\""
-          + "      }"
-          + "    ],"
-          + "    \"optional\": false,"
-          + "    \"name\": \"sf.kc.test\""
-          + "  },"
-          + "  \"payload\": "
-          + primitiveJson
-          + "}";
 
   @BeforeEach
   public void setUp() {

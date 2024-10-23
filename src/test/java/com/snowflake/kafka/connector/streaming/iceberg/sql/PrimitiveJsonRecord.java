@@ -17,6 +17,63 @@ import org.assertj.core.api.Assertions;
 
 public class PrimitiveJsonRecord {
 
+  public static final String primitiveJsonExample =
+      "{"
+          + "  \"id_int8\": 8,"
+          + "  \"id_int16\": 16,"
+          + "  \"id_int32\": 32,"
+          + "  \"id_int64\": 64,"
+          + "  \"description\": \"dogs are the best\","
+          + "  \"rating_float32\": 0.5,"
+          + "  \"rating_float64\": 0.25,"
+          + "  \"approval\": true"
+          + "}";
+
+  public static final String primitiveJsonWithSchemaExample =
+      "{"
+          + "  \"schema\": {"
+          + "    \"type\": \"struct\","
+          + "    \"fields\": ["
+          + "      {"
+          + "        \"field\": \"id_int8\","
+          + "        \"type\": \"int8\""
+          + "      },"
+          + "      {"
+          + "        \"field\": \"id_int16\","
+          + "        \"type\": \"int16\""
+          + "      },"
+          + "      {"
+          + "        \"field\": \"id_int32\","
+          + "        \"type\": \"int32\""
+          + "      },"
+          + "      {"
+          + "        \"field\": \"id_int64\","
+          + "        \"type\": \"int64\""
+          + "      },"
+          + "      {"
+          + "        \"field\": \"description\","
+          + "        \"type\": \"string\""
+          + "      },"
+          + "      {"
+          + "        \"field\": \"rating_float32\","
+          + "        \"type\": \"float\""
+          + "      },"
+          + "      {"
+          + "        \"field\": \"rating_float64\","
+          + "        \"type\": \"double\""
+          + "      },"
+          + "      {"
+          + "        \"field\": \"approval\","
+          + "        \"type\": \"boolean\""
+          + "      }"
+          + "    ],"
+          + "    \"optional\": false,"
+          + "    \"name\": \"sf.kc.test\""
+          + "  },"
+          + "  \"payload\": "
+          + primitiveJsonExample
+          + "}";
+
   private static final ObjectMapper MAPPER =
       new ObjectMapper().configure(FAIL_ON_UNKNOWN_PROPERTIES, false);
 

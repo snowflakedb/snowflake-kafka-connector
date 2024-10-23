@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonWithSchemaExample;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Utils;
@@ -50,8 +52,8 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
 
   private static Stream<Arguments> prepareData() {
     return Stream.of(
-        Arguments.of("Primitive JSON with schema", primitiveJsonWithSchema, true),
-        Arguments.of("Primitive JSON without schema", primitiveJson, false));
+        Arguments.of("Primitive JSON with schema", primitiveJsonWithSchemaExample, true),
+        Arguments.of("Primitive JSON without schema", primitiveJsonExample, false));
   }
 
   @ParameterizedTest(name = "{0}")
