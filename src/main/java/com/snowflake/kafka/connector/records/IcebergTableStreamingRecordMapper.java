@@ -73,7 +73,7 @@ class IcebergTableStreamingRecordMapper implements StreamingRecordMapper {
   private Map<String, String> convertHeaders(JsonNode headersNode) throws JsonProcessingException {
     final Map<String, String> headers = new HashMap<>();
 
-    if (headersNode.isEmpty()) {
+    if (headersNode == null || headersNode.isNull() || headersNode.isEmpty()) {
       return headers;
     }
 
