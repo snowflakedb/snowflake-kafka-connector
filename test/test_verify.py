@@ -47,10 +47,9 @@ def errorExit(message):
 
 class KafkaTest:
     def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath,
-                 connectorParameters: ConnectorParameters, testVersion, enableSSL, snowflakeCloudPlatform):
+                 connectorParameters: ConnectorParameters, testVersion, enableSSL):
         self.testVersion = testVersion
         self.credentialPath = credentialPath
-        self.snowflakeCloudPlatform = snowflakeCloudPlatform
         with open(self.credentialPath) as f:
             credentialJson = json.load(f)
             testHost = credentialJson["host"]
@@ -466,7 +465,7 @@ def runStressTests(driver, testSet, nameSalt):
     ############################ Stress Tests Round 2 ############################
 
 
-def runTestSet(driver, testSet, nameSalt, enable_stress_test, skipProxy, allowedTestsCsv):
+def runTestSet(driver, testSet, nameSalt, enable_stress_test, skipProxy, cloud_platform, allowedTestsCsv):
     if enable_stress_test:
         runStressTests(driver, testSet, nameSalt)
     else:
@@ -474,7 +473,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test, skipProxy, allowed
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
 
         testSelector = TestSelector()
-        end_to_end_tests_suite = testSelector.selectTestsToBeRun(driver, nameSalt, schemaRegistryAddress, testSet, allowedTestsCsv)
+        end_to_end_tests_suite = testSelector.select_tests_to_be_run(driver, nameSalt, schemaRegistryAddress, testSet, cloud_platform, allowedTestsCsv)
 
         execution(testSet, end_to_end_tests_suite, driver, nameSalt)
 
@@ -494,7 +493,7 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test, skipProxy, allowed
         print("Proxy Test should be the last test, since it modifies the JVM values")
 
         proxy_tests_suite = [EndToEndTestSuite(
-            test_instance=TestStringJsonProxy(driver, nameSalt), run_in_confluent=True, run_in_apache=True
+            test_instance=TestStringJsonProxy(driver, nameSalt), run_in_confluent=True, run_in_apache=True, cloud_platform = CloudPlatform.ALL
         )]
 
         end_to_end_proxy_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in proxy_tests_suite]
@@ -513,8 +512,8 @@ def execution(testSet, testSuitList, driver, nameSalt, round=1):
         testExecutor.execute(testSuitList, driver, nameSalt, round)
 
 
-def run_test_set_with_parameters(kafka_test: KafkaTest, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv):
-    runTestSet(kafka_test, testSet, nameSalt, pressure, skipProxy, allowedTestsCsv)
+def run_test_set_with_parameters(kafka_test: KafkaTest, testSet, nameSalt, pressure, skipProxy, cloud_platform, allowedTestsCsv):
+    runTestSet(kafka_test, testSet, nameSalt, pressure, skipProxy, cloud_platform, allowedTestsCsv)
 
 
 def __parseCloudPlatform() -> CloudPlatform:
@@ -570,11 +569,11 @@ if __name__ == "__main__":
                       credentialPath,
                       parameters,
                       testVersion,
-                      enableSSL,
-                      snowflakeCloudPlatform),
+                      enableSSL),
             testSet,
             nameSalt + str(idx),
             pressure,
             skipProxy,
+            snowflakeCloudPlatform,
             allowedTestsCsv)
     )
