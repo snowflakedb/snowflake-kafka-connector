@@ -40,6 +40,8 @@ public abstract class SnowflakeTelemetryService {
   private static final String KAFKA_VERSION = "kafka_version";
   protected static final String IS_PIPE_CLOSING = "is_pipe_closing";
   protected static final String IS_CHANNEL_CLOSING = "is_channel_closing";
+  public static final String JDK_VERSION = "jdk_version";
+  public static final String JDK_DISTRIBUTION = "jdk_distribution";
 
   // Telemetry instance fetched from JDBC
   protected Telemetry telemetry;
@@ -77,8 +79,13 @@ public abstract class SnowflakeTelemetryService {
       final long startTime, final Map<String, String> userProvidedConfig) {
     ObjectNode dataObjectNode = getObjectNode();
 
+    String jdkVersion = System.getProperty("java.version");
+    String jdkDistribution = System.getProperty("java.vendor");
+
     dataObjectNode.put(START_TIME, startTime);
     dataObjectNode.put(KAFKA_VERSION, AppInfoParser.getVersion());
+    dataObjectNode.put(JDK_VERSION, jdkVersion);
+    dataObjectNode.put(JDK_DISTRIBUTION, jdkDistribution);
     addUserConnectorPropertiesToDataNode(userProvidedConfig, dataObjectNode);
 
     send(SnowflakeTelemetryService.TelemetryType.KAFKA_START, dataObjectNode);
