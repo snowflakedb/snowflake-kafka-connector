@@ -98,8 +98,7 @@ public class PrimitiveJsonRecord {
       @JsonProperty("id_int8") Long idInt8,
       @JsonProperty("id_int16") Long idInt16,
       @JsonProperty("id_int32") Long idInt32,
-      // FIXME: there is currently some bug in Iceberg when storing int64 values
-      //      @JsonProperty("id_int64") Long idInt64,
+      @JsonProperty("id_int64") Long idInt64,
       @JsonProperty("description") String description,
       @JsonProperty("rating_float32") Double ratingFloat32,
       @JsonProperty("rating_float64") Double ratingFloat64,
@@ -107,7 +106,7 @@ public class PrimitiveJsonRecord {
     this.idInt8 = idInt8;
     this.idInt16 = idInt16;
     this.idInt32 = idInt32;
-    this.idInt64 = 64L;
+    this.idInt64 = idInt64;
     this.description = description;
     this.ratingFloat32 = ratingFloat32;
     this.ratingFloat64 = ratingFloat64;
@@ -124,8 +123,7 @@ public class PrimitiveJsonRecord {
                 resultSet.getLong("ID_INT8"),
                 resultSet.getLong("ID_INT16"),
                 resultSet.getLong("ID_INT32"),
-                // FIXME: there is currently some bug in Iceberg when storing int64 values
-                //                resultSet.getLong("ID_INT64"),
+                resultSet.getLong("ID_INT64"),
                 resultSet.getString("DESCRIPTION"),
                 resultSet.getDouble("RATING_FLOAT32"),
                 resultSet.getDouble("RATING_FLOAT64"),

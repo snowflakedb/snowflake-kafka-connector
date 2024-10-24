@@ -40,11 +40,9 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
   protected static final String simpleRecordJson = "{\"simple\": \"extra field\"}";
 
   protected static final PrimitiveJsonRecord primitiveJsonRecordValue =
-      // FIXME: there is currently some bug in Iceberg when storing int64 values
-      new PrimitiveJsonRecord(8L, 16L, 32L, /*64L,*/ "dogs are the best", 0.5, 0.25, true);
+      new PrimitiveJsonRecord(8L, 16L, 32L, 64L, "dogs are the best", 0.5, 0.25, true);
   protected static final PrimitiveJsonRecord emptyPrimitiveJsonRecordValue =
-      // FIXME: there is currently some bug in Iceberg when storing int64 values
-      new PrimitiveJsonRecord(0L, 0L, 0L, /*0L, */ null, 0.0, 0.0, false);
+      new PrimitiveJsonRecord(0L, 0L, 0L, 0L, null, 0.0, 0.0, false);
 
   @BeforeEach
   public void setUp() {
