@@ -123,7 +123,7 @@ public class SnowflakeStreamingSinkTaskBuilder {
         10 * 1024 * 1024,
         1,
         mockConnectionService,
-        RecordServiceFactory.createRecordService(false, false),
+        RecordServiceFactory.createRecordService(false, Utils.isSchematizationEnabled(config)),
         mockTelemetryService,
         mockIcebergTableSchemaValidator,
         mockIcebergInitService,

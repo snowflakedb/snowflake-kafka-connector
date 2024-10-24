@@ -179,7 +179,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         kafkaRecordErrorReporter,
         sinkTaskContext,
         conn,
-        RecordServiceFactory.createRecordService(false, false),
+        RecordServiceFactory.createRecordService(
+            false, Utils.isSchematizationEnabled(sfConnectorConfig)),
         telemetryService,
         false,
         null,
