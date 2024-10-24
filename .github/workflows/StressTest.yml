@@ -11,10 +11,12 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategyfail-fast
+#      Matrix was reduced to single dimension because running stress tests multiple times heavily affects environment
+#      Feel free to temporarily add values here
       matrix:
-        confluent_version: [ '5.5.11', '6.2.6', '7.6.0' ]
-        snowflake_cloud: [ 'AWS', 'AZURE', 'GCP' ]
-        java_test_version: [ '8', '11', '17' ]
+        confluent_version: [ '7.6.0' ]
+        snowflake_cloud: [ 'AWS' ]
+        java_test_version: [ '11' ]
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2
