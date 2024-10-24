@@ -40,8 +40,8 @@ public abstract class SnowflakeTelemetryService {
   private static final String KAFKA_VERSION = "kafka_version";
   protected static final String IS_PIPE_CLOSING = "is_pipe_closing";
   protected static final String IS_CHANNEL_CLOSING = "is_channel_closing";
-  public static final String JDK_VERSION = "jdk-version";
-  public static final String JDK_DISTRIBUTION = "jdk-distribution";
+  public static final String JDK_VERSION = "jdk_version";
+  public static final String JDK_DISTRIBUTION = "jdk_distribution";
 
   // Telemetry instance fetched from JDBC
   protected Telemetry telemetry;

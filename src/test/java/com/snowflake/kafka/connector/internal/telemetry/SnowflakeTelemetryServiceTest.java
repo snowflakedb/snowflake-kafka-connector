@@ -111,6 +111,9 @@ public class SnowflakeTelemetryServiceTest {
         dataNode.get(TelemetryConstants.START_TIME).asLong() <= System.currentTimeMillis()
             && dataNode.get(TelemetryConstants.START_TIME).asLong() >= this.startTime);
 
+    assertNotNull(dataNode.get("jdk_version"));
+    assertNotNull(dataNode.get("jdk_distribution"));
+
     validateBufferProperties(dataNode);
     validateKeyAndValueConverter(dataNode);
   }
