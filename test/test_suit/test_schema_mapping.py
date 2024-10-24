@@ -1,10 +1,12 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 import datetime
+from test_suit.base_e2e import BaseE2eTest
+
 
 # test if each type of data fit into the right column with the right type
 # also test if the metadata column is automatically added
-class TestSchemaMapping:
+class TestSchemaMapping(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.fileName = "travis_correct_schema_mapping"
@@ -71,8 +73,7 @@ class TestSchemaMapping:
         if not metadata_exist:
             raise NonRetryableError("Metadata column was not created")
 
-        res = self.driver.snowflake_conn.cursor().execute(
-            "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
+        res = self.driver.select_number_of_records(self.topic)
         if res == 0:
             raise RetryableError()
         elif res != 100:

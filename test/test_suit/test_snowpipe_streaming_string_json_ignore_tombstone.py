@@ -3,8 +3,9 @@ import datetime
 from test_suit.test_utils import RetryableError, NonRetryableError
 import json
 from time import sleep
+from test_suit.base_e2e import BaseE2eTest
 
-class TestSnowpipeStreamingStringJsonIgnoreTombstone:
+class TestSnowpipeStreamingStringJsonIgnoreTombstone(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.fileName = "test_snowpipe_streaming_string_json_ignore_tombstone"
@@ -47,8 +48,7 @@ class TestSnowpipeStreamingStringJsonIgnoreTombstone:
             sleep(2)
 
     def verify(self, round):
-        res = self.driver.snowflake_conn.cursor().execute(
-            "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
+        res = self.driver.select_number_of_records(self.topic)
         print("Count records in table {}={}".format(self.topic, str(res)))
         goalCount = (self.recordNum - 2) * self.partitionNum
         if res < goalCount:

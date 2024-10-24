@@ -3,10 +3,11 @@ from time import sleep
 from confluent_kafka import avro
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry import Schema
+from test_suit.base_e2e import BaseE2eTest
 
 # SR -> Schema Registry
 # Runs only in confluent test suite environment
-class TestAutoTableCreationTopic2Table:
+class TestAutoTableCreationTopic2Table(BaseE2eTest):
     def __init__(self, driver, nameSalt, schemaRegistryAddress, testSet):
         self.driver = driver
         self.fileName = "travis_correct_auto_table_creation_topic2table"

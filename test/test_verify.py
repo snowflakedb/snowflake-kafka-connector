@@ -296,6 +296,30 @@ class KafkaTest:
 
         print(datetime.now().strftime("%H:%M:%S "), "=== Done ===", flush=True)
 
+    def create_iceberg_table_with_content(self, table_name: str, external_volume: str):
+        sql = """
+            CREATE ICEBERG TABLE IF NOT EXISTS {} (
+                record_content OBJECT(
+                    id INT,
+                    body_temperature FLOAT,
+                    name STRING,
+                    approved_coffee_types ARRAY(STRING),
+                    animals_possessed OBJECT(dogs BOOLEAN, cats BOOLEAN)
+                )
+            )
+            EXTERNAL_VOLUME = '{}'
+            CATALOG = 'SNOWFLAKE'
+            BASE_LOCATION = '{}'
+            ;
+        """.format(table_name, external_volume, table_name)
+        self.snowflake_conn.cursor().execute(sql)
+
+    def drop_iceberg_table(self, table_name: str):
+        self.snowflake_conn.cursor().execute("DROP ICEBERG TABLE IF EXISTS {}".format(table_name))
+
+    def select_number_of_records(self, table_name: str) -> str:
+        return self.snowflake_conn.cursor().execute("SELECT count(*) FROM {}".format(table_name)).fetchone()[0]
+
     def verifyStageIsCleaned(self, connectorName, topicName=""):
         if topicName == "":
             topicName = connectorName

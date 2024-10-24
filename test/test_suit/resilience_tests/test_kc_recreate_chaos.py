@@ -3,6 +3,7 @@ import datetime
 from test_suit.test_utils import RetryableError, NonRetryableError, ResetAndRetry
 import json
 from time import sleep
+from test_suit.base_e2e import BaseE2eTest
 
 # sends data 1/3
 # creates the connector 1/2
@@ -10,7 +11,7 @@ from time import sleep
 # creates the connector 2/2
 # sends data 3/3
 # verifies that 3 rounds of data were ingested
-class TestKcRecreateChaos:
+class TestKcRecreateChaos(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.nameSalt = nameSalt
@@ -48,8 +49,7 @@ class TestKcRecreateChaos:
     def verify(self, round):
         # verify record count
         goalCount = self.recordNum * self.expectedsends
-        res = self.driver.snowflake_conn.cursor().execute(
-            "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
+        res = self.driver.select_number_of_records(self.topic)
 
         print("Count records in table {}={}. Goal record count: {}".format(self.topic, str(res), str(goalCount)))
 
