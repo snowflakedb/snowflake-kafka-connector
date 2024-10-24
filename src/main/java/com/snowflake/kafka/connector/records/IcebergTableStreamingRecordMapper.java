@@ -14,21 +14,18 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingE
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.type.TypeReference;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.NumericNode;
 
-class IcebergTableStreamingRecordMapper implements StreamingRecordMapper {
-  private final ObjectMapper mapper;
-
+class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
   private static final TypeReference<Map<String, Object>> OBJECTS_MAP_TYPE_REFERENCE =
       new TypeReference<Map<String, Object>>() {};
 
   public IcebergTableStreamingRecordMapper(ObjectMapper objectMapper) {
-    this.mapper = objectMapper;
+    super(objectMapper);
   }
 
   @Override
   public Map<String, Object> processSnowflakeRecord(
-      SnowflakeTableRow row, boolean schematizationEnabled, boolean includeAllMetadata)
+      SnowflakeTableRow row, boolean schematizationEnabled, boolean includeMetadata)
       throws JsonProcessingException {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.getContent().getData()) {
@@ -38,7 +35,7 @@ class IcebergTableStreamingRecordMapper implements StreamingRecordMapper {
         streamingIngestRow.put(TABLE_COLUMN_CONTENT, getMapForNoSchematization(node));
       }
     }
-    if (includeAllMetadata) {
+    if (includeMetadata) {
       streamingIngestRow.put(TABLE_COLUMN_METADATA, getMapForMetadata(row.getMetadata()));
     }
     return streamingIngestRow;
@@ -81,24 +78,9 @@ class IcebergTableStreamingRecordMapper implements StreamingRecordMapper {
     while (fields.hasNext()) {
       String key = fields.next();
       JsonNode valueNode = headersNode.get(key);
-      String value;
-      if (valueNode.isTextual()) {
-        value = valueNode.textValue();
-      } else if (valueNode.isNull()) {
-        value = null;
-      } else {
-        value = writeValueAsStringOrNan(valueNode);
-      }
+      String value = getTextualValue(valueNode);
       headers.put(key, value);
     }
     return headers;
-  }
-
-  private String writeValueAsStringOrNan(JsonNode columnNode) throws JsonProcessingException {
-    if (columnNode instanceof NumericNode && ((NumericNode) columnNode).isNaN()) {
-      return "NaN";
-    } else {
-      return mapper.writeValueAsString(columnNode);
-    }
   }
 }

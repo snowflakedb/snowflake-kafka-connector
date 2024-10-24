@@ -11,13 +11,11 @@ import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.NumericNode;
 
-class SnowflakeTableStreamingRecordMapper implements StreamingRecordMapper {
-  private final ObjectMapper mapper;
+class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
 
   public SnowflakeTableStreamingRecordMapper(ObjectMapper mapper) {
-    this.mapper = mapper;
+    super(mapper);
   }
 
   @Override
@@ -53,14 +51,7 @@ class SnowflakeTableStreamingRecordMapper implements StreamingRecordMapper {
     while (columnNames.hasNext()) {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
-      Object columnValue;
-      if (columnNode.isTextual()) {
-        columnValue = columnNode.textValue();
-      } else if (columnNode.isNull()) {
-        columnValue = null;
-      } else {
-        columnValue = writeValueAsStringOrNan(columnNode);
-      }
+      Object columnValue = getTextualValue(columnNode);
       // while the value is always dumped into a string, the Streaming Ingest SDK
       // will transform the value according to its type in the table
       streamingIngestRow.put(Utils.quoteNameIfNeeded(columnName), columnValue);
@@ -71,13 +62,5 @@ class SnowflakeTableStreamingRecordMapper implements StreamingRecordMapper {
           "Not able to convert node to Snowpipe Streaming input format");
     }
     return streamingIngestRow;
-  }
-
-  private String writeValueAsStringOrNan(JsonNode columnNode) throws JsonProcessingException {
-    if (columnNode instanceof NumericNode && ((NumericNode) columnNode).isNaN()) {
-      return "NaN";
-    } else {
-      return mapper.writeValueAsString(columnNode);
-    }
   }
 }
