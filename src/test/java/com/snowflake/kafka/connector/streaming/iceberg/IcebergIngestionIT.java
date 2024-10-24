@@ -19,8 +19,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.header.ConnectHeaders;
+import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
@@ -92,6 +95,14 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
         Collections.singletonMap("schemas.enable", Boolean.toString(withSchema)), false);
     SchemaAndValue inputValue =
         converter.toConnectData(topic, jsonString.getBytes(StandardCharsets.UTF_8));
+    Headers headers = new ConnectHeaders();
+    headers.addBoolean("booleanHeader", true);
+    headers.addString("stringHeader", "test");
+    headers.addInt("intHeader", 123);
+    headers.addDouble("doubleHeader", 1.234);
+    headers.addFloat("floatHeader", 1.234f);
+    headers.addLong("longHeader", 123L);
+    headers.addShort("shortHeader", (short) 123);
     return new SinkRecord(
         topic,
         PARTITION,
@@ -99,7 +110,10 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
         "test",
         inputValue.schema(),
         inputValue.value(),
-        offset);
+        offset,
+        System.currentTimeMillis(),
+        TimestampType.CREATE_TIME,
+        headers);
   }
 
   private final String selectAllSortByOffset =

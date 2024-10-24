@@ -4,6 +4,7 @@ import com.snowflake.kafka.connector.Utils;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Objects;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.annotation.JsonCreator;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.annotation.JsonProperty;
@@ -20,7 +21,7 @@ public class MetadataRecord {
   private final Long createTime;
   private final Long logAppendTime;
   private final Long snowflakeConnectorPushTime;
-  private final String headers;
+  private final Map<String, String> headers;
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -35,7 +36,7 @@ public class MetadataRecord {
       @JsonProperty("CreateTime") Long createTime,
       @JsonProperty("LogAppendTime") Long logAppendTime,
       @JsonProperty("SnowflakeConnectorPushTime") Long snowflakeConnectorPushTime,
-      @JsonProperty("headers") String headers) {
+      @JsonProperty("headers") Map<String, String> headers) {
     this.offset = offset;
     this.topic = topic;
     this.partition = partition;
@@ -95,7 +96,7 @@ public class MetadataRecord {
     return snowflakeConnectorPushTime;
   }
 
-  public String getHeaders() {
+  public Map<String, String> getHeaders() {
     return headers;
   }
 
@@ -154,9 +155,8 @@ public class MetadataRecord {
         + logAppendTime
         + ", snowflakeConnectorPushTime="
         + snowflakeConnectorPushTime
-        + ", headers='"
+        + ", headers="
         + headers
-        + '\''
         + '}';
   }
 
