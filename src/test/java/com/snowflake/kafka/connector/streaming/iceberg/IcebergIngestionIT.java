@@ -11,6 +11,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import java.nio.charset.StandardCharsets;
@@ -38,11 +39,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
   protected TopicPartition topicPartition;
   protected SnowflakeSinkService service;
   protected static final String simpleRecordJson = "{\"simple\": \"extra field\"}";
-
-  protected static final PrimitiveJsonRecord primitiveJsonRecordValue =
-      new PrimitiveJsonRecord(8L, 16L, 32L, 64L, "dogs are the best", 0.5, 0.25, true);
-  protected static final PrimitiveJsonRecord emptyPrimitiveJsonRecordValue =
-      new PrimitiveJsonRecord(0L, 0L, 0L, 0L, null, 0.0, 0.0, false);
 
   @BeforeEach
   public void setUp() {
@@ -129,5 +125,10 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
 
   protected List<RecordWithMetadata<PrimitiveJsonRecord>> selectAllFromRecordContent() {
     return select(tableName, selectAllSortByOffset, PrimitiveJsonRecord::fromRecordContentColumn);
+  }
+
+  protected List<RecordWithMetadata<ComplexJsonRecord>>
+      selectAllComplexJsonRecordFromRecordContent() {
+    return select(tableName, selectAllSortByOffset, ComplexJsonRecord::fromRecordContentColumn);
   }
 }

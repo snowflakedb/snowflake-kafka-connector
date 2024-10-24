@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.emptyPrimitiveJsonRecordValueExample;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonRecordValueExample;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonWithSchemaExample;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -87,7 +89,9 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
         .hasSize(3)
         .extracting(RecordWithMetadata::getRecord)
         .containsExactly(
-            primitiveJsonRecordValue, primitiveJsonRecordValue, emptyPrimitiveJsonRecordValue);
+            primitiveJsonRecordValueExample,
+            primitiveJsonRecordValueExample,
+            emptyPrimitiveJsonRecordValueExample);
     List<MetadataRecord> metadataRecords =
         recordsWithMetadata.stream()
             .map(RecordWithMetadata::getMetadata)

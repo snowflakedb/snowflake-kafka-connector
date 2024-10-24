@@ -17,6 +17,11 @@ import org.assertj.core.api.Assertions;
 
 public class PrimitiveJsonRecord {
 
+  public static final PrimitiveJsonRecord primitiveJsonRecordValueExample =
+      new PrimitiveJsonRecord(8L, 16L, 32L, 64L, "dogs are the best", 0.5, 0.25, true);
+  public static final PrimitiveJsonRecord emptyPrimitiveJsonRecordValueExample =
+      new PrimitiveJsonRecord(0L, 0L, 0L, 0L, null, 0.0, 0.0, false);
+
   public static final String primitiveJsonExample =
       "{"
           + "  \"id_int8\": 8,"
