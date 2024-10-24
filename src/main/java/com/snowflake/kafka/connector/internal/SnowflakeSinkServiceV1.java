@@ -20,6 +20,7 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeCr
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
+import com.snowflake.kafka.connector.records.RecordServiceFactory;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
@@ -112,7 +113,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     this.conn = conn;
     isStopped = false;
     this.telemetryService = conn.getTelemetryClient();
-    this.recordService = new RecordService();
+    this.recordService = RecordServiceFactory.createRecordService(false, false);
     this.topic2TableMap = new HashMap<>();
 
     // Setting the default value in constructor

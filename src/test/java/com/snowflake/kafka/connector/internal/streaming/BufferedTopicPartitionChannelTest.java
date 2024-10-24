@@ -13,7 +13,7 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import com.snowflake.kafka.connector.records.RecordService;
+import com.snowflake.kafka.connector.records.RecordServiceFactory;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -276,7 +276,7 @@ public class BufferedTopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            new RecordService(),
+            RecordServiceFactory.createRecordService(false, false),
             mockTelemetryService,
             false,
             null,

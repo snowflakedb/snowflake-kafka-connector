@@ -43,7 +43,7 @@ public class HeaderTest {
 
     // empty headers
     SinkRecord record = createTestRecord(headers);
-    RecordService service = new RecordService();
+    RecordService service = RecordServiceFactory.createRecordService(false, false);
     JsonNode node = MAPPER.readTree(service.getProcessedRecordForSnowpipe(record));
     assertFalse(node.get("meta").has("headers"));
 

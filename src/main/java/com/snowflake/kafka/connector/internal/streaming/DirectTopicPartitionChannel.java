@@ -34,6 +34,7 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
+import com.snowflake.kafka.connector.records.RecordServiceFactory;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import dev.failsafe.Failsafe;
@@ -178,7 +179,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         kafkaRecordErrorReporter,
         sinkTaskContext,
         conn,
-        new RecordService(),
+        RecordServiceFactory.createRecordService(
+            false, Utils.isSchematizationEnabled(sfConnectorConfig)),
         telemetryService,
         false,
         null,
@@ -243,8 +245,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         !Strings.isNullOrEmpty(StreamingUtils.getDlqTopicName(this.sfConnectorConfig));
 
     /* Schematization related properties */
-    this.enableSchematization =
-        this.recordService.setAndGetEnableSchematizationFromConfig(sfConnectorConfig);
+    this.enableSchematization = Utils.isSchematizationEnabled(this.sfConnectorConfig);
 
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
     this.schemaEvolutionService = schemaEvolutionService;
