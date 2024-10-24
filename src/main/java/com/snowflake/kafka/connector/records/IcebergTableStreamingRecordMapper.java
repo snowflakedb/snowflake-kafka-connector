@@ -19,13 +19,13 @@ class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
   private static final TypeReference<Map<String, Object>> OBJECTS_MAP_TYPE_REFERENCE =
       new TypeReference<Map<String, Object>>() {};
 
-  public IcebergTableStreamingRecordMapper(ObjectMapper objectMapper) {
-    super(objectMapper);
+  public IcebergTableStreamingRecordMapper(
+      ObjectMapper objectMapper, boolean schematizationEnabled) {
+    super(objectMapper, schematizationEnabled);
   }
 
   @Override
-  public Map<String, Object> processSnowflakeRecord(
-      SnowflakeTableRow row, boolean schematizationEnabled, boolean includeMetadata)
+  public Map<String, Object> processSnowflakeRecord(SnowflakeTableRow row, boolean includeMetadata)
       throws JsonProcessingException {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.getContent().getData()) {

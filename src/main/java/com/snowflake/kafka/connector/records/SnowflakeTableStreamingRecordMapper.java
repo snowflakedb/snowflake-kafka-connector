@@ -14,15 +14,13 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMappe
 
 class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
 
-  public SnowflakeTableStreamingRecordMapper(ObjectMapper mapper) {
-    super(mapper);
+  public SnowflakeTableStreamingRecordMapper(ObjectMapper mapper, boolean schematizationEnabled) {
+    super(mapper, schematizationEnabled);
   }
 
   @Override
   public Map<String, Object> processSnowflakeRecord(
-      RecordService.SnowflakeTableRow row,
-      boolean schematizationEnabled,
-      boolean includeAllMetadata)
+      RecordService.SnowflakeTableRow row, boolean includeAllMetadata)
       throws JsonProcessingException {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.getContent().getData()) {

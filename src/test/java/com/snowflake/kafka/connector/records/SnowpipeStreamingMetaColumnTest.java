@@ -51,7 +51,7 @@ class SnowpipeStreamingMetaColumnTest extends AbstractMetaColumnTest {
     ObjectMapper mapper = new ObjectMapper();
     RecordService service =
         new RecordService(
-            fixedClock, false, new SnowflakeTableStreamingRecordMapper(mapper), mapper);
+            fixedClock, new SnowflakeTableStreamingRecordMapper(mapper, false), mapper);
 
     // when
     Map<String, Object> recordData = service.getProcessedRecordForStreamingIngest(record);

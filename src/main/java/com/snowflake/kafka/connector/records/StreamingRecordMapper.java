@@ -10,14 +10,15 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Numeri
 abstract class StreamingRecordMapper {
 
   protected final ObjectMapper mapper;
+  protected final boolean schematizationEnabled;
 
-  public StreamingRecordMapper(ObjectMapper mapper) {
+  public StreamingRecordMapper(ObjectMapper mapper, boolean schematizationEnabled) {
     this.mapper = mapper;
+    this.schematizationEnabled = schematizationEnabled;
   }
 
   abstract Map<String, Object> processSnowflakeRecord(
-      SnowflakeTableRow row, boolean schematizationEnabled, boolean includeAllMetadata)
-      throws JsonProcessingException;
+      SnowflakeTableRow row, boolean includeAllMetadata) throws JsonProcessingException;
 
   protected String getTextualValue(JsonNode valueNode) throws JsonProcessingException {
     String value;

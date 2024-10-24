@@ -8,11 +8,10 @@ public class RecordServiceFactory {
     ObjectMapper objectMapper = new ObjectMapper();
     if (isIcebergEnabled) {
       return new RecordService(
-          enableSchematization, new IcebergTableStreamingRecordMapper(objectMapper), objectMapper);
+          new IcebergTableStreamingRecordMapper(objectMapper, enableSchematization), objectMapper);
     } else {
       return new RecordService(
-          enableSchematization,
-          new SnowflakeTableStreamingRecordMapper(objectMapper),
+          new SnowflakeTableStreamingRecordMapper(objectMapper, enableSchematization),
           objectMapper);
     }
   }

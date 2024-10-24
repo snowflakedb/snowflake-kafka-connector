@@ -69,8 +69,6 @@ public class RecordService {
   private static final String KEY_SCHEMA_ID = "key_schema_id";
   static final String HEADERS = "headers";
 
-  private final boolean enableSchematization;
-
   private final StreamingRecordMapper streamingRecordMapper;
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
@@ -95,23 +93,15 @@ public class RecordService {
   // This class is designed to work with empty metadata config map
   private SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig();
 
-  RecordService(
-      Clock clock,
-      boolean enableSchematization,
-      StreamingRecordMapper streamingRecordMapper,
-      ObjectMapper mapper) {
+  RecordService(Clock clock, StreamingRecordMapper streamingRecordMapper, ObjectMapper mapper) {
     this.clock = clock;
-    this.enableSchematization = enableSchematization;
     this.streamingRecordMapper = streamingRecordMapper;
     this.mapper = mapper;
   }
 
   /** Creates a record service with a UTC {@link Clock}. */
-  RecordService(
-      boolean enableSchematization,
-      StreamingRecordMapper streamingRecordMapper,
-      ObjectMapper mapper) {
-    this(Clock.systemUTC(), enableSchematization, streamingRecordMapper, mapper);
+  RecordService(StreamingRecordMapper streamingRecordMapper, ObjectMapper mapper) {
+    this(Clock.systemUTC(), streamingRecordMapper, mapper);
   }
 
   public void setMetadataConfig(SnowflakeMetadataConfig metadataConfigIn) {
@@ -219,8 +209,7 @@ public class RecordService {
       throws JsonProcessingException {
     SnowflakeTableRow row = processRecord(record, clock.instant());
 
-    return streamingRecordMapper.processSnowflakeRecord(
-        row, enableSchematization, metadataConfig.allFlag);
+    return streamingRecordMapper.processSnowflakeRecord(row, metadataConfig.allFlag);
   }
 
   /** For now there are two columns one is content and other is metadata. Both are Json */

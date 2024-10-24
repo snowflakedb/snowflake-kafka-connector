@@ -18,8 +18,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class IcebergTableStreamingRecordMapperTest {
-  private final IcebergTableStreamingRecordMapper mapper =
-      new IcebergTableStreamingRecordMapper(objectMapper);
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
   private static final ImmutableMap<String, Object> primitiveJsonAsMap =
@@ -95,7 +93,9 @@ class IcebergTableStreamingRecordMapperTest {
       String description, SnowflakeTableRow row, Map<String, Object> expected)
       throws JsonProcessingException {
     // When
-    Map<String, Object> result = mapper.processSnowflakeRecord(row, true, true);
+    IcebergTableStreamingRecordMapper mapper =
+        new IcebergTableStreamingRecordMapper(objectMapper, true);
+    Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
 
     // Then
     assertThat(result).isEqualTo(expected);
@@ -106,8 +106,12 @@ class IcebergTableStreamingRecordMapperTest {
   void shouldMapMetadata(String description, SnowflakeTableRow row, Map<String, Object> expected)
       throws JsonProcessingException {
     // When
-    Map<String, Object> result = mapper.processSnowflakeRecord(row, false, true);
-    Map<String, Object> resultSchematized = mapper.processSnowflakeRecord(row, true, true);
+    IcebergTableStreamingRecordMapper mapper =
+        new IcebergTableStreamingRecordMapper(objectMapper, false);
+    IcebergTableStreamingRecordMapper mapperSchematization =
+        new IcebergTableStreamingRecordMapper(objectMapper, true);
+    Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
+    Map<String, Object> resultSchematized = mapperSchematization.processSnowflakeRecord(row, true);
 
     // Then
     assertThat(result.get(Utils.TABLE_COLUMN_METADATA)).isEqualTo(expected);
@@ -120,8 +124,12 @@ class IcebergTableStreamingRecordMapperTest {
     SnowflakeTableRow row = buildRow(primitiveJsonExample);
 
     // When
-    Map<String, Object> result = mapper.processSnowflakeRecord(row, false, false);
-    Map<String, Object> resultSchematized = mapper.processSnowflakeRecord(row, true, false);
+    IcebergTableStreamingRecordMapper mapper =
+        new IcebergTableStreamingRecordMapper(objectMapper, false);
+    IcebergTableStreamingRecordMapper mapperSchematization =
+        new IcebergTableStreamingRecordMapper(objectMapper, true);
+    Map<String, Object> result = mapper.processSnowflakeRecord(row, false);
+    Map<String, Object> resultSchematized = mapperSchematization.processSnowflakeRecord(row, false);
 
     // Then
     assertThat(result).doesNotContainKey(Utils.TABLE_COLUMN_METADATA);
@@ -134,7 +142,9 @@ class IcebergTableStreamingRecordMapperTest {
       String description, SnowflakeTableRow row, Map<String, Object> expected)
       throws JsonProcessingException {
     // When
-    Map<String, Object> result = mapper.processSnowflakeRecord(row, false, true);
+    IcebergTableStreamingRecordMapper mapper =
+        new IcebergTableStreamingRecordMapper(objectMapper, false);
+    Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
 
     // Then
     assertThat(result).isEqualTo(expected);
