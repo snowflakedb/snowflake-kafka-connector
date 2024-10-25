@@ -1,5 +1,9 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.emptyPrimitiveJsonRecordValueExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonRecordValueExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonWithSchemaExample;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Utils;
@@ -85,7 +89,9 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
         .hasSize(3)
         .extracting(RecordWithMetadata::getRecord)
         .containsExactly(
-            primitiveJsonRecordValue, primitiveJsonRecordValue, emptyPrimitiveJsonRecordValue);
+            primitiveJsonRecordValueExample,
+            primitiveJsonRecordValueExample,
+            emptyPrimitiveJsonRecordValueExample);
     List<MetadataRecord> metadataRecords =
         recordsWithMetadata.stream()
             .map(RecordWithMetadata::getMetadata)
@@ -105,7 +111,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     return Stream.of(
         Arguments.of(
             "Primitive JSON with schema",
-            primitiveJsonWithSchema,
+            primitiveJsonWithSchemaExample,
             new DescribeTableRow[] {
               new DescribeTableRow("ID_INT8", "NUMBER(10,0)"),
               new DescribeTableRow("ID_INT16", "NUMBER(10,0)"),
@@ -119,7 +125,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
             true),
         Arguments.of(
             "Primitive JSON without schema",
-            primitiveJson,
+            primitiveJsonExample,
             new DescribeTableRow[] {
               new DescribeTableRow("ID_INT8", "NUMBER(19,0)"),
               new DescribeTableRow("ID_INT16", "NUMBER(19,0)"),

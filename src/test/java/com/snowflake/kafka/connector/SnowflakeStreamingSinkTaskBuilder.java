@@ -21,7 +21,7 @@ import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionCh
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import com.snowflake.kafka.connector.records.RecordService;
+import com.snowflake.kafka.connector.records.RecordServiceFactory;
 import com.snowflake.kafka.connector.streaming.iceberg.IcebergInitService;
 import com.snowflake.kafka.connector.streaming.iceberg.IcebergTableSchemaValidator;
 import java.util.Collections;
@@ -123,7 +123,7 @@ public class SnowflakeStreamingSinkTaskBuilder {
         10 * 1024 * 1024,
         1,
         mockConnectionService,
-        new RecordService(),
+        RecordServiceFactory.createRecordService(false, Utils.isSchematizationEnabled(config)),
         mockTelemetryService,
         mockIcebergTableSchemaValidator,
         mockIcebergInitService,

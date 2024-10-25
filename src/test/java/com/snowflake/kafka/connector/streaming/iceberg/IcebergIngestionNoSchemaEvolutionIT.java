@@ -1,11 +1,12 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonRecordValueExample;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
-import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -18,7 +19,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
 
-  private static final String RECORD_CONTENT_OBJECT_SCHEMA =
+  private static final String PRIMITIVE_JSON_RECORD_CONTENT_OBJECT_SCHEMA =
       "object("
           + "id_int8 NUMBER(10,0),"
           + "id_int16 NUMBER(10,0),"
@@ -28,6 +29,28 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
           + "rating_float32 FLOAT,"
           + "rating_float64 FLOAT,"
           + "approval BOOLEAN"
+          + ")";
+
+  private static final String COMPLEX_JSON_RECORD_CONTENT_OBJECT_SCHEMA =
+      "object("
+          + "id_int8 NUMBER(10,0),"
+          + "id_int16 NUMBER(10,0),"
+          + "id_int32 NUMBER(10,0),"
+          + "id_int64 NUMBER(19,0),"
+          + "description VARCHAR(16777216),"
+          + "rating_float32 FLOAT,"
+          + "rating_float64 FLOAT,"
+          + "approval BOOLEAN,"
+          + "array1 ARRAY(LONG),"
+          + "array2 ARRAY(VARCHAR(16777216)),"
+          + "array3 ARRAY(BOOLEAN),"
+          + "array4 ARRAY(LONG),"
+          + "array5 ARRAY(ARRAY(LONG)),"
+          + "nestedRecord "
+          + PRIMITIVE_JSON_RECORD_CONTENT_OBJECT_SCHEMA
+          + ","
+          + "nestedRecord2 "
+          + PRIMITIVE_JSON_RECORD_CONTENT_OBJECT_SCHEMA
           + ")";
 
   @Override
@@ -45,13 +68,14 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
             + ", "
             + Utils.TABLE_COLUMN_CONTENT
             + " "
-            + RECORD_CONTENT_OBJECT_SCHEMA);
+            + COMPLEX_JSON_RECORD_CONTENT_OBJECT_SCHEMA);
   }
 
   private static Stream<Arguments> prepareData() {
     return Stream.of(
-        Arguments.of("Primitive JSON with schema", primitiveJsonWithSchema, true),
-        Arguments.of("Primitive JSON without schema", primitiveJson, false));
+        Arguments.of(
+            "Complex JSON with schema", ComplexJsonRecord.complexJsonWithSchemaExample, true),
+        Arguments.of("Complex JSON without schema", ComplexJsonRecord.complexJsonExample, false));
   }
 
   @ParameterizedTest(name = "{0}")
@@ -70,13 +94,15 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   private void assertRecordsInTable() {
-    List<RecordWithMetadata<PrimitiveJsonRecord>> recordsWithMetadata =
-        selectAllFromRecordContent();
+    List<RecordWithMetadata<ComplexJsonRecord>> recordsWithMetadata =
+        selectAllComplexJsonRecordFromRecordContent();
     assertThat(recordsWithMetadata)
         .hasSize(3)
         .extracting(RecordWithMetadata::getRecord)
         .containsExactly(
-            primitiveJsonRecordValue, primitiveJsonRecordValue, primitiveJsonRecordValue);
+            complexJsonRecordValueExample,
+            complexJsonRecordValueExample,
+            complexJsonRecordValueExample);
     List<MetadataRecord> metadataRecords =
         recordsWithMetadata.stream()
             .map(RecordWithMetadata::getMetadata)

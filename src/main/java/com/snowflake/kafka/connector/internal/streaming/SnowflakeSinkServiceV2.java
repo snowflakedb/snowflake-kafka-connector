@@ -28,6 +28,7 @@ import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
+import com.snowflake.kafka.connector.records.RecordServiceFactory;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.streaming.iceberg.IcebergInitService;
 import com.snowflake.kafka.connector.streaming.iceberg.IcebergTableSchemaValidator;
@@ -137,7 +138,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.flushTimeSeconds = StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
     this.conn = conn;
     this.telemetryService = conn.getTelemetryClient();
-    this.recordService = new RecordService();
+    boolean schematizationEnabled = Utils.isSchematizationEnabled(connectorConfig);
+    this.recordService =
+        RecordServiceFactory.createRecordService(
+            Utils.isIcebergEnabled(connectorConfig), schematizationEnabled);
     this.icebergTableSchemaValidator = new IcebergTableSchemaValidator(conn);
     this.icebergInitService = new IcebergInitService(conn);
     this.schemaEvolutionService =
@@ -153,9 +157,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     this.connectorConfig = connectorConfig;
 
-    this.enableSchematization =
-        this.recordService.setAndGetEnableSchematizationFromConfig(this.connectorConfig);
-    this.recordService.setIcebergEnabledFromConfig(this.connectorConfig);
+    this.enableSchematization = schematizationEnabled;
 
     this.closeChannelsInParallel =
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL))
