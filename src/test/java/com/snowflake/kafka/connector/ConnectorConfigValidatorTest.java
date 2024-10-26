@@ -839,6 +839,48 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
+  public void testEnableStreamingChannelOffsetVerificationConfig() {
+    Map<String, String> config = getConfig();
+    config.put(
+            SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+            IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG, "true");
+
+    connectorConfigValidator.validateConfig(config);
+  }
+
+  @Test
+  public void testEnableStreamingChannelOffsetVerificationConfig_invalidWithSnowpipe() {
+    Map<String, String> config = getConfig();
+    config.put(
+            SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+            IngestionMethodConfig.SNOWPIPE.toString());
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG, "true");
+
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+            .isInstanceOf(SnowflakeKafkaConnectorException.class)
+            .hasMessageContaining(
+                    SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG);
+  }
+
+  @Test
+  public void
+  testEnableStreamingChannelOffsetVerificationConfig_invalidBooleanValue_WithSnowpipeStreaming() {
+    Map<String, String> config = getConfig();
+    config.put(
+            SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+            IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    config.put(
+            SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG, "INVALID");
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+            .isInstanceOf(SnowflakeKafkaConnectorException.class)
+            .hasMessageContaining(
+                    SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG);
+  }
+
+  @Test
   public void testStreamingProviderOverrideConfig_invalidWithSnowpipe() {
     Map<String, String> config = getConfig();
     config.put(

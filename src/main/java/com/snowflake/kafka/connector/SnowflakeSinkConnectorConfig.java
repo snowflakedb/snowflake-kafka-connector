@@ -201,6 +201,15 @@ public class SnowflakeSinkConnectorConfig {
           + " format is deprecated and V1 will be used always, disabling this config could have"
           + " ramifications. Please consult Snowflake support before setting this to false.";
 
+  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG = "enable.streaming.channel.offset.verification";
+  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DISPLAY =
+          "Enable streaming channel offset verification function";
+  public static final boolean ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DEFAULT = true;
+  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DOC =
+          "Whether to enable streaming channel offset verification function. The function checks only for incremental offsets" +
+                  " (might contain gaps) and might signal false positives in case of SMT. " +
+                  "Can only be set if Streaming Snowpipe is enabled";
+
   public static final String ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS =
       "enable.task.fail.on.authorization.errors";
   public static final boolean ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT = false;

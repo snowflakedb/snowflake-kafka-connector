@@ -165,4 +165,5 @@ public class StreamingUtils {
   public static String getDlqTopicName(Map<String, String> sfConnectorConfig) {
     return sfConnectorConfig.getOrDefault(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "");
   }
+
 }
