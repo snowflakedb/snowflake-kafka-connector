@@ -895,9 +895,9 @@ public class TopicPartitionChannelTest {
               null,
               this.schemaEvolutionService);
 
-      final int noOfRecords = 3;
+      final int noOfRecords = 2;
       List<SinkRecord> records =
-          TestUtils.createNativeJsonSinkRecords(0, noOfRecords, TOPIC, PARTITION);
+          TestUtils.createNativeJsonSinkRecords(1, noOfRecords, TOPIC, PARTITION);
 
       for (int idx = 0; idx < records.size(); idx++) {
         topicPartitionChannel.insertRecord(records.get(idx), idx == 0);
@@ -1290,10 +1290,11 @@ public class TopicPartitionChannelTest {
   @Test
   public void assignANewChannelAfterTheSetupIsFullyDone() throws Exception {
     // given
+    String noOffset = "-1";
 
     SnowflakeStreamingIngestChannel channel1 = Mockito.mock(SnowflakeStreamingIngestChannel.class);
     Mockito.when(channel1.getLatestCommittedOffsetToken())
-        .thenReturn("0")
+        .thenReturn(noOffset)
         .thenThrow(new SFException(ErrorCode.CHANNEL_STATUS_INVALID));
 
     Mockito.when(channel1.insertRow(anyMap(), anyString()))
