@@ -65,7 +65,7 @@ public class StreamingUtils {
         if (prevBatchEndOffset != null && curBatchStartOffset != null) {
           long curStart = Long.parseLong(curBatchStartOffset);
           long prevEnd = Long.parseLong(prevBatchEndOffset);
-            return curStart > prevEnd;
+          return curStart > prevEnd;
         }
         return true;
       };
@@ -165,5 +165,4 @@ public class StreamingUtils {
   public static String getDlqTopicName(Map<String, String> sfConnectorConfig) {
     return sfConnectorConfig.getOrDefault(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "");
   }
-
 }
