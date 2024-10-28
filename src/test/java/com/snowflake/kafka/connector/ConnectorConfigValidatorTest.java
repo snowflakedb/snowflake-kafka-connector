@@ -840,28 +840,26 @@ public class ConnectorConfigValidatorTest {
 
   @Test
   public void testEnableStreamingChannelOffsetVerificationConfig() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    config.put(
-        SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
-        "true");
+    // given
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withRole("ACCOUNTADMIN")
+            .withChannelOffsetTokenVerificationFunctionEnabled(true)
+            .build();
 
+    // when, then
     connectorConfigValidator.validateConfig(config);
   }
 
   @Test
   public void testEnableStreamingChannelOffsetVerificationConfig_invalidWithSnowpipe() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE.toString());
-    config.put(
-        SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
-        "true");
+    // given
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.snowpipeConfig()
+            .withChannelOffsetTokenVerificationFunctionEnabled(true)
+            .build();
 
+    // when, then
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(
@@ -871,14 +869,13 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void
       testEnableStreamingChannelOffsetVerificationConfig_invalidBooleanValue_WithSnowpipeStreaming() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    // given
+    Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
     config.put(
         SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
         "INVALID");
+
+    // when, then
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(
