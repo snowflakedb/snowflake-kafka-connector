@@ -27,7 +27,7 @@ class TestIcebergJsonAws(BaseE2eTest):
                 "id": 1,
                 "body_temperature": 36.6,
                 "name": "Steve",
-                "approved_coffee_types": ["Espresso"],
+                "approved_coffee_types": ["Espresso", "Doppio", "Ristretto", "Lungo"],
                 "animals_possessed": {"dogs": True, "cats": False},
             }
         )
