@@ -1,13 +1,14 @@
 import json
 
 from test_suit.test_utils import NonRetryableError
+from test_suit.base_e2e import BaseE2eTest
 
 
 # test if the table is updated with the correct column
 # add test if all the records from different topics safely land in the table
 # the table is suppose to be created with only RECORD_METADATA in the beginning
 # while the rest of columns should be handled by schema evolution
-class TestSchemaEvolutionWithAutoTableCreationJson:
+class TestSchemaEvolutionWithAutoTableCreationJson(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.fileName = "travis_correct_schema_evolution_w_auto_table_creation_json"

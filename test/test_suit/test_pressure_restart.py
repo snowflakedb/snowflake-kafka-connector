@@ -1,8 +1,9 @@
 from test_suit.test_utils import RetryableError, NonRetryableError, ResetAndRetry
 import json
 from time import sleep
+from test_suit.base_e2e import BaseE2eTest
 
-class TestPressureRestart:
+class TestPressureRestart(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.topics = []

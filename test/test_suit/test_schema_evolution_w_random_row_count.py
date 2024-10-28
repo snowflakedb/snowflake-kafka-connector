@@ -2,11 +2,12 @@ import json
 import random
 
 from test_suit.test_utils import NonRetryableError
+from test_suit.base_e2e import BaseE2eTest
 
 
 # test if the ingestion works when the schematization alter table invalidation happens
 # halfway through a batch
-class TestSchemaEvolutionWithRandomRowCount:
+class TestSchemaEvolutionWithRandomRowCount(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.fileName = "test_schema_evolution_w_random_row_count"

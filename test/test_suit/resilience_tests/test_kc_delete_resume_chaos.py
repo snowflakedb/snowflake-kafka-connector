@@ -3,6 +3,7 @@ import datetime
 from test_suit.test_utils import RetryableError, NonRetryableError, ResetAndRetry
 import json
 from time import sleep
+from test_suit.base_e2e import BaseE2eTest
 
 # sends data 1/3
 # deletes the connector
@@ -10,7 +11,7 @@ from time import sleep
 # resumes the connector (will not work, because connector was deleted)
 # sends data 2/3
 # verifies that 2-3 rounds of data was ingested, since some round 2 data may have been ingested prior to connector deletion
-class TestKcDeleteResumeChaos:
+class TestKcDeleteResumeChaos(BaseE2eTest):
     def __init__(self, driver, nameSalt):
         self.driver = driver
         self.nameSalt = nameSalt
@@ -53,8 +54,7 @@ class TestKcDeleteResumeChaos:
         # since the pressure is applied during deletion, some of the data may be ingested, so look for a range
         goalCountUpper = self.recordNum * self.expectedsends
         goalCountLower = self.recordNum * (self.expectedsends - 1)
-        res = self.driver.snowflake_conn.cursor().execute(
-            "SELECT count(*) FROM {}".format(self.topic)).fetchone()[0]
+        res = self.driver.select_number_of_records(self.topic)
 
         print("Count records in table {}={}. Goal record count between: {} - {}".format(self.topic, str(res), str(goalCountLower), str(goalCountUpper)))
 
