@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.config;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
 import static com.snowflake.kafka.connector.Utils.*;
 import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
@@ -22,6 +23,10 @@ public class SnowflakeSinkConnectorConfigBuilder {
 
   public static SnowflakeSinkConnectorConfigBuilder snowpipeConfig() {
     return commonRequiredFields().withIngestionMethod(IngestionMethodConfig.SNOWPIPE);
+  }
+
+  public static SnowflakeSinkConnectorConfigBuilder streamingConfig() {
+    return commonRequiredFields().withIngestionMethod(IngestionMethodConfig.SNOWPIPE_STREAMING);
   }
 
   public static SnowflakeSinkConnectorConfigBuilder icebergConfig() {
@@ -110,6 +115,12 @@ public class SnowflakeSinkConnectorConfigBuilder {
 
   public SnowflakeSinkConnectorConfigBuilder withSchematizationEnabled(boolean enabled) {
     config.put(ENABLE_SCHEMATIZATION_CONFIG, Boolean.toString(enabled));
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withChannelOffsetTokenVerificationFunctionEnabled(
+      boolean enabled) {
+    config.put(ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG, Boolean.toString(enabled));
     return this;
   }
 

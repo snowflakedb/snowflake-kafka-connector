@@ -58,16 +58,14 @@ public class StreamingUtils {
   public static final String STREAMING_CONSTANT_OAUTH_CLIENT_SECRET = "oauth_client_secret";
   public static final String STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN = "oauth_refresh_token";
 
-  // Offset verification function to verify that the current start offset has to be the previous end
-  // offset + 1, note that there are some false positives when SMT is used.
+  // Offset verification function to verify that the current start offset has to incremental,
+  // note that there are some false positives when SMT is used.
   public static final OffsetTokenVerificationFunction offsetTokenVerificationFunction =
       (prevBatchEndOffset, curBatchStartOffset, curBatchEndOffset, rowCount) -> {
         if (prevBatchEndOffset != null && curBatchStartOffset != null) {
           long curStart = Long.parseLong(curBatchStartOffset);
           long prevEnd = Long.parseLong(prevBatchEndOffset);
-          if (curStart != prevEnd + 1) {
-            return false;
-          }
+          return curStart > prevEnd;
         }
         return true;
       };

@@ -478,6 +478,16 @@ public class ConnectorConfigDefinition {
             ICEBERG_ENABLED_DEFAULT_VALUE,
             ConfigDef.Importance.HIGH,
             "When set to true the connector will ingest data into the Iceberg table. Check the"
-                + " official Snowflake documentation for the prerequisites.");
+                + " official Snowflake documentation for the prerequisites.")
+        .define(
+            ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
+            ConfigDef.Type.BOOLEAN,
+            ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DEFAULT,
+            ConfigDef.Importance.LOW,
+            ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DOC,
+            CONNECTOR_CONFIG_DOC,
+            11,
+            ConfigDef.Width.NONE,
+            ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DISPLAY);
   }
 }
