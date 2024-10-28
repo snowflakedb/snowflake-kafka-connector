@@ -518,8 +518,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           LOGGER.info(
               "Closing partitionChannel:{}, partition:{}, topic:{}",
               topicPartitionChannel == null ? null : topicPartitionChannel.getChannelNameFormatV1(),
-              topicPartition.topic(),
-              topicPartition.partition());
+              topicPartition.partition(),
+              topicPartition.topic());
           partitionsToChannel.remove(partitionChannelKey);
         });
   }
@@ -539,8 +539,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     LOGGER.info(
         "Closing partitionChannel:{}, partition:{}, topic:{}",
         topicPartitionChannel == null ? null : topicPartitionChannel.getChannelNameFormatV1(),
-        topicPartition.topic(),
-        topicPartition.partition());
+        topicPartition.partition(),
+        topicPartition.topic());
 
     // It's possible that some partitions can be unassigned before their respective channels are
     // even created.
