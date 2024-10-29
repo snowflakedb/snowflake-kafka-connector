@@ -1,19 +1,6 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JVM_PROXY_HOST;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JVM_PROXY_PORT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_URL;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_USER;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import static org.assertj.core.api.Assertions.*;
@@ -187,16 +174,16 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testIllegalTopicMap() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "$@#$#@%^$12312");
+    config.put(TOPICS_TABLES_MAP, "$@#$#@%^$12312");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP);
+        .hasMessageContaining(TOPICS_TABLES_MAP);
   }
 
   @Test
   public void testIllegalTableName() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:!@#@!#!@");
+    config.put(TOPICS_TABLES_MAP, "topic1:!@#@!#!@");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .matches(
@@ -209,7 +196,7 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testDuplicatedTopic() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:table1,topic1:table2");
+    config.put(TOPICS_TABLES_MAP, "topic1:table1,topic1:table2");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .matches(
@@ -222,7 +209,7 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testDuplicatedTableName() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:table1,topic2:table1");
+    config.put(TOPICS_TABLES_MAP, "topic1:table1,topic2:table1");
     connectorConfigValidator.validateConfig(config);
   }
 
@@ -230,7 +217,7 @@ public class ConnectorConfigValidatorTest {
   public void testNameMapCovered() {
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.TOPICS, "!@#,$%^,test");
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "!@#:table1,$%^:table2");
+    config.put(TOPICS_TABLES_MAP, "!@#:table1,$%^:table2");
     connectorConfigValidator.validateConfig(config);
   }
 
