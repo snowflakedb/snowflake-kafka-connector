@@ -6,10 +6,10 @@ from time import sleep
 from test_suit.base_e2e import BaseE2eTest
 
 
-class TestIcebergJsonAws(BaseE2eTest):
+class TestIcebergJson(BaseE2eTest):
     def __init__(self, driver, nameSalt: str):
         self.driver = driver
-        self.fileName = "iceberg_json_aws"
+        self.fileName = "iceberg_json"
         self.topic = self.fileName + nameSalt
 
     def getConfigFileName(self):
@@ -18,7 +18,7 @@ class TestIcebergJsonAws(BaseE2eTest):
     def setup(self):
         self.driver.create_iceberg_table_with_content(
             table_name=self.topic,
-            external_volume="kafka_push_e2e_volume_aws",  # volume created manually
+            external_volume="kafka_push_e2e_volume",  # volume created manually on AWS and GCP
         )
 
     def send(self):
