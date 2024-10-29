@@ -345,6 +345,8 @@
                     <artifactId>snowflake-jdbc</artifactId>
                 </exclusion>
             </exclusions>
+            <scope>system</scope>
+            <systemPath>/Users/bzabek/snowflake-kafka-connector/snowflake-ingest-sdk.jar</systemPath>
         </dependency>
 
         <dependency>
