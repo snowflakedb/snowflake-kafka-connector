@@ -174,16 +174,16 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testIllegalTopicMap() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "$@#$#@%^$12312");
+    config.put(TOPICS_TABLES_MAP, "$@#$#@%^$12312");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP);
+        .hasMessageContaining(TOPICS_TABLES_MAP);
   }
 
   @Test
   public void testIllegalTableName() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:!@#@!#!@");
+    config.put(TOPICS_TABLES_MAP, "topic1:!@#@!#!@");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .matches(
@@ -196,7 +196,7 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testDuplicatedTopic() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:table1,topic1:table2");
+    config.put(TOPICS_TABLES_MAP, "topic1:table1,topic1:table2");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .matches(
@@ -209,7 +209,7 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testDuplicatedTableName() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:table1,topic2:table1");
+    config.put(TOPICS_TABLES_MAP, "topic1:table1,topic2:table1");
     connectorConfigValidator.validateConfig(config);
   }
 
@@ -217,7 +217,7 @@ public class ConnectorConfigValidatorTest {
   public void testNameMapCovered() {
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.TOPICS, "!@#,$%^,test");
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "!@#:table1,$%^:table2");
+    config.put(TOPICS_TABLES_MAP, "!@#:table1,$%^:table2");
     connectorConfigValidator.validateConfig(config);
   }
 
@@ -495,7 +495,6 @@ public class ConnectorConfigValidatorTest {
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     config.remove(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "false");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
@@ -511,7 +510,6 @@ public class ConnectorConfigValidatorTest {
     config.put(
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
         (StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC - 1) + "");
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "false");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
@@ -525,7 +523,6 @@ public class ConnectorConfigValidatorTest {
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "fdas");
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "false");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
@@ -538,7 +535,6 @@ public class ConnectorConfigValidatorTest {
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "false");
     config.remove(BUFFER_SIZE_BYTES);
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
@@ -553,7 +549,6 @@ public class ConnectorConfigValidatorTest {
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     config.remove(BUFFER_COUNT_RECORDS);
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "false");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(BUFFER_COUNT_RECORDS);
@@ -567,7 +562,6 @@ public class ConnectorConfigValidatorTest {
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     config.put(BUFFER_COUNT_RECORDS, "-1");
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "false");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(BUFFER_COUNT_RECORDS);
@@ -581,7 +575,6 @@ public class ConnectorConfigValidatorTest {
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     config.put(BUFFER_COUNT_RECORDS, "adssadsa");
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "false");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(BUFFER_COUNT_RECORDS);
@@ -973,7 +966,6 @@ public class ConnectorConfigValidatorTest {
     config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.OAUTH);
     config.put(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET, "client_secret");
     config.put(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN, "refresh_token");
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "false");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID);
