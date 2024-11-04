@@ -36,7 +36,7 @@ jobs:
         python-version: '3.9'
         architecture: 'x64'
     - name: Print gpg version
-      run: ./gpg_version.sh
+      run: ./.github/scripts/gpg_version.sh
     - name: Decrypt profile.json in Snowflake Cloud ${{ matrix.snowflake_cloud }}
       run: ./.github/scripts/decrypt_secret.sh ${{ matrix.snowflake_cloud }}
       env:
