@@ -11,12 +11,10 @@ import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -35,7 +33,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareData")
-  @Disabled
+  // @Disabled
   void shouldEvolveSchemaAndInsertRecords(
       String description, String message, DescribeTableRow[] expectedSchema, boolean withSchema)
       throws Exception {
@@ -79,6 +77,64 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     waitForOffset(3);
 
     assertRecordsInTable();
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("prepareData")
+  // @Disabled
+  void shouldEvolveSchemaAndInsertRecords_withObjects(
+      String description, String message, DescribeTableRow[] expectedSchema, boolean withSchema)
+      throws Exception {
+    // start off with just one column
+    List<DescribeTableRow> rows = describeTable(tableName);
+    assertThat(rows)
+        .hasSize(1)
+        .extracting(DescribeTableRow::getColumn)
+        .contains(Utils.TABLE_COLUMN_METADATA);
+
+    SinkRecord record = createKafkaRecord(message, 0, withSchema);
+    service.insert(Collections.singletonList(record));
+    waitForOffset(-1);
+    rows = describeTable(tableName);
+    assertThat(rows.size()).isEqualTo(9);
+
+    // don't check metadata column schema, we have different tests for that
+    rows =
+        rows.stream()
+            .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
+            .collect(Collectors.toList());
+
+    assertThat(rows).containsExactlyInAnyOrder(expectedSchema);
+
+    // resend and store same record without any issues now
+    service.insert(Collections.singletonList(record));
+    waitForOffset(1);
+
+    // and another record with same schema
+    service.insert(Collections.singletonList(createKafkaRecord(message, 1, withSchema)));
+    waitForOffset(2);
+
+    String testStruct = "{ \"testStruct\": {" + "\"k1\" : 1," + "\"k2\" : 2" + "} " + "}";
+
+    //    String testStruct =
+    //            "{ \"testStruct\": {" +
+    //                    "\"k1\" : { \"nested_key1\" : 1}," +
+    //                    "\"k2\" : { \"nested_key2\" : 2}" +
+    //                    "} " +
+    //                    "}";
+
+    //    String testStruct =
+    //            "{ \"testStruct\": {" +
+    //                    "\"k1\" : { \"car\" : { \"brand\" : \"vw\" } }," +
+    //                    "\"k2\" : { \"car\" : { \"brand\" : \"toyota\" } }" +
+    //                    "} " +
+    //                    "}";
+    // reinsert record with extra field
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 2, false)));
+    rows = describeTable(tableName);
+    // assertThat(rows).hasSize(15);
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 2, false)));
+    waitForOffset(3);
   }
 
   private void assertRecordsInTable() {
