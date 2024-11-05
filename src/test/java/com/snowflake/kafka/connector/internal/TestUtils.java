@@ -122,7 +122,6 @@ public class TestUtils {
   private static final String AZ_CREDENTIAL_TYPE_CODE = "code";
 
   private static final Random random = new Random();
-  private static final String DES_RSA_KEY = "des_rsa_key";
   public static final String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
   private static final Pattern BROKEN_RECORD_PATTERN =
       Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(key|value)_(\\d+)\\.gz$");
@@ -483,10 +482,6 @@ public class TestUtils {
     String query = "select * from " + tableName;
 
     return executeQuery(query);
-  }
-
-  static String getDesRsaKey() {
-    return getProfile(PROFILE_PATH).get(DES_RSA_KEY).asText();
   }
 
   /**
