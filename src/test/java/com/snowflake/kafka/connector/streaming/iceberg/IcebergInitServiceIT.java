@@ -31,7 +31,6 @@ public class IcebergInitServiceIT extends BaseIcebergIT {
   }
 
   @Test
-  @Disabled("Disabled to unblock 2.5.0 release. Fails on master branch as well.")
   void shouldInitializeMetadataType() {
     // given
     createIcebergTable(tableName);
