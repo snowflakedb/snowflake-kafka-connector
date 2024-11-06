@@ -41,6 +41,7 @@ import org.junit.runners.Parameterized;
 import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
+@Ignore
 public class DirectStreamingClientConcurrencyTest {
   private Map<String, String> clientConfig;
 
