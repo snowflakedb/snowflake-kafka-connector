@@ -30,26 +30,22 @@ class NonRetryableError(Error):
         self.msg = msg
 
 
-def parsePrivateKey(pk, pk_passphrase):
-    pkpass = None
-    if len(pk_passphrase) != 0:
-        pkpass = pk_passphrase.encode()
-
+def parsePrivateKey(pk):
     # remove header, footer, and line breaks
     pk = re.sub("-+[A-Za-z ]+-+", "", pk)
     pk = re.sub("\\s", "", pk)
 
     pkBuilder = ""
-    pkBuilder += "-----BEGIN ENCRYPTED PRIVATE KEY-----"
+    pkBuilder += "-----BEGIN PRIVATE KEY-----"
     for i, c in enumerate(pk):
         if i % 64 == 0:
             pkBuilder += "\n"
         pkBuilder += c
-    pkBuilder += "\n-----END ENCRYPTED PRIVATE KEY-----"
+    pkBuilder += "\n-----END PRIVATE KEY-----"
 
     p_key = serialization.load_pem_private_key(
         pkBuilder.encode(),
-        password=pkpass,
+        password=None,
         backend=default_backend()
     )
 

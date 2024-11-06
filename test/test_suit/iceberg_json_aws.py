@@ -18,7 +18,7 @@ class TestIcebergJsonAws(BaseE2eTest):
     def setup(self):
         self.driver.create_iceberg_table_with_content(
             table_name=self.topic,
-            external_volume="kafka_push_e2e_volume_aws",  # volume created manually
+            external_volume="test_exvol",  # volume created manually
         )
 
     def send(self):
