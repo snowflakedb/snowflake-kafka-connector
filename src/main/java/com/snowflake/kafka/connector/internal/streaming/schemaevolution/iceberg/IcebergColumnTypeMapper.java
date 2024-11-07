@@ -52,7 +52,10 @@ public class IcebergColumnTypeMapper extends ColumnTypeMapper {
         } else {
           return "BINARY";
         }
+      case STRUCT:
+        return "OBJECT()";
       case ARRAY:
+        throw new IllegalArgumentException("Arrays, struct and map not supported!");
       default:
         // MAP and STRUCT will go here
         throw new IllegalArgumentException("Arrays, struct and map not supported!");
