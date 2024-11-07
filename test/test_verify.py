@@ -19,7 +19,7 @@ from test_selector import TestSelector
 import time
 
 import test_suit
-from test_suit . test_utils import parsePrivateKey , RetryableError
+from test_suit.test_utils import parsePrivateKey, RetryableError
 
 from cloud_platform import CloudPlatform
 

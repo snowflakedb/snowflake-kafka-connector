@@ -41,7 +41,7 @@ import org.junit.runners.Parameterized;
 import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
-@Ignore
+@Ignore("Test stucks in the CI after migration from prod to preprod")
 public class DirectStreamingClientConcurrencyTest {
   private Map<String, String> clientConfig;
 
