@@ -57,7 +57,8 @@ class KafkaTest:
             testDatabase = credentialJson["database"]
             testSchema = credentialJson["schema"]
             testWarehouse = credentialJson["warehouse"]
-            pk = credentialJson["private_key"]
+            pk = credentialJson["encrypted_private_key"]
+            pk_passphrase = credentialJson["private_key_passphrase"]
 
         self.TEST_DATA_FOLDER = "./test_data/"
         self.httpHeader = {'Content-type': 'application/json', 'Accept': 'application/json'}
@@ -102,9 +103,10 @@ class KafkaTest:
             print(datetime.now().strftime("%H:%M:%S "),
                   "Format error in 'host' field at profile.json, expecting account.snowflakecomputing.com:443")
 
+        pkb = parsePrivateKey(pk, pk_passphrase)
         self.snowflake_conn = snowflake.connector.connect(
             user=testUser,
-            private_key= parsePrivateKey(pk),
+            private_key=pkb,
             account=account[0][:-19],
             warehouse=testWarehouse,
             database=testDatabase,
@@ -397,6 +399,8 @@ class KafkaTest:
             testDatabase = credentialJson["database"]
             testSchema = credentialJson["schema"]
             pk = credentialJson["private_key"]
+            # Use Encrypted key if passphrase is non empty
+            pkEncrypted = credentialJson["encrypted_private_key"]
 
         print(datetime.now().strftime("\n%H:%M:%S "),
               "=== generate sink connector rest request from {} ===".format(rest_template_path))
@@ -409,6 +413,9 @@ class KafkaTest:
               "=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
         with open("{}/{}".format(rest_template_path, fileName), 'r') as f:
             fileContent = f.read()
+            # Template has passphrase, use the encrypted version of P8 Key
+            if fileContent.find("snowflake.private.key.passphrase") != -1:
+                pk = pkEncrypted
 
             fileContent = fileContent \
                 .replace("SNOWFLAKE_PRIVATE_KEY", pk) \
