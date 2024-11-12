@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -24,7 +25,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Map;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaParseException;
