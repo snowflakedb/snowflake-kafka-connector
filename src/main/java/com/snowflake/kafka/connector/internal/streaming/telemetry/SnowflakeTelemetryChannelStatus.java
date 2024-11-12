@@ -22,7 +22,6 @@ import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPart
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
@@ -30,6 +29,7 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicI
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants;
 import java.util.concurrent.atomic.AtomicLong;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * Extension of {@link SnowflakeTelemetryBasicInfo} class used to send data to snowflake when the

@@ -1,9 +1,9 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
 /** Minimum information needed to sent to Snowflake through Telemetry API */
 public abstract class SnowflakeTelemetryBasicInfo {
