@@ -3,14 +3,14 @@ package com.snowflake.kafka.connector.records;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 
 class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
 

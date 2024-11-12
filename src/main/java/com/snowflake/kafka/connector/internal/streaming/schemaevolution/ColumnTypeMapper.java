@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution;
 
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.connect.data.Schema;
 
 public abstract class ColumnTypeMapper {

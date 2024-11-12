@@ -16,10 +16,10 @@
  */
 package com.snowflake.kafka.connector.records;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.io.IOException;
 import java.util.ArrayList;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.SeekableByteArrayInput;
 import org.apache.avro.generic.GenericDatumReader;

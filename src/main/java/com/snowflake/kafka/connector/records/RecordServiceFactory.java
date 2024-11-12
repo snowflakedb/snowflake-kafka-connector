@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.records;
 
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class RecordServiceFactory {
   public static RecordService createRecordService(

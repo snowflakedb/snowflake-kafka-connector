@@ -29,6 +29,8 @@ import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
 import static com.snowflake.kafka.connector.Utils.buildOAuthHttpPostRequest;
 import static com.snowflake.kafka.connector.Utils.getSnowflakeOAuthToken;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -70,8 +72,6 @@ import net.snowflake.client.jdbc.internal.apache.http.entity.StringEntity;
 import net.snowflake.client.jdbc.internal.apache.http.impl.client.CloseableHttpClient;
 import net.snowflake.client.jdbc.internal.apache.http.impl.client.HttpClientBuilder;
 import net.snowflake.client.jdbc.internal.apache.http.util.EntityUtils;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.google.gson.JsonObject;
 import net.snowflake.client.jdbc.internal.google.gson.JsonParser;
 import org.apache.kafka.common.record.TimestampType;

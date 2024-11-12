@@ -17,11 +17,11 @@
 
 package com.snowflake.kafka.connector.internal.streaming.telemetry;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import net.snowflake.client.jdbc.telemetry.Telemetry;
 import net.snowflake.client.jdbc.telemetry.TelemetryClient;
 

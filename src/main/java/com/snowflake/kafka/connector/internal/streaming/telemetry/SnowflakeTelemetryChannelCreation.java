@@ -22,9 +22,9 @@ import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstant
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TOPIC_PARTITION_CHANNEL_CREATION_TIME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TOPIC_PARTITION_CHANNEL_NAME;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * This object is sent only once when a channel starts. No concurrent modification is made on this

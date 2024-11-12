@@ -3,6 +3,8 @@ package com.snowflake.kafka.connector.records;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonExample;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.Utils;
@@ -10,8 +12,6 @@ import com.snowflake.kafka.connector.records.RecordService.SnowflakeTableRow;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;

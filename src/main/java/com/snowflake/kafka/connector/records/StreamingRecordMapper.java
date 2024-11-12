@@ -1,11 +1,11 @@
 package com.snowflake.kafka.connector.records;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.NumericNode;
 import com.snowflake.kafka.connector.records.RecordService.SnowflakeTableRow;
 import java.util.Map;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.NumericNode;
 
 abstract class StreamingRecordMapper {
 

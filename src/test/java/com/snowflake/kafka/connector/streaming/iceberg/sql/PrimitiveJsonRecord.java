@@ -1,7 +1,10 @@
 package com.snowflake.kafka.connector.streaming.iceberg.sql;
 
-import static net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
+import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
 import java.io.IOException;
@@ -10,9 +13,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.annotation.JsonCreator;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.annotation.JsonProperty;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.assertj.core.api.Assertions;
 
 public class PrimitiveJsonRecord {

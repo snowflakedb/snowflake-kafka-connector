@@ -2,14 +2,14 @@ package com.snowflake.kafka.connector.internal.telemetry;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.Map;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import net.snowflake.client.jdbc.telemetry.Telemetry;
 import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
 import org.apache.kafka.common.utils.AppInfoParser;
@@ -197,14 +197,32 @@ public abstract class SnowflakeTelemetryService {
    *
    * </pre>
    *
+   * <p>NOTE! com.fasterxml is mapped to net.snowflake.client.jdbc.internal.fasterxml. The reasoning
+   * is to unbound rest of the connector from jdbc driver type.
+   *
    * @param type type of Data
    * @param data JsonData to wrap in a json field called data
    */
   protected void send(SnowflakeTelemetryService.TelemetryType type, JsonNode data) {
-    ObjectNode msg = MAPPER.createObjectNode();
+    net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode telemetryData;
+    net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper objectMapper =
+        new net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper();
+    try {
+      telemetryData =
+          objectMapper.readValue(
+              data.toString(),
+              net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode.class);
+    } catch (net.snowflake.client.jdbc.internal.fasterxml.jackson.core.JsonProcessingException e) {
+      LOGGER.error(
+          "Failed to parse telemetry data: {}, Error: {}", data.toString(), e.getMessage());
+      telemetryData = objectMapper.createObjectNode();
+    }
+    net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode msg =
+        new net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper()
+            .createObjectNode();
     msg.put(SOURCE, KAFKA_CONNECTOR);
     msg.put(TYPE, type.toString());
-    msg.set(DATA, data);
+    msg.set(DATA, telemetryData);
     msg.put(VERSION, Utils.VERSION); // version number
     try {
       telemetry.addLogToBatch(TelemetryUtil.buildJobData(msg));

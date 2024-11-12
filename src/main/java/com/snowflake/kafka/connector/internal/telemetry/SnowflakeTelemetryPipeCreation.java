@@ -10,7 +10,7 @@ import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstant
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.START_TIME;
 import static com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants.TABLE_NAME;
 
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * This object is send only once when pipe starts No concurrent modification is made on this object,

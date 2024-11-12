@@ -1,8 +1,8 @@
 package com.snowflake.kafka.connector.records;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.connect.data.Schema;
 
 public class SnowflakeRecordContent {

@@ -1,14 +1,14 @@
 package com.snowflake.kafka.connector.streaming.iceberg.sql;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Objects;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.annotation.JsonCreator;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.annotation.JsonProperty;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import org.assertj.core.api.Assertions;
 
 public class MetadataRecord {
