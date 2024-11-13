@@ -91,8 +91,9 @@ public class StreamingClientProperties {
 
     // Override only if the streaming client properties are explicitly set in config
     this.parameterOverrides = new HashMap<>();
-    parameterOverrides.put(ENABLE_ICEBERG_STREAMING, isIcebergEnabled);
-
+    if (isIcebergEnabled) {
+      parameterOverrides.put(ENABLE_ICEBERG_STREAMING, "true");
+    }
     Optional<String> snowpipeStreamingMaxClientLag =
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG));
     snowpipeStreamingMaxClientLag.ifPresent(
