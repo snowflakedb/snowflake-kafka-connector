@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.streaming.iceberg;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfForStreaming;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -49,6 +50,7 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(ICEBERG_ENABLED, "TRUE");
     config.put(ENABLE_SCHEMATIZATION_CONFIG, isSchemaEvolutionEnabled().toString());
+    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "true");
 
     createIcebergTable();
     enableSchemaEvolution(tableName);
