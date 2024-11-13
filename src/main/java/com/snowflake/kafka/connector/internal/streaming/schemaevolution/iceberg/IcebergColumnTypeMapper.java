@@ -11,6 +11,8 @@ import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnTypeMapper;
+import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.Types;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
@@ -18,6 +20,52 @@ import org.apache.kafka.connect.data.Time;
 import org.apache.kafka.connect.data.Timestamp;
 
 public class IcebergColumnTypeMapper extends ColumnTypeMapper {
+
+  /**
+   * See <a href="https://docs.snowflake.com/en/user-guide/tables-iceberg-data-types">Data types for
+   * Apache Iceberg™ tables</a>
+   */
+  public static String mapToSnowflakeDataType(Type apacheIcebergType) {
+    switch (apacheIcebergType.typeId()) {
+      case BOOLEAN:
+        return "BOOLEAN";
+      case INTEGER:
+        return "NUMBER(10,0)";
+      case LONG:
+        return "NUMBER(19,0)";
+      case FLOAT:
+      case DOUBLE:
+        return "FLOAT";
+      case DATE:
+        return "DATE";
+      case TIME:
+        return "TIME(6)";
+      case TIMESTAMP:
+        Types.TimestampType timestamp = (Types.TimestampType) apacheIcebergType;
+        return timestamp.shouldAdjustToUTC() ? "TIMESTAMP_LTZ" : "TIMESTAMP";
+      case STRING:
+        return "VARCHAR(16777216)";
+      case UUID:
+        return "BINARY(16)";
+      case FIXED:
+        throw new IllegalArgumentException("FIXED column type not supported!");
+      case BINARY:
+        return "BINARY";
+      case DECIMAL:
+        Types.DecimalType decimal = (Types.DecimalType) apacheIcebergType;
+        return decimal.toString().toUpperCase();
+      case STRUCT:
+        return "OBJECT";
+      case LIST:
+        return "ARRAY";
+      case MAP:
+        return "MAP";
+      default:
+        throw new IllegalArgumentException(
+            "Fail unsupported datatype! - " + apacheIcebergType.typeId());
+    }
+  }
+
   @Override
   public String mapToColumnType(Schema.Type kafkaType, String schemaName) {
     switch (kafkaType) {
