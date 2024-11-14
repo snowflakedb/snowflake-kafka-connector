@@ -81,50 +81,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     assertRecordsInTable();
   }
 
-  @ParameterizedTest(name = "{0}")
-  @MethodSource("prepareData")
-  @Disabled
-  // Schema evolution for structured types is not yet supported
-  void shouldEvolveSchemaAndInsertRecords_structuredData(
-      String description, String message, DescribeTableRow[] expectedSchema, boolean withSchema)
-      throws Exception {
-    // start off with just one column
-    List<DescribeTableRow> rows = describeTable(tableName);
-    assertThat(rows)
-        .hasSize(1)
-        .extracting(DescribeTableRow::getColumn)
-        .contains(Utils.TABLE_COLUMN_METADATA);
-
-    SinkRecord record = createKafkaRecord(message, 0, withSchema);
-    service.insert(Collections.singletonList(record));
-    waitForOffset(-1);
-    rows = describeTable(tableName);
-    assertThat(rows.size()).isEqualTo(9);
-
-    // don't check metadata column schema, we have different tests for that
-    rows =
-        rows.stream()
-            .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
-            .collect(Collectors.toList());
-
-    assertThat(rows).containsExactlyInAnyOrder(expectedSchema);
-
-    // resend and store same record without any issues now
-    service.insert(Collections.singletonList(record));
-    waitForOffset(1);
-
-    // and another record with same schema
-    service.insert(Collections.singletonList(createKafkaRecord(message, 1, withSchema)));
-    waitForOffset(2);
-
-    String testStruct = "{ \"testStruct\": {" + "\"k1\" : 1," + "\"k2\" : 2" + "} " + "}";
-
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 2, false)));
-
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 2, false)));
-    waitForOffset(3);
-  }
-
   private void assertRecordsInTable() {
     List<RecordWithMetadata<PrimitiveJsonRecord>> recordsWithMetadata =
         selectAllSchematizedRecords();
