@@ -338,7 +338,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-ingest-sdk</artifactId>
-            <version>2.3.0</version>
+            <version>3.0.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>net.snowflake</groupId>
