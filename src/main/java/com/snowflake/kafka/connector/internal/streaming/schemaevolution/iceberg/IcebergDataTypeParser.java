@@ -1,7 +1,3 @@
-/*
- * Copyright (c) 2024 Snowflake Computing Inc. All rights reserved.
- */
-
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -20,10 +16,6 @@ import org.apache.iceberg.util.JsonUtil;
 /**
  * This class is used to Iceberg data type (include primitive types and nested types) serialization
  * and deserialization.
- *
- * <p>This code is modified from
- * GlobalServices/modules/data-lake/datalake-api/src/main/java/com/snowflake/metadata/iceberg
- * /IcebergDataTypeParser.java
  */
 public class IcebergDataTypeParser {
   public static final String ELEMENT = "element";
