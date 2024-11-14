@@ -8,7 +8,6 @@ import com.google.common.collect.Lists;
 import java.util.Iterator;
 import java.util.List;
 import javax.annotation.Nonnull;
-import org.apache.iceberg.parquet.TypeToMessageType;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.JsonUtil;
@@ -40,9 +39,6 @@ public class IcebergDataTypeParser {
 
   /** Object mapper for this class */
   private static final ObjectMapper MAPPER = new ObjectMapper();
-
-  /** Util class that contains the mapping between Iceberg data type and Parquet data type */
-  private static final TypeToMessageType typeToMessageType = new TypeToMessageType();
 
   /**
    * Get Iceberg data type information by deserialization.

@@ -91,7 +91,8 @@ ADDITIONAL_LICENSES_MAP = {
     "org.projectnessie.cel:cel-jackson": APACHE_LICENSE,
     "org.projectnessie.cel:cel-tools": APACHE_LICENSE,
     "org.xerial.snappy:snappy-java": APACHE_LICENSE,
-    "org.yaml:snakeyaml": APACHE_LICENSE
+    "org.yaml:snakeyaml": APACHE_LICENSE,
+    "org.apache.iceberg:iceberg-api": APACHE_LICENSE
 }
 
 

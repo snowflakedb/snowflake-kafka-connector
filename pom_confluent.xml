@@ -764,16 +764,6 @@
             <artifactId>iceberg-api</artifactId>
             <version>${iceberg.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-core</artifactId>
-            <version>${iceberg.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-parquet</artifactId>
-            <version>${iceberg.version}</version>
-        </dependency>
 
     </dependencies>
 
