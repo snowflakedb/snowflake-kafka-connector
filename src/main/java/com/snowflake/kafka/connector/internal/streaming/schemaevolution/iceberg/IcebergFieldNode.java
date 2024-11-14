@@ -13,7 +13,7 @@ class IcebergFieldNode {
 
   public final LinkedHashMap<String, IcebergFieldNode> children;
 
-  public IcebergFieldNode(String name, Type apacheIcebergSchema) {
+  IcebergFieldNode(String name, Type apacheIcebergSchema) {
     this.name = name;
     this.snowflakeIcebergType = IcebergColumnTypeMapper.mapToSnowflakeDataType(apacheIcebergSchema);
     this.children = produceChildren(apacheIcebergSchema);
