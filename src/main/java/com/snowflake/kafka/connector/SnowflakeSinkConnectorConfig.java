@@ -134,6 +134,7 @@ public class SnowflakeSinkConnectorConfig {
       "snowflake.streaming.enable.single.buffer";
 
   public static final boolean SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT = false;
+  public static final boolean SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_ICEBERG_DEFAULT = true;
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
       "snowflake.streaming.max.client.lag";
 
@@ -253,6 +254,18 @@ public class SnowflakeSinkConnectorConfig {
         config, BUFFER_FLUSH_TIME_SEC, BUFFER_FLUSH_TIME_SEC_DEFAULT, "seconds");
 
     if (isSnowpipeStreamingIngestion(config)) {
+      setSingleBufferDefaultValue(config);
+    }
+  }
+
+  private static void setSingleBufferDefaultValue(Map<String, String> config) {
+    if (Utils.isIcebergEnabled(config)) {
+      setFieldToDefaultValues(
+          config,
+          SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
+          SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_ICEBERG_DEFAULT,
+          "");
+    } else {
       setFieldToDefaultValues(
           config,
           SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
