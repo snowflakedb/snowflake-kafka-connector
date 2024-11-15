@@ -93,7 +93,8 @@ ADDITIONAL_LICENSES_MAP = {
     "org.xerial.snappy:snappy-java": APACHE_LICENSE,
     "org.yaml:snakeyaml": APACHE_LICENSE,
     "org.apache.iceberg:iceberg-api": APACHE_LICENSE,
-    "org.apache.iceberg:iceberg-core": APACHE_LICENSE
+    "org.apache.iceberg:iceberg-core": APACHE_LICENSE,
+    "org.apache.iceberg:iceberg-common": APACHE_LICENSE
 }
 
 
