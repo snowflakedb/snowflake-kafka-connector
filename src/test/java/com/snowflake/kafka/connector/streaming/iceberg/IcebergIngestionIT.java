@@ -121,7 +121,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
           + "ORDER BY offset_extracted asc;";
 
   protected List<RecordWithMetadata<PrimitiveJsonRecord>> selectAllSchematizedRecords() {
-
     return select(tableName, selectAllSortByOffset, PrimitiveJsonRecord::fromSchematizedResult);
   }
 

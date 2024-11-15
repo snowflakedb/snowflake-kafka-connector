@@ -66,6 +66,7 @@
         <confluent.version>7.7.0</confluent.version>
         <!--Compatible protobuf version https://github.com/confluentinc/common/blob/v7.7.0/pom.xml#L91 -->
         <protobuf.version>3.25.5</protobuf.version>
+        <iceberg.version>1.6.1</iceberg.version>
     </properties>
 
 
@@ -757,6 +758,18 @@
             <version>${assertj-core.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-api</artifactId>
+            <version>${iceberg.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-core</artifactId>
+            <version>${iceberg.version}</version>
+        </dependency>
+
     </dependencies>
 
     <profiles>
