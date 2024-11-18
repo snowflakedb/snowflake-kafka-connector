@@ -1,11 +1,16 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 class IcebergFieldNode {
+
+  // todo consider refactoring into some more classes
+  private final IcebergColumnTypeMapper mapper = IcebergColumnTypeMapper.INSTANCE;
 
   public final String name;
 
@@ -15,8 +20,40 @@ class IcebergFieldNode {
 
   IcebergFieldNode(String name, Type apacheIcebergSchema) {
     this.name = name;
-    this.snowflakeIcebergType = IcebergColumnTypeMapper.mapToSnowflakeDataType(apacheIcebergSchema);
+    this.snowflakeIcebergType = mapper.mapToSnowflakeDataType(apacheIcebergSchema);
     this.children = produceChildren(apacheIcebergSchema);
+  }
+
+  // todo refactor
+  IcebergFieldNode(String name, JsonNode jsonNode) {
+    this.name = name;
+    this.snowflakeIcebergType = mapper.mapToColumnDataTypeFromJson(jsonNode);
+    this.children = produceChildren(jsonNode);
+  }
+
+  private LinkedHashMap<String, IcebergFieldNode> produceChildren(JsonNode recordNode) {
+    // primitives must not have children
+    if (recordNode.isEmpty() || recordNode.isNull()) {
+      return new LinkedHashMap<>();
+    }
+    if (recordNode.isObject()) {
+      ObjectNode objectNode = (ObjectNode) recordNode;
+      return objectNode.properties().stream()
+          .collect(
+              Collectors.toMap(
+                  stringJsonNodeEntry -> stringJsonNodeEntry.getKey(),
+                  stringJsonNodeEntry ->
+                      new IcebergFieldNode(
+                          stringJsonNodeEntry.getKey(), stringJsonNodeEntry.getValue()),
+                  (v1, v2) -> {
+                    throw new IllegalArgumentException("Two same keys: " + v1);
+                  },
+                  LinkedHashMap::new));
+    }
+    if (recordNode.isArray()) {
+
+    }
+    return new LinkedHashMap<>();
   }
 
   private LinkedHashMap<String, IcebergFieldNode> produceChildren(Type apacheIcebergSchema) {

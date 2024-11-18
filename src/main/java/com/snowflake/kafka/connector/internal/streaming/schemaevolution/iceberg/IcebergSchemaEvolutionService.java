@@ -5,7 +5,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.TableSchema;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.TableSchemaResolver;
 import java.util.List;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -46,10 +45,13 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
     // Add columns if needed, ignore any exceptions since other task might be succeeded
     if (!columnsToAdd.isEmpty()) {
       LOGGER.debug("Adding columns to iceberg table: {} columns: {}", tableName, columnsToAdd);
-      TableSchema tableSchema =
-          tableSchemaResolver.resolveTableSchemaFromRecord(record, columnsToAdd);
+      IcebergTableSchema icebergSchema =
+          tableSchemaResolver.resolveIcebergSchema(record, columnsToAdd);
+      System.out.println("stop debugger");
+      // TableSchema tableSchema =
+      //   tableSchemaResolver.resolveTableSchemaFromRecord(record, columnsToAdd);
       try {
-        conn.appendColumnsToIcebergTable(tableName, tableSchema.getColumnInfos());
+        //  conn.appendColumnsToIcebergTable(tableName, tableSchema.getColumnInfos());
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             String.format(

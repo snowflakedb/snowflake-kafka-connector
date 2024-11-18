@@ -2,11 +2,22 @@ package com.snowflake.kafka.connector.streaming.schemaevolution.iceberg;
 
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.ApacheIcebergColumnSchema;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergColumnTree;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergDataTypeParser;
+import com.snowflake.kafka.connector.records.RecordService;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.stream.Stream;
 import org.apache.iceberg.types.Type;
+import org.apache.kafka.common.record.TimestampType;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.header.ConnectHeaders;
+import org.apache.kafka.connect.header.Headers;
+import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -67,5 +78,63 @@ public class ParseIcebergColumnTreeTest {
                 + " NUMBER(10,0), CreateTime NUMBER(19,0), LogAppendTime NUMBER(19,0),"
                 + " SnowflakeConnectorPushTime NUMBER(19,0), headers MAP(VARCHAR(16777216),"
                 + " VARCHAR(16777216)))"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("jsonRecords")
+  void parseFromJsonRecordSchema(String jsonString, String expectedQuery) {
+    // given
+    SinkRecord record = createKafkaRecord(jsonString, false);
+    JsonNode jsonNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
+    // when
+    IcebergColumnTree tree = new IcebergColumnTree("TEST_COLUMN_NAME", jsonNode);
+    // then
+    Assertions.assertEquals(expectedQuery, tree.buildQuery());
+  }
+
+  static Stream<Arguments> jsonRecords() {
+    return Stream.of(
+        arguments("{\"test_number\" : 1 }", "test_number LONG"),
+        arguments(
+            "{ \"testStruct\": {" + "\"k1\" : 1," + "\"k2\" : 2" + "} " + "}",
+            "testStruct OBJECT(k1 LONG, k2 LONG)"),
+        arguments(
+            "{ \"testStruct\": {"
+                + "\"k1\" : { \"nested_key1\" : 1},"
+                + "\"k2\" : { \"nested_key2\" : 2}"
+                + "} "
+                + "}",
+            "testStruct OBJECT(k1 OBJECT(nested_key1 LONG), k2 OBJECT(nested_key2 LONG))"),
+        arguments(
+            "{ \"vehiclesTestStruct\": {"
+                + "\"vehicle1\" : { \"car\" : { \"brand\" : \"vw\" } },"
+                + "\"vehicle2\" : { \"car\" : { \"brand\" : \"toyota\" } }"
+                + "} "
+                + "}",
+            "vehiclesTestStruct OBJECT(vehicle1 OBJECT(car OBJECT(brand VARCHAR)), vehicle2 OBJECT(car OBJECT(brand VARCHAR)))"), // todo lol przy k1, k2 normalna kolejnosc, a przy nazwach vehicle1 i vehicle 2 juz inna
+        arguments(
+                "{\"test_array\": [1,2,3] }", "dono how to do it, yet"
+        ));
+  }
+
+  protected SinkRecord createKafkaRecord(String jsonString, boolean withSchema) {
+    int offset = 0;
+    JsonConverter converter = new JsonConverter();
+    converter.configure(
+        Collections.singletonMap("schemas.enable", Boolean.toString(withSchema)), false);
+    SchemaAndValue inputValue =
+        converter.toConnectData("TOPIC_NAME", jsonString.getBytes(StandardCharsets.UTF_8));
+    Headers headers = new ConnectHeaders();
+    return new SinkRecord(
+        "TOPIC_NAME",
+        1,
+        Schema.STRING_SCHEMA,
+        "test",
+        inputValue.schema(),
+        inputValue.value(),
+        offset,
+        System.currentTimeMillis(),
+        TimestampType.CREATE_TIME,
+        headers);
   }
 }

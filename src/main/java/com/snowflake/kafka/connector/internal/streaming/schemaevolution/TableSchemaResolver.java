@@ -6,6 +6,8 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergColumnTree;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergTableSchema;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -51,10 +53,44 @@ public abstract class TableSchemaResolver {
     }
   }
 
+  public IcebergTableSchema resolveIcebergSchema(SinkRecord record, List<String> columnsToInclude) {
+    if (columnsToInclude == null || columnsToInclude.isEmpty()) {
+      return IcebergTableSchema.Empty();
+    }
+
+    Set<String> columnNamesSet = new HashSet<>(columnsToInclude);
+
+    if (hasSchema(record)) {
+      return getTableSchemaFromRecordSCHEMAIceberg(record, columnNamesSet);
+    } else {
+      return getTableSchemaFromJsonIceberg(record, columnNamesSet);
+    }
+  }
+
   private boolean hasSchema(SinkRecord record) {
     return record.valueSchema() != null
         && record.valueSchema().fields() != null
         && !record.valueSchema().fields().isEmpty();
+  }
+
+  private IcebergTableSchema getTableSchemaFromRecordSCHEMAIceberg(
+      SinkRecord record, Set<String> columnNamesSet) {
+    // todo its second part
+    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
+    throw new IllegalArgumentException("not yet implemented SCHEMA path");
+    // return IcebergTableSchema.Empty();
+  }
+
+  private IcebergTableSchema getTableSchemaFromJsonIceberg(
+      SinkRecord record, Set<String> columnNamesSet) {
+    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
+    List<IcebergColumnTree> columnsInferredFromJson =
+        Streams.stream(recordNode.fields())
+            .map((field) -> new IcebergColumnTree(field.getKey(), field.getValue()))
+            .collect(Collectors.toList());
+
+    IcebergTableSchema tree = new IcebergTableSchema(columnsInferredFromJson);
+    return tree;
   }
 
   private TableSchema getTableSchemaFromRecordSchema(

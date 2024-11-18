@@ -21,11 +21,13 @@ import org.apache.kafka.connect.data.Timestamp;
 
 public class IcebergColumnTypeMapper extends ColumnTypeMapper {
 
+  static IcebergColumnTypeMapper INSTANCE = new IcebergColumnTypeMapper();
+
   /**
    * See <a href="https://docs.snowflake.com/en/user-guide/tables-iceberg-data-types">Data types for
    * Apache Iceberg™ tables</a>
    */
-  public static String mapToSnowflakeDataType(Type apacheIcebergType) {
+  public String mapToSnowflakeDataType(Type apacheIcebergType) {
     switch (apacheIcebergType.typeId()) {
       case BOOLEAN:
         return "BOOLEAN";
@@ -66,6 +68,17 @@ public class IcebergColumnTypeMapper extends ColumnTypeMapper {
     }
   }
 
+  /**
+   * Method to convert datatype read from a record to column type used in Snowflake. This used for a
+   * code path without available schema.
+   *
+   * <p>Converts Types from: JsonNode -> KafkaKafka -> Snowflake.
+   */
+  String mapToColumnDataTypeFromJson(JsonNode value) {
+    Schema.Type kafkaType = mapJsonNodeTypeToKafkaType(value);
+    return mapToColumnType(kafkaType, null);
+  }
+
   @Override
   public String mapToColumnType(Schema.Type kafkaType, String schemaName) {
     switch (kafkaType) {
@@ -101,9 +114,18 @@ public class IcebergColumnTypeMapper extends ColumnTypeMapper {
           return "BINARY";
         }
       case ARRAY:
+        return "ARRAY";
+
+      case STRUCT:
+        return "OBJECT";
+//      case STRUCT:
+//        return "OBJECT(k1 NUMBER, k2 NUMBER)";
+      case MAP:
+        return "MAP";
       default:
-        // MAP and STRUCT will go here
-        throw new IllegalArgumentException("Arrays, struct and map not supported!");
+        // todo try to throw info about a whole record - this is pure
+        throw new IllegalArgumentException(
+            "Error parsing datatype from Kafka record: " + kafkaType);
     }
   }
 

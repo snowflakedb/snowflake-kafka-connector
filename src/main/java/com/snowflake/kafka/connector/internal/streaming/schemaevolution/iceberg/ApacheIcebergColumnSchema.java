@@ -11,7 +11,7 @@ public class ApacheIcebergColumnSchema {
 
   public ApacheIcebergColumnSchema(Type schema, String columnName) {
     this.schema = schema;
-    this.columnName = columnName.toUpperCase();
+    this.columnName = columnName;
   }
 
   public Type getSchema() {
