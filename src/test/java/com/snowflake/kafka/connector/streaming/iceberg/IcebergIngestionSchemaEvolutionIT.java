@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonR
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonExample;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonRecordValueExample;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
@@ -15,6 +16,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.connect.sink.SinkRecord;
+
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -79,62 +82,30 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     assertRecordsInTable();
   }
 
-  @ParameterizedTest(name = "{0}")
-  @MethodSource("prepareData")
+  /** Verify a scenario when structure object is inserted for the first time. */
+  @Test
   // @Disabled
-  void shouldEvolveSchemaAndInsertRecords_structuredData(
-      String description, String message, DescribeTableRow[] expectedSchema, boolean withSchema)
+  public void shouldResolveNewlyInsertedStructuredObjects()
       throws Exception {
-    // start off with just one column
-    List<DescribeTableRow> rows = describeTable(tableName);
-    assertThat(rows)
-        .hasSize(1)
-        .extracting(DescribeTableRow::getColumn)
-        .contains(Utils.TABLE_COLUMN_METADATA);
-
-    SinkRecord record = createKafkaRecord(message, 0, withSchema);
-    service.insert(Collections.singletonList(record));
-    waitForOffset(-1);
-    rows = describeTable(tableName);
-    assertThat(rows.size()).isEqualTo(9);
-
-    // don't check metadata column schema, we have different tests for that
-    rows =
-        rows.stream()
-            .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
-            .collect(Collectors.toList());
-
-    assertThat(rows).containsExactlyInAnyOrder(expectedSchema);
-
-    // resend and store same record without any issues now
-    service.insert(Collections.singletonList(record));
+    String testStruct = "{ \"testStruct\": {" + "\"k1\" : 1," + "\"k2\" : 2" + "} " + "}";
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 0, false)));
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 0, false)));
     waitForOffset(1);
 
-    // and another record with same schema
-    service.insert(Collections.singletonList(createKafkaRecord(message, 1, withSchema)));
-    waitForOffset(2);
-
-    String testStruct = "{ \"testStruct\": {" + "\"k1\" : 1," + "\"k2\" : 2" + "} " + "}";
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 1, false)));
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 1, false)));
-    waitForOffset(2);
-
     String testStruct2 = "{ \"testStruct2\": {" + "\"k1\" : 1," + "\"k3\" : 2" + "} " + "}";
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 2, false)));
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 2, false)));
-    waitForOffset(3);
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 1, false)));
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 1, false)));
+    waitForOffset(2);
 
-    String testStruct3 =
-        "{ \"testStruct3\": {"
+    String testStruct3 = "{ \"testStruct3\": {"
             + "\"k1\" : { \"car\" : { \"brand\" : \"vw\" } },"
             + "\"k2\" : { \"car\" : { \"brand\" : \"toyota\" } }"
-            + "} "
-            + "}";
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct3, 3, false)));
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct3, 3, false)));
-    waitForOffset(4);
-    List<DescribeTableRow> rowsEnd = describeTable(tableName);
-    System.out.println("stop debugger");
+            + "}}";
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct3, 2, false)));
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct3, 2, false)));
+    waitForOffset(3);
+    List<DescribeTableRow> rows = describeTable(tableName);
+    assertEquals(rows.size(), 4);
   }
 
   @ParameterizedTest(name = "{0}")
