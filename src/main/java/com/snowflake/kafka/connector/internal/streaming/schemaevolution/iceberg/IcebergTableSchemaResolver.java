@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Streams;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.util.HashSet;
 import java.util.List;
@@ -29,13 +30,18 @@ class IcebergTableSchemaResolver {
 
   public IcebergTableSchema resolveIcebergSchemaFromChannel(
       Map<String, ColumnProperties> tableSchemaFromChannel, List<String> columnsToInclude) {
+    // tableSchemaFromChannel nie maja ciapek
+    // columnsToInclude maja ciapki
     // todo remember about the case with dots
     // todo potential error when cases are different - think easy to overcome
     List<ApacheIcebergColumnSchema> apacheIcebergColumnSchemas =
         tableSchemaFromChannel.entrySet().stream()
             .filter(
-                (schemasFromChannelEntry) ->
-                    columnsToInclude.contains(schemasFromChannelEntry.getKey()))
+                (schemaFromChannelEntry) -> {
+                  String quoteChannelColumnName =
+                      Utils.quoteNameIfNeeded(schemaFromChannelEntry.getKey());
+                  return columnsToInclude.contains(quoteChannelColumnName);
+                })
             .map(
                 (schemasFromChannelEntry) -> {
                   String columnName = schemasFromChannelEntry.getKey();

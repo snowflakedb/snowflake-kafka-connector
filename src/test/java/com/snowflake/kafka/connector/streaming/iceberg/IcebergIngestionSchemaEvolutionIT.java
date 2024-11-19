@@ -115,28 +115,26 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     waitForOffset(2);
 
     String testStruct = "{ \"testStruct\": {" + "\"k1\" : 1," + "\"k2\" : 2" + "} " + "}";
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 1, false)));
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 1, false)));
+    waitForOffset(2);
 
-    //    String testStruct =
-    //            "{ \"testStruct\": {" +
-    //                    "\"k1\" : { \"nested_key1\" : 1}," +
-    //                    "\"k2\" : { \"nested_key2\" : 2}" +
-    //                    "} " +
-    //                    "}";
-
-    //    String testStruct =
-    //            "{ \"testStruct\": {" +
-    //                    "\"k1\" : { \"car\" : { \"brand\" : \"vw\" } }," +
-    //                    "\"k2\" : { \"car\" : { \"brand\" : \"toyota\" } }" +
-    //                    "} " +
-    //                    "}";
-    // reinsert record with extra field
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 2, false)));
-
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 2, false)));
+    String testStruct2 = "{ \"testStruct2\": {" + "\"k1\" : 1," + "\"k3\" : 2" + "} " + "}";
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 2, false)));
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 2, false)));
     waitForOffset(3);
-    // String alteredStruct = "{ \"skipStruct\": {" + "\"k1\" : 1," + "\"k3\" : 2" + "} " + "}";
-    // service.insert(Collections.singletonList(createKafkaRecord(alteredStruct, 3, false)));
-    // waitForOffset(4);
+
+    String testStruct3 =
+        "{ \"testStruct3\": {"
+            + "\"k1\" : { \"car\" : { \"brand\" : \"vw\" } },"
+            + "\"k2\" : { \"car\" : { \"brand\" : \"toyota\" } }"
+            + "} "
+            + "}";
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct3, 3, false)));
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct3, 3, false)));
+    waitForOffset(4);
+    List<DescribeTableRow> rowsEnd = describeTable(tableName);
+    System.out.println("stop debugger");
   }
 
   @ParameterizedTest(name = "{0}")
