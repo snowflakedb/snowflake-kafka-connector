@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Streams;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.util.HashSet;
 import java.util.List;
@@ -94,9 +93,9 @@ class IcebergTableSchemaResolver {
 
     List<IcebergColumnTree> icebergColumnTrees =
         Streams.stream(recordNode.fields())
-            .map(ColumnValuePair::from)
+            .map(IcebergColumnJsonValuePair::from)
             .filter(pair -> columnNamesSet.contains(pair.getQuotedColumnName()))
-            .map(pair -> new IcebergColumnTree(pair.getQuotedColumnName(), pair.getJsonNode()))
+            .map(IcebergColumnTree::new)
             .collect(Collectors.toList());
     return new IcebergTableSchema(icebergColumnTrees);
   }
@@ -107,33 +106,5 @@ class IcebergTableSchemaResolver {
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
     throw new IllegalArgumentException("not yet implemented SCHEMA path");
     // return IcebergTableSchema.Empty();
-  }
-
-  private static class ColumnValuePair {
-    private final String columnName;
-    private final String quotedColumnName;
-    private final JsonNode jsonNode;
-
-    public static ColumnValuePair from(Map.Entry<String, JsonNode> field) {
-      return new ColumnValuePair(field.getKey(), field.getValue());
-    }
-
-    private ColumnValuePair(String columnName, JsonNode jsonNode) {
-      this.columnName = columnName;
-      this.quotedColumnName = Utils.quoteNameIfNeeded(columnName);
-      this.jsonNode = jsonNode;
-    }
-
-    public String getColumnName() {
-      return columnName;
-    }
-
-    public String getQuotedColumnName() {
-      return quotedColumnName;
-    }
-
-    public JsonNode getJsonNode() {
-      return jsonNode;
-    }
   }
 }

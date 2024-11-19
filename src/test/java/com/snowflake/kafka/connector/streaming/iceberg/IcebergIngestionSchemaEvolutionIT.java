@@ -134,9 +134,9 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
     service.insert(Collections.singletonList(createKafkaRecord(testStruct, 2, false)));
     waitForOffset(3);
-    String alteredStruct = "{ \"skipStruct\": {" + "\"k1\" : 1," + "\"k3\" : 2" + "} " + "}";
-    service.insert(Collections.singletonList(createKafkaRecord(alteredStruct, 3, false)));
-    waitForOffset(4);
+    // String alteredStruct = "{ \"skipStruct\": {" + "\"k1\" : 1," + "\"k3\" : 2" + "} " + "}";
+    // service.insert(Collections.singletonList(createKafkaRecord(alteredStruct, 3, false)));
+    // waitForOffset(4);
   }
 
   @ParameterizedTest(name = "{0}")

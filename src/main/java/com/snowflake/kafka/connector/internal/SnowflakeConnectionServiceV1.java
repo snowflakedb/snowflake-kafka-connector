@@ -514,22 +514,58 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   /**
    * Alter iceberg table to add columns according to a map from columnNames to their types
    *
-   * @param tableName    the name of the table
+   * @param tableName the name of the table
    * @param columnsToAdd the mapping from the columnNames to their infos
    */
   @Override
-  public void appendColumnsToIcebergTable(
-          String tableName, List<IcebergColumnTree> columnsToAdd) {
+  public void appendColumnsToIcebergTable(String tableName, List<IcebergColumnTree> columnsToAdd) {
     LOGGER.debug("Appending columns to iceberg table");
     InternalUtils.assertNotEmpty("tableName", tableName);
 
-    appendColumnsToTable(tableName, columnsToAdd, true);
-    StringBuilder sb = new StringBuilder("alter ");
-
+    appendIcebergColumnsQuery(tableName, columnsToAdd);
   }
 
-  private String appendIcebergColumnsToTableQuery(String tableName, List<IcebergColumnTree> columnsToAdd) {
+  // alter table kafka_connector_test_table_785581352092121753 add RECORD_METADATA column to align
+  // with iceberg format
+  private void appendIcebergColumnsQuery(String tableName, List<IcebergColumnTree> columnsToAdd) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    StringBuilder appendColumnQuery = new StringBuilder("alter iceberg ");
+    appendColumnQuery.append("table identifier(?) add column if not exists ");
+    boolean first = true;
+    StringBuilder logColumn = new StringBuilder("[");
 
+    for (IcebergColumnTree column : columnsToAdd) {
+      if (first) {
+        first = false;
+      } else {
+        appendColumnQuery.append(", if not exists ");
+        logColumn.append(",");
+      }
+      String columnName = column.getColumnName();
+      String dataType = column.buildQueryPartWithNamesAndTypes();
+
+      appendColumnQuery.append(" ").append(dataType);
+      // todo handle comments .append(columnInfos.getDdlComments());
+      logColumn
+          .append(columnName)
+          .append(" (")
+          .append(column.buildQueryPartWithNamesAndTypes())
+          .append(")");
+    }
+
+    try {
+      LOGGER.info("Trying to run query: {}", appendColumnQuery.toString());
+      PreparedStatement stmt = conn.prepareStatement(appendColumnQuery.toString());
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2015.getException(e);
+    }
+
+    logColumn.insert(0, "Following columns created for table {}:\n").append("]");
+    LOGGER.info(logColumn.toString(), tableName);
   }
 
   private void appendColumnsToTable(

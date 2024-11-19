@@ -32,7 +32,7 @@ public class ParseIcebergColumnTreeTest {
         new ApacheIcebergColumnSchema(type, "TEST_COLUMN_NAME");
     IcebergColumnTree tree = new IcebergColumnTree(apacheSchema);
     // then
-    Assertions.assertEquals(expectedQuery, tree.buildQuery());
+    Assertions.assertEquals(expectedQuery, tree.buildQueryPartWithNamesAndTypes());
   }
 
   static Stream<Arguments> icebergSchemas() {
@@ -78,18 +78,20 @@ public class ParseIcebergColumnTreeTest {
   }
 
   @ParameterizedTest
-  @MethodSource("jsonRecords")
+  @MethodSource("recordNodes")
   void parseFromJsonRecordSchema(String jsonString, String expectedQuery) {
     // given
     SinkRecord record = createKafkaRecord(jsonString, false);
-    JsonNode jsonNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
+    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
+    IcebergColumnJsonValuePair columnValuePair =
+        IcebergColumnJsonValuePair.from(recordNode.fields().next());
     // when
-    IcebergColumnTree tree = new IcebergColumnTree("TEST_COLUMN_NAME", jsonNode);
+    IcebergColumnTree tree = new IcebergColumnTree(columnValuePair);
     // then
-    Assertions.assertEquals(expectedQuery, tree.buildQuery());
+    Assertions.assertEquals(expectedQuery, tree.buildQueryPartWithNamesAndTypes());
   }
 
-  static Stream<Arguments> jsonRecords() {
+  static Stream<Arguments> recordNodes() {
     return Stream.of(
         arguments("{\"test_number\" : 1 }", "test_number LONG"),
         arguments(
