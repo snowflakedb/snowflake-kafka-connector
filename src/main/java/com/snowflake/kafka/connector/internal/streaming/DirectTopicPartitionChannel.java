@@ -115,6 +115,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
   private final SchemaEvolutionService schemaEvolutionService;
 
+  private final IcebergSchemaEvolutionService icebergSchemaEvolutionService;
+
   /**
    * Available from {@link org.apache.kafka.connect.sink.SinkTask} which has access to various
    * utility methods.
@@ -151,6 +153,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    */
   private final SnowflakeTelemetryService telemetryServiceV2;
 
+  private final boolean isIcebergMode;
+
   /** Testing only, initialize TopicPartitionChannel without the connection service */
   @VisibleForTesting
   public DirectTopicPartitionChannel(
@@ -165,6 +169,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       SnowflakeConnectionService conn,
       SnowflakeTelemetryService telemetryService,
       SchemaEvolutionService schemaEvolutionService,
+      IcebergSchemaEvolutionService icebergSchemaEvolutionService,
       InsertErrorMapper insertErrorMapper) {
     this(
         streamingIngestClient,
@@ -183,6 +188,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         false,
         null,
         schemaEvolutionService,
+        icebergSchemaEvolutionService,
         insertErrorMapper);
   }
 
@@ -220,6 +226,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       boolean enableCustomJMXMonitoring,
       MetricsJmxReporter metricsJmxReporter,
       SchemaEvolutionService schemaEvolutionService,
+      IcebergSchemaEvolutionService icebergSchemaEvolutionService,
       InsertErrorMapper insertErrorMapper) {
     final long startTime = System.currentTimeMillis();
 
@@ -247,6 +254,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
     this.schemaEvolutionService = schemaEvolutionService;
+    this.icebergSchemaEvolutionService = icebergSchemaEvolutionService;
 
     if (isEnableChannelOffsetMigration(sfConnectorConfig)) {
       /* Channel Name format V2 is computed from connector name, topic and partition */
@@ -292,6 +300,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
               + " correct offset instead",
           this.getChannelNameFormatV1());
     }
+    this.isIcebergMode = Utils.isIcebergEnabled(sfConnectorConfig);
   }
 
   /**
@@ -537,13 +546,12 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       SchemaEvolutionTargetItems schemaEvolutionTargetItems =
           insertErrorMapper.mapToSchemaEvolutionItems(insertError, this.channel.getTableName());
       if (schemaEvolutionTargetItems.hasDataForSchemaEvolution()) {
-        // todo get rid of instance of
-        if (schemaEvolutionService instanceof IcebergSchemaEvolutionService) {
-          ((IcebergSchemaEvolutionService) schemaEvolutionService)
-              .evolveIcebergSchemaIfNeeded(
-                  schemaEvolutionTargetItems, kafkaSinkRecord, channel.getTableSchema());
+        if (isIcebergMode) {
+          icebergSchemaEvolutionService.evolveIcebergSchemaIfNeeded(
+              schemaEvolutionTargetItems, kafkaSinkRecord, channel.getTableSchema());
+        } else {
+          schemaEvolutionService.evolveSchemaIfNeeded(schemaEvolutionTargetItems, kafkaSinkRecord);
         }
-        schemaEvolutionService.evolveSchemaIfNeeded(schemaEvolutionTargetItems, kafkaSinkRecord);
         streamingApiFallbackSupplier(
             StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
         return;

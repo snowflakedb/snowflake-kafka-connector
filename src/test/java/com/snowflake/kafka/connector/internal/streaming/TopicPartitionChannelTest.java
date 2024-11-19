@@ -27,6 +27,7 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -79,6 +80,7 @@ public class TopicPartitionChannelTest {
   @Mock private SnowflakeTelemetryService mockTelemetryService;
 
   @Mock private SchemaEvolutionService schemaEvolutionService;
+  @Mock private IcebergSchemaEvolutionService icebergSchemaEvolutionService;
 
   private static final String TOPIC = "TEST";
 
@@ -1223,6 +1225,7 @@ public class TopicPartitionChannelTest {
             conn,
             telemetryService,
             this.schemaEvolutionService,
+            this.icebergSchemaEvolutionService,
             new InsertErrorMapper());
   }
 
@@ -1276,6 +1279,7 @@ public class TopicPartitionChannelTest {
             enableCustomJMXMonitoring,
             metricsJmxReporter,
             this.schemaEvolutionService,
+            this.icebergSchemaEvolutionService,
             new InsertErrorMapper());
   }
 

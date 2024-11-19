@@ -16,7 +16,7 @@ import org.apache.iceberg.util.JsonUtil;
  * This class is used to Iceberg data type (include primitive types and nested types) serialization
  * and deserialization.
  */
-public class IcebergDataTypeParser {
+class IcebergDataTypeParser {
   public static final String ELEMENT = "element";
   public static final String KEY = "key";
   public static final String VALUE = "value";

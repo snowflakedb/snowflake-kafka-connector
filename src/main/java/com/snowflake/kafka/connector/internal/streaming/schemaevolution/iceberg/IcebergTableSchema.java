@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 /** Wrapper for multiple columns, not necessary all columns that are in the table */
-public class IcebergTableSchema {
+class IcebergTableSchema {
 
   private final List<IcebergColumnTree> columns;
 

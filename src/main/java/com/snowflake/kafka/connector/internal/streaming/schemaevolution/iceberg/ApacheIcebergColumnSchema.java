@@ -3,7 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg
 import org.apache.iceberg.types.Type;
 
 /** Wrapper class for Iceberg schema retrieved from channel. */
-public class ApacheIcebergColumnSchema {
+class ApacheIcebergColumnSchema {
 
   private final Type schema;
 

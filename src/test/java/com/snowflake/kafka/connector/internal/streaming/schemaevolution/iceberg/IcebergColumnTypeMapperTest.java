@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -17,7 +16,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class IcebergColumnTypeMapperTest {
 
-  private final IcebergColumnTypeMapper mapper = new IcebergColumnTypeMapper();
+  private final IcebergColumnTypeMapper mapper = IcebergColumnTypeMapper.INSTANCE;
 
   @ParameterizedTest(name = "should map Kafka type {0} to Snowflake column type {2}")
   @MethodSource("kafkaTypesToMap")
@@ -30,13 +29,6 @@ class IcebergColumnTypeMapperTest {
   @MethodSource("jsonNodeTypesToMap")
   void shouldMapJsonNodeTypeToKafkaType(JsonNode value, Schema.Type expectedKafkaType) {
     assertThat(mapper.mapJsonNodeTypeToKafkaType(value)).isEqualTo(expectedKafkaType);
-  }
-
-  @ParameterizedTest()
-  @MethodSource("kafkaTypesToThrowException")
-  void shouldThrowExceptionWhenMappingUnsupportedKafkaType(Schema.Type kafkaType) {
-    assertThatThrownBy(() -> mapper.mapToColumnType(kafkaType, null))
-        .isInstanceOf(IllegalArgumentException.class);
   }
 
   private static Stream<Arguments> kafkaTypesToMap() {
@@ -53,7 +45,10 @@ class IcebergColumnTypeMapperTest {
         Arguments.of(Schema.Type.BOOLEAN, null, "BOOLEAN"),
         Arguments.of(Schema.Type.STRING, null, "VARCHAR"),
         Arguments.of(Schema.Type.BYTES, Decimal.LOGICAL_NAME, "VARCHAR"),
-        Arguments.of(Schema.Type.BYTES, null, "BINARY"));
+        Arguments.of(Schema.Type.BYTES, null, "BINARY"),
+        Arguments.of(Schema.Type.MAP, null, "MAP"),
+        Arguments.of(Schema.Type.ARRAY, null, "ARRAY"),
+        Arguments.of(Schema.Type.STRUCT, null, "OBJECT"));
   }
 
   private static Stream<Arguments> kafkaTypesToThrowException() {

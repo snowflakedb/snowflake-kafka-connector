@@ -1,11 +1,8 @@
-package com.snowflake.kafka.connector.streaming.schemaevolution.iceberg;
+package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg;
 
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.ApacheIcebergColumnSchema;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergColumnTree;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergDataTypeParser;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
