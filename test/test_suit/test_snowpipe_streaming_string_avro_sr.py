@@ -21,7 +21,9 @@ class TestSnowpipeStreamingStringAvroSR:
             "fields":[
                 {"name":"id","type":"int"},
                 {"name":"firstName","type":"string"},
-                {"name":"time","type":"int"}
+                {"name":"time","type":"int"},
+                {"name":"someFloat","type":"float"},
+                {"name":"someFloatNaN","type":"float"}
             ]
         }
         """
@@ -34,19 +36,13 @@ class TestSnowpipeStreamingStringAvroSR:
         return self.fileName + ".json"
 
     def send(self):
-        # create topic with n partitions and only one replication factor
-        print("Partition count:" + str(self.partitionNum))
-        print("Topic:", self.topic)
-
-        self.driver.describeTopic(self.topic)
 
         for p in range(self.partitionNum):
             print("Sending in Partition:" + str(p))
             key = []
             value = []
-            value = []
             for e in range(self.recordNum):
-                value.append({"id": e, "firstName": "abc0", "time": 1835})
+                value.append({"id": e, "firstName": "abc0", "time": 1835, "someFloat": 21.37, "someFloatNaN": "NaN"})
             self.driver.sendAvroSRData(self.topic, value, self.valueSchema, key=[], key_schema="", partition=p)
             sleep(2)
 

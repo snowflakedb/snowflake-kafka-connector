@@ -92,6 +92,9 @@ public class SnowflakeSinkTask extends SinkTask {
 
   private StreamkapQueryTemplate streamkapQueryTemplate = new StreamkapQueryTemplate();
 
+  private final SnowflakeSinkTaskAuthorizationExceptionTracker authorizationExceptionTracker =
+      new SnowflakeSinkTaskAuthorizationExceptionTracker();
+
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
     DYNAMIC_LOGGER = new KCLogger(this.getClass().getName());
@@ -158,6 +161,8 @@ public class SnowflakeSinkTask extends SinkTask {
 
     // generate topic to table map
     this.topic2table = getTopicToTableMap(parsedConfig);
+
+    this.authorizationExceptionTracker.updateStateOnTaskStart(parsedConfig);
 
     // generate metadataConfig table
     SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig(parsedConfig);
@@ -306,6 +311,8 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void put(final Collection<SinkRecord> records) {
+    this.authorizationExceptionTracker.throwExceptionIfAuthorizationFailed();
+
     final long recordSize = records.size();
     if (enableRebalancing && recordSize > 0) {
       processRebalancingTest();
@@ -359,6 +366,7 @@ public class SnowflakeSinkTask extends SinkTask {
             }
           });
     } catch (Exception e) {
+      this.authorizationExceptionTracker.reportPrecommitException(e);
       this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
     }
 

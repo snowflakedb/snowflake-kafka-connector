@@ -44,6 +44,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ArrayNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.JsonNodeFactory;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.NumericNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.ConnectSchema;
@@ -314,7 +315,7 @@ public boolean setAndGetAutoSchematizationFromConfig(
       }
       // END: ENG-355/aqemia-snowflake-missing-records
       else {
-        columnValue = MAPPER.writeValueAsString(columnNode);
+        columnValue = writeValueAsStringOrNan(columnNode);
       }
       // while the value is always dumped into a string, the Streaming Ingest SDK
       // will transform the value according to its type in the table
@@ -326,6 +327,14 @@ public boolean setAndGetAutoSchematizationFromConfig(
           "Not able to convert node to Snowpipe Streaming input format");
     }
     return streamingIngestRow;
+  }
+
+  private String writeValueAsStringOrNan(JsonNode columnNode) throws JsonProcessingException {
+    if (columnNode instanceof NumericNode && ((NumericNode) columnNode).isNaN()) {
+      return "NaN";
+    } else {
+      return MAPPER.writeValueAsString(columnNode);
+    }
   }
 
   /** For now there are two columns one is content and other is metadata. Both are Json */

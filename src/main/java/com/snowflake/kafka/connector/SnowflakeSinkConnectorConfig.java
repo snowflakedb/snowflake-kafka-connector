@@ -104,6 +104,9 @@ public class SnowflakeSinkConnectorConfig {
   // JDBC trace Info (environment variable)
   public static final String SNOWFLAKE_JDBC_TRACE = "JDBC_TRACE";
 
+  // JDBC properties map
+  public static final String SNOWFLAKE_JDBC_MAP = "snowflake.jdbc.map";
+
   // Snowflake Metadata Flags
   private static final String SNOWFLAKE_METADATA_FLAGS = "Snowflake Metadata Flags";
   public static final String SNOWFLAKE_METADATA_CREATETIME = "snowflake.metadata.createtime";
@@ -217,6 +220,10 @@ public class SnowflakeSinkConnectorConfig {
           + " will migrate offset token from channel name format V2 to name format v1. V2 channel"
           + " format is deprecated and V1 will be used always, disabling this config could have"
           + " ramifications. Please consult Snowflake support before setting this to false.";
+
+  public static final String ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS =
+      "enable.task.fail.on.authorization.errors";
+  public static final boolean ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT = false;
 
   // MDC logging header
   public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
@@ -721,7 +728,14 @@ public class SnowflakeSinkConnectorConfig {
             CONNECTOR_CONFIG,
             9,
             ConfigDef.Width.NONE,
-            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY);
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY)
+        .define(
+            ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
+            Type.BOOLEAN,
+            ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT,
+            Importance.LOW,
+            "If set to true the Connector will fail its tasks when authorization error from"
+                + " Snowflake occurred");
   }
 
   public static class TopicToTableValidator implements ConfigDef.Validator {

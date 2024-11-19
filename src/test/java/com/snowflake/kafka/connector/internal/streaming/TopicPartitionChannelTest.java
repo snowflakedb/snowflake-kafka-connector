@@ -1311,4 +1311,46 @@ public class TopicPartitionChannelTest {
     Thread.sleep(this.streamingBufferThreshold.getFlushTimeThresholdSeconds() + 1);
     channel.insertBufferedRecordsIfFlushTimeThresholdReached();
   }
+
+  @Test
+  public void assignANewChannel_whenNoOffsetIsPresentInSnowflake() {
+    // given
+    String noOffset = "-1";
+
+    SnowflakeStreamingIngestChannel originalChannel =
+        Mockito.mock(SnowflakeStreamingIngestChannel.class);
+    Mockito.when(originalChannel.getLatestCommittedOffsetToken())
+        .thenReturn(noOffset)
+        .thenThrow(new SFException(ErrorCode.CHANNEL_STATUS_INVALID));
+
+    SnowflakeStreamingIngestChannel reopenedChannel =
+        Mockito.mock(SnowflakeStreamingIngestChannel.class);
+    Mockito.when(reopenedChannel.getLatestCommittedOffsetToken()).thenReturn(noOffset);
+
+    Mockito.when(mockStreamingClient.openChannel(any(OpenChannelRequest.class)))
+        .thenReturn(originalChannel, reopenedChannel);
+
+    TopicPartitionChannel topicPartitionChannel =
+        createTopicPartitionChannel(
+            this.mockStreamingClient,
+            this.topicPartition,
+            TEST_CHANNEL_NAME,
+            TEST_TABLE_NAME,
+            this.enableSchematization,
+            this.streamingBufferThreshold,
+            this.sfConnectorConfig,
+            this.mockKafkaRecordErrorReporter,
+            this.mockSinkTaskContext,
+            this.mockSnowflakeConnectionService,
+            new RecordService(),
+            this.mockTelemetryService,
+            true,
+            null);
+
+    // when
+    topicPartitionChannel.getOffsetSafeToCommitToKafka();
+
+    // then
+    Assert.assertEquals(reopenedChannel, topicPartitionChannel.getChannel());
+  }
 }
