@@ -244,7 +244,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   public boolean schemaExist(final String schemaName) {
     checkConnection();
     InternalUtils.assertNotEmpty("schemaName", schemaName);
-    String query = "desc schema identifier(?)";
+    String query = "use schema identifier(?)";
     PreparedStatement stmt = null;
     boolean exist;
     try {

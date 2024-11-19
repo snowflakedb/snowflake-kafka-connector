@@ -294,18 +294,20 @@ public class SnowflakeSinkConnector extends SinkConnector {
       return result;
     }
 
-    // Disabling config validation due to ENG-789/Auto create schema feature for Append SF connector
-    /*try {
-      testConnection.schemaExists(connectorConfigs.get(Utils.SF_SCHEMA));
-    } catch (SnowflakeKafkaConnectorException e) {
-      LOGGER.error("Validate Error msg:{}, errorCode:{}", e.getMessage(), e.getCode());
-      if (e.getCode().equals("2001")) {
-        Utils.updateConfigErrorMessage(result, Utils.SF_SCHEMA, " schema does not exist");
-      } else {
-        throw e;
+    boolean createSchemaAuto = Boolean.parseBoolean(connectorConfigs.getOrDefault(Utils.CREATE_SCHEMA_AUTO,"false"));
+    if(!createSchemaAuto) {
+      try {
+        testConnection.schemaExists(connectorConfigs.get(Utils.SF_SCHEMA));
+      } catch (SnowflakeKafkaConnectorException e) {
+        LOGGER.error("Validate Error msg:{}, errorCode:{}", e.getMessage(), e.getCode());
+        if (e.getCode().equals("2001")) {
+          Utils.updateConfigErrorMessage(result, Utils.SF_SCHEMA, " schema does not exist");
+        } else {
+          throw e;
+        }
+        return result;
       }
-      return result;
-    }*/
+    }
 
     LOGGER.info("Validated config with no error");
     return result;

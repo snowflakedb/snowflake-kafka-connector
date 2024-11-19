@@ -136,6 +136,7 @@ public class Utils {
   public static final String TOPICS_MAP_CONF = "topics.config.map";
   public static final String SCHEMA_CHANGE_CHECK_MS = "schema.changes.check.interval.ms";
   public static final String APPLY_DYNAMIC_TABLE_SCRIPT_CONF = "apply.dynamic.table.script";
+  public static final String CREATE_SCHEMA_AUTO = "create.schema.auto";
 
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
