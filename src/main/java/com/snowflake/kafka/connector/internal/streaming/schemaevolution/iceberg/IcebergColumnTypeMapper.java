@@ -115,11 +115,8 @@ public class IcebergColumnTypeMapper extends ColumnTypeMapper {
         }
       case ARRAY:
         return "ARRAY";
-
       case STRUCT:
         return "OBJECT";
-//      case STRUCT:
-//        return "OBJECT(k1 NUMBER, k2 NUMBER)";
       case MAP:
         return "MAP";
       default:

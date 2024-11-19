@@ -6,7 +6,9 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.ApacheIcebergColumnSchema;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergColumnTree;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergDataTypeParser;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergTableSchema;
 import com.snowflake.kafka.connector.records.RecordService;
 import java.util.HashMap;
@@ -15,6 +17,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import net.snowflake.ingest.streaming.internal.ColumnProperties;
+import org.apache.commons.lang3.reflect.FieldUtils;
+import org.apache.iceberg.types.Type;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -57,13 +62,53 @@ public abstract class TableSchemaResolver {
     if (columnsToInclude == null || columnsToInclude.isEmpty()) {
       return IcebergTableSchema.Empty();
     }
-
     Set<String> columnNamesSet = new HashSet<>(columnsToInclude);
 
     if (hasSchema(record)) {
       return getTableSchemaFromRecordSCHEMAIceberg(record, columnNamesSet);
     } else {
       return getTableSchemaFromJsonIceberg(record, columnNamesSet);
+    }
+  }
+
+  public IcebergTableSchema resolveIcebergSchemaFromChannel(
+      Map<String, ColumnProperties> tableSchemaFromChannel, List<String> columnsToInclude) {
+    // todo remember about the case with dots
+    // todo potential error when cases are different - think easy to overcome
+    List<ApacheIcebergColumnSchema> apacheIcebergColumnSchemas =
+        tableSchemaFromChannel.entrySet().stream()
+            .filter(
+                (schemasFromChannelEntry) ->
+                    columnsToInclude.contains(schemasFromChannelEntry.getKey()))
+            .map(
+                (schemasFromChannelEntry) -> {
+                  String columnName = schemasFromChannelEntry.getKey();
+                  ColumnProperties columnProperty = schemasFromChannelEntry.getValue();
+                  String plainIcebergSchema = getIcebergSchema(columnProperty);
+                  Type schema = IcebergDataTypeParser.deserializeIcebergType(plainIcebergSchema);
+                  return new ApacheIcebergColumnSchema(schema, columnName);
+                })
+            .collect(Collectors.toList());
+
+    List<IcebergColumnTree> icebergColumnTrees =
+        apacheIcebergColumnSchemas.stream()
+            .map(IcebergColumnTree::new)
+            .collect(Collectors.toList());
+
+    return new IcebergTableSchema(icebergColumnTrees);
+  }
+
+  // todo remove it just when we can
+  private static String getIcebergSchema(ColumnProperties columnProperties) {
+    try {
+      // TODO reflection should be replaced by proper builder.setIceberg(true) call in SNOW-1728002
+      java.lang.reflect.Field field =
+          FieldUtils.getField(ColumnProperties.class, "icebergColumnSchema");
+      field.setAccessible(true);
+      return (String) field.get(columnProperties);
+    } catch (IllegalAccessException e) {
+      throw new IllegalStateException(
+          "Couldn't set iceberg by accessing private field: " + "isIceberg", e);
     }
   }
 
@@ -84,13 +129,14 @@ public abstract class TableSchemaResolver {
   private IcebergTableSchema getTableSchemaFromJsonIceberg(
       SinkRecord record, Set<String> columnNamesSet) {
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
-    List<IcebergColumnTree> columnsInferredFromJson =
-        Streams.stream(recordNode.fields())
-            .map((field) -> new IcebergColumnTree(field.getKey(), field.getValue()))
-            .collect(Collectors.toList());
 
-    IcebergTableSchema tree = new IcebergTableSchema(columnsInferredFromJson);
-    return tree;
+    List<IcebergColumnTree> icebergColumnTrees =
+        Streams.stream(recordNode.fields())
+            .map(ColumnValuePair::from)
+            .filter(pair -> columnNamesSet.contains(pair.getQuotedColumnName()))
+            .map(pair -> new IcebergColumnTree(pair.getQuotedColumnName(), pair.getJsonNode()))
+            .collect(Collectors.toList());
+    return new IcebergTableSchema(icebergColumnTrees);
   }
 
   private TableSchema getTableSchemaFromRecordSchema(

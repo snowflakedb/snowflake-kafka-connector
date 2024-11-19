@@ -51,7 +51,8 @@ class IcebergFieldNode {
                   LinkedHashMap::new));
     }
     if (recordNode.isArray()) {
-
+      // todo
+      throw new IllegalArgumentException("Array is not yet implemented");
     }
     return new LinkedHashMap<>();
   }

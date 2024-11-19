@@ -102,19 +102,19 @@ public class ParseIcebergColumnTreeTest {
             "{ \"testStruct\": {"
                 + "\"k1\" : { \"nested_key1\" : 1},"
                 + "\"k2\" : { \"nested_key2\" : 2}"
-                + "} "
-                + "}",
+                + "}}",
             "testStruct OBJECT(k1 OBJECT(nested_key1 LONG), k2 OBJECT(nested_key2 LONG))"),
         arguments(
             "{ \"vehiclesTestStruct\": {"
                 + "\"vehicle1\" : { \"car\" : { \"brand\" : \"vw\" } },"
                 + "\"vehicle2\" : { \"car\" : { \"brand\" : \"toyota\" } }"
-                + "} "
-                + "}",
-            "vehiclesTestStruct OBJECT(vehicle1 OBJECT(car OBJECT(brand VARCHAR)), vehicle2 OBJECT(car OBJECT(brand VARCHAR)))"), // todo lol przy k1, k2 normalna kolejnosc, a przy nazwach vehicle1 i vehicle 2 juz inna
-        arguments(
-                "{\"test_array\": [1,2,3] }", "dono how to do it, yet"
-        ));
+                + "}}",
+            "vehiclesTestStruct OBJECT(vehicle1 OBJECT(car OBJECT(brand VARCHAR)), vehicle2"
+                + " OBJECT(car"
+                + " OBJECT(brand"
+                + " VARCHAR)))"), // todo lol przy k1, k2 normalna kolejnosc, a przy nazwach
+        // vehicle1 i vehicle 2 juz inna
+        arguments("{\"test_array\": [1,2,3] }", "not ready"));
   }
 
   protected SinkRecord createKafkaRecord(String jsonString, boolean withSchema) {

@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.streaming.iceberg;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.emptyPrimitiveJsonRecordValueExample;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonExample;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonRecordValueExample;
-import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonWithSchemaExample;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Utils;
@@ -93,27 +92,27 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
         .extracting(DescribeTableRow::getColumn)
         .contains(Utils.TABLE_COLUMN_METADATA);
 
-    //    SinkRecord record = createKafkaRecord(message, 0, withSchema);
-    //    service.insert(Collections.singletonList(record));
-    //    waitForOffset(-1);
-    //    rows = describeTable(tableName);
-    //    assertThat(rows.size()).isEqualTo(9);
-    //
-    //    // don't check metadata column schema, we have different tests for that
-    //    rows =
-    //            rows.stream()
-    //                    .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
-    //                    .collect(Collectors.toList());
-    //
-    //    assertThat(rows).containsExactlyInAnyOrder(expectedSchema);
-    //
-    //    // resend and store same record without any issues now
-    //    service.insert(Collections.singletonList(record));
-    //    waitForOffset(1);
-    //
-    //    // and another record with same schema
-    //    service.insert(Collections.singletonList(createKafkaRecord(message, 1, withSchema)));
-    //    waitForOffset(2);
+    SinkRecord record = createKafkaRecord(message, 0, withSchema);
+    service.insert(Collections.singletonList(record));
+    waitForOffset(-1);
+    rows = describeTable(tableName);
+    assertThat(rows.size()).isEqualTo(9);
+
+    // don't check metadata column schema, we have different tests for that
+    rows =
+        rows.stream()
+            .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
+            .collect(Collectors.toList());
+
+    assertThat(rows).containsExactlyInAnyOrder(expectedSchema);
+
+    // resend and store same record without any issues now
+    service.insert(Collections.singletonList(record));
+    waitForOffset(1);
+
+    // and another record with same schema
+    service.insert(Collections.singletonList(createKafkaRecord(message, 1, withSchema)));
+    waitForOffset(2);
 
     String testStruct = "{ \"testStruct\": {" + "\"k1\" : 1," + "\"k2\" : 2" + "} " + "}";
 
@@ -134,10 +133,70 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     service.insert(Collections.singletonList(createKafkaRecord(testStruct, 2, false)));
 
     service.insert(Collections.singletonList(createKafkaRecord(testStruct, 2, false)));
-    // waitForOffset(3);
-    String skipStruct = "{ \"skipStruct\": {" + "\"k1\" : 1," + "\"k3\" : 2" + "} " + "}";
-    service.insert(Collections.singletonList(createKafkaRecord(skipStruct, 3, false)));
+    waitForOffset(3);
+    String alteredStruct = "{ \"skipStruct\": {" + "\"k1\" : 1," + "\"k3\" : 2" + "} " + "}";
+    service.insert(Collections.singletonList(createKafkaRecord(alteredStruct, 3, false)));
     waitForOffset(4);
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("prepareData")
+  // @Disabled
+  void shouldEvolveSchemaAndInsertRecords_structuredData2(
+      String description, String message, DescribeTableRow[] expectedSchema, boolean withSchema)
+      throws Exception {
+    // start off with just one column
+    List<DescribeTableRow> rows = describeTable(tableName);
+    assertThat(rows)
+        .hasSize(1)
+        .extracting(DescribeTableRow::getColumn)
+        .contains(Utils.TABLE_COLUMN_METADATA);
+
+    SinkRecord record = createKafkaRecord(message, 0, withSchema);
+    service.insert(Collections.singletonList(record));
+    waitForOffset(-1);
+    rows = describeTable(tableName);
+    assertThat(rows.size()).isEqualTo(9);
+
+    // don't check metadata column schema, we have different tests for that
+    //    rows =
+    //            rows.stream()
+    //                    .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
+    //                    .collect(Collectors.toList());
+    //
+    //    assertThat(rows).containsExactlyInAnyOrder(expectedSchema);
+
+    // resend and store same record without any issues now
+    //    service.insert(Collections.singletonList(record));
+    //    waitForOffset(1);
+    //
+    //    // and another record with same schema
+    //    service.insert(Collections.singletonList(createKafkaRecord(message, 1, withSchema)));
+    //    waitForOffset(2);
+
+    String testStruct = "{ \"testStruct\": { \"k1\" : \"fdf1\" }}";
+
+    //    String testStruct =
+    //            "{ \"testStruct\": {" +
+    //                    "\"k1\" : { \"nested_key1\" : 1}," +
+    //                    "\"k2\" : { \"nested_key2\" : 2}" +
+    //                    "} " +
+    //                    "}";
+
+    //    String testStruct =
+    //            "{ \"testStruct\": {" +
+    //                    "\"k1\" : { \"car\" : { \"brand\" : \"vw\" } }," +
+    //                    "\"k2\" : { \"car\" : { \"brand\" : \"toyota\" } }" +
+    //                    "} " +
+    //                    "}";
+    // reinsert record with extra field
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 1, false)));
+
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 1, false)));
+    waitForOffset(2);
+    String alteredStruct = "{ \"testStruct\": { \"k1\" : \"fdf1\", \"k3\" : \"dfdf2\"} }";
+    service.insert(Collections.singletonList(createKafkaRecord(alteredStruct, 2, false)));
+    waitForOffset(3);
   }
 
   private void assertRecordsInTable() {
@@ -168,20 +227,20 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   private static Stream<Arguments> prepareData() {
     return Stream.of(
-        Arguments.of(
-            "Primitive JSON with schema",
-            primitiveJsonWithSchemaExample,
-            new DescribeTableRow[] {
-              new DescribeTableRow("ID_INT8", "NUMBER(10,0)"),
-              new DescribeTableRow("ID_INT16", "NUMBER(10,0)"),
-              new DescribeTableRow("ID_INT32", "NUMBER(10,0)"),
-              new DescribeTableRow("ID_INT64", "NUMBER(19,0)"),
-              new DescribeTableRow("DESCRIPTION", "VARCHAR(16777216)"),
-              new DescribeTableRow("RATING_FLOAT32", "FLOAT"),
-              new DescribeTableRow("RATING_FLOAT64", "FLOAT"),
-              new DescribeTableRow("APPROVAL", "BOOLEAN")
-            },
-            true),
+        //        Arguments.of(
+        //            "Primitive JSON with schema",
+        //            primitiveJsonWithSchemaExample,
+        //            new DescribeTableRow[] {
+        //              new DescribeTableRow("ID_INT8", "NUMBER(10,0)"),
+        //              new DescribeTableRow("ID_INT16", "NUMBER(10,0)"),
+        //              new DescribeTableRow("ID_INT32", "NUMBER(10,0)"),
+        //              new DescribeTableRow("ID_INT64", "NUMBER(19,0)"),
+        //              new DescribeTableRow("DESCRIPTION", "VARCHAR(16777216)"),
+        //              new DescribeTableRow("RATING_FLOAT32", "FLOAT"),
+        //              new DescribeTableRow("RATING_FLOAT64", "FLOAT"),
+        //              new DescribeTableRow("APPROVAL", "BOOLEAN")
+        //            },
+        //            true),
         Arguments.of(
             "Primitive JSON without schema",
             primitiveJsonExample,

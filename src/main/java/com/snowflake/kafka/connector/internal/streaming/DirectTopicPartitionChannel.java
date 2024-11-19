@@ -31,6 +31,7 @@ import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionCh
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -51,10 +52,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
-import net.snowflake.ingest.streaming.InsertValidationResponse;
-import net.snowflake.ingest.streaming.OpenChannelRequest;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import net.snowflake.ingest.streaming.*;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -539,6 +537,12 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       SchemaEvolutionTargetItems schemaEvolutionTargetItems =
           insertErrorMapper.mapToSchemaEvolutionItems(insertError, this.channel.getTableName());
       if (schemaEvolutionTargetItems.hasDataForSchemaEvolution()) {
+        // todo get rid of instance of
+        if (schemaEvolutionService instanceof IcebergSchemaEvolutionService) {
+          ((IcebergSchemaEvolutionService) schemaEvolutionService)
+              .evolveIcebergSchemaIfNeeded(
+                  schemaEvolutionTargetItems, kafkaSinkRecord, channel.getTableSchema());
+        }
         schemaEvolutionService.evolveSchemaIfNeeded(schemaEvolutionTargetItems, kafkaSinkRecord);
         streamingApiFallbackSupplier(
             StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
