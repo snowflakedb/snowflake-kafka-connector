@@ -153,6 +153,16 @@ public class SnowflakeStreamkapSinkIT extends StreamkapSinkITBase<SnowflakeSinkT
     }
 
     @Override
+    protected String getIntColumnName(String colSuffix){
+        return "IntColumn"+colSuffix;
+    }
+
+    @Override
+    protected String getJsonColumnName(String jsonColumn, String jsonAttribute){
+        return jsonColumn+":'"+ jsonAttribute +"'";
+    }
+
+    @Override
     protected SinkRecord applyTransforms(SinkRecord record) {
         return renameAmbigiousFields.apply(record);
     }

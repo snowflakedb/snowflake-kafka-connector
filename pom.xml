@@ -573,6 +573,13 @@
 
         <!--Kafka JSON converter for SMT unit test-->
         <dependency>
+            <groupId>com.streamkap</groupId>
+            <artifactId>streamkap-kafka-connect-utilities</artifactId>
+            <version>0.0.1</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>connect-json</artifactId>
             <version>0.9.0.0</version>
