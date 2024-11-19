@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.Map;
 
 /** Class with object types compatible with Snowflake Iceberg table */
-class IcebergColumnTree {
+public class IcebergColumnTree {
 
   private final IcebergFieldNode rootNode;
 
@@ -12,7 +12,7 @@ class IcebergColumnTree {
     return rootNode.name;
   }
 
-  public IcebergColumnTree(ApacheIcebergColumnSchema columnSchema) {
+  IcebergColumnTree(ApacheIcebergColumnSchema columnSchema) {
     this.rootNode = new IcebergFieldNode(columnSchema.getColumnName(), columnSchema.getSchema());
   }
 

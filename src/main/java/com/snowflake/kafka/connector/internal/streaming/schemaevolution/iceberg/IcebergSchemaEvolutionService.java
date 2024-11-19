@@ -73,7 +73,7 @@ public class IcebergSchemaEvolutionService {
 
       try {
         // todo columns to add and column to modify
-        conn.appendColumnsToIcebergTable(tableName, null);
+        conn.appendColumnsToIcebergTable(tableName, columnToAdd);
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             String.format(

@@ -12,6 +12,7 @@ import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetToke
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergColumnTree;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
 import java.io.ByteArrayInputStream;
@@ -513,14 +514,22 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   /**
    * Alter iceberg table to add columns according to a map from columnNames to their types
    *
-   * @param tableName the name of the table
-   * @param columnInfosMap the mapping from the columnNames to their infos
+   * @param tableName    the name of the table
+   * @param columnsToAdd the mapping from the columnNames to their infos
    */
   @Override
   public void appendColumnsToIcebergTable(
-      String tableName, Map<String, ColumnInfos> columnInfosMap) {
+          String tableName, List<IcebergColumnTree> columnsToAdd) {
     LOGGER.debug("Appending columns to iceberg table");
-    appendColumnsToTable(tableName, columnInfosMap, true);
+    InternalUtils.assertNotEmpty("tableName", tableName);
+
+    appendColumnsToTable(tableName, columnsToAdd, true);
+    StringBuilder sb = new StringBuilder("alter ");
+
+  }
+
+  private String appendIcebergColumnsToTableQuery(String tableName, List<IcebergColumnTree> columnsToAdd) {
+
   }
 
   private void appendColumnsToTable(
