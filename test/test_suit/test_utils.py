@@ -1,7 +1,6 @@
 import re
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
-from test_suit.base_e2e import BaseE2eTest
 
 
 class Error(Exception):

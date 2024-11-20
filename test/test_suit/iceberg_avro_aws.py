@@ -1,13 +1,50 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
 import json
+from confluent_kafka import avro
 from test_suit.base_iceberg_test import BaseIcebergTest
 
 
-class TestIcebergJsonAws(BaseIcebergTest):
+class TestIcebergAvroAws(BaseIcebergTest):
     def __init__(self, driver, nameSalt: str):
         BaseIcebergTest.__init__(self, driver, nameSalt)
-        self.fileName = "iceberg_json_aws"
+        self.fileName = "iceberg_avro_aws"
         self.topic = self.fileName + nameSalt
+
+        valueSchemaStr = """
+        {
+            "type":"record",
+            "name":"value_schema",
+            "fields": [
+                {
+                  "name": "id",
+                  "type": "int"
+                },
+                {
+                  "name": "body_temperature",
+                  "type": "float"
+                },
+                {
+                  "name": "name",
+                  "type": "string"
+                },
+                {
+                  "name": "approved_coffee_types",
+                  "type": {
+                    "type": "array",
+                    "items": "string"
+                  }
+                },
+                {
+                  "name": "animals_possessed",
+                  "type": {
+                    "type": "map",
+                    "values": "boolean"
+                  }
+                }
+            ]
+        }
+        """
+        self.valueSchema = avro.loads(valueSchemaStr)
 
     def getConfigFileName(self):
         return self.fileName + ".json"
@@ -19,19 +56,15 @@ class TestIcebergJsonAws(BaseIcebergTest):
         )
 
     def send(self):
-        msg = json.dumps(self.test_message)
-
-        key = []
         value = []
-        for e in range(100):
-            key.append(json.dumps({"number": str(e)}).encode("utf-8"))
-            value.append(msg.encode("utf-8"))
 
-        self.driver.sendBytesData(
+        for e in range(100):
+            value.append(self.test_message)
+
+        self.driver.sendAvroSRData(
             topic=self.topic,
             value=value,
-            key=key,
-            partition=0,
+            value_schema=self.valueSchema,
             headers=self.test_headers,
         )
 
