@@ -490,9 +490,9 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testStreamingEmptyFlushTime() {
     Map<String, String> config =
-            SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-                    .withSingleBufferEnabled(false)
-                    .build();
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withSingleBufferEnabled(false)
+            .build();
     config.remove(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC);
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
@@ -502,9 +502,9 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testStreamingFlushTimeSmall() {
     Map<String, String> config =
-            SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-                    .withSingleBufferEnabled(false)
-                    .build();
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withSingleBufferEnabled(false)
+            .build();
     config.put(
         SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
         (StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC - 1) + "");
@@ -516,9 +516,9 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testStreamingFlushTimeNotNumber() {
     Map<String, String> config =
-            SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-                    .withSingleBufferEnabled(false)
-                    .build();
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withSingleBufferEnabled(false)
+            .build();
     config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "fdas");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
@@ -552,9 +552,9 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testStreamingBufferCountNegative() {
     Map<String, String> config =
-            SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-                    .withSingleBufferEnabled(false)
-                    .build();
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withSingleBufferEnabled(false)
+            .build();
     config.put(BUFFER_COUNT_RECORDS, "-1");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
@@ -564,9 +564,9 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testStreamingBufferCountValue() {
     Map<String, String> config =
-            SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-                    .withSingleBufferEnabled(false)
-                    .build();
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withSingleBufferEnabled(false)
+            .build();
     config.put(BUFFER_COUNT_RECORDS, "adssadsa");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)

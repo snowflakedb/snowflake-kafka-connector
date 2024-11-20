@@ -261,10 +261,10 @@ public class SnowflakeSinkConnectorConfig {
           "");
 
       setFieldToDefaultValues(
-              config,
-              SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
-              SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT,
-              "seconds");
+          config,
+          SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
+          SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT,
+          "seconds");
     }
   }
 
