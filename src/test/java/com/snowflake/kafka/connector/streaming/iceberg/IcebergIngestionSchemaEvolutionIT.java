@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.connect.sink.SinkRecord;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -85,19 +84,19 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   /** Verify a scenario when structure object is inserted for the first time. */
   @Test
   // @Disabled
-  public void shouldResolveNewlyInsertedStructuredObjects()
-      throws Exception {
-    String testStruct = "{ \"testStruct\": {" + "\"k1\" : 1," + "\"k2\" : 2" + "} " + "}";
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 0, false)));
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 0, false)));
+  public void shouldResolveNewlyInsertedStructuredObjects() throws Exception {
+    String testStruct1 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2 } }";
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct1, 0, false)));
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct1, 0, false)));
     waitForOffset(1);
 
-    String testStruct2 = "{ \"testStruct2\": {" + "\"k1\" : 1," + "\"k3\" : 2" + "} " + "}";
+    String testStruct2 = "{ \"testStruct2\": {\"k1\" : 1, \"k3\" : 2 } }";
     service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 1, false)));
     service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 1, false)));
     waitForOffset(2);
 
-    String testStruct3 = "{ \"testStruct3\": {"
+    String testStruct3 =
+        "{ \"testStruct3\": {"
             + "\"k1\" : { \"car\" : { \"brand\" : \"vw\" } },"
             + "\"k2\" : { \"car\" : { \"brand\" : \"toyota\" } }"
             + "}}";
@@ -106,6 +105,26 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     waitForOffset(3);
     List<DescribeTableRow> rows = describeTable(tableName);
     assertEquals(rows.size(), 4);
+  }
+
+  /** Verify a scenario when structure is enriched with another field. */
+  @Test
+  // @Disabled
+  public void alterAlreadyExistingStructure() throws Exception {
+    // insert a structure k1, k2
+    String testStruct1 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2 } }";
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct1, 0, false)));
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct1, 0, false)));
+    waitForOffset(1);
+
+    // insert the structure but with additional field k3
+    String testStruct2 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2, \"k3\" : 3 } }";
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 1, false)));
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 1, false)));
+    waitForOffset(2);
+
+    List<DescribeTableRow> rows = describeTable(tableName);
+    assertEquals(rows.size(), 3);
   }
 
   @ParameterizedTest(name = "{0}")

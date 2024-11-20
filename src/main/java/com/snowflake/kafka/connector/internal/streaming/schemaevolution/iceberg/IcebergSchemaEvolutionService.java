@@ -6,6 +6,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.internal.ColumnProperties;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -41,7 +42,12 @@ public class IcebergSchemaEvolutionService {
       SinkRecord record,
       Map<String, ColumnProperties> schemaAlreadyInUse) {
     String tableName = targetItems.getTableName();
-    List<String> columnsToEvolve = targetItems.getColumnsToAdd();
+    // don't care about fields, just find which columns are changed.
+    Set<String> columnsToEvolve =
+        targetItems.getColumnsToAdd().stream()
+            .map(targetItem -> targetItem.split("\\.")[0].replaceAll("\"", ""))
+            .collect(Collectors.toSet());
+
     // Add columns if needed, ignore any exceptions since other task might be succeeded
     if (!columnsToEvolve.isEmpty()) {
       LOGGER.debug("Adding columns to iceberg table: {} columns: {}", tableName, columnsToEvolve);
@@ -50,30 +56,42 @@ public class IcebergSchemaEvolutionService {
           icebergTableSchemaResolver.resolveIcebergSchemaFromChannel(
               schemaAlreadyInUse, columnsToEvolve);
 
-      IcebergTableSchema icebergSchemaFromRecord =
+      // new columns resolved from incoming record
+      IcebergTableSchema modifiedOrAddedColumns =
           icebergTableSchemaResolver.resolveIcebergSchema(record, columnsToEvolve);
 
-      // columns that we simply add because they do not exist. They are NOT in an already existing
+      // columns that we simply add because they do not exist. They are NOT present in an already
+      // existing
       // schema.
-      List<IcebergColumnTree> columnToAdd =
-          icebergSchemaFromRecord.getColumns().stream()
+      List<IcebergColumnTree> addedColumns =
+          modifiedOrAddedColumns.getColumns().stream()
               .filter(
-                  columnFromRecord ->
-                      !alreadyExistingColumns.getColumns().contains(columnFromRecord))
+                  modifiedOrAddedColumn ->
+                      alreadyExistingColumns.getColumns().stream()
+                          .noneMatch(
+                              tree ->
+                                  tree.getColumnName()
+                                      .equalsIgnoreCase(modifiedOrAddedColumn.getColumnName())))
+              .collect(Collectors.toList());
+      // consider just getting rest of the columns
+      List<IcebergColumnTree> modifiedColumns =
+          modifiedOrAddedColumns.getColumns().stream()
+              .filter(
+                  modifiedOrAddedColumn ->
+                      alreadyExistingColumns.getColumns().stream()
+                          .anyMatch(
+                              tree ->
+                                  tree.getColumnName()
+                                      .equalsIgnoreCase(modifiedOrAddedColumn.getColumnName())))
               .collect(Collectors.toList());
 
-      List<IcebergColumnTree> columnToModify =
-          icebergSchemaFromRecord.getColumns().stream()
-              .filter(
-                  columnFromRecord ->
-                      alreadyExistingColumns.getColumns().contains(columnFromRecord))
-              .collect(Collectors.toList());
+      // merge withAlreadyExistingColumns
 
       System.out.println("stop debugger");
 
       try {
         // todo columns to add and column to modify
-        conn.appendColumnsToIcebergTable(tableName, columnToAdd);
+        conn.appendColumnsToIcebergTable(tableName, addedColumns);
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             String.format(

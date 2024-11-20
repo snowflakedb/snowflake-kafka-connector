@@ -31,6 +31,39 @@ class IcebergFieldNode {
     this.children = produceChildren(jsonNode);
   }
 
+  /**
+   * Method does not modify, delete any existing nodes and its types, names. It is meant only to add
+   * new children.
+   */
+  IcebergFieldNode merge(IcebergFieldNode modifiedNode) {
+    modifiedNode.children.forEach(
+        (key, value) -> {
+          IcebergFieldNode thisChild = this.children.get(key);
+          if (thisChild == null) {
+            this.children.put(key, value);
+          } else {
+            thisChild.merge(value);
+          }
+        });
+    addNewChildren(modifiedNode);
+    return this;
+  }
+
+  private void addNewChildren(IcebergFieldNode modifiedNode) {
+    modifiedNode.children.forEach(this.children::putIfAbsent);
+  }
+
+  //      nodeFromModifiedSchema.children.entrySet().forEach(
+  //          newChildsEntry -> {
+  //    IcebergFieldNode thisChild = this.children.get(newChildsEntry.getKey());
+  //    if (thisChild == null) {
+  //      this.children.put(newChildsEntry.getKey(), newChildsEntry.getValue());
+  //    } else {
+  //      thisChild.merge(newChildsEntry.getValue());
+  //    }
+  //  }
+  //    );
+
   private LinkedHashMap<String, IcebergFieldNode> produceChildren(JsonNode recordNode) {
     // primitives must not have children
     if (recordNode.isEmpty() || recordNode.isNull()) {

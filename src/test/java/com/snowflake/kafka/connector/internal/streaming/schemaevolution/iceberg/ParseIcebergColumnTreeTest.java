@@ -116,6 +116,34 @@ public class ParseIcebergColumnTreeTest {
         arguments("{\"test_array\": [1,2,3] }", "not ready"));
   }
 
+  @ParameterizedTest
+  @MethodSource("mergeTestArguments")
+  void mergeTwoTreesTest(String plainIcebergSchema, String recordJson, String expectedResult) {
+    // given
+    // tree parsed from already existing schema store in a channel
+    Type type = IcebergDataTypeParser.deserializeIcebergType(plainIcebergSchema);
+    ApacheIcebergColumnSchema apacheSchema = new ApacheIcebergColumnSchema(type, "TESTSTRUCT");
+    IcebergColumnTree alreadyExistingTree = new IcebergColumnTree(apacheSchema);
+
+    // given
+    SinkRecord record = createKafkaRecord(recordJson, false);
+    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
+    IcebergColumnJsonValuePair columnValuePair =
+        IcebergColumnJsonValuePair.from(recordNode.fields().next());
+    IcebergColumnTree modifiedTree = new IcebergColumnTree(columnValuePair);
+    // then
+    Assertions.assertEquals(
+        expectedResult, alreadyExistingTree.merge(modifiedTree).buildQueryPartWithNamesAndTypes());
+  }
+
+  static Stream<Arguments> mergeTestArguments() {
+    return Stream.of(
+        arguments(
+            "{\"type\":\"struct\",\"fields\":[{\"id\":23,\"name\":\"k1\",\"required\":false,\"type\":\"int\"},{\"id\":24,\"name\":\"k2\",\"required\":false,\"type\":\"int\"}]}",
+            "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2, \"k3\" : 3 } }",
+            "TESTSTRUCT OBJECT(k1 NUMBER(10,0), k2 NUMBER(10,0), k3 LONG)"));
+  }
+
   protected SinkRecord createKafkaRecord(String jsonString, boolean withSchema) {
     int offset = 0;
     JsonConverter converter = new JsonConverter();

@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg;
 
+import com.google.common.base.Preconditions;
+
 /** Class with object types compatible with Snowflake Iceberg table */
 public class IcebergColumnTree {
 
@@ -10,11 +12,23 @@ public class IcebergColumnTree {
   }
 
   IcebergColumnTree(ApacheIcebergColumnSchema columnSchema) {
-    this.rootNode = new IcebergFieldNode(columnSchema.getColumnName(), columnSchema.getSchema());
+    // rootNodes column name serve as a name of the column, hence it is uppercase
+    String columnName = columnSchema.getColumnName().toUpperCase();
+    this.rootNode = new IcebergFieldNode(columnName, columnSchema.getSchema());
   }
 
   IcebergColumnTree(IcebergColumnJsonValuePair pair) {
-    this.rootNode = new IcebergFieldNode(pair.getColumnName(), pair.getJsonNode());
+    // rootNodes column name serve as a name of the column, hence it is uppercase
+    String columnName = pair.getColumnName().toUpperCase();
+    this.rootNode = new IcebergFieldNode(columnName, pair.getJsonNode());
+  }
+
+  IcebergColumnTree merge(IcebergColumnTree modifiedTree) {
+    Preconditions.checkArgument(
+        this.getColumnName().equals(modifiedTree.getColumnName()),
+        "Error merging column schemas. Tried to merge schemas for two different columns");
+    this.rootNode.merge(modifiedTree.rootNode);
+    return this;
   }
 
   public String buildQueryPartWithNamesAndTypes() {
