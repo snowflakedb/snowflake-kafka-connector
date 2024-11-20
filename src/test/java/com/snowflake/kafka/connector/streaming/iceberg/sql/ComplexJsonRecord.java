@@ -30,7 +30,7 @@ public class ComplexJsonRecord {
           true,
           ImmutableList.of(1, 2, 3),
           ImmutableList.of("a", "b", "c"),
-          ImmutableList.of(true), // FIXME: SNOW-1761519 here should be empty array
+          ImmutableList.of(),
           null,
           ImmutableList.of(ImmutableList.of(7, 8, 9), ImmutableList.of(10, 11, 12)),
           PrimitiveJsonRecord.primitiveJsonRecordValueExample,
@@ -48,7 +48,7 @@ public class ComplexJsonRecord {
           + "  \"approval\": true,"
           + "  \"array1\": [1, 2, 3],"
           + "  \"array2\": [\"a\", \"b\", \"c\"],"
-          + "  \"array3\": [true]," // FIXME: SNOW-1761519 here should be empty array
+          + "  \"array3\": [],"
           + "  \"array4\": null,"
           + "  \"array5\": [[7, 8, 9], [10, 11, 12]],"
           + "  \"nestedRecord\": "
