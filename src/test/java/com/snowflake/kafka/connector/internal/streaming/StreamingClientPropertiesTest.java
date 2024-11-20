@@ -86,6 +86,7 @@ public class StreamingClientPropertiesTest {
   void shouldNotPropagateStreamingClientProperties_SingleBufferDisabled() {
     // GIVEN
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
+    connectorConfig.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "false");
 
     connectorConfig.put(BUFFER_SIZE_BYTES, "10000000");
     connectorConfig.put(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, "20000000");
