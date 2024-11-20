@@ -32,7 +32,7 @@ public class ParseIcebergColumnTreeTest {
         new ApacheIcebergColumnSchema(type, "TEST_COLUMN_NAME");
     IcebergColumnTree tree = new IcebergColumnTree(apacheSchema);
     // then
-    Assertions.assertEquals(expectedQuery, tree.buildQueryPartWithNamesAndTypes());
+    Assertions.assertEquals(expectedQuery, tree.buildType());
   }
 
   static Stream<Arguments> icebergSchemas() {
@@ -88,7 +88,7 @@ public class ParseIcebergColumnTreeTest {
     // when
     IcebergColumnTree tree = new IcebergColumnTree(columnValuePair);
     // then
-    Assertions.assertEquals(expectedQuery, tree.buildQueryPartWithNamesAndTypes());
+    Assertions.assertEquals(expectedQuery, tree.buildType());
   }
 
   static Stream<Arguments> recordNodes() {
@@ -123,17 +123,16 @@ public class ParseIcebergColumnTreeTest {
     // tree parsed from already existing schema store in a channel
     Type type = IcebergDataTypeParser.deserializeIcebergType(plainIcebergSchema);
     ApacheIcebergColumnSchema apacheSchema = new ApacheIcebergColumnSchema(type, "TESTSTRUCT");
-    IcebergColumnTree alreadyExistingTree = new IcebergColumnTree(apacheSchema);
 
-    // given
     SinkRecord record = createKafkaRecord(recordJson, false);
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
     IcebergColumnJsonValuePair columnValuePair =
         IcebergColumnJsonValuePair.from(recordNode.fields().next());
+
+    IcebergColumnTree alreadyExistingTree = new IcebergColumnTree(apacheSchema);
     IcebergColumnTree modifiedTree = new IcebergColumnTree(columnValuePair);
     // then
-    Assertions.assertEquals(
-        expectedResult, alreadyExistingTree.merge(modifiedTree).buildQueryPartWithNamesAndTypes());
+    Assertions.assertEquals(expectedResult, alreadyExistingTree.merge(modifiedTree).buildType());
   }
 
   static Stream<Arguments> mergeTestArguments() {
@@ -141,7 +140,7 @@ public class ParseIcebergColumnTreeTest {
         arguments(
             "{\"type\":\"struct\",\"fields\":[{\"id\":23,\"name\":\"k1\",\"required\":false,\"type\":\"int\"},{\"id\":24,\"name\":\"k2\",\"required\":false,\"type\":\"int\"}]}",
             "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2, \"k3\" : 3 } }",
-            "TESTSTRUCT OBJECT(k1 NUMBER(10,0), k2 NUMBER(10,0), k3 LONG)"));
+            "OBJECT(k1 NUMBER(10,0), k2 NUMBER(10,0), k3 LONG)"));
   }
 
   protected SinkRecord createKafkaRecord(String jsonString, boolean withSchema) {

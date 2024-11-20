@@ -124,7 +124,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     waitForOffset(2);
 
     List<DescribeTableRow> rows = describeTable(tableName);
-    assertEquals(rows.size(), 3);
+    assertEquals(rows.size(), 2);
   }
 
   @ParameterizedTest(name = "{0}")

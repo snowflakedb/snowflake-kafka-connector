@@ -119,7 +119,7 @@ class IcebergFieldNode {
    * @return StringBuilder with appended query elements
    */
   StringBuilder buildQuery(StringBuilder sb, String parentType) {
-    if (parentType.equals("ARRAY") || parentType.equals("MAP")) {
+    if (parentType.equals("ARRAY") || parentType.equals("MAP") || parentType.equals("ROOT_NODE")) {
       sb.append(snowflakeIcebergType);
     } else {
       appendNameAndType(sb);

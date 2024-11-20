@@ -515,21 +515,28 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
    * Alter iceberg table to add columns according to a map from columnNames to their types
    *
    * @param tableName the name of the table
-   * @param columnsToAdd the mapping from the columnNames to their infos
+   * @param addedColumns the mapping from the columnNames to their infos
+   * @param modifiedColumns
    */
   @Override
-  public void appendColumnsToIcebergTable(String tableName, List<IcebergColumnTree> columnsToAdd) {
+  public void appendColumnsToIcebergTable(
+      String tableName,
+      List<IcebergColumnTree> addedColumns,
+      List<IcebergColumnTree> modifiedColumns) {
     LOGGER.debug("Appending columns to iceberg table");
     InternalUtils.assertNotEmpty("tableName", tableName);
+    checkConnection();
 
-    appendIcebergColumnsQuery(tableName, columnsToAdd);
+    appendIcebergColumnsQuery(tableName, addedColumns);
+    modifyIcebergColumnsQuery(tableName, modifiedColumns);
   }
 
   // alter table kafka_connector_test_table_785581352092121753 add RECORD_METADATA column to align
   // with iceberg format
   private void appendIcebergColumnsQuery(String tableName, List<IcebergColumnTree> columnsToAdd) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
+    if (columnsToAdd.isEmpty()) {
+      return;
+    }
     StringBuilder appendColumnQuery = new StringBuilder("alter iceberg ");
     appendColumnQuery.append("table identifier(?) add column if not exists ");
     boolean first = true;
@@ -543,15 +550,11 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
         logColumn.append(",");
       }
       String columnName = column.getColumnName();
-      String dataType = column.buildQueryPartWithNamesAndTypes();
+      String dataType = column.buildType();
 
-      appendColumnQuery.append(" ").append(dataType);
+      appendColumnQuery.append(" ").append(columnName).append(" ").append(dataType);
       // todo handle comments .append(columnInfos.getDdlComments());
-      logColumn
-          .append(columnName)
-          .append(" (")
-          .append(column.buildQueryPartWithNamesAndTypes())
-          .append(")");
+      logColumn.append(columnName).append(" (").append(column.buildType()).append(")");
     }
 
     try {
@@ -566,6 +569,34 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
 
     logColumn.insert(0, "Following columns created for table {}:\n").append("]");
     LOGGER.info(logColumn.toString(), tableName);
+  }
+
+  private void modifyIcebergColumnsQuery(
+      String tableName, List<IcebergColumnTree> columnsToModify) {
+    if (columnsToModify.isEmpty()) {
+      return;
+    }
+    StringBuilder appendColumnQuery = new StringBuilder("alter iceberg ");
+    appendColumnQuery.append("table identifier(?) alter column ");
+    for (IcebergColumnTree column : columnsToModify) {
+      String columnName = column.getColumnName();
+      String dataType = column.buildType();
+
+      appendColumnQuery.append(columnName).append(" set data type ").append(dataType).append(", ");
+    }
+    // remove last comma
+    appendColumnQuery.deleteCharAt(appendColumnQuery.length() - 1);
+    appendColumnQuery.deleteCharAt(appendColumnQuery.length() - 1);
+
+    try {
+      LOGGER.info("Trying to run query: {}", appendColumnQuery.toString());
+      PreparedStatement stmt = conn.prepareStatement(appendColumnQuery.toString());
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2015.getException(e);
+    }
   }
 
   private void appendColumnsToTable(

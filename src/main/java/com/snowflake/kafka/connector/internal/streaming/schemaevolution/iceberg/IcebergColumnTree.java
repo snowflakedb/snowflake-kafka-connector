@@ -31,7 +31,7 @@ public class IcebergColumnTree {
     return this;
   }
 
-  public String buildQueryPartWithNamesAndTypes() {
+  public String buildType() {
     StringBuilder sb = new StringBuilder();
     return rootNode.buildQuery(sb, "ROOT_NODE").toString();
   }
