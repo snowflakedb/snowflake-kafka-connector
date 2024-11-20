@@ -1,9 +1,6 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.CONNECTOR_CLASS_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.TASKS_MAX_CONFIG;
@@ -74,7 +71,8 @@ public abstract class ConnectClusterBaseIT {
     config.put(TOPICS_CONFIG, topicName);
     config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "testrole_kafka");
-    config.put(BUFFER_FLUSH_TIME_SEC, "1");
+    config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
+    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "true");
     config.put(TASKS_MAX_CONFIG, TASK_NUMBER.toString());
     config.put(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL, "true");
     config.put(KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
