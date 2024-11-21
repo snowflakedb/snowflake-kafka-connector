@@ -118,73 +118,34 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     waitForOffset(1);
 
     // insert the structure but with additional field k3
-    String testStruct2 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2, \"k3\" : 3 } }";
+    String testStruct2 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2, \"k3\" : \"foo\" } }";
     service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 1, false)));
     service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 1, false)));
     waitForOffset(2);
 
-    List<DescribeTableRow> rows = describeTable(tableName);
-    assertEquals(rows.size(), 2);
-  }
-
-  @ParameterizedTest(name = "{0}")
-  @MethodSource("prepareData")
-  // @Disabled
-  void shouldEvolveSchemaAndInsertRecords_structuredData2(
-      String description, String message, DescribeTableRow[] expectedSchema, boolean withSchema)
-      throws Exception {
-    // start off with just one column
-    List<DescribeTableRow> rows = describeTable(tableName);
-    assertThat(rows)
-        .hasSize(1)
-        .extracting(DescribeTableRow::getColumn)
-        .contains(Utils.TABLE_COLUMN_METADATA);
-
-    SinkRecord record = createKafkaRecord(message, 0, withSchema);
-    service.insert(Collections.singletonList(record));
-    waitForOffset(-1);
-    rows = describeTable(tableName);
-    assertThat(rows.size()).isEqualTo(9);
-
-    // don't check metadata column schema, we have different tests for that
-    //    rows =
-    //            rows.stream()
-    //                    .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
-    //                    .collect(Collectors.toList());
-    //
-    //    assertThat(rows).containsExactlyInAnyOrder(expectedSchema);
-
-    // resend and store same record without any issues now
-    //    service.insert(Collections.singletonList(record));
-    //    waitForOffset(1);
-    //
-    //    // and another record with same schema
-    //    service.insert(Collections.singletonList(createKafkaRecord(message, 1, withSchema)));
-    //    waitForOffset(2);
-
-    String testStruct = "{ \"testStruct\": { \"k1\" : \"fdf1\" }}";
-
-    //    String testStruct =
-    //            "{ \"testStruct\": {" +
-    //                    "\"k1\" : { \"nested_key1\" : 1}," +
-    //                    "\"k2\" : { \"nested_key2\" : 2}" +
-    //                    "} " +
-    //                    "}";
-
-    //    String testStruct =
-    //            "{ \"testStruct\": {" +
-    //                    "\"k1\" : { \"car\" : { \"brand\" : \"vw\" } }," +
-    //                    "\"k2\" : { \"car\" : { \"brand\" : \"toyota\" } }" +
-    //                    "} " +
-    //                    "}";
-    // reinsert record with extra field
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 1, false)));
-
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct, 1, false)));
-    waitForOffset(2);
-    String alteredStruct = "{ \"testStruct\": { \"k1\" : \"fdf1\", \"k3\" : \"dfdf2\"} }";
-    service.insert(Collections.singletonList(createKafkaRecord(alteredStruct, 2, false)));
+    // k1, k2, k3, k4
+    String testStruct3 =
+        "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2, \"k3\" : \"bar\", \"k4\" : 4.5 } }";
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct3, 2, false)));
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct3, 2, false)));
     waitForOffset(3);
+
+    List<DescribeTableRow> columns = describeTable(tableName);
+    assertEquals(
+        columns.get(1).getType(),
+        "OBJECT(k1 NUMBER(19,0), k2 NUMBER(19,0), k3 VARCHAR(16777216), k4 FLOAT)");
+
+    // struck without k1 - verify that schema was not evolved back
+    String testStruct4 = "{ \"testStruct\": { \"k2\" : 2, \"k3\" : 3, \"k4\" : 4.34 } }";
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct4, 3, false)));
+    service.insert(Collections.singletonList(createKafkaRecord(testStruct4, 3, false)));
+    waitForOffset(4);
+
+    columns = describeTable(tableName);
+    assertEquals(
+        columns.get(1).getType(),
+        "OBJECT(k1 NUMBER(19,0), k2 NUMBER(19,0), k3 VARCHAR(16777216), k4 FLOAT)");
+    assertEquals(columns.size(), 2);
   }
 
   private void assertRecordsInTable() {

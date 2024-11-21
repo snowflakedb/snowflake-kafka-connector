@@ -537,38 +537,24 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     if (columnsToAdd.isEmpty()) {
       return;
     }
-    StringBuilder appendColumnQuery = new StringBuilder("alter iceberg ");
-    appendColumnQuery.append("table identifier(?) add column if not exists ");
-    boolean first = true;
-    StringBuilder logColumn = new StringBuilder("[");
+    StringBuilder addColumnQuery = new StringBuilder("alter iceberg ");
+    addColumnQuery.append("table identifier(?) add column ");
 
     for (IcebergColumnTree column : columnsToAdd) {
-      if (first) {
-        first = false;
-      } else {
-        appendColumnQuery.append(", if not exists ");
-        logColumn.append(",");
-      }
+      addColumnQuery.append("if not exists ");
+
       String columnName = column.getColumnName();
       String dataType = column.buildType();
 
-      appendColumnQuery.append(" ").append(columnName).append(" ").append(dataType);
-      // todo handle comments .append(columnInfos.getDdlComments());
-      logColumn.append(columnName).append(" (").append(column.buildType()).append(")");
+      addColumnQuery.append(" ").append(columnName).append(" ").append(dataType).append(", ");
     }
+    // remove last comma and whitespace
+    addColumnQuery.deleteCharAt(addColumnQuery.length() - 1);
+    addColumnQuery.deleteCharAt(addColumnQuery.length() - 1);
 
-    try {
-      LOGGER.info("Trying to run query: {}", appendColumnQuery.toString());
-      PreparedStatement stmt = conn.prepareStatement(appendColumnQuery.toString());
-      stmt.setString(1, tableName);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2015.getException(e);
-    }
+    executeStatement(tableName, addColumnQuery.toString());
 
-    logColumn.insert(0, "Following columns created for table {}:\n").append("]");
-    LOGGER.info(logColumn.toString(), tableName);
+    LOGGER.info("Query SUCCEEDED: " + addColumnQuery);
   }
 
   private void modifyIcebergColumnsQuery(
@@ -576,21 +562,27 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     if (columnsToModify.isEmpty()) {
       return;
     }
-    StringBuilder appendColumnQuery = new StringBuilder("alter iceberg ");
-    appendColumnQuery.append("table identifier(?) alter column ");
+    StringBuilder setDataTypeQuery = new StringBuilder("alter iceberg ");
+    setDataTypeQuery.append("table identifier(?) alter column ");
     for (IcebergColumnTree column : columnsToModify) {
       String columnName = column.getColumnName();
       String dataType = column.buildType();
 
-      appendColumnQuery.append(columnName).append(" set data type ").append(dataType).append(", ");
+      setDataTypeQuery.append(columnName).append(" set data type ").append(dataType).append(", ");
     }
-    // remove last comma
-    appendColumnQuery.deleteCharAt(appendColumnQuery.length() - 1);
-    appendColumnQuery.deleteCharAt(appendColumnQuery.length() - 1);
+    // remove last comma and whitespace
+    setDataTypeQuery.deleteCharAt(setDataTypeQuery.length() - 1);
+    setDataTypeQuery.deleteCharAt(setDataTypeQuery.length() - 1);
 
+    executeStatement(tableName, setDataTypeQuery.toString());
+
+    LOGGER.info("Query SUCCEEDED: " + setDataTypeQuery);
+  }
+
+  private void executeStatement(String tableName, String query) {
     try {
-      LOGGER.info("Trying to run query: {}", appendColumnQuery.toString());
-      PreparedStatement stmt = conn.prepareStatement(appendColumnQuery.toString());
+      LOGGER.info("Trying to run query: {}", query);
+      PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
       stmt.execute();
       stmt.close();
