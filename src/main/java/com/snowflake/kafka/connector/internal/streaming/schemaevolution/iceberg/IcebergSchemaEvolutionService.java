@@ -42,11 +42,8 @@ public class IcebergSchemaEvolutionService {
       SinkRecord record,
       Map<String, ColumnProperties> schemaAlreadyInUse) {
     String tableName = targetItems.getTableName();
-    // don't care about fields, just find which columns are changed.
-    Set<String> columnsToEvolve =
-        targetItems.getColumnsToAdd().stream()
-            .map(targetItem -> targetItem.split("\\.")[0].replaceAll("\"", ""))
-            .collect(Collectors.toSet());
+
+    Set<String> columnsToEvolve = getColumnsToEvolve(targetItems);
 
     // Add columns if needed, ignore any exceptions since other task might be succeeded
     if (!columnsToEvolve.isEmpty()) {
@@ -108,6 +105,18 @@ public class IcebergSchemaEvolutionService {
             e);
       }
     }
+  }
+
+  /**
+   * Get only column names, ignore nested field names. Remove double quotes.
+   *
+   * <p>example: TEST_STRUCT.field1 -> TEST_STRUCT
+   */
+  private Set<String> getColumnsToEvolve(SchemaEvolutionTargetItems targetItems) {
+    return targetItems.getColumnsToAdd().stream()
+        // remove double quotes
+        .map(targetItem -> targetItem.split("\\.")[0].replaceAll("\"", ""))
+        .collect(Collectors.toSet());
   }
 
   private String generateAddColumnQuery(List<IcebergColumnTree> columnsToAdd) {

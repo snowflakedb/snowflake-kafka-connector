@@ -186,7 +186,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   private static Stream<Arguments> prepareData() {
     return Stream.of(
-        // Reading schema from a record is not yet supported.
+        // READING SCHEMA FROM A RECORD IS NOT YET SUPPORTED.
         //        Arguments.of(
         //            "Primitive JSON with schema",
         //            primitiveJsonWithSchemaExample,

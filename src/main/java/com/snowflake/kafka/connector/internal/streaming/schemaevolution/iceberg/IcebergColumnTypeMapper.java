@@ -10,7 +10,6 @@ import static org.apache.kafka.connect.data.Schema.Type.STRING;
 import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeColumnTypeMapper;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.kafka.connect.data.Date;
@@ -21,19 +20,13 @@ import org.apache.kafka.connect.data.Timestamp;
 
 class IcebergColumnTypeMapper {
 
-  private final SnowflakeColumnTypeMapper snowflakeColumnTypeMapper;
-  static IcebergColumnTypeMapper INSTANCE =
-      new IcebergColumnTypeMapper(new SnowflakeColumnTypeMapper());
-
-  public IcebergColumnTypeMapper(SnowflakeColumnTypeMapper snowflakeColumnTypeMapper) {
-    this.snowflakeColumnTypeMapper = snowflakeColumnTypeMapper;
-  }
+  static IcebergColumnTypeMapper INSTANCE = new IcebergColumnTypeMapper();
 
   /**
    * See <a href="https://docs.snowflake.com/en/user-guide/tables-iceberg-data-types">Data types for
    * Apache Iceberg™ tables</a>
    */
-  public String mapToSnowflakeDataType(Type apacheIcebergType) {
+  String mapToSnowflakeDataType(Type apacheIcebergType) {
     switch (apacheIcebergType.typeId()) {
       case BOOLEAN:
         return "BOOLEAN";
@@ -85,7 +78,7 @@ class IcebergColumnTypeMapper {
     return mapToColumnType(kafkaType, null);
   }
 
-  public String mapToColumnType(Schema.Type kafkaType, String schemaName) {
+  String mapToColumnType(Schema.Type kafkaType, String schemaName) {
     switch (kafkaType) {
       case INT8:
       case INT16:
@@ -137,7 +130,7 @@ class IcebergColumnTypeMapper {
    * @param value JSON node
    * @return Kafka type
    */
-  public Schema.Type mapJsonNodeTypeToKafkaType(JsonNode value) {
+  Schema.Type mapJsonNodeTypeToKafkaType(JsonNode value) {
     if (value == null || value.isNull()) {
       return STRING;
     } else if (value.isNumber()) {
