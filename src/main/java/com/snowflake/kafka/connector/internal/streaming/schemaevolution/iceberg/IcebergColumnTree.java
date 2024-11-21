@@ -23,6 +23,7 @@ class IcebergColumnTree {
     this.rootNode = new IcebergFieldNode(columnName, pair.getJsonNode());
   }
 
+  /** Add fields from other tree. Do not override nor modify any already existing nodes. */
   IcebergColumnTree merge(IcebergColumnTree modifiedTree) {
     Preconditions.checkArgument(
         this.getColumnName().equals(modifiedTree.getColumnName()),
