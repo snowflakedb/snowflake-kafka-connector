@@ -104,7 +104,7 @@ class IcebergFieldNode {
    * @param sb StringBuilder
    * @param parentType Snowflake Iceberg table compatible type. If a root node is a parent then
    *     "ROOT_NODE" is passed, because we always generate root nodes column name.
-   * @return StringBuilder with appended query elements
+   * @return field name + data type
    */
   StringBuilder buildQuery(StringBuilder sb, String parentType) {
     if (parentType.equals("ARRAY") || parentType.equals("MAP") || parentType.equals("ROOT_NODE")) {

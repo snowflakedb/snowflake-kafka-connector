@@ -15,6 +15,28 @@ import org.apache.kafka.connect.sink.SinkRecord;
 
 class IcebergTableSchemaResolver {
 
+  /**
+   * Retrieve IcebergSchema stored in a channel, then parse it into a tree. Filter out columns that
+   * do not need to be modified.
+   */
+  public List<IcebergColumnTree> resolveIcebergSchemaFromChannel(
+          Map<String, ColumnProperties> tableSchemaFromChannel, Set<String> columnsToEvolve) {
+
+    List<ApacheIcebergColumnSchema> apacheIcebergColumnSchemas =
+            tableSchemaFromChannel.entrySet().stream()
+                    .filter(
+                            (schemaFromChannelEntry) -> {
+                              String columnNameFromChannel = schemaFromChannelEntry.getKey();
+                              return columnsToEvolve.contains(columnNameFromChannel);
+                            })
+                    .map(this::mapApacheSchemaFromChannel)
+                    .collect(Collectors.toList());
+
+    return apacheIcebergColumnSchemas.stream()
+            .map(IcebergColumnTree::new)
+            .collect(Collectors.toList());
+  }
+
   public List<IcebergColumnTree> resolveIcebergSchemaFromRecord(
       SinkRecord record, Set<String> columnsToInclude) {
     if (columnsToInclude == null || columnsToInclude.isEmpty()) {
@@ -23,32 +45,11 @@ class IcebergTableSchemaResolver {
     Set<String> columnNamesSet = new HashSet<>(columnsToInclude);
 
     if (hasSchema(record)) {
+      // TODO not yet implemented
       return getTableSchemaFromRecordSchemaIceberg(record, columnNamesSet);
     } else {
       return getTableSchemaFromJsonIceberg(record, columnNamesSet);
     }
-  }
-
-  /**
-   * Retrieve IcebergSchema stored in a channel, then parse it into a tree. Filter out columns that
-   * do not need to be modified.
-   */
-  public List<IcebergColumnTree> resolveIcebergSchemaFromChannel(
-      Map<String, ColumnProperties> tableSchemaFromChannel, Set<String> columnsToEvolve) {
-
-    List<ApacheIcebergColumnSchema> apacheIcebergColumnSchemas =
-        tableSchemaFromChannel.entrySet().stream()
-            .filter(
-                (schemaFromChannelEntry) -> {
-                  String columnNameFromChannel = schemaFromChannelEntry.getKey();
-                  return columnsToEvolve.contains(columnNameFromChannel);
-                })
-            .map(this::mapApacheSchemaFromChannel)
-            .collect(Collectors.toList());
-
-    return apacheIcebergColumnSchemas.stream()
-        .map(IcebergColumnTree::new)
-        .collect(Collectors.toList());
   }
 
   private ApacheIcebergColumnSchema mapApacheSchemaFromChannel(
@@ -67,7 +68,6 @@ class IcebergTableSchemaResolver {
     try {
       java.lang.reflect.Field field =
           columnProperties.getClass().getDeclaredField("icebergColumnSchema");
-      // FieldUtils.getField(ColumnProperties.class, "icebergColumnSchema");
       field.setAccessible(true);
       return (String) field.get(columnProperties);
     } catch (IllegalAccessException | NoSuchFieldException e) {
@@ -95,7 +95,6 @@ class IcebergTableSchemaResolver {
 
   private List<IcebergColumnTree> getTableSchemaFromRecordSchemaIceberg(
       SinkRecord record, Set<String> columnNamesSet) {
-    // todo its second part
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
     throw new RuntimeException("NOT YET IMPLEMENTED! - SCHEMA path");
   }

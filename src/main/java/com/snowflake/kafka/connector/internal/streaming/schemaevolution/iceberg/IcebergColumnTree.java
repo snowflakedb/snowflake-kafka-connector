@@ -32,6 +32,7 @@ class IcebergColumnTree {
     return this;
   }
 
+  /** Returns data type of the column */
   String buildType() {
     StringBuilder sb = new StringBuilder();
     return rootNode.buildQuery(sb, "ROOT_NODE").toString();
