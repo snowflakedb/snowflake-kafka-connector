@@ -9,16 +9,16 @@ class ApacheIcebergColumnSchema {
 
   private final String columnName;
 
-  public ApacheIcebergColumnSchema(Type schema, String columnName) {
+  ApacheIcebergColumnSchema(Type schema, String columnName) {
     this.schema = schema;
     this.columnName = columnName;
   }
 
-  public Type getSchema() {
+  Type getSchema() {
     return schema;
   }
 
-  public String getColumnName() {
+  String getColumnName() {
     return columnName;
   }
 }

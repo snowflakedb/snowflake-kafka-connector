@@ -41,9 +41,9 @@ public class ParseIcebergColumnTreeTest {
         // primitives
         arguments("\"boolean\"", "BOOLEAN"),
         arguments("\"int\"", "NUMBER(10,0)"),
-        arguments("\"long\"", "NUMBER(19,0)"),
-        arguments("\"float\"", "FLOAT"),
-        arguments("\"double\"", "FLOAT"),
+        arguments("\"long\"", "LONG"),
+        arguments("\"float\"", "DOUBLE"),
+        arguments("\"double\"", "DOUBLE"),
         arguments("\"date\"", "DATE"),
         arguments("\"time\"", "TIME(6)"),
         arguments("\"timestamptz\"", "TIMESTAMP_LTZ"),
@@ -59,7 +59,7 @@ public class ParseIcebergColumnTreeTest {
         // list
         arguments(
             "{\"type\":\"list\",\"element-id\":23,\"element\":\"long\",\"element-required\":false}",
-            "ARRAY(NUMBER(19,0))"),
+            "ARRAY(LONG)"),
         // map
         arguments(
             "{\"type\":\"map\",\"key-id\":4,\"key\":\"int\",\"value-id\":5,\"value\":\"string\",\"value-required\":false}",
@@ -78,8 +78,8 @@ public class ParseIcebergColumnTreeTest {
             "{\"type\":\"struct\",\"fields\":[{\"id\":2,\"name\":\"offset\",\"required\":false,\"type\":\"int\"},{\"id\":3,\"name\":\"topic\",\"required\":false,\"type\":\"string\"},{\"id\":4,\"name\":\"partition\",\"required\":false,\"type\":\"int\"},{\"id\":5,\"name\":\"key\",\"required\":false,\"type\":\"string\"},{\"id\":6,\"name\":\"schema_id\",\"required\":false,\"type\":\"int\"},{\"id\":7,\"name\":\"key_schema_id\",\"required\":false,\"type\":\"int\"},{\"id\":8,\"name\":\"CreateTime\",\"required\":false,\"type\":\"long\"},{\"id\":9,\"name\":\"LogAppendTime\",\"required\":false,\"type\":\"long\"},{\"id\":10,\"name\":\"SnowflakeConnectorPushTime\",\"required\":false,\"type\":\"long\"},{\"id\":11,\"name\":\"headers\",\"required\":false,\"type\":{\"type\":\"map\",\"key-id\":12,\"key\":\"string\",\"value-id\":13,\"value\":\"string\",\"value-required\":false}}]}\n",
             "OBJECT(offset NUMBER(10,0), topic VARCHAR(16777216), partition"
                 + " NUMBER(10,0), key VARCHAR(16777216), schema_id NUMBER(10,0), key_schema_id"
-                + " NUMBER(10,0), CreateTime NUMBER(19,0), LogAppendTime NUMBER(19,0),"
-                + " SnowflakeConnectorPushTime NUMBER(19,0), headers MAP(VARCHAR(16777216),"
+                + " NUMBER(10,0), CreateTime LONG, LogAppendTime LONG,"
+                + " SnowflakeConnectorPushTime LONG, headers MAP(VARCHAR(16777216),"
                 + " VARCHAR(16777216)))"));
   }
 
@@ -115,8 +115,10 @@ public class ParseIcebergColumnTreeTest {
                 + "\"vehicle1\" : { \"car\" : { \"brand\" : \"vw\" } },"
                 + "\"vehicle2\" : { \"car\" : { \"brand\" : \"toyota\" } }"
                 + "}}",
-            "OBJECT(vehicle1 OBJECT(car OBJECT(brand VARCHAR)), "
-                + "vehicle2 OBJECT(car OBJECT(brand VARCHAR)))"),
+            "OBJECT(vehicle2 OBJECT(car OBJECT(brand VARCHAR)), "
+                + "vehicle1 OBJECT(car OBJECT(brand VARCHAR)))"),
+        // <- todo lol with k1, k2 the order is natural, however it changes an order when I used
+        // vehicles - inspect it
         arguments(
             "{ \"testColumnName\": {"
                 + "\"k1\" : { \"car\" : { \"brand\" : \"vw\" } },"
@@ -126,28 +128,25 @@ public class ParseIcebergColumnTreeTest {
                 + " OBJECT(car"
                 + " OBJECT(brand"
                 + " VARCHAR)))"));
-    // <- todo lol with k1, k2 the order is natural, however it changes an order when I used
-    // vehicle1, vehicle2
     // arguments("{\"test_array\": [1,2,3] }", "Array not yet implemented"));
   }
 
   @ParameterizedTest
   @MethodSource("mergeTestArguments")
   void mergeTwoTreesTest(String plainIcebergSchema, String recordJson, String expectedResult) {
-    // given
-    // tree parsed from already existing schema store in a channel
+    // given tree parsed from channel
     Type type = IcebergDataTypeParser.deserializeIcebergType(plainIcebergSchema);
     ApacheIcebergColumnSchema apacheSchema = new ApacheIcebergColumnSchema(type, "TESTSTRUCT");
+    IcebergColumnTree alreadyExistingTree = new IcebergColumnTree(apacheSchema);
 
+    // tree parsed from a record
     SinkRecord record = createKafkaRecord(recordJson, false);
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
     IcebergColumnJsonValuePair columnValuePair =
         IcebergColumnJsonValuePair.from(recordNode.fields().next());
-    // parse trees
-    IcebergColumnTree alreadyExistingTree = new IcebergColumnTree(apacheSchema);
+
     IcebergColumnTree modifiedTree = new IcebergColumnTree(columnValuePair);
     // then
-    // merge modified tree
     alreadyExistingTree.merge(modifiedTree);
 
     String expected = expectedResult.replaceAll("/ +/g", " ");

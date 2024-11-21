@@ -40,10 +40,10 @@ class IcebergColumnTypeMapper {
       case INTEGER:
         return "NUMBER(10,0)";
       case LONG:
-        return "NUMBER(19,0)";
+        return "LONG";
       case FLOAT:
       case DOUBLE:
-        return "FLOAT";
+        return "DOUBLE";
       case DATE:
         return "DATE";
       case TIME:

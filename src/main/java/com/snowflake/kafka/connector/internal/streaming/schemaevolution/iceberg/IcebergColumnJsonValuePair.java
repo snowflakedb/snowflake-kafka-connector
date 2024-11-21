@@ -9,7 +9,7 @@ class IcebergColumnJsonValuePair {
   private final String quotedColumnName;
   private final JsonNode jsonNode;
 
-  public static IcebergColumnJsonValuePair from(Map.Entry<String, JsonNode> field) {
+  static IcebergColumnJsonValuePair from(Map.Entry<String, JsonNode> field) {
     return new IcebergColumnJsonValuePair(field.getKey(), field.getValue());
   }
 
@@ -19,15 +19,15 @@ class IcebergColumnJsonValuePair {
     this.jsonNode = jsonNode;
   }
 
-  public String getColumnName() {
+  String getColumnName() {
     return columnName;
   }
 
-  public String getQuotedColumnName() {
+  String getQuotedColumnName() {
     return quotedColumnName;
   }
 
-  public JsonNode getJsonNode() {
+  JsonNode getJsonNode() {
     return jsonNode;
   }
 }

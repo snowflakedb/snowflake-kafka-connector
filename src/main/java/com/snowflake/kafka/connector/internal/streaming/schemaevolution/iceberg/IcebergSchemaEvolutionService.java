@@ -52,46 +52,52 @@ public class IcebergSchemaEvolutionService {
     if (!columnsToEvolve.isEmpty()) {
       LOGGER.debug("Adding columns to iceberg table: {} columns: {}", tableName, columnsToEvolve);
       // some of the column might already exist, and we will modify them, not create
-      IcebergTableSchema alreadyExistingColumns =
+      List<IcebergColumnTree> alreadyExistingColumns =
           icebergTableSchemaResolver.resolveIcebergSchemaFromChannel(
               schemaAlreadyInUse, columnsToEvolve);
 
       // new columns resolved from incoming record
-      IcebergTableSchema modifiedOrAddedColumns =
-          icebergTableSchemaResolver.resolveIcebergSchema(record, columnsToEvolve);
+      List<IcebergColumnTree> modifiedOrAddedColumns =
+          icebergTableSchemaResolver.resolveIcebergSchemaFromRecord(record, columnsToEvolve);
 
-      // columns that we simply add because they do not exist. They are NOT present in an already
-      // existing
-      // schema.
+      // columns that we simply add because they are NOT present in an already existing schema.
       List<IcebergColumnTree> addedColumns =
-          modifiedOrAddedColumns.getColumns().stream()
+          modifiedOrAddedColumns.stream()
               .filter(
                   modifiedOrAddedColumn ->
-                      alreadyExistingColumns.getColumns().stream()
+                      alreadyExistingColumns.stream()
                           .noneMatch(
                               tree ->
                                   tree.getColumnName()
                                       .equalsIgnoreCase(modifiedOrAddedColumn.getColumnName())))
               .collect(Collectors.toList());
-      // consider just getting rest of the columns
+      // column that are present in a schema and needs to have its type modified
       List<IcebergColumnTree> modifiedColumns =
-          modifiedOrAddedColumns.getColumns().stream()
+          modifiedOrAddedColumns.stream()
               .filter(
                   modifiedOrAddedColumn ->
-                      alreadyExistingColumns.getColumns().stream()
+                      alreadyExistingColumns.stream()
                           .anyMatch(
                               tree ->
                                   tree.getColumnName()
                                       .equalsIgnoreCase(modifiedOrAddedColumn.getColumnName())))
               .collect(Collectors.toList());
 
-      // merge withAlreadyExistingColumns
+      String addColumnsQuery = generateAddColumnQuery(addedColumns);
 
-      System.out.println("stop debugger");
-
+      // merge changes into already existing column
+      alreadyExistingColumns.forEach(
+          existingColumn -> {
+            IcebergColumnTree mewVersion =
+                modifiedColumns.stream()
+                    .filter(c -> c.getColumnName().equals(existingColumn.getColumnName()))
+                    .collect(Collectors.toList())
+                    .get(0);
+            existingColumn.merge(mewVersion);
+          });
+      String alterSetDataTypeQuery = alterSetDataTypeQuery(alreadyExistingColumns);
       try {
-        // todo columns to add and column to modify
-        conn.appendColumnsToIcebergTable(tableName, addedColumns, modifiedColumns);
+        conn.appendColumnsToIcebergTable(tableName, addColumnsQuery, alterSetDataTypeQuery);
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             String.format(
@@ -102,5 +108,45 @@ public class IcebergSchemaEvolutionService {
             e);
       }
     }
+  }
+
+  private String generateAddColumnQuery(List<IcebergColumnTree> columnsToAdd) {
+    if (columnsToAdd.isEmpty()) {
+      return "";
+    }
+    StringBuilder addColumnQuery = new StringBuilder("alter iceberg ");
+    addColumnQuery.append("table identifier(?) add column ");
+
+    for (IcebergColumnTree column : columnsToAdd) {
+      addColumnQuery.append("if not exists ");
+
+      String columnName = column.getColumnName();
+      String dataType = column.buildType();
+
+      addColumnQuery.append(" ").append(columnName).append(" ").append(dataType).append(", ");
+    }
+    // remove last comma and whitespace
+    addColumnQuery.deleteCharAt(addColumnQuery.length() - 1);
+    addColumnQuery.deleteCharAt(addColumnQuery.length() - 1);
+    return addColumnQuery.toString();
+  }
+
+  private String alterSetDataTypeQuery(List<IcebergColumnTree> columnsToModify) {
+    if (columnsToModify.isEmpty()) {
+      return "";
+    }
+    StringBuilder setDataTypeQuery = new StringBuilder("alter iceberg ");
+    setDataTypeQuery.append("table identifier(?) alter column ");
+    for (IcebergColumnTree column : columnsToModify) {
+      String columnName = column.getColumnName();
+      String dataType = column.buildType();
+
+      setDataTypeQuery.append(columnName).append(" set data type ").append(dataType).append(", ");
+    }
+    // remove last comma and whitespace
+    setDataTypeQuery.deleteCharAt(setDataTypeQuery.length() - 1);
+    setDataTypeQuery.deleteCharAt(setDataTypeQuery.length() - 1);
+
+    return setDataTypeQuery.toString();
   }
 }

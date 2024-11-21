@@ -86,13 +86,11 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   // @Disabled
   public void shouldResolveNewlyInsertedStructuredObjects() throws Exception {
     String testStruct1 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2 } }";
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct1, 0, false)));
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct1, 0, false)));
+    insertWithRetry(testStruct1, 0, false);
     waitForOffset(1);
 
     String testStruct2 = "{ \"testStruct2\": {\"k1\" : 1, \"k3\" : 2 } }";
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 1, false)));
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 1, false)));
+    insertWithRetry(testStruct2, 1, false);
     waitForOffset(2);
 
     String testStruct3 =
@@ -100,8 +98,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
             + "\"k1\" : { \"car\" : { \"brand\" : \"vw\" } },"
             + "\"k2\" : { \"car\" : { \"brand\" : \"toyota\" } }"
             + "}}";
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct3, 2, false)));
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct3, 2, false)));
+    insertWithRetry(testStruct3, 2, false);
     waitForOffset(3);
     List<DescribeTableRow> rows = describeTable(tableName);
     assertEquals(rows.size(), 4);
@@ -111,23 +108,20 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   @Test
   // @Disabled
   public void alterAlreadyExistingStructure() throws Exception {
-    // insert a structure k1, k2
+    // k1, k2
     String testStruct1 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2 } }";
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct1, 0, false)));
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct1, 0, false)));
+    insertWithRetry(testStruct1, 0, false);
     waitForOffset(1);
 
-    // insert the structure but with additional field k3
+    // k1, k2 + k3
     String testStruct2 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2, \"k3\" : \"foo\" } }";
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 1, false)));
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct2, 1, false)));
+    insertWithRetry(testStruct2, 1, false);
     waitForOffset(2);
 
-    // k1, k2, k3, k4
+    // k1, k2, k3 + k4
     String testStruct3 =
         "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2, \"k3\" : \"bar\", \"k4\" : 4.5 } }";
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct3, 2, false)));
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct3, 2, false)));
+    insertWithRetry(testStruct3, 2, false);
     waitForOffset(3);
 
     List<DescribeTableRow> columns = describeTable(tableName);
@@ -135,17 +129,33 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
         columns.get(1).getType(),
         "OBJECT(k1 NUMBER(19,0), k2 NUMBER(19,0), k3 VARCHAR(16777216), k4 FLOAT)");
 
-    // struck without k1 - verify that schema was not evolved back
+    // k2, k3, k4
     String testStruct4 = "{ \"testStruct\": { \"k2\" : 2, \"k3\" : 3, \"k4\" : 4.34 } }";
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct4, 3, false)));
-    service.insert(Collections.singletonList(createKafkaRecord(testStruct4, 3, false)));
+    insertWithRetry(testStruct4, 3, false);
+
     waitForOffset(4);
 
     columns = describeTable(tableName);
     assertEquals(
         columns.get(1).getType(),
         "OBJECT(k1 NUMBER(19,0), k2 NUMBER(19,0), k3 VARCHAR(16777216), k4 FLOAT)");
+
+    // k5, k6
+    String testStruct5 = "{ \"testStruct\": { \"k5\" : 2, \"k6\" : 3 } }";
+    insertWithRetry(testStruct5, 4, false);
+    waitForOffset(5);
+
+    columns = describeTable(tableName);
+    assertEquals(
+        columns.get(1).getType(),
+        "OBJECT(k1 NUMBER(19,0), k2 NUMBER(19,0), k3 VARCHAR(16777216), k4 FLOAT, k5 NUMBER(19,0),"
+            + " k6 NUMBER(19,0))");
     assertEquals(columns.size(), 2);
+  }
+
+  private void insertWithRetry(String record, int offset, boolean withSchema) {
+    service.insert(Collections.singletonList(createKafkaRecord(record, offset, false)));
+    service.insert(Collections.singletonList(createKafkaRecord(record, offset, false)));
   }
 
   private void assertRecordsInTable() {
@@ -176,6 +186,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   private static Stream<Arguments> prepareData() {
     return Stream.of(
+        // Reading schema from a record is not yet supported.
         //        Arguments.of(
         //            "Primitive JSON with schema",
         //            primitiveJsonWithSchemaExample,

@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -12,11 +13,11 @@ class IcebergFieldNode {
   // todo consider refactoring into some more classes
   private final IcebergColumnTypeMapper mapper = IcebergColumnTypeMapper.INSTANCE;
 
-  public final String name;
+  final String name;
 
-  public final String snowflakeIcebergType;
+  final String snowflakeIcebergType;
 
-  public final LinkedHashMap<String, IcebergFieldNode> children;
+  final LinkedHashMap<String, IcebergFieldNode> children;
 
   IcebergFieldNode(String name, Type apacheIcebergSchema) {
     this.name = name;
@@ -24,7 +25,6 @@ class IcebergFieldNode {
     this.children = produceChildren(apacheIcebergSchema);
   }
 
-  // todo refactor
   IcebergFieldNode(String name, JsonNode jsonNode) {
     this.name = name;
     this.snowflakeIcebergType = mapper.mapToColumnDataTypeFromJson(jsonNode);
@@ -35,7 +35,7 @@ class IcebergFieldNode {
    * Method does not modify, delete any existing nodes and its types, names. It is meant only to add
    * new children.
    */
-  IcebergFieldNode merge(IcebergFieldNode modifiedNode) {
+  void merge(IcebergFieldNode modifiedNode) {
     modifiedNode.children.forEach(
         (key, value) -> {
           IcebergFieldNode thisChild = this.children.get(key);
@@ -46,23 +46,11 @@ class IcebergFieldNode {
           }
         });
     addNewChildren(modifiedNode);
-    return this;
   }
 
   private void addNewChildren(IcebergFieldNode modifiedNode) {
     modifiedNode.children.forEach(this.children::putIfAbsent);
   }
-
-  //      nodeFromModifiedSchema.children.entrySet().forEach(
-  //          newChildsEntry -> {
-  //    IcebergFieldNode thisChild = this.children.get(newChildsEntry.getKey());
-  //    if (thisChild == null) {
-  //      this.children.put(newChildsEntry.getKey(), newChildsEntry.getValue());
-  //    } else {
-  //      thisChild.merge(newChildsEntry.getValue());
-  //    }
-  //  }
-  //    );
 
   private LinkedHashMap<String, IcebergFieldNode> produceChildren(JsonNode recordNode) {
     // primitives must not have children
@@ -74,7 +62,7 @@ class IcebergFieldNode {
       return objectNode.properties().stream()
           .collect(
               Collectors.toMap(
-                  stringJsonNodeEntry -> stringJsonNodeEntry.getKey(),
+                  Map.Entry::getKey,
                   stringJsonNodeEntry ->
                       new IcebergFieldNode(
                           stringJsonNodeEntry.getKey(), stringJsonNodeEntry.getValue()),
@@ -132,26 +120,23 @@ class IcebergFieldNode {
     return sb;
   }
 
-  private StringBuilder appendNameAndType(StringBuilder sb) {
+  private void appendNameAndType(StringBuilder sb) {
     sb.append(name);
     sb.append(" ");
     sb.append(snowflakeIcebergType);
-    return sb;
   }
 
-  private StringBuilder appendChildren(StringBuilder sb, String parentType) {
+  private void appendChildren(StringBuilder sb, String parentType) {
     children.forEach(
         (name, node) -> {
           node.buildQuery(sb, parentType);
           sb.append(", ");
         });
     removeLastSeparator(sb);
-    return sb;
   }
 
-  private StringBuilder removeLastSeparator(StringBuilder sb) {
+  private void removeLastSeparator(StringBuilder sb) {
     sb.deleteCharAt(sb.length() - 1);
     sb.deleteCharAt(sb.length() - 1);
-    return sb;
   }
 }

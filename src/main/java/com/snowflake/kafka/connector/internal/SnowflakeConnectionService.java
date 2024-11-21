@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergColumnTree;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
@@ -117,13 +116,11 @@ public interface SnowflakeConnectionService {
    * Alter iceberg table to add columns according to a map from columnNames to their types
    *
    * @param tableName the name of the table
-   * @param addedColumns todo
-   * @param modifiedColumns todo
+   * @param addColumnsQuery
+   * @param alterSetDataTypeQuery
    */
   void appendColumnsToIcebergTable(
-      String tableName,
-      List<IcebergColumnTree> addedColumns,
-      List<IcebergColumnTree> modifiedColumns);
+      String tableName, String addColumnsQuery, String alterSetDataTypeQuery);
 
   /**
    * Alter table to drop non-nullability of a list of columns

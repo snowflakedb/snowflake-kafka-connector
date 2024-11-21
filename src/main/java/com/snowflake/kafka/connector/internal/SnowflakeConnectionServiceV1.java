@@ -12,7 +12,6 @@ import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetToke
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergColumnTree;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
 import java.io.ByteArrayInputStream;
@@ -515,68 +514,24 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
    * Alter iceberg table to add columns according to a map from columnNames to their types
    *
    * @param tableName the name of the table
-   * @param addedColumns the mapping from the columnNames to their infos
-   * @param modifiedColumns
+   * @param addColumnsQuery
+   * @param alterSetDataTypeQuery
    */
   @Override
   public void appendColumnsToIcebergTable(
-      String tableName,
-      List<IcebergColumnTree> addedColumns,
-      List<IcebergColumnTree> modifiedColumns) {
+      String tableName, String addColumnsQuery, String alterSetDataTypeQuery) {
     LOGGER.debug("Appending columns to iceberg table");
     InternalUtils.assertNotEmpty("tableName", tableName);
     checkConnection();
 
-    appendIcebergColumnsQuery(tableName, addedColumns);
-    modifyIcebergColumnsQuery(tableName, modifiedColumns);
-  }
-
-  // alter table kafka_connector_test_table_785581352092121753 add RECORD_METADATA column to align
-  // with iceberg format
-  private void appendIcebergColumnsQuery(String tableName, List<IcebergColumnTree> columnsToAdd) {
-    if (columnsToAdd.isEmpty()) {
-      return;
+    if (!addColumnsQuery.isEmpty()) {
+      executeStatement(tableName, addColumnsQuery);
+      LOGGER.info("Query SUCCEEDED: " + addColumnsQuery);
     }
-    StringBuilder addColumnQuery = new StringBuilder("alter iceberg ");
-    addColumnQuery.append("table identifier(?) add column ");
-
-    for (IcebergColumnTree column : columnsToAdd) {
-      addColumnQuery.append("if not exists ");
-
-      String columnName = column.getColumnName();
-      String dataType = column.buildType();
-
-      addColumnQuery.append(" ").append(columnName).append(" ").append(dataType).append(", ");
+    if (!alterSetDataTypeQuery.isEmpty()) {
+      executeStatement(tableName, alterSetDataTypeQuery);
+      LOGGER.info("Query SUCCEEDED: " + addColumnsQuery);
     }
-    // remove last comma and whitespace
-    addColumnQuery.deleteCharAt(addColumnQuery.length() - 1);
-    addColumnQuery.deleteCharAt(addColumnQuery.length() - 1);
-
-    executeStatement(tableName, addColumnQuery.toString());
-
-    LOGGER.info("Query SUCCEEDED: " + addColumnQuery);
-  }
-
-  private void modifyIcebergColumnsQuery(
-      String tableName, List<IcebergColumnTree> columnsToModify) {
-    if (columnsToModify.isEmpty()) {
-      return;
-    }
-    StringBuilder setDataTypeQuery = new StringBuilder("alter iceberg ");
-    setDataTypeQuery.append("table identifier(?) alter column ");
-    for (IcebergColumnTree column : columnsToModify) {
-      String columnName = column.getColumnName();
-      String dataType = column.buildType();
-
-      setDataTypeQuery.append(columnName).append(" set data type ").append(dataType).append(", ");
-    }
-    // remove last comma and whitespace
-    setDataTypeQuery.deleteCharAt(setDataTypeQuery.length() - 1);
-    setDataTypeQuery.deleteCharAt(setDataTypeQuery.length() - 1);
-
-    executeStatement(tableName, setDataTypeQuery.toString());
-
-    LOGGER.info("Query SUCCEEDED: " + setDataTypeQuery);
   }
 
   private void executeStatement(String tableName, String query) {
