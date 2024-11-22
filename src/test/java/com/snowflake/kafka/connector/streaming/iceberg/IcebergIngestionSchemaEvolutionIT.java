@@ -35,7 +35,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareData")
-  //  @Disabled
+  // @Disabled
   void shouldEvolveSchemaAndInsertRecords(
       String description, String message, DescribeTableRow[] expectedSchema, boolean withSchema)
       throws Exception {
@@ -100,6 +100,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
             + "}}";
     insertWithRetry(testStruct3, 2, false);
     waitForOffset(3);
+
     List<DescribeTableRow> rows = describeTable(tableName);
     assertEquals(rows.size(), 4);
   }
@@ -132,7 +133,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     // k2, k3, k4
     String testStruct4 = "{ \"testStruct\": { \"k2\" : 2, \"k3\" : 3, \"k4\" : 4.34 } }";
     insertWithRetry(testStruct4, 3, false);
-
     waitForOffset(4);
 
     columns = describeTable(tableName);
@@ -153,9 +153,89 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     assertEquals(columns.size(), 2);
   }
 
+  @Test
+  // @Disabled
+  public void alterAlreadyExistingStructure_timestamp() throws Exception {
+    // k1, k2
+    String testStruct1 =
+        "{\n"
+            + "    \"_id\": \"673f3b93a56dd01a8a0cb6a4\",\n"
+            + "    \"index\": 0,\n"
+            + "    \"guid\": \"738142bb-5878-42ad-bf35-6015f63b67dd\",\n"
+            + "    \"isActive\": true,\n"
+            + "    \"balance\": \"$1,690.88\",\n"
+            + "    \"picture\": \"http://placehold.it/32x32\",\n"
+            + "    \"age\": 38,\n"
+            + "    \"eyeColor\": \"blue\",\n"
+            + "    \"name\": \"Davis Heath\",\n"
+            + "    \"gender\": \"male\",\n"
+            + "    \"company\": \"EVENTEX\",\n"
+            + "    \"email\": \"davisheath@eventex.com\",\n"
+            + "    \"phone\": \"+1 (987) 471-3852\",\n"
+            + "    \"address\": \"768 Cypress Court, Lookingglass, Kansas, 5659\",\n"
+            + "    \"about\": \"Nisi voluptate id occaecat nisi pariatur dolore laborum labore ea"
+            + " reprehenderit consequat sint fugiat sunt. Et consequat esse ex cillum deserunt"
+            + " Lorem. Enim nisi tempor non nisi. Consectetur ut ad reprehenderit fugiat et"
+            + " adipisicing sint. Deserunt est proident exercitation sit cillum in non excepteur"
+            + " aliqua qui amet cillum sint aliquip.\\r"
+            + "\\n"
+            + "\",\n"
+            + "    \"registered\": \"2023-09-19T09:41:45 -02:00\",\n"
+            + "    \"latitude\": 13.997901,\n"
+            + "    \"longitude\": 130.854106,\n"
+            + "    \"tags\": [\n"
+            + "      \"et\",\n"
+            + "      \"ut\",\n"
+            + "      \"elit\",\n"
+            + "      \"do\",\n"
+            + "      \"nostrud\",\n"
+            + "      \"id\",\n"
+            + "      \"veniam\"\n"
+            + "    ],\n"
+            + "    \"friends\": [\n"
+            + "      {\n"
+            + "        \"id\": 0,\n"
+            + "        \"name\": \"Sandoval Hodges\"\n"
+            + "      },\n"
+            + "      {\n"
+            + "        \"id\": 1,\n"
+            + "        \"name\": \"Ramirez Brooks\"\n"
+            + "      },\n"
+            + "      {\n"
+            + "        \"id\": 2,\n"
+            + "        \"name\": \"Vivian Whitfield\"\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"greeting\": \"Hello, Davis Heath! You have 4 unread messages.\",\n"
+            + "    \"favoriteFruit\": \"strawberry\"\n"
+            + "  }";
+    insertWithRetry(testStruct1, 0, false);
+    waitForOffset(1);
+
+    List<DescribeTableRow> columns = describeTable(tableName);
+    assertEquals(columns.size(), 23);
+  }
+
+  @Test
+  void test3() {
+    String message =
+        " {   \"name\": \"machine name\",  \"parts\": {\n"
+            + "     \"1stPartId\": { \"group\": \"part group\", \"description\": \"abcd\" },\n"
+            + "     \"2ndPartId\": { \"group\": \"part group\", \"description\": \"cda\","
+            + " \"floatingNumber\" : 4.3 }\n"
+            + "  }}\n";
+    insertWithRetry(message, 0, false);
+    List<DescribeTableRow> columns = describeTable(tableName);
+    assertEquals(columns.size(), 2);
+  }
+
+  //  "PARTS OBJECT(" +
+  //          "1stPartId OBJECT(description VARCHAR, group VARCHAR), " +
+  //          "2ndPartId OBJECT(description VARCHAR, group VARCHAR))"
+
   private void insertWithRetry(String record, int offset, boolean withSchema) {
-    service.insert(Collections.singletonList(createKafkaRecord(record, offset, false)));
-    service.insert(Collections.singletonList(createKafkaRecord(record, offset, false)));
+    service.insert(Collections.singletonList(createKafkaRecord(record, offset, withSchema)));
+    service.insert(Collections.singletonList(createKafkaRecord(record, offset, withSchema)));
   }
 
   private void assertRecordsInTable() {

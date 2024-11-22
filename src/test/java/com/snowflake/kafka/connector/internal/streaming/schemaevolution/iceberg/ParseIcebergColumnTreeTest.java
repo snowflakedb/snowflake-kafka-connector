@@ -40,7 +40,7 @@ public class ParseIcebergColumnTreeTest {
     return Stream.of(
         // primitives
         arguments("\"boolean\"", "BOOLEAN"),
-        arguments("\"int\"", "NUMBER(10,0)"),
+        arguments("\"int\"", "INT"),
         arguments("\"long\"", "LONG"),
         arguments("\"float\"", "DOUBLE"),
         arguments("\"double\"", "DOUBLE"),
@@ -55,15 +55,18 @@ public class ParseIcebergColumnTreeTest {
         // simple struct
         arguments(
             "{\"type\":\"struct\",\"fields\":[{\"id\":23,\"name\":\"k1\",\"required\":false,\"type\":\"int\"},{\"id\":24,\"name\":\"k2\",\"required\":false,\"type\":\"int\"}]}",
-            "OBJECT(k1 NUMBER(10,0), k2 NUMBER(10,0))"),
+            "OBJECT(k1 INT, k2 INT)"),
         // list
         arguments(
             "{\"type\":\"list\",\"element-id\":23,\"element\":\"long\",\"element-required\":false}",
             "ARRAY(LONG)"),
+        arguments(
+            "{\"type\":\"list\",\"element-id\":1,\"element\":{\"type\":\"struct\",\"fields\":[{\"id\":1,\"name\":\"primitive\",\"required\":true,\"type\":\"boolean\"}]},\"element-required\":true}",
+            "ARRAY(OBJECT(primitive BOOLEAN))"),
         // map
         arguments(
             "{\"type\":\"map\",\"key-id\":4,\"key\":\"int\",\"value-id\":5,\"value\":\"string\",\"value-required\":false}",
-            "MAP(NUMBER(10,0), VARCHAR(16777216))"),
+            "MAP(INT, VARCHAR(16777216))"),
         // structs with nested objects
         arguments(
             "{\"type\":\"struct\",\"fields\":["
@@ -72,13 +75,13 @@ public class ParseIcebergColumnTreeTest {
                 + "    {\"id\":26,\"name\":\"nested_key1\",\"required\":false,\"type\":\"string\"},"
                 + "    {\"id\":27,\"name\":\"nested_key2\",\"required\":false,\"type\":\"string\"}"
                 + "]}}]}",
-            "OBJECT(k1 NUMBER(10,0), k2 NUMBER(10,0), nested_object"
+            "OBJECT(k1 INT, k2 INT, nested_object"
                 + " OBJECT(nested_key1 VARCHAR(16777216), nested_key2 VARCHAR(16777216)))"),
         arguments(
             "{\"type\":\"struct\",\"fields\":[{\"id\":2,\"name\":\"offset\",\"required\":false,\"type\":\"int\"},{\"id\":3,\"name\":\"topic\",\"required\":false,\"type\":\"string\"},{\"id\":4,\"name\":\"partition\",\"required\":false,\"type\":\"int\"},{\"id\":5,\"name\":\"key\",\"required\":false,\"type\":\"string\"},{\"id\":6,\"name\":\"schema_id\",\"required\":false,\"type\":\"int\"},{\"id\":7,\"name\":\"key_schema_id\",\"required\":false,\"type\":\"int\"},{\"id\":8,\"name\":\"CreateTime\",\"required\":false,\"type\":\"long\"},{\"id\":9,\"name\":\"LogAppendTime\",\"required\":false,\"type\":\"long\"},{\"id\":10,\"name\":\"SnowflakeConnectorPushTime\",\"required\":false,\"type\":\"long\"},{\"id\":11,\"name\":\"headers\",\"required\":false,\"type\":{\"type\":\"map\",\"key-id\":12,\"key\":\"string\",\"value-id\":13,\"value\":\"string\",\"value-required\":false}}]}\n",
-            "OBJECT(offset NUMBER(10,0), topic VARCHAR(16777216), partition"
-                + " NUMBER(10,0), key VARCHAR(16777216), schema_id NUMBER(10,0), key_schema_id"
-                + " NUMBER(10,0), CreateTime LONG, LogAppendTime LONG,"
+            "OBJECT(offset INT, topic VARCHAR(16777216), partition"
+                + " INT, key VARCHAR(16777216), schema_id INT, key_schema_id"
+                + " INT, CreateTime LONG, LogAppendTime LONG,"
                 + " SnowflakeConnectorPushTime LONG, headers MAP(VARCHAR(16777216),"
                 + " VARCHAR(16777216)))"));
   }
@@ -127,8 +130,38 @@ public class ParseIcebergColumnTreeTest {
             "OBJECT(k1 OBJECT(car OBJECT(brand VARCHAR)), k2"
                 + " OBJECT(car"
                 + " OBJECT(brand"
-                + " VARCHAR)))"));
-    // arguments("{\"test_array\": [1,2,3] }", "Array not yet implemented"));
+                + " VARCHAR)))"),
+        arguments(
+            "   { \"testColumnName\": [\n"
+                + "      {\n"
+                + "        \"id\": 0,\n"
+                + "        \"name\": \"Sandoval Hodges\"\n"
+                + "      },\n"
+                + "      {\n"
+                + "        \"id\": 1,\n"
+                + "        \"name\": \"Ramirez Brooks\"\n"
+                + "      },\n"
+                + "      {\n"
+                + "        \"id\": 2,\n"
+                + "        \"name\": \"Vivian Whitfield\"\n"
+                + "      }\n"
+                + "    ] } \n",
+            "ARRAY(OBJECT(name VARCHAR, id LONG))"),
+        // array
+        arguments("{\"testColumnName\": [1,2,3] }", "ARRAY(LONG)"),
+        arguments(
+            "{ \"testColumnName\": [] }", "ARRAY(VARCHAR(16777216))") // todo what about empty array
+        //        arguments(
+        //
+        //                  " {\"parts\": {\n" +
+        //                  "     \"1st part id\": { \"group\": \"part group\", \"description\":
+        // \"abcd\" },\n" +
+        //                  "     2 : { \"group\": \"part group\", \"description\": \"cda\" }\n" +
+        //                  "  }\n" +
+        //                  "}", "can't resolve that this is a map when I don't have a schema"
+        //        )
+
+        );
   }
 
   @ParameterizedTest
@@ -159,7 +192,7 @@ public class ParseIcebergColumnTreeTest {
         arguments(
             "{\"type\":\"struct\",\"fields\":[{\"id\":23,\"name\":\"k1\",\"required\":false,\"type\":\"int\"},{\"id\":24,\"name\":\"k2\",\"required\":false,\"type\":\"int\"}]}",
             "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2, \"k3\" : 3 } }",
-            "OBJECT(k1 NUMBER(10,0), k2 NUMBER(10,0), k3 LONG)"),
+            "OBJECT(k1 INT, k2 INT, k3 LONG)"),
         arguments(
             "{\"type\":\"struct\",\"fields\":["
                 + "{\"id\":23,\"name\":\"k1\",\"required\":false,\"type\":\"int\"},{\"id\":24,\"name\":\"k2\",\"required\":false,\"type\":\"int\"},"
@@ -177,9 +210,19 @@ public class ParseIcebergColumnTreeTest {
                 + "        \"nested_key2\" : 23.5 "
                 + "    }}"
                 + "}}",
-            "OBJECT(k1 NUMBER(10,0), k2 NUMBER(10,0), nested_object OBJECT(nested_key1"
+            "OBJECT(k1 INT, k2 INT, nested_object OBJECT(nested_key1"
                 + " VARCHAR(16777216), nested_key2 VARCHAR(16777216), nested_object2"
-                + " OBJECT(nested_key2 DOUBLE)))"));
+                + " OBJECT(nested_key2 DOUBLE)))"),
+        // ARRAY evolution
+        arguments(
+            "{\"type\":\"list\",\"element-id\":23,\"element\":\"long\",\"element-required\":false}",
+            "{\"TESTSTRUCT\": [1,2,3] }",
+            "ARRAY(LONG)"),
+        arguments(
+            "{\"type\":\"list\",\"element-id\":1,\"element\":{\"type\":\"struct\",\"fields\":[{\"id\":1,\"name\":\"primitive\",\"required\":true,\"type\":\"boolean\"}]},\"element-required\":true}",
+            "{\"TESTSTRUCT\": [ { \"primitive\" : true, \"new_field\" : 25878749237493287429348 }]"
+                + " }",
+            "ARRAY(OBJECT(primitive BOOLEAN, new_field LONG))"));
   }
 
   protected SinkRecord createKafkaRecord(String jsonString, boolean withSchema) {

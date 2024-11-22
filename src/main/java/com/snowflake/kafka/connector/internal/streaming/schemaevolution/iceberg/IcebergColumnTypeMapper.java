@@ -31,7 +31,7 @@ class IcebergColumnTypeMapper {
       case BOOLEAN:
         return "BOOLEAN";
       case INTEGER:
-        return "NUMBER(10,0)";
+        return "INT";
       case LONG:
         return "LONG";
       case FLOAT:

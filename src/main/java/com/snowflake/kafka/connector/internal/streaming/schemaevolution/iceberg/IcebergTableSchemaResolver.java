@@ -4,10 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.snowflake.kafka.connector.records.RecordService;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.internal.ColumnProperties;
 import org.apache.iceberg.types.Type;
@@ -20,21 +17,21 @@ class IcebergTableSchemaResolver {
    * do not need to be modified.
    */
   public List<IcebergColumnTree> resolveIcebergSchemaFromChannel(
-          Map<String, ColumnProperties> tableSchemaFromChannel, Set<String> columnsToEvolve) {
+      Map<String, ColumnProperties> tableSchemaFromChannel, Set<String> columnsToEvolve) {
 
     List<ApacheIcebergColumnSchema> apacheIcebergColumnSchemas =
-            tableSchemaFromChannel.entrySet().stream()
-                    .filter(
-                            (schemaFromChannelEntry) -> {
-                              String columnNameFromChannel = schemaFromChannelEntry.getKey();
-                              return columnsToEvolve.contains(columnNameFromChannel);
-                            })
-                    .map(this::mapApacheSchemaFromChannel)
-                    .collect(Collectors.toList());
+        tableSchemaFromChannel.entrySet().stream()
+            .filter(
+                (schemaFromChannelEntry) -> {
+                  String columnNameFromChannel = schemaFromChannelEntry.getKey();
+                  return columnsToEvolve.contains(columnNameFromChannel);
+                })
+            .map(this::mapApacheSchemaFromChannel)
+            .collect(Collectors.toList());
 
     return apacheIcebergColumnSchemas.stream()
-            .map(IcebergColumnTree::new)
-            .collect(Collectors.toList());
+        .map(IcebergColumnTree::new)
+        .collect(Collectors.toList());
   }
 
   public List<IcebergColumnTree> resolveIcebergSchemaFromRecord(

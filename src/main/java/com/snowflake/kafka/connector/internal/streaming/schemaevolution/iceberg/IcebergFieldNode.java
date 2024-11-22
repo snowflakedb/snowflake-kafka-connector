@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -31,6 +32,12 @@ class IcebergFieldNode {
     this.children = produceChildren(jsonNode);
   }
 
+  IcebergFieldNode(String name, String snowflakeIcebergType) {
+    this.name = name;
+    this.snowflakeIcebergType = snowflakeIcebergType;
+    this.children = new LinkedHashMap<>();
+  }
+
   /**
    * Method does not modify, delete any existing nodes and its types, names. It is meant only to add
    * new children.
@@ -53,29 +60,45 @@ class IcebergFieldNode {
   }
 
   private LinkedHashMap<String, IcebergFieldNode> produceChildren(JsonNode recordNode) {
-    // primitives must not have children
-    if (recordNode.isEmpty() || recordNode.isNull()) {
+    if (recordNode.isNull()) {
       return new LinkedHashMap<>();
+    }
+    if (recordNode.isArray()) {
+      ArrayNode arrayNode = (ArrayNode) recordNode;
+      return produceChildrenFromArray(arrayNode);
     }
     if (recordNode.isObject()) {
       ObjectNode objectNode = (ObjectNode) recordNode;
-      return objectNode.properties().stream()
-          .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey,
-                  stringJsonNodeEntry ->
-                      new IcebergFieldNode(
-                          stringJsonNodeEntry.getKey(), stringJsonNodeEntry.getValue()),
-                  (v1, v2) -> {
-                    throw new IllegalArgumentException("Two same keys: " + v1);
-                  },
-                  LinkedHashMap::new));
-    }
-    if (recordNode.isArray()) {
-      // todo
-      throw new IllegalArgumentException("Array is not yet implemented");
+      return produceChildrenFromObject(objectNode);
     }
     return new LinkedHashMap<>();
+  }
+
+  private LinkedHashMap<String, IcebergFieldNode> produceChildrenFromArray(ArrayNode arrayNode) {
+    JsonNode arrayElement = arrayNode.get(0);
+    // VARCHAR is set for an empty array: [] -> ARRAY(VARCHAR)
+    if (arrayElement == null) {
+      LinkedHashMap<String, IcebergFieldNode> child = new LinkedHashMap<>();
+      child.put("element", new IcebergFieldNode("element", "VARCHAR(16777216)"));
+      return child;
+    }
+    LinkedHashMap<String, IcebergFieldNode> child = new LinkedHashMap<>();
+    child.put("element", new IcebergFieldNode("element", arrayElement));
+    return child;
+  }
+
+  private LinkedHashMap<String, IcebergFieldNode> produceChildrenFromObject(ObjectNode objectNode) {
+    return objectNode.properties().stream()
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                stringJsonNodeEntry ->
+                    new IcebergFieldNode(
+                        stringJsonNodeEntry.getKey(), stringJsonNodeEntry.getValue()),
+                (v1, v2) -> {
+                  throw new IllegalArgumentException("Two same keys: " + v1);
+                },
+                LinkedHashMap::new));
   }
 
   private LinkedHashMap<String, IcebergFieldNode> produceChildren(Type apacheIcebergSchema) {
