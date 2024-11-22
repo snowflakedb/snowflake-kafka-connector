@@ -133,9 +133,10 @@ public class SnowflakeSinkConnectorConfig {
   public static final String SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER =
       "snowflake.streaming.enable.single.buffer";
 
-  public static final boolean SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT = false;
+  public static final boolean SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT = true;
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
       "snowflake.streaming.max.client.lag";
+  public static final int SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT = 120;
 
   public static final String SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES =
       "snowflake.streaming.max.memory.limit.bytes";
@@ -258,6 +259,12 @@ public class SnowflakeSinkConnectorConfig {
           SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
           SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT,
           "");
+
+      setFieldToDefaultValues(
+          config,
+          SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
+          SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT,
+          "seconds");
     }
   }
 

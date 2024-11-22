@@ -62,7 +62,7 @@ class TestSchemaEvolutionMultiTopicDropTable(BaseE2eTest):
             self.driver.sendBytesData(topic, value, key)
 
         # Sleep for some time and then verify the rows are ingested
-        sleep(120)
+        sleep(100)
         self.verify("0")
 
         # Recreate the table
