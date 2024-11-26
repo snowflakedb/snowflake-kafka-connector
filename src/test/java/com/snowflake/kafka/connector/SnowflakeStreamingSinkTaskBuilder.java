@@ -138,7 +138,6 @@ public class SnowflakeStreamingSinkTaskBuilder {
         /*enableSchematization=*/ false,
         /*closeChannelsInParallel=*/ true,
         topicPartitionChannelMap,
-        new SnowflakeSchemaEvolutionService(mockConnectionService),
         new IcebergSchemaEvolutionService(mockConnectionService));
   }
 

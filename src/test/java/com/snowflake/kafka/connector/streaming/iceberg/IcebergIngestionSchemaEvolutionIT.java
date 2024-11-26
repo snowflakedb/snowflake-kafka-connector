@@ -291,5 +291,4 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
             "OBJECT",
             "OBJECT(arrayOfMaps ARRAY(MAP(VARCHAR(16777216), FLOAT)))"));
   }
-
 }

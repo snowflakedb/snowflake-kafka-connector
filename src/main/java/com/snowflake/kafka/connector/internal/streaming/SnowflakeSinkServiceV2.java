@@ -83,7 +83,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final IcebergInitService icebergInitService;
 
   private final SchemaEvolutionService schemaEvolutionService;
-  private final IcebergSchemaEvolutionService icebergSchemaEvolutionService;
 
   private Map<String, String> topicToTableMap;
 
@@ -145,8 +144,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             Utils.isIcebergEnabled(connectorConfig), schematizationEnabled);
     this.icebergTableSchemaValidator = new IcebergTableSchemaValidator(conn);
     this.icebergInitService = new IcebergInitService(conn);
-    this.schemaEvolutionService = new SnowflakeSchemaEvolutionService(conn);
-    this.icebergSchemaEvolutionService = new IcebergSchemaEvolutionService(conn);
+    this.schemaEvolutionService = Utils.isIcebergEnabled(connectorConfig)
+            ? new IcebergSchemaEvolutionService(conn)
+            : new SnowflakeSchemaEvolutionService(conn);
 
     this.topicToTableMap = new HashMap<>();
 
@@ -199,8 +199,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       boolean enableSchematization,
       boolean closeChannelsInParallel,
       Map<String, TopicPartitionChannel> partitionsToChannel,
-      SchemaEvolutionService schemaEvolutionService,
-      IcebergSchemaEvolutionService icebergSchemaEvolutionService) {
+      SchemaEvolutionService schemaEvolutionService) {
     this.flushTimeSeconds = flushTimeSeconds;
     this.fileSizeBytes = fileSizeBytes;
     this.recordNum = recordNum;
@@ -221,7 +220,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             .getClient(this.connectorConfig);
     this.enableSchematization = enableSchematization;
     this.schemaEvolutionService = schemaEvolutionService;
-    this.icebergSchemaEvolutionService = icebergSchemaEvolutionService;
     this.closeChannelsInParallel = closeChannelsInParallel;
     this.partitionsToChannel = partitionsToChannel;
 
@@ -333,7 +331,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.enableCustomJMXMonitoring,
             this.metricsJmxReporter,
             this.schemaEvolutionService,
-            this.icebergSchemaEvolutionService,
             new InsertErrorMapper())
         : new BufferedTopicPartitionChannel(
             this.streamingIngestClient,

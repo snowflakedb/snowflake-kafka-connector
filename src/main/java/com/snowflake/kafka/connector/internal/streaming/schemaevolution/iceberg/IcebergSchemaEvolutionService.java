@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
 import java.util.List;
 import java.util.Map;
@@ -10,12 +11,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.internal.ColumnProperties;
-import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class IcebergSchemaEvolutionService {
+public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(IcebergSchemaEvolutionService.class);
 
@@ -39,7 +39,8 @@ public class IcebergSchemaEvolutionService {
    * @param record record that caused an error
    * @param schemaAlreadyInUse schema stored in a channel
    */
-  public void evolveIcebergSchemaIfNeeded(
+  @Override
+  public void evolveSchemaIfNeeded(
       SchemaEvolutionTargetItems targetItems,
       SinkRecord record,
       Map<String, ColumnProperties> schemaAlreadyInUse) {

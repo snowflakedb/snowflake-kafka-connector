@@ -80,7 +80,6 @@ public class TopicPartitionChannelTest {
   @Mock private SnowflakeTelemetryService mockTelemetryService;
 
   @Mock private SchemaEvolutionService schemaEvolutionService;
-  @Mock private IcebergSchemaEvolutionService icebergSchemaEvolutionService;
 
   private static final String TOPIC = "TEST";
 
@@ -1225,7 +1224,6 @@ public class TopicPartitionChannelTest {
             conn,
             telemetryService,
             this.schemaEvolutionService,
-            this.icebergSchemaEvolutionService,
             new InsertErrorMapper());
   }
 
@@ -1279,7 +1277,6 @@ public class TopicPartitionChannelTest {
             enableCustomJMXMonitoring,
             metricsJmxReporter,
             this.schemaEvolutionService,
-            this.icebergSchemaEvolutionService,
             new InsertErrorMapper());
   }
 
