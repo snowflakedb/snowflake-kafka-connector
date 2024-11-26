@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg;
 
 import com.google.common.base.Preconditions;
+import org.apache.kafka.connect.data.Field;
 
 /** Class with object types compatible with Snowflake Iceberg table */
 class IcebergColumnTree {
@@ -21,6 +22,11 @@ class IcebergColumnTree {
     // rootNodes name serve as a name of the column, hence it is uppercase
     String columnName = pair.getColumnName().toUpperCase();
     this.rootNode = new IcebergFieldNode(columnName, pair.getJsonNode());
+  }
+
+  IcebergColumnTree(Field field) {
+    String columnName = field.name().toUpperCase();
+    this.rootNode = new IcebergFieldNode(columnName, field.schema());
   }
 
   /** Add fields from other tree. Do not override nor modify any already existing nodes. */

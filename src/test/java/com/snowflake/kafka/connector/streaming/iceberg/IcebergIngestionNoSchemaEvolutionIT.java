@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRec
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
@@ -12,7 +13,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -80,7 +80,7 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareData")
-  @Disabled
+  // @Disabled
   void shouldInsertRecords(String description, String message, boolean withSchema)
       throws Exception {
     service.insert(
@@ -90,6 +90,7 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
     service.insert(Collections.singletonList(createKafkaRecord(message, 2, withSchema)));
     waitForOffset(3);
 
+    List<DescribeTableRow> columns = describeTable(tableName);
     assertRecordsInTable();
   }
 

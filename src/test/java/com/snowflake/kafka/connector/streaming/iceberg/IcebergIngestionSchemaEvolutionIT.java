@@ -1,8 +1,7 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
-import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.emptyPrimitiveJsonRecordValueExample;
-import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonExample;
-import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonRecordValueExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.*;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -81,34 +80,42 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     assertRecordsInTable();
   }
 
-  /** Verify a scenario when structure object is inserted for the first time. */
-  @Test
-  // @Disabled
-  public void shouldResolveNewlyInsertedStructuredObjects() throws Exception {
-    String testStruct1 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2 } }";
-    insertWithRetry(testStruct1, 0, false);
-    waitForOffset(1);
-
-    String testStruct2 = "{ \"testStruct2\": {\"k1\" : 1, \"k3\" : 2 } }";
-    insertWithRetry(testStruct2, 1, false);
-    waitForOffset(2);
-
-    String testStruct3 =
-        "{ \"testStruct3\": {"
-            + "\"k1\" : { \"car\" : { \"brand\" : \"vw\" } },"
-            + "\"k2\" : { \"car\" : { \"brand\" : \"toyota\" } }"
-            + "}}";
-    insertWithRetry(testStruct3, 2, false);
-    waitForOffset(3);
-
-    List<DescribeTableRow> rows = describeTable(tableName);
-    assertEquals(rows.size(), 4);
+  private static Stream<Arguments> prepareData() {
+    return Stream.of(
+        Arguments.of(
+            "Primitive JSON with schema",
+            primitiveJsonWithSchemaExample,
+            new DescribeTableRow[] {
+              new DescribeTableRow("ID_INT8", "NUMBER(10,0)"),
+              new DescribeTableRow("ID_INT16", "NUMBER(10,0)"),
+              new DescribeTableRow("ID_INT32", "NUMBER(10,0)"),
+              new DescribeTableRow("ID_INT64", "NUMBER(19,0)"),
+              new DescribeTableRow("DESCRIPTION", "VARCHAR(16777216)"),
+              new DescribeTableRow("RATING_FLOAT32", "FLOAT"),
+              new DescribeTableRow("RATING_FLOAT64", "FLOAT"),
+              new DescribeTableRow("APPROVAL", "BOOLEAN")
+            },
+            true),
+        Arguments.of(
+            "Primitive JSON without schema",
+            primitiveJsonExample,
+            new DescribeTableRow[] {
+              new DescribeTableRow("ID_INT8", "NUMBER(19,0)"),
+              new DescribeTableRow("ID_INT16", "NUMBER(19,0)"),
+              new DescribeTableRow("ID_INT32", "NUMBER(19,0)"),
+              new DescribeTableRow("ID_INT64", "NUMBER(19,0)"),
+              new DescribeTableRow("DESCRIPTION", "VARCHAR(16777216)"),
+              new DescribeTableRow("RATING_FLOAT32", "FLOAT"),
+              new DescribeTableRow("RATING_FLOAT64", "FLOAT"),
+              new DescribeTableRow("APPROVAL", "BOOLEAN")
+            },
+            false));
   }
 
   /** Verify a scenario when structure is enriched with another field. */
   @Test
   // @Disabled
-  public void alterAlreadyExistingStructure() throws Exception {
+  public void alterStructure_noSchema() throws Exception {
     // k1, k2
     String testStruct1 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2 } }";
     insertWithRetry(testStruct1, 0, false);
@@ -158,56 +165,55 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   public void alterAlreadyExistingStructure_timestamp() throws Exception {
     // k1, k2
     String testStruct1 =
-        "{\n"
-            + "    \"_id\": \"673f3b93a56dd01a8a0cb6a4\",\n"
-            + "    \"index\": 0,\n"
-            + "    \"guid\": \"738142bb-5878-42ad-bf35-6015f63b67dd\",\n"
-            + "    \"isActive\": true,\n"
-            + "    \"balance\": \"$1,690.88\",\n"
-            + "    \"picture\": \"http://placehold.it/32x32\",\n"
-            + "    \"age\": 38,\n"
-            + "    \"eyeColor\": \"blue\",\n"
-            + "    \"name\": \"Davis Heath\",\n"
-            + "    \"gender\": \"male\",\n"
-            + "    \"company\": \"EVENTEX\",\n"
-            + "    \"email\": \"davisheath@eventex.com\",\n"
-            + "    \"phone\": \"+1 (987) 471-3852\",\n"
-            + "    \"address\": \"768 Cypress Court, Lookingglass, Kansas, 5659\",\n"
+        "{"
+            + "    \"_id\": \"673f3b93a56dd01a8a0cb6a4\","
+            + "    \"index\": 0,"
+            + "    \"guid\": \"738142bb-5878-42ad-bf35-6015f63b67dd\","
+            + "    \"isActive\": true,"
+            + "    \"balance\": \"$1,690.88\","
+            + "    \"picture\": \"http://placehold.it/32x32\","
+            + "    \"age\": 38,"
+            + "    \"eyeColor\": \"blue\","
+            + "    \"name\": \"Davis Heath\","
+            + "    \"gender\": \"male\","
+            + "    \"company\": \"EVENTEX\","
+            + "    \"email\": \"davisheath@eventex.com\","
+            + "    \"phone\": \"+1 (987) 471-3852\","
+            + "    \"address\": \"768 Cypress Court, Lookingglass, Kansas, 5659\","
             + "    \"about\": \"Nisi voluptate id occaecat nisi pariatur dolore laborum labore ea"
             + " reprehenderit consequat sint fugiat sunt. Et consequat esse ex cillum deserunt"
             + " Lorem. Enim nisi tempor non nisi. Consectetur ut ad reprehenderit fugiat et"
             + " adipisicing sint. Deserunt est proident exercitation sit cillum in non excepteur"
             + " aliqua qui amet cillum sint aliquip.\\r"
-            + "\\n"
-            + "\",\n"
-            + "    \"registered\": \"2023-09-19T09:41:45 -02:00\",\n"
-            + "    \"latitude\": 13.997901,\n"
-            + "    \"longitude\": 130.854106,\n"
-            + "    \"tags\": [\n"
-            + "      \"et\",\n"
-            + "      \"ut\",\n"
-            + "      \"elit\",\n"
-            + "      \"do\",\n"
-            + "      \"nostrud\",\n"
-            + "      \"id\",\n"
-            + "      \"veniam\"\n"
-            + "    ],\n"
-            + "    \"friends\": [\n"
-            + "      {\n"
-            + "        \"id\": 0,\n"
-            + "        \"name\": \"Sandoval Hodges\"\n"
-            + "      },\n"
-            + "      {\n"
-            + "        \"id\": 1,\n"
-            + "        \"name\": \"Ramirez Brooks\"\n"
-            + "      },\n"
-            + "      {\n"
-            + "        \"id\": 2,\n"
-            + "        \"name\": \"Vivian Whitfield\"\n"
-            + "      }\n"
-            + "    ],\n"
-            + "    \"greeting\": \"Hello, Davis Heath! You have 4 unread messages.\",\n"
-            + "    \"favoriteFruit\": \"strawberry\"\n"
+            + "\","
+            + "    \"registered\": \"2023-09-19T09:41:45 -02:00\","
+            + "    \"latitude\": 13.997901,"
+            + "    \"longitude\": 130.854106,"
+            + "    \"tags\": ["
+            + "      \"et\","
+            + "      \"ut\","
+            + "      \"elit\","
+            + "      \"do\","
+            + "      \"nostrud\","
+            + "      \"id\","
+            + "      \"veniam\""
+            + "    ],"
+            + "    \"friends\": ["
+            + "      {"
+            + "        \"id\": 0,"
+            + "        \"name\": \"Sandoval Hodges\""
+            + "      },"
+            + "      {"
+            + "        \"id\": 1,"
+            + "        \"name\": \"Ramirez Brooks\""
+            + "      },"
+            + "      {"
+            + "        \"id\": 2,"
+            + "        \"name\": \"Vivian Whitfield\""
+            + "      }"
+            + "    ],"
+            + "    \"greeting\": \"Hello, Davis Heath! You have 4 unread messages.\","
+            + "    \"favoriteFruit\": \"strawberry\""
             + "  }";
     insertWithRetry(testStruct1, 0, false);
     waitForOffset(1);
@@ -215,23 +221,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     List<DescribeTableRow> columns = describeTable(tableName);
     assertEquals(columns.size(), 23);
   }
-
-  @Test
-  void test3() {
-    String message =
-        " {   \"name\": \"machine name\",  \"parts\": {\n"
-            + "     \"1stPartId\": { \"group\": \"part group\", \"description\": \"abcd\" },\n"
-            + "     \"2ndPartId\": { \"group\": \"part group\", \"description\": \"cda\","
-            + " \"floatingNumber\" : 4.3 }\n"
-            + "  }}\n";
-    insertWithRetry(message, 0, false);
-    List<DescribeTableRow> columns = describeTable(tableName);
-    assertEquals(columns.size(), 2);
-  }
-
-  //  "PARTS OBJECT(" +
-  //          "1stPartId OBJECT(description VARCHAR, group VARCHAR), " +
-  //          "2ndPartId OBJECT(description VARCHAR, group VARCHAR))"
 
   private void insertWithRetry(String record, int offset, boolean withSchema) {
     service.insert(Collections.singletonList(createKafkaRecord(record, offset, withSchema)));
@@ -264,36 +253,46 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
                     && r.getSnowflakeConnectorPushTime() != null);
   }
 
-  private static Stream<Arguments> prepareData() {
+  /** Verify a scenario when structure object is inserted for the first time. */
+  @Test
+  public void testComplexRecordEvolution_withSchema() throws Exception {
+    insertWithRetry(complexJsonWithSchemaExample, 0, true);
+    waitForOffset(1);
+
+    List<DescribeTableRow> columns = describeTable(tableName);
+    assertEquals(columns.size(), 16);
+  }
+
+  @ParameterizedTest
+  @MethodSource("schemasAndPayloads")
+  public void addBrandNewColumns_withSchema(
+      String payloadWithSchema, String expectedColumnName, String expectedType) throws Exception {
+    insertWithRetry(payloadWithSchema, 0, true);
+    waitForOffset(1);
+
+    List<DescribeTableRow> columns = describeTable(tableName);
+    assertEquals(2, columns.size());
+    assertEquals(expectedColumnName, columns.get(1).getColumn());
+    assertEquals(expectedType, columns.get(1).getType());
+  }
+
+  private static Stream<Arguments> schemasAndPayloads() {
     return Stream.of(
-        // READING SCHEMA FROM A RECORD IS NOT YET SUPPORTED.
-        //        Arguments.of(
-        //            "Primitive JSON with schema",
-        //            primitiveJsonWithSchemaExample,
-        //            new DescribeTableRow[] {
-        //              new DescribeTableRow("ID_INT8", "NUMBER(10,0)"),
-        //              new DescribeTableRow("ID_INT16", "NUMBER(10,0)"),
-        //              new DescribeTableRow("ID_INT32", "NUMBER(10,0)"),
-        //              new DescribeTableRow("ID_INT64", "NUMBER(19,0)"),
-        //              new DescribeTableRow("DESCRIPTION", "VARCHAR(16777216)"),
-        //              new DescribeTableRow("RATING_FLOAT32", "FLOAT"),
-        //              new DescribeTableRow("RATING_FLOAT64", "FLOAT"),
-        //              new DescribeTableRow("APPROVAL", "BOOLEAN")
-        //            },
-        //            true),
         Arguments.of(
-            "Primitive JSON without schema",
-            primitiveJsonExample,
-            new DescribeTableRow[] {
-              new DescribeTableRow("ID_INT8", "NUMBER(19,0)"),
-              new DescribeTableRow("ID_INT16", "NUMBER(19,0)"),
-              new DescribeTableRow("ID_INT32", "NUMBER(19,0)"),
-              new DescribeTableRow("ID_INT64", "NUMBER(19,0)"),
-              new DescribeTableRow("DESCRIPTION", "VARCHAR(16777216)"),
-              new DescribeTableRow("RATING_FLOAT32", "FLOAT"),
-              new DescribeTableRow("RATING_FLOAT64", "FLOAT"),
-              new DescribeTableRow("APPROVAL", "BOOLEAN")
-            },
-            false));
+            TestJsons.schemaNestedObjects(TestJsons.nestedObjectsPayload),
+            "OBJECT_WITH_NESTED_OBJECTS",
+            "OBJECT(nestedStruct OBJECT(description VARCHAR(16777216)))"),
+        Arguments.of(
+            TestJsons.simpleMapSchema(TestJsons.simpleMapPayload),
+            "SIMPLE_TEST_MAP",
+            "MAP(VARCHAR(16777216), NUMBER(10,0))"),
+        Arguments.of(
+            TestJsons.simpleArraySchema(TestJsons.simpleArrayPayload),
+            "SIMPLE_ARRAY",
+            "ARRAY(NUMBER(10,0))"),
+        Arguments.of(
+            TestJsons.complexSchema(TestJsons.complexPayload),
+            "OBJECT",
+            "OBJECT(arrayOfMaps ARRAY(MAP(VARCHAR(16777216), FLOAT)))"));
   }
 }

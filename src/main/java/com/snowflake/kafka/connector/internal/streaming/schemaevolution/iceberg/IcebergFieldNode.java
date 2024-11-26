@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
 
 class IcebergFieldNode {
 
@@ -32,7 +34,15 @@ class IcebergFieldNode {
     this.children = produceChildren(jsonNode);
   }
 
-  IcebergFieldNode(String name, String snowflakeIcebergType) {
+  IcebergFieldNode(String name, Schema kafkaConnectField) {
+    this.name = name;
+    this.snowflakeIcebergType =
+        mapper.mapToColumnType(
+            kafkaConnectField.schema().type(), kafkaConnectField.schema().name());
+    this.children = produceChildren(kafkaConnectField);
+  }
+
+  private IcebergFieldNode(String name, String snowflakeIcebergType) {
     this.name = name;
     this.snowflakeIcebergType = snowflakeIcebergType;
     this.children = new LinkedHashMap<>();
@@ -44,19 +54,14 @@ class IcebergFieldNode {
    */
   void merge(IcebergFieldNode modifiedNode) {
     modifiedNode.children.forEach(
-        (key, value) -> {
+        (key, node) -> {
           IcebergFieldNode thisChild = this.children.get(key);
           if (thisChild == null) {
-            this.children.put(key, value);
+            this.children.put(key, node);
           } else {
-            thisChild.merge(value);
+            thisChild.merge(node);
           }
         });
-    addNewChildren(modifiedNode);
-  }
-
-  private void addNewChildren(IcebergFieldNode modifiedNode) {
-    modifiedNode.children.forEach(this.children::putIfAbsent);
   }
 
   private LinkedHashMap<String, IcebergFieldNode> produceChildren(JsonNode recordNode) {
@@ -99,6 +104,48 @@ class IcebergFieldNode {
                   throw new IllegalArgumentException("Two same keys: " + v1);
                 },
                 LinkedHashMap::new));
+  }
+
+  private LinkedHashMap<String, IcebergFieldNode> produceChildren(Schema connectSchema) {
+    Schema.Type type = connectSchema.type();
+    if (connectSchema.type() == Schema.Type.STRUCT) {
+      return produceChildrenFromStruct(connectSchema);
+    }
+    if (connectSchema.type() == Schema.Type.MAP) {
+      return produceChildrenFromMap(connectSchema);
+    }
+    if (connectSchema.type() == Schema.Type.ARRAY) {
+      return produceChildrenForArray(connectSchema);
+    } else { // isPrimitive == true
+      return new LinkedHashMap<>();
+    }
+  }
+
+  private LinkedHashMap<String, IcebergFieldNode> produceChildrenForArray(
+      Schema connectSchemaForArray) {
+    LinkedHashMap<String, IcebergFieldNode> child = new LinkedHashMap<>();
+    child.put("element", new IcebergFieldNode("element", connectSchemaForArray.valueSchema()));
+    return child;
+  }
+
+  private LinkedHashMap<String, IcebergFieldNode> produceChildrenFromStruct(Schema connectSchema) {
+    return connectSchema.fields().stream()
+        .collect(
+            Collectors.toMap(
+                Field::name,
+                f -> new IcebergFieldNode(f.name(), f.schema()),
+                (v1, v2) -> {
+                  throw new IllegalArgumentException("Two same keys: " + v1);
+                },
+                LinkedHashMap::new));
+  }
+
+  private LinkedHashMap<String, IcebergFieldNode> produceChildrenFromMap(Schema connectSchema) {
+    LinkedHashMap<String, IcebergFieldNode> keyValue = new LinkedHashMap<>();
+    // these names will not be used when creating a query
+    keyValue.put("key", new IcebergFieldNode("key", connectSchema.keySchema()));
+    keyValue.put("value", new IcebergFieldNode("value", connectSchema.valueSchema()));
+    return keyValue;
   }
 
   private LinkedHashMap<String, IcebergFieldNode> produceChildren(Type apacheIcebergSchema) {
