@@ -34,7 +34,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareData")
-  // @Disabled
   void shouldEvolveSchemaAndInsertRecords(
       String description, String message, DescribeTableRow[] expectedSchema, boolean withSchema)
       throws Exception {
@@ -114,7 +113,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   /** Verify a scenario when structure is enriched with another field. */
   @Test
-  // @Disabled
   public void alterStructure_noSchema() throws Exception {
     // k1, k2
     String testStruct1 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2 } }";
@@ -161,9 +159,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   @Test
-  // @Disabled
   public void alterAlreadyExistingStructure_timestamp() throws Exception {
-    // k1, k2
     String testStruct1 =
         "{"
             + "    \"_id\": \"673f3b93a56dd01a8a0cb6a4\","
@@ -295,4 +291,5 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
             "OBJECT",
             "OBJECT(arrayOfMaps ARRAY(MAP(VARCHAR(16777216), FLOAT)))"));
   }
+
 }

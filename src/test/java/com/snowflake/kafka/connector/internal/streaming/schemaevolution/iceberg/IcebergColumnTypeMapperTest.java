@@ -22,7 +22,7 @@ class IcebergColumnTypeMapperTest {
   @MethodSource("kafkaTypesToMap")
   void shouldMapKafkaTypeToSnowflakeColumnType(
       Schema.Type kafkaType, String schemaName, String expectedSnowflakeType) {
-    assertThat(mapper.mapToColumnType(kafkaType, schemaName)).isEqualTo(expectedSnowflakeType);
+    assertThat(mapper.mapToColumnTypeFromKafkaSchema(kafkaType, schemaName)).isEqualTo(expectedSnowflakeType);
   }
 
   @ParameterizedTest()

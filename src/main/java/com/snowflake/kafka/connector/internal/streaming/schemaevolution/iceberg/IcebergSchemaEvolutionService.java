@@ -6,9 +6,11 @@ import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.internal.ColumnProperties;
+import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,7 +82,7 @@ public class IcebergSchemaEvolutionService {
                                       .equalsIgnoreCase(modifiedOrAddedColumn.getColumnName())))
               .collect(Collectors.toList());
 
-      String addColumnsQuery = generateAddColumnQuery(addedColumns);
+      Optional<String> addColumnsQuery = generateAddColumnQuery(addedColumns);
 
       // merge changes into already existing column
       alreadyExistingColumns.forEach(
@@ -92,7 +94,7 @@ public class IcebergSchemaEvolutionService {
                     .get(0);
             existingColumn.merge(mewVersion);
           });
-      String alterSetDataTypeQuery = alterSetDataTypeQuery(alreadyExistingColumns);
+      Optional<String> alterSetDataTypeQuery = alterSetDataTypeQuery(alreadyExistingColumns);
       try {
         conn.appendColumnsToIcebergTable(tableName, addColumnsQuery, alterSetDataTypeQuery);
       } catch (SnowflakeKafkaConnectorException e) {
@@ -119,9 +121,9 @@ public class IcebergSchemaEvolutionService {
         .collect(Collectors.toSet());
   }
 
-  private String generateAddColumnQuery(List<IcebergColumnTree> columnsToAdd) {
+  private Optional<String> generateAddColumnQuery(List<IcebergColumnTree> columnsToAdd) {
     if (columnsToAdd.isEmpty()) {
-      return "";
+      return Optional.empty();
     }
     StringBuilder addColumnQuery = new StringBuilder("alter iceberg ");
     addColumnQuery.append("table identifier(?) add column ");
@@ -137,12 +139,12 @@ public class IcebergSchemaEvolutionService {
     // remove last comma and whitespace
     addColumnQuery.deleteCharAt(addColumnQuery.length() - 1);
     addColumnQuery.deleteCharAt(addColumnQuery.length() - 1);
-    return addColumnQuery.toString();
+    return Optional.of(addColumnQuery.toString());
   }
 
-  private String alterSetDataTypeQuery(List<IcebergColumnTree> columnsToModify) {
+  private Optional<String> alterSetDataTypeQuery(List<IcebergColumnTree> columnsToModify) {
     if (columnsToModify.isEmpty()) {
-      return "";
+      return Optional.empty();
     }
     StringBuilder setDataTypeQuery = new StringBuilder("alter iceberg ");
     setDataTypeQuery.append("table identifier(?) alter column ");
@@ -156,6 +158,6 @@ public class IcebergSchemaEvolutionService {
     setDataTypeQuery.deleteCharAt(setDataTypeQuery.length() - 1);
     setDataTypeQuery.deleteCharAt(setDataTypeQuery.length() - 1);
 
-    return setDataTypeQuery.toString();
+    return Optional.of(setDataTypeQuery.toString());
   }
 }

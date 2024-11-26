@@ -120,7 +120,7 @@ public interface SnowflakeConnectionService {
    * @param alterSetDataTypeQuery
    */
   void appendColumnsToIcebergTable(
-      String tableName, String addColumnsQuery, String alterSetDataTypeQuery);
+      String tableName, Optional<String> addColumnsQuery, Optional<String> alterSetDataTypeQuery);
 
   /**
    * Alter table to drop non-nullability of a list of columns

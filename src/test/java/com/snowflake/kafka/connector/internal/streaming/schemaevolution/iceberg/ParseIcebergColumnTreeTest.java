@@ -149,18 +149,7 @@ public class ParseIcebergColumnTreeTest {
             "ARRAY(OBJECT(name VARCHAR, id LONG))"),
         // array
         arguments("{\"testColumnName\": [1,2,3] }", "ARRAY(LONG)"),
-        arguments(
-            "{ \"testColumnName\": [] }", "ARRAY(VARCHAR(16777216))") // todo what about empty array
-        //        arguments(
-        //
-        //                  " {\"parts\": {\n" +
-        //                  "     \"1st part id\": { \"group\": \"part group\", \"description\":
-        // \"abcd\" },\n" +
-        //                  "     2 : { \"group\": \"part group\", \"description\": \"cda\" }\n" +
-        //                  "  }\n" +
-        //                  "}", "can't resolve that this is a map when I don't have a schema"
-        //        )
-
+        arguments("{ \"testColumnName\": [] }", "ARRAY(VARCHAR(16777216))")
         );
   }
 

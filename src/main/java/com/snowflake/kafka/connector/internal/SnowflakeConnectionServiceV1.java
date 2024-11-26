@@ -511,7 +511,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   /**
-   * Alter iceberg table to add columns according to a map from columnNames to their types
+   * Alter iceberg table to add columns or modify columns
    *
    * @param tableName the name of the table
    * @param addColumnsQuery
@@ -519,17 +519,17 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
    */
   @Override
   public void appendColumnsToIcebergTable(
-      String tableName, String addColumnsQuery, String alterSetDataTypeQuery) {
+      String tableName, Optional<String> addColumnsQuery, Optional<String> alterSetDataTypeQuery) {
     LOGGER.debug("Appending columns to iceberg table");
     InternalUtils.assertNotEmpty("tableName", tableName);
     checkConnection();
 
-    if (!addColumnsQuery.isEmpty()) {
-      executeStatement(tableName, addColumnsQuery);
+    if (addColumnsQuery.isPresent()) {
+      executeStatement(tableName, addColumnsQuery.get());
       LOGGER.info("Query SUCCEEDED: " + addColumnsQuery);
     }
-    if (!alterSetDataTypeQuery.isEmpty()) {
-      executeStatement(tableName, alterSetDataTypeQuery);
+    if (alterSetDataTypeQuery.isPresent()) {
+      executeStatement(tableName, alterSetDataTypeQuery.get());
       LOGGER.info("Query SUCCEEDED: " + addColumnsQuery);
     }
   }

@@ -24,20 +24,20 @@ class IcebergFieldNode {
 
   IcebergFieldNode(String name, Type apacheIcebergSchema) {
     this.name = name;
-    this.snowflakeIcebergType = mapper.mapToSnowflakeDataType(apacheIcebergSchema);
+    this.snowflakeIcebergType = mapper.mapToColumnTypeFromIcebergSchema(apacheIcebergSchema);
     this.children = produceChildren(apacheIcebergSchema);
   }
 
   IcebergFieldNode(String name, JsonNode jsonNode) {
     this.name = name;
-    this.snowflakeIcebergType = mapper.mapToColumnDataTypeFromJson(jsonNode);
+    this.snowflakeIcebergType = mapper.mapToColumnTypeFromJson(jsonNode);
     this.children = produceChildren(jsonNode);
   }
 
   IcebergFieldNode(String name, Schema kafkaConnectField) {
     this.name = name;
     this.snowflakeIcebergType =
-        mapper.mapToColumnType(
+        mapper.mapToColumnTypeFromKafkaSchema(
             kafkaConnectField.schema().type(), kafkaConnectField.schema().name());
     this.children = produceChildren(kafkaConnectField);
   }

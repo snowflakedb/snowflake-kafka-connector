@@ -26,7 +26,7 @@ class IcebergColumnTypeMapper {
    * See <a href="https://docs.snowflake.com/en/user-guide/tables-iceberg-data-types">Data types for
    * Apache Iceberg™ tables</a>
    */
-  String mapToSnowflakeDataType(Type apacheIcebergType) {
+  String mapToColumnTypeFromIcebergSchema(Type apacheIcebergType) {
     switch (apacheIcebergType.typeId()) {
       case BOOLEAN:
         return "BOOLEAN";
@@ -73,12 +73,12 @@ class IcebergColumnTypeMapper {
    *
    * <p>Converts Types from: JsonNode -> KafkaKafka -> Snowflake.
    */
-  String mapToColumnDataTypeFromJson(JsonNode value) {
+  String mapToColumnTypeFromJson(JsonNode value) {
     Schema.Type kafkaType = mapJsonNodeTypeToKafkaType(value);
-    return mapToColumnType(kafkaType, null);
+    return mapToColumnTypeFromKafkaSchema(kafkaType, null);
   }
 
-  String mapToColumnType(Schema.Type kafkaType, String schemaName) {
+  String mapToColumnTypeFromKafkaSchema(Schema.Type kafkaType, String schemaName) {
     switch (kafkaType) {
       case INT8:
       case INT16:
