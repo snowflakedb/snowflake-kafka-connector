@@ -13,7 +13,6 @@ import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
   private static final TypeReference<Map<String, Object>> OBJECTS_MAP_TYPE_REFERENCE =
@@ -54,7 +53,7 @@ class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
             entry ->
                 new AbstractMap.SimpleEntry<>(
                     Utils.quoteNameIfNeeded(entry.getKey()), entry.getValue()))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .collect(HashMap::new, (m, v) -> m.put(v.getKey(), v.getValue()), HashMap::putAll);
   }
 
   private Map<String, Object> getMapForMetadata(JsonNode metadataNode)
