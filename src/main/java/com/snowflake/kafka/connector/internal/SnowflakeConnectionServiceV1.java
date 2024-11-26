@@ -499,23 +499,11 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   /**
-   * Alter table to add columns according to a map from columnNames to their types
+   * Execute queries to add columns or modify Iceberg table columns
    *
    * @param tableName the name of the table
-   * @param columnInfosMap the mapping from the columnNames to their infos
-   */
-  @Override
-  public void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap) {
-    LOGGER.debug("Appending columns to snowflake table");
-    appendColumnsToTable(tableName, columnInfosMap, false);
-  }
-
-  /**
-   * Alter iceberg table to add columns or modify columns
-   *
-   * @param tableName the name of the table
-   * @param addColumnsQuery
-   * @param alterSetDataTypeQuery
+   * @param addColumnsQuery ADD COLUMN query
+   * @param alterSetDataTypeQuery SET DATA TYPE query
    */
   @Override
   public void appendColumnsToIcebergTable(
@@ -546,15 +534,19 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     }
   }
 
-  private void appendColumnsToTable(
-      String tableName, Map<String, ColumnInfos> columnInfosMap, boolean isIcebergTable) {
+  /**
+   * Alter table to add columns according to a map from columnNames to their types
+   *
+   * @param tableName the name of the table
+   * @param columnInfosMap the mapping from the columnNames to their infos
+   */
+  @Override
+  public void appendColumnsToTable(
+      String tableName, Map<String, ColumnInfos> columnInfosMap) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-    StringBuilder appendColumnQuery = new StringBuilder("alter ");
-    if (isIcebergTable) {
-      appendColumnQuery.append("iceberg ");
-    }
-    appendColumnQuery.append("table identifier(?) add column if not exists ");
+    StringBuilder appendColumnQuery = new StringBuilder("alter table identifier(?) add column if not exists ");
+
     boolean first = true;
     StringBuilder logColumn = new StringBuilder("[");
 
