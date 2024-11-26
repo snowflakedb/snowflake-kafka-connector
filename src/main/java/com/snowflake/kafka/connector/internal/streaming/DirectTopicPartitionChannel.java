@@ -31,7 +31,6 @@ import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionCh
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -537,7 +536,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       SchemaEvolutionTargetItems schemaEvolutionTargetItems =
           insertErrorMapper.mapToSchemaEvolutionItems(insertError, this.channel.getTableName());
       if (schemaEvolutionTargetItems.hasDataForSchemaEvolution()) {
-          schemaEvolutionService.evolveSchemaIfNeeded(schemaEvolutionTargetItems, kafkaSinkRecord, channel.getTableSchema());
+        schemaEvolutionService.evolveSchemaIfNeeded(
+            schemaEvolutionTargetItems, kafkaSinkRecord, channel.getTableSchema());
         streamingApiFallbackSupplier(
             StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
         return;

@@ -113,14 +113,12 @@ public interface SnowflakeConnectionService {
   void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap);
 
   /**
-   * Alter iceberg table to add columns according to a map from columnNames to their types
+   * Execute queries to add columns or modify Iceberg table columns
    *
    * @param tableName the name of the table
-   * @param addColumnsQuery
-   * @param alterSetDataTypeQuery
+   * @param query ADD COLUMN or ALTER SET DATA TYPE query
    */
-  void appendColumnsToIcebergTable(
-      String tableName, Optional<String> addColumnsQuery, Optional<String> alterSetDataTypeQuery);
+  void evolveIcebergColumns(String tableName, String query);
 
   /**
    * Alter table to drop non-nullability of a list of columns

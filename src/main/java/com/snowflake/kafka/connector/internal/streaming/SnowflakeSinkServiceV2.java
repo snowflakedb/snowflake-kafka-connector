@@ -144,7 +144,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             Utils.isIcebergEnabled(connectorConfig), schematizationEnabled);
     this.icebergTableSchemaValidator = new IcebergTableSchemaValidator(conn);
     this.icebergInitService = new IcebergInitService(conn);
-    this.schemaEvolutionService = Utils.isIcebergEnabled(connectorConfig)
+    this.schemaEvolutionService =
+        Utils.isIcebergEnabled(connectorConfig)
             ? new IcebergSchemaEvolutionService(conn)
             : new SnowflakeSchemaEvolutionService(conn);
 

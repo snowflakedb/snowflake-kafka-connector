@@ -502,24 +502,16 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
    * Execute queries to add columns or modify Iceberg table columns
    *
    * @param tableName the name of the table
-   * @param addColumnsQuery ADD COLUMN query
-   * @param alterSetDataTypeQuery SET DATA TYPE query
+   * @param query ADD COLUMN or ALTER SET DATA TYPE query
    */
   @Override
-  public void appendColumnsToIcebergTable(
-      String tableName, Optional<String> addColumnsQuery, Optional<String> alterSetDataTypeQuery) {
+  public void evolveIcebergColumns(String tableName, String query) {
     LOGGER.debug("Appending columns to iceberg table");
     InternalUtils.assertNotEmpty("tableName", tableName);
     checkConnection();
 
-    if (addColumnsQuery.isPresent()) {
-      executeStatement(tableName, addColumnsQuery.get());
-      LOGGER.info("Query SUCCEEDED: " + addColumnsQuery);
-    }
-    if (alterSetDataTypeQuery.isPresent()) {
-      executeStatement(tableName, alterSetDataTypeQuery.get());
-      LOGGER.info("Query SUCCEEDED: " + addColumnsQuery);
-    }
+    executeStatement(tableName, query);
+    LOGGER.info("Query SUCCEEDED: " + query);
   }
 
   private void executeStatement(String tableName, String query) {
@@ -541,11 +533,11 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
    * @param columnInfosMap the mapping from the columnNames to their infos
    */
   @Override
-  public void appendColumnsToTable(
-      String tableName, Map<String, ColumnInfos> columnInfosMap) {
+  public void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-    StringBuilder appendColumnQuery = new StringBuilder("alter table identifier(?) add column if not exists ");
+    StringBuilder appendColumnQuery =
+        new StringBuilder("alter table identifier(?) add column if not exists ");
 
     boolean first = true;
     StringBuilder logColumn = new StringBuilder("[");

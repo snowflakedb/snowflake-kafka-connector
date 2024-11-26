@@ -49,6 +49,26 @@ class IcebergFieldNode {
   }
 
   /**
+   * @param sb StringBuilder
+   * @param parentType Snowflake Iceberg table compatible type. If a root node is a parent then
+   *     "ROOT_NODE" is passed, because we always generate root nodes column name.
+   * @return field name + data type
+   */
+  StringBuilder buildQuery(StringBuilder sb, String parentType) {
+    if (parentType.equals("ARRAY") || parentType.equals("MAP") || parentType.equals("ROOT_NODE")) {
+      sb.append(snowflakeIcebergType);
+    } else {
+      appendNameAndType(sb);
+    }
+    if (!children.isEmpty()) {
+      sb.append("(");
+      appendChildren(sb, this.snowflakeIcebergType);
+      sb.append(")");
+    }
+    return sb;
+  }
+
+  /**
    * Method does not modify, delete any existing nodes and its types, names. It is meant only to add
    * new children.
    */
@@ -168,26 +188,6 @@ class IcebergFieldNode {
 
   private IcebergFieldNode fromNestedField(Types.NestedField field) {
     return new IcebergFieldNode(field.name(), field.type());
-  }
-
-  /**
-   * @param sb StringBuilder
-   * @param parentType Snowflake Iceberg table compatible type. If a root node is a parent then
-   *     "ROOT_NODE" is passed, because we always generate root nodes column name.
-   * @return field name + data type
-   */
-  StringBuilder buildQuery(StringBuilder sb, String parentType) {
-    if (parentType.equals("ARRAY") || parentType.equals("MAP") || parentType.equals("ROOT_NODE")) {
-      sb.append(snowflakeIcebergType);
-    } else {
-      appendNameAndType(sb);
-    }
-    if (!children.isEmpty()) {
-      sb.append("(");
-      appendChildren(sb, this.snowflakeIcebergType);
-      sb.append(")");
-    }
-    return sb;
   }
 
   private void appendNameAndType(StringBuilder sb) {

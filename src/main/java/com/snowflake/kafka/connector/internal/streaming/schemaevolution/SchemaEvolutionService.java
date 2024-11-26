@@ -1,9 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution;
 
+import java.util.Map;
 import net.snowflake.ingest.streaming.internal.ColumnProperties;
 import org.apache.kafka.connect.sink.SinkRecord;
-
-import java.util.Map;
 
 public interface SchemaEvolutionService {
 
@@ -15,5 +14,8 @@ public interface SchemaEvolutionService {
    *     nullability, and columns to add
    * @param record the sink record that contains the schema and actual data
    */
-  void evolveSchemaIfNeeded(SchemaEvolutionTargetItems targetItems, SinkRecord record, Map<String, ColumnProperties> schemaAlreadyInUse);
+  void evolveSchemaIfNeeded(
+      SchemaEvolutionTargetItems targetItems,
+      SinkRecord record,
+      Map<String, ColumnProperties> schemaAlreadyInUse);
 }

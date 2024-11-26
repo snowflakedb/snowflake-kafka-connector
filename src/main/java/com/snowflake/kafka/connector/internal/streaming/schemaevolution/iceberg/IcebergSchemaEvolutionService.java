@@ -97,7 +97,8 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
           });
       Optional<String> alterSetDataTypeQuery = alterSetDataTypeQuery(alreadyExistingColumns);
       try {
-        conn.appendColumnsToIcebergTable(tableName, addColumnsQuery, alterSetDataTypeQuery);
+        addColumnsQuery.ifPresent(query -> conn.evolveIcebergColumns(tableName, query));
+        alterSetDataTypeQuery.ifPresent(query -> conn.evolveIcebergColumns(tableName, query));
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             String.format(
