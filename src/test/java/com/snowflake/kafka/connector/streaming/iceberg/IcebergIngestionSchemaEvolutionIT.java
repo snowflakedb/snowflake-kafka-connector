@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
+import static com.snowflake.kafka.connector.streaming.iceberg.TestJsons.*;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.*;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -158,6 +159,251 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     assertEquals(columns.size(), 2);
   }
 
+  private void insertWithRetry(String record, int offset, boolean withSchema) {
+    service.insert(Collections.singletonList(createKafkaRecord(record, offset, withSchema)));
+    service.insert(Collections.singletonList(createKafkaRecord(record, offset, withSchema)));
+  }
+
+  private void assertRecordsInTable() {
+    List<RecordWithMetadata<PrimitiveJsonRecord>> recordsWithMetadata =
+        selectAllSchematizedRecords();
+
+    assertThat(recordsWithMetadata)
+        .hasSize(3)
+        .extracting(RecordWithMetadata::getRecord)
+        .containsExactly(
+            primitiveJsonRecordValueExample,
+            primitiveJsonRecordValueExample,
+            emptyPrimitiveJsonRecordValueExample);
+    List<MetadataRecord> metadataRecords =
+        recordsWithMetadata.stream()
+            .map(RecordWithMetadata::getMetadata)
+            .collect(Collectors.toList());
+    assertThat(metadataRecords).extracting(MetadataRecord::getOffset).containsExactly(0L, 1L, 2L);
+    assertThat(metadataRecords)
+        .hasSize(3)
+        .allMatch(
+            r ->
+                r.getTopic().equals(topicPartition.topic())
+                    && r.getPartition().equals(topicPartition.partition())
+                    && r.getKey().equals("test")
+                    && r.getSnowflakeConnectorPushTime() != null);
+  }
+
+  @Test
+  public void testComplexRecordEvolution_withSchema() throws Exception {
+    insertWithRetry(complexJsonWithSchemaExample, 0, true);
+    waitForOffset(1);
+
+    List<DescribeTableRow> columns = describeTable(tableName);
+    assertEquals(columns.size(), 16);
+  }
+
+  /** Test just for a scenario when we see a record for the first time. */
+  @ParameterizedTest
+  @MethodSource("schemasAndPayloads_brandNewColumns")
+  public void addBrandNewColumns_withSchema(
+      String payloadWithSchema, String expectedColumnName, String expectedType) throws Exception {
+    // when
+    insertWithRetry(payloadWithSchema, 0, true);
+    waitForOffset(1);
+    // then
+    List<DescribeTableRow> columns = describeTable(tableName);
+
+    assertEquals(2, columns.size());
+    assertEquals(expectedColumnName, columns.get(1).getColumn());
+    assertEquals(expectedType, columns.get(1).getType());
+  }
+
+  private static Stream<Arguments> schemasAndPayloads_brandNewColumns() {
+    return Stream.of(
+        Arguments.of(
+            nestedObjectWithSchema(),
+            "OBJECT_WITH_NESTED_OBJECTS",
+            "OBJECT(nestedStruct OBJECT(description VARCHAR(16777216)))"),
+        Arguments.of(
+            simpleMapWithSchema(), "SIMPLE_TEST_MAP", "MAP(VARCHAR(16777216), NUMBER(10,0))"),
+        Arguments.of(simpleArrayWithSchema(), "SIMPLE_ARRAY", "ARRAY(NUMBER(10,0))"),
+        Arguments.of(
+            complexPayloadWithSchema(),
+            "OBJECT",
+            "OBJECT(arrayOfMaps ARRAY(MAP(VARCHAR(16777216), FLOAT)))"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("primitiveEvolutionDataSource")
+  public void testEvolutionOfPrimitives_withSchema(
+      String singleBooleanField,
+      String booleanAndInt,
+      String booleanAndAllKindsOfInt,
+      String allPrimitives,
+      boolean withSchema)
+      throws Exception {
+    // when insert BOOLEAN
+    insertWithRetry(singleBooleanField, 0, withSchema);
+    waitForOffset(1);
+    List<DescribeTableRow> columns = describeTable(tableName);
+    // verify number of columns, datatype and column name
+    assertEquals(2, columns.size());
+    assertEquals("TEST_BOOLEAN", columns.get(1).getColumn());
+    assertEquals("BOOLEAN", columns.get(1).getType());
+
+    // evolve the schema BOOLEAN, INT64
+    insertWithRetry(booleanAndInt, 1, withSchema);
+    waitForOffset(2);
+    columns = describeTable(tableName);
+    assertEquals(3, columns.size());
+    // verify data types in already existing column were not changed
+    assertEquals("TEST_BOOLEAN", columns.get(1).getColumn());
+    assertEquals("BOOLEAN", columns.get(1).getType());
+    // verify new columns
+    assertEquals("TEST_INT64", columns.get(2).getColumn());
+    assertEquals("NUMBER(19,0)", columns.get(2).getType());
+
+    // evolve the schema BOOLEAN, INT64, INT32, INT16, INT8,
+    insertWithRetry(booleanAndAllKindsOfInt, 2, withSchema);
+    waitForOffset(3);
+    columns = describeTable(tableName);
+    assertEquals(6, columns.size());
+    // verify data types in already existing column were not changed
+
+    // without schema every number is parsed to NUMBER(19,0)
+    String SMALL_INT = withSchema ? "NUMBER(10,0)" : "NUMBER(19,0)";
+    DescribeTableRow[] expectedSchema =
+        new DescribeTableRow[] {
+          new DescribeTableRow("RECORD_METADATA", RECORD_METADATA_TYPE),
+          new DescribeTableRow("TEST_BOOLEAN", "BOOLEAN"),
+          new DescribeTableRow("TEST_INT8", SMALL_INT),
+          new DescribeTableRow("TEST_INT16", SMALL_INT),
+          new DescribeTableRow("TEST_INT32", SMALL_INT),
+          new DescribeTableRow("TEST_INT64", "NUMBER(19,0)")
+        };
+    assertThat(columns).containsExactlyInAnyOrder(expectedSchema);
+
+    // evolve the schema BOOLEAN, INT64, INT32, INT16, INT8, FLOAT, DOUBLE, STRING
+    insertWithRetry(allPrimitives, 3, withSchema);
+    waitForOffset(4);
+    columns = describeTable(tableName);
+    assertEquals(9, columns.size());
+
+    expectedSchema =
+        new DescribeTableRow[] {
+          new DescribeTableRow("RECORD_METADATA", RECORD_METADATA_TYPE),
+          new DescribeTableRow("TEST_BOOLEAN", "BOOLEAN"),
+          new DescribeTableRow("TEST_INT8", SMALL_INT),
+          new DescribeTableRow("TEST_INT16", SMALL_INT),
+          new DescribeTableRow("TEST_INT32", SMALL_INT),
+          new DescribeTableRow("TEST_INT64", "NUMBER(19,0)"),
+          new DescribeTableRow("TEST_STRING", "VARCHAR(16777216)"),
+          new DescribeTableRow("TEST_FLOAT", "FLOAT"),
+          new DescribeTableRow("TEST_DOUBLE", "FLOAT")
+        };
+
+    assertThat(columns).containsExactlyInAnyOrder(expectedSchema);
+  }
+
+  private static Stream<Arguments> primitiveEvolutionDataSource() {
+    return Stream.of(
+        Arguments.of(
+            singleBooleanField(),
+            booleanAndIntWithSchema(),
+            booleanAndAllKindsOfIntWithSchema(),
+            allPrimitivesWithSchema(),
+            true),
+        Arguments.of(
+            singleBooleanFieldPayload(),
+            booleanAndIntPayload(),
+            booleanAndAllKindsOfIntPayload(),
+            allPrimitivesPayload(),
+            false));
+  }
+
+  @ParameterizedTest
+  @MethodSource("testEvolutionOfComplexTypes_dataSource")
+  public void testEvolutionOfComplexTypes_withSchema(
+      String objectVarchar,
+      String objectWithNestedObject,
+      String twoObjects,
+      String twoObjectsExtendedWithMapAndArray,
+      boolean withSchema)
+      throws Exception {
+    // insert
+    insertWithRetry(objectVarchar, 0, withSchema);
+    waitForOffset(1);
+    List<DescribeTableRow> columns = describeTable(tableName);
+    // verify number of columns, datatype and column name
+    assertEquals(2, columns.size());
+    assertEquals("OBJECT", columns.get(1).getColumn());
+    assertEquals("OBJECT(test_string VARCHAR(16777216))", columns.get(1).getType());
+
+    // evolution
+    insertWithRetry(objectWithNestedObject, 1, withSchema);
+    waitForOffset(2);
+    columns = describeTable(tableName);
+    // verify number of columns, datatype and column name
+    assertEquals(2, columns.size());
+    assertEquals("OBJECT", columns.get(1).getColumn());
+    assertEquals(
+        "OBJECT(test_string VARCHAR(16777216), nested_object OBJECT(test_string"
+            + " VARCHAR(16777216)))",
+        columns.get(1).getType());
+
+    // evolution
+    insertWithRetry(twoObjects, 2, withSchema);
+    waitForOffset(3);
+    columns = describeTable(tableName);
+
+    assertEquals(3, columns.size());
+    // 1st column
+    assertEquals("OBJECT", columns.get(1).getColumn());
+    assertEquals(
+        "OBJECT(test_string VARCHAR(16777216), nested_object OBJECT(test_string"
+            + " VARCHAR(16777216)))",
+        columns.get(1).getType());
+    // 2nd column
+    assertEquals("OBJECT_WITH_NESTED_OBJECTS", columns.get(2).getColumn());
+    assertEquals(
+        "OBJECT(nestedStruct OBJECT(description VARCHAR(16777216)))", columns.get(2).getType());
+
+    // evolution
+    insertWithRetry(twoObjectsExtendedWithMapAndArray, 3, withSchema);
+    waitForOffset(4);
+    columns = describeTable(tableName);
+
+    assertEquals(3, columns.size());
+    // 1st column
+    assertEquals("OBJECT", columns.get(1).getColumn());
+    if (withSchema) {
+      // MAP is not supported without schema, execute this assertion only when there is a schema,
+      assertEquals(
+          "OBJECT(test_string VARCHAR(16777216), nested_object OBJECT(test_string"
+              + " VARCHAR(16777216)), Test_Map MAP(VARCHAR(16777216), OBJECT(test_string"
+              + " VARCHAR(16777216))))",
+          columns.get(1).getType());
+    }
+    // 2nd column
+    assertEquals("OBJECT_WITH_NESTED_OBJECTS", columns.get(2).getColumn());
+    assertEquals(
+        "OBJECT(nestedStruct OBJECT(description VARCHAR(16777216), test_array ARRAY(FLOAT)))",
+        columns.get(2).getType());
+  }
+
+  private static Stream<Arguments> testEvolutionOfComplexTypes_dataSource() {
+    return Stream.of(
+        Arguments.of(
+            objectVarcharWithSchema(),
+            objectWithNestedObjectWithSchema(),
+            twoObjectsWithSchema(),
+            twoObjectsExtendedWithMapAndArrayWithSchema(),
+            true),
+        Arguments.of(
+            objectVarcharPayload,
+            objectWithNestedObjectPayload(),
+            twoObjectsWithSchemaPayload(),
+            twoObjectsExtendedWithMapAndArrayPayload(),
+            false));
+  }
+
   @Test
   public void evolveSchemaRandomDataTest() throws Exception {
     String testStruct1 =
@@ -218,145 +464,10 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     assertEquals(columns.size(), 23);
   }
 
-  private void insertWithRetry(String record, int offset, boolean withSchema) {
-    service.insert(Collections.singletonList(createKafkaRecord(record, offset, withSchema)));
-    service.insert(Collections.singletonList(createKafkaRecord(record, offset, withSchema)));
-  }
-
-  private void assertRecordsInTable() {
-    List<RecordWithMetadata<PrimitiveJsonRecord>> recordsWithMetadata =
-        selectAllSchematizedRecords();
-
-    assertThat(recordsWithMetadata)
-        .hasSize(3)
-        .extracting(RecordWithMetadata::getRecord)
-        .containsExactly(
-            primitiveJsonRecordValueExample,
-            primitiveJsonRecordValueExample,
-            emptyPrimitiveJsonRecordValueExample);
-    List<MetadataRecord> metadataRecords =
-        recordsWithMetadata.stream()
-            .map(RecordWithMetadata::getMetadata)
-            .collect(Collectors.toList());
-    assertThat(metadataRecords).extracting(MetadataRecord::getOffset).containsExactly(0L, 1L, 2L);
-    assertThat(metadataRecords)
-        .hasSize(3)
-        .allMatch(
-            r ->
-                r.getTopic().equals(topicPartition.topic())
-                    && r.getPartition().equals(topicPartition.partition())
-                    && r.getKey().equals("test")
-                    && r.getSnowflakeConnectorPushTime() != null);
-  }
-
-  /** Verify a scenario when structure object is inserted for the first time. */
-  @Test
-  public void testComplexRecordEvolution_withSchema() throws Exception {
-    insertWithRetry(complexJsonWithSchemaExample, 0, true);
-    waitForOffset(1);
-
-    List<DescribeTableRow> columns = describeTable(tableName);
-    assertEquals(columns.size(), 16);
-  }
-
-  /** Test just for a scenario when we see a record for the first time. */
-  @ParameterizedTest
-  @MethodSource("schemasAndPayloads_brandNewColumns")
-  public void addBrandNewColumns_withSchema(
-      String payloadWithSchema, String expectedColumnName, String expectedType) throws Exception {
-    // when
-    insertWithRetry(payloadWithSchema, 0, true);
-    waitForOffset(1);
-    // then
-    List<DescribeTableRow> columns = describeTable(tableName);
-    assertEquals(2, columns.size());
-    assertEquals(expectedColumnName, columns.get(1).getColumn());
-    assertEquals(expectedType, columns.get(1).getType());
-  }
-
-  private static Stream<Arguments> schemasAndPayloads_brandNewColumns() {
-    return Stream.of(
-        Arguments.of(
-            TestJsons.schemaNestedObjects(TestJsons.nestedObjectsPayload),
-            "OBJECT_WITH_NESTED_OBJECTS",
-            "OBJECT(nestedStruct OBJECT(description VARCHAR(16777216)))"),
-        Arguments.of(
-            TestJsons.simpleMapSchema(TestJsons.simpleMapPayload),
-            "SIMPLE_TEST_MAP",
-            "MAP(VARCHAR(16777216), NUMBER(10,0))"),
-        Arguments.of(
-            TestJsons.simpleArraySchema(TestJsons.simpleArrayPayload),
-            "SIMPLE_ARRAY",
-            "ARRAY(NUMBER(10,0))"),
-        Arguments.of(
-            TestJsons.complexSchema(TestJsons.complexPayload),
-            "OBJECT",
-            "OBJECT(arrayOfMaps ARRAY(MAP(VARCHAR(16777216), FLOAT)))"));
-  }
-
-  @Test
-  public void testEvolutionOfPrimitives_withSchema() throws Exception {
-    // when insert BOOLEAN
-    insertWithRetry(TestJsons.singleBooleanField(), 0, true);
-    waitForOffset(1);
-    List<DescribeTableRow> columns = describeTable(tableName);
-    // verify number of columns, datatype and column name
-    assertEquals(2, columns.size());
-    assertEquals("TEST_BOOLEAN", columns.get(1).getColumn());
-    assertEquals("BOOLEAN", columns.get(1).getType());
-
-    // evolve the schema BOOLEAN, INT64
-    insertWithRetry(TestJsons.booleanAndInt(), 1, true);
-    waitForOffset(2);
-    columns = describeTable(tableName);
-    assertEquals(3, columns.size());
-    // verify data types in already existing column were not changed
-    assertEquals("TEST_BOOLEAN", columns.get(1).getColumn());
-    assertEquals("BOOLEAN", columns.get(1).getType());
-    // verify new columns
-    assertEquals("TEST_INT64", columns.get(2).getColumn());
-    assertEquals("NUMBER(19,0)", columns.get(2).getType());
-
-    // evolve the schema BOOLEAN, INT64, INT32, INT16, INT8,
-    insertWithRetry(TestJsons.booleanAndAllKindsOfInt(), 2, true);
-    waitForOffset(3);
-    columns = describeTable(tableName);
-    assertEquals(6, columns.size());
-    // verify data types in already existing column were not changed
-    assertEquals("TEST_BOOLEAN", columns.get(1).getColumn());
-    assertEquals("BOOLEAN", columns.get(1).getType());
-    assertEquals("TEST_INT64", columns.get(2).getColumn());
-    assertEquals("NUMBER(19,0)", columns.get(2).getType());
-    // verify new columns
-    assertEquals("TEST_INT32", columns.get(3).getColumn());
-    assertEquals("NUMBER(10,0)", columns.get(3).getType());
-    assertEquals("TEST_INT16", columns.get(4).getColumn());
-    assertEquals("NUMBER(10,0)", columns.get(4).getType());
-    assertEquals("TEST_INT8", columns.get(5).getColumn());
-    assertEquals("NUMBER(10,0)", columns.get(5).getType());
-
-    // evolve the schema BOOLEAN, INT64, INT32, INT16, INT8, FLOAT, DOUBLE, STRING
-    insertWithRetry(TestJsons.allPrimitives(), 3, true);
-    waitForOffset(4);
-    columns = describeTable(tableName);
-    assertEquals(9, columns.size());
-    // verify data types in already existing column were not changed
-    assertEquals("TEST_BOOLEAN", columns.get(1).getColumn());
-    assertEquals("BOOLEAN", columns.get(1).getType());
-    assertEquals("TEST_INT64", columns.get(2).getColumn());
-    assertEquals("NUMBER(19,0)", columns.get(2).getType());
-    assertEquals("TEST_INT32", columns.get(3).getColumn());
-    assertEquals("NUMBER(10,0)", columns.get(3).getType());
-    assertEquals("TEST_INT16", columns.get(4).getColumn());
-    assertEquals("NUMBER(10,0)", columns.get(4).getType());
-    assertEquals("TEST_INT8", columns.get(5).getColumn());
-    assertEquals("NUMBER(10,0)", columns.get(5).getType());
-    // verify new columns
-    assertEquals("TEST_FLOAT", columns.get(6).getColumn());
-    assertEquals("FLOAT", columns.get(6).getType());
-    assertEquals("TEST_DOUBLE", columns.get(7).getColumn());
-    assertEquals("FLOAT", columns.get(7).getType());
-    assertEquals("TEST_STRING", columns.get(8).getColumn());
-    assertEquals("VARCHAR(16777216)", columns.get(8).getType());
-  }
+  private static final String RECORD_METADATA_TYPE =
+      "OBJECT(offset NUMBER(10,0), topic VARCHAR(16777216), partition NUMBER(10,0), key"
+          + " VARCHAR(16777216), schema_id NUMBER(10,0), key_schema_id NUMBER(10,0),"
+          + " CreateTime NUMBER(19,0), LogAppendTime NUMBER(19,0),"
+          + " SnowflakeConnectorPushTime NUMBER(19,0), headers MAP(VARCHAR(16777216),"
+          + " VARCHAR(16777216)))";
 }

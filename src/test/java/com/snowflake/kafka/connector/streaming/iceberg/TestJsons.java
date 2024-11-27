@@ -6,7 +6,7 @@ package com.snowflake.kafka.connector.streaming.iceberg;
  */
 class TestJsons {
 
-  public static String schemaNestedObjects(String payload) {
+  public static String nestedObjectWithSchema() {
     return "{"
         + " \"schema\": {"
         + "  \"type\": \"struct\","
@@ -32,7 +32,7 @@ class TestJsons {
         + "  \"name\": \"sf.kc.test\""
         + " },"
         + " \"payload\": "
-        + payload
+        + nestedObjectsPayload
         + "}";
   }
 
@@ -45,7 +45,7 @@ class TestJsons {
           + "    }"
           + "  }";
 
-  static String simpleMapSchema(String payload) {
+  static String simpleMapWithSchema() {
     return "{"
         + "    \"schema\": {"
         + "        \"type\": \"struct\","
@@ -63,7 +63,7 @@ class TestJsons {
         + "        ]"
         + "    },"
         + "       \"payload\":"
-        + payload
+        + simpleMapPayload
         + "}";
   }
 
@@ -75,7 +75,7 @@ class TestJsons {
           + "        }"
           + "    }";
 
-  static String simpleArraySchema(String payload) {
+  static String simpleArrayWithSchema() {
     return "{\n"
         + "    \"schema\": {\n"
         + "        \"type\": \"struct\",\n"
@@ -90,14 +90,14 @@ class TestJsons {
         + "        ]\n"
         + "    },\n"
         + "    \"payload\":"
-        + payload
+        + simpleArrayPayload
         + "}";
   }
 
   static String simpleArrayPayload = "{ \"simple_Array\": [ 1,2,3] } ";
 
   /** Object containing a list of maps */
-  static String complexSchema(String payload) {
+  static String complexPayloadWithSchema() {
     return "{"
         + "    \"schema\": {"
         + "        \"type\": \"struct\","
@@ -125,7 +125,7 @@ class TestJsons {
         + "        ]"
         + "    },"
         + "    \"payload\":"
-        + payload
+        + complexPayload
         + "}";
   }
 
@@ -143,23 +143,34 @@ class TestJsons {
           + "    }";
 
   static String singleBooleanField() {
-    return SCHEMA_BEGINNING + BOOL_SCHEMA + SCHEMA_END + "\"payload\": {" + BOOL_PAYLOAD + "}}";
+    return SCHEMA_BEGINNING
+        + BOOL_SCHEMA
+        + SCHEMA_END
+        + "\"payload\":"
+        + singleBooleanFieldPayload()
+        + "}";
   }
 
-  static String booleanAndInt() {
+  static String singleBooleanFieldPayload() {
+    return "{" + BOOL_PAYLOAD + "}";
+  }
+
+  static String booleanAndIntWithSchema() {
     return SCHEMA_BEGINNING
         + BOOL_SCHEMA
         + ","
         + INT64_SCHEMA
         + SCHEMA_END
-        + "\"payload\":{"
-        + BOOL_PAYLOAD
-        + ","
-        + INT64_PAYLOAD
-        + "}}";
+        + "\"payload\":"
+        + booleanAndIntPayload()
+        + "}";
   }
 
-  static String booleanAndAllKindsOfInt() {
+  static String booleanAndIntPayload() {
+    return "{" + BOOL_PAYLOAD + "," + INT64_PAYLOAD + "}";
+  }
+
+  static String booleanAndAllKindsOfIntWithSchema() {
     return SCHEMA_BEGINNING
         + BOOL_SCHEMA
         + ","
@@ -171,7 +182,13 @@ class TestJsons {
         + ","
         + INT8_SCHEMA
         + SCHEMA_END
-        + "\"payload\":{"
+        + "\"payload\":"
+        + booleanAndAllKindsOfIntPayload()
+        + "}";
+  }
+
+  static String booleanAndAllKindsOfIntPayload() {
+    return "{"
         + BOOL_PAYLOAD
         + ","
         + INT64_PAYLOAD
@@ -181,10 +198,10 @@ class TestJsons {
         + INT16_PAYLOAD
         + ","
         + INT8_PAYLOAD
-        + "}}";
+        + "}";
   }
 
-  static String allPrimitives() {
+  static String allPrimitivesWithSchema() {
     return SCHEMA_BEGINNING
         + BOOL_SCHEMA
         + ","
@@ -202,7 +219,13 @@ class TestJsons {
         + ","
         + STRING_SCHEMA
         + SCHEMA_END
-        + "\"payload\":{"
+        + "\"payload\":"
+        + allPrimitivesPayload()
+        + "}";
+  }
+
+  static String allPrimitivesPayload() {
+    return "{"
         + BOOL_PAYLOAD
         + ","
         + INT64_PAYLOAD
@@ -218,7 +241,239 @@ class TestJsons {
         + DOUBLE_PAYLOAD
         + ","
         + STRING_PAYLOAD
-        + "}}";
+        + "}";
+  }
+
+  /**
+   * Schemas and payload for {@link
+   * IcebergIngestionSchemaEvolutionIT#testEvolutionOfComplexTypes_withSchema} test
+   */
+  static String objectVarcharWithSchema() {
+    return "{ "
+        + "    \"schema\": { "
+        + "        \"type\": \"struct\", "
+        + "        \"fields\": [ "
+        + "            { "
+        + "                \"field\": \"object\", "
+        + "                \"type\": \"struct\", "
+        + "                \"fields\": [ "
+        + "                    { "
+        + "                        \"field\": \"test_string\", "
+        + "                        \"type\": \"string\" "
+        + "                    } "
+        + "                ] "
+        + "            } "
+        + "        ] "
+        + "    }, "
+        + "    \"payload\": "
+        + objectVarcharPayload
+        + "}";
+  }
+
+  static String objectVarcharPayload = "{ \"object\": { \"test_string\": \"very long string\" }} ";
+
+  static String objectWithNestedObjectWithSchema() {
+    return "{"
+        + "    \"schema\": {"
+        + "        \"type\": \"struct\","
+        + "        \"fields\": ["
+        + "            {"
+        + "                \"field\": \"object\","
+        + "                \"type\": \"struct\","
+        + "                \"fields\": ["
+        + "                    {"
+        + "                        \"field\": \"test_string\","
+        + "                        \"type\": \"string\""
+        + "                    },"
+        + "                    {"
+        + "                        \"field\": \"nested_object\","
+        + "                        \"type\": \"struct\","
+        + "                        \"fields\": ["
+        + "                            {"
+        + "                                \"field\": \"test_string\","
+        + "                                \"type\": \"string\""
+        + "                            }"
+        + "                        ]"
+        + "                    }"
+        + "                ]"
+        + "            }"
+        + "        ]"
+        + "    },"
+        + "    \"payload\": "
+        + objectWithNestedObjectPayload()
+        + "}";
+  }
+
+  static String objectWithNestedObjectPayload() {
+    return "{"
+        + "        \"object\": {"
+        + "            \"test_string\": \"very long string\","
+        + "            \"nested_object\": {"
+        + "                \"test_string\": \"pretty string\""
+        + "            }"
+        + "        }"
+        + "    }";
+  }
+
+  static String twoObjectsWithSchema() {
+    return "{"
+        + "    \"schema\": {"
+        + "        \"type\": \"struct\","
+        + "        \"fields\": ["
+        + "            {"
+        + "                \"field\": \"object\","
+        + "                \"type\": \"struct\","
+        + "                \"fields\": ["
+        + "                    {"
+        + "                        \"field\": \"test_string\","
+        + "                        \"type\": \"string\""
+        + "                    },"
+        + "                    {"
+        + "                        \"field\": \"nested_object\","
+        + "                        \"type\": \"struct\","
+        + "                        \"fields\": ["
+        + "                            {"
+        + "                                \"field\": \"test_string\","
+        + "                                \"type\": \"string\""
+        + "                            }"
+        + "                        ]"
+        + "                    }"
+        + "                ]"
+        + "            },"
+        + "            {"
+        + "                \"field\": \"object_With_Nested_Objects\","
+        + "                \"type\": \"struct\","
+        + "                \"fields\": ["
+        + "                    {"
+        + "                        \"field\": \"nestedStruct\","
+        + "                        \"type\": \"struct\","
+        + "                        \"fields\": ["
+        + "                            {"
+        + "                                \"field\": \"description\","
+        + "                                \"type\": \"string\""
+        + "                            }"
+        + "                        ]"
+        + "                    }"
+        + "                ]"
+        + "            }"
+        + "        ]"
+        + "    },"
+        + "    \"payload\": "
+        + twoObjectsWithSchemaPayload()
+        + "}";
+  }
+
+  static String twoObjectsWithSchemaPayload() {
+    return "{"
+        + "        \"object\": {"
+        + "            \"test_string\": \"very long string\","
+        + "            \"nested_object\": {"
+        + "                \"test_string\": \"pretty string\""
+        + "            }"
+        + "        },"
+        + "        \"object_With_Nested_Objects\": {"
+        + "            \"nestedStruct\": {"
+        + "                \"description\": \"txt\""
+        + "            }"
+        + "        }"
+        + "    }";
+  }
+
+  static String twoObjectsExtendedWithMapAndArrayWithSchema() {
+    return "{"
+        + "    \"schema\": {"
+        + "        \"type\": \"struct\","
+        + "        \"fields\": ["
+        + "            {"
+        + "                \"field\": \"object\","
+        + "                \"type\": \"struct\","
+        + "                \"fields\": ["
+        + "                    {"
+        + "                        \"field\": \"test_string\","
+        + "                        \"type\": \"string\""
+        + "                    },"
+        + "                    {"
+        + "                        \"field\": \"nested_object\","
+        + "                        \"type\": \"struct\","
+        + "                        \"fields\": ["
+        + "                            {"
+        + "                                \"field\": \"test_string\","
+        + "                                \"type\": \"string\""
+        + "                            }"
+        + "                        ]"
+        + "                    },"
+        + "                    {"
+        + "                        \"field\": \"Test_Map\","
+        + "                        \"type\": \"map\","
+        + "                        \"keys\": {"
+        + "                            \"type\": \"string\""
+        + "                        },"
+        + "                        \"values\": {"
+        + "                            \"type\": \"struct\","
+        + "                            \"fields\": ["
+        + "                                {"
+        + "                                    \"field\": \"test_string\","
+        + "                                    \"type\": \"string\""
+        + "                                }"
+        + "                            ]"
+        + "                        }"
+        + "                    }"
+        + "                ]"
+        + "            },"
+        + "            {"
+        + "                \"field\": \"object_With_Nested_Objects\","
+        + "                \"type\": \"struct\","
+        + "                \"fields\": ["
+        + "                    {"
+        + "                        \"field\": \"nestedStruct\","
+        + "                        \"type\": \"struct\","
+        + "                        \"fields\": ["
+        + "                            {"
+        + "                                \"field\": \"description\","
+        + "                                \"type\": \"string\""
+        + "                            },"
+        + "                            {"
+        + "                                \"field\": \"test_array\","
+        + "                                \"type\": \"array\","
+        + "                                \"items\": {"
+        + "                                    \"type\": \"double\""
+        + "                                }"
+        + "                            }"
+        + "                        ]"
+        + "                    }"
+        + "                ]"
+        + "            }"
+        + "        ]"
+        + "    },"
+        + "    \"payload\": "
+        + twoObjectsExtendedWithMapAndArrayPayload()
+        + "}";
+  }
+
+  static String twoObjectsExtendedWithMapAndArrayPayload() {
+    return "{"
+        + "        \"object\": {"
+        + "            \"test_string\": \"very long string\","
+        + "            \"nested_object\": {"
+        + "                \"test_string\": \"pretty string\""
+        + "            },"
+        + "            \"Test_Map\": {"
+        + "                \"key1\": {"
+        + "                    \"test_string\": \"value string\""
+        + "                }"
+        + "            }"
+        + "        },"
+        + "        \"object_With_Nested_Objects\": {"
+        + "            \"nestedStruct\": {"
+        + "                \"description\": \"txt\","
+        + "            \"test_array\": ["
+        + "                1.2,"
+        + "                323.4,"
+        + "                3.14"
+        + "            ]"
+        + "            }"
+        + "        }"
+        + "    }";
   }
 
   static String BOOL_SCHEMA = " {  \"field\" : \"test_boolean\", \"type\" : \"boolean\"} ";
@@ -246,4 +501,9 @@ class TestJsons {
   private static final String SCHEMA_BEGINNING =
       "{ \"schema\": { \"type\": \"struct\", \"fields\": [";
   private static final String SCHEMA_END = "]},";
+
+  private static final String OBJECT_SCHEMA_BEGINNING =
+      "{\"field\": \"object\", \"type\": \"struct\", \"fields\": [";
+
+  private static final String OBJECT_SCHEMA_END = "]}";
 }
