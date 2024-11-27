@@ -72,8 +72,8 @@ class IcebergFieldNode {
    * Method does not modify, delete any existing nodes and its types, names. It is meant only to add
    * new children.
    */
-  void merge(IcebergFieldNode modifiedNode) {
-    modifiedNode.children.forEach(
+  void merge(IcebergFieldNode nodeToMerge) {
+    nodeToMerge.children.forEach(
         (key, node) -> {
           IcebergFieldNode thisChild = this.children.get(key);
           if (thisChild == null) {

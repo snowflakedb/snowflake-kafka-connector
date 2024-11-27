@@ -159,7 +159,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   @Test
-  public void alterAlreadyExistingStructure_timestamp() throws Exception {
+  public void evolveSchemaRandomDataTest() throws Exception {
     String testStruct1 =
         "{"
             + "    \"_id\": \"673f3b93a56dd01a8a0cb6a4\","
@@ -259,20 +259,22 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     assertEquals(columns.size(), 16);
   }
 
+  /** Test just for a scenario when we see a record for the first time. */
   @ParameterizedTest
-  @MethodSource("schemasAndPayloads")
+  @MethodSource("schemasAndPayloads_brandNewColumns")
   public void addBrandNewColumns_withSchema(
       String payloadWithSchema, String expectedColumnName, String expectedType) throws Exception {
+    // when
     insertWithRetry(payloadWithSchema, 0, true);
     waitForOffset(1);
-
+    // then
     List<DescribeTableRow> columns = describeTable(tableName);
     assertEquals(2, columns.size());
     assertEquals(expectedColumnName, columns.get(1).getColumn());
     assertEquals(expectedType, columns.get(1).getType());
   }
 
-  private static Stream<Arguments> schemasAndPayloads() {
+  private static Stream<Arguments> schemasAndPayloads_brandNewColumns() {
     return Stream.of(
         Arguments.of(
             TestJsons.schemaNestedObjects(TestJsons.nestedObjectsPayload),
@@ -290,5 +292,71 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
             TestJsons.complexSchema(TestJsons.complexPayload),
             "OBJECT",
             "OBJECT(arrayOfMaps ARRAY(MAP(VARCHAR(16777216), FLOAT)))"));
+  }
+
+  @Test
+  public void testEvolutionOfPrimitives_withSchema() throws Exception {
+    // when insert BOOLEAN
+    insertWithRetry(TestJsons.singleBooleanField(), 0, true);
+    waitForOffset(1);
+    List<DescribeTableRow> columns = describeTable(tableName);
+    // verify number of columns, datatype and column name
+    assertEquals(2, columns.size());
+    assertEquals("TEST_BOOLEAN", columns.get(1).getColumn());
+    assertEquals("BOOLEAN", columns.get(1).getType());
+
+    // evolve the schema BOOLEAN, INT64
+    insertWithRetry(TestJsons.booleanAndInt(), 1, true);
+    waitForOffset(2);
+    columns = describeTable(tableName);
+    assertEquals(3, columns.size());
+    // verify data types in already existing column were not changed
+    assertEquals("TEST_BOOLEAN", columns.get(1).getColumn());
+    assertEquals("BOOLEAN", columns.get(1).getType());
+    // verify new columns
+    assertEquals("TEST_INT64", columns.get(2).getColumn());
+    assertEquals("NUMBER(19,0)", columns.get(2).getType());
+
+    // evolve the schema BOOLEAN, INT64, INT32, INT16, INT8,
+    insertWithRetry(TestJsons.booleanAndAllKindsOfInt(), 2, true);
+    waitForOffset(3);
+    columns = describeTable(tableName);
+    assertEquals(6, columns.size());
+    // verify data types in already existing column were not changed
+    assertEquals("TEST_BOOLEAN", columns.get(1).getColumn());
+    assertEquals("BOOLEAN", columns.get(1).getType());
+    assertEquals("TEST_INT64", columns.get(2).getColumn());
+    assertEquals("NUMBER(19,0)", columns.get(2).getType());
+    // verify new columns
+    assertEquals("TEST_INT32", columns.get(3).getColumn());
+    assertEquals("NUMBER(10,0)", columns.get(3).getType());
+    assertEquals("TEST_INT16", columns.get(4).getColumn());
+    assertEquals("NUMBER(10,0)", columns.get(4).getType());
+    assertEquals("TEST_INT8", columns.get(5).getColumn());
+    assertEquals("NUMBER(10,0)", columns.get(5).getType());
+
+    // evolve the schema BOOLEAN, INT64, INT32, INT16, INT8, FLOAT, DOUBLE, STRING
+    insertWithRetry(TestJsons.allPrimitives(), 3, true);
+    waitForOffset(4);
+    columns = describeTable(tableName);
+    assertEquals(9, columns.size());
+    // verify data types in already existing column were not changed
+    assertEquals("TEST_BOOLEAN", columns.get(1).getColumn());
+    assertEquals("BOOLEAN", columns.get(1).getType());
+    assertEquals("TEST_INT64", columns.get(2).getColumn());
+    assertEquals("NUMBER(19,0)", columns.get(2).getType());
+    assertEquals("TEST_INT32", columns.get(3).getColumn());
+    assertEquals("NUMBER(10,0)", columns.get(3).getType());
+    assertEquals("TEST_INT16", columns.get(4).getColumn());
+    assertEquals("NUMBER(10,0)", columns.get(4).getType());
+    assertEquals("TEST_INT8", columns.get(5).getColumn());
+    assertEquals("NUMBER(10,0)", columns.get(5).getType());
+    // verify new columns
+    assertEquals("TEST_FLOAT", columns.get(6).getColumn());
+    assertEquals("FLOAT", columns.get(6).getType());
+    assertEquals("TEST_DOUBLE", columns.get(7).getColumn());
+    assertEquals("FLOAT", columns.get(7).getType());
+    assertEquals("TEST_STRING", columns.get(8).getColumn());
+    assertEquals("VARCHAR(16777216)", columns.get(8).getType());
   }
 }

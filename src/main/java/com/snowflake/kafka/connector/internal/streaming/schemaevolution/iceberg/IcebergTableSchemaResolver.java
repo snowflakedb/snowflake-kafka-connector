@@ -109,20 +109,24 @@ class IcebergTableSchemaResolver {
 
     if (schema != null && schema.fields() != null) {
       ArrayList<Field> foundColumns = new ArrayList<>();
-      ArrayList<Field> notFoundColumns = new ArrayList<>();
 
       for (Field field : schema.fields()) {
         if (columnsToEvolve.contains(field.name().toUpperCase())) {
           foundColumns.add(field);
-        } else {
-          notFoundColumns.add(field);
         }
       }
+      List<String> notFoundColumns =
+          columnsToEvolve.stream()
+              .filter(
+                  columnToEvolve ->
+                      schema.fields().stream()
+                          .noneMatch(f -> f.name().equalsIgnoreCase(columnToEvolve)))
+              .collect(Collectors.toList());
 
       if (!notFoundColumns.isEmpty()) {
         throw SnowflakeErrors.ERROR_5022.getException(
             "Columns not found in schema: "
-                + notFoundColumns.stream().map(Field::name).collect(Collectors.toList())
+                + notFoundColumns
                 + ", schemaColumns: "
                 + schema.fields().stream().map(Field::name).collect(Collectors.toList()));
       }
