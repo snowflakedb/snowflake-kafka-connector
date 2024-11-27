@@ -1,31 +1,14 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.google.common.base.Strings;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.kafka.common.utils.Crc32C;
 
 public class FileNameUtils {
   private static final KCLogger LOGGER = new KCLogger(FileNameUtils.class.getName());
-
-  /**
-   * generate file name File Name Format: app/table/partition/start_end_timeStamp.fileFormat.gz
-   * Note: all file names should using the this format
-   *
-   * @param appName connector name
-   * @param table table name
-   * @param partition partition number
-   * @param start start offset
-   * @param end end offset
-   * @return file name
-   */
-  public static String fileName(String appName, String table, int partition, long start, long end) {
-    return fileName(filePrefix(appName, table, partition), start, end);
-  }
-
-  // Used for testing only
-  static String fileName(
-      String appName, String table, int partition, long start, long end, long time) {
-    return filePrefix(appName, table, partition) + start + "_" + end + "_" + time + ".json.gz";
-  }
 
   /**
    * generate file name
@@ -40,21 +23,6 @@ public class FileNameUtils {
     String fileName = prefix + start + "_" + end + "_" + time + ".json.gz";
     LOGGER.debug("generated file name: {}", fileName);
     return fileName;
-  }
-
-  /**
-   * generate file name for broken data
-   *
-   * @param appName app name
-   * @param table table name
-   * @param partition partition id
-   * @param offset record offset
-   * @param isKey is the broken record a key or a value
-   * @return file name
-   */
-  static String brokenRecordFileName(
-      String appName, String table, int partition, long offset, boolean isKey) {
-    return brokenRecordFileName(filePrefix(appName, table, partition), offset, isKey);
   }
 
   /**
@@ -78,11 +46,38 @@ public class FileNameUtils {
    *
    * @param appName connector name
    * @param table table name
+   * @param topic topic name
    * @param partition partition index
    * @return file prefix
    */
-  static String filePrefix(String appName, String table, int partition) {
-    return appName + "/" + table + "/" + partition + "/";
+  static String filePrefix(String appName, String table, String topic, int partition) {
+    if (partition >= 0x8000) {
+      throw new IllegalArgumentException(
+          String.format("partition id=%d is too large (max=%d)", partition, 0x8000));
+    }
+    return appName + "/" + table + "/" + calculatePartitionPart(topic, partition) + "/";
+  }
+
+  private static BigInteger calculatePartitionPart(String topic, int partition) {
+    BigInteger partitionPart = BigInteger.valueOf(partition);
+    if (!Strings.isNullOrEmpty(topic)) {
+      // if topic is provided as part of the file prefix,
+      // 1. lets calculate stable hash code out of it,
+      // 2. bit shift it by 16 bits left,
+      // 3. add 0x8000 (light up 15th bit as a marker)
+      // 4. add partition id (which should in production use cases never reach a value above 5.000
+      // partitions pers topic).
+      // In theory - we would support 32767 partitions, which is more than any reasonable value for
+      // a single topic
+      byte[] bytes = topic.toUpperCase().getBytes(StandardCharsets.UTF_8);
+      BigInteger hash = BigInteger.valueOf(Crc32C.compute(bytes, 0, bytes.length));
+      partitionPart =
+          hash.abs()
+              .multiply(BigInteger.valueOf(0x10000))
+              .add(BigInteger.valueOf(0x8000))
+              .add(partitionPart);
+    }
+    return partitionPart;
   }
 
   // applicationName/tableName/partitionNumber
@@ -136,18 +131,8 @@ public class FileNameUtils {
    * @return partition index
    */
   static int fileNameToPartition(String fileName) {
-    return Integer.parseInt(readFromFileName(fileName, 1));
-  }
-
-  /**
-   * check whether the given file is expired
-   *
-   * @param fileName file name
-   * @return true if expired, otherwise false
-   */
-  static boolean isFileExpired(String fileName) {
-    return System.currentTimeMillis() - fileNameToTimeIngested(fileName)
-        > InternalUtils.MAX_RECOVERY_TIME;
+    BigInteger value = new BigInteger(readFromFileName(fileName, 1));
+    return value.and(BigInteger.valueOf(0x7FFF)).intValue();
   }
 
   /**

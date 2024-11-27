@@ -36,7 +36,8 @@ public class IngestionServiceIT {
     String file = "{\"aa\":123}";
     // File Name Format: app/table/partition/start_end_timeStamp.fileFormat.gz
     // start offset = 0, end offset = 1
-    String fileName = FileNameUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, 0, 0, 1);
+    String fileName =
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, "topic", table, 0, 0, 1);
 
     conn.put(stage, fileName, file);
     ingestService.ingestFile(fileName);

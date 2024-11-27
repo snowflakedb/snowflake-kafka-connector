@@ -72,6 +72,19 @@ public class SnowflakeSinkServiceFactory {
         if (useStageFilesProcessor) {
           svc.enableStageFilesProcessor(threadCount);
         }
+
+        boolean extendedStageFileNameFix =
+            SnowflakeSinkConnectorConfig.SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED_DEFAULT;
+        if (connectorConfig != null
+            && connectorConfig.containsKey(
+                SnowflakeSinkConnectorConfig.SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED)) {
+          extendedStageFileNameFix =
+              Boolean.parseBoolean(
+                  connectorConfig.get(
+                      SnowflakeSinkConnectorConfig
+                          .SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED));
+        }
+        svc.configureSingleTableLoadFromMultipleTopics(extendedStageFileNameFix);
       } else {
         this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
       }

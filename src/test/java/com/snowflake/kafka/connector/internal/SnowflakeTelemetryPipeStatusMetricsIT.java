@@ -94,7 +94,7 @@ public class SnowflakeTelemetryPipeStatusMetricsIT {
             conn.listStage(
                         stageName,
                         FileNameUtils.filePrefix(
-                            TestUtils.TEST_CONNECTOR_NAME, tableName, partition))
+                            TestUtils.TEST_CONNECTOR_NAME, tableName, null, partition))
                     .size()
                 == 0,
         30,

@@ -444,6 +444,10 @@ public class TestUtils {
     return randomName("pipe");
   }
 
+  public static String randomTopicName() {
+    return randomName("topic");
+  }
+
   /**
    * retrieve one properties
    *

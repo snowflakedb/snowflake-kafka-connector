@@ -3,27 +3,28 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.NAME;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP;
 import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.TopicToTableValidator;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.TopicToTableValidator;
+import com.snowflake.kafka.connector.config.TopicToTableModeExtractor;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.storage.Converter;
 import org.junit.Assert;
 import org.junit.Test;
-
-import static org.junit.Assert.assertThrows;
 
 public class ConnectorConfigTest {
   // subset of valid community converters
@@ -218,10 +219,10 @@ public class ConnectorConfigTest {
   public void testIllegalTopicMap() {
     try {
       Map<String, String> config = getConfig();
-      config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "$@#$#@%^$12312");
+      config.put(TOPICS_TABLES_MAP, "$@#$#@%^$12312");
       Utils.validateConfig(config);
     } catch (SnowflakeKafkaConnectorException exception) {
-      assert exception.getMessage().contains(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP);
+      assert exception.getMessage().contains(TOPICS_TABLES_MAP);
     }
   }
 
@@ -229,7 +230,7 @@ public class ConnectorConfigTest {
   public void testIllegalTableName() {
     try {
       Map<String, String> config = getConfig();
-      config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:!@#@!#!@");
+      config.put(TOPICS_TABLES_MAP, "topic1:!@#@!#!@");
       Utils.validateConfig(config);
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception.getCode().equals(SnowflakeErrors.ERROR_0021.getCode());
@@ -240,7 +241,7 @@ public class ConnectorConfigTest {
   public void testDuplicatedTopic() {
     try {
       Map<String, String> config = getConfig();
-      config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:table1,topic1:table2");
+      config.put(TOPICS_TABLES_MAP, "topic1:table1,topic1:table2");
       Utils.validateConfig(config);
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception.getCode().equals(SnowflakeErrors.ERROR_0021.getCode());
@@ -250,22 +251,22 @@ public class ConnectorConfigTest {
   @Test
   public void testDuplicatedTableName() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "topic1:table1,topic2:table1");
+    config.put(TOPICS_TABLES_MAP, "topic1:table1,topic2:table1");
     Utils.validateConfig(config);
   }
 
   @Test
   public void testTopicToTableValidatorOnlyThrowsConfigException() {
     assertThrows(ConfigException.class, () -> {
-      new TopicToTableValidator().ensureValid(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
+      new TopicToTableValidator().ensureValid(TOPICS_TABLES_MAP,
           "$@#$#@%^$12312");
     });
     assertThrows(ConfigException.class, () -> {
-      new TopicToTableValidator().ensureValid(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
+      new TopicToTableValidator().ensureValid(TOPICS_TABLES_MAP,
           "topic1:!@#@!#!@");
     });
     assertThrows(ConfigException.class, () -> {
-      new TopicToTableValidator().ensureValid(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
+      new TopicToTableValidator().ensureValid(TOPICS_TABLES_MAP,
           "topic1:table1,topic1:table2");
     });
   }
@@ -274,8 +275,22 @@ public class ConnectorConfigTest {
   public void testNameMapCovered() {
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.TOPICS, "!@#,$%^,test");
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "!@#:table1,$%^:table2");
+    config.put(TOPICS_TABLES_MAP, "!@#:table1,$%^:table2");
     Utils.validateConfig(config);
+  }
+
+  @Test
+  public void testTopic2TableCorrectlyDeterminesMode() {
+    Map<String, String> config = getConfig();
+    config.put(TOPICS_TABLES_MAP, "src1:target1,src2:target2,src3:target1");
+    Utils.validateConfig(config);
+    Map<String, String> topic2Table = Utils.parseTopicToTableMap(config.get(TOPICS_TABLES_MAP));
+    assertThat(TopicToTableModeExtractor.determineTopic2TableMode(topic2Table, "src1"))
+        .isEqualTo(TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE);
+    assertThat(TopicToTableModeExtractor.determineTopic2TableMode(topic2Table, "src2"))
+        .isEqualTo(TopicToTableModeExtractor.Topic2TableMode.SINGLE_TOPIC_SINGLE_TABLE);
+    assertThat(TopicToTableModeExtractor.determineTopic2TableMode(topic2Table, "src3"))
+        .isEqualTo(TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE);
   }
 
   @Test
