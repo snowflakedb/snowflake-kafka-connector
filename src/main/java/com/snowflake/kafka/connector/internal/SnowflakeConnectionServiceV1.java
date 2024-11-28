@@ -506,12 +506,10 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
    */
   @Override
   public void evolveIcebergColumns(String tableName, String query) {
-    LOGGER.debug("Appending columns to iceberg table");
     InternalUtils.assertNotEmpty("tableName", tableName);
     checkConnection();
 
     executeStatement(tableName, query);
-    LOGGER.info("Query SUCCEEDED: " + query);
   }
 
   private void executeStatement(String tableName, String query) {

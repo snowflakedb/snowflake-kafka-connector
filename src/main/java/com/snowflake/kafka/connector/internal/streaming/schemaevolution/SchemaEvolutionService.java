@@ -17,5 +17,5 @@ public interface SchemaEvolutionService {
   void evolveSchemaIfNeeded(
       SchemaEvolutionTargetItems targetItems,
       SinkRecord record,
-      Map<String, ColumnProperties> schemaAlreadyInUse);
+      Map<String, ColumnProperties> existingSchema);
 }

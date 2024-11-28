@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
@@ -27,26 +26,19 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
     this.icebergTableSchemaResolver = new IcebergTableSchemaResolver();
   }
 
-  @VisibleForTesting
-  IcebergSchemaEvolutionService(
-      SnowflakeConnectionService conn, IcebergTableSchemaResolver tableSchemaResolver) {
-    this.conn = conn;
-    this.icebergTableSchemaResolver = tableSchemaResolver;
-  }
-
   /**
    * @param targetItems column and field names from InsertError returned by ingest-sdk
    * @param record record that caused an error
-   * @param schemaAlreadyInUse schema stored in a channel
+   * @param existingSchema schema stored in a channel
    */
   @Override
   public void evolveSchemaIfNeeded(
       SchemaEvolutionTargetItems targetItems,
       SinkRecord record,
-      Map<String, ColumnProperties> schemaAlreadyInUse) {
+      Map<String, ColumnProperties> existingSchema) {
     String tableName = targetItems.getTableName();
 
-    Set<String> columnsToEvolve = getColumnsToEvolve(targetItems);
+    Set<String> columnsToEvolve = extractColumnNames(targetItems);
 
     // Add columns if needed, ignore any exceptions since other task might be succeeded
     if (!columnsToEvolve.isEmpty()) {
@@ -54,73 +46,106 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
       // some of the column might already exist, and we will modify them, not create
       List<IcebergColumnTree> alreadyExistingColumns =
           icebergTableSchemaResolver.resolveIcebergSchemaFromChannel(
-              schemaAlreadyInUse, columnsToEvolve);
+              existingSchema, columnsToEvolve);
 
-      // new columns resolved from incoming record
       List<IcebergColumnTree> modifiedOrAddedColumns =
           icebergTableSchemaResolver.resolveIcebergSchemaFromRecord(record, columnsToEvolve);
 
-      // columns that we simply add because they are NOT present in an already existing schema.
-      List<IcebergColumnTree> addedColumns =
-          modifiedOrAddedColumns.stream()
-              .filter(
-                  modifiedOrAddedColumn ->
-                      alreadyExistingColumns.stream()
-                          .noneMatch(
-                              tree ->
-                                  tree.getColumnName()
-                                      .equalsIgnoreCase(modifiedOrAddedColumn.getColumnName())))
-              .collect(Collectors.toList());
-      // column that are present in a schema and needs to have its type modified
-      List<IcebergColumnTree> modifiedColumns =
-          modifiedOrAddedColumns.stream()
-              .filter(
-                  modifiedOrAddedColumn ->
-                      alreadyExistingColumns.stream()
-                          .anyMatch(
-                              tree ->
-                                  tree.getColumnName()
-                                      .equalsIgnoreCase(modifiedOrAddedColumn.getColumnName())))
-              .collect(Collectors.toList());
+      List<IcebergColumnTree> columnsToAdd =
+          distinguishColumnsToAdd(alreadyExistingColumns, modifiedOrAddedColumns);
 
-      Optional<String> addColumnsQuery = generateAddColumnQuery(addedColumns);
+      List<IcebergColumnTree> columnsToModify =
+          distinguishColumnsToModify(alreadyExistingColumns, modifiedOrAddedColumns);
 
-      // merge changes into already existing column
-      alreadyExistingColumns.forEach(
-          existingColumn -> {
-            IcebergColumnTree mewVersion =
-                modifiedColumns.stream()
-                    .filter(c -> c.getColumnName().equals(existingColumn.getColumnName()))
-                    .collect(Collectors.toList())
-                    .get(0);
-            existingColumn.merge(mewVersion);
-          });
-      Optional<String> alterSetDataTypeQuery = alterSetDataTypeQuery(alreadyExistingColumns);
-      try {
-        addColumnsQuery.ifPresent(query -> conn.evolveIcebergColumns(tableName, query));
-        alterSetDataTypeQuery.ifPresent(query -> conn.evolveIcebergColumns(tableName, query));
-      } catch (SnowflakeKafkaConnectorException e) {
-        LOGGER.warn(
-            String.format(
-                "Failure altering iceberg table to add column: %s, this could happen when multiple"
-                    + " partitions try to alter the table at the same time and the warning could be"
-                    + " ignored",
-                tableName),
-            e);
-      }
+      alterAddColumns(tableName, columnsToAdd);
+
+      alterDataType(tableName, alreadyExistingColumns, columnsToModify);
     }
   }
 
   /**
-   * Get only column names, ignore nested field names. Remove double quotes.
+   * Get only column names, ignore nested field names, remove double quotes.
    *
    * <p>example: TEST_STRUCT.field1 -> TEST_STRUCT
    */
-  private Set<String> getColumnsToEvolve(SchemaEvolutionTargetItems targetItems) {
+  private Set<String> extractColumnNames(SchemaEvolutionTargetItems targetItems) {
     return targetItems.getColumnsToAdd().stream()
-        // remove double quotes
-        .map(targetItem -> targetItem.split("\\.")[0].replaceAll("\"", ""))
+        .map(this::removeNestedFieldNames)
+        .map(this::removeDoubleQuotes)
         .collect(Collectors.toSet());
+  }
+
+  private String removeNestedFieldNames(String columnNameWithNestedNames) {
+    return columnNameWithNestedNames.split("\\.")[0];
+  }
+
+  private String removeDoubleQuotes(String columnName) {
+    return columnName.replaceAll("\"", "");
+  }
+
+  /** Columns that are not present in a current schema are to be added */
+  private List<IcebergColumnTree> distinguishColumnsToAdd(
+      List<IcebergColumnTree> alreadyExistingColumns,
+      List<IcebergColumnTree> modifiedOrAddedColumns) {
+    return modifiedOrAddedColumns.stream()
+        .filter(
+            modifiedOrAddedColumn ->
+                alreadyExistingColumns.stream()
+                    .noneMatch(
+                        tree ->
+                            tree.getColumnName()
+                                .equalsIgnoreCase(modifiedOrAddedColumn.getColumnName())))
+        .collect(Collectors.toList());
+  }
+
+  /** If columns is present in a current schema it means it has to be modified */
+  private List<IcebergColumnTree> distinguishColumnsToModify(
+      List<IcebergColumnTree> alreadyExistingColumns,
+      List<IcebergColumnTree> modifiedOrAddedColumns) {
+    return modifiedOrAddedColumns.stream()
+        .filter(
+            modifiedOrAddedColumn ->
+                alreadyExistingColumns.stream()
+                    .anyMatch(
+                        tree ->
+                            tree.getColumnName()
+                                .equalsIgnoreCase(modifiedOrAddedColumn.getColumnName())))
+        .collect(Collectors.toList());
+  }
+
+  private void alterAddColumns(String tableName, List<IcebergColumnTree> addedColumns) {
+    Optional<String> addColumnsQuery = generateAddColumnQuery(addedColumns);
+    try {
+      addColumnsQuery.ifPresent(query -> executeAddColumnsQuery(tableName, query));
+    } catch (SnowflakeKafkaConnectorException e) {
+      logQueryFailure(tableName, e);
+    }
+  }
+
+  private void alterDataType(
+      String tableName,
+      List<IcebergColumnTree> alreadyExistingColumns,
+      List<IcebergColumnTree> modifiedColumns) {
+    mergeChangesIntoExistingColumns(alreadyExistingColumns, modifiedColumns);
+    Optional<String> alterSetDataTypeQuery = generateAlterSetDataTypeQuery(alreadyExistingColumns);
+    try {
+      alterSetDataTypeQuery.ifPresent(query -> executeModifyColumnsQuery(tableName, query));
+    } catch (SnowflakeKafkaConnectorException e) {
+      logQueryFailure(tableName, e);
+    }
+  }
+
+  private void mergeChangesIntoExistingColumns(
+      List<IcebergColumnTree> alreadyExistingColumns, List<IcebergColumnTree> modifiedColumns) {
+    alreadyExistingColumns.forEach(
+        existingColumn -> {
+          IcebergColumnTree mewVersion =
+              modifiedColumns.stream()
+                  .filter(c -> c.getColumnName().equals(existingColumn.getColumnName()))
+                  .collect(Collectors.toList())
+                  .get(0);
+          existingColumn.merge(mewVersion);
+        });
   }
 
   private Optional<String> generateAddColumnQuery(List<IcebergColumnTree> columnsToAdd) {
@@ -144,7 +169,7 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
     return Optional.of(addColumnQuery.toString());
   }
 
-  private Optional<String> alterSetDataTypeQuery(List<IcebergColumnTree> columnsToModify) {
+  private Optional<String> generateAlterSetDataTypeQuery(List<IcebergColumnTree> columnsToModify) {
     if (columnsToModify.isEmpty()) {
       return Optional.empty();
     }
@@ -161,5 +186,27 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
     setDataTypeQuery.deleteCharAt(setDataTypeQuery.length() - 1);
 
     return Optional.of(setDataTypeQuery.toString());
+  }
+
+  private void executeAddColumnsQuery(String tableName, String addColumnsQuery) {
+    LOGGER.debug("Appending columns to iceberg table");
+    conn.evolveIcebergColumns(tableName, addColumnsQuery);
+    LOGGER.info("Query SUCCEEDED: " + addColumnsQuery);
+  }
+
+  private void executeModifyColumnsQuery(String tableName, String modifyColumnsQuery) {
+    LOGGER.debug("Modifying data types of iceberg table columns");
+    conn.evolveIcebergColumns(tableName, modifyColumnsQuery);
+    LOGGER.info("Query SUCCEEDED: " + modifyColumnsQuery);
+  }
+
+  private void logQueryFailure(String tableName, SnowflakeKafkaConnectorException e) {
+    LOGGER.warn(
+        String.format(
+            "Failure altering iceberg table to add column: %s, this could happen when multiple"
+                + " partitions try to alter the table at the same time and the warning could be"
+                + " ignored",
+            tableName),
+        e);
   }
 }

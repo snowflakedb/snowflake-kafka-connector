@@ -41,13 +41,13 @@ public class SnowflakeSchemaEvolutionService implements SchemaEvolutionService {
    * @param targetItems target items for schema evolution such as table name, columns to drop,
    *     columns to add
    * @param record the sink record that contains the schema and actual data
-   * @param schemaAlreadyInUse is unused in this implementation
+   * @param existingSchema is unused in this implementation
    */
   @Override
   public void evolveSchemaIfNeeded(
       SchemaEvolutionTargetItems targetItems,
       SinkRecord record,
-      Map<String, ColumnProperties> schemaAlreadyInUse) {
+      Map<String, ColumnProperties> existingSchema) {
     String tableName = targetItems.getTableName();
     List<String> columnsToDropNullability = targetItems.getColumnsToDropNonNullability();
     // Update nullability if needed, ignore any exceptions since other task might be succeeded
