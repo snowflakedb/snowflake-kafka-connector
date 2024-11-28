@@ -1,12 +1,13 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg;
 
+import com.google.common.collect.Maps;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.internal.ColumnProperties;
@@ -114,9 +115,9 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
   }
 
   private void alterAddColumns(String tableName, List<IcebergColumnTree> addedColumns) {
-    Optional<String> addColumnsQuery = generateAddColumnQuery(addedColumns);
+    Map<String, ColumnInfos> columnInfosMap = toColumnInfos(addedColumns);
     try {
-      addColumnsQuery.ifPresent(query -> executeAddColumnsQuery(tableName, query));
+      conn.appendColumnsToIcebergTable(tableName, columnInfosMap);
     } catch (SnowflakeKafkaConnectorException e) {
       logQueryFailure(tableName, e);
     }
@@ -126,10 +127,13 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
       String tableName,
       List<IcebergColumnTree> alreadyExistingColumns,
       List<IcebergColumnTree> modifiedColumns) {
+    if (modifiedColumns.isEmpty()) {
+      return;
+    }
     mergeChangesIntoExistingColumns(alreadyExistingColumns, modifiedColumns);
-    Optional<String> alterSetDataTypeQuery = generateAlterSetDataTypeQuery(alreadyExistingColumns);
+    Map<String, ColumnInfos> columnInfosMap = toColumnInfos(alreadyExistingColumns);
     try {
-      alterSetDataTypeQuery.ifPresent(query -> executeModifyColumnsQuery(tableName, query));
+      conn.alterColumnsDataTypeIcebergTable(tableName, columnInfosMap);
     } catch (SnowflakeKafkaConnectorException e) {
       logQueryFailure(tableName, e);
     }
@@ -148,56 +152,15 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
         });
   }
 
-  private Optional<String> generateAddColumnQuery(List<IcebergColumnTree> columnsToAdd) {
-    if (columnsToAdd.isEmpty()) {
-      return Optional.empty();
-    }
-    StringBuilder addColumnQuery = new StringBuilder("alter iceberg ");
-    addColumnQuery.append("table identifier(?) add column ");
-
-    for (IcebergColumnTree column : columnsToAdd) {
-      addColumnQuery.append("if not exists ");
-
-      String columnName = column.getColumnName();
-      String dataType = column.buildType();
-
-      addColumnQuery.append(" ").append(columnName).append(" ").append(dataType).append(", ");
-    }
-    // remove last comma and whitespace
-    addColumnQuery.deleteCharAt(addColumnQuery.length() - 1);
-    addColumnQuery.deleteCharAt(addColumnQuery.length() - 1);
-    return Optional.of(addColumnQuery.toString());
-  }
-
-  private Optional<String> generateAlterSetDataTypeQuery(List<IcebergColumnTree> columnsToModify) {
-    if (columnsToModify.isEmpty()) {
-      return Optional.empty();
-    }
-    StringBuilder setDataTypeQuery = new StringBuilder("alter iceberg ");
-    setDataTypeQuery.append("table identifier(?) alter column ");
-    for (IcebergColumnTree column : columnsToModify) {
-      String columnName = column.getColumnName();
-      String dataType = column.buildType();
-
-      setDataTypeQuery.append(columnName).append(" set data type ").append(dataType).append(", ");
-    }
-    // remove last comma and whitespace
-    setDataTypeQuery.deleteCharAt(setDataTypeQuery.length() - 1);
-    setDataTypeQuery.deleteCharAt(setDataTypeQuery.length() - 1);
-
-    return Optional.of(setDataTypeQuery.toString());
-  }
-
-  private void executeAddColumnsQuery(String tableName, String addColumnsQuery) {
-    LOGGER.debug("Appending columns to iceberg table");
-    conn.evolveIcebergColumns(tableName, addColumnsQuery);
-    LOGGER.info("Query SUCCEEDED: " + addColumnsQuery);
-  }
-
-  private void executeModifyColumnsQuery(String tableName, String modifyColumnsQuery) {
-    LOGGER.debug("Modifying data types of iceberg table columns");
-    conn.evolveIcebergColumns(tableName, modifyColumnsQuery);
-    LOGGER.info("Query SUCCEEDED: " + modifyColumnsQuery);
+  private Map<String, ColumnInfos> toColumnInfos(List<IcebergColumnTree> columnTrees) {
+    return columnTrees.stream()
+        .map(
+            columnTree ->
+                Maps.immutableEntry(
+                    columnTree.getColumnName(), new ColumnInfos(columnTree.buildType())))
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey, Map.Entry::getValue, (oldValue, newValue) -> newValue));
   }
 
   private void logQueryFailure(String tableName, SnowflakeKafkaConnectorException e) {
