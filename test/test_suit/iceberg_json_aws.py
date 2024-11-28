@@ -4,19 +4,16 @@ from test_suit.base_iceberg_test import BaseIcebergTest
 
 
 class TestIcebergJsonAws(BaseIcebergTest):
-    def __init__(self, driver, nameSalt: str):
-        BaseIcebergTest.__init__(self, driver, nameSalt)
-        self.fileName = "iceberg_json_aws"
-        self.topic = self.fileName + nameSalt
+    def __init__(self, driver, name_salt: str):
+        BaseIcebergTest.__init__(self, driver, name_salt, "iceberg_json_aws")
 
-    def getConfigFileName(self):
-        return self.fileName + ".json"
 
     def setup(self):
-        self.driver.create_iceberg_table_with_content(
+        self.driver.create_iceberg_table_with_sample_content(
             table_name=self.topic,
             external_volume="kafka_push_e2e_volume_aws",  # volume created manually
         )
+
 
     def send(self):
         msg = json.dumps(self.test_message)
@@ -35,6 +32,7 @@ class TestIcebergJsonAws(BaseIcebergTest):
             headers=self.test_headers,
         )
 
+
     def verify(self, round):
         number_of_records = self.driver.select_number_of_records(self.topic)
         if number_of_records == 0:
@@ -52,6 +50,3 @@ class TestIcebergJsonAws(BaseIcebergTest):
 
         self.verify_iceberg_content(json.loads(first_record[0]))
         self.verify_iceberg_metadata(json.loads(first_record[1]))
-
-    def clean(self):
-        self.driver.drop_iceberg_table(self.topic)
