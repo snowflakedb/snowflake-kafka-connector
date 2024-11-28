@@ -36,7 +36,7 @@ public class ComplexJsonRecord {
           PrimitiveJsonRecord.primitiveJsonRecordValueExample,
           null);
 
-  public static final String complexJsonExample =
+  public static final String complexJsonPayloadExample =
       "{"
           + "  \"id_int8\": 8,"
           + "  \"id_int16\": 16,"
@@ -218,7 +218,7 @@ public class ComplexJsonRecord {
           + "    \"name\": \"sf.kc.test\""
           + "  },"
           + "  \"payload\": "
-          + complexJsonExample
+          + complexJsonPayloadExample
           + "}";
 
   private static final ObjectMapper MAPPER =

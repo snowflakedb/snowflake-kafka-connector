@@ -75,7 +75,8 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
     return Stream.of(
         Arguments.of(
             "Complex JSON with schema", ComplexJsonRecord.complexJsonWithSchemaExample, true),
-        Arguments.of("Complex JSON without schema", ComplexJsonRecord.complexJsonExample, false));
+        Arguments.of(
+            "Complex JSON without schema", ComplexJsonRecord.complexJsonPayloadExample, false));
   }
 
   @ParameterizedTest(name = "{0}")

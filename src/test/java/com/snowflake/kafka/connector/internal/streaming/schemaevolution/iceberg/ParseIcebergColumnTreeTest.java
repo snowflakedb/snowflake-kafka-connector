@@ -120,8 +120,6 @@ public class ParseIcebergColumnTreeTest {
                 + "}}",
             "OBJECT(vehicle2 OBJECT(car OBJECT(brand VARCHAR)), "
                 + "vehicle1 OBJECT(car OBJECT(brand VARCHAR)))"),
-        // <- todo lol with k1, k2 the order is natural, however it changes an order when I used
-        // vehicles - inspect it
         arguments(
             "{ \"testColumnName\": {"
                 + "\"k1\" : { \"car\" : { \"brand\" : \"vw\" } },"
@@ -178,7 +176,10 @@ public class ParseIcebergColumnTreeTest {
   static Stream<Arguments> mergeTestArguments() {
     return Stream.of(
         arguments(
-            "{\"type\":\"struct\",\"fields\":[{\"id\":23,\"name\":\"k1\",\"required\":false,\"type\":\"int\"},{\"id\":24,\"name\":\"k2\",\"required\":false,\"type\":\"int\"}]}",
+            "{\"type\":\"struct\",\"fields\":["
+                + "{\"id\":23,\"name\":\"k1\",\"required\":false,\"type\":\"int\"},"
+                + "{\"id\":24,\"name\":\"k2\",\"required\":false,\"type\":\"int\"}"
+                + "]}",
             "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2, \"k3\" : 3 } }",
             "OBJECT(k1 INT, k2 INT, k3 LONG)"),
         arguments(
@@ -201,13 +202,17 @@ public class ParseIcebergColumnTreeTest {
             "OBJECT(k1 INT, k2 INT, nested_object OBJECT(nested_key1"
                 + " VARCHAR(16777216), nested_key2 VARCHAR(16777216), nested_object2"
                 + " OBJECT(nested_key2 DOUBLE)))"),
-        // ARRAY evolution
+        // ARRAY merge
         arguments(
             "{\"type\":\"list\",\"element-id\":23,\"element\":\"long\",\"element-required\":false}",
             "{\"TESTSTRUCT\": [1,2,3] }",
             "ARRAY(LONG)"),
         arguments(
-            "{\"type\":\"list\",\"element-id\":1,\"element\":{\"type\":\"struct\",\"fields\":[{\"id\":1,\"name\":\"primitive\",\"required\":true,\"type\":\"boolean\"}]},\"element-required\":true}",
+            "{\"type\":\"list\",\"element-id\":1,\"element\":{"
+                + "\"type\":\"struct\",\"fields\":["
+                + "{\"id\":1,\"name\":\"primitive\",\"required\":true,\"type\":\"boolean\"}"
+                + "]},"
+                + "\"element-required\":true}",
             "{\"TESTSTRUCT\": [ { \"primitive\" : true, \"new_field\" : 25878749237493287429348 }]"
                 + " }",
             "ARRAY(OBJECT(primitive BOOLEAN, new_field LONG))"));
