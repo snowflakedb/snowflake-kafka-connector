@@ -12,7 +12,7 @@ class IcebergColumnTree {
     return rootNode.name;
   }
 
-  IcebergColumnTree(ApacheIcebergColumnSchema columnSchema) {
+  IcebergColumnTree(IcebergColumnSchema columnSchema) {
     // rootNodes name serve as a name of the column, hence it is uppercase
     String columnName = columnSchema.getColumnName().toUpperCase();
     this.rootNode = new IcebergFieldNode(columnName, columnSchema.getSchema());

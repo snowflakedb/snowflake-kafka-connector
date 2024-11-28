@@ -28,8 +28,7 @@ public class ParseIcebergColumnTreeTest {
     // given
     Type type = IcebergDataTypeParser.deserializeIcebergType(plainIcebergSchema);
     // when
-    ApacheIcebergColumnSchema apacheSchema =
-        new ApacheIcebergColumnSchema(type, "TEST_COLUMN_NAME");
+    IcebergColumnSchema apacheSchema = new IcebergColumnSchema(type, "TEST_COLUMN_NAME");
     IcebergColumnTree tree = new IcebergColumnTree(apacheSchema);
     // then
     Assertions.assertEquals(expectedType, tree.buildType());
@@ -155,7 +154,7 @@ public class ParseIcebergColumnTreeTest {
   void mergeTwoTreesTest(String plainIcebergSchema, String recordJson, String expectedResult) {
     // given tree parsed from channel
     Type type = IcebergDataTypeParser.deserializeIcebergType(plainIcebergSchema);
-    ApacheIcebergColumnSchema apacheSchema = new ApacheIcebergColumnSchema(type, "TESTSTRUCT");
+    IcebergColumnSchema apacheSchema = new IcebergColumnSchema(type, "TESTSTRUCT");
     IcebergColumnTree alreadyExistingTree = new IcebergColumnTree(apacheSchema);
 
     // tree parsed from a record

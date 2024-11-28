@@ -28,7 +28,7 @@ class IcebergTableSchemaResolver {
   public List<IcebergColumnTree> resolveIcebergSchemaFromChannel(
       Map<String, ColumnProperties> tableSchemaFromChannel, Set<String> columnsToEvolve) {
 
-    List<ApacheIcebergColumnSchema> apacheIcebergColumnSchemas =
+    List<IcebergColumnSchema> apacheIcebergColumnSchemas =
         tableSchemaFromChannel.entrySet().stream()
             .filter(
                 (schemaFromChannelEntry) -> {
@@ -55,7 +55,7 @@ class IcebergTableSchemaResolver {
     }
   }
 
-  private ApacheIcebergColumnSchema mapApacheSchemaFromChannel(
+  private IcebergColumnSchema mapApacheSchemaFromChannel(
       Map.Entry<String, ColumnProperties> schemaFromChannelEntry) {
 
     ColumnProperties columnProperty = schemaFromChannelEntry.getValue();
@@ -63,7 +63,7 @@ class IcebergTableSchemaResolver {
 
     Type schema = IcebergDataTypeParser.deserializeIcebergType(plainIcebergSchema);
     String columnName = schemaFromChannelEntry.getKey();
-    return new ApacheIcebergColumnSchema(schema, columnName);
+    return new IcebergColumnSchema(schema, columnName);
   }
 
   // todo remove in 1820155 when getIcebergSchema() method is made public
