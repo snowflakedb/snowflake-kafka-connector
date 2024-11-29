@@ -23,20 +23,25 @@ public class IcebergColumnTreeFactory {
   }
 
   IcebergColumnTree fromIcebergSchema(IcebergColumnSchema columnSchema) {
-    LOGGER.debug("Attempting to resolve schema from schema stored in a channel");
+    LOGGER.debug(
+        "Attempting to parse schema from schema stored in a channel for column: "
+            + columnSchema.getColumnName());
     IcebergFieldNode rootNode =
         createNode(columnSchema.getColumnName().toUpperCase(), columnSchema.getSchema());
     return new IcebergColumnTree(rootNode);
   }
 
   IcebergColumnTree fromJson(IcebergColumnJsonValuePair pair) {
-    LOGGER.debug("Attempting to resolve schema from records payload");
+    LOGGER.debug(
+        "Attempting to parse schema from records payload for column: " + pair.getColumnName());
     IcebergFieldNode rootNode = createNode(pair.getColumnName().toUpperCase(), pair.getJsonNode());
     return new IcebergColumnTree(rootNode);
   }
 
   IcebergColumnTree fromConnectSchema(Field kafkaConnectField) {
-    LOGGER.debug("Attempting to resolve schema from schema attached to a record");
+    LOGGER.debug(
+        "Attempting to parse schema from schema attached to a record for column: "
+            + kafkaConnectField.name());
     IcebergFieldNode rootNode =
         createNode(kafkaConnectField.name().toUpperCase(), kafkaConnectField.schema());
     return new IcebergColumnTree(rootNode);

@@ -19,7 +19,6 @@ import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.StreamingBufferThreshold;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordServiceFactory;
@@ -138,7 +137,7 @@ public class SnowflakeStreamingSinkTaskBuilder {
         /*enableSchematization=*/ false,
         /*closeChannelsInParallel=*/ true,
         topicPartitionChannelMap,
-        new IcebergSchemaEvolutionService(mockConnectionService));
+        new SnowflakeSchemaEvolutionService(mockConnectionService));
   }
 
   private SnowflakeStreamingIngestClient defaultStreamingIngestClient() {

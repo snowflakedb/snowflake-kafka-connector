@@ -553,18 +553,6 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     appendColumnsToTable(tableName, columnInfosMap, true);
   }
 
-  private void executeStatement(String tableName, String query) {
-    try {
-      LOGGER.info("Trying to run query: {}", query);
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2015.getException(e);
-    }
-  }
-
   private void appendColumnsToTable(
       String tableName, Map<String, ColumnInfos> columnInfosMap, boolean isIcebergTable) {
     checkConnection();
@@ -598,6 +586,18 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
 
     logColumn.insert(0, "Following columns created for table {}:\n").append("]");
     LOGGER.info(logColumn.toString(), tableName);
+  }
+
+  private void executeStatement(String tableName, String query) {
+    try {
+      LOGGER.info("Trying to run query: {}", query);
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2015.getException(e);
+    }
   }
 
   /**

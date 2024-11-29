@@ -15,7 +15,7 @@ public class IcebergColumnTreeTypeBuilder {
    * @param sb StringBuilder
    * @param parentType Snowflake Iceberg table compatible type. ROOT_NODE_TYPE is a special case,
    *     here we never generate column name for it.
-   * @return field name + data type
+   * @return SQL type of the column
    */
   private StringBuilder buildType(StringBuilder sb, IcebergFieldNode fieldNode, String parentType) {
     if (parentType.equals("ARRAY")

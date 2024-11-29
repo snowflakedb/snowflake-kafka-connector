@@ -16,7 +16,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class IcebergColumnTypeMapperTest {
 
-  private final IcebergColumnTypeMapper mapper = IcebergColumnTypeMapper.INSTANCE;
+  private final IcebergColumnTypeMapper mapper = new IcebergColumnTypeMapper();
 
   @ParameterizedTest(name = "should map Kafka type {0} to Snowflake column type {2}")
   @MethodSource("kafkaTypesToMap")

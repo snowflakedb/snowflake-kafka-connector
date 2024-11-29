@@ -10,6 +10,7 @@ import static org.apache.kafka.connect.data.Schema.Type.STRING;
 import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.kafka.connect.data.Date;
@@ -19,8 +20,6 @@ import org.apache.kafka.connect.data.Time;
 import org.apache.kafka.connect.data.Timestamp;
 
 class IcebergColumnTypeMapper {
-
-  static IcebergColumnTypeMapper INSTANCE = new IcebergColumnTypeMapper();
 
   /**
    * See <a href="https://docs.snowflake.com/en/user-guide/tables-iceberg-data-types">Data types for
@@ -62,8 +61,8 @@ class IcebergColumnTypeMapper {
       case MAP:
         return "MAP";
       default:
-        throw new IllegalArgumentException(
-            "Fail unsupported datatype! - " + apacheIcebergType.typeId());
+        throw SnowflakeErrors.ERROR_5025.getException(
+            "Data type: " + apacheIcebergType.typeId().name());
     }
   }
 

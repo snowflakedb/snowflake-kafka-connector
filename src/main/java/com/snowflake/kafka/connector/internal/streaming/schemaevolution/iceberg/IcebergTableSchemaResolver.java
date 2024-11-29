@@ -10,17 +10,17 @@ import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.internal.ColumnProperties;
 import org.apache.iceberg.types.Type;
 import org.apache.kafka.connect.data.Field;
-import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 class IcebergTableSchemaResolver {
-
-  private final IcebergColumnTreeFactory treeFactory = new IcebergColumnTreeFactory();
-  private final IcebergColumnTypeMapper mapper = IcebergColumnTypeMapper.INSTANCE;
-
   private static final Logger LOGGER = LoggerFactory.getLogger(IcebergTableSchemaResolver.class);
+  private final IcebergColumnTreeFactory treeFactory;
+
+  public IcebergTableSchemaResolver() {
+    this.treeFactory = new IcebergColumnTreeFactory();
+  }
 
   /**
    * Retrieve IcebergSchema stored in a channel, then parse it into a tree. Filter out columns that
@@ -29,17 +29,13 @@ class IcebergTableSchemaResolver {
   public List<IcebergColumnTree> resolveIcebergSchemaFromChannel(
       Map<String, ColumnProperties> tableSchemaFromChannel, Set<String> columnsToEvolve) {
 
-    List<IcebergColumnSchema> apacheIcebergColumnSchemas =
-        tableSchemaFromChannel.entrySet().stream()
-            .filter(
-                (schemaFromChannelEntry) -> {
-                  String columnNameFromChannel = schemaFromChannelEntry.getKey();
-                  return columnsToEvolve.contains(columnNameFromChannel);
-                })
-            .map(this::mapApacheSchemaFromChannel)
-            .collect(Collectors.toList());
-
-    return apacheIcebergColumnSchemas.stream()
+    return tableSchemaFromChannel.entrySet().stream()
+        .filter(
+            (schemaFromChannelEntry) -> {
+              String columnNameFromChannel = schemaFromChannelEntry.getKey();
+              return columnsToEvolve.contains(columnNameFromChannel);
+            })
+        .map(this::mapIcebergSchemaFromChannel)
         .map(treeFactory::fromIcebergSchema)
         .collect(Collectors.toList());
   }
@@ -50,13 +46,18 @@ class IcebergTableSchemaResolver {
       return ImmutableList.of();
     }
     if (hasSchema(record)) {
+      LOGGER.debug(
+          "Schema found. Evolve columns basing on a record schema, column: " + columnsToEvolve);
       return getTableSchemaFromRecordSchema(record, columnsToEvolve);
     } else {
+      LOGGER.debug(
+          "Schema NOT found. Evolve columns basing on a records payload, columns: "
+              + columnsToEvolve);
       return getTableSchemaFromJson(record, columnsToEvolve);
     }
   }
 
-  private IcebergColumnSchema mapApacheSchemaFromChannel(
+  private IcebergColumnSchema mapIcebergSchemaFromChannel(
       Map.Entry<String, ColumnProperties> schemaFromChannelEntry) {
 
     ColumnProperties columnProperty = schemaFromChannelEntry.getValue();
@@ -106,34 +107,28 @@ class IcebergTableSchemaResolver {
   private List<IcebergColumnTree> getTableSchemaFromRecordSchema(
       SinkRecord record, Set<String> columnsToEvolve) {
 
-    Schema schema = record.valueSchema();
+    List<Field> schemaColumns = record.valueSchema().fields();
+    List<Field> foundColumns =
+        schemaColumns.stream()
+            .filter(
+                schemaColumnName -> columnsToEvolve.contains(schemaColumnName.name().toUpperCase()))
+            .collect(Collectors.toList());
 
-    if (schema != null && schema.fields() != null) {
-      ArrayList<Field> foundColumns = new ArrayList<>();
+    if (foundColumns.size() < columnsToEvolve.size()) {
+      List<String> notFoundColumns =
+          schemaColumns.stream()
+              .map(Field::name)
+              .filter(schemaColumnName -> !columnsToEvolve.contains(schemaColumnName.toUpperCase()))
+              .collect(Collectors.toList());
 
-      for (Field field : schema.fields()) {
-        if (columnsToEvolve.contains(field.name().toUpperCase())) {
-          foundColumns.add(field);
-        }
-      }
-
-      if (foundColumns.size() < columnsToEvolve.size()) {
-        List<String> notFoundColumns =
-            columnsToEvolve.stream()
-                .filter(
-                    columnToEvolve ->
-                        schema.fields().stream()
-                            .noneMatch(f -> f.name().equalsIgnoreCase(columnToEvolve)))
-                .collect(Collectors.toList());
-
-        throw SnowflakeErrors.ERROR_5022.getException(
-            "Columns not found in schema: "
-                + notFoundColumns
-                + ", schemaColumns: "
-                + schema.fields().stream().map(Field::name).collect(Collectors.toList()));
-      }
-      return foundColumns.stream().map(treeFactory::fromConnectSchema).collect(Collectors.toList());
+      throw SnowflakeErrors.ERROR_5022.getException(
+          "Columns not found in schema: "
+              + notFoundColumns
+              + ", schemaColumns: "
+              + schemaColumns.stream().map(Field::name).collect(Collectors.toList())
+              + ", foundColumns: "
+              + foundColumns.stream().map(Field::name).collect(Collectors.toList()));
     }
-    return ImmutableList.of();
+    return foundColumns.stream().map(treeFactory::fromConnectSchema).collect(Collectors.toList());
   }
 }

@@ -116,7 +116,7 @@ public interface SnowflakeConnectionService {
    * Alter iceberg table to modify columns datatype
    *
    * @param tableName the name of the table
-   * @param columnInfosMap the mapping from the columnNames to their infos
+   * @param columnInfosMap the mapping from the columnNames to their columnInfos
    */
   void alterColumnsDataTypeIcebergTable(String tableName, Map<String, ColumnInfos> columnInfosMap);
 
@@ -124,7 +124,7 @@ public interface SnowflakeConnectionService {
    * Alter iceberg table to add columns according to a map from columnNames to their types
    *
    * @param tableName the name of the table
-   * @param columnInfosMap the mapping from the columnNames to their infos
+   * @param columnInfosMap the mapping from the columnNames to their columnInfos
    */
   void appendColumnsToIcebergTable(String tableName, Map<String, ColumnInfos> columnInfosMap);
 

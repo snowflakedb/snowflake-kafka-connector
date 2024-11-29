@@ -89,7 +89,7 @@ public class ParseIcebergColumnTreeTest {
                 + " VARCHAR(16777216)))"));
   }
 
-  @ParameterizedTest
+  @ParameterizedTest(name = "{0}")
   @MethodSource("parseFromJsonArguments")
   void parseFromJsonRecordSchema(String jsonString, String expectedType) {
     // given
@@ -108,8 +108,7 @@ public class ParseIcebergColumnTreeTest {
     return Stream.of(
         arguments("{\"testColumnName\" : 1 }", "LONG"),
         arguments(
-            "{ \"testColumnName\": {" + "\"k1\" : 1," + "\"k2\" : 2" + "} " + "}",
-            "OBJECT(k1 LONG, k2 LONG)"),
+            "{ \"testColumnName\": { \"k1\" : 1, \"k2\" : 2 }  }", "OBJECT(k1 LONG, k2 LONG)"),
         arguments(
             "{ \"testColumnName\": {"
                 + "\"k1\" : { \"nested_key1\" : 1},"
@@ -133,20 +132,20 @@ public class ParseIcebergColumnTreeTest {
                 + " OBJECT(brand"
                 + " VARCHAR)))"),
         arguments(
-            "   { \"testColumnName\": [\n"
-                + "      {\n"
-                + "        \"id\": 0,\n"
-                + "        \"name\": \"Sandoval Hodges\"\n"
-                + "      },\n"
-                + "      {\n"
-                + "        \"id\": 1,\n"
-                + "        \"name\": \"Ramirez Brooks\"\n"
-                + "      },\n"
-                + "      {\n"
-                + "        \"id\": 2,\n"
-                + "        \"name\": \"Vivian Whitfield\"\n"
-                + "      }\n"
-                + "    ] } \n",
+            "   { \"testColumnName\": ["
+                + "      {"
+                + "        \"id\": 0,"
+                + "        \"name\": \"Sandoval Hodges\""
+                + "      },"
+                + "      {"
+                + "        \"id\": 1,"
+                + "        \"name\": \"Ramirez Brooks\""
+                + "      },"
+                + "      {"
+                + "        \"id\": 2,"
+                + "        \"name\": \"Vivian Whitfield\""
+                + "      }"
+                + "    ] } ",
             "ARRAY(OBJECT(name VARCHAR, id LONG))"),
         // array
         arguments("{\"testColumnName\": [1,2,3] }", "ARRAY(LONG)"),
