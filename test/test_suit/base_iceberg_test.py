@@ -1,11 +1,13 @@
 from test_suit.base_e2e import BaseE2eTest
 from test_suit.assertions import *
+from test_suit.test_utils import RetryableError, NonRetryableError
+import json
 
 class BaseIcebergTest(BaseE2eTest):
 
     def __init__(self, driver, name_salt: str, config_file_name: str):
         self.driver = driver
-        self.fileName = "iceberg_json_aws"
+        self.file_name = config_file_name
         self.topic = config_file_name + name_salt
 
         self.test_message_from_docs = {
@@ -86,6 +88,30 @@ class BaseIcebergTest(BaseE2eTest):
 
     def clean(self):
         self.driver.drop_iceberg_table(self.topic)
+
+
+    def _send_json_values(self, msg: dict, number_of_messages: int):
+        json_msg = json.dumps(msg)
+
+        key = [json.dumps({"number": str(e)}).encode("utf-8") for e in range(number_of_messages)]
+        value = [json_msg.encode("utf-8") for _ in range(number_of_messages)]
+
+        self.driver.sendBytesData(
+            topic=self.topic,
+            value=value,
+            key=key,
+            partition=0,
+            headers=self.test_headers,
+        )
+
+    def _assert_number_of_records_in_table(self, expected_number_of_records: int):
+        number_of_records = self.driver.select_number_of_records(self.topic)
+        if number_of_records == 0:
+            raise RetryableError()
+        elif number_of_records != expected_number_of_records:
+            raise NonRetryableError(
+                "Number of record in table is different from number of record sent"
+            )
 
 
     def verify_iceberg_content(self, content: dict):

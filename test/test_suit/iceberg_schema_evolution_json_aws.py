@@ -14,9 +14,11 @@ class TestIcebergSchemaEvolutionJsonAws(BaseIcebergTest):
 
 
     def send(self):
-        pass
+        self._send_json_values(self.test_message_from_docs, 100)
+        self._send_json_values(self.test_message_for_schema_evolution_1, 100)
+        self._send_json_values(self.test_message_for_schema_evolution_2, 100)
 
 
     def verify(self, round):
-        pass
+        self._assert_number_of_records_in_table(300)
 
