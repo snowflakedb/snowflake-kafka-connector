@@ -9,17 +9,11 @@ class IcebergColumnTree {
     return rootNode.name;
   }
 
-  public IcebergFieldNode getRootNode() {
+  IcebergFieldNode getRootNode() {
     return rootNode;
   }
 
   IcebergColumnTree(IcebergFieldNode rootNode) {
     this.rootNode = rootNode;
-  }
-
-  /** Returns data type of the column */
-  String buildType() {
-    StringBuilder sb = new StringBuilder();
-    return rootNode.buildQuery(sb, "ROOT_NODE").toString();
   }
 }

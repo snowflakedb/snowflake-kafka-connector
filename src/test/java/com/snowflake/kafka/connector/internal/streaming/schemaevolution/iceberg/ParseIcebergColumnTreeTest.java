@@ -24,6 +24,7 @@ public class ParseIcebergColumnTreeTest {
 
   private final IcebergColumnTreeFactory treeFactory = new IcebergColumnTreeFactory();
   private final IcebergColumnTreeMerger mergeTreeService = new IcebergColumnTreeMerger();
+  private final IcebergColumnTreeTypeBuilder typeBuilder = new IcebergColumnTreeTypeBuilder();
 
   @ParameterizedTest
   @MethodSource("icebergSchemas")
@@ -34,7 +35,7 @@ public class ParseIcebergColumnTreeTest {
     IcebergColumnSchema apacheSchema = new IcebergColumnSchema(type, "TEST_COLUMN_NAME");
     IcebergColumnTree tree = treeFactory.fromIcebergSchema(apacheSchema);
     // then
-    Assertions.assertEquals(expectedType, tree.buildType());
+    Assertions.assertEquals(expectedType, typeBuilder.buildType(tree));
     Assertions.assertEquals("TEST_COLUMN_NAME", tree.getColumnName());
   }
 
@@ -99,7 +100,7 @@ public class ParseIcebergColumnTreeTest {
     // when
     IcebergColumnTree tree = treeFactory.fromJson(columnValuePair);
     // then
-    Assertions.assertEquals(expectedType, tree.buildType());
+    Assertions.assertEquals(expectedType, typeBuilder.buildType(tree));
     Assertions.assertEquals("TESTCOLUMNNAME", tree.getColumnName());
   }
 
@@ -171,7 +172,7 @@ public class ParseIcebergColumnTreeTest {
     mergeTreeService.merge(alreadyExistingTree, modifiedTree);
 
     String expected = expectedResult.replaceAll("/ +/g", " ");
-    Assertions.assertEquals(expected, alreadyExistingTree.buildType());
+    Assertions.assertEquals(expected, typeBuilder.buildType(alreadyExistingTree));
     Assertions.assertEquals("TESTSTRUCT", alreadyExistingTree.getColumnName());
   }
 

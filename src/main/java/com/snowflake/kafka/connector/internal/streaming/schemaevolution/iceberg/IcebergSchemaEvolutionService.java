@@ -22,11 +22,13 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
   private final SnowflakeConnectionService conn;
   private final IcebergTableSchemaResolver icebergTableSchemaResolver;
   private final IcebergColumnTreeMerger mergeTreeService;
+  private final IcebergColumnTreeTypeBuilder typeBuilder;
 
   public IcebergSchemaEvolutionService(SnowflakeConnectionService conn) {
     this.conn = conn;
     this.icebergTableSchemaResolver = new IcebergTableSchemaResolver();
     this.mergeTreeService = new IcebergColumnTreeMerger();
+    this.typeBuilder = new IcebergColumnTreeTypeBuilder();
   }
 
   /**
@@ -162,7 +164,7 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
         .map(
             columnTree ->
                 Maps.immutableEntry(
-                    columnTree.getColumnName(), new ColumnInfos(columnTree.buildType())))
+                    columnTree.getColumnName(), new ColumnInfos(typeBuilder.buildType(columnTree))))
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey, Map.Entry::getValue, (oldValue, newValue) -> newValue));

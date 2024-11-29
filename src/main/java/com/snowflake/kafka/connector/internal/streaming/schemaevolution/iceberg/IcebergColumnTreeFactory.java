@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -12,6 +13,9 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 
 public class IcebergColumnTreeFactory {
+
+  private final KCLogger LOGGER = new KCLogger(IcebergColumnTreeFactory.class.getName());
+
   private final IcebergColumnTypeMapper mapper;
 
   public IcebergColumnTreeFactory() {
@@ -19,17 +23,20 @@ public class IcebergColumnTreeFactory {
   }
 
   IcebergColumnTree fromIcebergSchema(IcebergColumnSchema columnSchema) {
+    LOGGER.debug("Attempting to resolve schema from schema stored in a channel");
     IcebergFieldNode rootNode =
         createNode(columnSchema.getColumnName().toUpperCase(), columnSchema.getSchema());
     return new IcebergColumnTree(rootNode);
   }
 
   IcebergColumnTree fromJson(IcebergColumnJsonValuePair pair) {
+    LOGGER.debug("Attempting to resolve schema from records payload");
     IcebergFieldNode rootNode = createNode(pair.getColumnName().toUpperCase(), pair.getJsonNode());
     return new IcebergColumnTree(rootNode);
   }
 
   IcebergColumnTree fromConnectSchema(Field kafkaConnectField) {
+    LOGGER.debug("Attempting to resolve schema from schema attached to a record");
     IcebergFieldNode rootNode =
         createNode(kafkaConnectField.name().toUpperCase(), kafkaConnectField.schema());
     return new IcebergColumnTree(rootNode);
