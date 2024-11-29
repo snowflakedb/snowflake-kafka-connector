@@ -337,7 +337,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     // Simply skip inserting into the buffer if the row should be ignored after channel reset
     if (needToSkipCurrentBatch) {
       LOGGER.info(
-          "Ignore adding offset:{} to buffer for channel:{} because we recently reset offset in"
+          "Ignore inserting offset:{} for channel:{} because we recently reset offset in"
               + " Kafka. currentProcessedOffset:{}",
           kafkaSinkRecord.kafkaOffset(),
           this.getChannelNameFormatV1(),

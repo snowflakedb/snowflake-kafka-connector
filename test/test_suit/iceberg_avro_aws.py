@@ -45,5 +45,5 @@ class TestIcebergAvroAws(BaseIcebergTest):
             .fetchone()
         )
 
-        self.verify_iceberg_content(json.loads(first_record[0]))
-        self.verify_iceberg_metadata(json.loads(first_record[1]))
+        self._verify_iceberg_content_from_docs(json.loads(first_record[0]))
+        self._verify_iceberg_metadata(json.loads(first_record[1]))
