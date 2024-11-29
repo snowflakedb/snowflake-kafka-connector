@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategyfail-fast
 #      Matrix was reduced to single dimension because running stress tests multiple times heavily affects environment
@@ -43,13 +43,13 @@ jobs:
         pip3 install --upgrade protobuf==3.20.3
         pip3 install --upgrade snowflake-connector-python==2.7.4
         curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+        sudo apt-get update
         sudo apt-get -y install jq
         sudo apt-get -y install protobuf-compiler
 
     - name: Install Squid as Proxy Server and Apache Utils for Password Authentication
       run: |
-        sudo apt-get update
-        sudo apt-get -y install squid3
+        sudo apt-get -y install squid
         sudo apt-get install apache2-utils
 
     - name: Change squid config and run Proxy Server
