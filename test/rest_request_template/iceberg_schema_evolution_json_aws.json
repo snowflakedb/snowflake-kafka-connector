@@ -21,6 +21,7 @@
     "errors.deadletterqueue.topic.name": "DLQ_TOPIC",
     "errors.deadletterqueue.topic.replication.factor": 1,
     "snowflake.streaming.iceberg.enabled": true,
+    "snowflake.enable.schematization": true,
     "snowflake.streaming.max.client.lag": "1"
   }
 }
