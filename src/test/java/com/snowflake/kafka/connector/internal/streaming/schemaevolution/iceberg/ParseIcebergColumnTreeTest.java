@@ -22,6 +22,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class ParseIcebergColumnTreeTest {
 
+  private final IcebergColumnTreeFactory treeFactory = new IcebergColumnTreeFactory();
+  private final IcebergColumnTreeMerger mergeTreeService = new IcebergColumnTreeMerger();
+
   @ParameterizedTest
   @MethodSource("icebergSchemas")
   void parseFromApacheIcebergSchema(String plainIcebergSchema, String expectedType) {
@@ -29,7 +32,7 @@ public class ParseIcebergColumnTreeTest {
     Type type = IcebergDataTypeParser.deserializeIcebergType(plainIcebergSchema);
     // when
     IcebergColumnSchema apacheSchema = new IcebergColumnSchema(type, "TEST_COLUMN_NAME");
-    IcebergColumnTree tree = new IcebergColumnTree(apacheSchema);
+    IcebergColumnTree tree = treeFactory.fromIcebergSchema(apacheSchema);
     // then
     Assertions.assertEquals(expectedType, tree.buildType());
     Assertions.assertEquals("TEST_COLUMN_NAME", tree.getColumnName());
@@ -94,7 +97,7 @@ public class ParseIcebergColumnTreeTest {
     IcebergColumnJsonValuePair columnValuePair =
         IcebergColumnJsonValuePair.from(recordNode.fields().next());
     // when
-    IcebergColumnTree tree = new IcebergColumnTree(columnValuePair);
+    IcebergColumnTree tree = treeFactory.fromJson(columnValuePair);
     // then
     Assertions.assertEquals(expectedType, tree.buildType());
     Assertions.assertEquals("TESTCOLUMNNAME", tree.getColumnName());
@@ -155,7 +158,7 @@ public class ParseIcebergColumnTreeTest {
     // given tree parsed from channel
     Type type = IcebergDataTypeParser.deserializeIcebergType(plainIcebergSchema);
     IcebergColumnSchema apacheSchema = new IcebergColumnSchema(type, "TESTSTRUCT");
-    IcebergColumnTree alreadyExistingTree = new IcebergColumnTree(apacheSchema);
+    IcebergColumnTree alreadyExistingTree = treeFactory.fromIcebergSchema(apacheSchema);
 
     // tree parsed from a record
     SinkRecord record = createKafkaRecord(recordJson, false);
@@ -163,9 +166,9 @@ public class ParseIcebergColumnTreeTest {
     IcebergColumnJsonValuePair columnValuePair =
         IcebergColumnJsonValuePair.from(recordNode.fields().next());
 
-    IcebergColumnTree modifiedTree = new IcebergColumnTree(columnValuePair);
+    IcebergColumnTree modifiedTree = treeFactory.fromJson(columnValuePair);
     // then
-    alreadyExistingTree.merge(modifiedTree);
+    mergeTreeService.merge(alreadyExistingTree, modifiedTree);
 
     String expected = expectedResult.replaceAll("/ +/g", " ");
     Assertions.assertEquals(expected, alreadyExistingTree.buildType());

@@ -21,10 +21,12 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
 
   private final SnowflakeConnectionService conn;
   private final IcebergTableSchemaResolver icebergTableSchemaResolver;
+  private final IcebergColumnTreeMerger mergeTreeService;
 
   public IcebergSchemaEvolutionService(SnowflakeConnectionService conn) {
     this.conn = conn;
     this.icebergTableSchemaResolver = new IcebergTableSchemaResolver();
+    this.mergeTreeService = new IcebergColumnTreeMerger();
   }
 
   /**
@@ -115,6 +117,9 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
   }
 
   private void alterAddColumns(String tableName, List<IcebergColumnTree> addedColumns) {
+    if (addedColumns.isEmpty()) {
+      return;
+    }
     Map<String, ColumnInfos> columnInfosMap = toColumnInfos(addedColumns);
     try {
       conn.appendColumnsToIcebergTable(tableName, columnInfosMap);
@@ -148,7 +153,7 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
                   .filter(c -> c.getColumnName().equals(existingColumn.getColumnName()))
                   .collect(Collectors.toList())
                   .get(0);
-          existingColumn.merge(mewVersion);
+          mergeTreeService.merge(existingColumn, mewVersion);
         });
   }
 

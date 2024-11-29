@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 class IcebergTableSchemaResolver {
 
+  private final IcebergColumnTreeFactory treeFactory = new IcebergColumnTreeFactory();
   private final IcebergColumnTypeMapper mapper = IcebergColumnTypeMapper.INSTANCE;
 
   private static final Logger LOGGER = LoggerFactory.getLogger(IcebergTableSchemaResolver.class);
@@ -39,7 +40,7 @@ class IcebergTableSchemaResolver {
             .collect(Collectors.toList());
 
     return apacheIcebergColumnSchemas.stream()
-        .map(IcebergColumnTree::new)
+        .map(treeFactory::fromIcebergSchema)
         .collect(Collectors.toList());
   }
 
@@ -92,7 +93,7 @@ class IcebergTableSchemaResolver {
     return Streams.stream(recordNode.fields())
         .map(IcebergColumnJsonValuePair::from)
         .filter(pair -> columnsToEvolve.contains(pair.getColumnName().toUpperCase()))
-        .map(IcebergColumnTree::new)
+        .map(treeFactory::fromJson)
         .collect(Collectors.toList());
   }
 
@@ -131,7 +132,7 @@ class IcebergTableSchemaResolver {
                 + ", schemaColumns: "
                 + schema.fields().stream().map(Field::name).collect(Collectors.toList()));
       }
-      return foundColumns.stream().map(IcebergColumnTree::new).collect(Collectors.toList());
+      return foundColumns.stream().map(treeFactory::fromConnectSchema).collect(Collectors.toList());
     }
     return ImmutableList.of();
   }
