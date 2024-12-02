@@ -24,6 +24,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
+  private static final String RECORD_METADATA_TYPE =
+      "OBJECT(offset NUMBER(10,0), topic VARCHAR(16777216), partition NUMBER(10,0), key"
+          + " VARCHAR(16777216), schema_id NUMBER(10,0), key_schema_id NUMBER(10,0),"
+          + " CreateTime NUMBER(19,0), LogAppendTime NUMBER(19,0),"
+          + " SnowflakeConnectorPushTime NUMBER(19,0), headers MAP(VARCHAR(16777216),"
+          + " VARCHAR(16777216)))";
+
   @Override
   protected Boolean isSchemaEvolutionEnabled() {
     return true;
@@ -116,7 +123,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   /** Verify a scenario when structure is enriched with another field. */
   @Test
-  @Disabled
+  // @Disabled
   public void alterStructure_noSchema() throws Exception {
     // k1, k2
     String testStruct1 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2 } }";
@@ -194,7 +201,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   @Test
-  @Disabled
+  // @Disabled
   public void testComplexRecordEvolution_withSchema() throws Exception {
     insertWithRetry(complexJsonWithSchemaExample, 0, true);
     waitForOffset(1);
@@ -233,7 +240,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   @Test
-  @Disabled
+  // @Disabled
   public void testComplexRecordEvolution() throws Exception {
     insertWithRetry(complexJsonPayloadExample, 0, false);
     waitForOffset(1);
@@ -272,7 +279,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   /** Test just for a scenario when we see a record for the first time. */
   @ParameterizedTest
   @MethodSource("schemasAndPayloads_brandNewColumns")
-  @Disabled
+  // @Disabled
   public void addBrandNewColumns_withSchema(
       String payloadWithSchema, String expectedColumnName, String expectedType) throws Exception {
     // when
@@ -303,7 +310,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   @ParameterizedTest
   @MethodSource("primitiveEvolutionDataSource")
-  @Disabled
+  // @Disabled
   public void testEvolutionOfPrimitives_withSchema(
       String singleBooleanField,
       String booleanAndInt,
@@ -392,7 +399,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   @ParameterizedTest
   @MethodSource("testEvolutionOfComplexTypes_dataSource")
-  @Disabled
+  // @Disabled
   public void testEvolutionOfComplexTypes_withSchema(
       String objectVarchar,
       String objectWithNestedObject,
@@ -476,11 +483,4 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
             twoObjectsExtendedWithMapAndArrayPayload(),
             false));
   }
-
-  private static final String RECORD_METADATA_TYPE =
-      "OBJECT(offset NUMBER(10,0), topic VARCHAR(16777216), partition NUMBER(10,0), key"
-          + " VARCHAR(16777216), schema_id NUMBER(10,0), key_schema_id NUMBER(10,0),"
-          + " CreateTime NUMBER(19,0), LogAppendTime NUMBER(19,0),"
-          + " SnowflakeConnectorPushTime NUMBER(19,0), headers MAP(VARCHAR(16777216),"
-          + " VARCHAR(16777216)))";
 }

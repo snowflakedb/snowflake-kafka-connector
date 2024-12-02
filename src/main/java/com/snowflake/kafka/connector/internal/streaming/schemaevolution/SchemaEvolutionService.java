@@ -13,6 +13,7 @@ public interface SchemaEvolutionService {
    * @param targetItems target items for schema evolution such as table name, columns to drop
    *     nullability, and columns to add
    * @param record the sink record that contains the schema and actual data
+   * @param existingSchema schema stored in a channel
    */
   void evolveSchemaIfNeeded(
       SchemaEvolutionTargetItems targetItems,

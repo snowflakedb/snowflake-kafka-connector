@@ -2,6 +2,8 @@ package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg
 
 public class IcebergColumnTreeTypeBuilder {
 
+  private static final String ROOT_NODE_TYPE = "ROOT_NODE";
+
   /** Returns data type of the column */
   String buildType(IcebergColumnTree columnTree) {
     StringBuilder sb = new StringBuilder();
@@ -53,6 +55,4 @@ public class IcebergColumnTreeTypeBuilder {
     sb.deleteCharAt(sb.length() - 1);
     sb.deleteCharAt(sb.length() - 1);
   }
-
-  private static final String ROOT_NODE_TYPE = "ROOT_NODE";
 }

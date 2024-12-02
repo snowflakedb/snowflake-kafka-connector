@@ -93,7 +93,7 @@ public class ParseIcebergColumnTreeTest {
   @MethodSource("parseFromJsonArguments")
   void parseFromJsonRecordSchema(String jsonString, String expectedType) {
     // given
-    SinkRecord record = createKafkaRecord(jsonString, false);
+    SinkRecord record = createKafkaRecord(jsonString);
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
     IcebergColumnJsonValuePair columnValuePair =
         IcebergColumnJsonValuePair.from(recordNode.fields().next());
@@ -161,15 +161,15 @@ public class ParseIcebergColumnTreeTest {
     IcebergColumnTree alreadyExistingTree = treeFactory.fromIcebergSchema(apacheSchema);
 
     // tree parsed from a record
-    SinkRecord record = createKafkaRecord(recordJson, false);
+    SinkRecord record = createKafkaRecord(recordJson);
     JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
     IcebergColumnJsonValuePair columnValuePair =
         IcebergColumnJsonValuePair.from(recordNode.fields().next());
 
     IcebergColumnTree modifiedTree = treeFactory.fromJson(columnValuePair);
-    // then
+    // when
     mergeTreeService.merge(alreadyExistingTree, modifiedTree);
-
+    // then
     String expected = expectedResult.replaceAll("/ +/g", " ");
     Assertions.assertEquals(expected, typeBuilder.buildType(alreadyExistingTree));
     Assertions.assertEquals("TESTSTRUCT", alreadyExistingTree.getColumnName());
@@ -220,11 +220,10 @@ public class ParseIcebergColumnTreeTest {
             "ARRAY(OBJECT(primitive BOOLEAN, new_field LONG))"));
   }
 
-  protected SinkRecord createKafkaRecord(String jsonString, boolean withSchema) {
+  protected SinkRecord createKafkaRecord(String jsonString) {
     int offset = 0;
     JsonConverter converter = new JsonConverter();
-    converter.configure(
-        Collections.singletonMap("schemas.enable", Boolean.toString(withSchema)), false);
+    converter.configure(Collections.singletonMap("schemas.enable", Boolean.toString(false)), false);
     SchemaAndValue inputValue =
         converter.toConnectData("TOPIC_NAME", jsonString.getBytes(StandardCharsets.UTF_8));
     Headers headers = new ConnectHeaders();

@@ -47,12 +47,12 @@ class IcebergTableSchemaResolver {
     }
     if (hasSchema(record)) {
       LOGGER.debug(
-          "Schema found. Evolve columns basing on a record schema, column: " + columnsToEvolve);
+          "Schema found. Evolve columns basing on a record's schema, column: {}", columnsToEvolve);
       return getTableSchemaFromRecordSchema(record, columnsToEvolve);
     } else {
       LOGGER.debug(
-          "Schema NOT found. Evolve columns basing on a records payload, columns: "
-              + columnsToEvolve);
+          "Schema NOT found. Evolve columns basing on a record's payload, columns: {}",
+          columnsToEvolve);
       return getTableSchemaFromJson(record, columnsToEvolve);
     }
   }
@@ -77,7 +77,7 @@ class IcebergTableSchemaResolver {
       return (String) field.get(columnProperties);
     } catch (IllegalAccessException | NoSuchFieldException e) {
       throw new IllegalStateException(
-          "Couldn't set iceberg by accessing private field: " + "isIceberg", e);
+          "Couldn't set iceberg by accessing private field: isIceberg", e);
     }
   }
 
@@ -102,7 +102,7 @@ class IcebergTableSchemaResolver {
    * Given a SinkRecord, get the schema information from it
    *
    * @param record the sink record that contains the schema and actual data
-   * @return list of column represantation in a form of tree
+   * @return list of column representation in a form of tree
    */
   private List<IcebergColumnTree> getTableSchemaFromRecordSchema(
       SinkRecord record, Set<String> columnsToEvolve) {

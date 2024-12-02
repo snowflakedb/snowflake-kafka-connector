@@ -6,7 +6,7 @@ package com.snowflake.kafka.connector.streaming.iceberg;
  */
 class TestJsons {
 
-  public static String nestedObjectWithSchema() {
+  static String nestedObjectWithSchema() {
     return "{"
         + " \"schema\": {"
         + "  \"type\": \"struct\","
@@ -501,9 +501,4 @@ class TestJsons {
   private static final String SCHEMA_BEGINNING =
       "{ \"schema\": { \"type\": \"struct\", \"fields\": [";
   private static final String SCHEMA_END = "]},";
-
-  private static final String OBJECT_SCHEMA_BEGINNING =
-      "{\"field\": \"object\", \"type\": \"struct\", \"fields\": [";
-
-  private static final String OBJECT_SCHEMA_END = "]}";
 }

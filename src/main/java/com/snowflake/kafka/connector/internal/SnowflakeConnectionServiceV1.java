@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 import net.snowflake.client.jdbc.cloud.storage.StageInfo;
@@ -515,15 +516,18 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   private String generateAlterSetDataTypeQuery(Map<String, ColumnInfos> columnsToModify) {
     StringBuilder setDataTypeQuery = new StringBuilder("alter iceberg ");
     setDataTypeQuery.append("table identifier(?) alter column ");
-    for (Map.Entry<String, ColumnInfos> column : columnsToModify.entrySet()) {
-      String columnName = column.getKey();
-      String dataType = column.getValue().getColumnType();
 
-      setDataTypeQuery.append(columnName).append(" set data type ").append(dataType).append(", ");
-    }
-    // remove last comma and whitespace
-    setDataTypeQuery.deleteCharAt(setDataTypeQuery.length() - 1);
-    setDataTypeQuery.deleteCharAt(setDataTypeQuery.length() - 1);
+    String columnsPart =
+        columnsToModify.entrySet().stream()
+            .map(
+                column -> {
+                  String columnName = column.getKey();
+                  String dataType = column.getValue().getColumnType();
+                  return columnName + " set data type " + dataType;
+                })
+            .collect(Collectors.joining(", "));
+
+    setDataTypeQuery.append(columnsPart);
 
     return setDataTypeQuery.toString();
   }

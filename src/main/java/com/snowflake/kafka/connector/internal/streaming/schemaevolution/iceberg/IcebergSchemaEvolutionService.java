@@ -6,9 +6,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.internal.ColumnProperties;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -150,12 +148,20 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
       List<IcebergColumnTree> alreadyExistingColumns, List<IcebergColumnTree> modifiedColumns) {
     alreadyExistingColumns.forEach(
         existingColumn -> {
-          IcebergColumnTree mewVersion =
+          List<IcebergColumnTree> modifiedColumnMatchingExisting =
               modifiedColumns.stream()
                   .filter(c -> c.getColumnName().equals(existingColumn.getColumnName()))
-                  .collect(Collectors.toList())
-                  .get(0);
-          mergeTreeService.merge(existingColumn, mewVersion);
+                  .collect(Collectors.toList());
+          if (modifiedColumnMatchingExisting.size() != 1) {
+            LOGGER.warn(
+                "Skipping schema evolution of a column {}. Incorrect number of new versions of the"
+                    + " column: {}",
+                existingColumn.getColumnName(),
+                modifiedColumnMatchingExisting.stream()
+                    .map(IcebergColumnTree::getColumnName)
+                    .collect(Collectors.toList()));
+          }
+          mergeTreeService.merge(existingColumn, modifiedColumnMatchingExisting.get(0));
         });
   }
 
