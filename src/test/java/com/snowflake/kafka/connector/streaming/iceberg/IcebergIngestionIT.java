@@ -13,6 +13,8 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexVarcharRecord;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import java.nio.charset.StandardCharsets;
@@ -131,5 +133,10 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
   protected List<RecordWithMetadata<ComplexJsonRecord>>
       selectAllComplexJsonRecordFromRecordContent() {
     return select(tableName, selectAllSortByOffset, ComplexJsonRecord::fromRecordContentColumn);
+  }
+
+  protected List<MetadataRecord.RecordWithMetadata<ComplexVarcharRecord>>
+      selectAllComplexVarcharRecords() {
+    return select(tableName, selectAllSortByOffset, ComplexVarcharRecord::fromSchematizedResult);
   }
 }
