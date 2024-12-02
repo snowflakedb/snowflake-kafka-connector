@@ -123,7 +123,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   /** Verify a scenario when structure is enriched with another field. */
   @Test
-  // @Disabled
+  @Disabled
   public void alterStructure_noSchema() throws Exception {
     // k1, k2
     String testStruct1 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2 } }";
@@ -201,7 +201,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   @Test
-  // @Disabled
+  @Disabled
   public void testComplexRecordEvolution_withSchema() throws Exception {
     insertWithRetry(complexJsonWithSchemaExample, 0, true);
     waitForOffset(1);
@@ -240,7 +240,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   @Test
-  // @Disabled
+  @Disabled
   public void testComplexRecordEvolution() throws Exception {
     insertWithRetry(complexJsonPayloadExample, 0, false);
     waitForOffset(1);
@@ -279,7 +279,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   /** Test just for a scenario when we see a record for the first time. */
   @ParameterizedTest
   @MethodSource("schemasAndPayloads_brandNewColumns")
-  // @Disabled
+  @Disabled
   public void addBrandNewColumns_withSchema(
       String payloadWithSchema, String expectedColumnName, String expectedType) throws Exception {
     // when
@@ -310,7 +310,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   @ParameterizedTest
   @MethodSource("primitiveEvolutionDataSource")
-  // @Disabled
+  @Disabled
   public void testEvolutionOfPrimitives_withSchema(
       String singleBooleanField,
       String booleanAndInt,
@@ -399,7 +399,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   @ParameterizedTest
   @MethodSource("testEvolutionOfComplexTypes_dataSource")
-  // @Disabled
+  @Disabled
   public void testEvolutionOfComplexTypes_withSchema(
       String objectVarchar,
       String objectWithNestedObject,
