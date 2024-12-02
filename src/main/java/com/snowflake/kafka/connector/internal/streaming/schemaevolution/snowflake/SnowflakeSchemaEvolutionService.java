@@ -8,6 +8,8 @@ import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEv
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.TableSchema;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.TableSchemaResolver;
 import java.util.List;
+import java.util.Map;
+import net.snowflake.ingest.streaming.internal.ColumnProperties;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,9 +41,13 @@ public class SnowflakeSchemaEvolutionService implements SchemaEvolutionService {
    * @param targetItems target items for schema evolution such as table name, columns to drop,
    *     columns to add
    * @param record the sink record that contains the schema and actual data
+   * @param existingSchema is unused in this implementation
    */
   @Override
-  public void evolveSchemaIfNeeded(SchemaEvolutionTargetItems targetItems, SinkRecord record) {
+  public void evolveSchemaIfNeeded(
+      SchemaEvolutionTargetItems targetItems,
+      SinkRecord record,
+      Map<String, ColumnProperties> existingSchema) {
     String tableName = targetItems.getTableName();
     List<String> columnsToDropNullability = targetItems.getColumnsToDropNonNullability();
     // Update nullability if needed, ignore any exceptions since other task might be succeeded

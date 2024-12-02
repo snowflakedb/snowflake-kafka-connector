@@ -339,7 +339,8 @@ public enum SnowflakeErrors {
       "Timeout while waiting for file cleaner to start",
       "Could not allocate thread for file cleaner to start processing in given time. If problem"
           + " persists, please try setting snowflake.snowpipe.use_new_cleaner to false"),
-  ;
+  ERROR_5025(
+      "5025", "Unexpected data type", "Unexpected data type encountered during schema evolution.");
 
   // properties
 

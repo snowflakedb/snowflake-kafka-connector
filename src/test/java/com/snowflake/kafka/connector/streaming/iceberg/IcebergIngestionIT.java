@@ -1,8 +1,6 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfForStreaming;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -51,6 +49,8 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     config.put(ICEBERG_ENABLED, "TRUE");
     config.put(ENABLE_SCHEMATIZATION_CONFIG, isSchemaEvolutionEnabled().toString());
     config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "true");
+    // "snowflake.streaming.max.client.lag" = 1 second, for faster tests
+    config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
 
     createIcebergTable();
     enableSchemaEvolution(tableName);
