@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.config;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER;
 import static com.snowflake.kafka.connector.Utils.*;
 import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
 
@@ -33,8 +34,7 @@ public class SnowflakeSinkConnectorConfigBuilder {
     return commonRequiredFields()
         .withIcebergEnabled()
         .withIngestionMethod(IngestionMethodConfig.SNOWPIPE_STREAMING)
-        .withSchematizationEnabled(true)
-        .withRole("role");
+        .withSchematizationEnabled(true);
   }
 
   private static SnowflakeSinkConnectorConfigBuilder commonRequiredFields() {
@@ -46,6 +46,7 @@ public class SnowflakeSinkConnectorConfigBuilder {
         .withDatabase("testDatabase")
         .withUser("userName")
         .withPrivateKey("fdsfsdfsdfdsfdsrqwrwewrwrew42314424")
+        .withRole("role")
         .withDefaultBufferConfig();
   }
 
@@ -121,6 +122,11 @@ public class SnowflakeSinkConnectorConfigBuilder {
   public SnowflakeSinkConnectorConfigBuilder withChannelOffsetTokenVerificationFunctionEnabled(
       boolean enabled) {
     config.put(ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG, Boolean.toString(enabled));
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withSingleBufferEnabled(boolean enabled) {
+    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, Boolean.toString(enabled));
     return this;
   }
 

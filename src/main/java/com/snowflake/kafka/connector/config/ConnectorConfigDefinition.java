@@ -123,7 +123,7 @@ public class ConnectorConfigDefinition {
             OAUTH_CLIENT_ID)
         .define(
             OAUTH_CLIENT_SECRET,
-            ConfigDef.Type.STRING,
+            ConfigDef.Type.PASSWORD,
             "",
             ConfigDef.Importance.HIGH,
             "Client secret of target OAuth integration",
@@ -133,7 +133,7 @@ public class ConnectorConfigDefinition {
             OAUTH_CLIENT_SECRET)
         .define(
             OAUTH_REFRESH_TOKEN,
-            ConfigDef.Type.STRING,
+            ConfigDef.Type.PASSWORD,
             "",
             ConfigDef.Importance.HIGH,
             "Refresh token for OAuth",
@@ -184,7 +184,7 @@ public class ConnectorConfigDefinition {
             JVM_PROXY_USERNAME)
         .define(
             JVM_PROXY_PASSWORD,
-            ConfigDef.Type.STRING,
+            ConfigDef.Type.PASSWORD,
             "",
             ConfigDef.Importance.LOW,
             "JVM proxy password",

@@ -66,7 +66,8 @@ public class SmtIT extends ConnectClusterBaseIT {
 
     // then
     await()
-        .timeout(Duration.ofSeconds(60))
+        .timeout(Duration.ofSeconds(30))
+        .pollInterval(Duration.ofSeconds(1))
         .untilAsserted(
             () -> {
               assertThat(fakeStreamingClientHandler.ingestedRows()).hasSize(expectedRecordNumber);

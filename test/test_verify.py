@@ -205,17 +205,17 @@ class KafkaTest:
                     self.producer.flush()
         self.producer.flush()
 
-    def sendAvroSRData(self, topic, value, value_schema, key=[], key_schema="", partition=0):
+    def sendAvroSRData(self, topic, value, value_schema, key=[], key_schema="", partition=0, headers=[]):
         if len(key) == 0:
             for i, v in enumerate(value):
                 self.avroProducer.produce(
-                    topic=topic, value=v, value_schema=value_schema, partition=partition)
+                    topic=topic, value=v, value_schema=value_schema, partition=partition, headers=headers)
                 if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
                     self.producer.flush()
         else:
             for i, (k, v) in enumerate(zip(key, value)):
                 self.avroProducer.produce(
-                    topic=topic, value=v, value_schema=value_schema, key=k, key_schema=key_schema, partition=partition)
+                    topic=topic, value=v, value_schema=value_schema, key=k, key_schema=key_schema, partition=partition, headers=headers)
                 if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
                     self.producer.flush()
         self.avroProducer.flush()
@@ -296,7 +296,19 @@ class KafkaTest:
 
         print(datetime.now().strftime("%H:%M:%S "), "=== Done ===", flush=True)
 
-    def create_iceberg_table_with_content(self, table_name: str, external_volume: str):
+    def create_empty_iceberg_table(self, table_name: str, external_volume: str):
+        sql = """
+            CREATE ICEBERG TABLE IF NOT EXISTS {} (
+                record_content OBJECT()
+            )
+            EXTERNAL_VOLUME = '{}'
+            CATALOG = 'SNOWFLAKE'
+            BASE_LOCATION = '{}'
+            ;
+        """.format(table_name, external_volume, table_name)
+        self.snowflake_conn.cursor().execute(sql)
+
+    def create_iceberg_table_with_sample_content(self, table_name: str, external_volume: str):
         sql = """
             CREATE ICEBERG TABLE IF NOT EXISTS {} (
                 record_content OBJECT(

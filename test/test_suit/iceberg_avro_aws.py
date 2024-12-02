@@ -1,11 +1,12 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
 import json
+from confluent_kafka import avro
 from test_suit.base_iceberg_test import BaseIcebergTest
 
 
-class TestIcebergJsonAws(BaseIcebergTest):
+class TestIcebergAvroAws(BaseIcebergTest):
     def __init__(self, driver, name_salt: str):
-        BaseIcebergTest.__init__(self, driver, name_salt, "iceberg_json_aws")
+        BaseIcebergTest.__init__(self, driver, name_salt, "iceberg_avro_aws")
 
 
     def setup(self):
@@ -16,19 +17,15 @@ class TestIcebergJsonAws(BaseIcebergTest):
 
 
     def send(self):
-        msg = json.dumps(self.test_message)
-
-        key = []
         value = []
-        for e in range(100):
-            key.append(json.dumps({"number": str(e)}).encode("utf-8"))
-            value.append(msg.encode("utf-8"))
 
-        self.driver.sendBytesData(
+        for e in range(100):
+            value.append(self.test_message_from_docs)
+
+        self.driver.sendAvroSRData(
             topic=self.topic,
             value=value,
-            key=key,
-            partition=0,
+            value_schema=avro.loads(self.test_message_from_docs_schema),
             headers=self.test_headers,
         )
 
