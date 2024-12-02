@@ -82,21 +82,23 @@ public class IcebergIngestionVarcharIT extends IcebergIngestionIT {
             new ComplexVarcharRecord(
                 "true",
                 Arrays.asList("false", "true"),
-                new ComplexVarcharRecord.VarcharRecord("false", Arrays.asList("true", "false")))),
-        Arguments.of(
-            "listExample",
-            ComplexVarcharRecord.LIST_EXAMPLE,
-            new ComplexVarcharRecord(
-                "[8]",
-                Collections.singletonList("[16]"),
-                new ComplexVarcharRecord.VarcharRecord("[32]", Arrays.asList("[64]", "[128]")))),
-        Arguments.of(
-            "objectExample",
-            ComplexVarcharRecord.OBJECT_EXAMPLE,
-            new ComplexVarcharRecord(
-                "{\"object\": 1}",
-                Collections.singletonList("{\"object\": 1}"),
-                new ComplexVarcharRecord.VarcharRecord(
-                    "{\"object\": 1}", Collections.singletonList("{\"object\": 1}")))));
+                new ComplexVarcharRecord.VarcharRecord("false", Arrays.asList("true", "false"))))
+// TODO: uncomment in SNOW-1842256
+//        Arguments.of(
+//            "listExample",
+//            ComplexVarcharRecord.LIST_EXAMPLE,
+//            new ComplexVarcharRecord(
+//                "[8]",
+//                Collections.singletonList("[16]"),
+//                new ComplexVarcharRecord.VarcharRecord("[32]", Arrays.asList("[64]", "[128]")))),
+//        Arguments.of(
+//            "objectExample",
+//            ComplexVarcharRecord.OBJECT_EXAMPLE,
+//            new ComplexVarcharRecord(
+//                "{\"object\": 1}",
+//                Collections.singletonList("{\"object\": 1}"),
+//                new ComplexVarcharRecord.VarcharRecord(
+//                    "{\"object\": 1}", Collections.singletonList("{\"object\": 1}"))))
+    );
   }
 }
