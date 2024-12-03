@@ -7,9 +7,18 @@ public class DescribeTableRow {
   private final String column;
   private final String type;
 
+  private final String comment;
+
+  public DescribeTableRow(String column, String type, String comment) {
+    this.column = column;
+    this.type = type;
+    this.comment = comment;
+  }
+
   public DescribeTableRow(String column, String type) {
     this.column = column;
     this.type = type;
+    this.comment = null;
   }
 
   public String getColumn() {
@@ -18,6 +27,10 @@ public class DescribeTableRow {
 
   public String getType() {
     return type;
+  }
+
+  public String getComment() {
+    return comment;
   }
 
   @Override

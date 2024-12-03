@@ -142,7 +142,7 @@ class TestJsons {
           + "        }"
           + "    }";
 
-  static String singleBooleanField() {
+  static String singleBooleanFieldWithSchema() {
     return SCHEMA_BEGINNING
         + BOOL_SCHEMA
         + SCHEMA_END
@@ -476,6 +476,15 @@ class TestJsons {
         + "    }";
   }
 
+  static String schemaAndPayloadWithComment() {
+    return SCHEMA_BEGINNING
+        + COMMENTED_SCHEMA
+        + SCHEMA_END
+        + "\"payload\": {"
+        + STRING_PAYLOAD
+        + "}}";
+  }
+
   static String BOOL_SCHEMA = " {  \"field\" : \"test_boolean\", \"type\" : \"boolean\"} ";
 
   static String INT64_SCHEMA = "{  \"field\" : \"test_int64\", \"type\" : \"int64\" }";
@@ -488,6 +497,9 @@ class TestJsons {
   static String DOUBLE_SCHEMA = "{  \"field\" : \"test_double\", \"type\" : \"double\"  }";
 
   static String STRING_SCHEMA = "{  \"field\" : \"test_string\",  \"type\" : \"string\"  }";
+
+  static String COMMENTED_SCHEMA =
+      "{  \"field\" : \"test_string\",  \"type\" : \"string\", \"doc\": \"Test comment\"  }";
 
   static final String BOOL_PAYLOAD = "\"test_boolean\" : true ";
   static final String INT64_PAYLOAD = "\"test_int64\" : 2137324241343241 ";

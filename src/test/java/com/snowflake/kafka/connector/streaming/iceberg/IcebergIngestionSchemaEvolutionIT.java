@@ -384,7 +384,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   private static Stream<Arguments> primitiveEvolutionDataSource() {
     return Stream.of(
         Arguments.of(
-            singleBooleanField(),
+            singleBooleanFieldWithSchema(),
             booleanAndIntWithSchema(),
             booleanAndAllKindsOfIntWithSchema(),
             allPrimitivesWithSchema(),
@@ -482,5 +482,25 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
             twoObjectsWithSchemaPayload(),
             twoObjectsExtendedWithMapAndArrayPayload(),
             false));
+  }
+
+  @Test
+  @Disabled
+  void shouldAppendCommentTest() throws Exception {
+    // when
+    // insert record with a comment
+    insertWithRetry(schemaAndPayloadWithComment(), 0, true);
+    // insert record without a comment
+    insertWithRetry(singleBooleanFieldWithSchema(), 1, true);
+    waitForOffset(2);
+
+    // then
+    // comment is read from schema and set into first column
+    List<DescribeTableRow> columns = describeTable(tableName);
+    assertEquals("Test comment", columns.get(1).getComment());
+    // default comment is set into second column
+    assertEquals(
+        "column created by schema evolution from Snowflake Kafka Connector",
+        columns.get(2).getComment());
   }
 }

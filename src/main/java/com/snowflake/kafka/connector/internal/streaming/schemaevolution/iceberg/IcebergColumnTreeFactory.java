@@ -44,7 +44,7 @@ public class IcebergColumnTreeFactory {
             + kafkaConnectField.name());
     IcebergFieldNode rootNode =
         createNode(kafkaConnectField.name().toUpperCase(), kafkaConnectField.schema());
-    return new IcebergColumnTree(rootNode);
+    return new IcebergColumnTree(rootNode, kafkaConnectField.schema().doc());
   }
 
   // -- parse tree from Iceberg schema logic --

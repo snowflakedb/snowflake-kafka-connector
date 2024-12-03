@@ -170,7 +170,8 @@ public class IcebergSchemaEvolutionService implements SchemaEvolutionService {
         .map(
             columnTree ->
                 Maps.immutableEntry(
-                    columnTree.getColumnName(), new ColumnInfos(typeBuilder.buildType(columnTree))))
+                    columnTree.getColumnName(),
+                    new ColumnInfos(typeBuilder.buildType(columnTree), columnTree.getComment())))
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey, Map.Entry::getValue, (oldValue, newValue) -> newValue));
