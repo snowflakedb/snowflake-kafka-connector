@@ -624,8 +624,8 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                 "TestIcebergJsonAws",
                 EndToEndTestSuite(
                     test_instance=TestIcebergJsonAws(driver, nameSalt),
-                    run_in_confluent=False, # TODO set to true after ingest-sdk 3.0.1 release
-                    run_in_apache=False, # TODO set to true after ingest-sdk 3.0.1 release
+                    run_in_confluent=True,
+                    run_in_apache=True,
                     cloud_platform=CloudPlatform.AWS,
                 ),
             ),
@@ -633,7 +633,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                 "TestIcebergAvroAws",
                 EndToEndTestSuite(
                     test_instance=TestIcebergAvroAws(driver, nameSalt),
-                    run_in_confluent=False, # TODO set to true after ingest-sdk 3.0.1 release
+                    run_in_confluent=True,
                     run_in_apache=False,
                     cloud_platform=CloudPlatform.AWS,
                 ),
@@ -642,8 +642,8 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                 "TestIcebergSchemaEvolutionJsonAws",
                 EndToEndTestSuite(
                     test_instance=TestIcebergSchemaEvolutionJsonAws(driver, nameSalt),
-                    run_in_confluent=False, # TODO set to true after ingest-sdk 3.0.1 release
-                    run_in_apache=False, # TODO set to true after ingest-sdk 3.0.1 release
+                    run_in_confluent=True,
+                    run_in_apache=True,
                     cloud_platform=CloudPlatform.AWS,
                 ),
             ),
@@ -651,7 +651,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                 "TestIcebergSchemaEvolutionAvroAws",
                 EndToEndTestSuite(
                     test_instance=TestIcebergSchemaEvolutionAvroAws(driver, nameSalt),
-                    run_in_confluent=False, # TODO set to true after ingest-sdk 3.0.1 release
+                    run_in_confluent=True,
                     run_in_apache=False,
                     cloud_platform=CloudPlatform.AWS,
                 ),

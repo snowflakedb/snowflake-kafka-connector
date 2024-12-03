@@ -61,24 +61,11 @@ class IcebergTableSchemaResolver {
       Map.Entry<String, ColumnProperties> schemaFromChannelEntry) {
 
     ColumnProperties columnProperty = schemaFromChannelEntry.getValue();
-    String plainIcebergSchema = getIcebergSchema(columnProperty);
+    String plainIcebergSchema = columnProperty.getIcebergSchema();
 
     Type schema = IcebergDataTypeParser.deserializeIcebergType(plainIcebergSchema);
     String columnName = schemaFromChannelEntry.getKey();
     return new IcebergColumnSchema(schema, columnName);
-  }
-
-  // todo remove in 1820155 when getIcebergSchema() method is made public
-  private static String getIcebergSchema(ColumnProperties columnProperties) {
-    try {
-      java.lang.reflect.Field field =
-          columnProperties.getClass().getDeclaredField("icebergColumnSchema");
-      field.setAccessible(true);
-      return (String) field.get(columnProperties);
-    } catch (IllegalAccessException | NoSuchFieldException e) {
-      throw new IllegalStateException(
-          "Couldn't set iceberg by accessing private field: isIceberg", e);
-    }
   }
 
   private boolean hasSchema(SinkRecord record) {
