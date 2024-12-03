@@ -485,7 +485,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   @Test
-  // @Disabled
+  @Disabled
   void shouldAppendedCommentTest() throws Exception {
     // when
     insertWithRetry(schemaAndPayloadWithComment(), 0, true);
