@@ -499,6 +499,8 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     List<DescribeTableRow> columns = describeTable(tableName);
     assertEquals("Test comment", columns.get(1).getComment());
     // default comment is set into second column
-    assertEquals("column created by schema evolution from Snowflake Kafka Connector", columns.get(2).getComment());
+    assertEquals(
+        "column created by schema evolution from Snowflake Kafka Connector",
+        columns.get(2).getComment());
   }
 }
