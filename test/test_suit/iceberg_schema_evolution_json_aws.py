@@ -11,12 +11,24 @@ class TestIcebergSchemaEvolutionJsonAws(BaseIcebergTest):
             table_name=self.topic,
             external_volume="kafka_push_e2e_volume_aws",  # volume created manually
         )
+        self.driver.enable_schema_evolution_for_iceberg(self.topic)
 
 
     def send(self):
-        pass
+        self._send_json_values(self.test_message_from_docs, 100)
+        self._send_json_values(self.test_message_for_schema_evolution_1, 100)
+        # TODO SNOW-1731264
+        # net.snowflake.ingest.utils.SFException: The given row cannot be converted to the internal format: Object of type java.util.LinkedHashMap cannot be ingested into Snowflake column NULL_OBJECT of type STRING, rowIndex:0. Allowed Java types: String, Number, boolean, char
+        # self._send_json_values(self.test_message_for_schema_evolution_2, 100)
 
 
     def verify(self, round):
-        pass
+        self._assert_number_of_records_in_table(200)
 
+        actual_record_from_docs_dict = self._select_schematized_record_with_offset(1)
+        actual_record_for_schema_evolution_1 = self._select_schematized_record_with_offset(100)
+        # TODO SNOW-1731264
+        # actual_record_for_schema_evolution_2 = self._select_schematized_record_with_offset(200)
+
+        print(actual_record_from_docs_dict)
+        self._verify_iceberg_content_from_docs(actual_record_from_docs_dict)

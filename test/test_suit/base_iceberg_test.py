@@ -1,11 +1,13 @@
 from test_suit.base_e2e import BaseE2eTest
 from test_suit.assertions import *
+from test_suit.test_utils import RetryableError, NonRetryableError
+import json
 
 class BaseIcebergTest(BaseE2eTest):
 
     def __init__(self, driver, name_salt: str, config_file_name: str):
         self.driver = driver
-        self.fileName = "iceberg_json_aws"
+        self.file_name = config_file_name
         self.topic = config_file_name + name_salt
 
         self.test_message_from_docs = {
@@ -88,7 +90,31 @@ class BaseIcebergTest(BaseE2eTest):
         self.driver.drop_iceberg_table(self.topic)
 
 
-    def verify_iceberg_content(self, content: dict):
+    def _send_json_values(self, msg: dict, number_of_messages: int):
+        json_msg = json.dumps(msg)
+
+        key = [json.dumps({"number": str(e)}).encode("utf-8") for e in range(number_of_messages)]
+        value = [json_msg.encode("utf-8") for _ in range(number_of_messages)]
+
+        self.driver.sendBytesData(
+            topic=self.topic,
+            value=value,
+            key=key,
+            partition=0,
+            headers=self.test_headers,
+        )
+
+    def _assert_number_of_records_in_table(self, expected_number_of_records: int):
+        number_of_records = self.driver.select_number_of_records(self.topic)
+        if number_of_records == 0:
+            raise RetryableError()
+        elif number_of_records != expected_number_of_records:
+            raise NonRetryableError(
+                "Number of record in table is different from number of record sent"
+            )
+
+
+    def _verify_iceberg_content_from_docs(self, content: dict):
         assert_equals(1, content['id'])
         assert_equals_with_precision(36.6, content['body_temperature'])
         assert_equals('Steve', content['name'])
@@ -102,11 +128,36 @@ class BaseIcebergTest(BaseE2eTest):
         assert_equals(False, content['animals_possessed']['cats'])
 
 
-    def verify_iceberg_metadata(self, metadata: dict):
+    def _verify_iceberg_metadata(self, metadata: dict):
         assert_equals(0, metadata['offset'])
         assert_equals(0, metadata['partition'])
         assert_starts_with('iceberg_', metadata['topic'])
         assert_not_null(metadata['SnowflakeConnectorPushTime'])
 
         assert_dict_contains('header1', 'value1', metadata['headers'])
+
+
+    def _select_schematized_record_with_offset(self, offset: int) -> dict:
+        record = (
+            self.driver.snowflake_conn.cursor()
+                .execute("select id, body_temperature, name, approved_coffee_types, animals_possessed, null_long, null_array, null_object, empty_array, some_object from {} limit 1 offset {}".format(self.topic, offset))
+                .fetchone()
+        )
+
+        return {
+            "id": record[0],
+            "body_temperature": record[1],
+            "name": record[2],
+            "approved_coffee_types": self.__none_or_json_loads(record[3]),
+            "animals_possessed": self.__none_or_json_loads(record[4]),
+            "null_long": record[5],
+            "null_array": self.__none_or_json_loads(record[6]),
+            "null_object": self.__none_or_json_loads(record[7]),
+            "empty_array": self.__none_or_json_loads(record[8]),
+            "some_object": self.__none_or_json_loads(record[9])
+        }
+
+
+    def __none_or_json_loads(self, value: str) -> dict:
+        return None if value is None else json.loads(value)
 

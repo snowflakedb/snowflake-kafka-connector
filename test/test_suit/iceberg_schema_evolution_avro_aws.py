@@ -11,6 +11,7 @@ class TestIcebergSchemaEvolutionAvroAws(BaseIcebergTest):
             table_name=self.topic,
             external_volume="kafka_push_e2e_volume_aws",  # volume created manually
         )
+        self.driver.enable_schema_evolution_for_iceberg(self.topic)
 
 
     def send(self):
