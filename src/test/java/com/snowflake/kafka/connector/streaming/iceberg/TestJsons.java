@@ -142,7 +142,7 @@ class TestJsons {
           + "        }"
           + "    }";
 
-  static String singleBooleanField() {
+  static String singleBooleanFieldWithSchema() {
     return SCHEMA_BEGINNING
         + BOOL_SCHEMA
         + SCHEMA_END
