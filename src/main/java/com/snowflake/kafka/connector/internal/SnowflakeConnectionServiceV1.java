@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 import net.snowflake.client.jdbc.cloud.storage.StageInfo;
@@ -499,6 +500,39 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   /**
+   * Alter iceberg table to modify columns datatype
+   *
+   * @param tableName the name of the table
+   * @param columnInfosMap the mapping from the columnNames to their infos
+   */
+  @Override
+  public void alterColumnsDataTypeIcebergTable(
+      String tableName, Map<String, ColumnInfos> columnInfosMap) {
+    LOGGER.debug("Modifying data types of iceberg table columns");
+    String alterSetDatatypeQuery = generateAlterSetDataTypeQuery(columnInfosMap);
+    executeStatement(tableName, alterSetDatatypeQuery);
+  }
+
+  private String generateAlterSetDataTypeQuery(Map<String, ColumnInfos> columnsToModify) {
+    StringBuilder setDataTypeQuery = new StringBuilder("alter iceberg ");
+    setDataTypeQuery.append("table identifier(?) alter column ");
+
+    String columnsPart =
+        columnsToModify.entrySet().stream()
+            .map(
+                column -> {
+                  String columnName = column.getKey();
+                  String dataType = column.getValue().getColumnType();
+                  return columnName + " set data type " + dataType;
+                })
+            .collect(Collectors.joining(", "));
+
+    setDataTypeQuery.append(columnsPart);
+
+    return setDataTypeQuery.toString();
+  }
+
+  /**
    * Alter table to add columns according to a map from columnNames to their types
    *
    * @param tableName the name of the table
@@ -552,18 +586,22 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       logColumn.append(columnName).append(" (").append(columnInfosMap.get(columnName)).append(")");
     }
 
+    executeStatement(tableName, appendColumnQuery.toString());
+
+    logColumn.insert(0, "Following columns created for table {}:\n").append("]");
+    LOGGER.info(logColumn.toString(), tableName);
+  }
+
+  private void executeStatement(String tableName, String query) {
     try {
-      LOGGER.info("Trying to run query: {}", appendColumnQuery.toString());
-      PreparedStatement stmt = conn.prepareStatement(appendColumnQuery.toString());
+      LOGGER.info("Trying to run query: {}", query);
+      PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
       stmt.execute();
       stmt.close();
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2015.getException(e);
     }
-
-    logColumn.insert(0, "Following columns created for table {}:\n").append("]");
-    LOGGER.info(logColumn.toString(), tableName);
   }
 
   /**

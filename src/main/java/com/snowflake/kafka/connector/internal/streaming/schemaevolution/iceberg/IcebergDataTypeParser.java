@@ -16,7 +16,7 @@ import org.apache.iceberg.util.JsonUtil;
  * This class is used to Iceberg data type (include primitive types and nested types) serialization
  * and deserialization.
  */
-public class IcebergDataTypeParser {
+class IcebergDataTypeParser {
   public static final String ELEMENT = "element";
   public static final String KEY = "key";
   public static final String VALUE = "value";
@@ -46,7 +46,7 @@ public class IcebergDataTypeParser {
    * @param icebergDataType string representation of Iceberg data type
    * @return Iceberg data type
    */
-  public static Type deserializeIcebergType(String icebergDataType) {
+  static Type deserializeIcebergType(String icebergDataType) {
     try {
       JsonNode json = MAPPER.readTree(icebergDataType);
       return getTypeFromJson(json);
@@ -62,7 +62,7 @@ public class IcebergDataTypeParser {
    * @param jsonNode JsonNode parsed from Iceberg type string.
    * @return Iceberg data type
    */
-  public static Type getTypeFromJson(@Nonnull JsonNode jsonNode) {
+  static Type getTypeFromJson(@Nonnull JsonNode jsonNode) {
     if (jsonNode.isTextual()) {
       return Types.fromPrimitiveString(jsonNode.asText());
     } else if (jsonNode.isObject()) {
@@ -91,7 +91,7 @@ public class IcebergDataTypeParser {
    * @param json JsonNode parsed from Iceberg type string.
    * @return struct type
    */
-  public static @Nonnull Types.StructType structFromJson(@Nonnull JsonNode json) {
+  static @Nonnull Types.StructType structFromJson(@Nonnull JsonNode json) {
     if (!json.has(FIELDS)) {
       throw new IllegalArgumentException(
           String.format("Missing key '%s' in schema: %s", FIELDS, json));
@@ -137,7 +137,7 @@ public class IcebergDataTypeParser {
    * @param json JsonNode parsed from Iceberg type string.
    * @return list type
    */
-  public static Types.ListType listFromJson(JsonNode json) {
+  static Types.ListType listFromJson(JsonNode json) {
     int elementId = JsonUtil.getInt(ELEMENT_ID, json);
     Type elementType = getTypeFromJson(json.get(ELEMENT));
     boolean isRequired = JsonUtil.getBool(ELEMENT_REQUIRED, json);
@@ -155,7 +155,7 @@ public class IcebergDataTypeParser {
    * @param json JsonNode parsed from Iceberg type string.
    * @return map type
    */
-  public static Types.MapType mapFromJson(JsonNode json) {
+  static Types.MapType mapFromJson(JsonNode json) {
     int keyId = JsonUtil.getInt(KEY_ID, json);
     Type keyType = getTypeFromJson(json.get(KEY));
 

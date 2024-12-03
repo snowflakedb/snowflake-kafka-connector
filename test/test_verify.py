@@ -296,10 +296,13 @@ class KafkaTest:
 
         print(datetime.now().strftime("%H:%M:%S "), "=== Done ===", flush=True)
 
+    def enable_schema_evolution_for_iceberg(self, table: str):
+        self.snowflake_conn.cursor().execute("alter iceberg table {} set ENABLE_SCHEMA_EVOLUTION = true".format(table))
+
     def create_empty_iceberg_table(self, table_name: str, external_volume: str):
         sql = """
             CREATE ICEBERG TABLE IF NOT EXISTS {} (
-                record_content OBJECT()
+                record_metadata OBJECT()
             )
             EXTERNAL_VOLUME = '{}'
             CATALOG = 'SNOWFLAKE'
