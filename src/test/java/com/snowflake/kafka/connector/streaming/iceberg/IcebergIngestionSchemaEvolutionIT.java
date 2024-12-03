@@ -483,4 +483,15 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
             twoObjectsExtendedWithMapAndArrayPayload(),
             false));
   }
+
+  @Test
+  // @Disabled
+  void shouldAppendedCommentTest() throws Exception {
+    // when
+    insertWithRetry(schemaAndPayloadWithComment(), 0, true);
+    waitForOffset(1);
+    // then
+    List<DescribeTableRow> columns = describeTable(tableName);
+    assertEquals("Test comment", columns.get(1).getComment());
+  }
 }

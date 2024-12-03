@@ -1179,7 +1179,8 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       while (result.next()) {
         String columnName = result.getString("name");
         String type = result.getString("type");
-        rows.add(new DescribeTableRow(columnName, type));
+        String comment = result.getString("comment");
+        rows.add(new DescribeTableRow(columnName, type, comment));
       }
       return Optional.of(rows);
     } catch (Exception e) {

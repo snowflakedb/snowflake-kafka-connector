@@ -4,6 +4,7 @@ package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg
 class IcebergColumnTree {
 
   private final IcebergFieldNode rootNode;
+  private final String comment;
 
   String getColumnName() {
     return rootNode.name;
@@ -13,7 +14,17 @@ class IcebergColumnTree {
     return rootNode;
   }
 
+  String getComment() {
+    return comment;
+  }
+
+  public IcebergColumnTree(IcebergFieldNode rootNode, String comment) {
+    this.rootNode = rootNode;
+    this.comment = comment;
+  }
+
   IcebergColumnTree(IcebergFieldNode rootNode) {
     this.rootNode = rootNode;
+    this.comment = null;
   }
 }
