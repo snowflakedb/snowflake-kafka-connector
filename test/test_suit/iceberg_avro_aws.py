@@ -17,27 +17,11 @@ class TestIcebergAvroAws(BaseIcebergTest):
 
 
     def send(self):
-        value = []
-
-        for e in range(100):
-            value.append(self.test_message_from_docs)
-
-        self.driver.sendAvroSRData(
-            topic=self.topic,
-            value=value,
-            value_schema=avro.loads(self.test_message_from_docs_schema),
-            headers=self.test_headers,
-        )
+        self._send_avro_messages(self.test_message_from_docs, self.test_message_from_docs_schema)
 
 
     def verify(self, round):
-        number_of_records = self.driver.select_number_of_records(self.topic)
-        if number_of_records == 0:
-            raise RetryableError()
-        elif number_of_records != 100:
-            raise NonRetryableError(
-                "Number of record in table is different from number of record sent"
-            )
+        self._assert_number_of_records_in_table(100)
 
         first_record = (
             self.driver.snowflake_conn.cursor()

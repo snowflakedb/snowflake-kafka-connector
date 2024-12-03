@@ -2,6 +2,7 @@ from test_suit.base_e2e import BaseE2eTest
 from test_suit.assertions import *
 from test_suit.test_utils import RetryableError, NonRetryableError
 import json
+from confluent_kafka import avro
 
 class BaseIcebergTest(BaseE2eTest):
 
@@ -49,33 +50,186 @@ class BaseIcebergTest(BaseE2eTest):
             "type":"record",
             "name":"value_schema",
             "fields": [
+            {
+              "name": "id",
+              "type": [
+                "null",
+                "int"
+              ]
+            },
+            {
+              "name": "body_temperature",
+              "type": [
+                "null",
+                "float"
+              ]
+            },
+            {
+              "name": "name",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            {
+              "name": "approved_coffee_types",
+              "type": [
+                "null",
                 {
-                  "name": "id",
-                  "type": "int"
-                },
-                {
-                  "name": "body_temperature",
-                  "type": "float"
-                },
-                {
-                  "name": "name",
-                  "type": "string"
-                },
-                {
-                  "name": "approved_coffee_types",
-                  "type": {
-                    "type": "array",
-                    "items": "string"
-                  }
-                },
-                {
-                  "name": "animals_possessed",
-                  "type": {
-                    "type": "map",
-                    "values": "boolean"
-                  }
+                  "type": "array",
+                  "items": "string"
                 }
-            ]
+              ]
+            },
+            {
+              "name": "animals_possessed",
+              "type": [
+                "null",
+                {
+                  "type": "map",
+                  "values": "boolean"
+                }
+              ]
+            }
+          ]
+        }
+        """
+
+        self.test_message_for_schema_evolution_schema = """
+        {
+          "type": "record",
+          "name": "value_schema",
+          "fields": [
+            {
+              "name": "id",
+              "type": [
+                "null",
+                "int"
+              ]
+            },
+            {
+              "name": "body_temperature",
+              "type": [
+                "null",
+                "float"
+              ]
+            },
+            {
+              "name": "name",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            {
+              "name": "approved_coffee_types",
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": "string"
+                }
+              ]
+            },
+            {
+              "name": "animals_possessed",
+              "type": [
+                "null",
+                {
+                  "type": "map",
+                  "values": "boolean"
+                }
+              ]
+            },
+            {
+              "name": "null_long",
+              "default": null,
+              "type": [
+                "null",
+                "long"
+              ]
+            },
+            {
+              "name": "null_array",
+              "default": null,
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": "int"
+                }
+              ]
+            },
+            {
+              "name": "null_object",
+              "default": null,
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "null_object_record",
+                  "fields": [
+                    {
+                      "name": "key",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "empty_array",
+              "default": null,
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": "int"
+                }
+              ]
+            },
+            {
+              "name": "some_object",
+              "default": null,
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "some_object_record",
+                  "fields": [
+                    {
+                      "name": "null_key",
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    {
+                      "name": "string_key",
+                      "type": "string"
+                    },
+                    {
+                      "name": "another_string_key",
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    {
+                      "name": "inner_object",
+                      "type": [
+                        "null",
+                        {
+                          "type": "map",
+                          "values": "int"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         }
         """
 
@@ -128,6 +282,39 @@ class BaseIcebergTest(BaseE2eTest):
         assert_equals(False, content['animals_possessed']['cats'])
 
 
+    def _verify_iceberg_content_for_schema_evolution_1(self, content: dict):
+        assert_equals(None, content['id'])
+        assert_equals(None, content['body_temperature'])
+        assert_equals(None, content['name'])
+        assert_equals(None, content['approved_coffee_types'])
+        assert_equals(None, content['animals_possessed'])
+
+        assert_equals(None, content['null_long'])
+        assert_equals(None, content['null_array'])
+        assert_equals(None, content['null_object'])
+        assert_equals([], content['empty_array'])
+        assert_equals(None, content['some_object']['null_key'])
+        assert_equals('string_key', content['some_object']['string_key'])
+
+
+    def _verify_iceberg_content_for_schema_evolution_2(self, content: dict):
+        assert_equals(None, content['id'])
+        assert_equals(None, content['body_temperature'])
+        assert_equals(None, content['name'])
+        assert_equals(None, content['approved_coffee_types'])
+        assert_equals(None, content['animals_possessed'])
+
+        assert_equals(2137, content['null_long'])
+        assert_equals([1, 2, 3], content['null_array'])
+        assert_equals('value', content['null_object']['key'])
+        assert_equals([1, 2, 3], content['empty_array'])
+        assert_equals(None, content['some_object']['null_key'])
+        assert_equals('string_key', content['some_object']['string_key'])
+        assert_equals('another_string_key', content['some_object']['another_string_key'])
+        assert_equals(456, content['some_object']['inner_object']['inner_object_key'])
+
+
+
     def _verify_iceberg_metadata(self, metadata: dict):
         assert_equals(0, metadata['offset'])
         assert_equals(0, metadata['partition'])
@@ -160,4 +347,13 @@ class BaseIcebergTest(BaseE2eTest):
 
     def __none_or_json_loads(self, value: str) -> dict:
         return None if value is None else json.loads(value)
+
+
+    def _send_avro_messages(self, message: str, schema: str):
+        self.driver.sendAvroSRData(
+            topic=self.topic,
+            value=[message for _ in range(100)],
+            value_schema=avro.loads(schema),
+            headers=self.test_headers,
+        )
 
