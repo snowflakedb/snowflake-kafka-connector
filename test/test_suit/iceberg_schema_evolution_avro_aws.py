@@ -15,8 +15,19 @@ class TestIcebergSchemaEvolutionAvroAws(BaseIcebergTest):
 
 
     def send(self):
-        pass
+        self._send_avro_messages(self.test_message_from_docs, self.test_message_from_docs_schema)
+        self._send_avro_messages(self.test_message_for_schema_evolution_1, self.test_message_for_schema_evolution_schema)
+        self._send_avro_messages(self.test_message_for_schema_evolution_2, self.test_message_for_schema_evolution_schema)
 
 
     def verify(self, round):
-        pass
+        self._assert_number_of_records_in_table(300)
+
+        actual_record_from_docs_dict = self._select_schematized_record_with_offset(1)
+        self._verify_iceberg_content_from_docs(actual_record_from_docs_dict)
+
+        actual_record_for_schema_evolution_1 = self._select_schematized_record_with_offset(100)
+        self._verify_iceberg_content_for_schema_evolution_1(actual_record_for_schema_evolution_1)
+
+        actual_record_for_schema_evolution_2 = self._select_schematized_record_with_offset(200)
+        self._verify_iceberg_content_for_schema_evolution_2(actual_record_for_schema_evolution_2)

@@ -26,9 +26,12 @@ class TestIcebergSchemaEvolutionJsonAws(BaseIcebergTest):
         self._assert_number_of_records_in_table(200)
 
         actual_record_from_docs_dict = self._select_schematized_record_with_offset(1)
+        self._verify_iceberg_content_from_docs(actual_record_from_docs_dict)
+
         actual_record_for_schema_evolution_1 = self._select_schematized_record_with_offset(100)
+        self._verify_iceberg_content_for_schema_evolution_1(actual_record_for_schema_evolution_1)
+
         # TODO SNOW-1731264
         # actual_record_for_schema_evolution_2 = self._select_schematized_record_with_offset(200)
 
-        print(actual_record_from_docs_dict)
-        self._verify_iceberg_content_from_docs(actual_record_from_docs_dict)
+
