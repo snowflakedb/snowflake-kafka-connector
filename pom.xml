@@ -53,7 +53,7 @@
         <kafka.version>3.8.0</kafka.version>
         <awaitility.version>4.2.2</awaitility.version>
         <assertj-core.version>3.26.3</assertj-core.version>
-        <confluent.version>7.7.0</confluent.version>
+        <confluent.version>7.7.2</confluent.version>
         <!--Compatible protobuf version https://github.com/confluentinc/common/blob/v7.7.0/pom.xml#L91 -->
         <protobuf.version>3.25.5</protobuf.version>
         <iceberg.version>1.6.1</iceberg.version>
