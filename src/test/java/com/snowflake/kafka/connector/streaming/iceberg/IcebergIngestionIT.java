@@ -132,4 +132,9 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
       selectAllComplexJsonRecordFromRecordContent() {
     return select(tableName, selectAllSortByOffset, ComplexJsonRecord::fromRecordContentColumn);
   }
+
+  protected void insertWithRetry(String record, int offset, boolean withSchema) {
+    service.insert(Collections.singletonList(createKafkaRecord(record, offset, withSchema)));
+    service.insert(Collections.singletonList(createKafkaRecord(record, offset, withSchema)));
+  }
 }

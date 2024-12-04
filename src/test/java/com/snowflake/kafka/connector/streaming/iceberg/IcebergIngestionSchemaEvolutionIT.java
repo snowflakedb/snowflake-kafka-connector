@@ -169,11 +169,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     assertEquals(columns.size(), 2);
   }
 
-  private void insertWithRetry(String record, int offset, boolean withSchema) {
-    service.insert(Collections.singletonList(createKafkaRecord(record, offset, withSchema)));
-    service.insert(Collections.singletonList(createKafkaRecord(record, offset, withSchema)));
-  }
-
   private void assertRecordsInTable() {
     List<RecordWithMetadata<PrimitiveJsonRecord>> recordsWithMetadata =
         selectAllSchematizedRecords();
