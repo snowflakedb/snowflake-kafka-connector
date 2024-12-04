@@ -73,7 +73,7 @@ public class IcebergColumnTreeFactory {
 
   // -- parse tree from kafka record payload logic --
   private IcebergFieldNode createNode(String name, JsonNode jsonNode) {
-    String snowflakeType = mapper.mapToColumnTypeFromJson(jsonNode);
+    String snowflakeType = mapper.mapToColumnTypeFromJson(name, jsonNode);
     return new IcebergFieldNode(name, snowflakeType, produceChildren(jsonNode));
   }
 

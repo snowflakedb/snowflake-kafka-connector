@@ -340,7 +340,11 @@ public enum SnowflakeErrors {
       "Could not allocate thread for file cleaner to start processing in given time. If problem"
           + " persists, please try setting snowflake.snowpipe.use_new_cleaner to false"),
   ERROR_5025(
-      "5025", "Unexpected data type", "Unexpected data type encountered during schema evolution.");
+      "5025", "Unexpected data type", "Unexpected data type encountered during schema evolution."),
+  ERROR_5026(
+      "5026",
+      "Invalid SinkRecord received",
+      "Cannot infer type from null or empty object/list during schema evolution.");
 
   // properties
 

@@ -14,10 +14,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -44,13 +41,15 @@ import dev.failsafe.RetryPolicy;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.*;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
@@ -536,17 +535,38 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       SchemaEvolutionTargetItems schemaEvolutionTargetItems =
           insertErrorMapper.mapToSchemaEvolutionItems(insertError, this.channel.getTableName());
       if (schemaEvolutionTargetItems.hasDataForSchemaEvolution()) {
-        schemaEvolutionService.evolveSchemaIfNeeded(
-            schemaEvolutionTargetItems, kafkaSinkRecord, channel.getTableSchema());
-        streamingApiFallbackSupplier(
-            StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
+        try {
+          schemaEvolutionService.evolveSchemaIfNeeded(
+              schemaEvolutionTargetItems, kafkaSinkRecord, channel.getTableSchema());
+          streamingApiFallbackSupplier(
+              StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
+        } catch (SnowflakeKafkaConnectorException e) {
+          LOGGER.error(
+              "Error while performing schema evolution for channel:{}",
+              this.getChannelNameFormatV1(),
+              e);
+          if (Objects.equals(e.getCode(), SnowflakeErrors.ERROR_5026.getCode())) {
+            handleError(Collections.singletonList(e), kafkaSinkRecord);
+          } else {
+            throw e;
+          }
+        }
+
         return;
       }
     }
 
+    handleError(
+        insertErrors.stream()
+            .map(InsertValidationResponse.InsertError::getException)
+            .collect(Collectors.toList()),
+        kafkaSinkRecord);
+  }
+
+  private void handleError(List<Exception> insertErrors, SinkRecord kafkaSinkRecord) {
     if (logErrors) {
-      for (InsertValidationResponse.InsertError insertError : insertErrors) {
-        LOGGER.error("Insert Row Error message:{}", insertError.getException().getMessage());
+      for (Exception insertError : insertErrors) {
+        LOGGER.error("Insert Row Error message:{}", insertError.getMessage());
       }
     }
     if (errorTolerance) {
@@ -563,7 +583,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         this.kafkaRecordErrorReporter.reportError(
             kafkaSinkRecord,
             insertErrors.stream()
-                .map(InsertValidationResponse.InsertError::getException)
                 .findFirst()
                 .orElseThrow(
                     () ->
@@ -574,18 +593,10 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       final String errMsg =
           String.format(
               "Error inserting Records using Streaming API with msg:%s",
-              insertErrors.get(0).getException().getMessage());
+              insertErrors.get(0).getMessage());
       this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
-      throw new DataException(errMsg, insertErrors.get(0).getException());
+      throw new DataException(errMsg, insertErrors.get(0));
     }
-  }
-
-  private List<String> join(
-      List<String> nonNullableColumns, List<String> nullValueForNotNullColNames) {
-    return Lists.newArrayList(
-        Iterables.concat(
-            Optional.ofNullable(nonNullableColumns).orElse(ImmutableList.of()),
-            Optional.ofNullable(nullValueForNotNullColNames).orElse(ImmutableList.of())));
   }
 
   // TODO: SNOW-529755 POLL committed offsets in background thread

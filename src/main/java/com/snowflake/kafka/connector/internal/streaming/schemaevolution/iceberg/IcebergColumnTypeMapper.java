@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg;
 
+import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5026;
 import static org.apache.kafka.connect.data.Schema.Type.ARRAY;
 import static org.apache.kafka.connect.data.Schema.Type.BOOLEAN;
 import static org.apache.kafka.connect.data.Schema.Type.BYTES;
@@ -11,6 +12,7 @@ import static org.apache.kafka.connect.data.Schema.Type.STRUCT;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.kafka.connect.data.Date;
@@ -72,8 +74,8 @@ class IcebergColumnTypeMapper {
    *
    * <p>Converts Types from: JsonNode -> KafkaKafka -> Snowflake.
    */
-  String mapToColumnTypeFromJson(JsonNode value) {
-    Schema.Type kafkaType = mapJsonNodeTypeToKafkaType(value);
+  String mapToColumnTypeFromJson(String name, JsonNode value) {
+    Schema.Type kafkaType = mapJsonNodeTypeToKafkaType(name, value);
     return mapToColumnTypeFromKafkaSchema(kafkaType, null);
   }
 
@@ -124,15 +126,19 @@ class IcebergColumnTypeMapper {
   }
 
   /**
-   * Map the JSON node type to Kafka type
+   * Map the JSON node type to Kafka type. For null and empty values, we can't infer the type, so we
+   * throw an exception.
    *
+   * @param name column/field name
    * @param value JSON node
+   * @throws SnowflakeKafkaConnectorException if the value is null or empty array or empty object
    * @return Kafka type
    */
-  Schema.Type mapJsonNodeTypeToKafkaType(JsonNode value) {
-    if (value == null || value.isNull()) {
-      return STRING;
-    } else if (value.isNumber()) {
+  Schema.Type mapJsonNodeTypeToKafkaType(String name, JsonNode value) {
+    if (cannotInferType(value)) {
+      throw ERROR_5026.getException("'" + name + "' field value is null or empty");
+    }
+    if (value.isNumber()) {
       if (value.isFloat()) {
         return FLOAT32;
       } else if (value.isDouble()) {
@@ -153,5 +159,13 @@ class IcebergColumnTypeMapper {
     } else {
       return null;
     }
+  }
+
+  boolean cannotInferType(JsonNode value) {
+    // cannot infer type if value null or empty array or empty object
+    return value == null
+        || value.isNull()
+        || (value.isArray() && value.isEmpty())
+        || (value.isObject() && value.isEmpty());
   }
 }
