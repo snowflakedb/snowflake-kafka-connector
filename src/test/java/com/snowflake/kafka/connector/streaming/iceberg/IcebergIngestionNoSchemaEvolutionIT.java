@@ -86,7 +86,6 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareData")
-  @Disabled
   void shouldInsertRecords(String description, String message, boolean withSchema)
       throws Exception {
     service.insert(
