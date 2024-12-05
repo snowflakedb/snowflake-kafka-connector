@@ -256,7 +256,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
           new DescribeTableRow("APPROVAL", "BOOLEAN"),
           new DescribeTableRow("ARRAY1", "ARRAY(NUMBER(19,0))"),
           new DescribeTableRow("ARRAY2", "ARRAY(VARCHAR(16777216))"),
-          new DescribeTableRow("ARRAY3", "ARRAY(BOOLEAN)"),
+          new DescribeTableRow("ARRAY3", "ARRAY(VARCHAR(16777216))"),
           // "array4" : null -> VARCHAR(16777216
           new DescribeTableRow("ARRAY4", "VARCHAR(16777216)"),
           new DescribeTableRow("ARRAY5", "ARRAY(ARRAY(NUMBER(19,0)))"),
