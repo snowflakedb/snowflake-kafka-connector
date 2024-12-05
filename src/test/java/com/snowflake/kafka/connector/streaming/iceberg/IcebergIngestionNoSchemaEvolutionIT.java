@@ -12,7 +12,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -81,7 +80,6 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareData")
-  @Disabled
   void shouldInsertRecords(String description, String message, boolean withSchema)
       throws Exception {
     service.insert(

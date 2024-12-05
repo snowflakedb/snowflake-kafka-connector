@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -43,7 +42,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareData")
-  @Disabled
   void shouldEvolveSchemaAndInsertRecords(
       String description, String message, DescribeTableRow[] expectedSchema, boolean withSchema)
       throws Exception {
@@ -123,7 +121,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   /** Verify a scenario when structure is enriched with another field. */
   @Test
-  @Disabled
   public void alterStructure_noSchema() throws Exception {
     // k1, k2
     String testStruct1 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2 } }";
@@ -201,7 +198,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   @Test
-  @Disabled
   public void testComplexRecordEvolution_withSchema() throws Exception {
     insertWithRetry(complexJsonWithSchemaExample, 0, true);
     waitForOffset(1);
@@ -240,7 +236,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   @Test
-  @Disabled
   public void testComplexRecordEvolution() throws Exception {
     insertWithRetry(complexJsonPayloadExample, 0, false);
     waitForOffset(1);
@@ -261,7 +256,7 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
           new DescribeTableRow("APPROVAL", "BOOLEAN"),
           new DescribeTableRow("ARRAY1", "ARRAY(NUMBER(19,0))"),
           new DescribeTableRow("ARRAY2", "ARRAY(VARCHAR(16777216))"),
-          new DescribeTableRow("ARRAY3", "ARRAY(BOOLEAN)"),
+          new DescribeTableRow("ARRAY3", "ARRAY(VARCHAR(16777216))"),
           // "array4" : null -> VARCHAR(16777216
           new DescribeTableRow("ARRAY4", "VARCHAR(16777216)"),
           new DescribeTableRow("ARRAY5", "ARRAY(ARRAY(NUMBER(19,0)))"),
@@ -279,7 +274,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   /** Test just for a scenario when we see a record for the first time. */
   @ParameterizedTest
   @MethodSource("schemasAndPayloads_brandNewColumns")
-  @Disabled
   public void addBrandNewColumns_withSchema(
       String payloadWithSchema, String expectedColumnName, String expectedType) throws Exception {
     // when
@@ -310,7 +304,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   @ParameterizedTest
   @MethodSource("primitiveEvolutionDataSource")
-  @Disabled
   public void testEvolutionOfPrimitives_withSchema(
       String singleBooleanField,
       String booleanAndInt,
@@ -399,7 +392,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   @ParameterizedTest
   @MethodSource("testEvolutionOfComplexTypes_dataSource")
-  @Disabled
   public void testEvolutionOfComplexTypes_withSchema(
       String objectVarchar,
       String objectWithNestedObject,
@@ -485,7 +477,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   @Test
-  @Disabled
   void shouldAppendCommentTest() throws Exception {
     // when
     // insert record with a comment
