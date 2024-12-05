@@ -533,6 +533,27 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     assertThat(reportedRecords.get(0).getRecord()).isEqualTo(emptyOrNullRecord);
   }
 
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("wrongTypeValueMessages_dataSource")
+  @Disabled
+  void shouldSendValueWithWrongTypeToDLQ(
+      String description, String correctValueJson, String wrongValueJson) throws Exception {
+    // when
+    // init schema with first correct value
+    insertWithRetry(correctValueJson, 0, false);
+
+    // insert record with wrong value followed by
+    SinkRecord wrongValueRecord = createKafkaRecord(wrongValueJson, 1, false);
+    service.insert(Arrays.asList(wrongValueRecord, createKafkaRecord(correctValueJson, 2, false)));
+
+    // then
+    waitForOffset(3);
+    List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedRecords =
+        kafkaRecordErrorReporter.getReportedRecords();
+    assertThat(reportedRecords).hasSize(1);
+    assertThat(reportedRecords.get(0).getRecord()).isEqualTo(wrongValueRecord);
+  }
+
   private static Stream<Arguments> nullOrEmptyValueShouldBeSentToDLQOnlyWhenNoSchema_dataSource() {
     return Stream.of(
         Arguments.of("Null int", "{\"test\" : null }", "{\"test\" : 1 }"),
@@ -553,5 +574,17 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
             "Empty object in nested object",
             "{\"test\" : {\"test2\": {}} }",
             "{\"test\" : {\"test2\": {\"test3\": 1}} }"));
+  }
+
+  private static Stream<Arguments> wrongTypeValueMessages_dataSource() {
+    return Stream.of(
+        Arguments.of("Boolean into double column", "{\"test\" : 2.5 }", "{\"test\" : true }"),
+        Arguments.of("String into double column", "{\"test\" : 2.5 }", "{\"test\" : \"Solnik\" }"),
+        Arguments.of("Int into list", "{\"test\" : [1,2] }", "{\"test\" : 1 }"),
+        Arguments.of("Int into object", "{\"test\" : {\"test2\": 1} }", "{\"test\" : 1 }"),
+        Arguments.of(
+            "String into boolean in nested object",
+            "{\"test\" : {\"test2\": true} }",
+            "{\"test\" : {\"test2\": \"solnik\"} }"));
   }
 }
