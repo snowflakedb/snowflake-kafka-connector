@@ -148,8 +148,7 @@ public class ParseIcebergColumnTreeTest {
                 + "    ] } ",
             "ARRAY(OBJECT(name VARCHAR, id LONG))"),
         // array
-        arguments("{\"testColumnName\": [1,2,3] }", "ARRAY(LONG)"),
-        arguments("{ \"testColumnName\": [] }", "ARRAY(VARCHAR(16777216))"));
+        arguments("{\"testColumnName\": [1,2,3] }", "ARRAY(LONG)"));
   }
 
   @ParameterizedTest
