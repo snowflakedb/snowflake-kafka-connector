@@ -7,10 +7,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -502,5 +504,54 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     assertEquals(
         "column created by schema evolution from Snowflake Kafka Connector",
         columns.get(2).getComment());
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("nullOrEmptyValueShouldBeSentToDLQOnlyWhenNoSchema_dataSource")
+  @Disabled
+  void nullOrEmptyValueShouldBeSentToDLQOnlyWhenNoSchema(
+      String description, String jsonWithNullOrEmpty, String jsonWithFullData) throws Exception {
+    // given
+    SinkRecord emptyOrNullRecord = createKafkaRecord(jsonWithNullOrEmpty, 0, false);
+
+    // when
+    // sending null value or empty list/object record with no schema defined should be sent to DLQ,
+    // second record with full data should create schema so the same null/empty record sent again
+    // should be ingested without any issues
+    service.insert(Arrays.asList(emptyOrNullRecord, createKafkaRecord(jsonWithFullData, 1, false)));
+    // retry due to schema evolution
+    service.insert(
+        Arrays.asList(
+            createKafkaRecord(jsonWithFullData, 1, false),
+            createKafkaRecord(jsonWithNullOrEmpty, 2, false)));
+
+    // then
+    waitForOffset(3);
+    List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedRecords =
+        kafkaRecordErrorReporter.getReportedRecords();
+    assertThat(reportedRecords).hasSize(1);
+    assertThat(reportedRecords.get(0).getRecord()).isEqualTo(emptyOrNullRecord);
+  }
+
+  private static Stream<Arguments> nullOrEmptyValueShouldBeSentToDLQOnlyWhenNoSchema_dataSource() {
+    return Stream.of(
+        Arguments.of("Null int", "{\"test\" : null }", "{\"test\" : 1 }"),
+        // only test for int, no other primitive types to speed up the test
+        Arguments.of("Null list", "{\"test\" : null }", "{\"test\" : [1,2] }"),
+        Arguments.of("Null object", "{\"test\" : null }", "{\"test\" : {\"test2\": 1} }"),
+        Arguments.of("Empty list", "{\"test\" : [] }", "{\"test\" : [1,2] }"),
+        Arguments.of("Empty object", "{\"test\" : {} }", "{\"test\" : {\"test2\": 1} }"),
+        Arguments.of(
+            "Null in nested object",
+            "{\"test\" : {\"test2\": null} }",
+            "{\"test\" : {\"test2\": 1} }"),
+        Arguments.of(
+            "Empty list in nested object",
+            "{\"test\" : {\"test2\": []} }",
+            "{\"test\" : {\"test2\": [1]} }"),
+        Arguments.of(
+            "Empty object in nested object",
+            "{\"test\" : {\"test2\": {}} }",
+            "{\"test\" : {\"test2\": {\"test3\": 1}} }"));
   }
 }

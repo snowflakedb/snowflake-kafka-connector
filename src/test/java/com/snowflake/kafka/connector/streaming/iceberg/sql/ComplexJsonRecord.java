@@ -48,13 +48,14 @@ public class ComplexJsonRecord {
           + "  \"approval\": true,"
           + "  \"array1\": [1, 2, 3],"
           + "  \"array2\": [\"a\", \"b\", \"c\"],"
-          + "  \"array3\": [],"
-          + "  \"array4\": null,"
+          + "  \"array3\": [true],"
+          + "  \"array4\": [1, 4],"
           + "  \"array5\": [[7, 8, 9], [10, 11, 12]],"
           + "  \"nestedRecord\": "
           + PrimitiveJsonRecord.primitiveJsonExample
           + ","
-          + "  \"nestedRecord2\": null"
+          + "  \"nestedRecord2\": "
+          + PrimitiveJsonRecord.primitiveJsonExample
           + "}";
 
   public static final String complexJsonWithSchemaExample =
