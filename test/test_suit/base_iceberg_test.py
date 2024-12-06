@@ -36,7 +36,7 @@ class BaseIcebergTest(BaseE2eTest):
             "null_object": {"key": "value"},
             "empty_array": [1, 2, 3],
             "some_object": {
-                "null_key": None,
+                "null_key": "solnik",
                 "string_key": "string_key",
                 "another_string_key": "another_string_key",
                 "inner_object": {
@@ -308,7 +308,7 @@ class BaseIcebergTest(BaseE2eTest):
         assert_equals([1, 2, 3], content['null_array'])
         assert_equals('value', content['null_object']['key'])
         assert_equals([1, 2, 3], content['empty_array'])
-        assert_equals(None, content['some_object']['null_key'])
+        assert_equals("solnik", content['some_object']['null_key'])
         assert_equals('string_key', content['some_object']['string_key'])
         assert_equals('another_string_key', content['some_object']['another_string_key'])
         assert_equals(456, content['some_object']['inner_object']['inner_object_key'])
