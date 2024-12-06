@@ -259,14 +259,18 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
           new DescribeTableRow("ARRAY1", "ARRAY(NUMBER(19,0))"),
           new DescribeTableRow("ARRAY2", "ARRAY(VARCHAR(16777216))"),
           new DescribeTableRow("ARRAY3", "ARRAY(BOOLEAN)"),
-          new DescribeTableRow("ARRAY4", "VARCHAR(16777216)"),
+          new DescribeTableRow("ARRAY4", "ARRAY(NUMBER(19,0))"),
           new DescribeTableRow("ARRAY5", "ARRAY(ARRAY(NUMBER(19,0)))"),
           new DescribeTableRow(
               "NESTEDRECORD",
               "OBJECT(id_int8 NUMBER(19,0), id_int16 NUMBER(19,0), rating_float32 FLOAT,"
                   + " rating_float64 FLOAT, approval BOOLEAN, id_int32 NUMBER(19,0), description"
                   + " VARCHAR(16777216), id_int64 NUMBER(19,0))"),
-          new DescribeTableRow("NESTEDRECORD2", RECORD_METADATA_TYPE),
+          new DescribeTableRow(
+              "NESTEDRECORD2",
+              "OBJECT(id_int8 NUMBER(19,0), id_int16 NUMBER(19,0), rating_float32 FLOAT,"
+                  + " rating_float64 FLOAT, approval BOOLEAN, id_int32 NUMBER(19,0), description"
+                  + " VARCHAR(16777216), id_int64 NUMBER(19,0))"),
         };
     assertThat(columns).containsExactlyInAnyOrder(expectedSchema);
   }
