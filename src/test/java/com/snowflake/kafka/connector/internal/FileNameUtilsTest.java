@@ -1,8 +1,14 @@
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.internal.FileNameUtils.fileName;
+import static com.snowflake.kafka.connector.internal.FileNameUtils.filePrefix;
+import static com.snowflake.kafka.connector.internal.FileNameUtils.prepareFilesOffsetsLogString;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
+import static org.junit.Assert.assertEquals;
 import org.junit.Test;
 
 public class FileNameUtilsTest {
@@ -153,5 +159,42 @@ public class FileNameUtilsTest {
                     startOffset,
                     endOffset))
         .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  public void testPrepareFilesOffsetsLogString() {
+    int partition = 123;
+    String tableName = "test_table";
+    String filePrefix = filePrefix(TestUtils.TEST_CONNECTOR_NAME, tableName, "topic", partition);
+    // test happy path, all files are consecutive (no range missing)
+    List<String> files = new ArrayList<>();
+    files.add(fileName(filePrefix, 0, 10));
+    files.add(fileName(filePrefix, 11, 20));
+    files.add(fileName(filePrefix, 21, 100));
+    files.add(fileName(filePrefix, 101, 1991));
+    String resultString = prepareFilesOffsetsLogString(files, "customFileType", false);
+    assertEquals(
+        ", customFileType offset range: [[0,10][11,20][21,100][101,1991]]",
+        resultString
+    );
+
+    // unhappy path, missing offset-range.
+    files.add(fileName(filePrefix, 1996, 2000));
+    files.add(fileName(filePrefix, 2001, 2024));
+    resultString = prepareFilesOffsetsLogString(files, "customFileType", false);
+    assertEquals(
+        ", customFileType offset range: [[0,10][11,20][21,100][101,1991][1996,2000][2001,2024]], missing offset ranges :[[1992,1995]]",
+        resultString
+    );
+
+    // debug / trace logs should print all files
+    String fileName = fileName(filePrefix, 1996, 2000);
+    resultString = prepareFilesOffsetsLogString(
+        Collections.singletonList(fileName), "otherTypeOfFiles", true
+    );
+    assertEquals(
+        ", otherTypeOfFiles offset range: [[1996,2000]],otherTypeOfFiles:[" + fileName + "]",
+        resultString
+    );
   }
 }
