@@ -37,7 +37,7 @@ class TestIcebergSchemaEvolutionJsonAws(BaseIcebergTest):
         actual_record_for_schema_evolution_2 = self._select_schematized_record_with_offset(120)
         self._verify_iceberg_content_for_schema_evolution_2(actual_record_for_schema_evolution_2)
 
-        actual_record_for_schema_evolution_1 = self._select_schematized_record_with_offset(220)
+        actual_record_for_schema_evolution_1 = self._select_schematized_record_with_offset(210)
         self._verify_iceberg_content_for_schema_evolution_1(actual_record_for_schema_evolution_1)
 
 
