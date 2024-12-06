@@ -264,7 +264,7 @@ class BaseIcebergTest(BaseE2eTest):
             raise RetryableError()
         elif number_of_records != expected_number_of_records:
             raise NonRetryableError(
-                "Number of record in table is different from number of record sent"
+                f'Number of record in table is different from number of record sent. Expected {expected_number_of_records}, got {number_of_records}.'
             )
 
 
