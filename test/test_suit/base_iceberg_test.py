@@ -45,6 +45,18 @@ class BaseIcebergTest(BaseE2eTest):
             }
         }
 
+        self.test_message_for_schema_evolution_3 = {
+            "extra_null_long": None,
+            "null_long": None,
+            "null_array": None,
+            "null_object": None,
+            "empty_array": [],
+            "some_object": {
+                "null_key": None,
+                "string_key": "string_key"
+            }
+        }
+
         self.test_message_from_docs_schema = """
         {
             "type":"record",
