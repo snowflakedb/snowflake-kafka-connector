@@ -33,6 +33,14 @@ public final class InMemoryKafkaRecordErrorReporter implements KafkaRecordErrorR
       this.e = e;
     }
 
+    public SinkRecord getRecord() {
+      return record;
+    }
+
+    public Throwable getException() {
+      return e;
+    }
+
     @Override
     public String toString() {
       return "ReportedData{" + "record=" + record + ", e=" + e + '}';

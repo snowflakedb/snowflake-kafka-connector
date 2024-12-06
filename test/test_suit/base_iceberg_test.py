@@ -36,12 +36,24 @@ class BaseIcebergTest(BaseE2eTest):
             "null_object": {"key": "value"},
             "empty_array": [1, 2, 3],
             "some_object": {
-                "null_key": None,
+                "null_key": "solnik",
                 "string_key": "string_key",
                 "another_string_key": "another_string_key",
                 "inner_object": {
                     "inner_object_key": 456
                 }
+            }
+        }
+
+        self.test_message_for_schema_evolution_3 = {
+            "extra_null_long": None,
+            "null_long": None,
+            "null_array": None,
+            "null_object": None,
+            "empty_array": [],
+            "some_object": {
+                "null_key": None,
+                "string_key": "string_key"
             }
         }
 
@@ -264,7 +276,7 @@ class BaseIcebergTest(BaseE2eTest):
             raise RetryableError()
         elif number_of_records != expected_number_of_records:
             raise NonRetryableError(
-                "Number of record in table is different from number of record sent"
+                f'Number of record in table is different from number of record sent. Expected {expected_number_of_records}, got {number_of_records}.'
             )
 
 
@@ -308,7 +320,7 @@ class BaseIcebergTest(BaseE2eTest):
         assert_equals([1, 2, 3], content['null_array'])
         assert_equals('value', content['null_object']['key'])
         assert_equals([1, 2, 3], content['empty_array'])
-        assert_equals(None, content['some_object']['null_key'])
+        assert_equals("solnik", content['some_object']['null_key'])
         assert_equals('string_key', content['some_object']['string_key'])
         assert_equals('another_string_key', content['some_object']['another_string_key'])
         assert_equals(456, content['some_object']['inner_object']['inner_object_key'])

@@ -7,10 +7,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -256,17 +258,19 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
           new DescribeTableRow("APPROVAL", "BOOLEAN"),
           new DescribeTableRow("ARRAY1", "ARRAY(NUMBER(19,0))"),
           new DescribeTableRow("ARRAY2", "ARRAY(VARCHAR(16777216))"),
-          new DescribeTableRow("ARRAY3", "ARRAY(VARCHAR(16777216))"),
-          // "array4" : null -> VARCHAR(16777216
-          new DescribeTableRow("ARRAY4", "VARCHAR(16777216)"),
+          new DescribeTableRow("ARRAY3", "ARRAY(BOOLEAN)"),
+          new DescribeTableRow("ARRAY4", "ARRAY(NUMBER(19,0))"),
           new DescribeTableRow("ARRAY5", "ARRAY(ARRAY(NUMBER(19,0)))"),
           new DescribeTableRow(
               "NESTEDRECORD",
               "OBJECT(id_int8 NUMBER(19,0), id_int16 NUMBER(19,0), rating_float32 FLOAT,"
                   + " rating_float64 FLOAT, approval BOOLEAN, id_int32 NUMBER(19,0), description"
                   + " VARCHAR(16777216), id_int64 NUMBER(19,0))"),
-          // "nestedRecord2": null -> VARCHAR(16777216)
-          new DescribeTableRow("NESTEDRECORD2", "VARCHAR(16777216)"),
+          new DescribeTableRow(
+              "NESTEDRECORD2",
+              "OBJECT(id_int8 NUMBER(19,0), id_int16 NUMBER(19,0), rating_float32 FLOAT,"
+                  + " rating_float64 FLOAT, approval BOOLEAN, id_int32 NUMBER(19,0), description"
+                  + " VARCHAR(16777216), id_int64 NUMBER(19,0))"),
         };
     assertThat(columns).containsExactlyInAnyOrder(expectedSchema);
   }
@@ -493,5 +497,85 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     assertEquals(
         "column created by schema evolution from Snowflake Kafka Connector",
         columns.get(2).getComment());
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("nullOrEmptyValueShouldBeSentToDLQOnlyWhenNoSchema_dataSource")
+  void nullOrEmptyValueShouldBeSentToDLQOnlyWhenNoSchema(
+      String description, String jsonWithNullOrEmpty, String jsonWithFullData) throws Exception {
+    // given
+    SinkRecord emptyOrNullRecord = createKafkaRecord(jsonWithNullOrEmpty, 0, false);
+
+    // when
+    // sending null value or empty list/object record with no schema defined should be sent to DLQ,
+    // second record with full data should create schema so the same null/empty record sent again
+    // should be ingested without any issues
+    service.insert(Arrays.asList(emptyOrNullRecord, createKafkaRecord(jsonWithFullData, 1, false)));
+    // retry due to schema evolution
+    service.insert(
+        Arrays.asList(
+            createKafkaRecord(jsonWithFullData, 1, false),
+            createKafkaRecord(jsonWithNullOrEmpty, 2, false)));
+
+    // then
+    waitForOffset(3);
+    List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedRecords =
+        kafkaRecordErrorReporter.getReportedRecords();
+    assertThat(reportedRecords).hasSize(1);
+    assertThat(reportedRecords.get(0).getRecord()).isEqualTo(emptyOrNullRecord);
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("wrongTypeValueMessages_dataSource")
+  void shouldSendValueWithWrongTypeToDLQ(
+      String description, String correctValueJson, String wrongValueJson) throws Exception {
+    // when
+    // init schema with first correct value
+    insertWithRetry(correctValueJson, 0, false);
+
+    // insert record with wrong value followed by
+    SinkRecord wrongValueRecord = createKafkaRecord(wrongValueJson, 1, false);
+    service.insert(Arrays.asList(wrongValueRecord, createKafkaRecord(correctValueJson, 2, false)));
+
+    // then
+    waitForOffset(3);
+    List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedRecords =
+        kafkaRecordErrorReporter.getReportedRecords();
+    assertThat(reportedRecords).hasSize(1);
+    assertThat(reportedRecords.get(0).getRecord()).isEqualTo(wrongValueRecord);
+  }
+
+  private static Stream<Arguments> nullOrEmptyValueShouldBeSentToDLQOnlyWhenNoSchema_dataSource() {
+    return Stream.of(
+        Arguments.of("Null int", "{\"test\" : null }", "{\"test\" : 1 }"),
+        // only test for int, no other primitive types to speed up the test
+        Arguments.of("Null list", "{\"test\" : null }", "{\"test\" : [1,2] }"),
+        Arguments.of("Null object", "{\"test\" : null }", "{\"test\" : {\"test2\": 1} }"),
+        Arguments.of("Empty list", "{\"test\" : [] }", "{\"test\" : [1,2] }"),
+        Arguments.of("Empty object", "{\"test\" : {} }", "{\"test\" : {\"test2\": 1} }"),
+        Arguments.of(
+            "Null in nested object",
+            "{\"test\" : {\"test2\": null} }",
+            "{\"test\" : {\"test2\": 1} }"),
+        Arguments.of(
+            "Empty list in nested object",
+            "{\"test\" : {\"test2\": []} }",
+            "{\"test\" : {\"test2\": [1]} }"),
+        Arguments.of(
+            "Empty object in nested object",
+            "{\"test\" : {\"test2\": {}} }",
+            "{\"test\" : {\"test2\": {\"test3\": 1}} }"));
+  }
+
+  private static Stream<Arguments> wrongTypeValueMessages_dataSource() {
+    return Stream.of(
+        Arguments.of("Boolean into double column", "{\"test\" : 2.5 }", "{\"test\" : true }"),
+        Arguments.of("String into double column", "{\"test\" : 2.5 }", "{\"test\" : \"Solnik\" }"),
+        Arguments.of("Int into list", "{\"test\" : [1,2] }", "{\"test\" : 1 }"),
+        Arguments.of("Int into object", "{\"test\" : {\"test2\": 1} }", "{\"test\" : 1 }"),
+        Arguments.of(
+            "String into boolean in nested object",
+            "{\"test\" : {\"test2\": true} }",
+            "{\"test\" : {\"test2\": \"solnik\"} }"));
   }
 }

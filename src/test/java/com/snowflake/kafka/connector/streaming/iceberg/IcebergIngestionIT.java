@@ -37,6 +37,7 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
   protected String tableName;
   protected TopicPartition topicPartition;
   protected SnowflakeSinkService service;
+  protected InMemoryKafkaRecordErrorReporter kafkaRecordErrorReporter;
   protected static final String simpleRecordJson = "{\"simple\": \"extra field\"}";
 
   @BeforeEach
@@ -51,6 +52,8 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "true");
     // "snowflake.streaming.max.client.lag" = 1 second, for faster tests
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
+    config.put(ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
+    config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
 
     createIcebergTable();
     enableSchemaEvolution(tableName);
@@ -59,10 +62,11 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, tableName);
 
+    kafkaRecordErrorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setRecordNumber(1)
-            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setErrorReporter(kafkaRecordErrorReporter)
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .setTopic2TableMap(topic2Table)
             .addTask(tableName, topicPartition)

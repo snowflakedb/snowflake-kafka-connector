@@ -1,9 +1,12 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonPayloadExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonPayloadWithWrongValueTypeExample;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonRecordValueExample;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
@@ -12,6 +15,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -89,10 +94,33 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
     service.insert(Collections.singletonList(createKafkaRecord(message, 2, withSchema)));
     waitForOffset(3);
 
-    assertRecordsInTable();
+    assertRecordsInTable(0L, 1L, 2L);
   }
 
-  private void assertRecordsInTable() {
+  @Test
+  void shouldSendValueWithWrongTypeToDLQ() throws Exception {
+    SinkRecord wrongValueRecord1 =
+        createKafkaRecord(complexJsonPayloadWithWrongValueTypeExample, 0, false);
+    SinkRecord wrongValueRecord2 =
+        createKafkaRecord(complexJsonPayloadWithWrongValueTypeExample, 2, false);
+    service.insert(
+        Arrays.asList(
+            wrongValueRecord1,
+            createKafkaRecord(complexJsonPayloadExample, 1, false),
+            wrongValueRecord2,
+            createKafkaRecord(complexJsonPayloadExample, 3, false),
+            createKafkaRecord(complexJsonPayloadExample, 4, false)));
+    waitForOffset(5);
+
+    assertRecordsInTable(1L, 3L, 4L);
+    List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedRecords =
+        kafkaRecordErrorReporter.getReportedRecords();
+    assertThat(reportedRecords).hasSize(2);
+    assertThat(reportedRecords.stream().map(it -> it.getRecord()).collect(Collectors.toList()))
+        .containsExactlyInAnyOrder(wrongValueRecord1, wrongValueRecord2);
+  }
+
+  private void assertRecordsInTable(Long... expectedOffsets) {
     List<RecordWithMetadata<ComplexJsonRecord>> recordsWithMetadata =
         selectAllComplexJsonRecordFromRecordContent();
     assertThat(recordsWithMetadata)
@@ -106,7 +134,9 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
         recordsWithMetadata.stream()
             .map(RecordWithMetadata::getMetadata)
             .collect(Collectors.toList());
-    assertThat(metadataRecords).extracting(MetadataRecord::getOffset).containsExactly(0L, 1L, 2L);
+    assertThat(metadataRecords)
+        .extracting(MetadataRecord::getOffset)
+        .containsExactly(expectedOffsets);
     assertThat(metadataRecords)
         .hasSize(3)
         .allMatch(

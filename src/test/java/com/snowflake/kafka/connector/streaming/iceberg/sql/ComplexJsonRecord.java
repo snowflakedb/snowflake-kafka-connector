@@ -30,11 +30,11 @@ public class ComplexJsonRecord {
           true,
           ImmutableList.of(1, 2, 3),
           ImmutableList.of("a", "b", "c"),
-          ImmutableList.of(),
-          null,
+          ImmutableList.of(true),
+          ImmutableList.of(1, 4),
           ImmutableList.of(ImmutableList.of(7, 8, 9), ImmutableList.of(10, 11, 12)),
           PrimitiveJsonRecord.primitiveJsonRecordValueExample,
-          null);
+          PrimitiveJsonRecord.primitiveJsonRecordValueExample);
 
   public static final String complexJsonPayloadExample =
       "{"
@@ -48,13 +48,35 @@ public class ComplexJsonRecord {
           + "  \"approval\": true,"
           + "  \"array1\": [1, 2, 3],"
           + "  \"array2\": [\"a\", \"b\", \"c\"],"
-          + "  \"array3\": [],"
-          + "  \"array4\": null,"
+          + "  \"array3\": [true],"
+          + "  \"array4\": [1, 4],"
           + "  \"array5\": [[7, 8, 9], [10, 11, 12]],"
           + "  \"nestedRecord\": "
           + PrimitiveJsonRecord.primitiveJsonExample
           + ","
-          + "  \"nestedRecord2\": null"
+          + "  \"nestedRecord2\": "
+          + PrimitiveJsonRecord.primitiveJsonExample
+          + "}";
+
+  public static final String complexJsonPayloadWithWrongValueTypeExample =
+      "{"
+          + "  \"id_int8\": 8,"
+          + "  \"id_int16\": 16,"
+          + "  \"id_int32\": 32,"
+          + "  \"id_int64\": 64,"
+          + "  \"description\": \"dogs are the best\","
+          + "  \"rating_float32\": 0.5,"
+          + "  \"rating_float64\": 0.25,"
+          + "  \"approval\": true,"
+          + "  \"array1\": [1, 2, 3],"
+          + "  \"array2\": [\"a\", \"b\", \"c\"],"
+          + "  \"array3\": [true],"
+          + "  \"array4\": [1, 4],"
+          + "  \"array5\": [[7, 8, 9], [10, 11, 12]],"
+          + "  \"nestedRecord\": "
+          + PrimitiveJsonRecord.primitiveJsonExample
+          + ","
+          + "  \"nestedRecord2\": 25"
           + "}";
 
   public static final String complexJsonWithSchemaExample =
