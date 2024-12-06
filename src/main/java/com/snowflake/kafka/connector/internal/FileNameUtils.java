@@ -3,6 +3,9 @@ package com.snowflake.kafka.connector.internal;
 import com.google.common.base.Strings;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.kafka.common.utils.Crc32C;
@@ -191,5 +194,47 @@ public class FileNameUtils {
     }
 
     return matcher.group(index);
+  }
+
+  /**
+   * construct a log string that contains offset-range of input files
+   *
+   * @param files list of files
+   * @param fileType type of files processed (ex loadedFiles)
+   * @param shouldLogDebugOrTrace should Debug or Trace log be added
+   * @return string that must be logged
+   */
+  static String prepareFilesOffsetsLogString(
+      List<String> files, String fileType, boolean shouldLogDebugOrTrace
+  ) {
+    StringBuilder logString = new StringBuilder();
+    logString.append(", ").append(fileType).append(" offset range: [");
+    long[][] offsetArray = new long[files.size()][2];
+    String file;
+    for (int i =0; i < files.size(); i++) {
+      file = files.get(i);
+      offsetArray[i][0] = FileNameUtils.fileNameToStartOffset(file);
+      offsetArray[i][1] = FileNameUtils.fileNameToEndOffset(file);
+    }
+    Arrays.sort(offsetArray, Comparator.comparing(a -> a[0]));
+    StringBuilder missingRangeString = new StringBuilder().append("[");
+    long nextExpectedStartOffset = offsetArray[0][0];
+    for (long[] offsetRange : offsetArray) {
+      logString.append("[").append(offsetRange[0]).append(",").append(offsetRange[1]).append("]");
+      if (offsetRange[0] != nextExpectedStartOffset) {
+        missingRangeString.append("[").append(nextExpectedStartOffset)
+            .append(",").append(offsetRange[0] -1).append("]");
+      }
+      nextExpectedStartOffset = offsetRange[1] + 1;
+    }
+    logString.append("]");
+    missingRangeString.append("]");
+    if (shouldLogDebugOrTrace) {
+      logString.append(",").append(fileType).append(":").append(Arrays.toString(files.toArray()));
+    }
+    if (missingRangeString.length() > 2) {
+      logString.append(", missing offset ranges :").append(missingRangeString);
+    }
+    return logString.toString();
   }
 }
