@@ -171,9 +171,9 @@ public class FileNameUtilsTest {
 
   @ParameterizedTest
   @MethodSource("testData")
-  public void testPrepareFilesOffsetsLogString(List<String> fileNames, String fileType, String result) {
+  public void testPrepareFilesOffsetsLogString(List<String> fileNames, String result) {
     // when
-    String resultString = prepareFilesOffsetsLogString(fileNames, fileType);
+    String resultString = prepareFilesOffsetsLogString(fileNames);
 
     // then
     assertThat(resultString).isEqualTo(result);
@@ -192,8 +192,7 @@ public class FileNameUtilsTest {
                             fileName(filePrefix, 21, 100),
                             fileName(filePrefix, 101, 1991)
                     ),
-                    "customFileType",
-                    ", customFileType offset range: [[0,10][11,20][21,100][101,1991]]"
+                    ", offset range: [[0,10][11,20][21,100][101,1991]]"
             ),
             Arguments.of(
                     Arrays.asList(
@@ -205,8 +204,7 @@ public class FileNameUtilsTest {
                             fileName(filePrefix, 2001, 2024)
 
                     ),
-                    "customFileType",
-                    ", customFileType offset range: [[0,10][11,20][21,100][101,1991][1996,2000][2001,2024]], missing offset ranges :[[1992,1995]]"
+                    ", offset range: [[0,10][11,20][21,100][101,1991][1996,2000][2001,2024]], missing offset ranges :[[1992,1995]]"
             )
             );
   }

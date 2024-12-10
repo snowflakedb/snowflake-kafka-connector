@@ -200,14 +200,13 @@ public class FileNameUtils {
    * construct a log string that contains offset-range of input files
    *
    * @param files list of files
-   * @param fileType type of files processed (ex loadedFiles)
    * @return string that must be logged
    */
   static String prepareFilesOffsetsLogString(
-          List<String> files, String fileType
+          List<String> files
   ) {
     StringBuilder logString = new StringBuilder();
-    logString.append(", ").append(fileType).append(" offset range: [");
+    logString.append(", offset range: [");
     long[][] offsetArray = new long[files.size()][2];
     String file;
     for (int i =0; i < files.size(); i++) {

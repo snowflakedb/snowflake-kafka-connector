@@ -1086,25 +1086,17 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
     private void purge(List<String> files) {
       if (!files.isEmpty()) {
-        String logString = String.format(
-                "Purging loaded files for pipe: %s, loadedFileCount: %d", pipeName, files.size()
-        );
-        LOGGER.info(logString + prepareFilesOffsetsLogString(
-                        files, "loadedFiles"
-                )
-        );
+        LOGGER.info("Purging loaded files for pipe: {}, loadedFileCount: {}, offsets: {}", pipeName, files.size(), prepareFilesOffsetsLogString(
+                        files));
         conn.purgeStage(stageName, files);
       }
     }
 
     private void moveToTableStage(List<String> failedFiles) {
       if (!failedFiles.isEmpty()) {
-        String logString = String.format(
-                "Moving failed files for pipe: %s to tableStage failedFileCount: %d",
-                pipeName, failedFiles.size()
-        );
-        LOGGER.info(logString + prepareFilesOffsetsLogString(
-                failedFiles, "failedFiles")
+        LOGGER.info(
+                "Moving failed files for pipe: {} to tableStage failedFileCount: {}, offsets: {}",
+                pipeName, failedFiles.size(), prepareFilesOffsetsLogString(failedFiles)
         );
         conn.moveToTableStage(tableName, stageName, failedFiles);
       }
