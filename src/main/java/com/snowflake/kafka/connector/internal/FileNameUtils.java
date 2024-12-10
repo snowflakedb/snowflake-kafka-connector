@@ -3,8 +3,12 @@ package com.snowflake.kafka.connector.internal;
 import com.google.common.base.Strings;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.common.utils.Crc32C;
 
 public class FileNameUtils {
@@ -191,5 +195,35 @@ public class FileNameUtils {
     }
 
     return matcher.group(index);
+  }
+
+  /**
+   * Find gaps in offset ranges.
+   *
+   * @param filenames list of files
+   * @return continuous and missing offsets for given filenames
+   */
+  static OffsetContinuityRanges searchForMissingOffsets(List<String> filenames) {
+    List<Pair<Long, Long>> missingOffsets = new ArrayList<>();
+
+    List<Pair<Long, Long>> continuousOffsets =
+        filenames.stream()
+            .map(
+                file ->
+                    Pair.of(
+                        FileNameUtils.fileNameToStartOffset(file),
+                        FileNameUtils.fileNameToEndOffset(file)))
+            .sorted()
+            .collect(Collectors.toList());
+
+    for (int i = 1; i < continuousOffsets.size(); i++) {
+      Pair<Long, Long> current = continuousOffsets.get(i);
+      Pair<Long, Long> previous = continuousOffsets.get(i - 1);
+
+      if (previous.getRight() + 1 != current.getLeft()) {
+        missingOffsets.add(Pair.of(previous.getRight() + 1, current.getLeft() - 1));
+      }
+    }
+    return new OffsetContinuityRanges(continuousOffsets, missingOffsets);
   }
 }

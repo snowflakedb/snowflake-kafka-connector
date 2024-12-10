@@ -1,11 +1,21 @@
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.internal.FileNameUtils.*;
+import static com.snowflake.kafka.connector.internal.FileNameUtils.searchForMissingOffsets;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Stream;
 import org.junit.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class FileNameUtilsTest {
+
   @Test
   public void testFileNameFunctions() throws InterruptedException {
     int partition = 123;
@@ -153,5 +163,59 @@ public class FileNameUtilsTest {
                     startOffset,
                     endOffset))
         .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @ParameterizedTest
+  @MethodSource("testData")
+  public void testSearchForMissingOffsets(
+      List<String> fileNames, String expectedContinuousOffsets, String expectedMissingOffsets) {
+    // when
+    OffsetContinuityRanges result = searchForMissingOffsets(fileNames);
+
+    // then
+    assertThat(result.getContinuousOffsets()).isEqualTo(expectedContinuousOffsets);
+    assertThat(result.getMissingOffsets()).isEqualTo(expectedMissingOffsets);
+  }
+
+  public static Stream<Arguments> testData() {
+    int partition = 123;
+    String tableName = "test_table";
+    String filePrefix = filePrefix(TestUtils.TEST_CONNECTOR_NAME, tableName, "topic", partition);
+
+    return Stream.of(
+        Arguments.of(Collections.emptyList(), "[]", "[]"),
+        Arguments.of(Collections.singletonList(fileName(filePrefix, 0, 10)), "[[0,10]]", "[]"),
+        Arguments.of(
+            Arrays.asList(fileName(filePrefix, 0, 10), fileName(filePrefix, 100, 2137)),
+            "[[0,10][100,2137]]",
+            "[[11,99]]"),
+        Arguments.of(
+            Arrays.asList(
+                fileName(filePrefix, 0, 10),
+                fileName(filePrefix, 11, 20),
+                fileName(filePrefix, 21, 100),
+                fileName(filePrefix, 101, 1991)),
+            "[[0,10][11,20][21,100][101,1991]]",
+            "[]"),
+        Arguments.of(
+            Arrays.asList(
+                fileName(filePrefix, 0, 10),
+                fileName(filePrefix, 11, 20),
+                fileName(filePrefix, 21, 100),
+                fileName(filePrefix, 101, 1991),
+                fileName(filePrefix, 1996, 2000),
+                fileName(filePrefix, 2001, 2024)),
+            "[[0,10][11,20][21,100][101,1991][1996,2000][2001,2024]]",
+            "[[1992,1995]]"),
+        Arguments.of(
+            Arrays.asList(
+                fileName(filePrefix, 1996, 2000),
+                fileName(filePrefix, 11, 20),
+                fileName(filePrefix, 21, 100),
+                fileName(filePrefix, 2001, 2024),
+                fileName(filePrefix, 101, 1991),
+                fileName(filePrefix, 0, 10)),
+            "[[0,10][11,20][21,100][101,1991][1996,2000][2001,2024]]",
+            "[[1992,1995]]"));
   }
 }
