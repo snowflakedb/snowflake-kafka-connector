@@ -4,19 +4,15 @@ import static com.snowflake.kafka.connector.internal.FileNameUtils.*;
 import static com.snowflake.kafka.connector.internal.FileNameUtils.prepareFilesOffsetsLogString;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.Assert.assertEquals;
 
-import com.google.common.collect.Lists;
-import org.junit.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
-
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
+import org.junit.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class FileNameUtilsTest {
 
@@ -171,12 +167,14 @@ public class FileNameUtilsTest {
 
   @ParameterizedTest
   @MethodSource("testData")
-  public void testPrepareFilesOffsetsLogString(List<String> fileNames, String result) {
+  public void testPrepareFilesOffsetsLogString(
+      List<String> fileNames, String expectedContinuousOffsets, String expectedMissingOffsets) {
     // when
-    String resultString = prepareFilesOffsetsLogString(fileNames);
+    OffsetScanResult result = prepareFilesOffsetsLogString(fileNames);
 
     // then
-    assertThat(resultString).isEqualTo(result);
+    assertThat(result.getContinuousOffsets()).isEqualTo(expectedContinuousOffsets);
+    assertThat(result.getMissingOffsets()).isEqualTo(expectedMissingOffsets);
   }
 
   public static Stream<Arguments> testData() {
@@ -185,29 +183,29 @@ public class FileNameUtilsTest {
     String filePrefix = filePrefix(TestUtils.TEST_CONNECTOR_NAME, tableName, "topic", partition);
 
     return Stream.of(
-            Arguments.of(
-                    Arrays.asList(
-                            fileName(filePrefix, 0, 10),
-                            fileName(filePrefix, 11, 20),
-                            fileName(filePrefix, 21, 100),
-                            fileName(filePrefix, 101, 1991)
-                    ),
-                    ", offset range: [[0,10][11,20][21,100][101,1991]]"
-            ),
-            Arguments.of(
-                    Arrays.asList(
-                            fileName(filePrefix, 0, 10),
-                            fileName(filePrefix, 11, 20),
-                            fileName(filePrefix, 21, 100),
-                            fileName(filePrefix, 101, 1991),
-                            fileName(filePrefix, 1996, 2000),
-                            fileName(filePrefix, 2001, 2024)
-
-                    ),
-                    ", offset range: [[0,10][11,20][21,100][101,1991][1996,2000][2001,2024]], missing offset ranges :[[1992,1995]]"
-            )
-            );
+        Arguments.of(Collections.emptyList(), "[]", "[]"),
+        Arguments.of(Collections.singletonList(fileName(filePrefix, 0, 10)), "[[0,10]]", "[]"),
+        Arguments.of(
+            Arrays.asList(fileName(filePrefix, 0, 10), fileName(filePrefix, 100, 2137)),
+            "[[0,10][100,2137]]",
+            "[[11,99]]"),
+        Arguments.of(
+            Arrays.asList(
+                fileName(filePrefix, 0, 10),
+                fileName(filePrefix, 11, 20),
+                fileName(filePrefix, 21, 100),
+                fileName(filePrefix, 101, 1991)),
+            "[[0,10][11,20][21,100][101,1991]]",
+            "[]"),
+        Arguments.of(
+            Arrays.asList(
+                fileName(filePrefix, 0, 10),
+                fileName(filePrefix, 11, 20),
+                fileName(filePrefix, 21, 100),
+                fileName(filePrefix, 101, 1991),
+                fileName(filePrefix, 1996, 2000),
+                fileName(filePrefix, 2001, 2024)),
+            "[[0,10][11,20][21,100][101,1991][1996,2000][2001,2024]]",
+            "[[1992,1995]]"));
   }
-
-
 }

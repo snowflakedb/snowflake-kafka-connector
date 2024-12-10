@@ -3,11 +3,12 @@ package com.snowflake.kafka.connector.internal;
 import com.google.common.base.Strings;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.common.utils.Crc32C;
 
 public class FileNameUtils {
@@ -202,35 +203,32 @@ public class FileNameUtils {
    * @param files list of files
    * @return string that must be logged
    */
-  static String prepareFilesOffsetsLogString(
-          List<String> files
-  ) {
-    StringBuilder logString = new StringBuilder();
-    logString.append(", offset range: [");
-    long[][] offsetArray = new long[files.size()][2];
-    String file;
-    for (int i =0; i < files.size(); i++) {
-      file = files.get(i);
-      offsetArray[i][0] = FileNameUtils.fileNameToStartOffset(file);
-      offsetArray[i][1] = FileNameUtils.fileNameToEndOffset(file);
-    }
-    Arrays.sort(offsetArray, Comparator.comparing(a -> a[0]));
-    StringBuilder missingRangeString = new StringBuilder().append("[");
-    long nextExpectedStartOffset = offsetArray[0][0];
-    for (long[] offsetRange : offsetArray) {
-      logString.append("[").append(offsetRange[0]).append(",").append(offsetRange[1]).append("]");
-      if (offsetRange[0] != nextExpectedStartOffset) {
-        missingRangeString.append("[").append(nextExpectedStartOffset)
-                .append(",").append(offsetRange[0] -1).append("]");
-      }
-      nextExpectedStartOffset = offsetRange[1] + 1;
-    }
-    logString.append("]");
-    missingRangeString.append("]");
+  static OffsetScanResult prepareFilesOffsetsLogString(List<String> files) {
+    List<Pair<Long, Long>> missingOffsets = new ArrayList<>();
 
-    if (missingRangeString.length() > 2) {
-      logString.append(", missing offset ranges :").append(missingRangeString);
+    List<Pair<Long, Long>> continousOffsets =
+        files.stream()
+            .map(
+                file ->
+                    Pair.of(
+                        FileNameUtils.fileNameToStartOffset(file),
+                        FileNameUtils.fileNameToEndOffset(file)))
+            .collect(Collectors.toList());
+
+    for (int i = 0; i < continousOffsets.size(); i++) {
+      Pair<Long, Long> current = continousOffsets.get(i);
+
+      // The first range is skipped
+      if (i == 0) {
+        continue;
+      }
+
+      Pair<Long, Long> previous = continousOffsets.get(i - 1);
+
+      if (previous.getRight() + 1 != current.getLeft()) {
+        missingOffsets.add(Pair.of(previous.getRight() + 1, current.getLeft() - 1));
+      }
     }
-    return logString.toString();
+    return new OffsetScanResult(continousOffsets, missingOffsets);
   }
 }

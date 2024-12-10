@@ -103,11 +103,4 @@ public class KCLogger {
 
     return Utils.formatLogMessage(format, vars);
   }
-
-  /**
-   * Check if DEBUG or TRACE logging is enabled
-   */
-  public boolean isDebugOrTraceEnabled() {
-    return this.logger.isDebugEnabled() || this.logger.isTraceEnabled();
-  }
 }
