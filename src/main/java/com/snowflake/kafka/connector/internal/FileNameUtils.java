@@ -198,16 +198,16 @@ public class FileNameUtils {
   }
 
   /**
-   * construct a log string that contains offset-range of input files
+   * Find gaps in offset ranges.
    *
-   * @param files list of files
-   * @return string that must be logged
+   * @param filenames list of files
+   * @return continuous and missing offsets for given filenames
    */
-  static OffsetScanResult prepareFilesOffsetsLogString(List<String> files) {
+  static OffsetContinuityRanges searchForMissingOffsets(List<String> filenames) {
     List<Pair<Long, Long>> missingOffsets = new ArrayList<>();
 
-    List<Pair<Long, Long>> continousOffsets =
-        files.stream()
+    List<Pair<Long, Long>> continuousOffsets =
+        filenames.stream()
             .map(
                 file ->
                     Pair.of(
@@ -215,20 +215,20 @@ public class FileNameUtils {
                         FileNameUtils.fileNameToEndOffset(file)))
             .collect(Collectors.toList());
 
-    for (int i = 0; i < continousOffsets.size(); i++) {
-      Pair<Long, Long> current = continousOffsets.get(i);
+    for (int i = 0; i < continuousOffsets.size(); i++) {
+      Pair<Long, Long> current = continuousOffsets.get(i);
 
       // The first range is skipped
       if (i == 0) {
         continue;
       }
 
-      Pair<Long, Long> previous = continousOffsets.get(i - 1);
+      Pair<Long, Long> previous = continuousOffsets.get(i - 1);
 
       if (previous.getRight() + 1 != current.getLeft()) {
         missingOffsets.add(Pair.of(previous.getRight() + 1, current.getLeft() - 1));
       }
     }
-    return new OffsetScanResult(continousOffsets, missingOffsets);
+    return new OffsetContinuityRanges(continuousOffsets, missingOffsets);
   }
 }

@@ -2,7 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED;
 import static com.snowflake.kafka.connector.config.TopicToTableModeExtractor.determineTopic2TableMode;
-import static com.snowflake.kafka.connector.internal.FileNameUtils.prepareFilesOffsetsLogString;
+import static com.snowflake.kafka.connector.internal.FileNameUtils.searchForMissingOffsets;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_RECORD_COUNT;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SIZE_BYTES;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SUB_DOMAIN;
@@ -1086,7 +1086,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
     private void purge(List<String> files) {
       if (!files.isEmpty()) {
-        OffsetScanResult offsets = prepareFilesOffsetsLogString(files);
+        OffsetContinuityRanges offsets = searchForMissingOffsets(files);
         LOGGER.info(
             "Purging loaded files for pipe: {}, loadedFileCount: {}, continuousOffsets: {},"
                 + " missingOffsets: {}",
@@ -1100,7 +1100,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
     private void moveToTableStage(List<String> failedFiles) {
       if (!failedFiles.isEmpty()) {
-        OffsetScanResult offsets = prepareFilesOffsetsLogString(failedFiles);
+        OffsetContinuityRanges offsets = searchForMissingOffsets(failedFiles);
         LOGGER.info(
             "Moving failed files for pipe: {} to tableStage failedFileCount: {}, continuousOffsets:"
                 + " {}, missingOffsets: {}",

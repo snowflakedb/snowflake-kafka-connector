@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.internal.FileNameUtils.*;
-import static com.snowflake.kafka.connector.internal.FileNameUtils.prepareFilesOffsetsLogString;
+import static com.snowflake.kafka.connector.internal.FileNameUtils.searchForMissingOffsets;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -167,10 +167,10 @@ public class FileNameUtilsTest {
 
   @ParameterizedTest
   @MethodSource("testData")
-  public void testPrepareFilesOffsetsLogString(
+  public void testSearchForMissingOffsets(
       List<String> fileNames, String expectedContinuousOffsets, String expectedMissingOffsets) {
     // when
-    OffsetScanResult result = prepareFilesOffsetsLogString(fileNames);
+    OffsetContinuityRanges result = searchForMissingOffsets(fileNames);
 
     // then
     assertThat(result.getContinuousOffsets()).isEqualTo(expectedContinuousOffsets);
