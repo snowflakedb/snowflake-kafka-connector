@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED;
 import static com.snowflake.kafka.connector.config.TopicToTableModeExtractor.determineTopic2TableMode;
+import static com.snowflake.kafka.connector.internal.FileNameUtils.prepareFilesOffsetsLogString;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_RECORD_COUNT;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SIZE_BYTES;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SUB_DOMAIN;
@@ -1085,22 +1086,26 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
     private void purge(List<String> files) {
       if (!files.isEmpty()) {
-        LOGGER.debug(
-            "Purging loaded files for pipe:{}, loadedFileCount:{}, loadedFiles:{}",
-            pipeName,
-            files.size(),
-            Arrays.toString(files.toArray()));
+        String logString = String.format(
+                "Purging loaded files for pipe: %s, loadedFileCount: %d", pipeName, files.size()
+        );
+        LOGGER.info(logString + prepareFilesOffsetsLogString(
+                        files, "loadedFiles", LOGGER.isDebugOrTraceEnabled()
+                )
+        );
         conn.purgeStage(stageName, files);
       }
     }
 
     private void moveToTableStage(List<String> failedFiles) {
       if (!failedFiles.isEmpty()) {
-        LOGGER.debug(
-            "Moving failed files for pipe:{} to tableStage failedFileCount:{}, failedFiles:{}",
-            pipeName,
-            failedFiles.size(),
-            Arrays.toString(failedFiles.toArray()));
+        String logString = String.format(
+                "Moving failed files for pipe: %s to tableStage failedFileCount: %d",
+                pipeName, failedFiles.size()
+        );
+        LOGGER.info(logString + prepareFilesOffsetsLogString(
+                failedFiles, "failedFiles", LOGGER.isDebugOrTraceEnabled())
+        );
         conn.moveToTableStage(tableName, stageName, failedFiles);
       }
     }
