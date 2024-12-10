@@ -206,6 +206,16 @@ public class FileNameUtilsTest {
                 fileName(filePrefix, 1996, 2000),
                 fileName(filePrefix, 2001, 2024)),
             "[[0,10][11,20][21,100][101,1991][1996,2000][2001,2024]]",
+            "[[1992,1995]]"),
+        Arguments.of(
+            Arrays.asList(
+                fileName(filePrefix, 1996, 2000),
+                fileName(filePrefix, 11, 20),
+                fileName(filePrefix, 21, 100),
+                fileName(filePrefix, 2001, 2024),
+                fileName(filePrefix, 101, 1991),
+                fileName(filePrefix, 0, 10)),
+            "[[0,10][11,20][21,100][101,1991][1996,2000][2001,2024]]",
             "[[1992,1995]]"));
   }
 }

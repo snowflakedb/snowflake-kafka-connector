@@ -15,14 +15,14 @@ public class OffsetContinuityRanges {
   }
 
   public String getContinuousOffsets() {
-    return parseList(continuousOffsets);
+    return serializeList(continuousOffsets);
   }
 
   public String getMissingOffsets() {
-    return parseList(missingOffsets);
+    return serializeList(missingOffsets);
   }
 
-  private static String parseList(List<Pair<Long, Long>> list) {
+  private static String serializeList(List<Pair<Long, Long>> list) {
     return list.stream()
         .map(range -> "[" + range.getLeft() + "," + range.getRight() + "]")
         .collect(Collectors.joining("", "[", "]"));

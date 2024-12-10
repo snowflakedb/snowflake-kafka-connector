@@ -213,16 +213,11 @@ public class FileNameUtils {
                     Pair.of(
                         FileNameUtils.fileNameToStartOffset(file),
                         FileNameUtils.fileNameToEndOffset(file)))
+            .sorted()
             .collect(Collectors.toList());
 
-    for (int i = 0; i < continuousOffsets.size(); i++) {
+    for (int i = 1; i < continuousOffsets.size(); i++) {
       Pair<Long, Long> current = continuousOffsets.get(i);
-
-      // The first range is skipped
-      if (i == 0) {
-        continue;
-      }
-
       Pair<Long, Long> previous = continuousOffsets.get(i - 1);
 
       if (previous.getRight() + 1 != current.getLeft()) {
