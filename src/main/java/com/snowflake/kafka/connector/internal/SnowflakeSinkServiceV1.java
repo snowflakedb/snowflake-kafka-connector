@@ -1090,7 +1090,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
                 "Purging loaded files for pipe: %s, loadedFileCount: %d", pipeName, files.size()
         );
         LOGGER.info(logString + prepareFilesOffsetsLogString(
-                        files, "loadedFiles", LOGGER.isDebugOrTraceEnabled()
+                        files, "loadedFiles"
                 )
         );
         conn.purgeStage(stageName, files);
@@ -1104,7 +1104,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
                 pipeName, failedFiles.size()
         );
         LOGGER.info(logString + prepareFilesOffsetsLogString(
-                failedFiles, "failedFiles", LOGGER.isDebugOrTraceEnabled())
+                failedFiles, "failedFiles")
         );
         conn.moveToTableStage(tableName, stageName, failedFiles);
       }

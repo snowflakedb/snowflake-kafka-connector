@@ -1,17 +1,25 @@
 package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.internal.FileNameUtils.*;
+import static com.snowflake.kafka.connector.internal.FileNameUtils.prepareFilesOffsetsLogString;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.Assert.assertEquals;
 
+import com.google.common.collect.Lists;
 import org.junit.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class FileNameUtilsTest {
+
   @Test
   public void testFileNameFunctions() throws InterruptedException {
     int partition = 123;
@@ -161,40 +169,47 @@ public class FileNameUtilsTest {
         .isInstanceOf(IllegalArgumentException.class);
   }
 
-  @Test
-  public void testPrepareFilesOffsetsLogString() {
+  @ParameterizedTest
+  @MethodSource("testData")
+  public void testPrepareFilesOffsetsLogString(List<String> fileNames, String fileType, String result) {
+    // when
+    String resultString = prepareFilesOffsetsLogString(fileNames, fileType);
+
+    // then
+    assertThat(resultString).isEqualTo(result);
+  }
+
+  public static Stream<Arguments> testData() {
     int partition = 123;
     String tableName = "test_table";
     String filePrefix = filePrefix(TestUtils.TEST_CONNECTOR_NAME, tableName, "topic", partition);
-    // test happy path, all files are consecutive (no range missing)
-    List<String> files = new ArrayList<>();
-    files.add(fileName(filePrefix, 0, 10));
-    files.add(fileName(filePrefix, 11, 20));
-    files.add(fileName(filePrefix, 21, 100));
-    files.add(fileName(filePrefix, 101, 1991));
-    String resultString = prepareFilesOffsetsLogString(files, "customFileType", false);
-    assertEquals(
-            ", customFileType offset range: [[0,10][11,20][21,100][101,1991]]",
-            resultString
-    );
 
-    // unhappy path, missing offset-range.
-    files.add(fileName(filePrefix, 1996, 2000));
-    files.add(fileName(filePrefix, 2001, 2024));
-    resultString = prepareFilesOffsetsLogString(files, "customFileType", false);
-    assertEquals(
-            ", customFileType offset range: [[0,10][11,20][21,100][101,1991][1996,2000][2001,2024]], missing offset ranges :[[1992,1995]]",
-            resultString
-    );
+    return Stream.of(
+            Arguments.of(
+                    Arrays.asList(
+                            fileName(filePrefix, 0, 10),
+                            fileName(filePrefix, 11, 20),
+                            fileName(filePrefix, 21, 100),
+                            fileName(filePrefix, 101, 1991)
+                    ),
+                    "customFileType",
+                    ", customFileType offset range: [[0,10][11,20][21,100][101,1991]]"
+            ),
+            Arguments.of(
+                    Arrays.asList(
+                            fileName(filePrefix, 0, 10),
+                            fileName(filePrefix, 11, 20),
+                            fileName(filePrefix, 21, 100),
+                            fileName(filePrefix, 101, 1991),
+                            fileName(filePrefix, 1996, 2000),
+                            fileName(filePrefix, 2001, 2024)
 
-    // debug / trace logs should print all files
-    String fileName = fileName(filePrefix, 1996, 2000);
-    resultString = prepareFilesOffsetsLogString(
-            Collections.singletonList(fileName), "otherTypeOfFiles", true
-    );
-    assertEquals(
-            ", otherTypeOfFiles offset range: [[1996,2000]],otherTypeOfFiles:[" + fileName + "]",
-            resultString
-    );
+                    ),
+                    "customFileType",
+                    ", customFileType offset range: [[0,10][11,20][21,100][101,1991][1996,2000][2001,2024]], missing offset ranges :[[1992,1995]]"
+            )
+            );
   }
+
+
 }

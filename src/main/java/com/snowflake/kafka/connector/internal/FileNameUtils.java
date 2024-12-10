@@ -201,11 +201,10 @@ public class FileNameUtils {
    *
    * @param files list of files
    * @param fileType type of files processed (ex loadedFiles)
-   * @param shouldLogDebugOrTrace should Debug or Trace log be added
    * @return string that must be logged
    */
   static String prepareFilesOffsetsLogString(
-          List<String> files, String fileType, boolean shouldLogDebugOrTrace
+          List<String> files, String fileType
   ) {
     StringBuilder logString = new StringBuilder();
     logString.append(", ").append(fileType).append(" offset range: [");
@@ -229,9 +228,7 @@ public class FileNameUtils {
     }
     logString.append("]");
     missingRangeString.append("]");
-    if (shouldLogDebugOrTrace) {
-      logString.append(",").append(fileType).append(":").append(Arrays.toString(files.toArray()));
-    }
+
     if (missingRangeString.length() > 2) {
       logString.append(", missing offset ranges :").append(missingRangeString);
     }
