@@ -1094,6 +1094,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             files.size(),
             offsets.getContinuousOffsets(),
             offsets.getMissingOffsets());
+        LOGGER.debug("Purging files: {}", files);
         conn.purgeStage(stageName, files);
       }
     }
@@ -1108,6 +1109,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             failedFiles.size(),
             offsets.getContinuousOffsets(),
             offsets.getMissingOffsets());
+        LOGGER.debug("Moving failed files: {}", failedFiles);
         conn.moveToTableStage(tableName, stageName, failedFiles);
       }
     }
