@@ -95,6 +95,10 @@ public class KCLogger {
     }
   }
 
+  public boolean isDebugEnabled() {
+    return logger.isDebugEnabled();
+  }
+
   private String getFormattedLogMessage(String format, Object... vars) {
     if (prependMdcContext) {
       String connCtx = MDC.get(MDC_CONN_CTX_KEY);
