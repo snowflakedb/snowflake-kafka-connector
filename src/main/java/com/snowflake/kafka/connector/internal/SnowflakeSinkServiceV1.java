@@ -1111,7 +1111,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
                 offsets.getContinuousOffsets(),
                 offsets.getMissingOffsets());
         if (LOGGER.isDebugEnabled()) {
-          LOGGER.info("{} - {}", baseLog, failedFiles);
+          LOGGER.info("{} - failed files: {}", baseLog, failedFiles);
         } else {
           LOGGER.info(baseLog);
         }
