@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED;
 import static com.snowflake.kafka.connector.config.TopicToTableModeExtractor.determineTopic2TableMode;
+import static com.snowflake.kafka.connector.internal.FileNameUtils.searchForMissingOffsets;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_RECORD_COUNT;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SIZE_BYTES;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SUB_DOMAIN;
@@ -1078,22 +1079,35 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
     private void purge(List<String> files) {
       if (!files.isEmpty()) {
-        LOGGER.debug(
-            "Purging loaded files for pipe:{}, loadedFileCount:{}, loadedFiles:{}",
+        OffsetContinuityRanges offsets = searchForMissingOffsets(files);
+        LOGGER.info(
+            "Purging loaded files for pipe: {}, loadedFileCount: {}, continuousOffsets: {},"
+                + " missingOffsets: {}",
             pipeName,
             files.size(),
-            Arrays.toString(files.toArray()));
+            offsets.getContinuousOffsets(),
+            offsets.getMissingOffsets());
+        LOGGER.debug("Purging files: {}", files);
         conn.purgeStage(stageName, files);
       }
     }
 
     private void moveToTableStage(List<String> failedFiles) {
       if (!failedFiles.isEmpty()) {
-        LOGGER.debug(
-            "Moving failed files for pipe:{} to tableStage failedFileCount:{}, failedFiles:{}",
-            pipeName,
-            failedFiles.size(),
-            Arrays.toString(failedFiles.toArray()));
+        OffsetContinuityRanges offsets = searchForMissingOffsets(failedFiles);
+        String baseLog =
+            String.format(
+                "Moving failed files for pipe: %s to tableStage failedFileCount: %d,"
+                    + " continuousOffsets: %s, missingOffsets: %s",
+                pipeName,
+                failedFiles.size(),
+                offsets.getContinuousOffsets(),
+                offsets.getMissingOffsets());
+        if (LOGGER.isDebugEnabled()) {
+          LOGGER.info("{}, failedFiles: {}", baseLog, failedFiles);
+        } else {
+          LOGGER.info(baseLog);
+        }
         conn.moveToTableStage(tableName, stageName, failedFiles);
       }
     }
