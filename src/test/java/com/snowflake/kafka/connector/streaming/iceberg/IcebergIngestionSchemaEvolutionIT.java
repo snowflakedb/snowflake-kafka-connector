@@ -120,8 +120,8 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   /**
-   * Verify a scenario when structure is enriched with another field. Verifies that data type ok a
-   * column is not modified, when value is different or is not even presen in a next record.
+   * Verify a scenario when structure is enriched with another field. Verifies that data type of
+   * column is not modified, when value is different or is not even present in a next record.
    */
   @Test
   public void alterStructure_noSchema() throws Exception {
