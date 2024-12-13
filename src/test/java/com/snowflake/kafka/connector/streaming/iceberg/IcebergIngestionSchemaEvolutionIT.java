@@ -119,24 +119,24 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
             false));
   }
 
-  /** Verify a scenario when structure is enriched with another field. */
+  /**
+   * Verify a scenario when structure is enriched with another field. Verifies that data type ok a
+   * column is not modified, when value is different or is not even presen in a next record.
+   */
   @Test
   public void alterStructure_noSchema() throws Exception {
     // k1, k2
     String testStruct1 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2 } }";
     insertWithRetry(testStruct1, 0, false);
-    waitForOffset(1);
 
     // k1, k2 + k3
     String testStruct2 = "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2, \"k3\" : \"foo\" } }";
     insertWithRetry(testStruct2, 1, false);
-    waitForOffset(2);
 
     // k1, k2, k3 + k4
     String testStruct3 =
         "{ \"testStruct\": { \"k1\" : 1, \"k2\" : 2, \"k3\" : \"bar\", \"k4\" : 4.5 } }";
     insertWithRetry(testStruct3, 2, false);
-    waitForOffset(3);
 
     List<DescribeTableRow> columns = describeTable(tableName);
     assertEquals(
@@ -146,7 +146,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     // k2, k3, k4
     String testStruct4 = "{ \"testStruct\": { \"k2\" : 2, \"k3\" : 3, \"k4\" : 4.34 } }";
     insertWithRetry(testStruct4, 3, false);
-    waitForOffset(4);
 
     columns = describeTable(tableName);
     assertEquals(
@@ -313,7 +312,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
       throws Exception {
     // when insert BOOLEAN
     insertWithRetry(singleBooleanField, 0, withSchema);
-    waitForOffset(1);
     List<DescribeTableRow> columns = describeTable(tableName);
     // verify number of columns, datatype and column name
     assertEquals(2, columns.size());
@@ -322,7 +320,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
     // evolve the schema BOOLEAN, INT64
     insertWithRetry(booleanAndInt, 1, withSchema);
-    waitForOffset(2);
     columns = describeTable(tableName);
     assertEquals(3, columns.size());
     // verify data types in already existing column were not changed
@@ -334,7 +331,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
     // evolve the schema BOOLEAN, INT64, INT32, INT16, INT8,
     insertWithRetry(booleanAndAllKindsOfInt, 2, withSchema);
-    waitForOffset(3);
     columns = describeTable(tableName);
     assertEquals(6, columns.size());
     // verify data types in already existing column were not changed
@@ -401,7 +397,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
       throws Exception {
     // insert
     insertWithRetry(objectVarchar, 0, withSchema);
-    waitForOffset(1);
     List<DescribeTableRow> columns = describeTable(tableName);
     // verify number of columns, datatype and column name
     assertEquals(2, columns.size());
@@ -410,7 +405,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
     // evolution
     insertWithRetry(objectWithNestedObject, 1, withSchema);
-    waitForOffset(2);
     columns = describeTable(tableName);
     // verify number of columns, datatype and column name
     assertEquals(2, columns.size());
@@ -422,7 +416,6 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
     // evolution
     insertWithRetry(twoObjects, 2, withSchema);
-    waitForOffset(3);
     columns = describeTable(tableName);
 
     assertEquals(3, columns.size());
