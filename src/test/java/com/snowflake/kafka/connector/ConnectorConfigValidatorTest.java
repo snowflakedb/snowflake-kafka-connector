@@ -2,6 +2,8 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
+import static com.snowflake.kafka.connector.config.TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE;
+import static com.snowflake.kafka.connector.config.TopicToTableModeExtractor.Topic2TableMode.SINGLE_TOPIC_SINGLE_TABLE;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.Assert.assertEquals;
@@ -221,18 +223,30 @@ public class ConnectorConfigValidatorTest {
     connectorConfigValidator.validateConfig(config);
   }
 
-  @Test
-  public void testTopic2TableCorrectlyDeterminesMode() {
-    Map<String, String> config = getConfig();
-    config.put(TOPICS_TABLES_MAP, "src1:target1,src2:target2,src3:target1");
-    connectorConfigValidator.validateConfig(config);
-    Map<String, String> topic2Table = Utils.parseTopicToTableMap(config.get(TOPICS_TABLES_MAP));
-    assertThat(TopicToTableModeExtractor.determineTopic2TableMode(topic2Table, "src1"))
-        .isEqualTo(TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE);
-    assertThat(TopicToTableModeExtractor.determineTopic2TableMode(topic2Table, "src2"))
-        .isEqualTo(TopicToTableModeExtractor.Topic2TableMode.SINGLE_TOPIC_SINGLE_TABLE);
-    assertThat(TopicToTableModeExtractor.determineTopic2TableMode(topic2Table, "src3"))
-        .isEqualTo(TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE);
+  @ParameterizedTest
+  @MethodSource("topicToTableTestData")
+  public void testTopic2TableCorrectlyDeterminesMode(
+      String topicToTable, String topic, TopicToTableModeExtractor.Topic2TableMode expected) {
+    // given
+    Map<String, String> topic2Table = Utils.parseTopicToTableMap(topicToTable);
+
+    // when
+    TopicToTableModeExtractor.Topic2TableMode actual =
+        TopicToTableModeExtractor.determineTopic2TableMode(topic2Table, topic);
+
+    // then
+    assertThat(actual).isEqualTo(expected);
+  }
+
+  public static Stream<Arguments> topicToTableTestData() {
+    return Stream.of(
+        Arguments.of("src1:target1,src2:target2,src3:target1", "src1", MANY_TOPICS_SINGLE_TABLE),
+        Arguments.of("src1:target1,src2:target2,src3:target1", "src2", SINGLE_TOPIC_SINGLE_TABLE),
+        Arguments.of("topic[0-9]:tableA", "tableA", MANY_TOPICS_SINGLE_TABLE),
+        Arguments.of("to[0-9]pic:tableA", "tableA", MANY_TOPICS_SINGLE_TABLE),
+        Arguments.of("[0-9]topic:tableA", "tableA", MANY_TOPICS_SINGLE_TABLE),
+        Arguments.of("topic[a-z]:tableA", "tableA", MANY_TOPICS_SINGLE_TABLE),
+        Arguments.of("topic[0-9]:tableA", "randomTopicName", MANY_TOPICS_SINGLE_TABLE));
   }
 
   @Test
