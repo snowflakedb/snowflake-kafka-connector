@@ -141,6 +141,16 @@ public class ConnectorConfigDefinition {
             10,
             ConfigDef.Width.NONE,
             OAUTH_REFRESH_TOKEN)
+        .define(
+            OAUTH_TOKEN_ENDPOINT,
+            ConfigDef.Type.STRING,
+            null,
+            ConfigDef.Importance.HIGH,
+            "OAuth token endpoint url",
+            SNOWFLAKE_LOGIN_INFO_DOC,
+            11,
+            ConfigDef.Width.NONE,
+            OAUTH_TOKEN_ENDPOINT)
         // proxy
         .define(
             JVM_PROXY_HOST,
