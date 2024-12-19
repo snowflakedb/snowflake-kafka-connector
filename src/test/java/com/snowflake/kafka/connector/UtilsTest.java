@@ -113,6 +113,28 @@ public class UtilsTest {
   }
 
   @Test
+  public void testGenerateTableName() {
+    Map<String, String> topic2table = Utils.parseTopicToTableMap("ab@cd:abcd, 1234:_1234");
+
+    Utils.GeneratedName generatedTableName1 = Utils.generateTableName("ab@cd", topic2table);
+    Assert.assertEquals("ab@cd", generatedTableName1.name);
+    Assert.assertTrue(generatedTableName1.isNameFromMap);
+
+    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName("", topic2table));
+    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName(null, topic2table));
+
+    String topic = "bc*def";
+    Utils.GeneratedName generatedTableName2 = Utils.generateTableName(topic, topic2table);
+    Assert.assertEquals("bc_def_" + Math.abs(topic.hashCode()), generatedTableName2.name);
+    Assert.assertFalse(generatedTableName2.isNameFromMap);
+
+    topic = "12345";
+    Utils.GeneratedName generatedTableName3 = Utils.generateTableName(topic, topic2table);
+    Assert.assertEquals("_12345_" + Math.abs(topic.hashCode()), generatedTableName3.name);
+    Assert.assertFalse(generatedTableName3.isNameFromMap);
+  }
+
+  @Test
   public void testTableNameRegex() {
     String catTable = "cat_table";
     String dogTable = "dog_table";
