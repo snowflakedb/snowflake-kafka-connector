@@ -60,7 +60,7 @@ public class ConnectionServiceIT {
   }
 
   @Test
-  @Disabled("OAuth tests are temporary disabled")
+//  @Disabled("OAuth tests are temporary disabled")
   public void testOAuthAZ() {
     Map<String, String> confWithOAuth = TestUtils.getConfWithOAuth();
     assert confWithOAuth.containsKey(Utils.SF_OAUTH_CLIENT_ID);
