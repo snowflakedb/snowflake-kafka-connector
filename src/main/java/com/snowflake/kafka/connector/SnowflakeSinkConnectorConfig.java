@@ -65,6 +65,7 @@ public class SnowflakeSinkConnectorConfig {
   public static final String OAUTH_CLIENT_ID = Utils.SF_OAUTH_CLIENT_ID;
   public static final String OAUTH_CLIENT_SECRET = Utils.SF_OAUTH_CLIENT_SECRET;
   public static final String OAUTH_REFRESH_TOKEN = Utils.SF_OAUTH_REFRESH_TOKEN;
+  public static final String OAUTH_TOKEN_ENDPOINT = Utils.SF_OAUTH_TOKEN_ENDPOINT;
 
   // For Snowpipe Streaming client
   public static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
