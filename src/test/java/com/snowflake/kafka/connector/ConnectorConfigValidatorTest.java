@@ -954,6 +954,18 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
+  public void testExternalOAuthConfig() {
+    Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.snowpipeConfig()
+            .withAuthenticator(Utils.OAUTH)
+            .withOauthClientId("client_id")
+            .withOauthClientSecret("client_secret")
+            .withOauthRefreshToken("refresh_token")
+            .withOauthTokenEndpoint("token_endpoint")
+            .build();
+    connectorConfigValidator.validateConfig(config);
+  }
+
+  @Test
   public void testEmptyClientId() {
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.OAUTH);
