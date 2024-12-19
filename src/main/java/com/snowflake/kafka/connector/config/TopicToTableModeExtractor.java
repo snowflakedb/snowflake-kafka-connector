@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.config;
 
 import com.snowflake.kafka.connector.Utils;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public class TopicToTableModeExtractor {
 
