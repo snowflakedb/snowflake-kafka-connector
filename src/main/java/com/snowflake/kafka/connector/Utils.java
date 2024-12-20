@@ -431,6 +431,37 @@ public class Utils {
   }
 
   /**
+   * Class for returned GeneratedName. isNameFromMap equal to True indicates that the name was
+   * resolved by using the map passed to appropriate function. {@link
+   * Utils#generateTableName(String, Map)}
+   */
+  public static class GeneratedName {
+    private final String name;
+    private final boolean isNameFromMap;
+
+    private GeneratedName(String name, boolean isNameFromMap) {
+      this.name = name;
+      this.isNameFromMap = isNameFromMap;
+    }
+
+    private static GeneratedName fromMap(String name) {
+      return new GeneratedName(name, true);
+    }
+
+    public static GeneratedName generated(String name) {
+      return new GeneratedName(name, false);
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public boolean isNameFromMap() {
+      return isNameFromMap;
+    }
+  }
+
+  /**
    * modify invalid application name in config and return the generated application name
    *
    * @param config input config object
@@ -438,7 +469,7 @@ public class Utils {
   public static void convertAppName(Map<String, String> config) {
     String appName = config.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "");
     // If appName is empty the following call will throw error
-    String validAppName = generateValidName(appName, new HashMap<String, String>());
+    String validAppName = generateValidName(appName, new HashMap<>());
 
     config.put(SnowflakeSinkConnectorConfig.NAME, validAppName);
   }
@@ -455,6 +486,20 @@ public class Utils {
   }
 
   /**
+   * Verify topic name and generate a valid table name. The returned GeneratedName has a flag
+   * isNameFromMap that indicates if the name was retrieved from the passed topic2table map which
+   * has particular outcomes for the SnowflakeSinkServiceV1
+   *
+   * @param topic input topic name
+   * @param topic2table topic to table map
+   * @return return GeneratedName with valid table name and a flag whether the name was taken from
+   *     the topic2table
+   */
+  public static GeneratedName generateTableName(String topic, Map<String, String> topic2table) {
+    return generateValidNameFromMap(topic, topic2table);
+  }
+
+  /**
    * verify topic name, and generate valid table/application name
    *
    * @param topic input topic name
@@ -462,23 +507,35 @@ public class Utils {
    * @return valid table/application name
    */
   public static String generateValidName(String topic, Map<String, String> topic2table) {
+    return generateValidNameFromMap(topic, topic2table).name;
+  }
+
+  /**
+   * verify topic name, and generate valid table/application name
+   *
+   * @param topic input topic name
+   * @param topic2table topic to table map
+   * @return valid generated table/application name
+   */
+  private static GeneratedName generateValidNameFromMap(
+      String topic, Map<String, String> topic2table) {
     final String PLACE_HOLDER = "_";
     if (topic == null || topic.isEmpty()) {
       throw SnowflakeErrors.ERROR_0020.getException("topic name: " + topic);
     }
     if (topic2table.containsKey(topic)) {
-      return topic2table.get(topic);
+      return GeneratedName.fromMap(topic2table.get(topic));
     }
 
     // try matching regex tables
     for (String regexTopic : topic2table.keySet()) {
       if (topic.matches(regexTopic)) {
-        return topic2table.get(regexTopic);
+        return GeneratedName.fromMap(topic2table.get(regexTopic));
       }
     }
 
     if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
-      return topic;
+      return GeneratedName.generated(topic);
     }
     int hash = Math.abs(topic.hashCode());
 
@@ -507,7 +564,7 @@ public class Utils {
     result.append(PLACE_HOLDER);
     result.append(hash);
 
-    return result.toString();
+    return GeneratedName.generated(result.toString());
   }
 
   public static Map<String, String> parseTopicToTableMap(String input) {
