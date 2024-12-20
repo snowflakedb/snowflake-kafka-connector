@@ -98,6 +98,7 @@ public class TestUtils {
   private static final String OAUTH_CLIENT_ID = "oauth_client_id";
   private static final String OAUTH_CLIENT_SECRET = "oauth_client_secret";
   private static final String OAUTH_REFRESH_TOKEN = "oauth_refresh_token";
+  private static final String OAUTH_TOKEN_ENDPOINT = "oauth_token_endpoint";
   private static final String PASSWORD = "password";
 
   // AZ request data key
@@ -220,6 +221,10 @@ public class TestUtils {
     if (profileJson.has(OAUTH_REFRESH_TOKEN)) {
       configuration.put(
           Utils.SF_OAUTH_REFRESH_TOKEN, profileJson.get(OAUTH_REFRESH_TOKEN).asText());
+    }
+    if (profileJson.has(OAUTH_TOKEN_ENDPOINT)) {
+      configuration.put(
+              Utils.SF_OAUTH_TOKEN_ENDPOINT, profileJson.get(OAUTH_TOKEN_ENDPOINT).asText());
     }
 
     // password only appears in test profile
