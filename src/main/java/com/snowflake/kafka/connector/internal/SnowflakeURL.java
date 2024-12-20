@@ -22,7 +22,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Snowflake URL Object https://account.region.snowflakecomputing.com:443 */
-public class SnowflakeURL {
+public class SnowflakeURL implements URL {
 
   private final KCLogger LOGGER = new KCLogger(SnowflakeURL.class.getName());
 
@@ -105,7 +105,8 @@ public class SnowflakeURL {
     return account;
   }
 
-  boolean sslEnabled() {
+  @Override
+  public boolean sslEnabled() {
     return ssl;
   }
 
@@ -132,5 +133,15 @@ public class SnowflakeURL {
   @Override
   public String toString() {
     return getFullUrl();
+  }
+
+  @Override
+  public String hostWithPort() {
+    return getFullUrl();
+  }
+
+  @Override
+  public String path() {
+    return OAuthConstants.TOKEN_REQUEST_ENDPOINT;
   }
 }
