@@ -66,11 +66,11 @@ public class FileNameUtils {
     BigInteger partitionPart = BigInteger.valueOf(partition);
     if (!Strings.isNullOrEmpty(topic)) {
       // if topic is provided as part of the file prefix,
-      // 1. lets calculate stable hash code out of it,
+      // 1. let's calculate stable hash code out of it,
       // 2. bit shift it by 16 bits left,
       // 3. add 0x8000 (light up 15th bit as a marker)
       // 4. add partition id (which should in production use cases never reach a value above 5.000
-      // partitions pers topic).
+      // partitions per topic).
       // In theory - we would support 32767 partitions, which is more than any reasonable value for
       // a single topic
       byte[] bytes = topic.toUpperCase().getBytes(StandardCharsets.UTF_8);

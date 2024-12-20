@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED;
-import static com.snowflake.kafka.connector.config.TopicToTableModeExtractor.determineTopic2TableMode;
 import static com.snowflake.kafka.connector.internal.FileNameUtils.searchForMissingOffsets;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_RECORD_COUNT;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SIZE_BYTES;
@@ -126,11 +125,19 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
    * Create new ingestion task from existing table and stage, tries to reuse existing pipe and
    * recover previous task, otherwise, create a new pipe.
    *
-   * @param tableName destination table name in Snowflake
+   * @param ignoredTableName destination table name in Snowflake. Is ignored and recalculated to
+   *     accommodate proper cleaning of staged files.
    * @param topicPartition TopicPartition passed from Kafka
    */
   @Override
-  public void startPartition(final String tableName, final TopicPartition topicPartition) {
+  public void startPartition(final String ignoredTableName, final TopicPartition topicPartition) {
+    Utils.GeneratedName generatedTableName =
+        Utils.generateTableName(topicPartition.topic(), topic2TableMap);
+    final String tableName = generatedTableName.name;
+    if (!tableName.equals(ignoredTableName)) {
+      LOGGER.warn(
+          "tableNames do not match: original={}, recalculated={}", ignoredTableName, tableName);
+    }
     String stageName = Utils.stageName(conn.getConnectorName(), tableName);
     String nameIndex = getNameIndex(topicPartition.topic(), topicPartition.partition());
     if (pipes.containsKey(nameIndex)) {
@@ -142,7 +149,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       pipes.put(
           nameIndex,
           new ServiceContext(
-              tableName,
+              generatedTableName,
               stageName,
               pipeName,
               topicPartition.topic(),
@@ -486,7 +493,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     private boolean forceCleanerFileReset = false;
 
     private ServiceContext(
-        String tableName,
+        Utils.GeneratedName generatedTableName,
         String stageName,
         String pipeName,
         String topicName,
@@ -494,32 +501,26 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         int partition,
         ScheduledExecutorService v2CleanerExecutor) {
       this.pipeName = pipeName;
-      this.tableName = tableName;
+      this.tableName = generatedTableName.name;
       this.stageName = stageName;
       this.conn = conn;
       this.fileNames = new LinkedList<>();
       this.cleanerFileNames = new LinkedList<>();
       this.buffer = new SnowpipeBuffer();
       this.ingestionService = conn.buildIngestService(stageName, pipeName);
-      // SNOW-1642799 = if multiple topics load data into single table, we need to ensure prefix is
-      // unique per table - otherwise, file cleaners for different channels may run into race
-      // condition
-      TopicToTableModeExtractor.Topic2TableMode mode =
-          determineTopic2TableMode(topic2TableMap, topicName);
-      if (mode == TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE
-          && !enableStageFilePrefixExtension) {
+      // SNOW-1642799 = if multiple topics load data into single table, we need to ensure the file
+      // prefix is unique per topic - otherwise, file cleaners for different topics will try to
+      // clean the same prefixed files creating a race condition and a potential to delete
+      // not yet ingested files created by another topic
+      if (generatedTableName.isNameFromMap && !enableStageFilePrefixExtension) {
         LOGGER.warn(
-            "The table {} is used as ingestion target by multiple topics - including this one"
-                + " '{}'.\n"
-                + "To prevent potential data loss consider setting"
-                + " '"
-                + SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED
-                + "' to true",
+            "The table {} may be used as ingestion target by multiple topics - including this one"
+                + " '{}'.\nTo prevent potential data loss consider setting '{}' to true",
+            tableName,
             topicName,
-            tableName);
+            SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED);
       }
-      if (mode == TopicToTableModeExtractor.Topic2TableMode.MANY_TOPICS_SINGLE_TABLE
-          && enableStageFilePrefixExtension) {
+      if (generatedTableName.isNameFromMap && enableStageFilePrefixExtension) {
         this.prefix =
             FileNameUtils.filePrefix(conn.getConnectorName(), tableName, topicName, partition);
       } else {
