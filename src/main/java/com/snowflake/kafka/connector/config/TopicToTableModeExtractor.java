@@ -2,8 +2,12 @@ package com.snowflake.kafka.connector.config;
 
 import com.snowflake.kafka.connector.Utils;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public class TopicToTableModeExtractor {
+
+  private static Pattern topicRegexPattern =
+      Pattern.compile("\\[([0-9]-[0-9]|[a-z]-[a-z]|[A-Z]-[A-Z]|[!-@])\\][*+]?");
 
   /** Defines whether single target table is fed by one or many source topics. */
   public enum Topic2TableMode {
@@ -26,6 +30,15 @@ public class TopicToTableModeExtractor {
    */
   public static Topic2TableMode determineTopic2TableMode(
       Map<String, String> topic2TableMap, String topic) {
+
+    boolean anyTopicInMapIsRegex =
+        topic2TableMap.keySet().stream()
+            .anyMatch(topic2TableMapKey -> topicRegexPattern.matcher(topic2TableMapKey).find());
+
+    if (anyTopicInMapIsRegex) {
+      return Topic2TableMode.MANY_TOPICS_SINGLE_TABLE;
+    }
+
     String tableName = Utils.tableName(topic, topic2TableMap);
     return topic2TableMap.values().stream()
                 .filter(table -> table.equalsIgnoreCase(tableName))
