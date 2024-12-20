@@ -118,23 +118,23 @@ public class UtilsTest {
 
     String topic0 = "ab@cd";
     Utils.GeneratedName generatedTableName1 = Utils.generateTableName(topic0, topic2table);
-    Assert.assertEquals("abcd", generatedTableName1.name);
-    Assert.assertTrue(generatedTableName1.isNameFromMap);
+    Assert.assertEquals("abcd", generatedTableName1.getName());
+    Assert.assertTrue(generatedTableName1.isNameFromMap());
 
     String topic1 = "1234";
     Utils.GeneratedName generatedTableName2 = Utils.generateTableName(topic1, topic2table);
-    Assert.assertEquals("_1234", generatedTableName2.name);
-    Assert.assertTrue(generatedTableName2.isNameFromMap);
+    Assert.assertEquals("_1234", generatedTableName2.getName());
+    Assert.assertTrue(generatedTableName2.isNameFromMap());
 
     String topic2 = "bc*def";
     Utils.GeneratedName generatedTableName3 = Utils.generateTableName(topic2, topic2table);
-    Assert.assertEquals("bc_def_" + Math.abs(topic2.hashCode()), generatedTableName3.name);
-    Assert.assertFalse(generatedTableName3.isNameFromMap);
+    Assert.assertEquals("bc_def_" + Math.abs(topic2.hashCode()), generatedTableName3.getName());
+    Assert.assertFalse(generatedTableName3.isNameFromMap());
 
     String topic3 = "12345";
     Utils.GeneratedName generatedTableName4 = Utils.generateTableName(topic3, topic2table);
-    Assert.assertEquals("_12345_" + Math.abs(topic3.hashCode()), generatedTableName4.name);
-    Assert.assertFalse(generatedTableName4.isNameFromMap);
+    Assert.assertEquals("_12345_" + Math.abs(topic3.hashCode()), generatedTableName4.getName());
+    Assert.assertFalse(generatedTableName4.isNameFromMap());
 
     TestUtils.assertError(
         SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName("", topic2table));

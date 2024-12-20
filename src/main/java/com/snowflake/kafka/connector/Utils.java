@@ -436,8 +436,8 @@ public class Utils {
    * Utils#generateTableName(String, Map)}
    */
   public static class GeneratedName {
-    public final String name;
-    public final boolean isNameFromMap;
+    private final String name;
+    private final boolean isNameFromMap;
 
     private GeneratedName(String name, boolean isNameFromMap) {
       this.name = name;
@@ -448,8 +448,16 @@ public class Utils {
       return new GeneratedName(name, true);
     }
 
-    private static GeneratedName generated(String name) {
+    public static GeneratedName generated(String name) {
       return new GeneratedName(name, false);
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public boolean isNameFromMap() {
+      return isNameFromMap;
     }
   }
 

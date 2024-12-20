@@ -125,18 +125,21 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
    * Create new ingestion task from existing table and stage, tries to reuse existing pipe and
    * recover previous task, otherwise, create a new pipe.
    *
-   * @param ignoredTableName destination table name in Snowflake. Is ignored and recalculated to
-   *     accommodate proper cleaning of staged files.
+   * @param tableName destination table name in Snowflake
    * @param topicPartition TopicPartition passed from Kafka
    */
   @Override
-  public void startPartition(final String ignoredTableName, final TopicPartition topicPartition) {
+  public void startPartition(final String tableName, final TopicPartition topicPartition) {
     Utils.GeneratedName generatedTableName =
         Utils.generateTableName(topicPartition.topic(), topic2TableMap);
-    final String tableName = generatedTableName.name;
-    if (!tableName.equals(ignoredTableName)) {
+    if (!tableName.equals(generatedTableName.getName())) {
       LOGGER.warn(
-          "tableNames do not match: original={}, recalculated={}", ignoredTableName, tableName);
+          "tableNames do not match, this is acceptable in tests but not in production! Resorting to"
+              + " originalName and assuming no potential clashes on file prefixes. original={},"
+              + " recalculated={}",
+          tableName,
+          generatedTableName.getName());
+      generatedTableName = Utils.GeneratedName.generated(tableName);
     }
     String stageName = Utils.stageName(conn.getConnectorName(), tableName);
     String nameIndex = getNameIndex(topicPartition.topic(), topicPartition.partition());
@@ -501,7 +504,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         int partition,
         ScheduledExecutorService v2CleanerExecutor) {
       this.pipeName = pipeName;
-      this.tableName = generatedTableName.name;
+      this.tableName = generatedTableName.getName();
       this.stageName = stageName;
       this.conn = conn;
       this.fileNames = new LinkedList<>();
@@ -512,7 +515,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       // prefix is unique per topic - otherwise, file cleaners for different topics will try to
       // clean the same prefixed files creating a race condition and a potential to delete
       // not yet ingested files created by another topic
-      if (generatedTableName.isNameFromMap && !enableStageFilePrefixExtension) {
+      if (generatedTableName.isNameFromMap() && !enableStageFilePrefixExtension) {
         LOGGER.warn(
             "The table {} may be used as ingestion target by multiple topics - including this one"
                 + " '{}'.\nTo prevent potential data loss consider setting '{}' to true",
@@ -520,11 +523,11 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             topicName,
             SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED);
       }
-      if (generatedTableName.isNameFromMap && enableStageFilePrefixExtension) {
+      {
+        final String topicForPrefix =
+            generatedTableName.isNameFromMap() && enableStageFilePrefixExtension ? topicName : "";
         this.prefix =
-            FileNameUtils.filePrefix(conn.getConnectorName(), tableName, topicName, partition);
-      } else {
-        this.prefix = FileNameUtils.filePrefix(conn.getConnectorName(), tableName, "", partition);
+            FileNameUtils.filePrefix(conn.getConnectorName(), tableName, topicForPrefix, partition);
       }
       this.processedOffset = new AtomicLong(-1);
       this.flushedOffset = new AtomicLong(-1);
