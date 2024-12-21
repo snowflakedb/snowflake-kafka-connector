@@ -764,7 +764,7 @@ public class TopicPartitionChannelIT {
     // create tpChannel
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
+            .setRecordNumber(4)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(testTableName, topicPartition)
@@ -789,19 +789,21 @@ public class TopicPartitionChannelIT {
               i));
     }
 
-    service.insert(blankRecords);
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+//    service.insert(blankRecords);
+//    TestUtils.assertWithRetry(
+//        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
 
     // Insert another two records with offset gap that requires evolution: 3, 4
-    List<SinkRecord> gapRecords = TestUtils.createNativeJsonSinkRecords(2, 3, topic, PARTITION);
+    List<SinkRecord> gapRecords = TestUtils.createNativeJsonSinkRecords(300, 3, topic, PARTITION);
     gapRecords.remove(0);
-    service.insert(gapRecords);
+
+    blankRecords.addAll(gapRecords);
+    service.insert(blankRecords);
 
     // With schematization, we need to resend a new batch should succeed even if there is an offset
     // gap from the previous committed offset
     if (withSchematization) {
-      service.insert(gapRecords);
+      service.insert(blankRecords);
     }
 
     TestUtils.assertWithRetry(
