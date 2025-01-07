@@ -39,12 +39,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Random;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -131,6 +126,7 @@ public class Utils {
   public static final String GET_EXCEPTION_MISSING_CAUSE = "missing exception cause";
 
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
+  private static final Pattern CONFIG_PROVIDER_PATTERN = Pattern.compile("[$][{][a-zA-Z]+:");
 
   /**
    * Quote the column name if needed: When there is quote already, we do nothing; otherwise we
@@ -585,7 +581,11 @@ public class Utils {
     // if any single field validation failed
     for (ConfigValue v : result.configValues()) {
       if (!v.errorMessages().isEmpty()) {
-        return false;
+        if (!Utils.isUsingConfigProvider(String.valueOf(v.value()))) {
+          return false;
+        } else {
+          v.errorMessages().removeAll(v.errorMessages());
+        }
       }
     }
     // if any of url, user, schema, database or password is empty
@@ -794,5 +794,38 @@ public class Utils {
             : Arrays.toString(ex.getCause().getStackTrace());
 
     return formatString(GET_EXCEPTION_FORMAT, customMessage, message, cause);
+  }
+
+  /**
+   * Check if auth-related fields supplied through config provider
+   *
+   * @param connectorConfigs connector configurations
+   * @return true if using config provider, false otherwise
+  */
+  public static boolean isUsingConfigProvider(Map<String, String> connectorConfigs) {
+    return isUsingConfigProvider(connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, ""))
+            || isUsingConfigProvider(connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, ""));
+  }
+
+  /**
+   * Check if argument is String pointing to config provider
+   *
+   * @param configValue String to check
+   * @return true if using config provider, false otherwise
+   */
+  public static boolean isUsingConfigProvider(String configValue) {
+    return CONFIG_PROVIDER_PATTERN.matcher(configValue).find();
+  }
+
+  /**
+   * Check if using JWT for authentication
+   *
+   * @param connectorConfigs connector configurations
+   * @return true if using JWT, false otherwise
+   */
+  public static boolean isUsingJWT(Map<String, String> connectorConfigs) {
+    return connectorConfigs
+            .getOrDefault(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT)
+            .equals(Utils.SNOWFLAKE_JWT);
   }
 }
