@@ -113,6 +113,37 @@ public class UtilsTest {
   }
 
   @Test
+  public void testGenerateTableName() {
+    Map<String, String> topic2table = Utils.parseTopicToTableMap("ab@cd:abcd, 1234:_1234");
+
+    String topic0 = "ab@cd";
+    Utils.GeneratedName generatedTableName1 = Utils.generateTableName(topic0, topic2table);
+    Assert.assertEquals("abcd", generatedTableName1.getName());
+    Assert.assertTrue(generatedTableName1.isNameFromMap());
+
+    String topic1 = "1234";
+    Utils.GeneratedName generatedTableName2 = Utils.generateTableName(topic1, topic2table);
+    Assert.assertEquals("_1234", generatedTableName2.getName());
+    Assert.assertTrue(generatedTableName2.isNameFromMap());
+
+    String topic2 = "bc*def";
+    Utils.GeneratedName generatedTableName3 = Utils.generateTableName(topic2, topic2table);
+    Assert.assertEquals("bc_def_" + Math.abs(topic2.hashCode()), generatedTableName3.getName());
+    Assert.assertFalse(generatedTableName3.isNameFromMap());
+
+    String topic3 = "12345";
+    Utils.GeneratedName generatedTableName4 = Utils.generateTableName(topic3, topic2table);
+    Assert.assertEquals("_12345_" + Math.abs(topic3.hashCode()), generatedTableName4.getName());
+    Assert.assertFalse(generatedTableName4.isNameFromMap());
+
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName("", topic2table));
+    //noinspection DataFlowIssue
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName(null, topic2table));
+  }
+
+  @Test
   public void testTableNameRegex() {
     String catTable = "cat_table";
     String dogTable = "dog_table";
