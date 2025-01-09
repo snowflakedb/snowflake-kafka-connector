@@ -323,6 +323,10 @@ public class TestUtils {
           SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
           IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     }
+    configuration.put(
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
+            "10"
+    );
 
     return configuration;
   }
