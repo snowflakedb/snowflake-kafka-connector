@@ -79,9 +79,7 @@ public class SnowflakeSinkServiceV2IT {
   }
 
   private static Stream<Arguments> oAuthAndSingleBufferParameters() {
-    return Stream.of(Arguments.of(true, true));
-    // OAuth tests are temporary disabled
-    // return TestUtils.nBooleanProduct(2);
+     return TestUtils.nBooleanProduct(2);
   }
 
   @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
@@ -335,7 +333,7 @@ public class SnowflakeSinkServiceV2IT {
     service.insert(record1);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 20);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
 
     // insert another offset and check what we committed
     offset += 1;
@@ -361,7 +359,7 @@ public class SnowflakeSinkServiceV2IT {
 
     service.insert(Arrays.asList(record2, record3));
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 3, 20, 20);
+        () -> service.getOffset(new TopicPartition(topic, partition)) == 3, 20, 5);
 
     service.closeAll();
   }
