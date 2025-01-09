@@ -795,7 +795,7 @@ public class Utils {
                   return respBody.get(tokenType).toString().replaceAll("^\"|\"$", "");
                 } catch (Exception e) {
                   throw SnowflakeErrors.ERROR_1004.getException(
-                      "Failed to get Oauth access token after retries");
+                      e);
                 }
               })
           .toString();
