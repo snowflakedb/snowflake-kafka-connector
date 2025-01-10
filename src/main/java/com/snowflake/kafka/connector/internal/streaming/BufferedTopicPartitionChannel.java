@@ -1310,13 +1310,13 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
     }
 
     /**
-     * Get all rows and their offsets. Each map corresponds to one row whose keys are column names
-     * and values are corresponding data in that column.
+     * Get all rows and corresponding SinkRecords. Each map corresponds to one row whose keys are
+     * column names and values are corresponding data in that column.
      *
      * <p>This goes over through all buffered kafka records and transforms into JsonSchema and
      * JsonNode Check {@link #handleNativeRecord(SinkRecord, boolean)}
      *
-     * @return A pair that contains the records and their corresponding offsets
+     * @return A pair that contains the records and their corresponding original sinkRecords
      */
     @Override
     public Pair<List<Map<String, Object>>, List<SinkRecord>> getData() {

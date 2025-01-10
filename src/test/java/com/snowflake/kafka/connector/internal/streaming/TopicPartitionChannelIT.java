@@ -737,8 +737,7 @@ public class TopicPartitionChannelIT {
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
-        Boolean.toString(withSchematization)
-    );
+        Boolean.toString(withSchematization));
 
     // create tpChannel
     SnowflakeSinkService service =
