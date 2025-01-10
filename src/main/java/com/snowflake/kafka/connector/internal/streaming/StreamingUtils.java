@@ -57,6 +57,7 @@ public class StreamingUtils {
   public static final String STREAMING_CONSTANT_OAUTH_CLIENT_ID = "oauth_client_id";
   public static final String STREAMING_CONSTANT_OAUTH_CLIENT_SECRET = "oauth_client_secret";
   public static final String STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN = "oauth_refresh_token";
+  public static final String STREAMING_CONSTANT_OAUTH_TOKEN_ENDPOINT = "oauth_token_endpoint";
 
   // Offset verification function to verify that the current start offset has to incremental,
   // note that there are some false positives when SMT is used.
@@ -142,6 +143,13 @@ public class StreamingUtils {
         Utils.SF_OAUTH_REFRESH_TOKEN,
         (key, value) -> {
           streamingProperties.put(STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN, value);
+          return value;
+        });
+
+    connectorConfig.computeIfPresent(
+        Utils.SF_OAUTH_TOKEN_ENDPOINT,
+        (key, value) -> {
+          streamingProperties.put(STREAMING_CONSTANT_OAUTH_TOKEN_ENDPOINT, value);
           return value;
         });
 

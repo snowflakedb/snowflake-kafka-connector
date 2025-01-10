@@ -141,6 +141,7 @@ public class InternalUtils {
     String oAuthClientId = "";
     String oAuthClientSecret = "";
     String oAuthRefreshToken = "";
+    String oAuthTokenEndpoint = "";
 
     // OAuth access token
     String token = "";
@@ -178,6 +179,8 @@ public class InternalUtils {
         case Utils.SF_OAUTH_REFRESH_TOKEN:
           oAuthRefreshToken = entry.getValue();
           break;
+        case Utils.SF_OAUTH_TOKEN_ENDPOINT:
+          oAuthTokenEndpoint = entry.getValue();
         default:
           // ignore unrecognized keys
       }
@@ -207,9 +210,14 @@ public class InternalUtils {
       if (oAuthRefreshToken.isEmpty()) {
         throw SnowflakeErrors.ERROR_0028.getException();
       }
+      URL oauthUrl =
+          oAuthTokenEndpoint.isEmpty()
+              ? new SnowflakeURL(conf.get(Utils.SF_URL))
+              : OAuthURL.from(oAuthTokenEndpoint);
+
       String accessToken =
           Utils.getSnowflakeOAuthAccessToken(
-              url, oAuthClientId, oAuthClientSecret, oAuthRefreshToken);
+              oauthUrl, oAuthClientId, oAuthClientSecret, oAuthRefreshToken);
       properties.put(JDBC_TOKEN, accessToken);
     } else {
       throw SnowflakeErrors.ERROR_0029.getException();

@@ -79,9 +79,7 @@ public class SnowflakeSinkServiceV2IT {
   }
 
   private static Stream<Arguments> oAuthAndSingleBufferParameters() {
-    return Stream.of(Arguments.of(false, false), Arguments.of(false, true));
-    // OAuth tests are temporary disabled
-    // return TestUtils.nBooleanProduct(2);
+    return TestUtils.nBooleanProduct(2);
   }
 
   @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")

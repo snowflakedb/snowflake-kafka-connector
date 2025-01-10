@@ -130,6 +130,31 @@ public class SnowflakeSinkConnectorConfigBuilder {
     return this;
   }
 
+  public SnowflakeSinkConnectorConfigBuilder withAuthenticator(String value) {
+    config.put(Utils.SF_AUTHENTICATOR, value);
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withOauthClientId(String value) {
+    config.put(Utils.SF_OAUTH_CLIENT_ID, value);
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withOauthClientSecret(String value) {
+    config.put(Utils.SF_OAUTH_CLIENT_SECRET, value);
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withOauthRefreshToken(String value) {
+    config.put(Utils.SF_OAUTH_REFRESH_TOKEN, value);
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withOauthTokenEndpoint(String value) {
+    config.put(Utils.SF_OAUTH_TOKEN_ENDPOINT, value);
+    return this;
+  }
+
   public Map<String, String> build() {
     return config;
   }
