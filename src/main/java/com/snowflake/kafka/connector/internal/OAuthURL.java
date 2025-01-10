@@ -9,7 +9,7 @@ import org.apache.commons.lang3.StringUtils;
 public class OAuthURL implements URL {
   private static final KCLogger LOGGER = new KCLogger(OAuthURL.class.getName());
 
-  private static final String SNOWFLAKE_URL_REGEX_PATTERN =
+  private static final String OAUTH_SERVER_URL_REGEX_PATTERN =
       "^(https?://)?((([\\w\\d-]+)(\\.[\\w\\d-]+)*)(:(\\d+))?)((/[\\w\\d]*)*)/?$";
 
   private final String url;
@@ -28,7 +28,7 @@ public class OAuthURL implements URL {
   }
 
   public static OAuthURL from(final String urlStr) {
-    Pattern pattern = Pattern.compile(SNOWFLAKE_URL_REGEX_PATTERN);
+    Pattern pattern = Pattern.compile(OAUTH_SERVER_URL_REGEX_PATTERN);
 
     Matcher matcher = pattern.matcher(urlStr.trim().toLowerCase());
 
