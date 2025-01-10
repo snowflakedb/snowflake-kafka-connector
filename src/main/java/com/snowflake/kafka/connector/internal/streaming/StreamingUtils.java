@@ -147,11 +147,11 @@ public class StreamingUtils {
         });
 
     connectorConfig.computeIfPresent(
-            Utils.SF_OAUTH_TOKEN_ENDPOINT,
-            (key, value) -> {
-                streamingProperties.put(STREAMING_CONSTANT_OAUTH_TOKEN_ENDPOINT, value);
-                return value;
-            });
+        Utils.SF_OAUTH_TOKEN_ENDPOINT,
+        (key, value) -> {
+          streamingProperties.put(STREAMING_CONSTANT_OAUTH_TOKEN_ENDPOINT, value);
+          return value;
+        });
 
     return streamingProperties;
   }

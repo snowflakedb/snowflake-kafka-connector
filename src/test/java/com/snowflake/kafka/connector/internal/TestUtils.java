@@ -224,7 +224,7 @@ public class TestUtils {
     }
     if (profileJson.has(OAUTH_TOKEN_ENDPOINT)) {
       configuration.put(
-              Utils.SF_OAUTH_TOKEN_ENDPOINT, profileJson.get(OAUTH_TOKEN_ENDPOINT).asText());
+          Utils.SF_OAUTH_TOKEN_ENDPOINT, profileJson.get(OAUTH_TOKEN_ENDPOINT).asText());
     }
 
     // password only appears in test profile
@@ -323,10 +323,7 @@ public class TestUtils {
           SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
           IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     }
-    configuration.put(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
-            "10"
-    );
+    configuration.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "10");
 
     return configuration;
   }

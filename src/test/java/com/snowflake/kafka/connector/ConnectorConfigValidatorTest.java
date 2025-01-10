@@ -955,7 +955,8 @@ public class ConnectorConfigValidatorTest {
 
   @Test
   public void testExternalOAuthConfig() {
-    Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.snowpipeConfig()
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.snowpipeConfig()
             .withAuthenticator(Utils.OAUTH)
             .withOauthClientId("client_id")
             .withOauthClientSecret("client_secret")

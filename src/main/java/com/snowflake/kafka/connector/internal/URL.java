@@ -1,11 +1,11 @@
 package com.snowflake.kafka.connector.internal;
 
 public interface URL {
-    String hostWithPort();
+  String hostWithPort();
 
-    String getScheme();
+  String getScheme();
 
-    String path();
+  String path();
 
-    boolean sslEnabled();
+  boolean sslEnabled();
 }

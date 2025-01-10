@@ -210,7 +210,8 @@ public class InternalUtils {
       if (oAuthRefreshToken.isEmpty()) {
         throw SnowflakeErrors.ERROR_0028.getException();
       }
-      URL oauthUrl = oAuthTokenEndpoint.isEmpty()
+      URL oauthUrl =
+          oAuthTokenEndpoint.isEmpty()
               ? new SnowflakeURL(conf.get(Utils.SF_URL))
               : OAuthURL.from(oAuthTokenEndpoint);
 
