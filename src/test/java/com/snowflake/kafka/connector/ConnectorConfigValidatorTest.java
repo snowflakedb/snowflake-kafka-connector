@@ -1025,10 +1025,10 @@ public class ConnectorConfigValidatorTest {
 
   @Test
   public void testDISABLE_REPROCESS_FILES_CLEANUP_invalid_value() {
-      Map<String, String> config = getConfig();
-      config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_DISABLE_REPROCESS_FILES_CLEANUP, "INVALID");
+    Map<String, String> config = getConfig();
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_DISABLE_REPROCESS_FILES_CLEANUP, "INVALID");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
-            .isInstanceOf(SnowflakeKafkaConnectorException.class)
-            .hasMessageContaining(SnowflakeSinkConnectorConfig.SNOWPIPE_DISABLE_REPROCESS_FILES_CLEANUP);
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(SnowflakeSinkConnectorConfig.SNOWPIPE_DISABLE_REPROCESS_FILES_CLEANUP);
   }
 }
