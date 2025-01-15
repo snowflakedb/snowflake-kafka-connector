@@ -659,9 +659,9 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
           // preserve the original order, for anything after the first schema mismatch error we will
           // retry after the evolution
           SinkRecord originalSinkRecord = originalSinkRecords.get(idx);
-          InsertValidationResponse response = this.channel.insertRow(
-              records.get(idx), Long.toString(originalSinkRecord.kafkaOffset())
-          );
+          InsertValidationResponse response =
+              this.channel.insertRow(
+                  records.get(idx), Long.toString(originalSinkRecord.kafkaOffset()));
           if (response.hasErrors()) {
             InsertValidationResponse.InsertError insertError = response.getInsertErrors().get(0);
             SchemaEvolutionTargetItems schemaEvolutionTargetItems =
@@ -686,9 +686,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
             } else {
               LOGGER.info("Triggering schema evolution. Items: {}", schemaEvolutionTargetItems);
               schemaEvolutionService.evolveSchemaIfNeeded(
-                  schemaEvolutionTargetItems,
-                  originalSinkRecord,
-                  channel.getTableSchema());
+                  schemaEvolutionTargetItems, originalSinkRecord, channel.getTableSchema());
               // Offset reset needed since it's possible that we successfully ingested partial batch
               needToResetOffset = true;
               break;

@@ -1,5 +1,9 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.SUCCESS;
+import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.isChannelMigrationResponseSuccessful;
+import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -7,10 +11,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.SUCCESS;
-import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.isChannelMigrationResponseSuccessful;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
-import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
@@ -506,7 +507,8 @@ public class TopicPartitionChannelIT {
     final long secondBatchCount = 500;
 
     // create 18 blank records that do not kick off schematization
-    List<SinkRecord> firstBatch = TestUtils.createBlankJsonSinkRecords(0, firstBatchCount, topic, PARTITION);
+    List<SinkRecord> firstBatch =
+        TestUtils.createBlankJsonSinkRecords(0, firstBatchCount, topic, PARTITION);
     service.insert(firstBatch);
 
     // send batch with 500, should kick off a record based flush and schematization on record 19,
@@ -765,9 +767,7 @@ public class TopicPartitionChannelIT {
     }
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 302,
-        20, 5
-    );
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 302, 20, 5);
 
     assert TestUtils.tableSize(testTableName) == 4
         : "expected: " + 4 + " actual: " + TestUtils.tableSize(testTableName);

@@ -723,9 +723,12 @@ public class TestUtils {
       final String topicName,
       final int partitionNo) {
     return createJsonRecords(
-        startOffset, noOfRecords, topicName, partitionNo, null,
-        Collections.singletonMap("schemas.enable", Boolean.toString(false))
-    );
+        startOffset,
+        noOfRecords,
+        topicName,
+        partitionNo,
+        null,
+        Collections.singletonMap("schemas.enable", Boolean.toString(false)));
   }
 
   /* Generate (noOfRecords - startOffset) for a given topic and partition. */
@@ -735,10 +738,12 @@ public class TestUtils {
       final String topicName,
       final int partitionNo) {
     return createJsonRecords(
-        startOffset, noOfRecords, topicName, partitionNo,
+        startOffset,
+        noOfRecords,
+        topicName,
+        partitionNo,
         TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8),
-        Collections.singletonMap("schemas.enable", Boolean.toString(true))
-    );
+        Collections.singletonMap("schemas.enable", Boolean.toString(true)));
   }
 
   private static List<SinkRecord> createJsonRecords(
@@ -747,8 +752,7 @@ public class TestUtils {
       final String topicName,
       final int partitionNo,
       byte[] value,
-      Map<String, String> converterConfig
-  ) {
+      Map<String, String> converterConfig) {
     JsonConverter converter = new JsonConverter();
     converter.configure(converterConfig, false);
     SchemaAndValue schemaInputValue = converter.toConnectData("test", value);
