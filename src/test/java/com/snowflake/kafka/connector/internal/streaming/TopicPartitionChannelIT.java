@@ -23,9 +23,6 @@ import java.util.Map;
 import net.snowflake.ingest.streaming.OpenChannelRequest;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaAndValue;
-import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -510,24 +507,8 @@ public class TopicPartitionChannelIT {
     final long secondBatchCount = 500;
 
     // create 18 blank records that do not kick off schematization
-    JsonConverter converter = new JsonConverter();
-    HashMap<String, String> converterConfig = new HashMap<>();
-    converterConfig.put("schemas.enable", "false");
-    converter.configure(converterConfig, false);
-    SchemaAndValue schemaInputValue = converter.toConnectData("test", null);
-
-    List<SinkRecord> firstBatch = new ArrayList<>();
-    for (int i = 0; i < firstBatchCount; i++) {
-      firstBatch.add(
-          new SinkRecord(
-              topic,
-              PARTITION,
-              Schema.STRING_SCHEMA,
-              "test",
-              schemaInputValue.schema(),
-              schemaInputValue.value(),
-              i));
-    }
+    List<SinkRecord> firstBatch =
+        TestUtils.createBlankJsonSinkRecords(0, firstBatchCount, topic, PARTITION);
 
     service.insert(firstBatch);
 
@@ -764,48 +745,30 @@ public class TopicPartitionChannelIT {
     // create tpChannel
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
+            .setRecordNumber(4)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(testTableName, topicPartition)
             .build();
 
     // insert blank records that do not evolve schema: 0, 1
-    JsonConverter converter = new JsonConverter();
-    HashMap<String, String> converterConfig = new HashMap<>();
-    converterConfig.put("schemas.enable", "false");
-    converter.configure(converterConfig, false);
-    SchemaAndValue schemaInputValue = converter.toConnectData("test", null);
-    List<SinkRecord> blankRecords = new ArrayList<>();
-    for (int i = 0; i < 2; i++) {
-      blankRecords.add(
-          new SinkRecord(
-              topic,
-              PARTITION,
-              Schema.STRING_SCHEMA,
-              "test",
-              schemaInputValue.schema(),
-              schemaInputValue.value(),
-              i));
-    }
+    List<SinkRecord> blankRecords = TestUtils.createBlankJsonSinkRecords(0, 2, topic, PARTITION);
 
-    service.insert(blankRecords);
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 2, 20, 5);
+    // Insert another two records with offset gap that requires evolution: 300, 301
+    List<SinkRecord> gapRecords = TestUtils.createNativeJsonSinkRecords(300, 2, topic, PARTITION);
 
-    // Insert another two records with offset gap that requires evolution: 3, 4
-    List<SinkRecord> gapRecords = TestUtils.createNativeJsonSinkRecords(2, 3, topic, PARTITION);
-    gapRecords.remove(0);
-    service.insert(gapRecords);
-
+    List<SinkRecord> mergedList = new ArrayList<>(blankRecords);
+    mergedList.addAll(gapRecords);
+    // mergedList' offsets  -> [0, 1, 300, 301]
+    service.insert(mergedList);
     // With schematization, we need to resend a new batch should succeed even if there is an offset
     // gap from the previous committed offset
     if (withSchematization) {
-      service.insert(gapRecords);
+      service.insert(mergedList);
     }
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 5, 20, 5);
+        () -> service.getOffset(new TopicPartition(topic, PARTITION)) == 302, 20, 5);
 
     assert TestUtils.tableSize(testTableName) == 4
         : "expected: " + 4 + " actual: " + TestUtils.tableSize(testTableName);
