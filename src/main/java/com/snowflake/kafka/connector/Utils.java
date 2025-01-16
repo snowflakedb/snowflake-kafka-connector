@@ -65,7 +65,7 @@ import org.apache.kafka.common.config.ConfigValue;
 public class Utils {
 
   // Connector version, change every release
-  public static final String VERSION = "3.0.0";
+  public static final String VERSION = "3.1.0";
 
   // connector parameter list
   public static final String NAME = "name";
