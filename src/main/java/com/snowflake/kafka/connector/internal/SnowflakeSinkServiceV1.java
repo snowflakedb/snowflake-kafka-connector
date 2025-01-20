@@ -847,7 +847,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             buffer.insert(snowflakeRecord);
             if (buffer.getBufferSizeBytes() >= getFileSize()
                 || (getRecordNumber() != 0 && buffer.getNumOfRecords() >= getRecordNumber())) {
-              LOGGER.info("Buffer ready to flush, moving content to a temporary buffer");
+              LOGGER.info("Buffer ready to flush, moving content to a temporary buffer, buffer details: {}", buffer);
               tmpBuff = buffer;
               this.buffer = new SnowpipeBuffer();
             }
