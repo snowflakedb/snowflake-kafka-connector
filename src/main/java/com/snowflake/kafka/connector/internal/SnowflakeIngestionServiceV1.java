@@ -128,7 +128,7 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
   @Override
   public void ingestFiles(final List<String> fileNames) {
     if (fileNames.isEmpty()) {
-      LOGGER.info("No files to ingest");
+      LOGGER.info("ingest files: [Nothing to ingest]");
       return;
     }
     LOGGER.info("Ingesting {} files", fileNames.size());
