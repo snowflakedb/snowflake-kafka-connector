@@ -151,7 +151,7 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
             return true;
           });
     } catch (Exception e) {
-      LOGGER.error("Ingesting files failed", e);
+      LOGGER.error("Failed ingest files: {}", Arrays.toString(fileNames.toArray()));
       throw SnowflakeErrors.ERROR_3001.getException(e, this.telemetry);
     }
   }

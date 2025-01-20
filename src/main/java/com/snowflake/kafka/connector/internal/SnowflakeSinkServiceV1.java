@@ -5,6 +5,7 @@ import static com.snowflake.kafka.connector.internal.FileNameUtils.searchForMiss
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_RECORD_COUNT;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SIZE_BYTES;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.BUFFER_SUB_DOMAIN;
+import static java.util.Objects.isNull;
 import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
 import com.codahale.metrics.Histogram;
@@ -34,6 +35,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -46,6 +48,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -194,6 +197,15 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   @Override
   public void insert(final Collection<SinkRecord> records) {
     LOGGER.info("Inserting {} records", records.size());
+    if (LOGGER.isDebugEnabled()) {
+      Pair<String, String> offsets = getOffsets(records);
+      LOGGER.debug(
+          "Inserting {} records, firstOffset: {}, lastOffset: {}",
+          records.size(),
+          offsets.getLeft(),
+          offsets.getRight());
+    }
+
     // note that records can be empty
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
@@ -219,6 +231,28 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         pipe.flushBuffer();
       }
     }
+  }
+
+  private Pair<String, String> getOffsets(Collection<SinkRecord> records) {
+    if (isNull(records) || records.isEmpty()) {
+      return Pair.of("<empty>", "<empty>");
+    }
+
+    String first =
+        records.stream()
+            .map(SinkRecord::kafkaOffset)
+            .reduce(Long::min)
+            .map(String::valueOf)
+            .orElse("<empty>");
+
+    String last =
+        records.stream()
+            .map(SinkRecord::kafkaOffset)
+            .reduce(Long::max)
+            .map(String::valueOf)
+            .orElse("<empty>");
+
+    return Pair.of(first, last);
   }
 
   @Override
