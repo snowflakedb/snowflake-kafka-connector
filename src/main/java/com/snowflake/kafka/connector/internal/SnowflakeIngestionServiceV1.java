@@ -133,7 +133,8 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
       return;
     }
 
-    String debugInfo = LOGGER.isDebugEnabled()
+    String debugInfo =
+        LOGGER.isDebugEnabled()
             ? String.format("\nfileNames: %s", Arrays.toString(fileNames.toArray()))
             : StringUtils.EMPTY;
     LOGGER.info("ingest files: {}{}", fileNames.size(), debugInfo);
