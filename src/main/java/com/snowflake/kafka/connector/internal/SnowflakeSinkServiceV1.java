@@ -219,10 +219,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     LOGGER.info("Checking all sink context to see if they need to be flushed based on time");
     if (LOGGER.isDebugEnabled()) {
       LOGGER.debug(
-          "Sink context checked: {}",
-          pipes.values().stream()
-              .map(sc -> Triple.of(sc.pipeName, sc.tableName, sc.stageName))
-              .collect(Collectors.toSet()));
+          "Sink context checked: {}", Arrays.toString(pipes.values().toArray()));
     }
 
     for (ServiceContext pipe : pipes.values()) {
@@ -268,7 +265,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
           Utils.tableName(record.topic(), this.topic2TableMap),
           new TopicPartition(record.topic(), record.kafkaPartition()));
     }
-    LOGGER.debug("Inserting record for pipe {}", nameIndex);
+    LOGGER.debug("Inserting record for pipe {} with offset {}", nameIndex, record.kafkaOffset());
     pipes.get(nameIndex).insert(record);
   }
 
@@ -821,17 +818,17 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       if (record.kafkaOffset() > processedOffset.get()) {
         SinkRecord snowflakeRecord = record;
         if (shouldConvertContent(snowflakeRecord.value())) {
-          LOGGER.trace("Converting native record for value");
+          LOGGER.trace("Converting native record value, offset: {}", snowflakeRecord.kafkaOffset());
           snowflakeRecord = handleNativeRecord(snowflakeRecord, false);
         }
         if (shouldConvertContent(snowflakeRecord.key())) {
-          LOGGER.trace("Converting native record for key");
+          LOGGER.trace("Converting native record key, offset: {}", snowflakeRecord.kafkaOffset());
           snowflakeRecord = handleNativeRecord(snowflakeRecord, true);
         }
 
         // broken record
         if (isRecordBroken(snowflakeRecord)) {
-          LOGGER.info("Writing broker record to a table stage");
+          LOGGER.info("Writing broken record to a table stage, offset: {},", snowflakeRecord.kafkaOffset());
           writeBrokenDataToTableStage(snowflakeRecord);
           // don't move committed offset in this case
           // only move it in the normal cases
@@ -1359,6 +1356,23 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         throw new UnsupportedOperationException(
             "SnowflakeSinkServiceV1 doesnt support getSinkRecords method");
       }
+    }
+
+    @Override
+    public String toString() {
+      return "ServiceContext{" +
+              "tableName='" + tableName + '\'' +
+              ", stageName='" + stageName + '\'' +
+              ", pipeName='" + pipeName + '\'' +
+              ", fileNames=" + Arrays.toString(fileNames.toArray()) +
+              ", prefix='" + prefix + '\'' +
+              ", committedOffset=" + committedOffset +
+              ", flushedOffset=" + flushedOffset +
+              ", processedOffset=" + processedOffset +
+              ", previousFlushTimeStamp=" + previousFlushTimeStamp +
+              ", useStageFilesProcessor=" + useStageFilesProcessor +
+              ", hasInitialized=" + hasInitialized +
+              '}';
     }
   }
 

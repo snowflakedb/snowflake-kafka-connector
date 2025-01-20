@@ -28,6 +28,8 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -304,6 +306,7 @@ public class SnowflakeSinkTask extends SinkTask {
     this.authorizationExceptionTracker.throwExceptionIfAuthorizationFailed();
 
     final long recordSize = records.size();
+    DYNAMIC_LOGGER.info("Calling PUT with {} records", recordSize);
     if (enableRebalancing && recordSize > 0) {
       processRebalancingTest();
     }
@@ -330,12 +333,11 @@ public class SnowflakeSinkTask extends SinkTask {
   public Map<TopicPartition, OffsetAndMetadata> preCommit(
       Map<TopicPartition, OffsetAndMetadata> offsets) throws RetriableException {
     DYNAMIC_LOGGER.info("Precommit started for {} partitions", offsets.size());
+
     if (DYNAMIC_LOGGER.isDebugEnabled()) {
       DYNAMIC_LOGGER.debug(
-          "Precommit partitions {}",
-          offsets.keySet().stream()
-              .map(k -> Pair.of(k.topic(), k.partition()))
-              .collect(Collectors.toSet()));
+          "Precommit partitions and offsets: {}",
+              Arrays.toString(offsets.entrySet().toArray()));
     }
 
     long startTime = System.currentTimeMillis();
@@ -437,7 +439,7 @@ public class SnowflakeSinkTask extends SinkTask {
           logExecutionContent,
           executionTimeMs);
     } else {
-      this.DYNAMIC_LOGGER.debug("Successfully " + logExecutionContent);
+      this.DYNAMIC_LOGGER.info("Successfully " + logExecutionContent);
     }
   }
 
