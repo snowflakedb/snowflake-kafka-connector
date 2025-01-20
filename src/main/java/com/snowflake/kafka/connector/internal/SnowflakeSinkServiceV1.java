@@ -642,6 +642,12 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         }
         forceCleanerFileReset = false;
         LOGGER.warn("Resetting cleaner files {} done", pipeName);
+        if (LOGGER.isInfoEnabled()) {
+          LOGGER.info(
+              "For pipe {} cleaner files after reset: {}",
+              pipeName,
+              String.join(", ", cleanerFileNames));
+        }
       } catch (Throwable t) {
         LOGGER.warn("Cleaner file reset encountered an error:\n{}", t.getMessage());
       }

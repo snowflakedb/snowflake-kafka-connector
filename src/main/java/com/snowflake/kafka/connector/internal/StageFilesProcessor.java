@@ -485,7 +485,15 @@ class StageFilesProcessor {
 
   private Collection<String> fetchCurrentStage() {
     try {
-      return conn.listStage(stageName, prefix);
+      List<String> stageFiles = conn.listStage(stageName, prefix);
+      if (LOGGER.isDebugEnabled()) {
+        LOGGER.debug(
+            "Fetched for pipe: {} from stage: {} following files: {}",
+            pipeName,
+            stageName,
+            String.join(", ", stageFiles));
+      }
+      return stageFiles;
     } catch (Throwable t) {
       LOGGER.warn("Failed to fetch current stage state due to error:\n{}", t.getMessage());
       return new ArrayList<>();

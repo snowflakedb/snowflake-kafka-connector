@@ -10,6 +10,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.snowflake.ingest.SimpleIngestManager;
 import net.snowflake.ingest.connection.HistoryRangeResponse;
@@ -246,6 +247,7 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
 
     AtomicInteger loadedRecords = new AtomicInteger();
     if (response != null) {
+      ArrayList<String> loadedFiles = new ArrayList<>();
       historyMarker.set(response.getNextBeginMark());
       response.files.stream()
           .filter(file -> fileFilter == null || fileFilter.test(file))
@@ -255,12 +257,23 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
                     historyEntry.getPath(),
                     (key, status) -> convertIngestStatus(historyEntry.getStatus()));
                 loadedRecords.incrementAndGet();
+                loadedFiles.add(historyEntry.getPath());
               });
       LOGGER.info(
           "loaded {} files out of {} in ingest report since marker {}",
           loadedRecords.get(),
           response.files.size(),
           historyMarker.get());
+      if (LOGGER.isDebugEnabled()) {
+        List<String> historyFiles =
+            response.files.stream()
+                .map(HistoryResponse.FileEntry::getPath)
+                .collect(Collectors.toList());
+        LOGGER.debug(
+            "Read from ingest history following files: {}, but loaded: {}",
+            String.join(", ", historyFiles),
+            String.join(", ", loadedFiles));
+      }
     }
     return loadedRecords.get();
   }

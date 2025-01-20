@@ -47,6 +47,10 @@ public class KCLogger {
     }
   }
 
+  public boolean isInfoEnabled() {
+    return logger.isInfoEnabled();
+  }
+
   /**
    * Logs an trace level message
    *
