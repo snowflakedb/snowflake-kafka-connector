@@ -47,6 +47,10 @@ public class KCLogger {
     }
   }
 
+  public boolean isInfoEnabled() {
+    return logger.isInfoEnabled();
+  }
+
   /**
    * Logs an trace level message
    *
@@ -95,8 +99,18 @@ public class KCLogger {
     }
   }
 
+  public void error(String s, Throwable throwable) {
+    if (this.logger.isErrorEnabled()) {
+      logger.error(s, throwable);
+    }
+  }
+
   public boolean isDebugEnabled() {
     return logger.isDebugEnabled();
+  }
+
+  public boolean isTraceEnabled() {
+    return logger.isTraceEnabled();
   }
 
   private String getFormattedLogMessage(String format, Object... vars) {

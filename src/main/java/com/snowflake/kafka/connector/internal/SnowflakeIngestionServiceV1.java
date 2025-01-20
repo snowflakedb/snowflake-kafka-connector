@@ -10,11 +10,13 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.snowflake.ingest.SimpleIngestManager;
 import net.snowflake.ingest.connection.HistoryRangeResponse;
 import net.snowflake.ingest.connection.HistoryResponse;
 import net.snowflake.ingest.utils.StagedFileWrapper;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Implementation of Snowpipe API calls. i.e handshake between KC and Snowpipe API's.
@@ -127,9 +129,16 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
   @Override
   public void ingestFiles(final List<String> fileNames) {
     if (fileNames.isEmpty()) {
+      LOGGER.info("ingest files: [Nothing to ingest]");
       return;
     }
-    LOGGER.debug("ingest files: {}", Arrays.toString(fileNames.toArray()));
+
+    String debugInfo =
+        LOGGER.isDebugEnabled()
+            ? String.format("\nfileNames: %s", Arrays.toString(fileNames.toArray()))
+            : StringUtils.EMPTY;
+    LOGGER.info("ingest files: {}{}", fileNames.size(), debugInfo);
+
     try {
       InternalUtils.backoffAndRetry(
           telemetry,
@@ -147,6 +156,7 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
             return true;
           });
     } catch (Exception e) {
+      LOGGER.error("Failed ingest files: {}", Arrays.toString(fileNames.toArray()));
       throw SnowflakeErrors.ERROR_3001.getException(e, this.telemetry);
     }
   }
@@ -242,6 +252,7 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
 
     AtomicInteger loadedRecords = new AtomicInteger();
     if (response != null) {
+      ArrayList<String> loadedFiles = new ArrayList<>();
       historyMarker.set(response.getNextBeginMark());
       response.files.stream()
           .filter(file -> fileFilter == null || fileFilter.test(file))
@@ -251,12 +262,23 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
                     historyEntry.getPath(),
                     (key, status) -> convertIngestStatus(historyEntry.getStatus()));
                 loadedRecords.incrementAndGet();
+                loadedFiles.add(historyEntry.getPath());
               });
       LOGGER.info(
           "loaded {} files out of {} in ingest report since marker {}",
           loadedRecords.get(),
           response.files.size(),
           historyMarker.get());
+      if (LOGGER.isDebugEnabled()) {
+        List<String> historyFiles =
+            response.files.stream()
+                .map(HistoryResponse.FileEntry::getPath)
+                .collect(Collectors.toList());
+        LOGGER.debug(
+            "Read from ingest history following files: {}, but loaded: {}",
+            String.join(", ", historyFiles),
+            String.join(", ", loadedFiles));
+      }
     }
     return loadedRecords.get();
   }

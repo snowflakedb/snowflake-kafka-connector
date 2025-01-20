@@ -818,7 +818,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     for (String fileName : files) {
       removeFile(stageName, fileName);
     }
-    LOGGER.info("purge {} files from stage: {}", files.size(), stageName);
+
+    LOGGER.info(
+        "purged {} files from stage: {}, files: {}",
+        files.size(),
+        stageName,
+        String.join(", ", files));
   }
 
   @Override
