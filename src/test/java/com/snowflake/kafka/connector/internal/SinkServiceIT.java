@@ -748,20 +748,20 @@ public class SinkServiceIT {
   @Test
   public void testRecoverReprocessFiles() throws Exception {
     String data =
-            "{\"content\":{\"name\":\"test\"},\"meta\":{\"offset\":0,"
-                    + "\"topic\":\"test\",\"partition\":0}}";
+        "{\"content\":{\"name\":\"test\"},\"meta\":{\"offset\":0,"
+            + "\"topic\":\"test\",\"partition\":0}}";
 
     // Two hours ago                         h   m    s    milli
     long time = System.currentTimeMillis() - 2 * 60 * 60 * 1000L;
 
     String fileName1 =
-            FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 0, 0, time);
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 0, 0, time);
     String fileName2 =
-            FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 1, 1, time);
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 1, 1, time);
     String fileName3 =
-            FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 2, 3, time);
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 2, 3, time);
     String fileName4 =
-            FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 4, 5, time);
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 4, 5, time);
 
     conn.createStage(stage);
     conn.createTable(table);
@@ -783,18 +783,18 @@ public class SinkServiceIT {
     assert getStageSize(stage, table, 0) == 4;
 
     SnowflakeSinkService service =
-            SnowflakeSinkServiceFactory.builder(conn)
-                    .addTask(table, new TopicPartition(topic, partition))
-                    .setRecordNumber(1) // immediate flush
-                    .build();
+        SnowflakeSinkServiceFactory.builder(conn)
+            .addTask(table, new TopicPartition(topic, partition))
+            .setRecordNumber(1) // immediate flush
+            .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
     SchemaAndValue result =
-            converter.toConnectData(topic, "12321".getBytes(StandardCharsets.UTF_8));
+        converter.toConnectData(topic, "12321".getBytes(StandardCharsets.UTF_8));
     // This record is ingested as well.
     SinkRecord record =
-            new SinkRecord(
-                    topic, partition, Schema.STRING_SCHEMA, "test", result.schema(), result.value(), 3);
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "test", result.schema(), result.value(), 3);
     // lazy init and recovery function
     service.insert(record);
     // wait for async put
@@ -814,20 +814,20 @@ public class SinkServiceIT {
   @Test
   public void testReprocessFilesCleanupDisabled() throws Exception {
     String data =
-            "{\"content\":{\"name\":\"test\"},\"meta\":{\"offset\":0,"
-                    + "\"topic\":\"test\",\"partition\":0}}";
+        "{\"content\":{\"name\":\"test\"},\"meta\":{\"offset\":0,"
+            + "\"topic\":\"test\",\"partition\":0}}";
 
     // Two hours ago                         h   m    s    milli
     long time = System.currentTimeMillis() - 2 * 60 * 60 * 1000L;
 
     String fileName1 =
-            FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 0, 0, time);
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 0, 0, time);
     String fileName2 =
-            FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 1, 1, time);
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 1, 1, time);
     String fileName3 =
-            FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 2, 3, time);
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 2, 3, time);
     String fileName4 =
-            FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 4, 5, time);
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 4, 5, time);
 
     conn.createStage(stage);
     conn.createTable(table);
@@ -853,18 +853,18 @@ public class SinkServiceIT {
     connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED, "false");
 
     SnowflakeSinkService service =
-            SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
-                    .addTask(table, new TopicPartition(topic, partition))
-                    .setRecordNumber(1) // immediate flush
-                    .build();
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
+            .addTask(table, new TopicPartition(topic, partition))
+            .setRecordNumber(1) // immediate flush
+            .build();
 
     SnowflakeConverter converter = new SnowflakeJsonConverter();
     SchemaAndValue result =
-            converter.toConnectData(topic, "12321".getBytes(StandardCharsets.UTF_8));
+        converter.toConnectData(topic, "12321".getBytes(StandardCharsets.UTF_8));
     // This record is ingested as well.
     SinkRecord record =
-            new SinkRecord(
-                    topic, partition, Schema.STRING_SCHEMA, "test", result.schema(), result.value(), 3);
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "test", result.schema(), result.value(), 3);
     // lazy init and recovery function
     service.insert(record);
     // wait for async put
