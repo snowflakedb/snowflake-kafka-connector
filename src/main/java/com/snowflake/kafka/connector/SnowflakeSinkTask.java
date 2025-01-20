@@ -28,7 +28,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -37,8 +36,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -306,7 +303,7 @@ public class SnowflakeSinkTask extends SinkTask {
     this.authorizationExceptionTracker.throwExceptionIfAuthorizationFailed();
 
     final long recordSize = records.size();
-    DYNAMIC_LOGGER.info("Calling PUT with {} records", recordSize);
+    DYNAMIC_LOGGER.debug("Calling PUT with {} records", recordSize);
     if (enableRebalancing && recordSize > 0) {
       processRebalancingTest();
     }
@@ -316,7 +313,7 @@ public class SnowflakeSinkTask extends SinkTask {
     getSink().insert(records);
 
     logWarningForPutAndPrecommit(
-        startTime, Utils.formatString("called PUT with {} records", recordSize));
+        startTime, Utils.formatString("called PUT with {} records", recordSize), false);
   }
 
   /**
@@ -336,8 +333,7 @@ public class SnowflakeSinkTask extends SinkTask {
 
     if (DYNAMIC_LOGGER.isDebugEnabled()) {
       DYNAMIC_LOGGER.debug(
-          "Precommit partitions and offsets: {}",
-              Arrays.toString(offsets.entrySet().toArray()));
+          "Precommit partitions and offsets: {}", Arrays.toString(offsets.entrySet().toArray()));
     }
 
     long startTime = System.currentTimeMillis();
@@ -374,7 +370,8 @@ public class SnowflakeSinkTask extends SinkTask {
         Utils.formatString(
             "called PRECOMMIT on all {} partitions, safe to commit {} partitions",
             offsets.size(),
-            committedOffsets.size()));
+            committedOffsets.size()),
+        true);
     return committedOffsets;
   }
 
@@ -423,7 +420,7 @@ public class SnowflakeSinkTask extends SinkTask {
     return currTime - startTime;
   }
 
-  void logWarningForPutAndPrecommit(long startTime, String logContent) {
+  void logWarningForPutAndPrecommit(long startTime, String logContent, boolean isPrecommit) {
     final long executionTimeMs = getDurationFromStartMs(startTime);
     String logExecutionContent =
         Utils.formatString("{}, executionTime: {} ms", logContent, executionTimeMs);
@@ -439,7 +436,11 @@ public class SnowflakeSinkTask extends SinkTask {
           logExecutionContent,
           executionTimeMs);
     } else {
-      this.DYNAMIC_LOGGER.info("Successfully " + logExecutionContent);
+      if (isPrecommit) {
+        this.DYNAMIC_LOGGER.info("Successfully " + logExecutionContent);
+      } else {
+        this.DYNAMIC_LOGGER.debug("Successfully " + logExecutionContent);
+      }
     }
   }
 

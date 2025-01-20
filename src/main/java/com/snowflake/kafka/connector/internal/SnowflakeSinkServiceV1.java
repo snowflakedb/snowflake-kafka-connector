@@ -35,7 +35,6 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -49,7 +48,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -196,8 +194,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
   @Override
   public void insert(final Collection<SinkRecord> records) {
-    LOGGER.info("Inserting {} records", records.size());
-    if (LOGGER.isDebugEnabled()) {
+    if (LOGGER.isTraceEnabled()) {
       Pair<String, String> offsets = getOffsets(records);
       LOGGER.debug(
           "Inserting {} records, firstOffset: {}, lastOffset: {}",
@@ -216,10 +213,10 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       insert(record);
     }
 
-    LOGGER.info("Checking all sink context to see if they need to be flushed based on time");
-    if (LOGGER.isDebugEnabled()) {
-      LOGGER.debug(
-          "Sink context checked: {}", Arrays.toString(pipes.values().toArray()));
+    if (LOGGER.isTraceEnabled()) {
+      LOGGER.trace(
+          "Checking all sink context to see if they need to be flushed based on time: {}",
+          Arrays.toString(pipes.values().toArray()));
     }
 
     for (ServiceContext pipe : pipes.values()) {
@@ -265,7 +262,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
           Utils.tableName(record.topic(), this.topic2TableMap),
           new TopicPartition(record.topic(), record.kafkaPartition()));
     }
-    LOGGER.debug("Inserting record for pipe {} with offset {}", nameIndex, record.kafkaOffset());
+    LOGGER.trace("Inserting record for pipe {} with offset {}", nameIndex, record.kafkaOffset());
     pipes.get(nameIndex).insert(record);
   }
 
@@ -828,7 +825,8 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
         // broken record
         if (isRecordBroken(snowflakeRecord)) {
-          LOGGER.info("Writing broken record to a table stage, offset: {},", snowflakeRecord.kafkaOffset());
+          LOGGER.warn(
+              "Writing broken record to a table stage, offset: {},", snowflakeRecord.kafkaOffset());
           writeBrokenDataToTableStage(snowflakeRecord);
           // don't move committed offset in this case
           // only move it in the normal cases
@@ -847,7 +845,9 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             buffer.insert(snowflakeRecord);
             if (buffer.getBufferSizeBytes() >= getFileSize()
                 || (getRecordNumber() != 0 && buffer.getNumOfRecords() >= getRecordNumber())) {
-              LOGGER.info("Buffer ready to flush, moving content to a temporary buffer, buffer details: {}", buffer);
+              LOGGER.info(
+                  "Buffer ready to flush, moving content to a temporary buffer, buffer details: {}",
+                  buffer);
               tmpBuff = buffer;
               this.buffer = new SnowpipeBuffer();
             }
@@ -856,7 +856,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
           }
 
           if (useStageFilesProcessor) {
-            LOGGER.info("Assigning {} offset to StageFileProcessor", record.kafkaOffset());
+            LOGGER.trace("Assigning {} offset to StageFileProcessor", record.kafkaOffset());
             stageFileProcessorClient.newOffset(record.kafkaOffset());
           }
 
@@ -1360,19 +1360,34 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
     @Override
     public String toString() {
-      return "ServiceContext{" +
-              "tableName='" + tableName + '\'' +
-              ", stageName='" + stageName + '\'' +
-              ", pipeName='" + pipeName + '\'' +
-              ", fileNames=" + Arrays.toString(fileNames.toArray()) +
-              ", prefix='" + prefix + '\'' +
-              ", committedOffset=" + committedOffset +
-              ", flushedOffset=" + flushedOffset +
-              ", processedOffset=" + processedOffset +
-              ", previousFlushTimeStamp=" + previousFlushTimeStamp +
-              ", useStageFilesProcessor=" + useStageFilesProcessor +
-              ", hasInitialized=" + hasInitialized +
-              '}';
+      return "ServiceContext{"
+          + "tableName='"
+          + tableName
+          + '\''
+          + ", stageName='"
+          + stageName
+          + '\''
+          + ", pipeName='"
+          + pipeName
+          + '\''
+          + ", fileNames="
+          + Arrays.toString(fileNames.toArray())
+          + ", prefix='"
+          + prefix
+          + '\''
+          + ", committedOffset="
+          + committedOffset
+          + ", flushedOffset="
+          + flushedOffset
+          + ", processedOffset="
+          + processedOffset
+          + ", previousFlushTimeStamp="
+          + previousFlushTimeStamp
+          + ", useStageFilesProcessor="
+          + useStageFilesProcessor
+          + ", hasInitialized="
+          + hasInitialized
+          + '}';
     }
   }
 
