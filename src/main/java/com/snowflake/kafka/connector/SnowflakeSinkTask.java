@@ -35,6 +35,8 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -327,6 +329,15 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public Map<TopicPartition, OffsetAndMetadata> preCommit(
       Map<TopicPartition, OffsetAndMetadata> offsets) throws RetriableException {
+    DYNAMIC_LOGGER.info("Precommit started for {} partitions", offsets.size());
+    if (DYNAMIC_LOGGER.isDebugEnabled()) {
+      DYNAMIC_LOGGER.debug(
+          "Precommit partitions {}",
+          offsets.keySet().stream()
+              .map(k -> Pair.of(k.topic(), k.partition()))
+              .collect(Collectors.toSet()));
+    }
+
     long startTime = System.currentTimeMillis();
 
     // return an empty map means that offset commitment is not desired

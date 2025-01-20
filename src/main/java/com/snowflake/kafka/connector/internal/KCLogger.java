@@ -95,6 +95,12 @@ public class KCLogger {
     }
   }
 
+  public void error(String s, Throwable throwable) {
+    if (this.logger.isErrorEnabled()) {
+      logger.error(s, throwable);
+    }
+  }
+
   public boolean isDebugEnabled() {
     return logger.isDebugEnabled();
   }

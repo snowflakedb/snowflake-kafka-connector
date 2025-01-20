@@ -127,9 +127,12 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
   @Override
   public void ingestFiles(final List<String> fileNames) {
     if (fileNames.isEmpty()) {
+      LOGGER.info("No files to ingest");
       return;
     }
+    LOGGER.info("Ingesting {} files", fileNames.size());
     LOGGER.debug("ingest files: {}", Arrays.toString(fileNames.toArray()));
+
     try {
       InternalUtils.backoffAndRetry(
           telemetry,
@@ -147,6 +150,7 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
             return true;
           });
     } catch (Exception e) {
+      LOGGER.error("Ingesting files failed", e);
       throw SnowflakeErrors.ERROR_3001.getException(e, this.telemetry);
     }
   }
