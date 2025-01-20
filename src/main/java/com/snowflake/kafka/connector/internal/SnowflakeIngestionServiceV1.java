@@ -16,6 +16,7 @@ import net.snowflake.ingest.SimpleIngestManager;
 import net.snowflake.ingest.connection.HistoryRangeResponse;
 import net.snowflake.ingest.connection.HistoryResponse;
 import net.snowflake.ingest.utils.StagedFileWrapper;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Implementation of Snowpipe API calls. i.e handshake between KC and Snowpipe API's.
@@ -131,8 +132,11 @@ public class SnowflakeIngestionServiceV1 implements SnowflakeIngestionService {
       LOGGER.info("ingest files: [Nothing to ingest]");
       return;
     }
-    LOGGER.info("Ingesting {} files", fileNames.size());
-    LOGGER.debug("ingest files: {}", Arrays.toString(fileNames.toArray()));
+
+    String debugInfo = LOGGER.isDebugEnabled()
+            ? String.format("\nfileNames: %s", Arrays.toString(fileNames.toArray()))
+            : StringUtils.EMPTY;
+    LOGGER.info("ingest files: {}{}", fileNames.size(), debugInfo);
 
     try {
       InternalUtils.backoffAndRetry(
