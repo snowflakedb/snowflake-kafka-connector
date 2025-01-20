@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
@@ -26,6 +27,7 @@ import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 public class SinkServiceIT {
@@ -744,8 +746,13 @@ public class SinkServiceIT {
     service.startPartition(table, new TopicPartition(topic, partition));
   }
 
-  @Test
-  public void testRecoverReprocessFiles() throws Exception {
+  @ParameterizedTest
+  @CsvSource({
+    "false, 2", // Scenario 1: SNOWPIPE_DISABLE_REPROCESS_FILES_CLEANUP = false, TableStage size 2
+    "true, 3" // Scenario 2: SNOWPIPE_DISABLE_REPROCESS_FILES_CLEANUP = true, TableStage size 3
+  })
+  public void testRecoverReprocessFiles(
+      String disableReprocessFilesCleanup, int expectedTableStageSize) throws Exception {
     String data =
         "{\"content\":{\"name\":\"test\"},\"meta\":{\"offset\":0,"
             + "\"topic\":\"test\",\"partition\":0}}";
@@ -781,8 +788,13 @@ public class SinkServiceIT {
 
     assert getStageSize(stage, table, 0) == 4;
 
+    Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_DISABLE_REPROCESS_FILES_CLEANUP,
+        disableReprocessFilesCleanup);
+
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn)
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
             .addTask(table, new TopicPartition(topic, partition))
             .setRecordNumber(1) // immediate flush
             .build();
@@ -803,9 +815,13 @@ public class SinkServiceIT {
     // cleaner will remove previous files and ingested new file
     TestUtils.assertWithRetry(() -> getStageSize(stage, table, 0) == 0, 30, 10);
 
-    // verify that filename2 appears in table stage
+    // Verify that filename2 appears in the table stage
+    // When SNOWPIPE_DISABLE_REPROCESS_FILES_CLEANUP is set to True, files will not be removed from
+    // currentStage.
+    // As a result, fileName4 will eventually be added to the table stage, bringing the total count
+    // to 3.
     List<String> files = conn.listStage(table, "", true);
-    assert files.size() == 2;
+    assert files.size() == expectedTableStageSize;
 
     service.closeAll();
   }
