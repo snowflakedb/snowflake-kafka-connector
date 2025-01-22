@@ -871,7 +871,7 @@ public class SinkServiceIT {
     // cleaner will remove previous files and ingested new file
     TestUtils.assertWithRetry(() -> getStageSize(stage, table, 0) == 0, 30, 10);
 
-    // When SNOWPIPE_DISABLE_REPROCESS_FILES_CLEANUP is set to True, files will not be removed from
+    // When SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP is set to False, files will not be removed from
     // currentStage.
     // As a result, fileName4 will eventually be added to the table stage, bringing the total count
     // to 3.
