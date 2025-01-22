@@ -85,6 +85,18 @@ public class SnowflakeSinkServiceFactory {
                           .SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED));
         }
         svc.configureSingleTableLoadFromMultipleTopics(extendedStageFileNameFix);
+
+        boolean enableReprocessFilesCleanup =
+            SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP_DEFAULT;
+        if (connectorConfig != null
+            && connectorConfig.containsKey(
+                SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP)) {
+          enableReprocessFilesCleanup =
+              Boolean.parseBoolean(
+                  connectorConfig.get(
+                      SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP));
+        }
+        svc.configureEnableReprocessFilesCleanup(enableReprocessFilesCleanup);
       } else {
         this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
       }

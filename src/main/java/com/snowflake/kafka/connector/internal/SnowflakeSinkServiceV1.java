@@ -101,6 +101,9 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   // data into a single table.
   private boolean enableStageFilePrefixExtension = false;
 
+  // CC-30278 if disabled cleaner won't delete reprocess files on stage
+  private boolean enableReprocessFilesCleanup = true;
+
   private final Set<String> perTableWarningNotifications = new HashSet<>();
 
   SnowflakeSinkServiceV1(SnowflakeConnectionService conn) {
@@ -490,6 +493,10 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     }
   }
 
+  public void configureEnableReprocessFilesCleanup(boolean enable) {
+    enableReprocessFilesCleanup = enable;
+  }
+
   private class ServiceContext {
     private final String tableName;
     private final String stageName;
@@ -691,7 +698,9 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       List<String> currentFilesOnStage = conn.listStage(stageName, prefix);
       List<String> reprocessFiles = new ArrayList<>();
 
-      filterFileReprocess(currentFilesOnStage, reprocessFiles, recordOffset);
+      if (enableReprocessFilesCleanup) {
+        filterFileReprocess(currentFilesOnStage, reprocessFiles, recordOffset);
+      }
 
       // Telemetry
       pipeCreation.setFileCountRestart(currentFilesOnStage.size());
@@ -736,7 +745,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             }
           });
 
-      if (reprocessFiles.size() > 0) {
+      if (enableReprocessFilesCleanup && reprocessFiles.size() > 0) {
         // After we start the cleaner thread, delay a while and start deleting files.
         reprocessCleanerExecutor.submit(
             () -> {

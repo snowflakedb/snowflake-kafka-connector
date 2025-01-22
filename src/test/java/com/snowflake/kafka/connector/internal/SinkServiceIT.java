@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
@@ -806,6 +807,76 @@ public class SinkServiceIT {
     // verify that filename2 appears in table stage
     List<String> files = conn.listStage(table, "", true);
     assert files.size() == 2;
+
+    service.closeAll();
+  }
+
+  @Test
+  public void testReprocessFilesCleanupDisabled() throws Exception {
+    String data =
+        "{\"content\":{\"name\":\"test\"},\"meta\":{\"offset\":0,"
+            + "\"topic\":\"test\",\"partition\":0}}";
+
+    // Two hours ago                         h   m    s    milli
+    long time = System.currentTimeMillis() - 2 * 60 * 60 * 1000L;
+
+    String fileName1 =
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 0, 0, time);
+    String fileName2 =
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 1, 1, time);
+    String fileName3 =
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 2, 3, time);
+    String fileName4 =
+        FileNameTestUtils.fileName(TestUtils.TEST_CONNECTOR_NAME, table, null, 0, 4, 5, time);
+
+    conn.createStage(stage);
+    conn.createTable(table);
+    conn.createPipe(table, stage, pipe);
+    SnowflakeIngestionService ingestionService = conn.buildIngestService(stage, pipe);
+    // File 1 is successfully ingested (ingest history can find this file, so removed)
+    // File 2 is not ingested, so moved to table stage
+    // File 3 is not ingested, so moved to table stage
+    // File 4 is removed by reprocess cleaner
+    conn.put(stage, fileName1, data);
+    conn.put(stage, fileName2, data);
+    conn.put(stage, fileName3, data);
+    conn.put(stage, fileName4, data);
+    ingestionService.ingestFile(fileName1);
+    assert getStageSize(stage, table, 0) == 4;
+
+    Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP, "false");
+    connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED, "false");
+
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
+            .addTask(table, new TopicPartition(topic, partition))
+            .setRecordNumber(1) // immediate flush
+            .build();
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue result =
+        converter.toConnectData(topic, "12321".getBytes(StandardCharsets.UTF_8));
+    // This record is ingested as well.
+    SinkRecord record =
+        new SinkRecord(
+            topic, partition, Schema.STRING_SCHEMA, "test", result.schema(), result.value(), 3);
+    // lazy init and recovery function
+    service.insert(record);
+    // wait for async put
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, 0) == 5, 5, 10);
+    // call snow pipe
+    service.callAllGetOffset();
+    // cleaner will remove previous files and ingested new file
+    TestUtils.assertWithRetry(() -> getStageSize(stage, table, 0) == 0, 30, 10);
+
+    // When SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP is set to False, files will not be removed from
+    // currentStage.
+    // As a result, fileName4 will eventually be added to the table stage, bringing the total count
+    // to 3.
+    List<String> files = conn.listStage(table, "", true);
+    assert files.size() == 3;
 
     service.closeAll();
   }
