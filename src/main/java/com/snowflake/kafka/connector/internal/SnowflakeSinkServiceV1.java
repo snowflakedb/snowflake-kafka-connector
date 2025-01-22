@@ -453,7 +453,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     }
   }
 
-  public void configureDisableReprocessFilesCleanup(boolean enable) {
+  public void configureEnableReprocessFilesCleanup(boolean enable) {
     enableReprocessFilesCleanup = enable;
   }
 
