@@ -846,7 +846,7 @@ public class SinkServiceIT {
 
     Map<String, String> connectorConfig = new HashMap<>();
     connectorConfig.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_DISABLE_REPROCESS_FILES_CLEANUP, "true");
+        SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP, "false");
     connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED, "false");
 
     SnowflakeSinkService service =

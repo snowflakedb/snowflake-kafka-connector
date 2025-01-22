@@ -100,7 +100,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   private boolean enableStageFilePrefixExtension = false;
 
   // CC-30278 if enabled cleaner won't delete reprocess files on stage
-  private boolean disableReprocessFilesCleanup = false;
+  private boolean enableReprocessFilesCleanup = false;
 
   private final Set<String> perTableWarningNotifications = new HashSet<>();
 
@@ -453,8 +453,8 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     }
   }
 
-  public void configureDisableReprocessFilesCleanup(boolean disable) {
-    disableReprocessFilesCleanup = disable;
+  public void configureDisableReprocessFilesCleanup(boolean enable) {
+    enableReprocessFilesCleanup = enable;
   }
 
   private class ServiceContext {
@@ -648,7 +648,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       List<String> currentFilesOnStage = conn.listStage(stageName, prefix);
       List<String> reprocessFiles = new ArrayList<>();
 
-      if (!disableReprocessFilesCleanup) {
+      if (enableReprocessFilesCleanup) {
         filterFileReprocess(currentFilesOnStage, reprocessFiles, recordOffset);
       }
 
@@ -695,7 +695,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
             }
           });
 
-      if (!disableReprocessFilesCleanup && reprocessFiles.size() > 0) {
+      if (enableReprocessFilesCleanup && reprocessFiles.size() > 0) {
         // After we start the cleaner thread, delay a while and start deleting files.
         reprocessCleanerExecutor.submit(
             () -> {
