@@ -96,7 +96,7 @@ public class SnowflakeSinkServiceFactory {
                   connectorConfig.get(
                       SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP));
         }
-        svc.configureDisableReprocessFilesCleanup(enableReprocessFilesCleanup);
+        svc.configureEnableReprocessFilesCleanup(enableReprocessFilesCleanup);
       } else {
         this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
       }
