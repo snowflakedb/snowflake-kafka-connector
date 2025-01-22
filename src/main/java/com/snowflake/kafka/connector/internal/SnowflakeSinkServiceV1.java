@@ -99,8 +99,8 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   // data into a single table.
   private boolean enableStageFilePrefixExtension = false;
 
-  // CC-30278 if enabled cleaner won't delete reprocess files on stage
-  private boolean enableReprocessFilesCleanup = false;
+  // CC-30278 if disabled cleaner won't delete reprocess files on stage
+  private boolean enableReprocessFilesCleanup = true;
 
   private final Set<String> perTableWarningNotifications = new HashSet<>();
 
