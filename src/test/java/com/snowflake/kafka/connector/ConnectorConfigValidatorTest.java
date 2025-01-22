@@ -1015,7 +1015,7 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
-  public void testDISABLE_REPROCESS_FILES_CLEANUP_valid_value() {
+  public void testENABLE_REPROCESS_FILES_CLEANUP_valid_value() {
     Map<String, String> config = getConfig();
     config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP, "true");
     connectorConfigValidator.validateConfig(config);
