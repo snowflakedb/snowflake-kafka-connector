@@ -141,7 +141,7 @@ public class SnowflakeSinkConnectorConfig {
   public static final boolean SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT = true;
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
       "snowflake.streaming.max.client.lag";
-  public static final int SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT = 120;
+  public static final int SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT = 30;
 
   public static final String SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES =
       "snowflake.streaming.max.memory.limit.bytes";
