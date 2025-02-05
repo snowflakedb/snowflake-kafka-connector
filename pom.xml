@@ -59,6 +59,7 @@
         <iceberg.version>1.6.1</iceberg.version>
         <jackson.version>2.18.2</jackson.version>
         <commons-compress.version>1.27.1</commons-compress.version>
+        <snowflake-jdbc.version>3.22.0</snowflake-jdbc.version>
     </properties>
 
 
@@ -334,7 +335,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-jdbc</artifactId>
-            <version>3.22.0</version>
+            <version>${snowflake-jdbc.version}</version>
         </dependency>
 
         <!-- Ingest SDK for copy staged file into snowflake table -->
