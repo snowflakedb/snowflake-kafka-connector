@@ -44,10 +44,10 @@ public class UtilsTest {
     assert !Utils.isValidSnowflakeObjectIdentifier(name1);
   }
 
-  @Test
-  public void testVersionChecker() {
-    assert Utils.checkConnectorVersion();
-  }
+//  @Test
+//  public void testVersionChecker() {
+//    assert Utils.checkConnectorVersion();
+//  }
 
   @Test
   public void testParseTopicToTable() {

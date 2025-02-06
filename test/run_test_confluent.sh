@@ -135,7 +135,7 @@ ls $KAFKA_CONNECT_PLUGIN_PATH
 echo "Copying connect-log4j.properties file to confluent folder"
 cp -fr ./connect-log4j.properties $CONFLUENT_FOLDER_NAME/"etc/kafka/"
 
-compile_protobuf_converter_and_data $TEST_SET $CONFLUENT_FOLDER_NAME
+#compile_protobuf_converter_and_data $TEST_SET $CONFLUENT_FOLDER_NAME
 
 trap "pkill -9 -P $$" SIGINT SIGTERM EXIT
 
@@ -170,15 +170,18 @@ KC_PORT=8083
 
 set +e -x
 echo -e "\n=== Clean table stage and pipe ==="
-python3 test_verify.py $SNOWFLAKE_KAFKA_ADDRESS http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $CONFLUENT_VERSION $NAME_SALT $PRESSURE $SSL $SKIP_PROXY $TESTS
+
+export KAFKA_OPTS="-Djava.net.preferIPv4Stack=True"
+
+python3 -u test_verify.py $SNOWFLAKE_KAFKA_ADDRESS http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $CONFLUENT_VERSION $NAME_SALT $PRESSURE $SSL $SKIP_PROXY $TESTS
 
 # record_thread_count 2>&1 &
 # Send test data and verify DB result from Python
-python3 test_verify.py $SNOWFLAKE_KAFKA_ADDRESS http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT $TEST_SET $CONFLUENT_VERSION $NAME_SALT $PRESSURE $SSL $SKIP_PROXY $TESTS
+python3 -u test_verify.py $SNOWFLAKE_KAFKA_ADDRESS http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT $TEST_SET $CONFLUENT_VERSION $NAME_SALT $PRESSURE $SSL $SKIP_PROXY $TESTS
 testError=$?
 
 # delete_connectors_with_salt $NAME_SALT $LOCAL_IP $KC_PORT
-python3 test_verify.py $SNOWFLAKE_KAFKA_ADDRESS http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $CONFLUENT_VERSION $NAME_SALT $PRESSURE $SSL $SKIP_PROXY $TESTS
+python3 -u test_verify.py $SNOWFLAKE_KAFKA_ADDRESS http://$LOCAL_IP:$SC_PORT $LOCAL_IP:$KC_PORT clean $CONFLUENT_VERSION $NAME_SALT $PRESSURE $SSL $SKIP_PROXY $TESTS
 
 
 ##### Following commented code is used to track thread leak

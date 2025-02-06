@@ -24,7 +24,8 @@ class TestSnowpipeStreamingStringAvroSR(BaseE2eTest):
                 {"name":"firstName","type":"string"},
                 {"name":"time","type":"int"},
                 {"name":"someFloat","type":"float"},
-                {"name":"someFloatNaN","type":"float"}
+                {"name":"someFloatNaN","type":"float"},
+                {"name":"oldDate","type":{"type":"int","logicalType":"date"}}
             ]
         }
         """
@@ -43,7 +44,7 @@ class TestSnowpipeStreamingStringAvroSR(BaseE2eTest):
             key = []
             value = []
             for e in range(self.recordNum):
-                value.append({"id": e, "firstName": "abc0", "time": 1835, "someFloat": 21.37, "someFloatNaN": "NaN"})
+                value.append({"id": e, "firstName": "abc0", "time": 1835, "someFloat": 21.37, "someFloatNaN": "NaN", "oldDate": -345756})
             self.driver.sendAvroSRData(self.topic, value, self.valueSchema, key=[], key_schema="", partition=p)
             sleep(2)
 

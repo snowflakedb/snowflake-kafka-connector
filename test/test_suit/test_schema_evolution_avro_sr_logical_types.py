@@ -117,5 +117,11 @@ class TestSchemaEvolutionAvroSRLogicalTypes(BaseE2eTest):
             print("Number of record expected: {}, got: {}".format(len(self.topics) * self.recordNum, res))
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
+        first_row = self.driver.snowflake_conn.cursor().execute(
+            "Select * from {} limit 1".format(self.topic)).fetchone()
+
+        print("TUTEJ")
+        print(first_row)
+
     def clean(self):
         self.driver.cleanTableStagePipe(self.table)

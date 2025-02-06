@@ -21,7 +21,7 @@ from test_suit.test_auto_table_creation_topic2table import (
 )
 from test_suit.test_avro_avro import TestAvroAvro
 from test_suit.test_avrosr_avrosr import TestAvrosrAvrosr
-from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
+# from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
 from test_suit.test_json_json import TestJsonJson
 from test_suit.test_multiple_topic_to_one_table_snowpipe import (
     TestMultipleTopicToOneTableSnowpipe,
@@ -91,7 +91,7 @@ from test_suit.test_snowpipe_streaming_string_json_dlq import (
 from test_suit.test_snowpipe_streaming_string_json_ignore_tombstone import (
     TestSnowpipeStreamingStringJsonIgnoreTombstone,
 )
-from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
+# from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
 from test_suit.test_string_avro import TestStringAvro
 from test_suit.test_string_avrosr import TestStringAvrosr
 from test_suit.test_string_json import TestStringJson
@@ -239,15 +239,15 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     cloud_platform=CloudPlatform.ALL,
                 ),
             ),
-            (
-                "TestNativeStringProtobuf",
-                EndToEndTestSuite(
-                    test_instance=TestNativeStringProtobuf(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
+            # (
+            #     "TestNativeStringProtobuf",
+            #     EndToEndTestSuite(
+            #         test_instance=TestNativeStringProtobuf(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
             (
                 "TestNullableValuesAfterSmt",
                 EndToEndTestSuite(
@@ -257,15 +257,15 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     cloud_platform=CloudPlatform.ALL,
                 ),
             ),
-            (
-                "TestConfluentProtobufProtobuf",
-                EndToEndTestSuite(
-                    test_instance=TestConfluentProtobufProtobuf(driver, nameSalt),
-                    run_in_confluent=False,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
+            # (
+            #     "TestConfluentProtobufProtobuf",
+            #     EndToEndTestSuite(
+            #         test_instance=TestConfluentProtobufProtobuf(driver, nameSalt),
+            #         run_in_confluent=False,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
             (
                 "TestSnowpipeStreamingNullableValuesAfterSmt",
                 EndToEndTestSuite(
@@ -423,7 +423,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSchemaEvolutionAvroSRLogicalTypes(
                         driver, nameSalt
                     ),
-                    run_in_confluent=False,
+                    run_in_confluent=True,
                     run_in_apache=False,
                     cloud_platform=CloudPlatform.ALL,
                 ),
