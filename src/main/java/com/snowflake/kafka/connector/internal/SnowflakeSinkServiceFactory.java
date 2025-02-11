@@ -47,7 +47,18 @@ public class SnowflakeSinkServiceFactory {
         IngestionMethodConfig ingestionType,
         Map<String, String> connectorConfig) {
       if (ingestionType == IngestionMethodConfig.SNOWPIPE) {
-        SnowflakeSinkServiceV1 svc = new SnowflakeSinkServiceV1(conn);
+        long v2CleanerIntervalSeconds =
+            SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS_DEFAULT;
+        if (connectorConfig != null
+            && connectorConfig.containsKey(
+                SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS)) {
+          v2CleanerIntervalSeconds =
+              Long.parseLong(
+                  connectorConfig.get(
+                      SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS));
+        }
+
+        SnowflakeSinkServiceV1 svc = new SnowflakeSinkServiceV1(conn, v2CleanerIntervalSeconds);
         this.service = svc;
         boolean useStageFilesProcessor =
             SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT;
