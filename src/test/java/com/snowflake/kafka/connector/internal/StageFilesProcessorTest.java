@@ -15,6 +15,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryPipeCreation;
@@ -92,7 +93,8 @@ class StageFilesProcessorTest {
             pipeTelemetry,
             telemetryService,
             createTestScheduler(ticks, currentTime, nextTickCallback, scheduledFuture),
-            currentTime::get);
+            currentTime::get,
+            SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS_DEFAULT);
     register = new StageFilesProcessor.ProgressRegisterImpl(victim);
   }
 

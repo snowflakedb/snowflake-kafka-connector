@@ -117,9 +117,17 @@ public class SnowflakeSinkConnectorConfig {
   public static final String SNOWPIPE_FILE_CLEANER_FIX_ENABLED =
       "snowflake.snowpipe.v2CleanerEnabled";
   public static final String SNOWPIPE_FILE_CLEANER_THREADS = "snowflake.snowpipe.v2CleanerThreads";
+  // how often to run v2 cleaner
+  // low value may cause hitting "too many requests - 429 status code" while querying the internal
+  // stage
+  // setting it higher may be cost-effective when no messages land on a partition
+  // (https://snowflakecomputing.atlassian.net/browse/SNOW-1904571)
+  public static final String SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS =
+      "snowflake.snowpipe.v2CleanerIntervalSeconds";
 
   public static final boolean SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT = true;
   public static final int SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT = 1;
+  public static final long SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS_DEFAULT = 61;
 
   public static final String SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP =
       "snowflake.snowpipe.v1Cleaner.enable.reprocessFiles.cleanup";

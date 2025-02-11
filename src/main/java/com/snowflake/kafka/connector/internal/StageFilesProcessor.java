@@ -73,12 +73,9 @@ class StageFilesProcessor {
   private final SnowflakeTelemetryService telemetryService;
   private final FilteringPredicates filters;
   private final ScheduledExecutorService schedulingExecutor;
+  private final long v2CleanerIntervalSeconds;
   // start first cleanup cycle 60 seconds after start
   private static final long INITIAL_DELAY_SECONDS = 60;
-  // then repeat every 61 seconds - potential call to loadHistory is throttled, so this extra second
-  // can
-  // save us from hitting "too many requests - 429 status code"
-  private static final long CLEANUP_PERIOD_SECONDS = 61;
 
   /**
    * Client interface for the StageFileProcessor - allows thread safe registration of new files and
@@ -109,7 +106,8 @@ class StageFilesProcessor {
       SnowflakeIngestionService ingestionService,
       SnowflakeTelemetryPipeStatus pipeTelemetry,
       SnowflakeTelemetryService telemetryService,
-      ScheduledExecutorService schedulingExecutor) {
+      ScheduledExecutorService schedulingExecutor,
+      long v2CleanerIntervalSeconds) {
     this(
         pipeName,
         tableName,
@@ -122,7 +120,8 @@ class StageFilesProcessor {
         pipeTelemetry,
         telemetryService,
         schedulingExecutor,
-        System::currentTimeMillis);
+        System::currentTimeMillis,
+        v2CleanerIntervalSeconds);
   }
 
   @VisibleForTesting
@@ -138,7 +137,8 @@ class StageFilesProcessor {
       SnowflakeTelemetryPipeStatus pipeTelemetry,
       SnowflakeTelemetryService telemetryService,
       ScheduledExecutorService schedulingExecutor,
-      TimeSupplier currentTimeSupplier) {
+      TimeSupplier currentTimeSupplier,
+      long v2CleanerIntervalSeconds) {
     this.pipeName = pipeName;
     this.tableName = tableName;
     this.stageName = stageName;
@@ -152,6 +152,7 @@ class StageFilesProcessor {
     this.pipeTelemetry = pipeTelemetry;
     this.schedulingExecutor = schedulingExecutor;
     this.filters = new FilteringPredicates(currentTimeSupplier, prefix);
+    this.v2CleanerIntervalSeconds = v2CleanerIntervalSeconds;
   }
 
   /**
@@ -266,7 +267,7 @@ class StageFilesProcessor {
               }
             },
             INITIAL_DELAY_SECONDS,
-            CLEANUP_PERIOD_SECONDS,
+            v2CleanerIntervalSeconds,
             TimeUnit.SECONDS));
   }
 

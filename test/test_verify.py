@@ -84,7 +84,8 @@ class KafkaTest:
             }
         else:
             self.client_config = {
-                "bootstrap.servers": kafkaAddress
+                "bootstrap.servers": kafkaAddress,
+                "broker.address.family": "v4",
             }
 
         self.adminClient = AdminClient(self.client_config)
