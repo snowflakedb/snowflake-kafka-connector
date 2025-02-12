@@ -133,6 +133,8 @@ public class Utils {
   public static final String TARGET_LAG_CONF = "dynamic.table.target.lag";
   public static final String CLEANUP_TASK_SCHEDULE_CONF = "cleanup.task.schedule";
   public static final String CREATE_SQL_EXECUTE_CONF = "create.sql.execute";
+  public static final String SQL_DT_TABLE_NAME_CONF = "sql.table.name";
+  public static final String CREATE_SQL_DATA_CONF = "create.sql.data";
   public static final String TOPICS_MAP_CONF = "topics.config.map";
   public static final String SCHEMA_CHANGE_CHECK_MS = "schema.changes.check.interval.ms";
   public static final String APPLY_DYNAMIC_TABLE_SCRIPT_CONF = "apply.dynamic.table.script";

@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.templating;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.mustachejava.DefaultMustacheFactory;
@@ -29,6 +31,8 @@ public class StreamkapQueryTemplate {
     private static final Logger LOGGER = LoggerFactory.getLogger(StreamkapQueryTemplate.class);
     private final ConcurrentMap<String, TopicConfig> allTopicConfigs = new ConcurrentHashMap<>();
     private Mustache createSqlTemplate = null;
+    private Mustache tableNameTemplate = null;
+    private Map<String, Object> createSqlData = null;
     private String sfWarehouse;
     private int targetLag = 15;
     private int cleanupTaskSchedule = 60;
@@ -85,6 +89,8 @@ public class StreamkapQueryTemplate {
         instance.setTargetLag(Integer.parseInt(getOrDefault(parsedConfig.get(Utils.TARGET_LAG_CONF),"15")));
         instance.setCleanupTaskSchedule(Integer.parseInt(getOrDefault(parsedConfig.get(Utils.CLEANUP_TASK_SCHEDULE_CONF),"60")));
         instance.setCreateSqlTemplate(parsedConfig.get(Utils.CREATE_SQL_EXECUTE_CONF));
+        instance.setSqlTableNameTemplate(getOrDefault(parsedConfig.get(Utils.SQL_DT_TABLE_NAME_CONF), "{{table}}_DT"));
+        instance.setCreateSqlData(getOrDefault(parsedConfig.get(Utils.CREATE_SQL_DATA_CONF), "{}"));
         instance.setSchemaChangeIntervalMs(Long.parseLong(getOrDefault(parsedConfig.get(Utils.SCHEMA_CHANGE_CHECK_MS),"300000")));
         instance.setApplyDynamicTableScript(Boolean.parseBoolean(getOrDefault(parsedConfig.get(Utils.APPLY_DYNAMIC_TABLE_SCRIPT_CONF),"false")));
         TopicConfigProcess topicConfigProcess = new TopicConfigProcess(topics, topicsMapping);
@@ -108,6 +114,16 @@ public class StreamkapQueryTemplate {
     public Mustache getCreateTemplate(String topic) {
         TopicConfig topicConfig = allTopicConfigs.get(topic);
         return topicConfig != null && topicConfig.getCreateTemplate() != null ? topicConfig.getCreateTemplate() : createSqlTemplate;
+    }
+
+    
+    public Mustache getTableNameTemplate() {
+        // table name template is global, same for all topics
+        return tableNameTemplate;
+    }
+
+    public Map<String, Object> getCreateSqlData() {
+        return createSqlData;
     }
 
     /**
@@ -195,8 +211,13 @@ public class StreamkapQueryTemplate {
             try {
                 Connection con = conn.getConnection();
                 try (Statement stmt = con.createStatement()) {
+                    Mustache tableNameTemplate = getTableNameTemplate();
+                    Map<String, Object> data = getCreateSqlData();
+                    String dtTableName = generateSqlFromTemplate(tableName, record, tableNameTemplate, data).get(0);
+                    Map<String, Object> dataForTable = new ConcurrentHashMap<>(data);
+                    dataForTable.put("dynamicTableName", dtTableName);
                     Mustache template = getCreateTemplate(record.topic());
-                    List<String> statements = generateSqlFromTemplate(tableName, record, template);
+                    List<String> statements = generateSqlFromTemplate(tableName, record, template, dataForTable);
                     applyDdlStatements(con, statements);
                     processedTopics.putIfAbsent(record.topic(), true);
                     scriptAppliedSuccessfully = true;
@@ -215,6 +236,13 @@ public class StreamkapQueryTemplate {
         return scriptAppliedSuccessfully;
     }
 
+    private String executeTemplate(String tableName, SinkRecord sinkRecord, Mustache mustacheTemplate, Map<String, Object> data) throws IOException {
+        StringWriter writer = new StringWriter();
+        Map<String, Object> fieldValues = getRecordDataAsMap(tableName.toUpperCase(), sinkRecord, data);
+        mustacheTemplate.execute(writer, fieldValues).flush();
+        return writer.toString();
+    }
+
     /**
      * Generates SQL statements from a Mustache template.
      *
@@ -224,11 +252,9 @@ public class StreamkapQueryTemplate {
      * @return a list of SQL statements
      * @throws IOException if an I/O error occurs
      */
-    private List<String> generateSqlFromTemplate(String tableName, SinkRecord sinkRecord, Mustache mustacheTemplate) throws IOException {
-        StringWriter writer = new StringWriter();
-        Map<String, Object> fieldValues = getRecordDataAsMap(tableName.toUpperCase(), sinkRecord);
-        mustacheTemplate.execute(writer, fieldValues).flush();
-        String[] sqlStatements = writer.toString().split(";"); // Split by semicolon to handle multiple statements
+    private List<String> generateSqlFromTemplate(String tableName, SinkRecord sinkRecord, Mustache mustacheTemplate, Map<String, Object> data) throws IOException {
+        String sqlQueriesStr = executeTemplate(tableName, sinkRecord, mustacheTemplate, data);
+        String[] sqlStatements = sqlQueriesStr.split(";"); // Split by semicolon to handle multiple statements
         return Arrays.asList(sqlStatements);
     }
 
@@ -239,8 +265,8 @@ public class StreamkapQueryTemplate {
      * @param sinkRecord the SinkRecord
      * @return a map of record data
      */
-    private Map<String, Object> getRecordDataAsMap(String tableName, SinkRecord sinkRecord) {
-        Map<String, Object> values = new ConcurrentHashMap<>();
+    private Map<String, Object> getRecordDataAsMap(String tableName, SinkRecord sinkRecord, Map<String, Object> data) {
+        Map<String, Object> values = new ConcurrentHashMap<>(data);
         List<String> keyCols = (sinkRecord.keySchema() != null ? sinkRecord.keySchema().fields().stream().map(f -> f.name()) :
                                 sinkRecord.valueSchema().fields().stream().map(f -> f.name())).collect(Collectors.toList());
         values.put("warehouse", this.sfWarehouse);
@@ -276,6 +302,30 @@ public class StreamkapQueryTemplate {
             LOGGER.info("Create SQL Template generated.");
         }
         this.createSqlTemplate = template;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void setCreateSqlData(String createSqlData) {
+        Map<String, Object> result;
+        try {
+            result = new ObjectMapper().readValue(createSqlData, HashMap.class);
+            this.createSqlData = Collections.unmodifiableMap(result);
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid create sql data " + createSqlData, e);
+        }
+        LOGGER.info("Setting Create SQL Data : {}", createSqlData);
+    }
+
+    
+
+    private void setSqlTableNameTemplate(String sqlTableName) {
+        Mustache template = null;
+        LOGGER.info("Setting SQL Table Name Template query : {}", sqlTableName);
+        if (sqlTableName != null && !sqlTableName.trim().isEmpty()) {
+            template = mustacheFactory.compile(new StringReader(sqlTableName),  "sql-tale-name-template");
+            LOGGER.info("Create SQL Table Name Template generated.");
+        }
+        this.tableNameTemplate = template;
     }
 
     private static class TopicConfig {
