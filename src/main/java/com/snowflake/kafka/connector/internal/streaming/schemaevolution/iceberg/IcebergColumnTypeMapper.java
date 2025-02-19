@@ -46,7 +46,7 @@ class IcebergColumnTypeMapper {
         Types.TimestampType timestamp = (Types.TimestampType) apacheIcebergType;
         return timestamp.shouldAdjustToUTC() ? "TIMESTAMP_LTZ" : "TIMESTAMP";
       case STRING:
-        return "VARCHAR(16777216)";
+        return "STRING";
       case UUID:
         return "BINARY(16)";
       case FIXED:
