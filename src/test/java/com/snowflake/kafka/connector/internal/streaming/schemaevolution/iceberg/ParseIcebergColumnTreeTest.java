@@ -51,7 +51,7 @@ public class ParseIcebergColumnTreeTest {
         arguments("\"time\"", "TIME(6)"),
         arguments("\"timestamptz\"", "TIMESTAMP_LTZ"),
         arguments("\"timestamp\"", "TIMESTAMP"),
-        arguments("\"string\"", "VARCHAR(16777216)"),
+        arguments("\"string\"", "STRING"),
         arguments("\"uuid\"", "BINARY(16)"),
         arguments("\"binary\"", "BINARY"),
         arguments("\"decimal(10,5)\"", "DECIMAL(10, 5)"),
@@ -69,7 +69,7 @@ public class ParseIcebergColumnTreeTest {
         // map
         arguments(
             "{\"type\":\"map\",\"key-id\":4,\"key\":\"int\",\"value-id\":5,\"value\":\"string\",\"value-required\":false}",
-            "MAP(INT, VARCHAR(16777216))"),
+            "MAP(INT, STRING)"),
         // structs with nested objects
         arguments(
             "{\"type\":\"struct\",\"fields\":["
@@ -79,14 +79,14 @@ public class ParseIcebergColumnTreeTest {
                 + "    {\"id\":27,\"name\":\"nested_key2\",\"required\":false,\"type\":\"string\"}"
                 + "]}}]}",
             "OBJECT(k1 INT, k2 INT, nested_object"
-                + " OBJECT(nested_key1 VARCHAR(16777216), nested_key2 VARCHAR(16777216)))"),
+                + " OBJECT(nested_key1 STRING, nested_key2 STRING))"),
         arguments(
             "{\"type\":\"struct\",\"fields\":[{\"id\":2,\"name\":\"offset\",\"required\":false,\"type\":\"int\"},{\"id\":3,\"name\":\"topic\",\"required\":false,\"type\":\"string\"},{\"id\":4,\"name\":\"partition\",\"required\":false,\"type\":\"int\"},{\"id\":5,\"name\":\"key\",\"required\":false,\"type\":\"string\"},{\"id\":6,\"name\":\"schema_id\",\"required\":false,\"type\":\"int\"},{\"id\":7,\"name\":\"key_schema_id\",\"required\":false,\"type\":\"int\"},{\"id\":8,\"name\":\"CreateTime\",\"required\":false,\"type\":\"long\"},{\"id\":9,\"name\":\"LogAppendTime\",\"required\":false,\"type\":\"long\"},{\"id\":10,\"name\":\"SnowflakeConnectorPushTime\",\"required\":false,\"type\":\"long\"},{\"id\":11,\"name\":\"headers\",\"required\":false,\"type\":{\"type\":\"map\",\"key-id\":12,\"key\":\"string\",\"value-id\":13,\"value\":\"string\",\"value-required\":false}}]}\n",
-            "OBJECT(offset INT, topic VARCHAR(16777216), partition"
-                + " INT, key VARCHAR(16777216), schema_id INT, key_schema_id"
+            "OBJECT(offset INT, topic STRING, partition"
+                + " INT, key STRING, schema_id INT, key_schema_id"
                 + " INT, CreateTime LONG, LogAppendTime LONG,"
-                + " SnowflakeConnectorPushTime LONG, headers MAP(VARCHAR(16777216),"
-                + " VARCHAR(16777216)))"));
+                + " SnowflakeConnectorPushTime LONG, headers MAP(STRING,"
+                + " STRING))"));
   }
 
   @ParameterizedTest(name = "{0}")
@@ -201,7 +201,7 @@ public class ParseIcebergColumnTreeTest {
                 + "    }}"
                 + "}}",
             "OBJECT(k1 INT, k2 INT, nested_object OBJECT(nested_key1"
-                + " VARCHAR(16777216), nested_key2 VARCHAR(16777216), nested_object2"
+                + " STRING, nested_key2 STRING, nested_object2"
                 + " OBJECT(nested_key2 DOUBLE)))"),
         // ARRAY merge
         arguments(
