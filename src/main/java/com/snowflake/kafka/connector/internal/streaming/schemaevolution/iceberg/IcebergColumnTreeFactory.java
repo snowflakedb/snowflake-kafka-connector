@@ -94,11 +94,10 @@ public class IcebergColumnTreeFactory {
 
   private LinkedHashMap<String, IcebergFieldNode> produceChildrenFromArray(ArrayNode arrayNode) {
     JsonNode arrayElement = arrayNode.get(0);
-    // VARCHAR is set for an empty array: [] -> ARRAY(VARCHAR)
+    // STRING is set for an empty array: [] -> ARRAY(STRING)
     if (arrayElement == null) {
       LinkedHashMap<String, IcebergFieldNode> child = new LinkedHashMap<>();
-      child.put(
-          "element", new IcebergFieldNode("element", "VARCHAR(16777216)", new LinkedHashMap<>()));
+      child.put("element", new IcebergFieldNode("element", "STRING", new LinkedHashMap<>()));
       return child;
     }
     LinkedHashMap<String, IcebergFieldNode> child = new LinkedHashMap<>();
