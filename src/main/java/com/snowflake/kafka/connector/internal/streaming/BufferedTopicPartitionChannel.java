@@ -182,6 +182,8 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
 
   private final InsertErrorMapper insertErrorMapper;
 
+  private final ChannelOffsetTokenMigrator channelOffsetTokenMigrator;
+
   /** Testing only, initialize TopicPartitionChannel without the connection service */
   @VisibleForTesting
   public BufferedTopicPartitionChannel(
@@ -285,12 +287,14 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
     this.schemaEvolutionService = schemaEvolutionService;
 
+    this.channelOffsetTokenMigrator = new ChannelOffsetTokenMigrator(conn, telemetryService);
+
     if (isEnableChannelOffsetMigration(sfConnectorConfig)) {
       /* Channel Name format V2 is computed from connector name, topic and partition */
       final String channelNameFormatV2 =
           TopicPartitionChannel.generateChannelNameFormatV2(
               this.channelNameFormatV1, this.conn.getConnectorName());
-      conn.migrateStreamingChannelOffsetToken(
+      channelOffsetTokenMigrator.migrateChannelOffsetWithRetry(
           this.tableName, channelNameFormatV2, this.channelNameFormatV1);
     }
 

@@ -65,6 +65,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
+  public static class OffsetTokenMigrationRetryableException extends RuntimeException {
+    public OffsetTokenMigrationRetryableException(String message) {
+      super(message);
+    }
+  }
+
   SnowflakeConnectionServiceV1(
       JdbcProperties jdbcProperties,
       SnowflakeURL url,
@@ -1135,7 +1141,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
                 "No result found in Migrating OffsetToken through System Function for tableName:%s,"
                     + " sourceChannel:%s, destinationChannel:%s",
                 fullyQualifiedTableName, sourceChannelName, destinationChannelName);
-        throw SnowflakeErrors.ERROR_5023.getException(errorMsg, this.telemetry);
+        throw new OffsetTokenMigrationRetryableException(errorMsg);
       }
 
       ChannelMigrateOffsetTokenResponseDTO channelMigrateOffsetTokenResponseDTO =
@@ -1150,10 +1156,10 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
           channelMigrateOffsetTokenResponseDTO);
       if (!ChannelMigrationResponseCode.isChannelMigrationResponseSuccessful(
           channelMigrateOffsetTokenResponseDTO)) {
-        throw SnowflakeErrors.ERROR_5023.getException(
+        String message =
             ChannelMigrationResponseCode.getMessageByCode(
-                channelMigrateOffsetTokenResponseDTO.getResponseCode()),
-            this.telemetry);
+                channelMigrateOffsetTokenResponseDTO.getResponseCode());
+        throw new OffsetTokenMigrationRetryableException(message);
       }
       return channelMigrateOffsetTokenResponseDTO;
     } catch (SQLException | JsonProcessingException e) {
@@ -1165,7 +1171,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
               fullyQualifiedTableName,
               e.getMessage(),
               Arrays.toString(e.getStackTrace()));
-      throw SnowflakeErrors.ERROR_5023.getException(errorMsg, this.telemetry);
+      throw new OffsetTokenMigrationRetryableException(errorMsg);
     }
   }
 

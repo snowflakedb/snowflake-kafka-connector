@@ -143,6 +143,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
   private final InsertErrorMapper insertErrorMapper;
 
+  private final ChannelOffsetTokenMigrator channelOffsetTokenMigrator;
+
   /**
    * Used to send telemetry to Snowflake. Currently, TelemetryClient created from a Snowflake
    * Connection Object, i.e. not a session-less Client
@@ -246,12 +248,14 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
     this.schemaEvolutionService = schemaEvolutionService;
 
+    this.channelOffsetTokenMigrator = new ChannelOffsetTokenMigrator(conn, telemetryService);
+
     if (isEnableChannelOffsetMigration(sfConnectorConfig)) {
       /* Channel Name format V2 is computed from connector name, topic and partition */
       final String channelNameFormatV2 =
           TopicPartitionChannel.generateChannelNameFormatV2(
               this.channelNameFormatV1, this.conn.getConnectorName());
-      conn.migrateStreamingChannelOffsetToken(
+      channelOffsetTokenMigrator.migrateChannelOffsetWithRetry(
           this.tableName, channelNameFormatV2, this.channelNameFormatV1);
     }
 
