@@ -465,7 +465,7 @@ public class ConnectionServiceIT {
       channelMigrateOffsetTokenResponseDTO =
           conn.migrateStreamingChannelOffsetToken(
               tableName + "_Table_DOESNT_EXIST", sourceChannelName, destinationChannelName);
-    } catch (SnowflakeKafkaConnectorException ex) {
+    } catch (SnowflakeConnectionServiceV1.OffsetTokenMigrationRetryableException ex) {
       assert ex.getMessage()
           .contains(
               ChannelMigrationResponseCode.ERR_TABLE_DOES_NOT_EXIST_NOT_AUTHORIZED.getMessage());
