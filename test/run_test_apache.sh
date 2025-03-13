@@ -10,7 +10,7 @@ function error_exit() {
 }
 
 function random-string() {
-    cat /dev/urandom | env LC_CTYPE=C tr -cd 'a-z0-9' | head -c 4
+     echo $RANDOM$RANDOM | base64 |  cut -c1-7
 }
 
 source ./utils.sh

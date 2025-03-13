@@ -145,10 +145,10 @@ public class Utils {
   }
 
   /**
-   * check the connector version from Maven repo, report if any update version is available.
+   * Check the connector version from Maven repo, report if any update version is available.
    *
    * <p>A URl connection timeout is added in case Maven repo is not reachable in a proxy'd
-   * environment. Returning false from this method doesnt have any side effects to start the
+   * environment. Returning false from this method doesn't have any side effects to start the
    * connector.
    */
   static boolean checkConnectorVersion() {
