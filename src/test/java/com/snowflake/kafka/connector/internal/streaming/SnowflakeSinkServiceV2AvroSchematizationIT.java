@@ -46,6 +46,8 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
   private static final String FIRST_NAME = "FIRST_NAME";
   private static final String RATING_FLOAT32 = "RATING_FLOAT32";
   private static final String FLOAT_NAN = "FLOAT_NAN";
+  private static final String FLOAT_POSITIVE_INFINITY = "FLOAT_POSITIVE_INFINITY";
+  private static final String FLOAT_NEGATIVE_INFINITY = "FLOAT_NEGATIVE_INFINITY";
   private static final String RATING_FLOAT64 = "RATING_FLOAT64";
   private static final String APPROVAL = "APPROVAL";
   private static final String INFO_ARRAY_STRING = "INFO_ARRAY_STRING";
@@ -65,6 +67,8 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
           put(FIRST_NAME, "VARCHAR");
           put(RATING_FLOAT32, "FLOAT");
           put(FLOAT_NAN, "FLOAT");
+          put(FLOAT_POSITIVE_INFINITY, "FLOAT");
+          put(FLOAT_NEGATIVE_INFINITY, "FLOAT");
           put(RATING_FLOAT64, "FLOAT");
           put(APPROVAL, "BOOLEAN");
           put(INFO_ARRAY_STRING, "ARRAY");
@@ -129,6 +133,10 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
     Assertions.assertEquals(actual.get(RATING_FLOAT32), 0.99);
     Assertions.assertEquals(
         actual.get(FLOAT_NAN), Double.NaN); // float is extended to double on SF side
+    Assertions.assertEquals(
+        actual.get(FLOAT_POSITIVE_INFINITY), Double.POSITIVE_INFINITY); // float is extended to double on SF side
+    Assertions.assertEquals(
+        actual.get(FLOAT_NEGATIVE_INFINITY), Double.NEGATIVE_INFINITY); // float is extended to double on SF side
     Assertions.assertEquals(actual.get(RATING_FLOAT64), 0.99);
     Assertions.assertEquals(actual.get(APPROVAL), true);
     Assertions.assertEquals(
@@ -203,6 +211,8 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
             .field(FIRST_NAME, Schema.STRING_SCHEMA)
             .field(RATING_FLOAT32, Schema.FLOAT32_SCHEMA)
             .field(FLOAT_NAN, Schema.FLOAT32_SCHEMA)
+            .field(FLOAT_POSITIVE_INFINITY, Schema.FLOAT32_SCHEMA)
+            .field(FLOAT_NEGATIVE_INFINITY, Schema.FLOAT32_SCHEMA)
             .field(RATING_FLOAT64, Schema.FLOAT64_SCHEMA)
             .field(APPROVAL, Schema.BOOLEAN_SCHEMA)
             .field(INFO_ARRAY_STRING, SchemaBuilder.array(Schema.STRING_SCHEMA).build())
@@ -221,6 +231,8 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
         .put(FIRST_NAME, "zekai")
         .put(RATING_FLOAT32, 0.99f)
         .put(FLOAT_NAN, Float.NaN)
+        .put(FLOAT_POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+        .put(FLOAT_NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY)
         .put(RATING_FLOAT64, 0.99d)
         .put(APPROVAL, true)
         .put(INFO_ARRAY_STRING, Arrays.asList("a", "b"))
