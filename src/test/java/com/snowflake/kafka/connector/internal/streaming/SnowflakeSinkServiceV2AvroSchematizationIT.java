@@ -134,9 +134,11 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
     Assertions.assertEquals(
         actual.get(FLOAT_NAN), Double.NaN); // float is extended to double on SF side
     Assertions.assertEquals(
-        actual.get(FLOAT_POSITIVE_INFINITY), Double.POSITIVE_INFINITY); // float is extended to double on SF side
+        actual.get(FLOAT_POSITIVE_INFINITY),
+        Double.POSITIVE_INFINITY); // float is extended to double on SF side
     Assertions.assertEquals(
-        actual.get(FLOAT_NEGATIVE_INFINITY), Double.NEGATIVE_INFINITY); // float is extended to double on SF side
+        actual.get(FLOAT_NEGATIVE_INFINITY),
+        Double.NEGATIVE_INFINITY); // float is extended to double on SF side
     Assertions.assertEquals(actual.get(RATING_FLOAT64), 0.99);
     Assertions.assertEquals(actual.get(APPROVAL), true);
     Assertions.assertEquals(

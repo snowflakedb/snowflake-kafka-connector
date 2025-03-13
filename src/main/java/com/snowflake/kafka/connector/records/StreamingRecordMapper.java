@@ -34,7 +34,8 @@ abstract class StreamingRecordMapper {
     return value;
   }
 
-  protected String writeValueAsStringOrNanOrInfinity(JsonNode columnNode) throws JsonProcessingException {
+  protected String writeValueAsStringOrNanOrInfinity(JsonNode columnNode)
+      throws JsonProcessingException {
     if (columnNode instanceof NumericNode && ((NumericNode) columnNode).isNaN()) {
       // DoubleNode::isNaN() and FloatNode::isNaN() will return true on both infinite values,
       // therefore we need to handle them here, where isNaN() is true
