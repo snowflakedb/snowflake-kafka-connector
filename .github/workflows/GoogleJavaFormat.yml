@@ -10,7 +10,7 @@ jobs:
   formatting:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: GoogleJavaFormat
         id: googlejavaformat
         uses: axel-op/googlejavaformat-action@v3
