@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.snowflake.kafka.connector.internal.streaming.v1.StreamingClientHandler;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;

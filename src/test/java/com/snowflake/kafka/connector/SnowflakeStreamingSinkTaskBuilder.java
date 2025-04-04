@@ -5,7 +5,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceV1.partitionChannelKey;
 
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -15,8 +15,8 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.BufferedTopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.StreamingBufferThreshold;
+import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceV1;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
@@ -54,7 +54,7 @@ public class SnowflakeStreamingSinkTaskBuilder {
   public SnowflakeSinkTask build() {
     SnowflakeConnectionService mockConnectionService =
         Mockito.mock(SnowflakeConnectionServiceV1.class);
-    SnowflakeSinkServiceV2 mockSinkService =
+    StreamingSinkServiceV1 mockSinkService =
         streamingSinkService(config, streamingIngestClient, errorReporter, mockConnectionService);
     return new SnowflakeSinkTask(mockSinkService, mockConnectionService);
   }
@@ -88,7 +88,7 @@ public class SnowflakeStreamingSinkTaskBuilder {
     return config;
   }
 
-  private SnowflakeSinkServiceV2 streamingSinkService(
+  private StreamingSinkServiceV1 streamingSinkService(
       Map<String, String> config,
       SnowflakeStreamingIngestClient mockStreamingClient,
       KafkaRecordErrorReporter errorReporter,
@@ -104,7 +104,7 @@ public class SnowflakeStreamingSinkTaskBuilder {
         new BufferedTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            SnowflakeSinkServiceV2.partitionChannelKey(topicName, partition),
+            StreamingSinkServiceV1.partitionChannelKey(topicName, partition),
             topicName,
             new StreamingBufferThreshold(10, 10_000, 1),
             config,
@@ -118,7 +118,7 @@ public class SnowflakeStreamingSinkTaskBuilder {
     Map topicPartitionChannelMap =
         Collections.singletonMap(partitionChannelKey(topicName, partition), topicPartitionChannel);
 
-    return new SnowflakeSinkServiceV2(
+    return new StreamingSinkServiceV1(
         1,
         10 * 1024 * 1024,
         1,

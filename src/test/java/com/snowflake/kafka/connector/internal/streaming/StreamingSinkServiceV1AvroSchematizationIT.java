@@ -33,7 +33,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-public class SnowflakeSinkServiceV2AvroSchematizationIT {
+public class StreamingSinkServiceV1AvroSchematizationIT {
 
   private static final int PARTITION = 0;
   private static final int START_OFFSET = 0;

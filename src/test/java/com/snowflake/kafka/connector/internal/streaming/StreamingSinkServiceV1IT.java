@@ -2,7 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
-import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceV1.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.codahale.metrics.Gauge;
@@ -50,7 +50,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
-public class SnowflakeSinkServiceV2IT {
+public class StreamingSinkServiceV1IT {
 
   private SnowflakeConnectionService conn;
   private String table = TestUtils.randomTableName();
@@ -94,7 +94,7 @@ public class SnowflakeSinkServiceV2IT {
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .build();
 
-    assert service instanceof SnowflakeSinkServiceV2;
+    assert service instanceof StreamingSinkServiceV1;
 
     // connection test
     Map<String, String> finalConfig = config;
@@ -224,10 +224,10 @@ public class SnowflakeSinkServiceV2IT {
     service.close(partitionsToClose);
 
     // remaining partition should be present in the map
-    SnowflakeSinkServiceV2 snowflakeSinkServiceV2 = (SnowflakeSinkServiceV2) service;
+    StreamingSinkServiceV1 streamingSinkServiceV1 = (StreamingSinkServiceV1) service;
 
     Assertions.assertTrue(
-        snowflakeSinkServiceV2
+        streamingSinkServiceV1
             .getTopicPartitionChannelFromCacheKey(partitionChannelKey(tp2.topic(), tp2.partition()))
             .isPresent());
 
@@ -426,7 +426,7 @@ public class SnowflakeSinkServiceV2IT {
     // verify all metrics
     Map<String, Gauge> metricRegistry =
         service
-            .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition))
+            .getMetricRegistry(StreamingSinkServiceV1.partitionChannelKey(topic, partition))
             .get()
             .getGauges();
     assert metricRegistry.size()
@@ -460,7 +460,7 @@ public class SnowflakeSinkServiceV2IT {
 
     // verify metrics closed
     assert !service
-        .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition))
+        .getMetricRegistry(StreamingSinkServiceV1.partitionChannelKey(topic, partition))
         .isPresent();
 
     Mockito.verify(telemetryService, Mockito.times(2))

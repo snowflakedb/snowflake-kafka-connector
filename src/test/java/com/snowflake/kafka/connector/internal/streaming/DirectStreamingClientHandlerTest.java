@@ -19,6 +19,8 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.v1.DirectStreamingClientHandler;
+import com.snowflake.kafka.connector.internal.streaming.v1.StreamingClientHandler;
 import java.util.Map;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import net.snowflake.ingest.utils.SFException;

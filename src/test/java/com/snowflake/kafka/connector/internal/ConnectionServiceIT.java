@@ -14,8 +14,8 @@ import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetToke
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.StreamingBufferThreshold;
+import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceV1;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
@@ -444,7 +444,7 @@ public class ConnectionServiceIT {
     SnowflakeConnectionService conn =
         SnowflakeConnectionServiceFactory.builder().setProperties(testConfig).build();
     conn.createTable(tableName);
-    final String channelNameFormatV1 = SnowflakeSinkServiceV2.partitionChannelKey(tableName, 0);
+    final String channelNameFormatV1 = StreamingSinkServiceV1.partitionChannelKey(tableName, 0);
 
     final String sourceChannelName =
         TopicPartitionChannel.generateChannelNameFormatV2(channelNameFormatV1, TEST_CONNECTOR_NAME);
@@ -519,10 +519,10 @@ public class ConnectionServiceIT {
       // step 3: do a migration and check if destination channel has expected offset
 
       // Ctor of TopicPartitionChannel tries to open the channel.
-      SnowflakeSinkServiceV2 snowflakeSinkServiceV2 = (SnowflakeSinkServiceV2) service;
+      StreamingSinkServiceV1 streamingSinkServiceV1 = (StreamingSinkServiceV1) service;
       TopicPartitionChannel newChannelFormatV2 =
           new BufferedTopicPartitionChannel(
-              snowflakeSinkServiceV2.getStreamingIngestClient(),
+              streamingSinkServiceV1.getStreamingIngestClient(),
               topicPartition,
               sourceChannelName,
               tableName,

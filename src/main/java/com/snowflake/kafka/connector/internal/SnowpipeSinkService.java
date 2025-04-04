@@ -62,8 +62,8 @@ import org.apache.kafka.connect.sink.SinkRecord;
  * com.snowflake.kafka.connector.SnowflakeSinkTask#put(Collection)} and {@link
  * com.snowflake.kafka.connector.SnowflakeSinkTask#preCommit(Map)} APIs are called.
  */
-class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
-  private final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceV1.class.getName());
+class SnowpipeSinkService implements SnowflakeSinkService {
+  private final KCLogger LOGGER = new KCLogger(SnowpipeSinkService.class.getName());
 
   private static final long ONE_HOUR = 60 * 60 * 1000L;
   private static final long TEN_MINUTES = 10 * 60 * 1000L;
@@ -108,7 +108,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
   private final long v2CleanerIntervalSeconds;
 
-  SnowflakeSinkServiceV1(SnowflakeConnectionService conn, long v2CleanerIntervalSeconds) {
+  SnowpipeSinkService(SnowflakeConnectionService conn, long v2CleanerIntervalSeconds) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
     }

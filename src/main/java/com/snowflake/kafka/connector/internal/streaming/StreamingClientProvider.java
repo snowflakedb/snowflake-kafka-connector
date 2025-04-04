@@ -23,6 +23,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.streaming.v1.DirectStreamingClientHandler;
+import com.snowflake.kafka.connector.internal.streaming.v1.StreamingClientHandler;
 import java.util.Map;
 import java.util.function.Supplier;
 import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;

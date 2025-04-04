@@ -18,7 +18,6 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.parameters.InternalBufferParameters;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
@@ -44,24 +43,10 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
-/**
- * This is per task configuration. A task can be assigned multiple partitions. Major methods are
- * startTask, insert, getOffset and close methods.
- *
- * <p>StartTask: Called when partitions are assigned. Responsible for generating the POJOs.
- *
- * <p>Insert and getOffset are called when {@link
- * com.snowflake.kafka.connector.SnowflakeSinkTask#put(Collection)} and {@link
- * com.snowflake.kafka.connector.SnowflakeSinkTask#preCommit(Map)} APIs are called.
- *
- * <p>This implementation of SinkService uses Streaming Snowpipe (Streaming Ingestion)
- *
- * <p>Hence this initializes the channel, opens, closes. The StreamingIngestChannel resides inside
- * {@link TopicPartitionChannel} which is per partition.
- */
-public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
+/** A SinkService implementation based on SnowpipeStreamingV1 API. */
+public class StreamingSinkServiceV1 extends StreamingSinkService {
 
-  private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceV2.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(StreamingSinkServiceV1.class.getName());
 
   // Assume next three values are a threshold after which we will call insertRows API
   // Set in config (Time based flush) in seconds
@@ -127,7 +112,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // Set that keeps track of the channels that have been seen per input batch
   private final Set<String> channelsVisitedPerBatch = new HashSet<>();
 
-  public SnowflakeSinkServiceV2(
+  public StreamingSinkServiceV1(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
@@ -181,7 +166,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   @VisibleForTesting
-  public SnowflakeSinkServiceV2(
+  public StreamingSinkServiceV1(
       long flushTimeSeconds,
       long fileSizeBytes,
       long recordNum,

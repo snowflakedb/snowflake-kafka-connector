@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
+import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceV1;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
@@ -314,7 +315,7 @@ public interface SnowflakeConnectionService {
    * <p>We catch SQLException and JsonProcessingException that might happen in this method. The
    * caller should always open the Old Channel format. This old channel format will also be the key
    * to many HashMaps we will create. (For instance {@link
-   * com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2#partitionsToChannel})
+   * StreamingSinkServiceV1#partitionsToChannel})
    *
    * @param tableName Name of the table
    * @param sourceChannelName sourceChannel name from where the offset Token will be fetched.
