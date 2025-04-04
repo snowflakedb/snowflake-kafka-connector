@@ -13,6 +13,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceV1;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,10 +40,7 @@ import org.mockito.Mockito;
 import org.mockito.Spy;
 import org.slf4j.Logger;
 
-/**
- * Sink Task IT test which uses {@link
- * com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2}
- */
+/** Sink Task IT test which uses {@link StreamingSinkServiceV1} */
 public class SnowflakeSinkTaskForStreamingIT {
 
   private String topicName;

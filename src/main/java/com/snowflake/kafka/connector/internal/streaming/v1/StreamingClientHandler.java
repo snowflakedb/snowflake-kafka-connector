@@ -1,5 +1,6 @@
-package com.snowflake.kafka.connector.internal.streaming;
+package com.snowflake.kafka.connector.internal.streaming.v1;
 
+import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 
 /**

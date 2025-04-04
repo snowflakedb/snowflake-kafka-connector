@@ -50,9 +50,9 @@ public class TopicPartitionChannelIT {
 
     topicPartition2 = new TopicPartition(topic, PARTITION_2);
 
-    testChannelName = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION);
+    testChannelName = StreamingSinkServiceV1.partitionChannelKey(topic, PARTITION);
 
-    testChannelName2 = SnowflakeSinkServiceV2.partitionChannelKey(topic, PARTITION_2);
+    testChannelName2 = StreamingSinkServiceV1.partitionChannelKey(topic, PARTITION_2);
   }
 
   @AfterEach
@@ -95,12 +95,12 @@ public class TopicPartitionChannelIT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords, 20, 5);
 
-    SnowflakeSinkServiceV2 snowflakeSinkServiceV2 = (SnowflakeSinkServiceV2) service;
+    StreamingSinkServiceV1 streamingSinkServiceV1 = (StreamingSinkServiceV1) service;
 
     // Ctor of TopicPartitionChannel tries to open the channel.
     TopicPartitionChannel channel =
         new BufferedTopicPartitionChannel(
-            snowflakeSinkServiceV2.getStreamingIngestClient(),
+            streamingSinkServiceV1.getStreamingIngestClient(),
             topicPartition,
             testChannelName,
             testTableName,
@@ -156,10 +156,10 @@ public class TopicPartitionChannelIT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords, 20, 5);
 
-    SnowflakeSinkServiceV2 snowflakeSinkServiceV2 = (SnowflakeSinkServiceV2) service;
+    StreamingSinkServiceV1 streamingSinkServiceV1 = (StreamingSinkServiceV1) service;
 
     TopicPartitionChannel topicPartitionChannel =
-        snowflakeSinkServiceV2.getTopicPartitionChannelFromCacheKey(testChannelName).get();
+        streamingSinkServiceV1.getTopicPartitionChannelFromCacheKey(testChannelName).get();
 
     Assertions.assertNotNull(topicPartitionChannel);
 
@@ -222,11 +222,11 @@ public class TopicPartitionChannelIT {
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, PARTITION)) == noOfRecords, 20, 5);
 
-    SnowflakeSinkServiceV2 snowflakeSinkServiceV2 = (SnowflakeSinkServiceV2) service;
+    StreamingSinkServiceV1 streamingSinkServiceV1 = (StreamingSinkServiceV1) service;
 
     // Closing the channel for mimicking SFException in insertRows
     TopicPartitionChannel topicPartitionChannel =
-        snowflakeSinkServiceV2.getTopicPartitionChannelFromCacheKey(testChannelName).get();
+        streamingSinkServiceV1.getTopicPartitionChannelFromCacheKey(testChannelName).get();
 
     Assertions.assertNotNull(topicPartitionChannel);
 
@@ -327,7 +327,7 @@ public class TopicPartitionChannelIT {
         5);
 
     SnowflakeStreamingIngestClient client =
-        ((SnowflakeSinkServiceV2) service).getStreamingIngestClient();
+        ((StreamingSinkServiceV1) service).getStreamingIngestClient();
     OpenChannelRequest channelRequest =
         OpenChannelRequest.builder(testChannelName)
             .setDBName(config.get(Utils.SF_DATABASE))
@@ -437,7 +437,7 @@ public class TopicPartitionChannelIT {
         5);
 
     SnowflakeStreamingIngestClient client =
-        ((SnowflakeSinkServiceV2) service).getStreamingIngestClient();
+        ((StreamingSinkServiceV1) service).getStreamingIngestClient();
     OpenChannelRequest channelRequest =
         OpenChannelRequest.builder(testChannelName)
             .setDBName(config.get(Utils.SF_DATABASE))
@@ -559,7 +559,7 @@ public class TopicPartitionChannelIT {
             .build();
 
     TopicPartitionChannel topicPartitionChannel =
-        ((SnowflakeSinkServiceV2) service)
+        ((StreamingSinkServiceV1) service)
             .getTopicPartitionChannelFromCacheKey(testChannelName)
             .get();
     // Channel does exist
@@ -573,7 +573,7 @@ public class TopicPartitionChannelIT {
     // Ctor of TopicPartitionChannel tries to open the channel (new format) for same partition
     TopicPartitionChannel topicPartitionChannelForFormatV2 =
         new BufferedTopicPartitionChannel(
-            ((SnowflakeSinkServiceV2) service).getStreamingIngestClient(),
+            ((StreamingSinkServiceV1) service).getStreamingIngestClient(),
             topicPartition,
             channelNameFormatV2,
             testTableName,
@@ -644,7 +644,7 @@ public class TopicPartitionChannelIT {
             .build();
 
     TopicPartitionChannel topicPartitionChannel =
-        ((SnowflakeSinkServiceV2) service)
+        ((StreamingSinkServiceV1) service)
             .getTopicPartitionChannelFromCacheKey(testChannelName)
             .get();
     // Channel does exist
@@ -669,7 +669,7 @@ public class TopicPartitionChannelIT {
     // Ctor of TopicPartitionChannel tries to open the channel (new format) for same partition
     TopicPartitionChannel topicPartitionChannelForFormatV2 =
         new BufferedTopicPartitionChannel(
-            ((SnowflakeSinkServiceV2) service).getStreamingIngestClient(),
+            ((StreamingSinkServiceV1) service).getStreamingIngestClient(),
             topicPartition,
             channelNameFormatV2,
             testTableName,
@@ -691,7 +691,7 @@ public class TopicPartitionChannelIT {
 
     // this instance has changed since we removed it from cache and loaded it again.
     TopicPartitionChannel topicPartitionChannelAfterCloseAndStartPartition =
-        ((SnowflakeSinkServiceV2) service)
+        ((StreamingSinkServiceV1) service)
             .getTopicPartitionChannelFromCacheKey(testChannelName)
             .get();
 

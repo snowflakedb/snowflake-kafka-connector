@@ -17,7 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-public class SnowflakeSinkServiceV2StopIT {
+public class StreamingSinkServiceV1StopIT {
 
   private String topicAndTableName;
 
@@ -46,8 +46,8 @@ public class SnowflakeSinkServiceV2StopIT {
     TopicPartition topicPartition = new TopicPartition(topicAndTableName, partition);
 
     // opens a channel for partition 0, table and topic
-    SnowflakeSinkServiceV2 service =
-        (SnowflakeSinkServiceV2)
+    StreamingSinkServiceV1 service =
+        (StreamingSinkServiceV1)
             SnowflakeSinkServiceFactory.builder(
                     conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
                 .setRecordNumber(1)

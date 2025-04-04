@@ -3,7 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
+import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceV1;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Map;
 import org.apache.kafka.common.TopicPartition;
@@ -58,7 +58,7 @@ public class SnowflakeSinkServiceFactory {
                       SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS));
         }
 
-        SnowflakeSinkServiceV1 svc = new SnowflakeSinkServiceV1(conn, v2CleanerIntervalSeconds);
+        SnowpipeSinkService svc = new SnowpipeSinkService(conn, v2CleanerIntervalSeconds);
         this.service = svc;
         boolean useStageFilesProcessor =
             SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT;
@@ -109,7 +109,7 @@ public class SnowflakeSinkServiceFactory {
         }
         svc.configureEnableReprocessFilesCleanup(enableReprocessFilesCleanup);
       } else {
-        this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
+        this.service = new StreamingSinkServiceV1(conn, connectorConfig);
       }
 
       LOGGER.info("{} created", this.service.getClass().getName());

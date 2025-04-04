@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.v1.StreamingClientHandler;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
